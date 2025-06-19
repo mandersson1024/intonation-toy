@@ -1,0 +1,54 @@
+[package]
+name = "pitch-visualizer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Real-time pitch visualizer with interval analysis"
+license = "MIT"
+
+[dependencies]
+# Audio Processing
+cpal = "0.15"
+pitch_detection = "0.4"
+hound = "3.5"                    # For audio file I/O (testing)
+
+# GUI + Graphics
+winit = "0.29"                   # Window management
+wgpu = "0.18"                    # GPU graphics
+egui = "0.24"                    # Immediate mode GUI
+egui-wgpu = "0.24"               # egui + wgpu integration
+egui-winit = "0.24"              # egui + winit integration
+
+# Concurrency & Communication
+ringbuf = "0.3"                  # Lock-free ring buffer
+crossbeam = "0.8"                # Thread-safe channels
+parking_lot = "0.12"             # Faster synchronization primitives
+
+# Math & Utilities
+bytemuck = "1.14"                # Safe transmutation
+anyhow = "1.0"                   # Error handling
+thiserror = "1.0"                # Error derive macros
+log = "0.4"                      # Logging
+env_logger = "0.10"              # Logger implementation
+
+# Platform-specific
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"                     # macOS-specific integration
+cocoa = "0.25"                   # macOS windowing
+
+[dev-dependencies]
+criterion = "0.5"                # Benchmarking
+approx = "0.5"                   # Floating point testing
+
+[[bin]]
+name = "pitch-visualizer"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1                    # Slight optimization for audio performance 
