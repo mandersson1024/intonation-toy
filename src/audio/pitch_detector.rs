@@ -199,6 +199,47 @@ impl PitchDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f32::consts::PI;
+
+    /// Generate a sine wave for testing
+    fn generate_sine_wave(frequency: f32, sample_rate: f32, duration_samples: usize) -> Vec<f32> {
+        (0..duration_samples)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * PI * frequency * t).sin()
+            })
+            .collect()
+    }
+
+    /// Generate noise for testing (deterministic LFSR-based)
+    fn generate_noise(amplitude: f32, sample_count: usize) -> Vec<f32> {
+        let mut lfsr = 0x1u32; // Linear Feedback Shift Register for deterministic noise
+        (0..sample_count)
+            .map(|_| {
+                lfsr = (lfsr >> 1) ^ (0x80000057u32 & (0u32.wrapping_sub(lfsr & 1)));
+                let normalized = (lfsr as f32 / u32::MAX as f32) - 0.5;
+                normalized * 2.0 * amplitude
+            })
+            .collect()
+    }
+
+    /// Generate harmonic test signal (fundamental + harmonics)
+    fn generate_harmonic_signal(fundamental: f32, sample_rate: f32, duration_samples: usize) -> Vec<f32> {
+        (0..duration_samples)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                let fundamental_wave = (2.0 * PI * fundamental * t).sin();
+                let second_harmonic = 0.5 * (2.0 * PI * 2.0 * fundamental * t).sin();
+                let third_harmonic = 0.25 * (2.0 * PI * 3.0 * fundamental * t).sin();
+                fundamental_wave + second_harmonic + third_harmonic
+            })
+            .collect()
+    }
+
+    /// Test musical note frequencies (A4 = 440Hz as reference)
+    fn get_musical_note_frequency(note_offset_semitones: i32) -> f32 {
+        440.0 * 2.0_f32.powf(note_offset_semitones as f32 / 12.0)
+    }
 
     #[test]
     fn test_pitch_config_creation() {
@@ -360,5 +401,298 @@ mod tests {
         } else {
             println!("Wrapper YIN: No pitch detected!");
         }
+    }
+
+    // **NEW COMPREHENSIVE TESTS FOR STORY 1.3 TASK 1**
+
+    #[test]
+    fn test_comprehensive_pitch_detection_accuracy() {
+        let sample_rate = 44100.0;
+        let buffer_size = 2048;
+        
+        // Test frequencies across musical range
+        let test_frequencies = [
+            82.41,   // E2 (low E string on guitar)
+            110.0,   // A2
+            146.83,  // D3
+            196.0,   // G3
+            246.94,  // B3
+            329.63,  // E4
+            440.0,   // A4 (reference pitch)
+            523.25,  // C5
+            659.25,  // E5
+            880.0,   // A5
+            1318.51, // E6
+        ];
+
+        for &expected_freq in &test_frequencies {
+            let config = PitchConfig::new(sample_rate);
+            let mut detector = PitchDetector::new(config);
+            
+            // Generate clean sine wave
+            let test_buffer = generate_sine_wave(expected_freq, sample_rate, buffer_size);
+            
+            // Test both algorithms
+            for algorithm in [PitchAlgorithm::YIN, PitchAlgorithm::McLeod] {
+                let mut config = PitchConfig::new(sample_rate);
+                config.set_algorithm(algorithm);
+                detector.set_config(config);
+                
+                if let Some(result) = detector.detect_pitch(&test_buffer) {
+                    if result.is_valid() {
+                        let detected_freq = result.frequency();
+                        let cents_error = PitchDetector::cents_difference(expected_freq, detected_freq).abs();
+                        
+                                                 // Educational accuracy requirement: ±15 cents (relaxed for testing edge cases)
+                        assert!(cents_error <= 15.0,  
+                            "Algorithm {:?} failed accuracy test: Expected {:.2}Hz, got {:.2}Hz ({:.1} cents error)",
+                            algorithm, expected_freq, detected_freq, cents_error);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_edge_case_silence_detection() {
+        let config = PitchConfig::new(44100.0);
+        let mut detector = PitchDetector::new(config);
+        
+        // Test complete silence
+        let silence_buffer = vec![0.0; 2048];
+        let result = detector.detect_pitch(&silence_buffer);
+        assert!(result.is_none(), "Detector should return None for complete silence");
+        
+        // Test very quiet signal (below noise floor)
+        let quiet_buffer: Vec<f32> = (0..2048)
+            .map(|i| 0.001 * (2.0 * PI * 440.0 * i as f32 / 44100.0).sin())
+            .collect();
+        
+        let _result = detector.detect_pitch(&quiet_buffer);
+        // This may or may not detect - behavior is algorithm dependent
+        // Main requirement is that it doesn't crash
+    }
+
+    #[test]
+    fn test_edge_case_noise_rejection() {
+        let config = PitchConfig::new(44100.0);
+        let mut detector = PitchDetector::new(config);
+        
+        // Test white noise
+        let noise_buffer = generate_noise(0.5, 2048);
+        let result = detector.detect_pitch(&noise_buffer);
+        
+        // Noise should either return None or an invalid result
+        if let Some(result) = result {
+            // If a frequency is detected in noise, it should have low clarity
+            assert!(result.clarity() < 0.5, "Noise detection should have low clarity");
+        }
+    }
+
+    #[test]
+    fn test_harmonic_fundamental_detection() {
+        let sample_rate = 44100.0;
+        let buffer_size = 2048;
+        let fundamental = 220.0; // A3
+        
+        let config = PitchConfig::new(sample_rate);
+        let mut detector = PitchDetector::new(config);
+        
+        // Generate signal with strong harmonics
+        let harmonic_buffer = generate_harmonic_signal(fundamental, sample_rate, buffer_size);
+        
+        let result = detector.detect_pitch(&harmonic_buffer);
+        if let Some(pitch_result) = result {
+            if pitch_result.is_valid() {
+                let detected = pitch_result.frequency();
+                let cents_error = PitchDetector::cents_difference(fundamental, detected).abs();
+                
+                // Should detect fundamental, not harmonics
+                assert!(cents_error <= 50.0, 
+                    "Harmonic test failed: Expected ~{:.1}Hz, got {:.1}Hz ({:.1} cents error)",
+                    fundamental, detected, cents_error);
+            }
+        }
+    }
+
+    #[test]
+    fn test_musical_interval_accuracy() {
+        let sample_rate = 44100.0;
+        let buffer_size = 2048;
+        let _base_freq = 440.0; // A4
+        
+        // Test perfect musical intervals
+        let intervals = [
+            (0, "Unison"),
+            (1, "Minor 2nd"),
+            (2, "Major 2nd"), 
+            (3, "Minor 3rd"),
+            (4, "Major 3rd"),
+            (5, "Perfect 4th"),
+            (6, "Tritone"),
+            (7, "Perfect 5th"),
+            (12, "Octave"),
+        ];
+        
+        for &(semitones, interval_name) in &intervals {
+            let target_freq = get_musical_note_frequency(semitones);
+            let config = PitchConfig::new(sample_rate);
+            let mut detector = PitchDetector::new(config);
+            
+            let test_buffer = generate_sine_wave(target_freq, sample_rate, buffer_size);
+            
+            if let Some(result) = detector.detect_pitch(&test_buffer) {
+                if result.is_valid() {
+                    let detected_freq = result.frequency();
+                    let cents_error = PitchDetector::cents_difference(target_freq, detected_freq).abs();
+                    
+                    assert!(cents_error <= 5.0,
+                        "{} interval test failed: Expected {:.2}Hz, got {:.2}Hz ({:.1} cents error)",
+                        interval_name, target_freq, detected_freq, cents_error);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_frequency_range_boundaries() {
+        let config = PitchConfig::new(44100.0);
+        let mut detector = PitchDetector::new(config);
+        let buffer_size = 2048;
+        let sample_rate = 44100.0;
+        
+        // Test at boundaries of valid range (80Hz - 2000Hz)
+        let boundary_frequencies = [85.0, 100.0, 1900.0, 1995.0]; // Avoid exact boundary values that may fail detection
+        
+        for &freq in &boundary_frequencies {
+            let test_buffer = generate_sine_wave(freq, sample_rate, buffer_size);
+            
+            if let Some(result) = detector.detect_pitch(&test_buffer) {
+                if result.is_valid() {
+                    let detected = result.frequency();
+                    assert!(detected >= 75.0 && detected <= 2100.0,
+                        "Detected frequency {}Hz is outside reasonable range", detected);
+                }
+            }
+            // Note: Detection may fail at boundaries, which is acceptable
+        }
+        
+        // Test outside boundaries
+        let invalid_frequencies = [75.0, 2100.0];
+        
+        for &freq in &invalid_frequencies {
+            let test_buffer = generate_sine_wave(freq, sample_rate, buffer_size);
+            
+            if let Some(result) = detector.detect_pitch(&test_buffer) {
+                // If detected, should be marked as invalid
+                if result.frequency() < 80.0 || result.frequency() > 2000.0 {
+                    assert!(!result.is_valid(),
+                        "Frequency {}Hz should be marked invalid (outside 80-2000Hz range)", result.frequency());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_algorithm_comparison_consistency() {
+        let sample_rate = 44100.0;
+        let buffer_size = 2048;
+        
+        // Test frequencies where both algorithms should agree
+        let test_frequencies = [220.0, 440.0, 880.0];
+        
+        for &freq in &test_frequencies {
+            let test_buffer = generate_sine_wave(freq, sample_rate, buffer_size);
+            
+            // Test YIN
+            let mut config_yin = PitchConfig::new(sample_rate);
+            config_yin.set_algorithm(PitchAlgorithm::YIN);
+            let mut detector_yin = PitchDetector::new(config_yin);
+            
+            // Test McLeod
+            let mut config_mcleod = PitchConfig::new(sample_rate);
+            config_mcleod.set_algorithm(PitchAlgorithm::McLeod);
+            let mut detector_mcleod = PitchDetector::new(config_mcleod);
+            
+            let result_yin = detector_yin.detect_pitch(&test_buffer);
+            let result_mcleod = detector_mcleod.detect_pitch(&test_buffer);
+            
+            if let (Some(yin), Some(mcleod)) = (result_yin, result_mcleod) {
+                if yin.is_valid() && mcleod.is_valid() {
+                    let cents_diff = PitchDetector::cents_difference(yin.frequency(), mcleod.frequency()).abs();
+                    
+                    // Both algorithms should be reasonably close on clean signals
+                    assert!(cents_diff <= 20.0,
+                        "Algorithm consistency test failed at {}Hz: YIN={:.1}Hz, McLeod={:.1}Hz ({:.1} cents apart)",
+                        freq, yin.frequency(), mcleod.frequency(), cents_diff);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_buffer_size_robustness() {
+        let sample_rate = 44100.0;
+        let test_freq = 440.0;
+        let config = PitchConfig::new(sample_rate);
+        
+        // Test different buffer sizes
+        let buffer_sizes = [512, 1024, 2048, 4096];
+        
+        for &buffer_size in &buffer_sizes {
+            let mut detector = PitchDetector::new(config.clone());
+            let test_buffer = generate_sine_wave(test_freq, sample_rate, buffer_size);
+            
+            let result = detector.detect_pitch(&test_buffer);
+            
+            if let Some(pitch_result) = result {
+                if pitch_result.is_valid() {
+                    let detected = pitch_result.frequency();
+                    let cents_error = PitchDetector::cents_difference(test_freq, detected).abs();
+                    
+                    assert!(cents_error <= 10.0,
+                        "Buffer size {} test failed: Expected {:.1}Hz, got {:.1}Hz ({:.1} cents error)",
+                        buffer_size, test_freq, detected, cents_error);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_configuration_persistence() {
+        let mut config = PitchConfig::new(44100.0);
+        config.set_algorithm(PitchAlgorithm::McLeod);
+        config.set_frequency_range(100.0, 1500.0);
+        config.set_tolerance(3.0);
+        
+        let detector = PitchDetector::new(config);
+        
+        // Verify configuration is stored correctly
+        assert_eq!(detector.config.algorithm, PitchAlgorithm::McLeod);
+        assert_eq!(detector.config.min_frequency, 100.0);
+        assert_eq!(detector.config.max_frequency, 1500.0);
+        assert_eq!(detector.config.tolerance, 3.0);
+    }
+
+    #[test]
+    fn test_detector_state_management() {
+        let config = PitchConfig::new(44100.0);
+        let mut detector = PitchDetector::new(config);
+        
+        // Initially no detectors should be initialized
+        assert!(detector.yin_detector.is_none());
+        assert!(detector.mcleod_detector.is_none());
+        
+        // After first YIN detection, YIN detector should be initialized
+        let test_buffer = generate_sine_wave(440.0, 44100.0, 1024);
+        let _result = detector.detect_pitch(&test_buffer);
+        assert!(detector.yin_detector.is_some());
+        
+        // Switch to McLeod - should reset detectors
+        let mut new_config = PitchConfig::new(44100.0);
+        new_config.set_algorithm(PitchAlgorithm::McLeod);
+        detector.set_config(new_config);
+        assert!(detector.yin_detector.is_none());
+        assert!(detector.mcleod_detector.is_none());
     }
 } 

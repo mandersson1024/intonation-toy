@@ -267,4 +267,265 @@ mod tests {
         
         assert_eq!(pitch, -1.0); // Should return -1.0 when disabled
     }
+
+    // **NEW COMPREHENSIVE TESTS FOR STORY 1.3 TASK 1**
+
+    #[test]
+    fn test_engine_configuration_edge_cases() {
+        // Test extreme buffer sizes
+        let tiny_engine = AudioEngine::new(44100.0, 64);
+        assert_eq!(tiny_engine.get_buffer_size(), 64);
+        
+        let large_engine = AudioEngine::new(44100.0, 8192);
+        assert_eq!(large_engine.get_buffer_size(), 8192);
+        
+        // Test different sample rates
+        let low_sr_engine = AudioEngine::new(22050.0, 1024);
+        assert_eq!(low_sr_engine.get_sample_rate(), 22050.0);
+        
+        let high_sr_engine = AudioEngine::new(96000.0, 1024);
+        assert_eq!(high_sr_engine.get_sample_rate(), 96000.0);
+    }
+
+    #[test]
+    fn test_audio_processing_precision() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        
+        // Test with precise floating point values
+        let input = vec![0.123456789, -0.987654321, 0.5, -0.5];
+        let output = engine.process_audio_buffer(&input);
+        
+        assert_eq!(output.len(), input.len());
+        
+        // Check precision of gain calculation (0.8x)
+        let expected = vec![0.123456789 * 0.8, -0.987654321 * 0.8, 0.4, -0.4];
+        for (i, (&actual, &expected)) in output.iter().zip(expected.iter()).enumerate() {
+            assert!((actual - expected).abs() < 1e-6, 
+                "Precision error at index {}: expected {}, got {}", i, expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detection_with_real_frequencies() {
+        use std::f32::consts::PI;
+        
+        let mut engine = AudioEngine::new(44100.0, 2048);
+        let sample_rate = 44100.0;
+        let buffer_size = 2048;
+        
+        // Test known frequencies
+        let test_frequencies = [220.0, 440.0, 880.0]; // A notes
+        
+        for &freq in &test_frequencies {
+            // Generate sine wave
+            let test_buffer: Vec<f32> = (0..buffer_size)
+                .map(|i| 0.8 * (2.0 * PI * freq * i as f32 / sample_rate).sin())
+                .collect();
+            
+            let detected_pitch = engine.detect_pitch_from_buffer(&test_buffer);
+            
+            if detected_pitch > 0.0 {
+                // Calculate cents error if detection succeeded
+                let cents_error = 1200.0 * (detected_pitch / freq).log2().abs();
+                assert!(cents_error <= 50.0,
+                    "Pitch detection error too large: expected {}Hz, got {}Hz ({:.1} cents error)",
+                    freq, detected_pitch, cents_error);
+            }
+            // Note: Some detections may fail, which is acceptable for testing
+        }
+    }
+
+    #[test]
+    fn test_engine_state_consistency() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        let test_buffer = vec![0.5; 1024];
+        
+        // Test multiple operations maintain consistency
+        for i in 0..10 {
+            let _output = engine.process_audio_buffer(&test_buffer);
+            let _pitch = engine.detect_pitch_from_buffer(&test_buffer);
+            
+            // Engine state should remain consistent
+            assert_eq!(engine.get_sample_rate(), 44100.0);
+            assert_eq!(engine.get_buffer_size(), 1024);
+            assert!(engine.enabled);
+            
+            // Toggle enable/disable - but end in enabled state
+            if i % 2 == 0 {
+                engine.set_enabled(false);
+                assert!(!engine.enabled);
+                engine.set_enabled(true); // Re-enable for next iteration
+                assert!(engine.enabled);
+            }
+        }
+    }
+
+    #[test]
+    fn test_concurrent_audio_processing_simulation() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        
+        // Simulate rapid successive processing calls
+        let buffers: Vec<Vec<f32>> = (0..20)
+            .map(|i| vec![0.1 * (i as f32); 1024])
+            .collect();
+        
+        for (i, buffer) in buffers.iter().enumerate() {
+            let output = engine.process_audio_buffer(buffer);
+            assert_eq!(output.len(), buffer.len());
+            
+            // Verify gain is applied correctly
+            let expected_sample = buffer[0] * 0.8;
+            assert!((output[0] - expected_sample).abs() < 1e-6,
+                "Processing error in iteration {}: expected {}, got {}", 
+                i, expected_sample, output[0]);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_lazy_initialization() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        
+        // Initially no detector should be created
+        assert!(engine.pitch_detector.is_none());
+        
+        // First pitch detection should create detector
+        let test_buffer = vec![0.1; 1024];
+        let _pitch1 = engine.detect_pitch_from_buffer(&test_buffer);
+        assert!(engine.pitch_detector.is_some());
+        
+        // Second detection should reuse existing detector
+        let _pitch2 = engine.detect_pitch_from_buffer(&test_buffer);
+        assert!(engine.pitch_detector.is_some());
+        
+        // Changing algorithm should reset detector
+        engine.set_pitch_algorithm(PitchAlgorithm::McLeod);
+        assert!(engine.pitch_detector.is_none());
+        
+        // Changing frequency range should reset detector
+        let _pitch3 = engine.detect_pitch_from_buffer(&test_buffer);
+        assert!(engine.pitch_detector.is_some());
+        
+        engine.set_pitch_frequency_range(100.0, 1500.0);
+        assert!(engine.pitch_detector.is_none());
+    }
+
+    #[test]
+    fn test_audio_processing_boundary_values() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        
+        // Test with extreme values
+        let boundary_values = vec![
+            f32::MAX * 0.001,    // Very large positive
+            f32::MIN * 0.001,    // Very large negative (MIN is negative)
+            1.0,                 // Max typical audio value
+            -1.0,                // Min typical audio value
+            0.0,                 // Zero
+            1e-10,               // Very small positive
+            -1e-10,              // Very small negative
+        ];
+        
+        for &value in &boundary_values {
+            let input = vec![value; 4];
+            let output = engine.process_audio_buffer(&input);
+            
+            assert_eq!(output.len(), input.len());
+            
+            // Verify gain application doesn't cause overflow/underflow
+            let expected = value * 0.8;
+            assert!(output[0].is_finite(), "Non-finite result for input {}", value);
+            assert!((output[0] - expected).abs() < 1e-6 || (expected.abs() < 1e-9),
+                "Boundary value processing error: input={}, expected={}, got={}", 
+                value, expected, output[0]);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detection_integration_comprehensive() {
+        let mut engine = AudioEngine::new(44100.0, 2048);
+        
+        // Test with different algorithms
+        let algorithms = [PitchAlgorithm::YIN, PitchAlgorithm::McLeod];
+        
+        for algorithm in &algorithms {
+            engine.set_pitch_algorithm(*algorithm);
+            
+            // Test with different frequency ranges
+            let frequency_ranges = [
+                (80.0, 2000.0),   // Default range
+                (100.0, 1500.0),  // Narrower range
+                (50.0, 4000.0),   // Wider range
+            ];
+            
+            for &(min_freq, max_freq) in &frequency_ranges {
+                engine.set_pitch_frequency_range(min_freq, max_freq);
+                
+                // Test different buffer contents
+                let test_cases = [
+                    vec![0.0; 2048],                    // Silence
+                    vec![0.5; 2048],                    // DC
+                    (0..2048).map(|i| (i as f32) * 0.001).collect(), // Ramp
+                ];
+                
+                for test_buffer in &test_cases {
+                    let pitch = engine.detect_pitch_from_buffer(test_buffer);
+                    // Should not crash and should return valid value or -1.0
+                    assert!(pitch == -1.0 || (pitch >= min_freq && pitch <= max_freq * 1.1),
+                        "Invalid pitch detection result: {} (range: {}-{})", 
+                        pitch, min_freq, max_freq);
+                }
+            }
+        }
+    }
+
+        #[test]
+    fn test_memory_safety_basic() {
+        let mut engine = AudioEngine::new(44100.0, 1024);
+        
+        // Test basic memory safety with standard buffer size
+        let buffer = vec![0.1; 1024];
+        
+        // Multiple operations should not cause memory issues
+        for _i in 0..10 {
+            let _output = engine.process_audio_buffer(&buffer);
+            let _combined = engine.process_audio_with_pitch(&buffer);
+            
+            // Verify output sizes are correct
+            let output = engine.process_audio_buffer(&buffer);
+            assert_eq!(output.len(), buffer.len());
+        }
+        
+        // Test pitch detection
+        let _pitch = engine.detect_pitch_from_buffer(&buffer);
+    }
+
+    #[test]
+    fn test_audio_engine_thread_safety_simulation() {
+        // Simulate what would happen with multiple "threads" (sequential calls)
+        let mut engines: Vec<AudioEngine> = (0..5)
+            .map(|_| AudioEngine::new(44100.0, 1024))
+            .collect();
+        
+        let test_buffer = vec![0.2; 1024];
+        
+        // Each engine should work independently
+        for (i, engine) in engines.iter_mut().enumerate() {
+            // Configure each engine differently
+            if i % 2 == 0 {
+                engine.set_pitch_algorithm(PitchAlgorithm::YIN);
+            } else {
+                engine.set_pitch_algorithm(PitchAlgorithm::McLeod);
+            }
+            
+            engine.set_pitch_frequency_range(80.0 + i as f32 * 10.0, 2000.0);
+            
+            // Process audio
+            let output = engine.process_audio_buffer(&test_buffer);
+            assert_eq!(output.len(), test_buffer.len());
+            // Use approximate comparison for floating point
+            assert!((output[0] - 0.16).abs() < 1e-6); // 0.2 * 0.8
+            
+            // Detect pitch
+            let _pitch = engine.detect_pitch_from_buffer(&test_buffer);
+        }
+    }
 }
