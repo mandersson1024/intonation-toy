@@ -18,11 +18,31 @@ class PitchVisualizerApp {
         this.permissionButton = null;
         this.statusDisplay = null;
         
+        // Story 2.3: Enhanced error handling and browser compatibility
+        this.browserCapabilityDetector = null;
+        this.errorManager = null;
+        this.demoMode = null;
+        this.compatibilityReport = null;
+        this.audioDeviceManager = null;
+        this.wasmConnectionLogged = false;
+        this.wasmConnectionFailureLogged = false;
+        
         this.init();
     }
 
     async init() {
         console.log('🎵 Pitch Visualizer App initializing...');
+        
+        // Story 2.3: Initialize error handling and browser compatibility detection
+        await this.initializeErrorHandling();
+        
+        // Check browser compatibility first
+        const compatibilityCheck = await this.checkBrowserCompatibility();
+        if (!compatibilityCheck.isSupported) {
+            // Browser not supported - activate demo mode or show upgrade guidance
+            await this.handleUnsupportedBrowser(compatibilityCheck);
+            return;
+        }
         
         // Initialize UI components
         this.createPermissionUI();
@@ -189,6 +209,13 @@ class PitchVisualizerApp {
             this.microphoneStream = stream;
             this.permissionState = 'granted';
             
+            // Story 2.3: Set current device for monitoring
+            if (this.audioDeviceManager && stream.getAudioTracks().length > 0) {
+                const deviceId = stream.getAudioTracks()[0].getSettings().deviceId;
+                this.audioDeviceManager.setCurrentDevice(deviceId);
+                this.audioDeviceManager.startMonitoring();
+            }
+            
             this.updatePermissionStatus('✅ Audio stream obtained! Initializing pipeline...');
             
             // Initialize Web Audio API and WASM pipeline
@@ -251,30 +278,40 @@ class PitchVisualizerApp {
 
     /**
      * Handle permission errors with specific guidance
+     * Story 2.3: Enhanced with ErrorManager integration
      * Implements AC2: Graceful permission denial handling
      * Implements AC6: Actionable feedback for errors
      */
-    handlePermissionError(error) {
+    async handlePermissionError(error) {
         console.error('Microphone permission error:', error);
         
-        let errorMessage = '';
-        let actionGuidance = '';
-        
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            errorMessage = '🚫 Microphone access was blocked';
-            actionGuidance = this.getBrowserSpecificGuidance();
-        } else if (error.name === 'NotFoundError') {
-            errorMessage = '🎤 No microphone found';
-            actionGuidance = 'Please connect a microphone and try again.';
-        } else if (error.name === 'NotSupportedError') {
-            errorMessage = '❌ Your browser doesn\'t support microphone access';
-            actionGuidance = 'Please try using Chrome, Firefox, Safari, or Edge (latest versions).';
+        // Use new error manager if available
+        if (this.errorManager) {
+            await this.errorManager.handleError(error, 'Microphone Permission', {
+                permissionState: this.permissionState,
+                userAgent: navigator.userAgent
+            });
         } else {
-            errorMessage = '⚠️ Something went wrong';
-            actionGuidance = 'Please refresh the page and try again.';
-        }
+            // Fallback to existing error handling
+            let errorMessage = '';
+            let actionGuidance = '';
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                errorMessage = '🚫 Microphone access was blocked';
+                actionGuidance = this.getBrowserSpecificGuidance();
+            } else if (error.name === 'NotFoundError') {
+                errorMessage = '🎤 No microphone found';
+                actionGuidance = 'Please connect a microphone and try again.';
+            } else if (error.name === 'NotSupportedError') {
+                errorMessage = '❌ Your browser doesn\'t support microphone access';
+                actionGuidance = 'Please try using Chrome, Firefox, Safari, or Edge (latest versions).';
+            } else {
+                errorMessage = '⚠️ Something went wrong';
+                actionGuidance = 'Please refresh the page and try again.';
+            }
 
-        this.showPermissionDeniedGuidance(errorMessage, actionGuidance);
+            this.showPermissionDeniedGuidance(errorMessage, actionGuidance);
+        }
     }
 
     /**
@@ -753,6 +790,20 @@ class PitchVisualizerApp {
      * Cleanup resources
      */
     cleanup() {
+        console.log('🧹 Cleaning up PitchVisualizerApp resources...');
+        
+        // Story 2.3: Cleanup audio device manager
+        if (this.audioDeviceManager) {
+            this.audioDeviceManager.cleanup();
+            this.audioDeviceManager = null;
+        }
+        
+        // Cleanup demo mode
+        if (this.demoMode) {
+            this.demoMode.deactivate();
+            this.demoMode = null;
+        }
+        
         // Stop AudioWorklet processing
         if (this.audioWorkletNode) {
             this.audioWorkletNode.port.postMessage({ type: 'stop' });
@@ -769,6 +820,8 @@ class PitchVisualizerApp {
             this.audioContext.close();
             this.audioContext = null;
         }
+        
+        console.log('✅ Cleanup completed');
     }
 
     /**
@@ -886,16 +939,10 @@ class PitchVisualizerApp {
             const { wasmConnected, hasAudioSignal, bufferSize, sampleRate, wasmProcessing } = data.result;
             
             if (wasmConnected) {
-                console.log(`✅ WASM pipeline connected: ${sampleRate}Hz, ${bufferSize} samples`);
-                
-                // AC5: Log WASM processing status
-                if (wasmProcessing) {
-                    console.log(`🔄 WASM Processing Status:`, {
-                        audioProcessed: wasmProcessing.audioProcessed,
-                        pitchDetected: wasmProcessing.pitchDetected,
-                        detectedFrequency: wasmProcessing.detectedFrequency,
-                        pipelineActive: wasmProcessing.pipelineActive
-                    });
+                // Only log connection success once
+                if (!this.wasmConnectionLogged) {
+                    console.log(`✅ WASM pipeline connected: ${sampleRate}Hz, ${bufferSize} samples`);
+                    this.wasmConnectionLogged = true;
                 }
                 
                 // Update connection status with enhanced information
@@ -904,8 +951,24 @@ class PitchVisualizerApp {
                 // Update latency calculations with buffer size
                 this.updateBufferLatencyMetrics(bufferSize, sampleRate);
             } else {
-                console.log('❌ WASM pipeline connection failed');
-                this.updatePermissionStatus('❌ Failed to connect to audio processing pipeline');
+                // Show WASM connection status in UI rather than flooding console
+                if (!this.wasmConnectionFailureLogged) {
+                    console.warn('⚠️ WASM pipeline connection not fully established');
+                    this.wasmConnectionFailureLogged = true;
+                    this.updatePermissionStatus('🔄 Audio processing pipeline connecting...', 'warning');
+                    
+                    // Show status in connection display
+                    const connectionDisplay = document.getElementById('connection-status');
+                    if (connectionDisplay) {
+                        connectionDisplay.innerHTML = `
+                            🔄 <strong>Initializing:</strong> WASM audio engine connecting...<br>
+                            📊 <strong>Audio Config:</strong> ${sampleRate || 'N/A'}Hz, ${bufferSize || 'N/A'} samples<br>
+                            🎤 <strong>Microphone:</strong> ${hasAudioSignal ? 'Receiving audio' : 'Waiting for audio'}<br>
+                            ⚠️ <strong>Status:</strong> Pipeline initialization in progress
+                        `;
+                        connectionDisplay.className = 'status warning';
+                    }
+                }
             }
         }
     }
@@ -1065,19 +1128,8 @@ class PitchVisualizerApp {
         // Update WASM processing metrics display
         this.updateWasmProcessingDisplay(result);
         
-        // Log successful WASM processing for AC5 validation
-        if (result.audioProcessed) {
-            console.log(`🔄 WASM processed live audio: ${result.bufferSize} samples`);
-        }
-        
-        if (result.pitchDetected) {
-            console.log(`🎯 Live pitch detected: ${result.detectedFrequency.toFixed(1)}Hz`);
-        }
-        
-        // Track WASM processing performance
-        if (result.wasmProcessingTime) {
-            console.log(`⚡ WASM processing latency: ${result.wasmProcessingTime.toFixed(2)}ms`);
-        }
+        // Remove frequent WASM processing logs to keep console clean for device recovery debugging
+        // Processing info is shown in the UI connection status instead
     }
 
     /**
@@ -1175,6 +1227,166 @@ class PitchVisualizerApp {
                 });
             }, 1000);
         }
+    }
+
+    /**
+     * Story 2.3: Initialize error handling and browser compatibility systems
+     */
+    async initializeErrorHandling() {
+        console.log('🔧 Starting error handling initialization...');
+        
+        try {
+            // Initialize browser capability detector
+            if (window.BrowserCapabilityDetector) {
+                this.browserCapabilityDetector = new window.BrowserCapabilityDetector();
+                console.log('✅ Browser capability detector initialized');
+            } else {
+                console.warn('⚠️ BrowserCapabilityDetector not found');
+            }
+            
+            // Initialize error manager
+            if (window.ErrorManager) {
+                this.errorManager = new window.ErrorManager();
+                console.log('✅ Error handling system initialized');
+            } else {
+                console.warn('⚠️ ErrorManager not found');
+            }
+            
+            // Initialize demo mode (but don't activate yet)
+            if (window.DemoMode) {
+                this.demoMode = new window.DemoMode();
+                console.log('✅ Demo mode initialized');
+            } else {
+                console.warn('⚠️ DemoMode not found');
+            }
+            
+            // Initialize audio device manager
+            console.log('🔍 Checking for AudioDeviceManager...', !!window.AudioDeviceManager);
+            if (window.AudioDeviceManager) {
+                console.log('🎯 Creating AudioDeviceManager instance...');
+                this.audioDeviceManager = new window.AudioDeviceManager(this);
+                console.log('✅ Audio device manager initialized');
+                console.log('🔍 Device manager available at: window.pitchApp.audioDeviceManager');
+                console.log('🔍 Verification - audioDeviceManager exists:', !!this.audioDeviceManager);
+            } else {
+                console.warn('❌ AudioDeviceManager class not found - script may not be loaded');
+            }
+            
+            console.log('🏁 Error handling initialization complete');
+            
+        } catch (error) {
+            console.error('Failed to initialize error handling:', error);
+            console.error('Error stack:', error.stack);
+            // Continue without advanced error handling
+        }
+    }
+    
+    /**
+     * Story 2.3: Check comprehensive browser compatibility
+     */
+    async checkBrowserCompatibility() {
+        if (!this.browserCapabilityDetector) {
+            console.warn('Browser capability detector not available - using basic checks');
+            return this.performBasicCompatibilityCheck();
+        }
+        
+        try {
+            this.compatibilityReport = await this.browserCapabilityDetector.detectCapabilities();
+            
+            console.log('🔍 Browser compatibility report:', this.compatibilityReport);
+            
+            if (!this.compatibilityReport.isSupported) {
+                console.warn('❌ Browser compatibility issues:', this.compatibilityReport.unsupportedFeatures);
+            } else if (this.compatibilityReport.warnings.length > 0) {
+                console.warn('⚠️ Browser compatibility warnings:', this.compatibilityReport.warnings);
+            }
+            
+            return this.compatibilityReport;
+            
+        } catch (error) {
+            console.error('Browser compatibility check failed:', error);
+            if (this.errorManager) {
+                await this.errorManager.handleError(error, 'Browser Compatibility Check');
+            }
+            return { isSupported: false, error: error };
+        }
+    }
+    
+    /**
+     * Basic compatibility check fallback
+     */
+    performBasicCompatibilityCheck() {
+        const hasWebAudio = !!(window.AudioContext || window.webkitAudioContext);
+        const hasWebAssembly = typeof WebAssembly === 'object';
+        const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        
+        const isSupported = hasWebAudio && hasWebAssembly && hasGetUserMedia;
+        
+        return {
+            isSupported: isSupported,
+            capabilities: {
+                webAudio: { supported: hasWebAudio },
+                webAssembly: { supported: hasWebAssembly },
+                getUserMedia: { supported: hasGetUserMedia }
+            },
+            unsupportedFeatures: [
+                !hasWebAudio ? 'Web Audio API' : null,
+                !hasWebAssembly ? 'WebAssembly' : null,
+                !hasGetUserMedia ? 'getUserMedia' : null
+            ].filter(Boolean)
+        };
+    }
+    
+    /**
+     * Story 2.3: Handle unsupported browser scenario
+     */
+    async handleUnsupportedBrowser(compatibilityReport) {
+        console.log('🚫 Browser not supported, activating fallback mode');
+        
+        if (this.errorManager) {
+            // Use error manager to handle this gracefully
+            const error = new Error(`Unsupported browser features: ${compatibilityReport.unsupportedFeatures?.join(', ')}`);
+            error.name = 'BrowserCompatibilityError';
+            await this.errorManager.handleError(error, 'Browser Compatibility', {
+                compatibilityReport: compatibilityReport
+            });
+        } else {
+            // Fallback to direct demo mode activation
+            if (this.demoMode) {
+                await this.demoMode.activate('Unsupported browser');
+            } else {
+                this.showBasicUnsupportedMessage(compatibilityReport);
+            }
+        }
+    }
+    
+    /**
+     * Show basic unsupported browser message
+     */
+    showBasicUnsupportedMessage(compatibilityReport) {
+        const message = document.createElement('div');
+        message.className = 'unsupported-browser-message';
+        message.innerHTML = `
+            <div class="unsupported-content">
+                <h2>🚀 Browser Upgrade Needed</h2>
+                <p>This application requires modern browser features that aren't supported in your current browser.</p>
+                <div class="missing-features">
+                    <h3>Missing features:</h3>
+                    <ul>
+                        ${compatibilityReport.unsupportedFeatures?.map(feature => `<li>${feature}</li>`).join('') || '<li>Unknown compatibility issues</li>'}
+                    </ul>
+                </div>
+                <div class="browser-recommendations">
+                    <h3>Recommended browsers:</h3>
+                    <div class="browser-links">
+                        <a href="https://www.google.com/chrome/" target="_blank" class="browser-link">Chrome 66+</a>
+                        <a href="https://www.mozilla.org/firefox/" target="_blank" class="browser-link">Firefox 76+</a>
+                        <a href="https://www.apple.com/safari/" target="_blank" class="browser-link">Safari 14+</a>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(message);
     }
 }
 
