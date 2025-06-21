@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The Real-time Pitch Visualizer is an educational music application that provides live audio pitch detection with compelling visual feedback and musical interval analysis. Targeting musicians and music students (particularly children), the tool transforms traditional pitch practice into an engaging, playful experience while maintaining professional-grade accuracy. The Mac-native application addresses the gap in existing tuning tools by providing interval feedback and child-friendly interaction, making it both an effective learning tool and an entertaining musical toy.
+The Real-time Pitch Visualizer is an educational music application that provides live audio pitch detection with compelling visual feedback and musical interval analysis. Targeting musicians and music students (particularly children), the tool transforms traditional pitch practice into an engaging, playful experience while maintaining professional-grade accuracy. The web-based application addresses the gap in existing tuning tools by providing interval feedback and child-friendly interaction, making it both an effective learning tool and an entertaining musical toy.
 
 ## Problem Statement
 
@@ -73,7 +73,7 @@ This solution succeeds where others fail by treating pitch training as both skil
 ### Key Performance Indicators (KPIs)
 
 - **Primary KPI**: Personal usage by developer + child for actual music practice (sustained over 3+ months)
-- **Technical KPI**: Maintains <20ms audio latency with 60 FPS visual performance
+- **Technical KPI**: Maintains <50ms audio latency with 60 FPS visual performance
 - **Community KPI**: GitHub stars/forks indicating developer community interest
 
 ## MVP Scope
@@ -86,7 +86,7 @@ This solution succeeds where others fail by treating pitch training as both skil
 - **Interval Calculation**: Display of musical intervals relative to reference pitch using selected tuning system
 - **Basic Visual Feedback**: Numerical display showing pitch deviation in cents
 - **Headphone Audio Output**: Plays reference pitch through headphones to prevent feedback
-- **Mac Native GUI**: Clean, responsive interface with modular architecture
+- **Web Interface**: Clean, responsive web-based interface accessible across devices
 
 ### Out of Scope for MVP
 
@@ -94,14 +94,14 @@ This solution succeeds where others fail by treating pitch training as both skil
 - Multiple simultaneous pitch detection (polyphonic input)
 - Recording/playback functionality
 - Network features or sharing capabilities
-- Windows/Linux support
+- Mobile app versions (iOS/Android native apps)
 - Advanced DSP effects or audio processing
 
 ### MVP Success Criteria
 
 - Accurate pitch detection within ±5 cents for single-note input
 - Visual updates at 60 FPS with perceptually synchronized audio
-- Stable performance on Mac hardware with standard audio interfaces
+- Stable performance across modern web browsers with Web Audio API support
 - Intuitive enough for a 7-year-old to use independently
 - Developer and child use it for actual practice sessions
 
@@ -115,47 +115,52 @@ This solution succeeds where others fail by treating pitch training as both skil
 
 ### Platform Requirements
 
-- **Target Platforms**: macOS native application (10.15+ minimum)
-- **Audio Requirements**: Core Audio integration, support for built-in and USB audio interfaces
-- **Performance Requirements**: <20ms audio latency, 60 FPS graphics rendering, real-time pitch detection
+- **Target Platforms**: Modern web browsers supporting Web Audio API (Chrome, Firefox, Safari, Edge)
+- **Audio Requirements**: Web Audio API integration, support for microphone input via getUserMedia
+- **Performance Requirements**: <50ms audio latency (web constraints), 60 FPS graphics rendering, real-time pitch detection
 
 ### Technology Preferences
 
-- **Frontend**: GUI (framework to be determined with architect; open to native menu bar vs. fully custom rendered UI based on technical practicality)
-- **Backend/Audio Processing**: Rust for core audio processing and DSP
-- **Architecture**: Modular design with separate audio, DSP, and rendering layers
-- **Development Tools**: Cursor (VSCode), Rust toolchain
+- **Frontend**: Rust compiled to WebAssembly (WASM) with web framework integration
+- **Audio Processing**: Rust DSP algorithms compiled to WASM, interfacing with Web Audio API
+- **Graphics**: Canvas API or WebGL for visual rendering, potentially driven by Rust/WASM
+- **Architecture**: Modular design with separate audio, DSP, and rendering modules
+- **Development Tools**: Cursor (VSCode), Rust toolchain, wasm-pack, web dev tools
 
 ### Architecture Considerations
 
-- **Repository Structure**: Single repository with clear separation of audio/DSP/UI modules
-- **Service Architecture**: Monolithic native app with modular internal architecture
-- **Real-time Constraints**: Careful threading for audio processing separate from UI
-- **Audio Pipeline**: Input → Analysis → Display pipeline with minimal buffering
+- **Repository Structure**: Single repository with clear separation of audio processing/DSP/UI modules
+- **Service Architecture**: Client-side web application with modular internal architecture
+- **Real-time Constraints**: Web Audio API scheduling and worklet-based processing for optimal performance
+- **Audio Pipeline**: Microphone → Web Audio API → Analysis → Visual Display pipeline with minimal buffering
 
 ## Constraints & Assumptions
 
 ### Constraints
 
-- **Platform**: Mac-only to maintain manageable scope
+- **Platform**: Modern web browsers only (Chrome, Firefox, Safari, Edge)
 - **Timeline**: MVP-first approach with iterative visual development
 - **Resources**: Single developer project with occasional child user testing
 - **Audio Environment**: Assumes relatively quiet practice environment
+- **Browser Security**: Requires HTTPS for microphone access, user permission prompts
 
 ### Key Assumptions
 
-- Users have access to Mac computers for music practice
-- Standard audio interfaces (built-in or USB) provide sufficient quality
+- Users have access to modern web browsers with microphone permissions
+- Built-in microphones or USB audio interfaces provide sufficient quality for web audio
 - Musicians understand basic interval concepts or are willing to learn
 - Visual feedback can be iterated based on user testing and preferences
+- Users will accept browser permission prompts for microphone access
 
 ## Risks & Open Questions
 
 ### Key Risks
 
-- **Latency Challenge**: Achieving <20ms total latency while maintaining accuracy may require significant optimization
+- **Browser Latency**: Web Audio API may introduce higher latency than native applications (~50ms vs ~20ms)
 - **User Adoption**: Tool might be too niche or complex for target age group
 - **Audio Feedback**: Self-reference from speakers could interfere with pitch detection even with headphone design
+- **Browser Compatibility**: Different browsers may have varying Web Audio API performance and support
+- **Microphone Permissions**: Users may deny microphone access, blocking core functionality
 
 ### Open Questions
 
@@ -166,9 +171,10 @@ This solution succeeds where others fail by treating pitch training as both skil
 
 ### Areas Needing Further Research
 
-- Optimal pitch detection algorithms for real-time performance
-- Child user interface design patterns for music education
-- Audio feedback cancellation techniques if speaker output becomes necessary
+- Web Audio API pitch detection performance across different browsers
+- Child user interface design patterns for web-based music education
+- Browser microphone access UX patterns for educational applications
+- Web-based audio feedback cancellation techniques
 
 ## Appendices
 
@@ -176,7 +182,7 @@ This solution succeeds where others fail by treating pitch training as both skil
 
 **Competitive Analysis**: Existing tuners focus on basic pitch accuracy without interval awareness or engaging visuals. Sonofield app approaches interval feedback but lacks child-friendly design.
 
-**Technical Feasibility**: Real-time pitch detection is well-established, with Core Audio providing sufficient tools for Mac native development.
+**Technical Feasibility**: Real-time pitch detection is well-established, with Web Audio API providing sufficient tools for browser-based development with acceptable latency constraints.
 
 ### B. Stakeholder Input
 
@@ -186,6 +192,6 @@ This solution succeeds where others fail by treating pitch training as both skil
 
 ### C. References
 
-- Core Audio documentation for low-latency audio processing
+- Web Audio API documentation for browser-based audio processing
 - Music education research on interval training effectiveness  
-- Existing pitch detection implementations and performance benchmarks 
+- Existing web-based pitch detection implementations and browser performance benchmarks 

@@ -3,50 +3,66 @@ name = "pitch-visualizer"
 version = "0.1.0"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
-description = "Real-time pitch visualizer with interval analysis"
+description = "Real-time pitch visualizer with interval analysis for web browsers"
 license = "MIT"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-# Audio Processing
-cpal = "0.15"
+# WASM Bindings
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+  "console",
+  "Window",
+  "Document",
+  "Element",
+  "HtmlElement",
+  "AudioContext",
+  "AudioWorklet",
+  "AudioWorkletNode",
+  "MediaStream",
+  "MediaDevices",
+  "Navigator",
+  "AudioBuffer",
+  "AudioParam",
+  "AudioNode",
+  "BaseAudioContext",
+  "OfflineAudioContext",
+  "GainNode",
+  "OscillatorNode",
+  "AnalyserNode",
+] }
+
+# Audio Processing (kept for DSP algorithms)
 pitch_detection = "0.4"
-hound = "3.5"                    # For audio file I/O (testing)
-
-# GUI + Graphics
-winit = "0.29"                   # Window management
-wgpu = "0.18"                    # GPU graphics
-egui = "0.24"                    # Immediate mode GUI
-egui-wgpu = "0.24"               # egui + wgpu integration
-egui-winit = "0.24"              # egui + winit integration
-
-# Concurrency & Communication
-ringbuf = "0.3"                  # Lock-free ring buffer
-crossbeam = "0.8"                # Thread-safe channels
-parking_lot = "0.12"             # Faster synchronization primitives
 
 # Math & Utilities
 bytemuck = "1.14"                # Safe transmutation
 anyhow = "1.0"                   # Error handling
 thiserror = "1.0"                # Error derive macros
-log = "0.4"                      # Logging
-env_logger = "0.10"              # Logger implementation
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"      # Efficient serialization for WASM/JS boundary
 
-# Platform-specific
-[target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2"                     # macOS-specific integration
-cocoa = "0.25"                   # macOS windowing
+# WASM-specific utilities
+wasm-bindgen-futures = "0.4"    # Async support
+getrandom = { version = "0.2", features = ["js"] }  # Random number generation in WASM
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "console",
+  "AudioContext",
+  "AudioWorklet",
+]
 
 [dev-dependencies]
-criterion = "0.5"                # Benchmarking
-approx = "0.5"                   # Floating point testing
-
-[[bin]]
-name = "pitch-visualizer"
-path = "src/main.rs"
+wasm-bindgen-test = "0.3"       # Testing in browsers
 
 [profile.release]
 lto = true
-codegen-units = 1
+opt-level = "s"                  # Optimize for size (important for WASM)
 panic = "abort"
 strip = true
 

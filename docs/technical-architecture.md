@@ -9,13 +9,13 @@
 
 ## Executive Summary
 
-The Real-time Pitch Visualizer is architected as a **high-performance, real-time audio processing application** with custom graphics capabilities. The system uses a **multi-threaded, lock-free architecture** to achieve sub-20ms audio latency while maintaining 60 FPS graphics performance.
+The Real-time Pitch Visualizer is architected as a **high-performance, web-based real-time audio processing application** with custom graphics capabilities. The system uses a **Rust + WebAssembly architecture** with Web Audio API integration to achieve sub-50ms audio latency while maintaining 60 FPS graphics performance in modern browsers.
 
 **Key Design Principles:**
-- **Real-time Performance**: Audio processing never blocks or allocates memory
-- **Modular Architecture**: Clean separation between audio, graphics, and communication layers
-- **Future-Proof Design**: Supports evolution from simple MVP to immersive custom graphics
-- **Single Language**: Pure Rust implementation for simplicity and performance
+- **Real-time Performance**: Audio processing optimized for WASM with minimal JS boundary crossings
+- **Modular Architecture**: Clean separation between WASM audio core, web graphics, and browser APIs
+- **Future-Proof Design**: Supports evolution from simple MVP to immersive WebGL graphics
+- **Hybrid Language Strategy**: Rust/WASM for performance-critical audio, JavaScript for browser integration
 
 ---
 
@@ -25,52 +25,52 @@ The Real-time Pitch Visualizer is architected as a **high-performance, real-time
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Main Application Process                      │
+│                        Browser Environment                       │
 │                                                                 │
 │  ┌─────────────────┐         ┌─────────────────────────────────┐ │
-│  │   Audio Thread  │         │         Main Thread             │ │
-│  │  (High Priority)│         │        (GUI Thread)             │ │
+│  │  AudioWorklet   │         │         Main Thread             │ │
+│  │   (WASM Core)   │         │      (JavaScript/WASM)         │ │
 │  │                 │         │                                 │ │
 │  │ ┌─────────────┐ │         │ ┌─────────────┐ ┌─────────────┐ │ │
-│  │ │Audio Engine │ │         │ │   Renderer  │ │    egui     │ │ │
-│  │ │             │ │         │ │   (wgpu)    │ │  Controls   │ │ │
+│  │ │Audio Engine │ │         │ │   Renderer  │ │Web Controls │ │ │
+│  │ │   (Rust)    │ │         │ │(Canvas/WebGL│ │ (HTML/CSS)  │ │ │
 │  │ │• Pitch Det. │◄┼────────►│ │             │ │             │ │ │
 │  │ │• Intervals  │ │         │ │• Background │ │• UI State   │ │ │
-│  │ │• Core Audio │ │         │ │  Shaders    │ │• User Input │ │ │
+│  │ │• DSP Core   │ │         │ │  Graphics   │ │• User Input │ │ │
 │  │ └─────────────┘ │         │ │• 60 FPS     │ │             │ │ │
 │  └─────────────────┘         │ └─────────────┘ └─────────────┘ │ │
 │           │                   │                                 │ │
 │           ▼                   │                                 │ │
 │  ┌─────────────────┐         │                                 │ │
-│  │   Core Audio    │         │                                 │ │
-│  │   Integration   │         │                                 │ │
+│  │  Web Audio API  │         │                                 │ │
+│  │  (Browser)      │         │                                 │ │
 │  └─────────────────┘         │                                 │ │
 │                               └─────────────────────────────────┘ │
 │                                           │                       │
 │                ┌─────────────────────────────────────────────────┐ │
-│                │           Message Bus (Lock-Free)              │ │
-│                │  • Audio Results  (Audio → GUI)                │ │
-│                │  • Control Commands (GUI → Audio)              │ │
+│                │        Message Passing (JS/WASM Bridge)       │ │
+│                │  • Audio Results  (WASM → JS)                  │ │
+│                │  • Control Commands (JS → WASM)                │ │
 │                └─────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Core Architecture Principles
 
-#### 1. **Thread Isolation**
-- **Audio Thread**: Handles all audio I/O and DSP processing
-- **Main Thread**: Manages GUI, graphics rendering, and user interaction
-- **No Shared Mutable State**: All communication via message passing
+#### 1. **Browser Thread Model**
+- **AudioWorklet**: Handles all audio I/O and DSP processing (WASM-based)
+- **Main Thread**: Manages DOM, graphics rendering, and user interaction (JS/WASM hybrid)
+- **Minimal State Sharing**: All communication via structured message passing
 
-#### 2. **Lock-Free Communication**
-- **Audio → GUI**: Latest audio analysis results (bounded channel, size=1)
-- **GUI → Audio**: Control commands (unbounded channel for reliability)
-- **Non-blocking**: Audio thread never waits for GUI operations
+#### 2. **WASM/JS Bridge Optimization**
+- **Audio → UI**: Latest audio analysis results (efficient serialization)
+- **UI → Audio**: Control commands (batched for performance)
+- **Boundary Minimization**: Reduce expensive WASM/JS crossings
 
-#### 3. **Real-Time Safety**
-- **No Allocations**: All memory pre-allocated in audio thread
-- **No Locks**: Message passing uses lock-free data structures
-- **Predictable Timing**: Audio callback completes within buffer period
+#### 3. **Web-Constrained Real-Time Safety**
+- **Limited Allocations**: Memory management within WASM linear memory
+- **Browser Scheduling**: Work within browser's audio scheduling constraints
+- **Predictable Performance**: Audio worklet processing optimized for web constraints
 
 ---
 
@@ -80,35 +80,35 @@ The Real-time Pitch Visualizer is architected as a **high-performance, real-time
 
 | Component | Technology | Version | Rationale |
 |-----------|------------|---------|-----------|
-| **Audio I/O** | `cpal` | 0.15 | Cross-platform, low-latency audio |
-| **Pitch Detection** | `pitch_detection` | 0.4 | Autocorrelation-based algorithms (YIN, McLeod) |
-| **Graphics** | `wgpu` | 0.18 | Modern GPU API, future-proof |
-| **GUI** | `egui` | 0.24 | Immediate mode, integrates with wgpu |
-| **Window Management** | `winit` | 0.29 | Cross-platform windowing |
-| **Communication** | `crossbeam` | 0.8 | Lock-free channels |
+| **Audio I/O** | Web Audio API | Browser Native | Real-time audio processing in browsers |
+| **WASM Compilation** | `wasm-pack` | 0.12 | Rust to WebAssembly toolchain |
+| **Pitch Detection** | `pitch_detection` | 0.4 | Autocorrelation algorithms (YIN, McLeod) - Rust compiled to WASM |
+| **Graphics** | Canvas API / WebGL | Browser Native | Hardware-accelerated browser graphics |
+| **GUI** | HTML/CSS/JS | Browser Native | Native web UI components |
+| **WASM Runtime** | `wasm-bindgen` | 0.2 | Rust/WASM ↔ JavaScript bridge |
 
 ### Technology Decision Matrix
 
 | Requirement | Options Considered | Chosen | Why |
 |-------------|-------------------|--------|-----|
-| **Audio Processing** | JACK, PortAudio, cpal | `cpal` | Rust-native, good macOS support |
-| **Graphics** | OpenGL, Vulkan, Metal, wgpu | `wgpu` | Cross-platform, modern, integrates with egui |
-| **GUI Framework** | Native macOS, Dear ImGui, egui | `egui` | Rust-native, immediate mode, wgpu integration |
-| **Communication** | std::sync, crossbeam, rtrb | `crossbeam` | Mature, well-tested, good performance |
+| **Audio Processing** | Native extensions, Web Audio API | `Web Audio API` | Standard browser API, good performance |
+| **WASM Compilation** | Emscripten, wasm-pack | `wasm-pack` | Rust-native toolchain, excellent browser integration |
+| **Graphics** | Canvas 2D, WebGL, CSS animations | `Canvas/WebGL` | Hardware acceleration, 60 FPS capability |
+| **GUI Framework** | Web frameworks, WASM UI libs | `HTML/CSS/JS` | Native browser performance, accessibility |
+| **Language Bridge** | Direct WASM, wasm-bindgen | `wasm-bindgen` | Type-safe, efficient Rust ↔ JS communication |
 
 ---
 
 ## Component Architecture
 
-### 1. Audio Processing Module (`src/audio/`)
+### 1. Audio Processing Module (WASM Core)
 
 #### Core Components
 
 ```rust
-// Primary audio engine  
+// Primary audio engine (compiled to WASM)
+#[wasm_bindgen]
 pub struct AudioEngine {
-    input_stream: cpal::Stream,
-    output_stream: Option<cpal::Stream>,
     pitch_detector: YinDetector<f32>,        // Autocorrelation-based
     interval_calculator: IntervalCalculator,
     
@@ -117,139 +117,141 @@ pub struct AudioEngine {
     tuning_system: TuningSystem,
     enabled: bool,
     
-    // Buffers (pre-allocated)
+    // Buffers (WASM linear memory)
     input_buffer: Vec<f32>,
+    output_buffer: Vec<f32>,
 }
 ```
 
 #### Key Responsibilities
-- **Audio I/O Management**: Setup and manage Core Audio streams
+- **WASM Audio Processing**: Efficient DSP algorithms in WebAssembly
 - **Real-time Processing**: Pitch detection and interval analysis
-- **Control Message Handling**: Respond to GUI commands
-- **Result Broadcasting**: Send analysis results to GUI
+- **Message Serialization**: Efficient data exchange with JavaScript
+- **Memory Management**: Optimal use of WASM linear memory
 
 #### Performance Requirements
-- **Latency Target**: <20ms total (audio input → visual output)
-- **Buffer Size**: 512-1024 samples (autocorrelation needs larger windows than FFT)
-- **Processing Budget**: <50% of buffer period for audio processing
-- **Memory**: No allocations in audio callback
+- **Latency Target**: <50ms total (web audio constraints)
+- **Buffer Size**: 1024-2048 samples (larger buffers for web stability)
+- **Processing Budget**: <70% of AudioWorklet quantum for processing
+- **Memory**: Minimal allocations, leverage WASM memory efficiency
 
-### 2. Graphics & UI Module (`src/gui/`)
+### 2. Graphics & UI Module (Browser Frontend)
 
 #### Core Components
 
-```rust
-// Main application controller
-pub struct PitchVisualizerApp {
-    window: Window,
-    renderer: Renderer,
-    gui_handle: GuiHandle,
-    state: AppState,
+```javascript
+// Main application controller (JavaScript)
+class PitchVisualizerApp {
+    constructor() {
+        this.wasmModule = null;
+        this.audioContext = null;
+        this.renderer = new WebGLRenderer();
+        this.ui = new WebUIController();
+    }
 }
 
-// Graphics renderer
-pub struct Renderer {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface: wgpu::Surface,
-    egui_renderer: egui_wgpu::Renderer,
-    
-    // Custom rendering pipeline
-    background_pipeline: wgpu::RenderPipeline,
-    shader_uniforms: ShaderUniforms,
+// Graphics renderer (Canvas/WebGL)
+class WebGLRenderer {
+    constructor() {
+        this.canvas = document.getElementById('visualizer');
+        this.gl = this.canvas.getContext('webgl2');
+        this.shaderPrograms = new Map();
+    }
 }
 ```
 
 #### Rendering Pipeline
 
-1. **Background Rendering** (Custom wgpu shaders)
+1. **Background Rendering** (WebGL shaders)
    - Audio-reactive animations
    - Real-time pitch visualization
    - Interval feedback graphics
 
-2. **UI Overlay** (egui)
+2. **UI Overlay** (HTML/CSS)
    - Control panels
    - Settings interface
    - Debug information
 
 3. **Composition**
-   - Composite background + UI at 60 FPS
-   - Handle window resizing
-   - Manage input events
+   - Canvas + DOM overlay at 60 FPS
+   - Handle responsive design
+   - Manage browser input events
 
 #### MVP vs. Future Architecture
 
 **MVP Approach:**
-```rust
-// Simple egui-only interface
-fn render_mvp_ui(ui: &mut egui::Ui, state: &AppState) {
-    ui.label(format!("Frequency: {:.1} Hz", state.frequency));
-    ui.label(format!("Note: {}", state.note_name));
-    ui.label(format!("Cents: {:+.0}", state.cents_deviation));
-}
+```html
+<!-- Simple HTML/CSS interface -->
+<div id="pitch-display">
+    <div class="frequency">Frequency: <span id="freq-value">440.0</span> Hz</div>
+    <div class="note">Note: <span id="note-value">A4</span></div>
+    <div class="cents">Cents: <span id="cents-value">+0</span></div>
+</div>
 ```
 
 **Future Approach:**
-```rust
-// Custom GPU-accelerated graphics
-fn render_immersive_graphics(renderer: &Renderer, audio_data: &AudioMessage) {
+```javascript
+// Custom WebGL-accelerated graphics
+function renderImmersiveGraphics(renderer, audioData) {
     // Custom shader-based visualization
-    renderer.render_pitch_visualization(audio_data);
-    renderer.render_interval_display(audio_data);
+    renderer.renderPitchVisualization(audioData);
+    renderer.renderIntervalDisplay(audioData);
     
     // Minimal UI overlay
-    renderer.render_minimal_controls();
+    renderer.renderMinimalControls();
 }
 ```
 
-### 3. Communication Layer (`src/bridge/`)
+### 3. Communication Layer (WASM/JS Bridge)
 
 #### Message Types
 
 ```rust
-// Audio analysis results (Audio → GUI)
+// Audio analysis results (WASM → JS)
+#[wasm_bindgen]
 pub struct AudioMessage {
     pub frequency: f32,
     pub confidence: f32,
     pub cents_deviation: f32,
-    pub note_name: [char; 4],
+    pub note_name: String,
     pub interval_cents: i16,
-    pub interval_name: [char; 16],
-    pub timestamp_us: u64,
+    pub interval_name: String,
+    pub timestamp_ms: f64,
 }
 
-// Control commands (GUI → Audio)
-pub enum ControlMessage {
-    SetReference(f32),
-    SetReferenceNote(String),
-    SetEnabled(bool),
-    SetTuningSystem(TuningSystem),
+// Control commands (JS → WASM)
+#[wasm_bindgen]
+impl AudioEngine {
+    pub fn set_reference(&mut self, freq: f32);
+    pub fn set_reference_note(&mut self, note: &str);
+    pub fn set_enabled(&mut self, enabled: bool);
+    pub fn set_tuning_system(&mut self, system: &str);
 }
 ```
 
 #### Communication Patterns
 
-1. **Audio Results** (Audio Thread → GUI Thread)
-   - **Pattern**: Latest-value semantics
-   - **Implementation**: Bounded channel (capacity=1)
-   - **Behavior**: Old values are discarded, GUI always gets latest
+1. **Audio Results** (AudioWorklet → Main Thread)
+   - **Pattern**: Event-driven messaging
+   - **Implementation**: MessagePort postMessage
+   - **Behavior**: Efficient serialization, latest values prioritized
 
-2. **Control Commands** (GUI Thread → Audio Thread)
+2. **Control Commands** (Main Thread → AudioWorklet)
    - **Pattern**: Reliable delivery
-   - **Implementation**: Unbounded channel
-   - **Behavior**: All commands are processed in order
+   - **Implementation**: MessagePort postMessage
+   - **Behavior**: Commands queued and processed in order
 
-#### Thread Safety Strategy
+#### Browser Message Strategy
 
-```rust
-// Audio thread: Non-blocking sends
-let result = AudioMessage { /* ... */ };
-let _ = audio_sender.try_send(result); // Never blocks
+```javascript
+// AudioWorklet: Send results to main thread
+const result = wasmEngine.process_audio(audioBuffer);
+this.port.postMessage(result);
 
-// GUI thread: Non-blocking receives  
-while let Ok(latest) = gui_receiver.try_recv() {
-    current_audio_data = latest; // Get most recent
-}
+// Main thread: Receive audio results
+audioWorkletNode.port.onmessage = (event) => {
+    updateVisualization(event.data);
+};
 ```
 
 ---
@@ -258,93 +260,100 @@ while let Ok(latest) = gui_receiver.try_recv() {
 
 ### Phase 1: MVP Foundation (P0)
 
-**Objective**: Functional audio processing with basic visual feedback
+**Objective**: Functional web-based audio processing with basic visual feedback
 
 **Deliverables:**
-1. **Basic Audio Pipeline**
+1. **WASM Audio Pipeline**
    ```rust
-   // Minimal working audio engine using autocorrelation
-   let detector = YinDetector::new(sample_rate, buffer_size);
-   let pitch = detector.get_pitch(&audio_samples, sample_rate, 0.5, None);
+   // WASM-compiled audio engine using autocorrelation
+   #[wasm_bindgen]
+   pub fn process_audio_buffer(buffer: &[f32]) -> AudioMessage {
+       let detector = YinDetector::new(sample_rate, buffer_size);
+       detector.get_pitch(buffer, sample_rate, 0.5, None)
+   }
    ```
 
-2. **Simple GUI**
-   ```rust
-   // egui-only interface
-   egui::Window::new("Pitch Info")
-       .show(ctx, |ui| {
-           ui.label(format!("Frequency: {:.1} Hz", freq));
-       });
+2. **Web Interface**
+   ```html
+   <!-- Simple HTML interface -->
+   <div id="pitch-display">
+       <div class="frequency">Frequency: <span id="freq">440.0</span> Hz</div>
+   </div>
    ```
 
-3. **Communication Working**
-   ```rust
-   // Verified message passing
-   audio_thread.send(result) → gui_thread.receive(result)
+3. **Web Audio Integration**
+   ```javascript
+   // AudioWorklet + WASM integration
+   const audioContext = new AudioContext();
+   const wasmModule = await import('./pkg/pitch_visualizer.js');
    ```
 
 **Success Criteria:**
-- Audio latency <50ms
+- Audio latency <50ms (web constraints)
 - Pitch detection accuracy ±5 cents
-- 60 FPS GUI updates
-- No crashes or audio dropouts
+- 60 FPS visual updates
+- Cross-browser compatibility
 
 ### Phase 2: Educational Features (P1)
 
 **Objective**: Interval analysis and reference pitch selection
 
 **Deliverables:**
-1. **Interval Calculator**
+1. **WASM Interval Calculator**
    ```rust
-   pub fn calculate_interval(freq: f32, reference: f32) -> Interval {
+   #[wasm_bindgen]
+   pub fn calculate_interval(freq: f32, reference: f32) -> IntervalResult {
        // Returns interval name and cent deviation
    }
    ```
 
-2. **Reference Pitch Controls**
-   ```rust
-   // GUI controls for reference selection
-   ui.add(egui::Slider::new(&mut ref_freq, 220.0..=880.0));
+2. **Web Control Interface**
+   ```html
+   <!-- HTML controls for reference selection -->
+   <input type="range" id="ref-freq" min="220" max="880" value="440">
+   <label for="ref-freq">Reference Frequency: <span id="freq-display">440</span> Hz</label>
    ```
 
 3. **Performance Optimization**
-   - Target <20ms latency
-   - Optimize autocorrelation window size
-   - Reduce allocation overhead
+   - Target <50ms total latency (browser constraints)
+   - Optimize WASM/JS boundary crossings
+   - Minimize audio buffer copying
 
 **Success Criteria:**
 - Accurate interval identification
-- Sub-20ms audio latency
-- Smooth user experience
+- Sub-50ms audio latency
+- Smooth cross-browser experience
 
 ### Phase 3: Custom Graphics (P2)
 
-**Objective**: Immersive visual feedback with custom shaders
+**Objective**: Immersive visual feedback with WebGL shaders
 
 **Deliverables:**
-1. **Background Shader Pipeline**
-   ```rust
-   // Custom wgpu shaders for visualization
-   struct BackgroundRenderer {
-       pipeline: wgpu::RenderPipeline,
-       uniforms: AudioUniforms,
+1. **WebGL Rendering Pipeline**
+   ```javascript
+   // Custom WebGL shaders for visualization
+   class WebGLRenderer {
+       constructor() {
+           this.gl = canvas.getContext('webgl2');
+           this.shaderProgram = this.createShaderProgram();
+       }
    }
    ```
 
 2. **Audio-Reactive Graphics**
-   - Real-time pitch visualization
+   - Real-time pitch visualization with WebGL
    - Interval feedback animations
    - Configurable visual themes
 
-3. **Hybrid UI Architecture**
-   - Custom graphics background
-   - egui controls overlay
-   - Seamless integration
+3. **Hybrid Web Architecture**
+   - Canvas-based custom graphics background
+   - HTML/CSS controls overlay
+   - Responsive design integration
 
 **Success Criteria:**
 - Compelling visual feedback
-- Maintained 60 FPS performance
-- Intuitive user experience
+- Maintained 60 FPS across browsers
+- Intuitive responsive user experience
 
 ---
 
@@ -353,22 +362,23 @@ while let Ok(latest) = gui_receiver.try_recv() {
 ### Code Organization
 
 ```
-src/
-├── main.rs                    # Application entry point
-├── lib.rs                     # Public API exports
-├── audio/                     # Audio processing
-│   ├── mod.rs                 # Module definitions
-│   ├── engine.rs              # Core audio engine
-│   ├── pitch_detector.rs      # Pitch detection algorithms
-│   └── interval_calc.rs       # Musical interval calculations
-├── gui/                       # Graphics and UI
-│   ├── mod.rs                 # GUI module exports
-│   ├── app.rs                 # Application controller
-│   ├── renderer.rs            # Graphics rendering
-│   └── widgets.rs             # Custom UI components
-└── bridge/                    # Inter-thread communication
-    ├── mod.rs                 # Message types
-    └── message_bus.rs         # Communication implementation
+project/
+├── src/                       # Rust/WASM core
+│   ├── lib.rs                 # WASM entry point with wasm_bindgen
+│   ├── audio/                 # Audio processing (compiled to WASM)
+│   │   ├── mod.rs             # Audio module exports
+│   │   ├── engine.rs          # Core audio engine
+│   │   ├── pitch_detector.rs  # Pitch detection algorithms
+│   │   └── interval_calc.rs   # Musical interval calculations
+│   └── utils.rs               # WASM utilities and helpers
+├── web/                       # Web frontend
+│   ├── index.html             # Main HTML page
+│   ├── style.css              # Styling
+│   ├── app.js                 # Main application controller
+│   ├── audio-worklet.js       # AudioWorklet processor
+│   └── renderer.js            # WebGL graphics renderer
+├── pkg/                       # Generated WASM output (wasm-pack)
+└── Cargo.toml                 # Rust dependencies
 ```
 
 ### Testing Strategy
@@ -395,27 +405,31 @@ mod tests {
 ```
 
 #### Integration Tests
-- **Audio Pipeline**: End-to-end audio processing tests
-- **GUI Responsiveness**: UI interaction tests
+- **WASM Audio Pipeline**: End-to-end audio processing tests
+- **Web Audio Integration**: AudioWorklet and Web Audio API tests
+- **Cross-browser Compatibility**: Performance across browsers
 - **Performance**: Latency and throughput benchmarks
 
 #### Manual Testing
-- **Real-world Usage**: Testing with actual musical instruments
-- **Child Usability**: Testing with target age group
-- **Cross-device Compatibility**: Different audio interfaces
+- **Real-world Usage**: Testing with actual musical instruments via browser
+- **Child Usability**: Testing with target age group on tablets/computers
+- **Cross-browser Testing**: Chrome, Firefox, Safari, Edge compatibility
+- **Device Testing**: Different devices and audio interfaces
 
 ### Performance Monitoring
 
 #### Key Metrics
-1. **Audio Latency**: Input → Processing → Output
-2. **GUI Frame Rate**: Maintain 60 FPS under load
-3. **CPU Usage**: Audio thread priority and utilization
-4. **Memory Usage**: Allocation patterns and peak usage
+1. **Audio Latency**: Microphone → WASM Processing → Visual Output
+2. **Frame Rate**: Maintain 60 FPS across different browsers
+3. **WASM Performance**: Processing time within AudioWorklet quantum
+4. **Memory Usage**: WASM linear memory and JS heap usage
+5. **Browser Compatibility**: Performance consistency across browsers
 
 #### Profiling Tools
-- **Audio**: `cpal` built-in latency measurement
-- **Graphics**: `wgpu` performance counters
-- **General**: Rust's built-in profiler and `cargo flamegraph`
+- **Audio**: Web Audio API performance timeline
+- **WASM**: Browser DevTools and wasm-pack profiling
+- **Graphics**: Browser DevTools performance tab
+- **Cross-browser**: BrowserStack or similar testing platforms
 
 ---
 
@@ -425,9 +439,10 @@ mod tests {
 
 | Risk | Impact | Likelihood | Mitigation Strategy |
 |------|--------|------------|-------------------|
-| **Audio Latency** | High | Medium | Conservative buffer sizes, real-time thread priority |
-| **GUI Performance** | Medium | Low | Separate graphics thread, efficient rendering |
-| **Cross-platform Issues** | Medium | Medium | Focus on macOS first, abstract platform-specific code |
+| **Browser Audio Latency** | High | Medium | Optimize WASM/JS boundaries, use AudioWorklets |
+| **Cross-browser Compatibility** | High | High | Test early on all major browsers, use Web Standards |
+| **WASM Performance** | Medium | Medium | Profile and optimize hot paths, minimize boundary crossings |
+| **Microphone Permissions** | High | Medium | Clear UX for permission requests, fallback options |
 | **Pitch Detection Accuracy** | High | Low | Use proven algorithms, extensive testing |
 
 ### Development Risks
@@ -450,9 +465,9 @@ mod tests {
 
 ### Platform Expansion
 
-1. **Cross-platform GUI**: Maintain native look and feel
-2. **Mobile Support**: iOS/Android versions with adapted UI
-3. **Web Version**: WebAssembly compilation for browser use
+1. **Progressive Web App**: PWA capabilities for offline use and app-like experience
+2. **Mobile Optimization**: Responsive design for tablets and phones
+3. **Native App Wrappers**: Electron or Tauri for desktop app versions
 
 ### Advanced Features
 
@@ -466,10 +481,10 @@ mod tests {
 
 This architecture provides a solid foundation for the Real-time Pitch Visualizer while maintaining flexibility for future expansion. The key design decisions prioritize:
 
-1. **Performance**: Real-time audio processing with sub-20ms latency
-2. **Maintainability**: Clean separation of concerns, modular design
-3. **Extensibility**: Architecture supports evolution from MVP to advanced features
-4. **Simplicity**: Single-language implementation reduces complexity
+1. **Performance**: Real-time audio processing with sub-50ms latency (web-optimized)
+2. **Maintainability**: Clean separation between WASM core and web frontend
+3. **Extensibility**: Architecture supports evolution from MVP to advanced WebGL features
+4. **Cross-platform Reach**: Web-based deployment for universal accessibility
 
 The phased development approach allows for iterative refinement and user feedback integration while maintaining focus on the core educational mission.
 
@@ -480,21 +495,25 @@ The phased development approach allows for iterative refinement and user feedbac
 ### A. Build and Deployment
 
 ```bash
-# Development build
-cargo build
+# Install wasm-pack (if not already installed)
+cargo install wasm-pack
 
-# Optimized release build
-cargo build --release
+# Build WASM module
+wasm-pack build --target web --out-dir pkg
 
-# Run with debug logging
-RUST_LOG=debug cargo run
+# Development server (simple HTTP server)
+python -m http.server 8000
+# or
+npx http-server web/
 
-# Run tests
+# Production build (optimized)
+wasm-pack build --target web --release --out-dir pkg
+
+# Run Rust tests
 cargo test
 
-# Performance profiling
-cargo build --release
-cargo run --release --bin pitch-visualizer
+# Integration testing
+# Open http://localhost:8000 in browser for manual testing
 ```
 
 ### B. Dependencies Summary
