@@ -33,8 +33,8 @@ The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with W
 
 | Document | Purpose | Relevant For |
 |----------|---------|--------------|
+| **[frontend-architecture.md](frontend-architecture.md)** | UI architecture, browser testing interface | Frontend/UI stories, Story 1.1+ |
 | **[backend-architecture.md](backend-architecture.md)** | (Future) Server-side components | Backend/API stories |
-| **[frontend-architecture.md](frontend-architecture.md)** | (Future) UI components, patterns | Frontend/UI stories |
 | **[data-models.md](data-models.md)** | (Future) Data structures, validation | Data-related stories |
 
 ---
@@ -46,6 +46,7 @@ The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with W
 1. `tech-stack.md` - Understand WASM/Rust requirements
 2. `unified-project-structure.md` - Know project organization
 3. `testing-strategy.md` - Include proper testing
+4. `frontend-architecture.md` - Browser testing interface and UI patterns
 
 ### Audio Processing Stories  
 **Required Reading:**
@@ -58,6 +59,7 @@ The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with W
 1. `tech-stack.md` - Graphics and UI technologies
 2. `unified-project-structure.md` - Web frontend structure
 3. `testing-strategy.md` - E2E and integration testing
+4. `frontend-architecture.md` - UI patterns, testing interface, browser compatibility
 
 ### Full-Stack Stories
 **Required Reading:**

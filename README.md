@@ -100,3 +100,67 @@ This is currently a personal project focused on educational music tools. Contrib
 ## License
 
 MIT License - see LICENSE file for details. 
+
+## Development Setup
+
+### Prerequisites
+- Rust (latest stable)
+- wasm-pack
+- Ruby (for development server)
+
+### Quick Start
+
+**🚀 Standard Development Workflow (Always port 8080)**
+```bash
+# Start development (builds + serves)
+./dev.sh
+
+# Stop development server
+./stop.sh
+```
+
+**Development URL:** http://localhost:8080/web/
+
+**Other Options:**
+```bash
+# Manual build + serve
+wasm-pack build --target web --out-dir pkg
+ruby serve.rb  # defaults to port 8080
+
+# Just build (no server)
+wasm-pack build --target web --out-dir pkg
+
+# Serve only (assumes already built)
+ruby serve.rb
+```
+
+### Testing
+
+```bash
+# Run Rust unit tests
+cargo test
+
+# Run automated test suite
+*run-tests  # (if using BMAD agent system)
+```
+
+### Demo
+
+Visit http://localhost:8080/web/ to see:
+- WASM module loading
+- AudioEngine initialization
+- Real-time audio processing validation
+- Story 1.1 acceptance criteria testing
+
+## Architecture
+
+See `docs/architecture/` for detailed technical documentation.
+
+## Stories
+
+Current implementation:
+- ✅ Story 1.1: WASM Audio Processing Foundation
+
+Next up:
+- 🔄 Story 1.2: Pitch Detection Implementation
+- 🔄 Story 1.3: AudioWorklet Integration 

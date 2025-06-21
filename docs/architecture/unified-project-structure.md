@@ -20,17 +20,22 @@ project/
 │   │   └── interval_calc.rs   # Musical interval calculations
 │   └── utils.rs               # WASM utilities and helpers
 ├── web/                       # Web frontend
-│   ├── index.html             # Main HTML page
-│   ├── style.css              # Styling
+│   ├── index.html             # Main HTML page + enhanced test suite
+│   ├── style.css              # Styling (replaced by embedded CSS)
 │   ├── app.js                 # Main application controller
 │   ├── audio-worklet.js       # AudioWorklet processor
 │   └── renderer.js            # WebGL graphics renderer
 ├── pkg/                       # Generated WASM output (wasm-pack)
+├── tests/                     # Test suites
+│   └── wasm-integration/      # WASM integration tests
 ├── docs/                      # Documentation
 │   ├── architecture/          # Architecture documentation (sharded)
 │   ├── stories/               # User stories for development
 │   └── *.md                   # Project documentation
-└── Cargo.toml                 # Rust dependencies
+├── Cargo.toml                 # Rust dependencies
+├── dev.sh                     # Development server script
+├── serve.rb                   # Ruby development server
+└── stop.sh                    # Development server stop script
 ```
 
 ## Module Responsibilities
@@ -56,9 +61,11 @@ project/
 ### Web Frontend (`web/`)
 
 **`index.html`**
-- Main application HTML structure
-- Canvas elements for graphics
-- Basic UI components
+- Main application HTML structure with enhanced test suite
+- Professional browser testing interface (Story 1.1)
+- TestFramework class for comprehensive WASM validation
+- Performance monitoring dashboard with real-time metrics
+- Interactive test controls and automation capabilities
 
 **`style.css`**
 - Application styling
@@ -121,4 +128,26 @@ Generated files in `pkg/`:
 - `*.wasm` - WebAssembly binary
 - `*.js` - JavaScript bindings
 - `*.d.ts` - TypeScript definitions
-- `package.json` - NPM package metadata 
+- `package.json` - NPM package metadata
+
+## Development Infrastructure
+
+### Development Server (Story 1.1)
+**Ruby-based Server**: `serve.rb` - Cross-platform development server
+- **Port Management**: Always uses port 8080 with auto-cleanup
+- **WASM Support**: Proper MIME types and CORS headers
+- **Auto-restart**: Conflict resolution and port cleanup
+
+**Automation Scripts**:
+- `dev.sh` - Build WASM + start server (one command development)
+- `stop.sh` - Clean server shutdown and port cleanup
+
+**Access**: http://localhost:8080/web/ (consistent development URL)
+
+### Testing Infrastructure
+**Browser Test Suite**: Enhanced `web/index.html` with:
+- TestFramework class architecture
+- Real-time performance monitoring
+- Comprehensive WASM validation
+- Stress testing capabilities (1000+ iterations)
+- Cross-browser compatibility validation 

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pitch-toy - WASM Foundation Test Suite</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --error: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: var(--light);
+            color: var(--dark);
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 4px solid;
+            font-weight: 500;
+        }
+        
+        .success { 
+            background-color: #d4edda; 
+            border-color: var(--success);
+            color: #155724;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            border-color: var(--error);
+            color: #721c24;
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            border-color: var(--info);
+            color: #0c5460;
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            border-color: var(--warning);
+            color: #856404;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        button:hover:not(:disabled) { 
+            background: #0056b3; 
+            transform: translateY(-1px);
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-success { background: var(--success); }
+        .btn-success:hover:not(:disabled) { background: #218838; }
+        
+        .btn-danger { background: var(--error); }
+        .btn-danger:hover:not(:disabled) { background: #c82333; }
+        
+        #output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .metric {
+            background: var(--light);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .metric-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .metric-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        .test-automation {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 6px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--success);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 pitch-toy - WASM Foundation Test Suite</h1>
+    
+    <div class="status info">
+        <strong>Story 1.1: WASM Audio Processing Foundation</strong><br>
+        Comprehensive testing suite for WASM compilation pipeline, audio processing, and browser compatibility.
+    </div>
+
+    <div class="container">
+        <!-- Left Panel: Test Results -->
+        <div class="panel">
+            <h2>🧪 Test Results</h2>
+            <div id="wasm-load-status" class="status">⏳ Loading WASM module...</div>
+            <div id="audio-test-status" class="status">⏳ Waiting for WASM load...</div>
+            <div id="browser-compat-status" class="status">⏳ Checking browser compatibility...</div>
+            <div id="performance-status" class="status">⏳ Performance analysis pending...</div>
+            
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="progress-text">Initializing...</div>
+        </div>
+
+        <!-- Right Panel: Performance Metrics -->
+        <div class="panel">
+            <h2>📊 Performance Metrics</h2>
+            <div class="metrics">
+                <div class="metric">
+                    <div id="wasm-load-time" class="metric-value">-</div>
+                    <div class="metric-label">WASM Load (ms)</div>
+                </div>
+                <div class="metric">
+                    <div id="init-time" class="metric-value">-</div>
+                    <div class="metric-label">Init Time (ms)</div>
+                </div>
+                <div class="metric">
+                    <div id="processing-time" class="metric-value">-</div>
+                    <div class="metric-label">Process Time (μs)</div>
+                </div>
+                <div class="metric">
+                    <div id="buffer-size" class="metric-value">-</div>
+                    <div class="metric-label">Buffer Size</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Testing Panel -->
+    <div class="panel">
+        <h3>🎮 Interactive Testing</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+            <button id="test-audio-btn" disabled>Test Audio Processing</button>
+            <button id="test-engine-btn" disabled>Test Engine State</button>
+            <button id="stress-test-btn" disabled class="btn-danger">Stress Test</button>
+            <button id="auto-test-btn" disabled class="btn-success">Run Full Test Suite</button>
+            <button id="clear-log-btn">Clear Log</button>
+        </div>
+        
+        <div class="test-automation">
+            <label>
+                <input type="checkbox" id="auto-run-tests"> Auto-run test suite on load
+            </label>
+        </div>
+        
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        import init, { AudioEngine } from '../pkg/pitch_toy.js';
+
+        // Test Framework
+        class TestFramework {
+            constructor() {
+                this.audioEngine = null;
+                this.output = document.getElementById('output');
+                this.metrics = {
+                    wasmLoadTime: 0,
+                    initTime: 0,
+                    processingTime: 0
+                };
+                this.testResults = [];
+                this.startTime = performance.now();
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const typeIcon = {
+                    'info': 'ℹ️',
+                    'success': '✅',
+                    'error': '❌',
+                    'warning': '⚠️',
+                    'performance': '⚡'
+                };
+                
+                this.output.innerHTML += `<div style="color: ${this.getLogColor(type)};">${typeIcon[type] || 'ℹ️'} ${timestamp}: ${message}</div>`;
+                this.output.scrollTop = this.output.scrollHeight;
+            }
+
+            getLogColor(type) {
+                const colors = {
+                    'error': '#dc3545',
+                    'success': '#28a745',
+                    'warning': '#ffc107',
+                    'performance': '#17a2b8'
+                };
+                return colors[type] || '#343a40';
+            }
+
+            updateStatus(element, status, message) {
+                element.className = `status ${status}`;
+                element.innerHTML = message;
+            }
+
+            updateMetric(id, value) {
+                document.getElementById(id).textContent = value;
+            }
+
+            updateProgress(percentage, text) {
+                document.getElementById('progress-fill').style.width = `${percentage}%`;
+                document.getElementById('progress-text').textContent = text;
+            }
+
+            async measurePerformance(fn, name) {
+                const start = performance.now();
+                const result = await fn();
+                const end = performance.now();
+                const duration = end - start;
+                
+                this.log(`${name} completed in ${duration.toFixed(2)}ms`, 'performance');
+                return { result, duration };
+            }
+        }
+
+        const testFramework = new TestFramework();
+
+        // Test 1: WASM Module Loading with Performance Measurement
+        async function initializeWASM() {
+            try {
+                const { duration } = await testFramework.measurePerformance(
+                    () => init(), 
+                    'WASM module initialization'
+                );
+                
+                testFramework.metrics.wasmLoadTime = duration;
+                testFramework.updateMetric('wasm-load-time', duration.toFixed(1));
+                
+                testFramework.updateStatus(
+                    document.getElementById('wasm-load-status'),
+                    'success',
+                    `✅ WASM module loaded (${duration.toFixed(1)}ms)`
+                );
+                
+                testFramework.updateProgress(25, 'WASM loaded');
+                return true;
+            } catch (error) {
+                testFramework.updateStatus(
+                    document.getElementById('wasm-load-status'),
+                    'error',
+                    `❌ WASM module failed: ${error.message}`
+                );
+                testFramework.log(`WASM load error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Test 2: Audio Engine Creation with Validation
+        async function initializeAudioEngine() {
+            try {
+                const { duration } = await testFramework.measurePerformance(
+                    () => {
+                        testFramework.audioEngine = new AudioEngine(44100, 1024);
+                        return testFramework.audioEngine;
+                    },
+                    'AudioEngine creation'
+                );
+                
+                testFramework.metrics.initTime = duration;
+                testFramework.updateMetric('init-time', duration.toFixed(1));
+                testFramework.updateMetric('buffer-size', testFramework.audioEngine.get_buffer_size());
+                
+                // Validate engine parameters
+                const sampleRate = testFramework.audioEngine.get_sample_rate();
+                const bufferSize = testFramework.audioEngine.get_buffer_size();
+                
+                if (sampleRate !== 44100 || bufferSize !== 1024) {
+                    throw new Error(`Parameter mismatch: SR=${sampleRate}, BS=${bufferSize}`);
+                }
+                
+                testFramework.updateStatus(
+                    document.getElementById('audio-test-status'),
+                    'success',
+                    `✅ AudioEngine created (SR: ${sampleRate}, BS: ${bufferSize})`
+                );
+                
+                testFramework.updateProgress(50, 'AudioEngine ready');
+                
+                // Enable interactive tests
+                ['test-audio-btn', 'test-engine-btn', 'stress-test-btn', 'auto-test-btn'].forEach(id => {
+                    document.getElementById(id).disabled = false;
+                });
+                
+                return true;
+            } catch (error) {
+                testFramework.updateStatus(
+                    document.getElementById('audio-test-status'),
+                    'error',
+                    `❌ AudioEngine failed: ${error.message}`
+                );
+                testFramework.log(`AudioEngine error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Test 3: Enhanced Browser Compatibility
+        function checkBrowserCompatibility() {
+            const checks = {
+                webassembly: typeof WebAssembly !== 'undefined',
+                webaudio: typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined',
+                promises: typeof Promise !== 'undefined',
+                modules: typeof Worker !== 'undefined',
+                performance: typeof performance !== 'undefined',
+                arraybuffer: typeof ArrayBuffer !== 'undefined',
+                float32array: typeof Float32Array !== 'undefined'
+            };
+
+            const passedChecks = Object.entries(checks).filter(([_, passed]) => passed);
+            const failedChecks = Object.entries(checks).filter(([_, passed]) => !passed);
+            
+            const browserInfo = {
+                userAgent: navigator.userAgent,
+                vendor: navigator.vendor,
+                platform: navigator.platform,
+                language: navigator.language,
+                onLine: navigator.onLine
+            };
+
+            testFramework.log(`Browser: ${browserInfo.userAgent.split(' ')[0]}`);
+            testFramework.log(`Platform: ${browserInfo.platform}`);
+            
+            if (failedChecks.length === 0) {
+                testFramework.updateStatus(
+                    document.getElementById('browser-compat-status'),
+                    'success',
+                    `✅ Full compatibility (${passedChecks.length}/${Object.keys(checks).length} checks)`
+                );
+                testFramework.updateProgress(75, 'Browser compatible');
+                return true;
+            } else {
+                testFramework.updateStatus(
+                    document.getElementById('browser-compat-status'),
+                    'error',
+                    `❌ Compatibility issues: ${failedChecks.map(([name]) => name).join(', ')}`
+                );
+                testFramework.log(`Failed checks: ${failedChecks.map(([name]) => name).join(', ')}`, 'error');
+                return false;
+            }
+        }
+
+        // Test 4: Performance Analysis
+        async function performanceAnalysis() {
+            if (!testFramework.audioEngine) {
+                testFramework.updateStatus(
+                    document.getElementById('performance-status'),
+                    'error',
+                    '❌ Cannot run performance analysis - AudioEngine not ready'
+                );
+                return false;
+            }
+
+            try {
+                // Create optimized test buffer
+                const bufferSize = 1024;
+                const testBuffer = new Float32Array(bufferSize);
+                
+                // Generate test signal (mix of frequencies)
+                for (let i = 0; i < bufferSize; i++) {
+                    testBuffer[i] = 
+                        0.5 * Math.sin(2 * Math.PI * 440 * i / 44100) +  // A4
+                        0.3 * Math.sin(2 * Math.PI * 880 * i / 44100) +  // A5
+                        0.2 * Math.sin(2 * Math.PI * 220 * i / 44100);   // A3
+                }
+
+                // Benchmark processing
+                const iterations = 100;
+                const start = performance.now();
+                
+                for (let i = 0; i < iterations; i++) {
+                    testFramework.audioEngine.process_audio_buffer(testBuffer);
+                }
+                
+                const end = performance.now();
+                const totalTime = end - start;
+                const avgTime = totalTime / iterations;
+                const avgTimeMicros = avgTime * 1000;
+                
+                testFramework.updateMetric('processing-time', avgTimeMicros.toFixed(1));
+                
+                // Performance thresholds
+                const isGoodPerformance = avgTimeMicros < 100; // < 100μs per buffer
+                const performanceRating = isGoodPerformance ? 'excellent' : avgTimeMicros < 500 ? 'good' : 'needs optimization';
+                
+                testFramework.updateStatus(
+                    document.getElementById('performance-status'),
+                    isGoodPerformance ? 'success' : 'warning',
+                    `${isGoodPerformance ? '✅' : '⚠️'} Performance: ${performanceRating} (${avgTimeMicros.toFixed(1)}μs avg)`
+                );
+                
+                testFramework.log(`Processing benchmark: ${avgTimeMicros.toFixed(1)}μs average (${iterations} iterations)`, 'performance');
+                testFramework.updateProgress(100, 'All tests complete');
+                
+                return true;
+            } catch (error) {
+                testFramework.updateStatus(
+                    document.getElementById('performance-status'),
+                    'error',
+                    `❌ Performance analysis failed: ${error.message}`
+                );
+                testFramework.log(`Performance test error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Interactive Test Functions
+        function testAudioProcessing() {
+            if (!testFramework.audioEngine) {
+                testFramework.log('AudioEngine not initialized', 'error');
+                return;
+            }
+
+            try {
+                const bufferSize = 1024;
+                const testBuffer = new Float32Array(bufferSize);
+                const frequency = 440;
+                
+                // Generate sine wave
+                for (let i = 0; i < bufferSize; i++) {
+                    testBuffer[i] = Math.sin(2 * Math.PI * frequency * i / 44100);
+                }
+
+                testFramework.log(`Testing ${bufferSize} samples at ${frequency}Hz`);
+                
+                const start = performance.now();
+                const processedBuffer = testFramework.audioEngine.process_audio_buffer(testBuffer);
+                const duration = performance.now() - start;
+                
+                const inputPeak = Math.max(...testBuffer);
+                const outputPeak = Math.max(...processedBuffer);
+                
+                testFramework.log(`Audio processing: ${duration.toFixed(2)}ms`, 'success');
+                testFramework.log(`Input peak: ${inputPeak.toFixed(4)}, Output peak: ${outputPeak.toFixed(4)}`);
+                
+            } catch (error) {
+                testFramework.log(`Audio processing failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testEngineState() {
+            if (!testFramework.audioEngine) {
+                testFramework.log('AudioEngine not initialized', 'error');
+                return;
+            }
+
+            try {
+                testFramework.log('Testing AudioEngine state management...');
+                
+                // Test state changes
+                testFramework.audioEngine.set_enabled(false);
+                testFramework.log('Engine disabled', 'success');
+                
+                testFramework.audioEngine.set_enabled(true);
+                testFramework.log('Engine re-enabled', 'success');
+                
+                // Validate parameters
+                const sr = testFramework.audioEngine.get_sample_rate();
+                const bs = testFramework.audioEngine.get_buffer_size();
+                
+                testFramework.log(`Validated - Sample Rate: ${sr}, Buffer Size: ${bs}`, 'success');
+                
+            } catch (error) {
+                testFramework.log(`Engine state test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function stressTest() {
+            if (!testFramework.audioEngine) {
+                testFramework.log('AudioEngine not initialized', 'error');
+                return;
+            }
+
+            testFramework.log('Starting stress test...', 'warning');
+            
+            const bufferSize = 1024;
+            const iterations = 1000;
+            const testBuffer = new Float32Array(bufferSize);
+            
+            // Generate complex test signal
+            for (let i = 0; i < bufferSize; i++) {
+                testBuffer[i] = 
+                    Math.sin(2 * Math.PI * 440 * i / 44100) +
+                    0.5 * Math.sin(2 * Math.PI * 880 * i / 44100) +
+                    0.25 * Math.random();
+            }
+
+            const start = performance.now();
+            let errors = 0;
+            
+            for (let i = 0; i < iterations; i++) {
+                try {
+                    testFramework.audioEngine.process_audio_buffer(testBuffer);
+                } catch (error) {
+                    errors++;
+                }
+            }
+            
+            const duration = performance.now() - start;
+            const avgTime = duration / iterations;
+            
+            if (errors === 0) {
+                testFramework.log(`Stress test PASSED: ${iterations} iterations in ${duration.toFixed(1)}ms (${avgTime.toFixed(2)}ms avg)`, 'success');
+            } else {
+                testFramework.log(`Stress test PARTIAL: ${errors}/${iterations} errors`, 'warning');
+            }
+        }
+
+        async function runFullTestSuite() {
+            testFramework.log('Running full automated test suite...', 'info');
+            
+            const tests = [
+                { name: 'Audio Processing', fn: testAudioProcessing },
+                { name: 'Engine State', fn: testEngineState },
+                { name: 'Stress Test', fn: stressTest }
+            ];
+            
+            for (const test of tests) {
+                testFramework.log(`Running ${test.name} test...`);
+                await new Promise(resolve => {
+                    test.fn();
+                    setTimeout(resolve, 100); // Small delay between tests
+                });
+            }
+            
+            testFramework.log('Full test suite completed', 'success');
+        }
+
+        // Event Listeners
+        document.getElementById('test-audio-btn').addEventListener('click', testAudioProcessing);
+        document.getElementById('test-engine-btn').addEventListener('click', testEngineState);
+        document.getElementById('stress-test-btn').addEventListener('click', stressTest);
+        document.getElementById('auto-test-btn').addEventListener('click', runFullTestSuite);
+        document.getElementById('clear-log-btn').addEventListener('click', () => {
+            testFramework.output.innerHTML = '';
+        });
+
+        // Initialize Application
+        async function initialize() {
+            testFramework.log('Initializing pitch-toy WASM Foundation Test Suite...', 'info');
+            
+            const wasmSuccess = await initializeWASM();
+            if (!wasmSuccess) return;
+            
+            const engineSuccess = await initializeAudioEngine();
+            if (!engineSuccess) return;
+            
+            const browserSuccess = checkBrowserCompatibility();
+            if (!browserSuccess) return;
+            
+            await performanceAnalysis();
+            
+            // Auto-run tests if enabled
+            if (document.getElementById('auto-run-tests').checked) {
+                setTimeout(runFullTestSuite, 1000);
+            }
+            
+            testFramework.log('Initialization complete - Ready for testing!', 'success');
+        }
+
+        // Start initialization
+        initialize();
+    </script>
+</body>
+</html> 
