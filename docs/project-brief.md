@@ -138,7 +138,8 @@ This solution succeeds where others fail by treating pitch training as both skil
 
 ### Constraints
 
-- **Platform**: Modern web browsers only (Chrome, Firefox, Safari, Edge)
+- **Platform**: Modern web browsers with WebAssembly support only (Chrome 69+, Firefox 76+, Safari 14.1+, Edge 79+)
+- **WASM Requirement**: WebAssembly support is mandatory - no JavaScript fallbacks provided
 - **Timeline**: MVP-first approach with iterative visual development
 - **Resources**: Single developer project with occasional child user testing
 - **Audio Environment**: Assumes relatively quiet practice environment

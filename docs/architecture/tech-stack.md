@@ -45,17 +45,27 @@
 
 ## Browser Compatibility
 
-**Target Browsers:**
-- Chrome (latest)
-- Firefox (latest) 
-- Safari (latest)
-- Edge (latest)
+### Mandatory Requirements
+- **WebAssembly Support**: Required for audio processing core - no JavaScript fallbacks provided
+- **Web Audio API**: Required for real-time audio input and processing
+- **AudioWorklet Support**: Required for low-latency audio processing
+- **getUserMedia**: Required for microphone access
+- **Canvas API / WebGL**: Required for graphics rendering
 
-**Required Browser Features:**
-- Web Audio API
-- WebAssembly support
-- Canvas API / WebGL
-- getUserMedia API
+### Supported Browsers
+- **Chrome**: 69+ (AudioWorklet + WASM)
+- **Firefox**: 76+ (AudioWorklet + WASM) 
+- **Safari**: 14.1+ (AudioWorklet + WASM)
+- **Edge**: 79+ (AudioWorklet + WASM)
+
+### Unsupported Browsers
+- Internet Explorer (no WASM support)
+- Chrome < 69 (no AudioWorklet)
+- Firefox < 76 (no AudioWorklet)
+- Safari < 14.1 (no AudioWorklet)
+
+### Design Decision
+**No fallbacks provided for unsupported browsers.** Users are directed to upgrade to supported browsers with clear messaging about modern web audio requirements.
 
 ## Performance Constraints
 

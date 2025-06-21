@@ -175,10 +175,16 @@ class TestFramework {
 ### Browser Support Matrix
 | Browser | Version | Status | Notes |
 |---------|---------|--------|-------|
-| **Chrome** | 90+ | ✅ Full Support | Primary development target |
-| **Firefox** | 88+ | ✅ Full Support | Secondary target |
-| **Safari** | 14+ | ✅ Full Support | WebKit compatibility |
-| **Edge** | 90+ | ✅ Full Support | Chromium-based |
+| **Chrome** | 69+ | ✅ Full Support | AudioWorklet + WASM support |
+| **Firefox** | 76+ | ✅ Full Support | AudioWorklet + WASM support |
+| **Safari** | 14.1+ | ✅ Full Support | AudioWorklet + WASM support |
+| **Edge** | 79+ | ✅ Full Support | AudioWorklet + WASM support |
+| **Internet Explorer** | Any | ❌ Not Supported | No WASM support |
+| **Chrome** | <69 | ❌ Not Supported | No AudioWorklet support |
+| **Firefox** | <76 | ❌ Not Supported | No AudioWorklet support |
+| **Safari** | <14.1 | ❌ Not Supported | No AudioWorklet support |
+
+**Design Decision**: WebAssembly support is mandatory - no JavaScript fallbacks provided.
 
 ### Feature Detection
 ```javascript
