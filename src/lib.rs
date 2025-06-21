@@ -20,8 +20,38 @@ pub mod audio;
 // Re-export the audio engine for direct access from JavaScript
 pub use audio::engine::AudioEngine;
 
+// Re-export pitch detection components for JavaScript integration
+pub use audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector, PitchResult};
+
 // Initialize the WASM module
 #[wasm_bindgen(start)]
 pub fn main() {
     console_log!("WASM Audio Processing Module Initialized");
+}
+
+/// JavaScript-callable pitch detection function
+/// Returns frequency in Hz or -1 if no pitch detected
+#[wasm_bindgen]
+pub fn detect_pitch(audio_buffer: &[f32], sample_rate: f32, algorithm: PitchAlgorithm) -> f32 {
+    let config = PitchConfig::new(sample_rate);
+    let mut config = config;
+    config.set_algorithm(algorithm);
+    
+    let mut detector = PitchDetector::new(config);
+    
+    match detector.detect_pitch(audio_buffer) {
+        Some(result) if result.is_valid() => result.frequency(),
+        _ => -1.0, // Invalid or no pitch detected
+    }
+}
+
+/// JavaScript-callable pitch detection with full result information
+#[wasm_bindgen]
+pub fn detect_pitch_detailed(audio_buffer: &[f32], sample_rate: f32, algorithm: PitchAlgorithm) -> Option<PitchResult> {
+    let config = PitchConfig::new(sample_rate);
+    let mut config = config;
+    config.set_algorithm(algorithm);
+    
+    let mut detector = PitchDetector::new(config);
+    detector.detect_pitch(audio_buffer)
 }

@@ -89,6 +89,9 @@
             transform: none;
         }
         
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover:not(:disabled) { background: #0056b3; }
+        
         .btn-success { background: var(--success); }
         .btn-success:hover:not(:disabled) { background: #218838; }
         
@@ -218,6 +221,8 @@
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
             <button id="test-audio-btn" disabled>Test Audio Processing</button>
             <button id="test-engine-btn" disabled>Test Engine State</button>
+            <button id="test-pitch-btn" disabled class="btn-primary">Test Pitch Detection</button>
+            <button id="test-pitch-algorithms-btn" disabled class="btn-primary">Test Algorithm Comparison</button>
             <button id="stress-test-btn" disabled class="btn-danger">Stress Test</button>
             <button id="auto-test-btn" disabled class="btn-success">Run Full Test Suite</button>
             <button id="clear-log-btn">Clear Log</button>
@@ -233,7 +238,7 @@
     </div>
 
     <script type="module">
-        import init, { AudioEngine } from '../pkg/pitch_toy.js';
+        import init, { AudioEngine, PitchAlgorithm, detect_pitch, detect_pitch_detailed } from '../pkg/pitch_toy.js';
 
         // Test Framework
         class TestFramework {
@@ -362,7 +367,7 @@
                 testFramework.updateProgress(50, 'AudioEngine ready');
                 
                 // Enable interactive tests
-                ['test-audio-btn', 'test-engine-btn', 'stress-test-btn', 'auto-test-btn'].forEach(id => {
+                ['test-audio-btn', 'test-engine-btn', 'test-pitch-btn', 'test-pitch-algorithms-btn', 'stress-test-btn', 'auto-test-btn'].forEach(id => {
                     document.getElementById(id).disabled = false;
                 });
                 
@@ -589,12 +594,165 @@
             }
         }
 
+        // Pitch Detection Tests
+        function testPitchDetection() {
+            if (!testFramework.audioEngine) {
+                testFramework.log('AudioEngine not initialized', 'error');
+                return;
+            }
+
+            try {
+                testFramework.log('Testing pitch detection functionality...');
+                
+                // Test 1: Known frequency detection with sine wave
+                const testFrequencies = [440, 880, 220, 523.25]; // A4, A5, A3, C5
+                
+                for (const frequency of testFrequencies) {
+                    const bufferSize = 2048; // Larger buffer for better accuracy
+                    const testBuffer = new Float32Array(bufferSize);
+                    
+                    // Generate pure sine wave
+                    for (let i = 0; i < bufferSize; i++) {
+                        testBuffer[i] = 0.8 * Math.sin(2 * Math.PI * frequency * i / 44100);
+                    }
+                    
+                    // Test both direct function and AudioEngine method
+                    const start1 = performance.now();
+                    const detectedFreq1 = detect_pitch(testBuffer, 44100, PitchAlgorithm.YIN);
+                    const duration1 = performance.now() - start1;
+                    
+                    const start2 = performance.now();
+                    const detectedFreq2 = testFramework.audioEngine.detect_pitch_from_buffer(testBuffer);
+                    const duration2 = performance.now() - start2;
+                    
+                    // Calculate accuracy
+                    if (detectedFreq1 > 0) {
+                        const error1 = Math.abs(detectedFreq1 - frequency);
+                        const cents1 = 1200 * Math.log2(detectedFreq1 / frequency);
+                        testFramework.log(`Direct: ${frequency}Hz → ${detectedFreq1.toFixed(1)}Hz (±${error1.toFixed(1)}Hz, ${Math.abs(cents1).toFixed(1)} cents) [${duration1.toFixed(2)}ms]`, 
+                            Math.abs(cents1) <= 5 ? 'success' : 'warning');
+                    } else {
+                        testFramework.log(`Direct: ${frequency}Hz → No pitch detected`, 'warning');
+                    }
+                    
+                    if (detectedFreq2 > 0) {
+                        const error2 = Math.abs(detectedFreq2 - frequency);
+                        const cents2 = 1200 * Math.log2(detectedFreq2 / frequency);
+                        testFramework.log(`Engine: ${frequency}Hz → ${detectedFreq2.toFixed(1)}Hz (±${error2.toFixed(1)}Hz, ${Math.abs(cents2).toFixed(1)} cents) [${duration2.toFixed(2)}ms]`, 
+                            Math.abs(cents2) <= 5 ? 'success' : 'warning');
+                    } else {
+                        testFramework.log(`Engine: ${frequency}Hz → No pitch detected`, 'warning');
+                    }
+                }
+                
+                // Test 2: Empty buffer handling
+                const emptyBuffer = new Float32Array(0);
+                const emptyResult = detect_pitch(emptyBuffer, 44100, PitchAlgorithm.YIN);
+                testFramework.log(`Empty buffer test: ${emptyResult === -1 ? 'PASSED' : 'FAILED'} (returned ${emptyResult})`, 
+                    emptyResult === -1 ? 'success' : 'error');
+                
+                // Test 3: Noise-only buffer
+                const noiseBuffer = new Float32Array(1024);
+                for (let i = 0; i < noiseBuffer.length; i++) {
+                    noiseBuffer[i] = (Math.random() - 0.5) * 0.1; // Low-level noise
+                }
+                const noiseResult = detect_pitch(noiseBuffer, 44100, PitchAlgorithm.YIN);
+                testFramework.log(`Noise buffer test: ${noiseResult === -1 ? 'PASSED' : 'DETECTED'} (returned ${noiseResult})`, 
+                    noiseResult === -1 ? 'success' : 'info');
+                
+                // Test 4: Algorithm configuration
+                testFramework.audioEngine.set_pitch_algorithm(PitchAlgorithm.McLeod);
+                testFramework.audioEngine.set_pitch_frequency_range(100.0, 1500.0);
+                testFramework.log('Algorithm configuration updated: McLeod, 100-1500Hz range', 'success');
+                
+                testFramework.log('Pitch detection tests completed', 'success');
+                
+            } catch (error) {
+                testFramework.log(`Pitch detection test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testPitchAlgorithms() {
+            if (!testFramework.audioEngine) {
+                testFramework.log('AudioEngine not initialized', 'error');
+                return;
+            }
+
+            try {
+                testFramework.log('Comparing YIN vs McLeod algorithms...');
+                
+                const testFrequencies = [220, 440, 880]; // A3, A4, A5
+                const algorithms = [
+                    { name: 'YIN', algorithm: PitchAlgorithm.YIN },
+                    { name: 'McLeod', algorithm: PitchAlgorithm.McLeod }
+                ];
+                
+                for (const frequency of testFrequencies) {
+                    testFramework.log(`Testing ${frequency}Hz with both algorithms...`);
+                    
+                    const bufferSize = 2048;
+                    const testBuffer = new Float32Array(bufferSize);
+                    
+                    // Generate sine wave with slight harmonics
+                    for (let i = 0; i < bufferSize; i++) {
+                        testBuffer[i] = 0.8 * Math.sin(2 * Math.PI * frequency * i / 44100) +
+                                       0.2 * Math.sin(2 * Math.PI * frequency * 2 * i / 44100) +
+                                       0.1 * Math.sin(2 * Math.PI * frequency * 3 * i / 44100);
+                    }
+                    
+                    for (const alg of algorithms) {
+                        const start = performance.now();
+                        const detectedFreq = detect_pitch(testBuffer, 44100, alg.algorithm);
+                        const duration = performance.now() - start;
+                        
+                        if (detectedFreq > 0) {
+                            const error = Math.abs(detectedFreq - frequency);
+                            const cents = 1200 * Math.log2(detectedFreq / frequency);
+                            const accuracy = Math.abs(cents) <= 5 ? 'ACCURATE' : 'INACCURATE';
+                            
+                            testFramework.log(`${alg.name}: ${detectedFreq.toFixed(1)}Hz (±${error.toFixed(1)}Hz, ${Math.abs(cents).toFixed(1)} cents) ${accuracy} [${duration.toFixed(2)}ms]`, 
+                                Math.abs(cents) <= 5 ? 'success' : 'warning');
+                        } else {
+                            testFramework.log(`${alg.name}: No pitch detected [${duration.toFixed(2)}ms]`, 'warning');
+                        }
+                    }
+                }
+                
+                // Performance comparison
+                testFramework.log('Running performance comparison...');
+                const perfBuffer = new Float32Array(1024);
+                for (let i = 0; i < perfBuffer.length; i++) {
+                    perfBuffer[i] = 0.8 * Math.sin(2 * Math.PI * 440 * i / 44100);
+                }
+                
+                const iterations = 50;
+                
+                for (const alg of algorithms) {
+                    const start = performance.now();
+                    for (let i = 0; i < iterations; i++) {
+                        detect_pitch(perfBuffer, 44100, alg.algorithm);
+                    }
+                    const duration = performance.now() - start;
+                    const avgTime = duration / iterations;
+                    
+                    testFramework.log(`${alg.name} performance: ${avgTime.toFixed(2)}ms average (${iterations} iterations)`, 'performance');
+                }
+                
+                testFramework.log('Algorithm comparison completed', 'success');
+                
+            } catch (error) {
+                testFramework.log(`Algorithm comparison failed: ${error.message}`, 'error');
+            }
+        }
+
         async function runFullTestSuite() {
             testFramework.log('Running full automated test suite...', 'info');
             
             const tests = [
                 { name: 'Audio Processing', fn: testAudioProcessing },
                 { name: 'Engine State', fn: testEngineState },
+                { name: 'Pitch Detection', fn: testPitchDetection },
+                { name: 'Algorithm Comparison', fn: testPitchAlgorithms },
                 { name: 'Stress Test', fn: stressTest }
             ];
             
@@ -612,6 +770,8 @@
         // Event Listeners
         document.getElementById('test-audio-btn').addEventListener('click', testAudioProcessing);
         document.getElementById('test-engine-btn').addEventListener('click', testEngineState);
+        document.getElementById('test-pitch-btn').addEventListener('click', testPitchDetection);
+        document.getElementById('test-pitch-algorithms-btn').addEventListener('click', testPitchAlgorithms);
         document.getElementById('stress-test-btn').addEventListener('click', stressTest);
         document.getElementById('auto-test-btn').addEventListener('click', runFullTestSuite);
         document.getElementById('clear-log-btn').addEventListener('click', () => {
