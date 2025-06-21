@@ -230,7 +230,7 @@
         
         <div class="test-automation">
             <label>
-                <input type="checkbox" id="auto-run-tests"> Auto-run test suite on load
+                <input type="checkbox" id="auto-run-tests" checked> Auto-run test suite on load
             </label>
         </div>
         
@@ -776,6 +776,21 @@
         document.getElementById('auto-test-btn').addEventListener('click', runFullTestSuite);
         document.getElementById('clear-log-btn').addEventListener('click', () => {
             testFramework.output.innerHTML = '';
+        });
+
+        // Auto-run checkbox persistence
+        const autoRunCheckbox = document.getElementById('auto-run-tests');
+        
+        // Load saved preference (defaults to true if not set)
+        const savedAutoRun = localStorage.getItem('auto-run-tests');
+        if (savedAutoRun !== null) {
+            autoRunCheckbox.checked = savedAutoRun === 'true';
+        }
+        
+        // Save preference when changed
+        autoRunCheckbox.addEventListener('change', () => {
+            localStorage.setItem('auto-run-tests', autoRunCheckbox.checked);
+            testFramework.log(`Auto-run preference ${autoRunCheckbox.checked ? 'enabled' : 'disabled'}`, 'info');
         });
 
         // Initialize Application
