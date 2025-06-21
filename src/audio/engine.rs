@@ -4,8 +4,7 @@ use crate::audio::realtime_processor::{RealtimeProcessor, RealtimeProcessingResu
 use crate::audio::performance_monitor::{PerformanceMonitor, PerformanceMetrics, PipelineStatus};
 use crate::audio::signal_analyzer::{SignalAnalyzer, AudioAnalysis, BufferConfig, BufferConstraints};
 
-/// Enhanced audio engine for real-time pitch detection and processing
-/// Now includes comprehensive WASM interface for JavaScript integration
+/// Audio engine for real-time pitch detection and processing with WASM interface
 #[wasm_bindgen]
 pub struct AudioEngine {
     sample_rate: f32,
@@ -14,7 +13,7 @@ pub struct AudioEngine {
     pitch_detector: Option<PitchDetector>,
     pitch_config: PitchConfig,
     
-    // New enhanced processing components
+    // Core processing components
     realtime_processor: RealtimeProcessor,
     performance_monitor: PerformanceMonitor,
     signal_analyzer: SignalAnalyzer,
@@ -25,7 +24,7 @@ pub struct AudioEngine {
 
 #[wasm_bindgen]
 impl AudioEngine {
-    /// Create a new AudioEngine instance with enhanced processing capabilities
+    /// Create a new AudioEngine instance
     #[wasm_bindgen(constructor)]
     pub fn new(sample_rate: f32, buffer_size: usize) -> AudioEngine {
         let pitch_config = PitchConfig::new(sample_rate);
@@ -44,15 +43,14 @@ impl AudioEngine {
         }
     }
 
-    /// Process audio buffer - basic implementation for WASM pipeline validation
+    /// Process audio buffer with basic gain adjustment
     #[wasm_bindgen]
     pub fn process_audio_buffer(&mut self, input: &[f32]) -> Vec<f32> {
         if !self.enabled {
             return vec![0.0; input.len()];
         }
 
-        // Basic passthrough processing for pipeline validation
-        // Real pitch detection will be implemented in Story 1.2
+        // Apply basic passthrough processing
         let mut output = input.to_vec();
 
         // Apply basic gain for testing
@@ -141,11 +139,10 @@ impl AudioEngine {
     }
 
     // =====================================================================
-    // 🎯 NEW CLEAN WASM INTERFACE - REPLACES JAVASCRIPT LOGIC
+    // 🎯 WASM INTERFACE METHODS
     // =====================================================================
 
-    /// 🎯 PRIMARY: Real-time audio processing (replaces 80% of audio-worklet.js)
-    /// Single comprehensive call that replaces ~200 lines of JavaScript logic
+    /// Process audio buffer in real-time with pitch detection and performance monitoring
     #[wasm_bindgen]
     pub fn process_realtime_audio(&mut self, input: &[f32]) -> RealtimeProcessingResult {
         if !self.enabled || input.is_empty() {
@@ -153,7 +150,7 @@ impl AudioEngine {
             return RealtimeProcessingResult::default();
         }
         
-        // Process through our enhanced realtime processor
+        // Process through the realtime processor
         let result = self.realtime_processor.process_audio_buffer(input);
         
         // Record performance metrics for monitoring
@@ -168,15 +165,13 @@ impl AudioEngine {
         result
     }
 
-    /// 📊 PERFORMANCE: Comprehensive monitoring (replaces app.js performance section)
-    /// Returns all performance metrics in a single optimized call
+    /// Get comprehensive performance metrics for monitoring
     #[wasm_bindgen]
     pub fn get_performance_metrics(&self) -> PerformanceMetrics {
         self.performance_monitor.get_performance_metrics()
     }
 
-    /// 🔍 ANALYSIS: Audio signal analysis (replaces detectAudioSignal logic)
-    /// Enhanced signal analysis with adaptive thresholds and stability tracking
+    /// Analyze audio signal with adaptive thresholds and stability tracking
     #[wasm_bindgen]
     pub fn analyze_audio_signal(&mut self, buffer: &[f32]) -> AudioAnalysis {
         if !self.enabled || buffer.is_empty() {
@@ -186,15 +181,13 @@ impl AudioEngine {
         self.signal_analyzer.analyze_audio_signal(buffer)
     }
 
-    /// ✅ VALIDATION: Pipeline health checking (replaces connection validation)
-    /// Comprehensive pipeline status with health monitoring
+    /// Validate audio pipeline health and status
     #[wasm_bindgen]
     pub fn validate_audio_pipeline(&mut self) -> PipelineStatus {
         self.performance_monitor.validate_audio_pipeline()
     }
 
-    /// ⚙️ CONFIGURATION: Smart buffer management (replaces JS buffer logic)
-    /// Intelligent buffer size optimization based on constraints
+    /// Optimize buffer configuration based on latency and performance constraints
     #[wasm_bindgen]
     pub fn optimize_buffer_configuration(&mut self, constraints: BufferConstraints) -> BufferConfig {
         self.signal_analyzer.optimize_buffer_configuration(&constraints)

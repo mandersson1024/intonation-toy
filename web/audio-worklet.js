@@ -1,11 +1,8 @@
 /**
- * 🎯 STREAMLINED AudioWorklet Processor - Phase 4 Refactoring
+ * AudioWorklet processor for real-time audio collection
  * 
- * SIMPLIFIED APPROACH: AudioWorklet collects audio, main thread processes with WASM
- * 
- * ✅ AudioWorklet: Lightweight audio data collection and buffering
- * ✅ Main Thread: WASM loading and audio processing
- * ✅ Clean separation: Worklet for real-time audio, main thread for computation
+ * Collects audio data in real-time and forwards it to the main thread for processing.
+ * Provides low-latency audio buffering and basic performance monitoring.
  */
 
 class PitchDetectionProcessor extends AudioWorkletProcessor {
@@ -31,7 +28,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.handleMessage(event.data);
         };
         
-        console.log('🎵 Streamlined AudioWorklet Processor initialized (Audio Collection Mode)');
+        console.log('🎵 AudioWorklet Processor initialized for audio collection');
     }
 
     /**
