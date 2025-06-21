@@ -42,7 +42,7 @@ class ErrorManager {
             recoverable: false,
             userMessage: 'Your browser doesn\'t support required features',
             childMessage: 'Oops! This app needs a newer browser to work properly.',
-            recovery: this.activateDemoMode.bind(this)
+            recovery: this.showBrowserUpgradeGuidance.bind(this)
         });
 
         // Microphone permission errors
@@ -223,14 +223,9 @@ class ErrorManager {
                 'Your browser doesn\'t support the required features for this application.',
             actions: [
                 {
-                    text: 'Try Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'primary'
-                },
-                {
                     text: 'Upgrade Browser',
                     handler: () => this.showBrowserUpgradeGuidance(),
-                    style: 'secondary'
+                    style: 'primary'
                 }
             ]
         });
@@ -273,11 +268,7 @@ class ErrorManager {
                     handler: recoveryAction,
                     style: 'primary'
                 },
-                {
-                    text: 'Use Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'secondary'
-                },
+
                 {
                     text: 'Help Me Fix This',
                     handler: () => this.showTroubleshootingGuide('microphone'),
@@ -304,11 +295,6 @@ class ErrorManager {
                     text: 'Try Again',
                     handler: () => this.recoverAudioContext(errorInfo),
                     style: 'primary'
-                },
-                {
-                    text: 'Use Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'secondary'
                 }
             ]
         });
@@ -358,11 +344,6 @@ class ErrorManager {
                     text: 'Restart Audio System',
                     handler: () => this.recoverWasmRuntime(errorInfo),
                     style: 'primary'
-                },
-                {
-                    text: 'Use Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'secondary'
                 }
             ]
         });
@@ -413,11 +394,7 @@ class ErrorManager {
                     handler: () => this.recoverAudioDevice(errorInfo),
                     style: 'primary'
                 },
-                {
-                    text: 'Use Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'secondary'
-                },
+
                 {
                     text: 'Device Help',
                     handler: () => this.showTroubleshootingGuide('audio-device'),
@@ -444,11 +421,6 @@ class ErrorManager {
                     text: 'Refresh Page',
                     handler: () => window.location.reload(),
                     style: 'primary'
-                },
-                {
-                    text: 'Use Demo Mode',
-                    handler: () => this.activateDemoMode(errorInfo),
-                    style: 'secondary'
                 }
             ]
         });
@@ -524,16 +496,6 @@ class ErrorManager {
     }
 
     // Recovery methods will be implemented here
-    async activateDemoMode(errorInfo) {
-        console.log('🎮 Activating demo mode due to error:', errorInfo.category);
-        
-        if (window.DemoMode) {
-            const demoMode = new window.DemoMode();
-            await demoMode.activate(`Error recovery: ${errorInfo.category}`);
-        } else {
-            console.warn('Demo mode not available');
-        }
-    }
 
     async retryMicrophonePermission() {
         // Implementation for microphone retry

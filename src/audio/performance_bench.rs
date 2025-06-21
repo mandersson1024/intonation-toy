@@ -47,6 +47,12 @@ pub struct PerformanceBenchmark {
     baseline_results: HashMap<String, BenchmarkResult>,
 }
 
+impl Default for PerformanceBenchmark {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PerformanceBenchmark {
     pub fn new() -> Self {
         PerformanceBenchmark {

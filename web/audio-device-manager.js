@@ -310,9 +310,7 @@ class AudioDeviceManager {
                     <button id="manual-recovery-btn" class="btn-primary recovery-btn">
                         🔄 Try Manual Recovery
                     </button>
-                    <button id="use-demo-mode-btn" class="btn-secondary recovery-btn">
-                        🎮 Use Demo Mode
-                    </button>
+
                 </div>
                 
                 <div class="recovery-tips">
@@ -354,9 +352,7 @@ class AudioDeviceManager {
                 <button id="refresh-devices-btn" class="btn-info recovery-btn">
                     🔄 Refresh Device List
                 </button>
-                <button id="use-demo-mode-btn" class="btn-secondary recovery-btn">
-                    🎮 Use Demo Mode Instead
-                </button>
+                
             `;
             
             this.populateDeviceList();
@@ -453,16 +449,13 @@ class AudioDeviceManager {
      */
     bindRecoveryEvents() {
         const manualRecoveryBtn = document.getElementById('manual-recovery-btn');
-        const useDemoModeBtn = document.getElementById('use-demo-mode-btn');
+
         const refreshDevicesBtn = document.getElementById('refresh-devices-btn');
         
         manualRecoveryBtn?.addEventListener('click', () => {
             this.showManualRecoveryUI();
         });
-        
-        useDemoModeBtn?.addEventListener('click', () => {
-            this.activateDemoMode();
-        });
+
         
         refreshDevicesBtn?.addEventListener('click', () => {
             this.populateDeviceList();
@@ -489,20 +482,7 @@ class AudioDeviceManager {
         }
     }
 
-    /**
-     * Activate demo mode as fallback
-     */
-    async activateDemoMode() {
-        this.hideRecoveryUI();
-        
-        if (this.pitchApp.errorManager) {
-            const error = new Error('User chose demo mode after device disconnection');
-            error.name = 'UserSelectedDemoMode';
-            await this.pitchApp.errorManager.handleError(error, 'Audio Device Recovery');
-        } else if (this.pitchApp.demoMode) {
-            await this.pitchApp.demoMode.activate('Audio device recovery fallback');
-        }
-    }
+
 
     /**
      * Start periodic device checking as fallback

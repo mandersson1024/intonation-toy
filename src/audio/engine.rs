@@ -1,7 +1,11 @@
 use wasm_bindgen::prelude::*;
 use crate::audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector};
+use crate::audio::realtime_processor::{RealtimeProcessor, RealtimeProcessingResult};
+use crate::audio::performance_monitor::{PerformanceMonitor, PerformanceMetrics, PipelineStatus};
+use crate::audio::signal_analyzer::{SignalAnalyzer, AudioAnalysis, BufferConfig, BufferConstraints};
 
-/// Core audio engine for real-time pitch detection and processing
+/// Enhanced audio engine for real-time pitch detection and processing
+/// Now includes comprehensive WASM interface for JavaScript integration
 #[wasm_bindgen]
 pub struct AudioEngine {
     sample_rate: f32,
@@ -9,20 +13,34 @@ pub struct AudioEngine {
     enabled: bool,
     pitch_detector: Option<PitchDetector>,
     pitch_config: PitchConfig,
+    
+    // New enhanced processing components
+    realtime_processor: RealtimeProcessor,
+    performance_monitor: PerformanceMonitor,
+    signal_analyzer: SignalAnalyzer,
+    
+    // Target latency configuration
+    target_latency_ms: f32,
 }
 
 #[wasm_bindgen]
 impl AudioEngine {
-    /// Create a new AudioEngine instance
+    /// Create a new AudioEngine instance with enhanced processing capabilities
     #[wasm_bindgen(constructor)]
     pub fn new(sample_rate: f32, buffer_size: usize) -> AudioEngine {
         let pitch_config = PitchConfig::new(sample_rate);
+        let target_latency_ms = 50.0; // Default 50ms target latency
+        
         AudioEngine {
             sample_rate,
             buffer_size,
             enabled: true,
             pitch_detector: None,
             pitch_config,
+            realtime_processor: RealtimeProcessor::new(sample_rate, buffer_size),
+            performance_monitor: PerformanceMonitor::new(sample_rate, buffer_size, target_latency_ms),
+            signal_analyzer: SignalAnalyzer::new(sample_rate, buffer_size),
+            target_latency_ms,
         }
     }
 
@@ -120,6 +138,114 @@ impl AudioEngine {
         let _pitch = self.detect_pitch_from_buffer(input);
         
         output
+    }
+
+    // =====================================================================
+    // 🎯 NEW CLEAN WASM INTERFACE - REPLACES JAVASCRIPT LOGIC
+    // =====================================================================
+
+    /// 🎯 PRIMARY: Real-time audio processing (replaces 80% of audio-worklet.js)
+    /// Single comprehensive call that replaces ~200 lines of JavaScript logic
+    #[wasm_bindgen]
+    pub fn process_realtime_audio(&mut self, input: &[f32]) -> RealtimeProcessingResult {
+        if !self.enabled || input.is_empty() {
+            // Return default result for disabled/empty state
+            return RealtimeProcessingResult::default();
+        }
+        
+        // Process through our enhanced realtime processor
+        let result = self.realtime_processor.process_audio_buffer(input);
+        
+        // Record performance metrics for monitoring
+        self.performance_monitor.record_processing_cycle(
+            result.processing_time_ms(),
+            result.pitch_detected() || result.audio_processed()
+        );
+        
+        // Update WASM connection status (always true when called)
+        self.performance_monitor.set_wasm_connected(true);
+        
+        result
+    }
+
+    /// 📊 PERFORMANCE: Comprehensive monitoring (replaces app.js performance section)
+    /// Returns all performance metrics in a single optimized call
+    #[wasm_bindgen]
+    pub fn get_performance_metrics(&self) -> PerformanceMetrics {
+        self.performance_monitor.get_performance_metrics()
+    }
+
+    /// 🔍 ANALYSIS: Audio signal analysis (replaces detectAudioSignal logic)
+    /// Enhanced signal analysis with adaptive thresholds and stability tracking
+    #[wasm_bindgen]
+    pub fn analyze_audio_signal(&mut self, buffer: &[f32]) -> AudioAnalysis {
+        if !self.enabled || buffer.is_empty() {
+            return AudioAnalysis::default();
+        }
+        
+        self.signal_analyzer.analyze_audio_signal(buffer)
+    }
+
+    /// ✅ VALIDATION: Pipeline health checking (replaces connection validation)
+    /// Comprehensive pipeline status with health monitoring
+    #[wasm_bindgen]
+    pub fn validate_audio_pipeline(&mut self) -> PipelineStatus {
+        self.performance_monitor.validate_audio_pipeline()
+    }
+
+    /// ⚙️ CONFIGURATION: Smart buffer management (replaces JS buffer logic)
+    /// Intelligent buffer size optimization based on constraints
+    #[wasm_bindgen]
+    pub fn optimize_buffer_configuration(&mut self, constraints: BufferConstraints) -> BufferConfig {
+        self.signal_analyzer.optimize_buffer_configuration(&constraints)
+    }
+
+    /// 🔧 CONFIGURATION: Update latency components (replaces JS latency tracking)
+    /// Updates latency information from browser audio context
+    #[wasm_bindgen]
+    pub fn update_latency_components(&mut self, audio_context_latency: f32, output_latency: f32) {
+        self.performance_monitor.update_latency_components(audio_context_latency, output_latency);
+    }
+
+    /// 📈 MONITORING: Check if performance reporting is due
+    /// Replaces JavaScript performance reporting intervals
+    #[wasm_bindgen]
+    pub fn should_report_performance(&mut self) -> bool {
+        self.performance_monitor.should_report_performance()
+    }
+
+    /// 🎛️ CONFIGURATION: Set target latency for performance monitoring
+    #[wasm_bindgen]
+    pub fn set_target_latency(&mut self, target_latency_ms: f32) {
+        self.target_latency_ms = target_latency_ms;
+        // Update performance monitor with new target
+        self.performance_monitor = PerformanceMonitor::new(self.sample_rate, self.buffer_size, target_latency_ms);
+    }
+
+    /// 🔄 RESET: Reset performance counters and analysis state
+    /// Useful for fresh measurements and testing
+    #[wasm_bindgen]
+    pub fn reset_performance_counters(&mut self) {
+        self.performance_monitor.reset_counters();
+        self.signal_analyzer.reset_analysis();
+    }
+
+    /// 📊 DEBUG: Get comprehensive processing statistics
+    /// Returns detailed stats for debugging and optimization
+    #[wasm_bindgen]
+    pub fn get_debug_statistics(&self) -> String {
+        let (proc_count, avg_time, min_time, history_len) = self.performance_monitor.get_debug_stats();
+        let noise_floor = self.signal_analyzer.get_noise_floor();
+        let (window_size, sample_rate, analysis_len) = self.signal_analyzer.get_analysis_info();
+        
+        format!(
+            "ProcessingStats(count={}, avg_time={:.3}ms, min_time={:.3}ms, history={}) | \
+             SignalAnalysis(noise_floor={:.6}, window={}, sr={}, history={}) | \
+             Config(target_latency={:.1}ms, buffer_size={})",
+            proc_count, avg_time, min_time, history_len,
+            noise_floor, window_size, sample_rate, analysis_len,
+            self.target_latency_ms, self.buffer_size
+        )
     }
 }
 

@@ -21,11 +21,14 @@ class PitchVisualizerApp {
         // Story 2.3: Enhanced error handling and browser compatibility
         this.browserCapabilityDetector = null;
         this.errorManager = null;
-        this.demoMode = null;
+
         this.compatibilityReport = null;
         this.audioDeviceManager = null;
         this.wasmConnectionLogged = false;
         this.wasmConnectionFailureLogged = false;
+        
+        this.wasmAvailable = false;
+        this.wasmAudioEngine = null;
         
         this.init();
     }
@@ -39,7 +42,7 @@ class PitchVisualizerApp {
         // Check browser compatibility first
         const compatibilityCheck = await this.checkBrowserCompatibility();
         if (!compatibilityCheck.isSupported) {
-            // Browser not supported - activate demo mode or show upgrade guidance
+            // Browser not supported - show upgrade guidance
             await this.handleUnsupportedBrowser(compatibilityCheck);
             return;
         }
@@ -333,9 +336,7 @@ class PitchVisualizerApp {
                     <button id="retry-permission-btn" class="btn-primary permission-btn">
                         🔄 Try Again
                     </button>
-                    <button id="demo-mode-btn" class="btn-secondary permission-btn">
-                        🎮 Demo Mode
-                    </button>
+
                 </div>
             </div>
         `;
@@ -346,10 +347,7 @@ class PitchVisualizerApp {
         document.getElementById('retry-permission-btn')?.addEventListener('click', () => {
             this.requestMicrophonePermission();
         });
-        
-        document.getElementById('demo-mode-btn')?.addEventListener('click', () => {
-            this.startDemoMode();
-        });
+
     }
 
     /**
@@ -715,17 +713,6 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Start demo mode with synthetic audio (fallback)
-     */
-    startDemoMode() {
-        this.hidePermissionModal();
-        this.updatePermissionStatus('🎮 Demo mode: Using synthetic audio for testing (no microphone needed)');
-        
-        // TODO: Implement demo mode with synthetic audio signals
-        console.log('Demo mode activated');
-    }
-
-    /**
      * Handle permission state changes
      */
     handlePermissionChange(newState) {
@@ -798,12 +785,6 @@ class PitchVisualizerApp {
             this.audioDeviceManager = null;
         }
         
-        // Cleanup demo mode
-        if (this.demoMode) {
-            this.demoMode.deactivate();
-            this.demoMode = null;
-        }
-        
         // Stop AudioWorklet processing
         if (this.audioWorkletNode) {
             this.audioWorkletNode.port.postMessage({ type: 'stop' });
@@ -825,110 +806,156 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Set up enhanced message handlers for AudioWorklet communication
-     * Enhanced for Story 2.2 with improved error handling and latency monitoring
+     * Setup AudioWorklet message handlers for comprehensive processing coordination
      */
     setupAudioWorkletHandlers() {
         this.audioWorkletNode.port.onmessage = (event) => {
-            const { type, ...data } = event.data;
+            const { type, data, ...rest } = event.data;
             
             switch (type) {
                 case 'initialized':
-                    console.log('AudioWorklet initialized:', data);
-                    this.updatePermissionStatus('🎵 Real-time audio processing active!');
-                    // Update latency metrics with worklet configuration
-                    if (data.sampleRate && data.bufferSize) {
-                        this.updateWorkletLatencyMetrics(data.sampleRate, data.bufferSize);
-                    }
+                    console.log('🎯 Streamlined AudioWorklet initialized:', rest);
+                    this.updateWorkletLatencyMetrics(rest.sampleRate, rest.bufferSize);
                     break;
                     
-                case 'connectionConfirmed':
-                    // Handle connection confirmation with enhanced validation
-                    this.handleConnectionConfirmation(data);
-                    break;
-                    
-                case 'connectionError':
-                    // Enhanced error handling for connection issues
-                    console.error('Connection error:', data.error);
-                    this.updatePermissionStatus('❌ Pipeline connection error: ' + data.error, 'error');
-                    this.handleWorkletConnectionError(data.error);
-                    break;
-                    
-                case 'performance':
-                    // Enhanced performance metrics with latency tracking
-                    this.updatePerformanceMetrics(data);
-                    break;
-                    
-                case 'latencyReport':
-                    // New for Story 2.2: Real-time latency reporting
-                    this.updateProcessingLatency(data);
-                    break;
-                    
-                case 'wasmProcessingResult':
-                    // AC5: Handle WASM processing results from live audio
-                    this.handleWasmProcessingResult(data.result);
-                    break;
-                    
-                case 'wasmProcessingError':
-                    // AC5: Handle WASM processing errors
-                    this.handleWasmProcessingError(data.error, data.context);
+                case 'audioBuffer':
+                    // Process audio data with WASM in main thread
+                    this.processAudioWithWASM(event.data);
                     break;
                     
                 case 'started':
-                    console.log('AudioWorklet processing started');
-                    this.updatePermissionStatus('🎤 Live audio processing active', 'success');
+                    console.log('🎤 Audio processing started');
                     break;
                     
                 case 'stopped':
-                    console.log('AudioWorklet processing stopped');
-                    this.updatePermissionStatus('⏹️ Audio processing stopped');
+                    console.log('⏹️ Audio processing stopped');
+                    break;
+                    
+                case 'performance':
+                    this.updatePerformanceMetrics(rest);
                     break;
                     
                 case 'error':
-                    console.error('AudioWorklet error:', data);
-                    const errorMsg = data.error || data.message || 'Unknown error';
-                    this.updatePermissionStatus('❌ Audio processing error: ' + errorMsg, 'error');
-                    this.handleWorkletError(errorMsg);
+                    this.handleWorkletError(rest.error);
                     break;
                     
                 default:
-                    console.log('AudioWorklet message:', event.data);
+                    console.log('Unknown worklet message:', type, rest);
             }
         };
     }
 
     /**
-     * Initialize AudioWorklet with WASM engine
-     * Enhanced for Story 2.2 with improved connection validation
+     * Process audio data with WASM in main thread
+     */
+    processAudioWithWASM(audioData) {
+        if (!this.wasmAvailable || !this.wasmAudioEngine) {
+            // Fallback: basic processing without WASM
+            this.handleProcessingResult({
+                audioProcessed: false,
+                pitchDetected: false,
+                detectedFrequency: 0,
+                wasmAvailable: false,
+                processingTimeMs: 0
+            });
+            return;
+        }
+
+        try {
+            const startTime = performance.now();
+            
+            // Process audio with WASM
+            const result = this.wasmAudioEngine.process_realtime_audio(audioData.audioData);
+            
+            const processingTime = performance.now() - startTime;
+            
+            // Convert WASM result to expected format
+            const processedResult = {
+                audioProcessed: result.audio_processed,
+                pitchDetected: result.pitch_detected,
+                detectedFrequency: result.detected_frequency,
+                pitchConfidence: result.pitch_confidence,
+                processingTimeMs: processingTime,
+                bufferLatencyMs: result.buffer_latency_ms,
+                wasmAvailable: true,
+                bufferSize: audioData.bufferSize
+            };
+            
+            // Handle the processed result
+            this.handleProcessingResult(processedResult);
+            
+        } catch (error) {
+            console.error('WASM processing error:', error);
+            this.handleWasmProcessingError(error, 'main_thread_processing');
+        }
+    }
+
+    /**
+     * Enhanced AudioWorklet setup with comprehensive handlers for Story 2.2
+     * AFTER:  Direct WASM engine passing to AudioWorklet
      */
     initializeWorkletWithWASM() {
-        // Wait for existing test framework to initialize WASM
-        const checkForWASM = () => {
-            if (window.testFramework?.audioEngine) {
-                console.log('🎵 Connecting WASM AudioEngine to live microphone input...');
-                
-                // Make WASM engine globally available to AudioWorklet
-                // We can't pass the WASM object directly, so we'll use a different approach
-                this.audioWorkletNode.port.postMessage({
-                    type: 'init',
-                    audioEngineAvailable: true,
-                    sampleRate: this.audioContext.sampleRate,
-                    targetLatency: 0.05 // 50ms target for AC6
-                });
-                
-                // Start processing with enhanced monitoring
+        console.log('🎯 Initializing AudioWorklet with main-thread WASM processing...');
+        
+        // Load WASM in main thread
+        this.loadWASMEngine().then(() => {
+            // Initialize worklet for audio collection
+            this.audioWorkletNode.port.postMessage({
+                type: 'init',
+                sampleRate: this.audioContext.sampleRate,
+                targetLatency: 0.05
+            });
+            
+            // Start processing after a short delay
+            setTimeout(() => {
                 this.audioWorkletNode.port.postMessage({
                     type: 'start'
                 });
-                
-                console.log('✅ WASM AudioEngine connected for real-time processing');
-            } else {
-                // Retry after 100ms
-                setTimeout(checkForWASM, 100);
+                console.log('✅ AudioWorklet initialization started (Main-thread WASM mode)');
+            }, 100);
+        });
+    }
+
+    /**
+     * Load WASM engine in main thread
+     */
+    async loadWASMEngine() {
+        try {
+            console.log('🦀 Loading WASM engine in main thread...');
+            
+            // Import WASM module - check for production vs development paths
+            let wasmModule;
+            let wasmPath;
+            
+            try {
+                // Try production path first (files in root)
+                wasmModule = await import('./pitch_toy.js');
+                wasmPath = './pitch_toy_bg.wasm';
+            } catch {
+                // Fallback to development path (files in pkg/)
+                wasmModule = await import('/pkg/pitch_toy.js');
+                wasmPath = '/pkg/pitch_toy_bg.wasm';
             }
-        };
-        
-        checkForWASM();
+            
+            await wasmModule.default(wasmPath);
+            
+            // Create AudioEngine instance
+            this.wasmAudioEngine = new wasmModule.AudioEngine(
+                this.audioContext.sampleRate, 
+                1024 // buffer size
+            );
+            
+            // Configure engine
+            this.wasmAudioEngine.set_target_latency(0.05);
+            this.wasmAudioEngine.update_latency_components(0, 0);
+            
+            console.log('✅ WASM AudioEngine loaded in main thread');
+            this.wasmAvailable = true;
+            
+        } catch (error) {
+            console.error('Failed to load WASM engine:', error);
+            this.wasmAvailable = false;
+        }
     }
 
     /**
@@ -1122,14 +1149,31 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Handle WASM processing results from live audio (AC5)
+     * 🎯 UNIFIED Processing Result Handler - Phase 4 Refactoring
+     * 
+     * BEFORE: Separate handlers for different result types
+     * AFTER:  Single comprehensive handler for all processing results
      */
-    handleWasmProcessingResult(result) {
-        // Update WASM processing metrics display
-        this.updateWasmProcessingDisplay(result);
+    handleProcessingResult(result) {
+        if (!result) return;
         
-        // Remove frequent WASM processing logs to keep console clean for device recovery debugging
-        // Processing info is shown in the UI connection status instead
+        // 📊 Update comprehensive processing display
+        this.updateProcessingDisplay(result);
+        
+        // 📈 Handle performance metrics if available
+        if (result.performanceMetrics) {
+            this.updatePerformanceMetrics(result.performanceMetrics);
+        }
+        
+        // 🎯 Handle pitch detection results
+        if (result.pitchDetected) {
+            this.handlePitchDetection(result.detectedFrequency, result.pitchConfidence);
+        }
+        
+        // ⚡ Update latency metrics
+        if (result.processingTimeMs || result.bufferLatencyMs) {
+            this.updateLatencyMetrics(result);
+        }
     }
 
     /**
@@ -1144,38 +1188,47 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Update WASM processing display for AC5 testing (throttled to prevent flickering)
+     * 🎯 UNIFIED Processing Display - Phase 4 Refactoring
+     * 
+     * BEFORE: Separate WASM processing display
+     * AFTER:  Comprehensive processing display with all metrics
      */
-    updateWasmProcessingDisplay(result) {
-        
-        // Find or create WASM processing display
-        let wasmDisplay = document.getElementById('wasm-processing-status');
-        if (!wasmDisplay) {
-            wasmDisplay = document.createElement('div');
-            wasmDisplay.id = 'wasm-processing-status';
-            wasmDisplay.className = 'status info';
-            wasmDisplay.style.marginTop = '10px';
-            wasmDisplay.style.minHeight = '120px'; // Fixed height to prevent jumping
+    updateProcessingDisplay(result) {
+        // Throttle updates to prevent UI flickering
+        if (!this.lastDisplayUpdate || Date.now() - this.lastDisplayUpdate > 100) {
+            this.lastDisplayUpdate = Date.now();
             
-            // Add to main interface
-            const statusContainer = this.statusDisplay.parentNode;
-            if (statusContainer) {
-                statusContainer.appendChild(wasmDisplay);
+            // Find or create processing display
+            let processingDisplay = document.getElementById('processing-status');
+            if (!processingDisplay) {
+                processingDisplay = document.createElement('div');
+                processingDisplay.id = 'processing-status';
+                processingDisplay.className = 'status info';
+                processingDisplay.style.marginTop = '10px';
+                processingDisplay.style.minHeight = '120px';
+                
+                const statusContainer = this.statusDisplay.parentNode;
+                if (statusContainer) {
+                    statusContainer.appendChild(processingDisplay);
+                }
             }
+            
+            // Show comprehensive real-time processing results
+            const timestamp = new Date().toLocaleTimeString();
+            const wasmStatus = this.wasmAvailable ? '✅ Active' : '❌ Unavailable';
+            
+            processingDisplay.innerHTML = `
+                <strong>🎯 Real-time Processing (Phase 4)</strong><br>
+                ⏰ <strong>Last Update:</strong> ${timestamp}<br>
+                🔧 <strong>WASM Engine:</strong> ${wasmStatus}<br>
+                📊 <strong>Audio Processed:</strong> ${result.audioProcessed ? 'Yes' : 'No'}<br>
+                🎯 <strong>Pitch Detection:</strong> ${result.pitchDetected ? 
+                    `${result.detectedFrequency.toFixed(1)}Hz (${(result.pitchConfidence * 100).toFixed(1)}%)` : 'No pitch'}<br>
+                ⚡ <strong>Processing Time:</strong> ${result.processingTimeMs?.toFixed(2) || 'N/A'}ms<br>
+                📡 <strong>Buffer Latency:</strong> ${result.bufferLatencyMs?.toFixed(1) || 'N/A'}ms<br>
+                📏 <strong>Buffer Size:</strong> ${result.bufferSize || 'N/A'} samples
+            `;
         }
-        
-        // Show real-time WASM processing results with stable layout
-        const timestamp = new Date().toLocaleTimeString();
-        wasmDisplay.innerHTML = `
-            <strong>🔄 Live WASM Processing (AC5)</strong><br>
-            ⏰ <strong>Last Update:</strong> ${timestamp}<br>
-            📊 <strong>Audio Processed:</strong> ${result.audioProcessed ? 'Yes' : 'No'}<br>
-            🎯 <strong>Pitch Detected:</strong> ${result.pitchDetected ? 
-                `${result.detectedFrequency.toFixed(1)}Hz` : 'No pitch'}<br>
-            ⚡ <strong>WASM Latency:</strong> ${result.wasmProcessingTime?.toFixed(2) || 'N/A'}ms<br>
-            🎤 <strong>Audio Levels:</strong> Peak=${(result.audioLevels?.peak * 100)?.toFixed(1) || 'N/A'}%, 
-                RMS=${(result.audioLevels?.rms * 100)?.toFixed(1) || 'N/A'}%
-        `;
     }
 
     /**
@@ -1210,6 +1263,43 @@ class PitchVisualizerApp {
                 errorDisplay.parentNode.removeChild(errorDisplay);
             }
         }, 10000);
+    }
+
+    /**
+     * 🎯 Handle pitch detection results
+     */
+    handlePitchDetection(frequency, confidence) {
+        // Update pitch display if it exists
+        const pitchDisplay = document.getElementById('pitch-display');
+        if (pitchDisplay) {
+            pitchDisplay.textContent = `${frequency.toFixed(1)}Hz (${(confidence * 100).toFixed(1)}%)`;
+        }
+        
+        // Log significant pitch detections (throttled)
+        if (!this.lastPitchLog || Date.now() - this.lastPitchLog > 1000) {
+            console.log(`🎯 Pitch detected: ${frequency.toFixed(1)}Hz`);
+            this.lastPitchLog = Date.now();
+        }
+    }
+
+    /**
+     * ⚡ Update latency metrics from processing results
+     */
+    updateLatencyMetrics(result) {
+        if (result.processingTimeMs !== undefined) {
+            this.lastProcessingLatency = result.processingTimeMs;
+        }
+        
+        if (result.bufferLatencyMs !== undefined) {
+            this.lastBufferLatency = result.bufferLatencyMs;
+        }
+        
+        // Update latency display if it exists
+        const latencyDisplay = document.getElementById('latency-display');
+        if (latencyDisplay) {
+            const totalLatency = (this.lastProcessingLatency || 0) + (this.lastBufferLatency || 0);
+            latencyDisplay.textContent = `${totalLatency.toFixed(1)}ms`;
+        }
     }
 
     /**
@@ -1252,13 +1342,7 @@ class PitchVisualizerApp {
                 console.warn('⚠️ ErrorManager not found');
             }
             
-            // Initialize demo mode (but don't activate yet)
-            if (window.DemoMode) {
-                this.demoMode = new window.DemoMode();
-                console.log('✅ Demo mode initialized');
-            } else {
-                console.warn('⚠️ DemoMode not found');
-            }
+            
             
             // Initialize audio device manager
             console.log('🔍 Checking for AudioDeviceManager...', !!window.AudioDeviceManager);
@@ -1351,12 +1435,7 @@ class PitchVisualizerApp {
                 compatibilityReport: compatibilityReport
             });
         } else {
-            // Fallback to direct demo mode activation
-            if (this.demoMode) {
-                await this.demoMode.activate('Unsupported browser');
-            } else {
-                this.showBasicUnsupportedMessage(compatibilityReport);
-            }
+            this.showBasicUnsupportedMessage(compatibilityReport);
         }
     }
     

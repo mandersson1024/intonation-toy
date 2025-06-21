@@ -343,7 +343,7 @@ impl StressTester {
         engines[1].set_pitch_algorithm(PitchAlgorithm::McLeod);
         engines[2].set_pitch_algorithm(PitchAlgorithm::YIN);
         
-        let test_buffers = vec![
+        let test_buffers = [
             self.generate_test_signal_with_frequency(220.0), // A3
             self.generate_test_signal_with_frequency(440.0), // A4
             self.generate_test_signal_with_frequency(880.0), // A5
@@ -465,7 +465,7 @@ impl StressTester {
         }
         
         // Ensure score is between 0-100
-        self.result.stability_score = score.max(0.0).min(100.0);
+        self.result.stability_score = score.clamp(0.0, 100.0);
     }
 
     /// Generate test signal with configured frequency

@@ -142,15 +142,11 @@ impl PitchDetector {
         }
 
         if let Some(ref mut detector) = self.yin_detector {
-            if let Some(pitch) = detector.get_pitch(audio_buffer, self.config.sample_rate as usize, 5.0, 0.2) {
-                Some(PitchResult {
-                    frequency: pitch.frequency,
-                    clarity: pitch.clarity,
-                    is_valid: false, // Will be set in detect_pitch
-                })
-            } else {
-                None
-            }
+            detector.get_pitch(audio_buffer, self.config.sample_rate as usize, 5.0, 0.2).map(|pitch| PitchResult {
+                frequency: pitch.frequency,
+                clarity: pitch.clarity,
+                is_valid: false, // Will be set in detect_pitch
+            })
         } else {
             None
         }
@@ -163,15 +159,11 @@ impl PitchDetector {
         }
 
         if let Some(ref mut detector) = self.mcleod_detector {
-            if let Some(pitch) = detector.get_pitch(audio_buffer, self.config.sample_rate as usize, 5.0, 0.7) {
-                Some(PitchResult {
-                    frequency: pitch.frequency,
-                    clarity: pitch.clarity,
-                    is_valid: false, // Will be set in detect_pitch
-                })
-            } else {
-                None
-            }
+            detector.get_pitch(audio_buffer, self.config.sample_rate as usize, 5.0, 0.7).map(|pitch| PitchResult {
+                frequency: pitch.frequency,
+                clarity: pitch.clarity,
+                is_valid: false, // Will be set in detect_pitch
+            })
         } else {
             None
         }

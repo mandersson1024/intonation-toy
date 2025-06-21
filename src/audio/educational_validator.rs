@@ -79,6 +79,12 @@ pub struct EducationalValidator {
     results: Vec<AccuracyResult>,
 }
 
+impl Default for EducationalValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EducationalValidator {
     pub fn new() -> Self {
         EducationalValidator {
@@ -284,7 +290,7 @@ impl EducationalValidator {
         
         for &(instrument, frequency) in &instrument_tests {
             // Skip frequencies outside our detection range
-            if frequency < 80.0 || frequency > 2000.0 {
+            if !(80.0..=2000.0).contains(&frequency) {
                 continue;
             }
             
