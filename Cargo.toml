@@ -84,25 +84,8 @@ panic = "abort"
 incremental = false
 codegen-units = 1
 
-[profile.release-small]
-# Demo profile - optimize for size
-inherits = "release"
-opt-level = "s"
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-strip = "symbols"
 
-[profile.test]
-# Testing profile - balanced optimization with debugging
-opt-level = 1
-debug = true
-debug-assertions = true
-overflow-checks = true
-lto = "thin"
-incremental = true
-
-# 🎯 Feature Flags for Different Build Targets
+# Feature Flags for Different Build Targets
 
 [features]
 default = ["basic-features"]
