@@ -387,7 +387,7 @@ mod tests {
         assert_eq!(pitch, -1.0); // Should return -1.0 when disabled
     }
 
-    // **NEW COMPREHENSIVE TESTS FOR STORY 1.3 TASK 1**
+    // Comprehensive audio engine validation tests
 
     #[test]
     fn test_engine_configuration_edge_cases() {

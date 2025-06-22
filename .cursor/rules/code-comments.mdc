@@ -7,6 +7,7 @@ alwaysApply: true
 ### Comments and Documentation
 - **NO STORY REFERENCES**: Never include references to epics, stories, acceptance criteria, or implementation updates in code comments
 - **NO PROJECT MANAGEMENT**: Avoid mentioning sprints, tasks, or project management concepts in code
+- **NO REFERENCING TO PREVIOUS IMPLEMENTATIONS**: Avoid mentioning what was before, but no longer exists in the codebase
 - **TECHNICAL FOCUS**: Comments should explain WHY code exists, not WHEN it was implemented or WHAT story it satisfies
 - **CLEAN COMMENTS**: Focus on technical purpose, algorithm explanation, and usage guidance
 
@@ -24,6 +25,8 @@ alwaysApply: true
 // This satisfies AC2: Audio engine controls functional
 // Updated per Sprint 4 requirements
 // This is a new and enhanced implementation
+// Now uses feature X
+// Previously used feature Y
 ```
 
 #### ✅ GOOD (Technical Purpose):
@@ -31,4 +34,5 @@ alwaysApply: true
 // Controls audio engine lifecycle and provides real-time status feedback
 // Handles start/stop operations with proper error recovery
 // Integrates with AudioEngineService for low-latency processing
+// Uses feature X
 ```

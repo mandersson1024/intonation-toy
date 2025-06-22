@@ -24,8 +24,7 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 ### Prerequisites
 
 - Rust 1.70+ with Cargo
-- wasm-pack for WebAssembly compilation
-- Ruby (for development server)
+- trunk for Yew development (installs automatically)
 - Modern web browser with WebAssembly and Web Audio API support
 
 ### Building
@@ -35,10 +34,7 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 git clone https://github.com/your-username/pitch-toy.git
 cd pitch-toy
 
-# Build WASM package
-wasm-pack build --target web --out-dir pkg
-
-# Start development server
+# Start development (builds automatically with hot reload)
 ./dev.sh
 ```
 
@@ -48,10 +44,7 @@ wasm-pack build --target web --out-dir pkg
 # Run Rust unit tests
 cargo test
 
-# Build WASM package
-wasm-pack build --target web --out-dir pkg
-
-# Start development server (builds + serves)
+# Start development server (builds + serves with hot reload)
 ./dev.sh
 
 # Stop development server
@@ -60,8 +53,7 @@ wasm-pack build --target web --out-dir pkg
 # Format code
 cargo fmt
 
-# Run with enhanced testing
-# Visit http://localhost:8080/web/ for comprehensive test suite
+# Visit http://localhost:8080/ for the debug interface
 ```
 
 ## Project Structure
@@ -121,34 +113,20 @@ MIT License - see LICENSE file for details.
 
 ### Prerequisites
 - Rust (latest stable)
-- wasm-pack
-- Ruby (for development server)
+- trunk (installs automatically)
 
 ### Quick Start
 
 **🚀 Standard Development Workflow (Always port 8080)**
 ```bash
-# Start development (builds + serves)
+# Start development (builds + serves with hot reload)
 ./dev.sh
 
 # Stop development server
 ./stop.sh
 ```
 
-**Development URL:** http://localhost:8080/web/
-
-**Other Options:**
-```bash
-# Manual build + serve
-wasm-pack build --target web --out-dir pkg
-ruby serve.rb  # defaults to port 8080
-
-# Just build (no server)
-wasm-pack build --target web --out-dir pkg
-
-# Serve only (assumes already built)
-ruby serve.rb
-```
+**Development URL:** http://localhost:8080/
 
 ### Testing
 
@@ -162,7 +140,7 @@ cargo test
 
 ### Demo
 
-Visit http://localhost:8080/web/ to see:
+Visit http://localhost:8080/ to see:
 - **EP-001 Complete**: WASM audio processing foundation (0.08ms processing latency)
 - **Story 2.1 Complete**: Microphone permission flow with child-friendly UI
 - AudioEngine performance benchmarking (625x faster than requirements)

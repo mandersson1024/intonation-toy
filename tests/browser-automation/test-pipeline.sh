@@ -32,28 +32,38 @@ command_exists() {
 find_browsers() {
     local browsers=()
     
-    # Chrome/Chromium
+    # Chrome/Chromium (check macOS app bundle)
     if command_exists google-chrome; then
         browsers+=("google-chrome")
     elif command_exists chromium-browser; then
         browsers+=("chromium-browser")
     elif command_exists chromium; then
         browsers+=("chromium")
+    elif [[ "$OSTYPE" == "darwin"* ]] && [[ -d "/Applications/Google Chrome.app" ]]; then
+        browsers+=("chrome-app")
     fi
     
-    # Firefox
+    # Firefox (check macOS app bundle)
     if command_exists firefox; then
         browsers+=("firefox")
+    elif [[ "$OSTYPE" == "darwin"* ]] && [[ -d "/Applications/Firefox.app" ]]; then
+        browsers+=("firefox-app")
     fi
     
-    # Safari (macOS only)
-    if [[ "$OSTYPE" == "darwin"* ]] && command_exists safari; then
-        browsers+=("safari")
+    # Safari (macOS only - check app bundle)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command_exists safari; then
+            browsers+=("safari")
+        elif [[ -d "/Applications/Safari.app" ]]; then
+            browsers+=("safari-app")
+        fi
     fi
     
     # Edge (if available)
     if command_exists microsoft-edge; then
         browsers+=("microsoft-edge")
+    elif [[ "$OSTYPE" == "darwin"* ]] && [[ -d "/Applications/Microsoft Edge.app" ]]; then
+        browsers+=("edge-app")
     fi
     
     echo "${browsers[@]}"
@@ -75,11 +85,23 @@ run_browser_test() {
                 --run-all-compositor-stages-before-draw \
                 --dump-dom "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
             ;;
-        "firefox")
-            firefox --headless --new-instance \
-                "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
+        "chrome-app")
+            open -a "Google Chrome" --args --headless --disable-gpu --remote-debugging-port=9222 \
+                --no-sandbox --disable-web-security \
+                --virtual-time-budget=30000 \
+                --run-all-compositor-stages-before-draw \
+                --dump-dom "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
             ;;
-        "safari")
+        "firefox"|"firefox-app")
+            if [[ "$browser" == "firefox-app" ]]; then
+                open -a "Firefox" --args --headless --new-instance \
+                    "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
+            else
+                firefox --headless --new-instance \
+                    "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
+            fi
+            ;;
+        "safari"|"safari-app")
             # Safari headless testing is more complex, using AppleScript
             osascript -e "
                 tell application \"Safari\"
@@ -88,6 +110,13 @@ run_browser_test() {
                     quit
                 end tell
             " > "$output_file.log" 2>&1 &
+            ;;
+        "edge-app")
+            open -a "Microsoft Edge" --args --headless --disable-gpu --remote-debugging-port=9223 \
+                --no-sandbox --disable-web-security \
+                --virtual-time-budget=30000 \
+                --run-all-compositor-stages-before-draw \
+                --dump-dom "file://$WEB_DIR/test-runner.html" > "$output_file.log" 2>&1 &
             ;;
         *)
             echo "    ❌ Unknown browser: $browser"

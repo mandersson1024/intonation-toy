@@ -17,11 +17,33 @@ macro_rules! console_log {
 // Import our audio module
 pub mod audio;
 
+// Import browser compatibility and error management
+pub mod browser_compat;
+pub mod error_manager;
+pub mod performance_monitor;
+
+// Import services, components, and hooks
+pub mod services;
+pub mod components;
+pub mod hooks;
+
 // Re-export the audio engine for direct access from JavaScript
 pub use audio::engine::AudioEngine;
 
 // Re-export pitch detection components for JavaScript integration
 pub use audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector, PitchResult};
+
+// Re-export services for Yew integration
+pub use services::{ErrorManager as NewErrorManager, ApplicationError, ErrorSeverity, RecoveryStrategy};
+
+// Re-export components for easy access
+pub use components::{
+    ErrorDisplayComponent, 
+    FallbackUIComponent, ErrorToastComponent, ErrorToastContainer
+};
+
+// Re-export hooks for easy access
+pub use hooks::{use_error_handler};
 
 // Initialize the WASM module
 #[wasm_bindgen(start)]
@@ -55,3 +77,6 @@ pub fn detect_pitch_detailed(audio_buffer: &[f32], sample_rate: f32, algorithm: 
     let mut detector = PitchDetector::new(config);
     detector.detect_pitch(audio_buffer)
 }
+
+// Core modules
+pub mod types;

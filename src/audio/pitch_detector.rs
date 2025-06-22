@@ -395,7 +395,7 @@ mod tests {
         }
     }
 
-    // **NEW COMPREHENSIVE TESTS FOR STORY 1.3 TASK 1**
+    // Comprehensive pitch detection validation tests
 
     #[test]
     fn test_comprehensive_pitch_detection_accuracy() {

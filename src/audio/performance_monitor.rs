@@ -15,6 +15,18 @@ pub struct PerformanceMetrics {
 
 #[wasm_bindgen]
 impl PerformanceMetrics {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            processing_rate_hz: 0.0,
+            total_latency_ms: 0.0,
+            buffer_latency_ms: 0.0,
+            processing_latency_ms: 0.0,
+            latency_compliant: false,
+            target_latency_ms: 10.0,
+        }
+    }
+
     #[wasm_bindgen(getter)]
     pub fn processing_rate_hz(&self) -> f32 { self.processing_rate_hz }
     
