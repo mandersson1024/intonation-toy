@@ -9,13 +9,14 @@
 
 ## Architecture Overview
 
-The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with Web Audio API integration to achieve sub-50ms audio latency while maintaining 60 FPS graphics performance in modern browsers.
+The Real-time Pitch Visualizer uses a **Yew + Rust/WebAssembly architecture** with unified frontend and backend in Rust, achieving sub-50ms audio latency while maintaining 60 FPS graphics performance in modern browsers.
 
 **Key Design Principles:**
-- **Real-time Performance**: Audio processing optimized for WASM with minimal JS boundary crossings
-- **Modular Architecture**: Clean separation between WASM audio core, web graphics, and browser APIs
-- **Future-Proof Design**: Supports evolution from simple MVP to immersive WebGL graphics
-- **Hybrid Language Strategy**: Rust/WASM for performance-critical audio, JavaScript for browser integration
+- **Unified Rust Codebase**: Frontend (Yew) and backend (WASM) both written in Rust
+- **Type Safety Throughout**: Compile-time guarantees across the entire application
+- **Component Architecture**: React-like development experience with Rust performance
+- **Minimal JavaScript**: Only ~15KB JS bridge for browser APIs not yet supported by web-sys
+- **Future-Proof Design**: Supports evolution with WebAssembly's growing ecosystem
 
 ---
 
@@ -33,7 +34,8 @@ The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with W
 
 | Document | Purpose | Relevant For |
 |----------|---------|--------------|
-| **[frontend-architecture.md](frontend-architecture.md)** | UI architecture, browser testing interface | Frontend/UI stories, Story 1.1+ |
+| **[frontend-architecture.md](frontend-architecture.md)** | Yew UI architecture, component patterns | Frontend/UI stories, Story 1.1+ |
+| **[rust-migration-strategy.md](rust-migration-strategy.md)** | Migration from JS to Yew/Rust strategy | All migration stories |
 | **[backend-architecture.md](backend-architecture.md)** | (Future) Server-side components | Backend/API stories |
 | **[data-models.md](data-models.md)** | (Future) Data structures, validation | Data-related stories |
 
@@ -78,32 +80,32 @@ The Real-time Pitch Visualizer uses a **Rust + WebAssembly architecture** with W
 │                                                                 │
 │  ┌─────────────────┐         ┌─────────────────────────────────┐ │
 │  │  AudioWorklet   │         │         Main Thread             │ │
-│  │   (WASM Core)   │         │      (JavaScript/WASM)         │ │
+│  │   (WASM Core)   │         │       (Yew + WASM)             │ │
 │  │                 │         │                                 │ │
 │  │ ┌─────────────┐ │         │ ┌─────────────┐ ┌─────────────┐ │ │
-│  │ │Audio Engine │ │         │ │   Renderer  │ │Web Controls │ │ │
-│  │ │   (Rust)    │ │         │ │(Canvas/WebGL│ │ (HTML/CSS)  │ │ │
+│  │ │Audio Engine │ │         │ │Yew Frontend │ │ Rust Audio  │ │ │
+│  │ │   (Rust)    │ │         │ │(Components) │ │ Processing  │ │ │
 │  │ │• Pitch Det. │◄┼────────►│ │             │ │             │ │ │
-│  │ │• Intervals  │ │         │ │• Background │ │• UI State   │ │ │
-│  │ │• DSP Core   │ │         │ │  Graphics   │ │• User Input │ │ │
-│  │ └─────────────┘ │         │ │• 60 FPS     │ │             │ │ │
+│  │ │• Intervals  │ │         │ │• UI State   │ │• DSP Core   │ │ │
+│  │ │• DSP Core   │ │         │ │• Components │ │• Algorithms │ │ │
+│  │ └─────────────┘ │         │ │• Rendering  │ │• State Mgmt │ │ │
 │  └─────────────────┘         │ └─────────────┘ └─────────────┘ │ │
-│           │                   │                                 │ │
-│           ▼                   │                                 │ │
-│  ┌─────────────────┐         │                                 │ │
-│  │  Web Audio API  │         │                                 │ │
-│  │  (Browser)      │         │                                 │ │
-│  └─────────────────┘         │                                 │ │
+│           │                   │        │               ▲       │ │
+│           ▼                   │        ▼               │       │ │
+│  ┌─────────────────┐         │ ┌─────────────┐        │       │ │
+│  │  Web Audio API  │         │ │JS Bridge    │────────┘       │ │
+│  │  (Browser)      │         │ │(~15KB only) │                │ │
+│  └─────────────────┘         │ └─────────────┘                │ │
 │                               └─────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Key Integration Points
 
-1. **WASM/JS Bridge**: Message passing between audio processing and UI
-2. **Web Audio API**: Browser audio input/output handling
-3. **Canvas/WebGL**: Real-time graphics rendering
-4. **DOM Controls**: User interface and settings
+1. **Yew Components**: Type-safe UI components with React-like DX
+2. **WASM/Yew Bridge**: Direct Rust-to-Rust communication within WASM
+3. **Web Audio API**: Browser audio input/output handling via web-sys
+4. **Minimal JS Bridge**: Only for browser APIs not yet supported by web-sys (~15KB)
 
 ---
 

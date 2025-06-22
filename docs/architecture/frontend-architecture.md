@@ -9,48 +9,65 @@
 
 ## Overview
 
-The frontend architecture uses a **modern web standards approach** with vanilla JavaScript ES modules, CSS Grid/Flexbox layouts, and progressive enhancement patterns. The design prioritizes performance, accessibility, and cross-browser compatibility.
+The frontend architecture uses **Yew**, a modern Rust framework that compiles to WebAssembly, providing a component-based architecture with React-like developer experience while maintaining the performance and safety benefits of Rust.
 
 **Key Design Principles:**
-- **Performance First**: Minimal JavaScript overhead, efficient DOM manipulation
-- **Progressive Enhancement**: Core functionality works without advanced features
-- **Mobile-First Design**: Responsive layouts that scale from mobile to desktop
-- **Accessibility**: WCAG 2.1 AA compliance for inclusive user experience
-- **Browser Compatibility**: Support for modern browsers (Chrome, Firefox, Safari, Edge)
+- **Unified Rust Codebase**: Single language for frontend and backend logic
+- **Type Safety**: Compile-time guarantees across the entire application
+- **Performance First**: WebAssembly execution with minimal JavaScript bridge
+- **Component Architecture**: React-like development experience with Rust benefits
+- **Browser API Integration**: Direct access to Web APIs through `web-sys`
+- **Mobile-First Design**: Responsive Yew components that scale from mobile to desktop
+- **Accessibility**: WCAG 2.1 AA compliance built into Yew components
 
 ---
 
 ## Architecture Patterns
 
-### Module Architecture
-```javascript
-// ES6 Module Pattern
-import init, { AudioEngine } from '../pkg/pitch_toy.js';
+### Yew Component Architecture
+```rust
+use yew::prelude::*;
+use web_sys::{AudioContext, MediaDevices};
 
-// Class-based Architecture
-class TestFramework {
-    constructor() { /* Centralized state management */ }
-    async measurePerformance(fn, name) { /* Performance utilities */ }
-    log(message, type) { /* Logging system */ }
+// Component-based Architecture with Yew
+#[function_component(PitchVisualizerApp)]
+fn pitch_visualizer_app() -> Html {
+    let audio_state = use_state(|| AudioState::Initializing);
+    let performance_metrics = use_state(|| PerformanceMetrics::default());
+    
+    html! {
+        <div class="app-container">
+            <AudioPermissionComponent state={audio_state.clone()} />
+            <AudioPipelineComponent />
+            <PerformanceMonitor metrics={performance_metrics.clone()} />
+        </div>
+    }
 }
 ```
 
 ### State Management
-- **Centralized State**: Single TestFramework class manages application state
-- **Event-Driven**: DOM events trigger state changes
-- **Immutable Updates**: State changes create new objects rather than mutations
-- **Error Boundaries**: Graceful error handling and recovery
+- **Yew Hooks**: `use_state`, `use_reducer` for local component state
+- **Context API**: Shared state across component tree
+- **Type-Safe Updates**: Rust's type system prevents state inconsistencies
+- **Error Boundaries**: Rust's `Result` type for graceful error handling
 
-### UI Component Pattern
-```javascript
-// Component-like functions for UI updates
-function updateStatus(element, status, message) {
-    element.className = `status ${status}`;
-    element.innerHTML = message;
+### Component Pattern
+```rust
+#[derive(Properties, PartialEq)]
+pub struct StatusProps {
+    pub status: Status,
+    pub message: String,
 }
 
-function updateMetric(id, value) {
-    document.getElementById(id).textContent = value;
+#[function_component(StatusIndicator)]
+fn status_indicator(props: &StatusProps) -> Html {
+    let class = format!("status {}", props.status.to_string().to_lowercase());
+    
+    html! {
+        <div class={class}>
+            {&props.message}
+        </div>
+    }
 }
 ```
 
