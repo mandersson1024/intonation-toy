@@ -1,17 +1,24 @@
 #!/bin/bash
-
 set -e
 
-PORT=8080
+MODE=$1  # dev, release
 
-# Check if trunk is installed
 if ! command -v trunk &> /dev/null; then
     echo "trunk is not installed. Installing..."
     cargo install trunk
 fi
 
-echo "Starting server on port ${PORT}..."
-echo "App will be available at: http://localhost:${PORT}/"
-echo "Hot reload is enabled - changes will auto-refresh"
-echo ""
-trunk serve --port ${PORT}
+case "$MODE" in
+  dev)
+    echo "Building for development (profile.dev)..."
+    trunk serve
+    ;;
+  release)
+    echo "Building for production (profile.release)..."
+    trunk serve --release
+    ;;
+  *)
+    echo "Usage: $0 [dev|release]"
+    exit 1
+    ;;
+esac

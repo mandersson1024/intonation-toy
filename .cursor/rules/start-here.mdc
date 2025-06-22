@@ -1,0 +1,27 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## FAQ
+
+Q: What are we implementing?
+A: An audio pitch detection application with knowledge of musical intervals and real-time immersive visualization
+
+Q: What platform(s) are we targeting?
+A: Web browsers
+
+Q: What programming language are we using?
+A: Mainly Rust, compiled to WebAssembly
+
+Q: I want to understand the project structure. Where do I start?
+A: Start by reading docs/architecture/unified-project-structure.md
+
+Q: I see no HTML files. Where is the HTML code?
+A: We use the Yew framework for HTML. Take a look at the Rust files under src/components/
+
+
+## Current state of implementation
+
+- The current GUI focus is a Debug GUI with the purpose of allowing for easy functional and technical testing
+- End user GUI is TBD - don't worry about it at the moment

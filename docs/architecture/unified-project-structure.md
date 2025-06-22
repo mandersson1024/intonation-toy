@@ -1,91 +1,96 @@
 # Unified Project Structure
 ## Real-time Pitch Visualizer
 
-**Version**: 1.0  
+**Version**: 2.0  
 **Source**: Technical Architecture Document  
 **Purpose**: Define file organization, module structure, and naming conventions
+**Last Updated**: Current implementation - Yew-based frontend architecture
+
+> **Architecture Migration Note**: This project has migrated from pure WebAssembly + JavaScript to a Rust frontend using Yew. The architecture now uses components compiled to WebAssembly, providing a unified Rust codebase with React-like development experience.
 
 ---
 
 ## Project Organization
 
 ```
-project/
-├── src/                       # Rust/WASM core
-│   ├── lib.rs                 # WASM entry point with wasm_bindgen
-│   ├── audio/                 # Audio processing (compiled to WASM)
-│   │   ├── mod.rs             # Audio module exports
-│   │   ├── engine.rs          # Core audio engine
-│   │   ├── pitch_detector.rs  # Pitch detection algorithms
-│   │   └── interval_calc.rs   # Musical interval calculations
-│   └── utils.rs               # WASM utilities and helpers
-├── web/                       # Web frontend
-│   ├── index.html             # Main HTML page + enhanced test suite
-│   ├── style.css              # Styling (replaced by embedded CSS)
-│   ├── app.js                 # Main application controller
-│   ├── audio-worklet.js       # AudioWorklet processor
-│   └── renderer.js            # WebGL graphics renderer
-├── pkg/                       # Generated WASM output (wasm-pack)
-├── tests/                     # Test suites
-│   └── wasm-integration/      # WASM integration tests
-├── docs/                      # Documentation
-│   ├── architecture/          # Architecture documentation (sharded)
-│   ├── stories/               # User stories for development
-│   └── *.md                   # Project documentation
-├── Cargo.toml                 # Rust dependencies
-├── dev.sh                     # Development server script
-├── serve.rb                   # Ruby development server
-└── stop.sh                    # Development server stop script
+pitch-toy/
+├── src/                       # Rust frontend application
+│   ├── lib.rs, main.rs        # Application entry points
+│   ├── audio/                 # Audio processing core
+│   ├── components/            # UI components
+│   ├── services/              # Application services and business logic
+│   ├── hooks/                 # Custom hooks
+│   ├── types/                 # Type definitions and data structures
+│   └── *.rs                   # Global utilities (browser_compat, error_manager, etc.)
+├── web/                       # Static web assets
+│   └── *.css                  # Styling and themes
+├── build-configs/             # Build configuration files
+│   ├── dev.toml              # Development build settings
+│   └── release.toml          # Production build settings
+├── dist/                      # Generated distribution files (build output)
+├── target/                    # Rust compilation artifacts
+├── tests/                     # Test suites and documentation
+│   └── manual-testing/       # Manual testing guides and results
+├── docs/                      # Project documentation
+│   ├── architecture/          # Technical architecture documentation
+│   ├── stories/               # Development user stories
+│   └── *.md                   # Project documentation files
+├── bmad-core/                 # BMAD methodology framework
+├── index.html                 # Application entry point
+├── Cargo.toml, Cargo.lock     # Rust project configuration
+├── build.sh, serve.sh         # Development automation scripts
+└── README.md, LICENSE         # Project metadata
 ```
 
 ## Module Responsibilities
 
-### Rust/WASM Core (`src/`)
+### Rust Frontend (`src/`)
 
-**`src/lib.rs`**
-- WASM entry point with wasm_bindgen
-- Primary exports for JavaScript integration
-- Module coordination
+**Core Application Files**
+- `lib.rs`: Application entry point with wasm_bindgen exports
+- `main.rs`: Application bootstrapping and initialization
 
 **`src/audio/`**
-- `mod.rs`: Audio module exports and public API
-- `engine.rs`: Core AudioEngine struct and processing logic  
-- `pitch_detector.rs`: Pitch detection algorithms (YIN, McLeod)
-- `interval_calc.rs`: Musical interval calculations and tuning systems
+- Audio processing core with specialized modules
+- Real-time audio processing, pitch detection, and signal analysis
+- Performance monitoring, benchmarking, and stress testing
+- Educational content validation and test reporting
 
-**`src/utils.rs`**
-- WASM utilities and helper functions
-- Memory management utilities
-- Serialization helpers
+**`src/components/`**
+- UI components built with Yew
+- Audio control interfaces and real-time data visualization
+- Debug panels, error displays, and performance monitoring UI
+- Browser compatibility fallbacks and test signal generators
 
-### Web Frontend (`web/`)
+**`src/services/`**
+- Application service layer and business logic
+- Audio engine service coordination
+- Centralized error handling and reporting
 
-**`index.html`**
-- Main application HTML structure with enhanced test suite
-- Professional browser testing interface (Story 1.1)
-- TestFramework class for comprehensive WASM validation
-- Performance monitoring dashboard with real-time metrics
-- Interactive test controls and automation capabilities
+**`src/hooks/`**
+- Custom Yew hooks for shared component logic
+- Error handling and state management utilities
 
-**`style.css`**
-- Application styling
-- Responsive design rules
-- Child-friendly UI themes
+**`src/types/`**
+- Type definitions and data structures
+- Audio-related types and interfaces
 
-**`app.js`**
-- Main application controller
-- WASM module initialization
-- Application state management
+**Global Utilities**
+- `browser_compat.rs`: Cross-browser compatibility layer
+- `error_manager.rs`: Global error management system
+- `performance_monitor.rs`: System-wide performance monitoring
 
-**`audio-worklet.js`**
-- AudioWorklet processor implementation
-- Real-time audio processing coordination
-- WASM/Web Audio API bridge
+### Static Assets (`web/`)
 
-**`renderer.js`**
-- WebGL graphics renderer
-- Canvas-based visualization
-- 60 FPS rendering pipeline
+**CSS Styling**
+- Debug interface themes and component styling
+- Performance monitoring visualization styles
+
+### Build Configuration (`build-configs/`)
+
+**Configuration Files**
+- `dev.toml`: Development build settings and debug features
+- `release.toml`: Production optimization and distribution settings
 
 ## File Naming Conventions
 
@@ -94,10 +99,15 @@ project/
 - Module files: `mod.rs` for module exports
 - Library entry: `lib.rs` for crate root
 
-### JavaScript Files
-- Kebab case: `audio-worklet.js`, `app.js`
+### CSS Files
+- Kebab case: `debug-interface.css`
 - Descriptive names indicating purpose
-- Extension-specific: `.js` for modules
+- Component-specific styling
+
+### TOML Configuration Files
+- Snake case: `dev.toml`, `release.toml`
+- Purpose-specific configuration files
+- Build and deployment configurations
 
 ### Documentation
 - Kebab case: `tech-stack.md`, `project-structure.md`
@@ -106,48 +116,57 @@ project/
 
 ## Generated Directories
 
-### `pkg/` Directory
-- Generated by wasm-pack build process
-- Contains compiled WASM binaries
-- JavaScript bindings and TypeScript definitions
+### `dist/` Directory
+- Generated by build process (cargo/build.sh)
+- Contains compiled WebAssembly and optimized assets
+- Production-ready distribution files
 - **Do not edit manually** - regenerated on each build
+
+### `target/` Directory
+- Generated by Cargo build system
+- Contains Rust compilation artifacts
+- Debug and release build outputs
+- **Do not edit manually** - managed by Cargo
 
 ## Build Outputs
 
 ### Development Build
 ```bash
-wasm-pack build --target web --out-dir pkg
+cargo build
+# or
+./build.sh dev
 ```
 
 ### Production Build  
 ```bash
-wasm-pack build --target web --release --out-dir pkg
+cargo build --release
+# or
+./build.sh release
 ```
 
-Generated files in `pkg/`:
-- `*.wasm` - WebAssembly binary
-- `*.js` - JavaScript bindings
-- `*.d.ts` - TypeScript definitions
-- `package.json` - NPM package metadata
+Generated files in `dist/`:
+- WebAssembly binaries and JavaScript bindings
+- Optimized static assets
+- Production-ready distribution files
 
 ## Development Infrastructure
 
-### Development Server (Story 1.1)
-**Ruby-based Server**: `serve.rb` - Cross-platform development server
-- **Port Management**: Always uses port 8080 with auto-cleanup
-- **WASM Support**: Proper MIME types and CORS headers
-- **Auto-restart**: Conflict resolution and port cleanup
+### Development Server
+**Trunk-based Development**: `trunk serve` - Integrated build and dev server
+- **Hot Reload**: Automatic rebuilds on file changes
+- **Asset Processing**: Handles WASM, CSS, and static files
+- **CORS Support**: Proper headers for local development
 
-**Automation Scripts**:
-- `dev.sh` - Build WASM + start server (one command development)
-- `stop.sh` - Clean server shutdown and port cleanup
+**Build Automation**: `./build.sh` - Automated build process
+- **Rust Compilation**: trunk + cargo-based compilation
+- **Asset Processing**: Static asset optimization
+- **Configuration Management**: Dev/release build configurations
 
-**Access**: http://localhost:8080/web/ (consistent development URL)
+**Access**: http://localhost:8080 (trunk default port)
 
 ### Testing Infrastructure
-**Browser Test Suite**: Enhanced `web/index.html` with:
-- TestFramework class architecture
-- Real-time performance monitoring
-- Comprehensive WASM validation
-- Stress testing capabilities (1000+ iterations)
-- Cross-browser compatibility validation 
+**Manual Testing Framework**: Comprehensive testing documentation
+- Manual testing guides and procedures
+- Test result tracking and reporting
+- Browser compatibility validation procedures
+- Performance testing methodologies 

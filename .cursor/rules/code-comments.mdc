@@ -25,8 +25,9 @@ alwaysApply: true
 // This satisfies AC2: Audio engine controls functional
 // Updated per Sprint 4 requirements
 // This is a new and enhanced implementation
-// Now uses feature X
-// Previously used feature Y
+// Now uses ...
+// Previously used ...
+// Uses an enhanced ...
 ```
 
 #### ✅ GOOD (Technical Purpose):
@@ -34,5 +35,5 @@ alwaysApply: true
 // Controls audio engine lifecycle and provides real-time status feedback
 // Handles start/stop operations with proper error recovery
 // Integrates with AudioEngineService for low-latency processing
-// Uses feature X
+// Uses ...
 ```

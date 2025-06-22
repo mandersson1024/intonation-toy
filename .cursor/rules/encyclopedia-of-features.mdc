@@ -1,0 +1,22 @@
+---
+description: Understand the application on a feature level
+globs: 
+alwaysApply: false
+---
+# Encyclopedia of Features
+
+## Introduction
+
+**What this document is**  
+A feature-focused manual that explains what the software can do — both visible tools and invisible mechanisms — for users, contributors, and AI agents.
+
+## Active Features
+
+#### **Microphone Permission Request**
+Before the app can listen to your voice, it needs your permission to access the microphone.
+
+How it appears to users:
+The first time you open the app (or use the input feature), your operating system will show a popup asking if you want to allow microphone access.
+
+Behind the scenes:
+The app uses the system audio API to capture live audio input. When this request is made, the OS handles permission dialogs. If denied, audio input won't work — but the app will display a helpful warning.
