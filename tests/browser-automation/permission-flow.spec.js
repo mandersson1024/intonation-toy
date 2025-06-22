@@ -1,6 +1,6 @@
 /**
  * Permission Flow Integration Tests
- * Story 2.1: Microphone Permission Request Flow
+ * Microphone Permission Request Flow
  * 
  * Tests the permission request UI, getUserMedia integration,
  * and error handling scenarios with mocked browser APIs.

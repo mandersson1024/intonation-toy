@@ -1,6 +1,6 @@
 /**
  * Audio Device Management System
- * Story 2.3: Audio Device Recovery Mechanisms
+ * Audio Device Recovery Mechanisms
  * 
  * Handles audio device disconnection, reconnection, and provides
  * manual recovery controls for robust audio device management.

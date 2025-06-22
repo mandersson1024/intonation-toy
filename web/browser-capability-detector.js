@@ -1,6 +1,6 @@
 /**
  * Browser Capability Detection System
- * Story 2.3: Enhanced Error Handling and Browser Fallbacks
+ * Enhanced Error Handling and Browser Fallbacks
  * 
  * Comprehensive detection of required browser features:
  * - Web Audio API and AudioWorklets

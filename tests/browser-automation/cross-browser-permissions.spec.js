@@ -1,6 +1,6 @@
 /**
  * Cross-Browser Permission Testing Pipeline
- * Story 2.1: Microphone Permission Request Flow
+ * Microphone Permission Request Flow
  * 
  * Validates permission flow across Chrome, Firefox, Safari, and Edge
  * Tests browser-specific getUserMedia implementations and error handling.

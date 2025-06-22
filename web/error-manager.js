@@ -1,6 +1,6 @@
 /**
  * Comprehensive Error Management System
- * Story 2.3: Error Handling and Browser Fallbacks
+ * Error Handling and Browser Fallbacks
  * 
  * Centralized error handling with user-friendly messaging,
  * recovery mechanisms, and fallback strategies.

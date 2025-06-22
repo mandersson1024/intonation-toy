@@ -1,6 +1,6 @@
 /**
  * Main Application Controller for Real-time Pitch Visualizer
- * Story 2.1: Microphone Permission Request Flow
+ * Microphone Permission Request Flow
  * 
  * Handles microphone permissions, Web Audio API initialization,
  * and integration with existing WASM audio processing pipeline.
@@ -18,7 +18,7 @@ class PitchVisualizerApp {
         this.permissionButton = null;
         this.statusDisplay = null;
         
-        // Story 2.3: Enhanced error handling and browser compatibility
+        // Enhanced error handling and browser compatibility
         this.browserCapabilityDetector = null;
         this.errorManager = null;
 
@@ -36,7 +36,7 @@ class PitchVisualizerApp {
     async init() {
         console.log('🎵 Pitch Visualizer App initializing...');
         
-        // Story 2.3: Initialize error handling and browser compatibility detection
+        // Initialize error handling and browser compatibility detection
         await this.initializeErrorHandling();
         
         // Check browser compatibility first
@@ -57,8 +57,7 @@ class PitchVisualizerApp {
 
     /**
      * Create child-friendly permission request UI
-     * Implements AC1: Clear, child-friendly messaging
-     * Implements AC2: Graceful permission denial handling
+     * Features clear messaging and graceful denial handling
      */
     createPermissionUI() {
         // Create permission modal
@@ -212,7 +211,7 @@ class PitchVisualizerApp {
             this.microphoneStream = stream;
             this.permissionState = 'granted';
             
-            // Story 2.3: Set current device for monitoring
+            // Set current device for monitoring
             if (this.audioDeviceManager && stream.getAudioTracks().length > 0) {
                 const deviceId = stream.getAudioTracks()[0].getSettings().deviceId;
                 this.audioDeviceManager.setCurrentDevice(deviceId);
@@ -233,9 +232,8 @@ class PitchVisualizerApp {
 
     /**
      * Request microphone permission using getUserMedia
-     * Implements AC3: Web Audio API context initialization
-     * Implements AC5: Cross-browser compatibility
-     * Implements AC6: Error states with actionable feedback
+     * Features Web Audio API context initialization, cross-browser compatibility,
+     * and error states with actionable feedback
      */
     async requestMicrophonePermission() {
         this.permissionState = 'requesting';
@@ -281,9 +279,8 @@ class PitchVisualizerApp {
 
     /**
      * Handle permission errors with specific guidance
-     * Story 2.3: Enhanced with ErrorManager integration
-     * Implements AC2: Graceful permission denial handling
-     * Implements AC6: Actionable feedback for errors
+     * Enhanced with ErrorManager integration
+            * Provides graceful permission denial handling with actionable feedback
      */
     async handlePermissionError(error) {
         console.error('Microphone permission error:', error);
@@ -396,11 +393,9 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Initialize Web Audio API pipeline with enhanced configuration for Story 2.2
-     * Implements AC1: AudioContext initialization with proper configuration
-     * Implements AC2: Microphone stream connection with optimal constraints
-     * Implements AC4: Consistent sample rate and buffer size across browsers
-     * Implements AC6: Latency monitoring and optimization
+     * Initialize Web Audio API pipeline with enhanced configuration
+     * Features: AudioContext initialization, microphone stream connection,
+     * consistent sample rate/buffer size, and latency monitoring
      */
     async initializeAudioPipeline() {
         try {
@@ -461,7 +456,7 @@ class PitchVisualizerApp {
             this.initializeWorkletWithWASM();
             
             this.updatePermissionStatus('🎵 Real-time audio pipeline active! Monitoring performance...');
-            console.log('Enhanced audio pipeline initialized successfully for Story 2.2');
+            console.log('Enhanced audio pipeline initialized successfully');
             
             // Hide permission UI and show main interface
             this.showMainInterface();
@@ -474,7 +469,7 @@ class PitchVisualizerApp {
 
     /**
      * Enhanced AudioContext state management with recovery mechanisms
-     * Implements AC1: Proper AudioContext state handling across browsers
+     * Provides proper AudioContext state handling across browsers
      */
     async handleAudioContextState() {
         console.log(`Initial AudioContext state: ${this.audioContext.state}`);
@@ -509,8 +504,8 @@ class PitchVisualizerApp {
 
     /**
      * Create optimized microphone source with enhanced audio constraints
-     * Implements AC2: Microphone stream connection with appropriate constraints
-     * Implements AC4: Consistent audio configuration across browsers
+     * Provides microphone stream connection with appropriate constraints
+     * and consistent audio configuration across browsers
      */
     async createOptimizedMicrophoneSource() {
         if (!this.microphoneStream) {
@@ -550,7 +545,7 @@ class PitchVisualizerApp {
 
     /**
      * Initialize latency monitoring system
-     * Implements AC6: Latency monitoring and optimization
+     * Provides latency monitoring and optimization
      */
     initializeLatencyMonitoring() {
         this.latencyMetrics = {
@@ -779,7 +774,7 @@ class PitchVisualizerApp {
     cleanup() {
         console.log('🧹 Cleaning up PitchVisualizerApp resources...');
         
-        // Story 2.3: Cleanup audio device manager
+                    // Cleanup audio device manager
         if (this.audioDeviceManager) {
             this.audioDeviceManager.cleanup();
             this.audioDeviceManager = null;
@@ -891,7 +886,7 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Enhanced AudioWorklet setup with comprehensive handlers for Story 2.2
+     * Enhanced AudioWorklet setup with comprehensive handlers
      * AFTER:  Direct WASM engine passing to AudioWorklet
      */
     initializeWorkletWithWASM() {
@@ -959,7 +954,7 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Handle connection confirmation with enhanced validation for Story 2.2
+     * Handle connection confirmation with enhanced validation
      */
     handleConnectionConfirmation(data) {
         if (data.result) {
@@ -1001,7 +996,7 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Update connection status display with enhanced information for Story 2.2 (throttled)
+     * Update connection status display with enhanced information (throttled)
      */
     updateConnectionStatus(wasmConnected, hasAudioSignal, sampleRate, bufferSize, wasmProcessing) {
         
@@ -1053,7 +1048,7 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Enhanced performance metrics with latency tracking for Story 2.2
+     * Enhanced performance metrics with latency tracking
      */
     updatePerformanceMetrics(data) {
         // Update the existing performance dashboard with enhanced live metrics
@@ -1320,7 +1315,7 @@ class PitchVisualizerApp {
     }
 
     /**
-     * Story 2.3: Initialize error handling and browser compatibility systems
+     * Initialize error handling and browser compatibility systems
      */
     async initializeErrorHandling() {
         console.log('🔧 Starting error handling initialization...');
@@ -1366,7 +1361,7 @@ class PitchVisualizerApp {
     }
     
     /**
-     * Story 2.3: Check comprehensive browser compatibility
+     * Check comprehensive browser compatibility
      */
     async checkBrowserCompatibility() {
         if (!this.browserCapabilityDetector) {
@@ -1422,7 +1417,7 @@ class PitchVisualizerApp {
     }
     
     /**
-     * Story 2.3: Handle unsupported browser scenario
+     * Handle unsupported browser scenario
      */
     async handleUnsupportedBrowser(compatibilityReport) {
         console.log('🚫 Browser not supported, activating fallback mode');

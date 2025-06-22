@@ -1,13 +1,13 @@
 /**
- * Story 2.2: Enhanced Web Audio API Context and Microphone Input Processing Tests
+ * Enhanced Web Audio API Context and Microphone Input Processing Tests
  * 
  * Implements testing for:
- * - AC1: Web Audio API AudioContext initialization
- * - AC2: Microphone stream connection with optimal constraints  
- * - AC3: AudioWorklet live microphone input processing
- * - AC4: Consistent sample rate and buffer size across browsers
- * - AC5: Real-time audio data flow through WASM pipeline
- * - AC6: Audio latency monitoring and optimization (<50ms target)
+ * - Web Audio API AudioContext initialization
+ * - Microphone stream connection with optimal constraints  
+ * - AudioWorklet live microphone input processing
+ * - Consistent sample rate and buffer size across browsers
+ * - Real-time audio data flow through WASM pipeline
+ * - Audio latency monitoring and optimization (<50ms target)
  */
 
 const { test, expect, describe, beforeEach, afterEach } = require('@jest/globals');
@@ -17,7 +17,7 @@ global.performance = {
     now: jest.fn(() => Date.now())
 };
 
-describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
+describe('Enhanced Web Audio API Context Processing', () => {
     let app;
     let mockAudioContext;
     let mockAudioWorkletNode;
@@ -25,7 +25,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
     let mockStream;
 
     beforeEach(() => {
-        // Enhanced mock AudioContext for Story 2.2
+        // Enhanced mock AudioContext
         mockAudioContext = {
             sampleRate: 44100,
             state: 'running',
@@ -40,7 +40,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
             }
         };
 
-        // Enhanced mock AudioWorkletNode for Story 2.2
+        // Enhanced mock AudioWorkletNode
         mockAudioWorkletNode = {
             port: {
                 onmessage: null,
@@ -96,7 +96,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         jest.clearAllMocks();
     });
 
-    describe('AC1: Enhanced AudioContext Initialization', () => {
+    describe('Enhanced AudioContext Initialization', () => {
         test('should create AudioContext with optimal configuration', async () => {
             await app.initializeAudioPipeline();
 
@@ -148,7 +148,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         });
     });
 
-    describe('AC2: Enhanced Microphone Stream Connection', () => {
+    describe('Enhanced Microphone Stream Connection', () => {
         test('should create optimized microphone source with validation', async () => {
             await app.initializeAudioPipeline();
 
@@ -198,7 +198,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         });
     });
 
-    describe('AC3: Enhanced AudioWorklet Processing', () => {
+    describe('Enhanced AudioWorklet Processing', () => {
         test('should load AudioWorklet module with error handling', async () => {
             await app.initializeAudioPipeline();
 
@@ -277,7 +277,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         });
     });
 
-    describe('AC4: Consistent Sample Rate and Buffer Size', () => {
+    describe('Consistent Sample Rate and Buffer Size', () => {
         test('should maintain consistent sample rate across pipeline', async () => {
             await app.initializeAudioPipeline();
 
@@ -349,7 +349,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         });
     });
 
-    describe('AC5: Real-time Audio Data Flow', () => {
+    describe('Real-time Audio Data Flow', () => {
         test('should establish WASM pipeline connection', async () => {
             // Mock test framework with WASM engine
             global.window = { testFramework: { audioEngine: { 
@@ -432,7 +432,7 @@ describe('Story 2.2: Enhanced Web Audio API Context Processing', () => {
         });
     });
 
-    describe('AC6: Audio Latency Monitoring and Optimization', () => {
+    describe('Audio Latency Monitoring and Optimization', () => {
         test('should initialize latency monitoring system', async () => {
             await app.initializeAudioPipeline();
 
