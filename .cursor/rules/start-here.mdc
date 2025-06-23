@@ -15,7 +15,7 @@ Q: What programming language are we using?
 A: Mainly Rust, compiled to WebAssembly
 
 Q: I want to understand the project structure. Where do I start?
-A: Start by reading docs/architecture/unified-project-structure.md
+A: Start by reading docs/syatem/architecture/unified-project-structure.md
 
 Q: I see no HTML files. Where is the HTML code?
 A: We use the Yew framework for HTML. Take a look at the Rust files under src/components/
@@ -27,4 +27,4 @@ A: We use the Yew framework for HTML. Take a look at the Rust files under src/co
 
 - The Debug GUI has the purpose of allowing for easy functional and technical testing
 - End user GUI is TBD - don't worry about it at the moment
-- For detailed description, see docs/debug-gui-overview.md
+- For detailed description, see docs/system/debug-gui-overview.md
