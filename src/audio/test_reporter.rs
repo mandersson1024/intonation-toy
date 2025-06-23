@@ -1,10 +1,29 @@
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::audio::{
     performance_bench::{PerformanceBenchmark, BenchmarkResult},
     educational_validator::{EducationalValidator, AccuracyResult},
     stress_tester::{StressTester, StressTestResult},
 };
+
+// WASM-compatible timestamp function
+fn get_timestamp() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Use JavaScript Date.now() for WASM builds
+        use js_sys::Date;
+        (Date::now() / 1000.0) as u64
+    }
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Use SystemTime for native builds
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+}
 
 /// Comprehensive test report containing all testing results
 #[derive(Debug, Clone)]
@@ -209,10 +228,7 @@ impl TestReporter {
     pub fn run_comprehensive_test_suite(&mut self, sample_rate: f32, buffer_size: usize) -> ComprehensiveTestReport {
         println!("📊 Starting comprehensive test suite...");
         
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let timestamp = get_timestamp();
         
         let test_session_id = format!("test_session_{}", timestamp);
         

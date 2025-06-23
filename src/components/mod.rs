@@ -14,6 +14,7 @@ pub mod error_display;
 pub mod error_toast;
 pub mod fallback_ui;
 pub mod metrics_display;
+pub mod microphone_permission;
 
 // Re-export components for easy access
 pub use audio_control_panel::AudioControlPanel;
@@ -30,4 +31,5 @@ pub use error_display::ErrorDisplayComponent;
 // pub use audio_permission::AudioPermissionComponent;  // Module doesn't exist yet
 pub use error_toast::{ErrorToastComponent, ErrorToastContainer};
 pub use fallback_ui::FallbackUIComponent;
-pub use metrics_display::MetricsDisplay; 
+pub use metrics_display::MetricsDisplay;
+pub use microphone_permission::MicrophonePermission; 

@@ -7,6 +7,7 @@ mod performance_monitor;
 mod components;
 mod services;
 mod types;
+mod hooks;
 
 use components::DebugInterface;
 use services::AudioEngineService;

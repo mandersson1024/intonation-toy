@@ -1,0 +1,201 @@
+/* Microphone Permission Component Styles */
+
+.microphone-permission {
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.permission-status {
+    margin-bottom: 16px;
+}
+
+.status-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.status-display.status-not-requested {
+    background: #f5f5f5;
+    border: 1px solid #d0d0d0;
+    color: #666;
+}
+
+.status-display.status-requesting {
+    background: #fff4e6;
+    border: 1px solid #ffcc80;
+    color: #e65100;
+}
+
+.status-display.status-granted {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+}
+
+.status-display.status-denied {
+    background: #ffebee;
+    border: 1px solid #f44336;
+    color: #c62828;
+}
+
+.status-display.status-unsupported {
+    background: #fff3e0;
+    border: 1px solid #ff9800;
+    color: #e65100;
+}
+
+.status-icon {
+    font-size: 18px;
+}
+
+.status-text {
+    font-size: 14px;
+}
+
+.permission-controls {
+    margin-bottom: 16px;
+}
+
+.permission-btn {
+    background: #2196f3;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.permission-btn:hover:not(:disabled) {
+    background: #1976d2;
+}
+
+.permission-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.permission-help {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 16px;
+    margin-top: 16px;
+}
+
+.permission-help h4 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 16px;
+}
+
+.permission-help p {
+    margin: 0 0 8px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.permission-help ul {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+}
+
+.permission-help li {
+    margin-bottom: 4px;
+    color: #666;
+    font-size: 14px;
+}
+
+.retry-help {
+    border-left: 4px solid #f44336;
+}
+
+.browser-help {
+    border-left: 4px solid #ff9800;
+}
+
+.permission-details {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 16px;
+    margin-top: 16px;
+}
+
+.permission-details h4 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 16px;
+}
+
+.detail-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+}
+
+.detail-value {
+    font-family: monospace;
+    color: #666;
+    font-size: 13px;
+}
+
+.detail-value.error {
+    color: #d32f2f;
+}
+
+/* Audio Control Panel Integration */
+.audio-control-panel .microphone-section {
+    margin-bottom: 24px;
+}
+
+.audio-control-panel .microphone-section h3 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .microphone-permission {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .permission-btn {
+        width: 100%;
+        padding: 14px 20px;
+    }
+    
+    .detail-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+} 

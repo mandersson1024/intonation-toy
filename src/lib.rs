@@ -43,7 +43,7 @@ pub use components::{
 };
 
 // Re-export hooks for easy access
-pub use hooks::{use_error_handler};
+pub use hooks::{use_error_handler, use_microphone_permission, PermissionState};
 
 // Initialize the WASM module
 #[wasm_bindgen(start)]

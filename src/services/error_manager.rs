@@ -1,10 +1,30 @@
 use crate::browser_compat::{BrowserInfo, CompatibilityLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use wasm_bindgen::prelude::*;
 use web_sys::{console, window};
 use yew::prelude::*;
+
+// WASM-compatible timestamp function
+fn get_timestamp() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Use JavaScript Date.now() for WASM builds
+        use js_sys::Date;
+        (Date::now() / 1000.0) as u64
+    }
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Use SystemTime for native builds
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+}
 
 // Comprehensive error categorization for Yew application
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,10 +101,7 @@ impl ApplicationError {
         details: Option<String>,
         recovery_strategy: RecoveryStrategy,
     ) -> Self {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let timestamp = get_timestamp();
         
         let user_agent = window()
             .and_then(|w| w.navigator().user_agent().ok())
@@ -125,10 +142,7 @@ impl ApplicationError {
     }
     
     pub fn is_expired(&self, max_age_seconds: u64) -> bool {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = get_timestamp();
         now - self.timestamp > max_age_seconds
     }
 }
