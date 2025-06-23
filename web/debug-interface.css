@@ -60,7 +60,7 @@ body {
 .debug-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-rows: auto auto;
     gap: 20px;
     max-width: 1600px;
     margin: 0 auto;
@@ -111,169 +111,90 @@ body {
     grid-row: 2;
 }
 
-.audio-inspector {
+.test-signal-generator-section {
     grid-column: 2;
     grid-row: 2;
 }
 
-.performance-monitor {
-    grid-column: 1 / -1;
-    grid-row: 3;
-}
-
-/* YEW-003.2 Enhanced Components Layout */
-.test-signal-generator-section {
-    grid-column: 1;
-    grid-row: 4;
-}
-
-/* Audio Control Panel Styling */
+/* Audio Control Panel */
 .audio-control-panel {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 0;
+    box-shadow: none;
+}
+
+.audio-control-panel hr, .audio-control-panel .separator {
+    display: none;
+}
+
+.audio-control-panel h3 {
+    color: #333333;
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 10px;
+}
+
+/* Audio Engine Header (exactly matching metrics header) */
+.audio-engine-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.audio-engine-title {
+    margin: 0;
+    color: #333333;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Audio Control Content (matching metrics content) */
+.audio-control-content {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
-.engine-status .status-display {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
+/* Removed unused control-card styles - replaced by device-config-table */
+
+/* Audio Control Placeholder */
+.audio-control-placeholder {
     background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    border: 2px dashed #adb5bd;
     border-radius: 4px;
+    padding: 40px 20px;
+    text-align: center;
 }
 
-.status-icon {
-    font-size: 1.2rem;
-}
+/* Removed unused status-display styles - status handled by microphone-permission.css */
 
-.status-text {
-    font-weight: bold;
-}
+/* Removed unused processing-info and config-grid styles - replaced by device-config-table */
 
-.status-uninitialized { border-left: 4px solid #6c757d; }
-.status-initializing { border-left: 4px solid #ffc107; }
-.status-ready { border-left: 4px solid #28a745; }
-.status-processing { border-left: 4px solid #007bff; }
-.status-suspended { border-left: 4px solid #fd7e14; }
-.status-error { border-left: 4px solid #dc3545; }
+/* Removed unused device-info styles - replaced by device-config-table */
 
-.button-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.control-btn {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    color: #333333;
-    padding: 12px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.control-btn:hover:not(:disabled) {
-    background: #f8f9fa;
-    border-color: #adb5bd;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-.control-btn:disabled {
-    background: #e9ecef;
-    color: #6c757d;
-    cursor: not-allowed;
-    border-color: #dee2e6;
-    box-shadow: none;
-}
-
-.initialize-btn:not(:disabled) { border-left: 4px solid #ffc107; }
-.start-btn:not(:disabled) { border-left: 4px solid #28a745; }
-.stop-btn:not(:disabled) { border-left: 4px solid #dc3545; }
-.test-btn:not(:disabled) { border-left: 4px solid #007bff; }
-
-.info-grid, .debug-details {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.info-item, .debug-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-}
-
-.info-label, .debug-label {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.info-value, .debug-value {
-    color: #333333;
-    font-weight: bold;
-    font-size: 0.9rem;
-    font-family: monospace;
-}
-
-.test-result-display {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 12px;
-    margin-top: 10px;
-    font-family: monospace;
-    color: #333333;
-}
+/* Removed unused debug-info styles - not used in current components */
 
 /* Metrics Display Styling */
 .metrics-display {
     display: flex;
     flex-direction: column;
-    gap: 15px;
 }
 
 .metrics-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
 }
 
-.metrics-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.refresh-btn {
-    background: #007bff;
-    border: 1px solid #007bff;
-    color: #ffffff;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s ease;
-}
-
-.refresh-btn:hover {
-    background: #0056b3;
-    border-color: #0056b3;
-}
-
-.monitoring-status {
-    font-size: 0.9rem;
-}
+/* Removed unused metrics-controls - not used in current components */
 
 .status-active {
     color: #28a745;
@@ -284,119 +205,23 @@ body {
     color: #6c757d;
 }
 
-.metrics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.metric-card {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 12px;
-    transition: border-color 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.metric-card:hover {
-    border-color: #adb5bd;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-.metric-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.metric-icon {
-    font-size: 1.1rem;
-}
-
-.metric-title {
-    font-size: 0.9rem;
-    color: #6c757d;
+.status-warning {
+    color: #ffc107;
     font-weight: bold;
 }
 
-.metric-value {
-    font-size: 1.1rem;
-    font-weight: bold;
-    margin-bottom: 6px;
-    font-family: monospace;
-}
-
-.metric-details {
-    font-size: 0.8rem;
-    color: #6c757d;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.metric-breakdown {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.compliance-pass {
-    color: #28a745;
-}
-
-.compliance-fail {
+.status-error {
     color: #dc3545;
+    font-weight: bold;
 }
 
-.last-update {
-    font-family: monospace;
-    color: #aaa;
-}
+/* Removed unused metrics-grid styles - replaced by metrics-stack */
 
-.metrics-summary {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.metrics-summary h4 {
-    margin: 0 0 10px 0;
-    color: #333333;
-    font-size: 1rem;
-}
-
-.summary-grid {
+/* Metrics Stack Layout */
+.metrics-stack {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.summary-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.summary-item:last-child {
-    border-bottom: none;
-}
-
-.summary-label {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.summary-value {
-    color: #333333;
-    font-weight: bold;
-    font-size: 0.9rem;
+    gap: 16px;
 }
 
 .metrics-placeholder {
@@ -429,18 +254,7 @@ body {
     font-style: italic;
 }
 
-/* Responsive design for metrics */
-@media (max-width: 768px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .metrics-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-}
+/* Removed unused metrics-grid responsive styles */
 
 /* Debug Panel Styling */
 .debug-panel {
@@ -473,9 +287,17 @@ body {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.details-toggle:hover {
+.details-toggle:hover:not(:disabled) {
     background: #f8f9fa;
     border-color: #adb5bd;
+}
+
+.details-toggle:disabled {
+    background: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+    border-color: #dee2e6;
 }
 
 .error-list {
@@ -733,357 +555,11 @@ body {
     }
 }
 
-/* Placeholder styling */
-.inspector-placeholder,
-.performance-placeholder {
-    background: #f8f9fa;
-    border: 2px dashed #adb5bd;
-    padding: 20px;
-    text-align: center;
-    color: #6c757d;
-    border-radius: 4px;
-}
+/* Removed unused inspector placeholder styles */
 
-/* Audio Inspector Styles */
-.audio-inspector {
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 20px;
-    color: #333333;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border: 1px solid #dee2e6;
-}
+/* Removed unused audio inspector styles - no longer used */
 
-.inspector-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #dee2e6;
-}
-
-.inspector-header h3 {
-    margin: 0;
-    color: #007bff;
-    font-size: 18px;
-}
-
-.inspector-controls {
-    display: flex;
-    gap: 10px;
-}
-
-.monitor-toggle {
-    background: #ffffff;
-    color: #333333;
-    border: 2px solid #007bff;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.monitor-toggle:hover {
-    background: #007bff;
-    color: #ffffff;
-}
-
-.monitor-toggle.active {
-    background: #28a745;
-    border-color: #28a745;
-    color: #ffffff;
-}
-
-.clear-history-btn {
-    background: #ffffff;
-    color: #333333;
-    border: 2px solid #dc3545;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.clear-history-btn:hover {
-    background: #dc3545;
-    color: #ffffff;
-}
-
-.inspector-content {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.inspector-section {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 15px;
-    border-left: 4px solid #007bff;
-    border: 1px solid #dee2e6;
-}
-
-.inspector-section h4 {
-    margin: 0 0 15px 0;
-    color: #007bff;
-    font-size: 16px;
-}
-
-/* Pitch Data Styles */
-.pitch-data {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.pitch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.pitch-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-}
-
-.pitch-label {
-    color: #6c757d;
-    font-weight: 500;
-}
-
-.pitch-value {
-    color: #333333;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-}
-
-/* Frequency Data Styles */
-.frequency-data {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.frequency-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.freq-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-}
-
-.freq-label {
-    color: #6c757d;
-    font-weight: 500;
-}
-
-.freq-value {
-    color: #333333;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-}
-
-.fft-bins {
-    margin-top: 15px;
-}
-
-.fft-bins h5 {
-    margin: 0 0 10px 0;
-    color: #333333;
-    font-size: 14px;
-}
-
-.bins-display {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.bins-display pre {
-    margin: 0;
-    color: #333333;
-    font-size: 12px;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-
-/* Buffer Data Styles */
-.buffer-data {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.buffer-info {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.buffer-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-}
-
-.buffer-label {
-    color: #6c757d;
-    font-weight: 500;
-}
-
-.buffer-value {
-    color: #333333;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-}
-
-.buffer-samples h5 {
-    margin: 0 0 10px 0;
-    color: #333333;
-    font-size: 14px;
-}
-
-.samples-display {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.samples-display pre {
-    margin: 0;
-    color: #333333;
-    font-size: 12px;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-
-/* Buffer History Styles */
-.buffer-history {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.history-summary {
-    margin-bottom: 15px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    color: #333333;
-    font-weight: 600;
-    border: 1px solid #dee2e6;
-}
-
-.history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.history-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px;
-    background: #ffffff;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-    transition: background 0.2s ease;
-}
-
-.history-item:hover {
-    background: #f8f9fa;
-}
-
-.history-index {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 14px;
-    min-width: 30px;
-}
-
-.history-info {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    flex: 1;
-}
-
-.history-time,
-.history-size,
-.history-peak {
-    color: #333333;
-    font-size: 12px;
-    font-family: 'Courier New', monospace;
-}
-
-.history-time {
-    color: #6c757d;
-}
-
-.history-size {
-    color: #007bff;
-}
-
-.history-peak {
-    color: #28a745;
-}
-
-/* No Data States */
-.no-data {
-    text-align: center;
-    padding: 30px;
-    color: #888;
-}
-
-.no-data p {
-    margin: 0 0 5px 0;
-}
-
-.no-data .hint {
-    font-size: 14px;
-    color: #666;
-    font-style: italic;
-}
+/* Removed all unused inspector data styles - pitch, frequency, buffer, and history styles */
 
 /* Responsive design for smaller screens */
 @media (max-width: 1024px) {
@@ -1095,460 +571,7 @@ body {
     .audio-controls { grid-column: 1; grid-row: 1; }
     .metrics-display { grid-column: 1; grid-row: 2; }
     .error-panel { grid-column: 1; grid-row: 3; }
-    .audio-inspector { grid-column: 1; grid-row: 4; }
-    .performance-monitor { grid-column: 1; grid-row: 5; }
-    .test-signal-generator-section { grid-column: 1; grid-row: 6; }
-}
-
-/* Performance Monitor Styles */
-.performance-monitor {
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 20px;
-    color: #333333;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border: 1px solid #dee2e6;
-}
-
-.monitor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #dee2e6;
-}
-
-.monitor-header h3 {
-    margin: 0;
-    color: #007bff;
-    font-size: 18px;
-}
-
-.monitor-controls {
-    display: flex;
-    gap: 10px;
-}
-
-.monitor-content {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.monitor-section {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 15px;
-    border-left: 4px solid #007bff;
-    border: 1px solid #dee2e6;
-}
-
-.monitor-section h4 {
-    margin: 0 0 15px 0;
-    color: #007bff;
-    font-size: 16px;
-}
-
-/* Memory Stats Styles */
-.memory-stats {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-}
-
-.stat-card {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 15px;
-    transition: all 0.2s ease;
-}
-
-.stat-card:hover {
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.stat-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.stat-icon {
-    font-size: 18px;
-}
-
-.stat-title {
-    color: #007bff;
-    font-weight: 600;
-    font-size: 14px;
-}
-
-.stat-value {
-    color: #333333;
-    font-size: 24px;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-    margin-bottom: 5px;
-}
-
-.stat-detail {
-    color: #6c757d;
-    font-size: 12px;
-    margin-bottom: 10px;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 6px;
-    background: #e9ecef;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
-    transition: width 0.3s ease;
-}
-
-/* Processing Breakdown Styles */
-.processing-breakdown {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.breakdown-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.total-time,
-.cpu-usage {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    padding: 10px;
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.total-time .label,
-.cpu-usage .label {
-    color: #6c757d;
-    font-weight: 500;
-}
-
-.total-time .value,
-.cpu-usage .value {
-    color: #333333;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-}
-
-.breakdown-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.chart-item {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.chart-bar {
-    display: grid;
-    grid-template-columns: 120px 1fr 80px;
-    gap: 10px;
-    align-items: center;
-}
-
-.bar-label {
-    color: #6c757d;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.bar-container {
-    background: #e9ecef;
-    height: 8px;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-.bar-fill.audio-processing {
-    background: #28a745;
-}
-
-.bar-fill.pitch-detection {
-    background: #4a9eff;
-}
-
-.bar-fill.fft-computation {
-    background: #ffc107;
-}
-
-.bar-fill.buffer-management {
-    background: #dc3545;
-}
-
-.bar-value {
-    color: #333333;
-    font-size: 12px;
-    font-family: 'Courier New', monospace;
-    text-align: right;
-}
-
-/* WASM Metrics Styles */
-.wasm-metrics {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
-.metric-group {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 15px;
-}
-
-.metric-group h5 {
-    margin: 0 0 10px 0;
-    color: #007bff;
-    font-size: 14px;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 5px;
-}
-
-.metric-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.metric-item:last-child {
-    border-bottom: none;
-}
-
-.metric-label {
-    color: #6c757d;
-    font-size: 12px;
-}
-
-.metric-value {
-    color: #333333;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-}
-
-/* Performance History Styles */
-.performance-history {
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #dee2e6;
-}
-
-.history-summary {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 15px;
-    margin-bottom: 15px;
-}
-
-.current-score {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.score-icon {
-    font-size: 20px;
-}
-
-.score-text {
-    color: #333333;
-    font-weight: 600;
-    font-size: 16px;
-}
-
-.score-grade {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.grade-excellent {
-    background: #28a745;
-    color: #fff;
-}
-
-.grade-good {
-    background: #ffc107;
-    color: #000;
-}
-
-.grade-fair {
-    background: #fd7e14;
-    color: #fff;
-}
-
-.grade-poor {
-    background: #dc3545;
-    color: #fff;
-}
-
-.history-list {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.history-header {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 10px;
-    background: #f8f9fa;
-    color: #007bff;
-    font-weight: 600;
-    font-size: 12px;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.history-entry {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 8px 10px;
-    border-bottom: 1px solid #dee2e6;
-    background: #ffffff;
-    transition: background 0.2s ease;
-}
-
-.history-entry:hover {
-    background: #f8f9fa;
-}
-
-.history-entry:last-child {
-    border-bottom: none;
-}
-
-.entry-time,
-.entry-latency,
-.entry-memory,
-.entry-cpu {
-    color: #333333;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-}
-
-.entry-score {
-    font-size: 11px;
-    font-weight: 600;
-}
-
-/* Responsive design for AudioInspector */
-@media (max-width: 768px) {
-    .inspector-header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-    }
-    
-    .inspector-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
-    
-    .pitch-grid,
-    .frequency-summary,
-    .buffer-info {
-        grid-template-columns: 1fr;
-    }
-    
-    .history-info {
-        flex-direction: column;
-        gap: 5px;
-    }
-}
-
-/* Responsive design for PerformanceMonitor */
-@media (max-width: 768px) {
-    .monitor-header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-    }
-    
-    .monitor-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
-    
-    .stats-grid,
-    .metrics-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .breakdown-summary {
-        grid-template-columns: 1fr;
-    }
-    
-    .chart-bar {
-        grid-template-columns: 1fr;
-        gap: 5px;
-        text-align: center;
-    }
-    
-    .history-header,
-    .history-entry {
-        grid-template-columns: 1fr 1fr;
-        gap: 5px;
-    }
-    
-    .history-header span:nth-child(n+3),
-    .history-entry span:nth-child(n+3) {
-        display: none;
-    }
+    .test-signal-generator-section { grid-column: 1; grid-row: 4; }
 }
 
 /* Enhanced Developer Tools Styling - YEW-003.2 Components */
@@ -1557,55 +580,18 @@ body {
 
 /* Test Signal Generator Styling */
 .test-signal-generator {
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
 }
 
-/* Generator Header */
-.generator-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #dee2e6;
-}
 
-.generator-header h3 {
-    margin: 0;
-    color: #28a745;
-    font-size: 1.2rem;
-    font-weight: 600;
-}
 
-.generation-status {
-    display: flex;
-    align-items: center;
-}
-
-.status-active {
-    color: #28a745;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.status-inactive {
-    color: #6c757d;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-/* Pipeline Mode Control */
+/* Pipeline Mode Control - removed box styling */
 .pipeline-mode-control {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 15px;
     margin-bottom: 20px;
-    border-left: 4px solid #007bff;
 }
 
 .mode-toggle {
@@ -1615,6 +601,8 @@ body {
 }
 
 .mode-btn {
+    margin-top: 10px;
+    margin-bottom: 8px;
     padding: 10px 16px;
     background: #e9ecef;
     border: 2px solid #adb5bd;
@@ -1717,16 +705,15 @@ body {
 }
 
 .signal-type-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 8px;
+    padding: 6px 12px;
     background: #f8f9fa;
-    border: 2px solid #dee2e6;
-    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 .signal-type-btn:hover {
@@ -1738,15 +725,6 @@ body {
     background: #28a745;
     border-color: #28a745;
     color: white;
-}
-
-.btn-icon {
-    font-size: 1.2rem;
-    margin-bottom: 4px;
-}
-
-.btn-label {
-    font-weight: 600;
 }
 
 /* Frequency Controls */
@@ -1782,29 +760,7 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-.frequency-presets {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-}
 
-.frequency-preset-btn {
-    padding: 4px 12px;
-    background: #e9ecef;
-    border: 1px solid #adb5bd;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-}
-
-.frequency-preset-btn:hover {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-}
 
 /* Generation Controls */
 .generation-controls {
@@ -1814,6 +770,7 @@ body {
 }
 
 .btn-start, .btn-stop {
+    margin-top: 16px;
     padding: 12px 24px;
     font-size: 1rem;
     font-weight: 600;
@@ -1846,73 +803,647 @@ body {
     transform: translateY(-1px);
 }
 
-/* Current Settings Display */
-.current-settings {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 15px;
-}
 
-.current-settings h4 {
-    margin: 0 0 12px 0;
-    color: #333333;
-    font-size: 1rem;
-    font-weight: 600;
-}
-
-.settings-display {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-}
-
-.setting-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-}
-
-.setting-label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 0.9rem;
-}
-
-.setting-value {
-    font-family: 'Courier New', monospace;
-    color: #007bff;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
 
 
 
 /* Responsive Design for Enhanced Components */
 @media (max-width: 768px) {
-    .generator-header {
-        flex-direction: column;
-        gap: 10px;
-        align-items: flex-start;
-    }
-    
     .signal-type-buttons {
         grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
-    
-    .frequency-presets {
-        justify-content: center;
-    }
-    
-    .settings-display {
-        grid-template-columns: 1fr;
         gap: 8px;
     }
     
     .btn-start, .btn-stop {
         padding: 10px 20px;
         font-size: 0.9rem;
+    }
+}
+
+/* Audio Controls Header (matches metrics header) */
+.audio-controls-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* Device Configuration Table Styles */
+.device-config-table {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+}
+
+.device-config-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.device-config-rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.device-config-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.config-label {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.config-value {
+    font-size: 13px;
+    color: #212529;
+    font-weight: 600;
+    text-align: right;
+}
+
+/* Latency Header Styles */
+.latency-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+}
+
+.latency-total-value {
+    color: #212529;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Processing breakdown styles */
+.processing-breakdown {
+    background: rgba(156, 163, 175, 0.05);
+    border-left: 2px solid rgba(156, 163, 175, 0.3);
+}
+
+.breakdown-indent {
+    padding-left: 16px;
+    font-size: 0.9em;
+    color: #9ca3af;
+}
+
+.processing-breakdown .config-value {
+    font-size: 0.9em;
+    color: #d1d5db;
+}
+
+/* Error Display Component Styles */
+.error-compact-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.error-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.error-message {
+    font-size: 14px;
+    color: #495057;
+    margin: 0;
+}
+
+.dismiss-button {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    color: #6c757d;
+    font-size: 12px;
+}
+
+.dismiss-button:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.error-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.error-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.error-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.toggle-details-button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.toggle-details-button:hover {
+    background: #0056b3;
+}
+
+.error-description {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.error-recommendations {
+    margin-bottom: 16px;
+}
+
+.error-recommendations h5 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.error-recommendations ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.error-metadata {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.error-metadata h5 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.error-recovery {
+    border-top: 1px solid #dee2e6;
+    padding-top: 16px;
+}
+
+.recovery-automatic,
+.recovery-user-guided,
+.recovery-degradation,
+.recovery-escalation,
+.recovery-reset,
+.recovery-none {
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.recovery-automatic {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.recovery-user-guided {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+}
+
+.recovery-degradation {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.recovery-escalation {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+}
+
+.recovery-reset {
+    background: #e2e3e5;
+    border: 1px solid #d6d8db;
+}
+
+.recovery-none {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.retry-button,
+.reset-button {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.retry-button:hover,
+.reset-button:hover {
+    background: #218838;
+}
+
+.reset-button {
+    background: #dc3545;
+}
+
+.reset-button:hover {
+    background: #c82333;
+}
+
+/* Audio Engine Component Styles */
+.audio-engine-component {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.audio-engine-component.uninitialized {
+    background: #f8f9fa;
+    border-color: #6c757d;
+}
+
+.audio-engine-component.initializing {
+    background: #fff3cd;
+    border-color: #ffc107;
+}
+
+.audio-engine-component.ready {
+    background: #d4edda;
+    border-color: #28a745;
+}
+
+.audio-engine-component.processing {
+    background: #d1ecf1;
+    border-color: #007bff;
+}
+
+.audio-engine-component.error {
+    background: #f8d7da;
+    border-color: #dc3545;
+}
+
+/* Performance Monitor Component Styles */
+.score-grade {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.score-grade.excellent {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.score-grade.good {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.score-grade.fair {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.score-grade.poor {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.entry-score {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: 0 2px;
+}
+
+.entry-score.high {
+    background: #28a745;
+}
+
+.entry-score.medium {
+    background: #ffc107;
+}
+
+.entry-score.low {
+    background: #dc3545;
+}
+
+/* Microphone Panel Styles */
+.microphone-panel {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.microphone-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.microphone-title {
+    margin: 0;
+    color: #495057;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.microphone-status {
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.microphone-status.active {
+    color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.microphone-status.inactive {
+    color: #6c757d;
+    background: rgba(108, 117, 125, 0.1);
+}
+
+.microphone-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.microphone-permission-section {
+    /* Inherits styles from microphone-permission.css */
+}
+
+.microphone-input-section {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 12px;
+}
+
+.input-level-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.input-level-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+}
+
+.input-level-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-align: center;
+    min-width: 50px;
+}
+
+.input-level-value.input-level-low {
+    color: #6c757d;
+    background: rgba(108, 117, 125, 0.1);
+}
+
+.input-level-value.input-level-medium {
+    color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.input-level-value.input-level-high {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.input-level-bar-container {
+    margin: 5px 0;
+}
+
+.input-level-bar-background {
+    width: 100%;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.input-level-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.1s ease-out;
+    min-width: 2px;
+}
+
+.input-level-bar.input-level-low {
+    background: linear-gradient(90deg, #28a745, #20c997);
+}
+
+.input-level-bar.input-level-medium {
+    background: linear-gradient(90deg, #28a745, #ffc107);
+}
+
+.input-level-bar.input-level-high {
+    background: linear-gradient(90deg, #ffc107, #dc3545);
+}
+
+.input-level-indicators {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.level-indicator {
+    font-weight: 500;
+}
+
+/* Microphone Device Section */
+.microphone-device-section {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.device-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.device-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.device-value {
+    color: #007bff;
+    font-weight: 500;
+}
+
+.device-value.no-device,
+.config-value.no-device {
+    color: #6c757d;
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* Device Selector Styles */
+.device-selector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.device-selector-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+}
+
+.device-selector-toggle {
+    background: none;
+    border: none;
+    color: #007bff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.device-selector-toggle:hover {
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.device-selector-dropdown {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    margin-top: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.device-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    transition: background-color 0.2s;
+}
+
+.device-option:last-child {
+    border-bottom: none;
+}
+
+.device-option:hover {
+    background: #f8f9fa;
+}
+
+.device-option.selected {
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+}
+
+.device-option-label {
+    font-size: 0.9rem;
+    flex-grow: 1;
+}
+
+.device-option-check {
+    font-size: 0.8rem;
+    color: #28a745;
+    font-weight: bold;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .microphone-panel {
+        padding: 12px;
+    }
+    
+    .microphone-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .input-level-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
     }
 } 

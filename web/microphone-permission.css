@@ -34,7 +34,8 @@
     color: #e65100;
 }
 
-.status-display.status-granted {
+/* Microphone status matching existing status displays */
+.microphone-status.status-granted, .status-display.status-granted {
     background: #e8f5e8;
     border: 1px solid #4caf50;
     color: #2e7d32;
@@ -64,25 +65,32 @@
     margin-bottom: 16px;
 }
 
-.permission-btn {
-    background: #2196f3;
-    color: white;
-    border: none;
+/* Microphone button matching existing GUI buttons */
+.microphone-btn, .permission-btn {
     padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
     border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #28a745;
+    color: white;
+    justify-content: center;
 }
 
-.permission-btn:hover:not(:disabled) {
-    background: #1976d2;
+.microphone-btn:hover:not(:disabled), .permission-btn:hover:not(:disabled) {
+    background: #218838;
+    transform: translateY(-1px);
 }
 
-.permission-btn:disabled {
-    background: #ccc;
+.microphone-btn:disabled, .permission-btn:disabled {
+    background: #6c757d;
     cursor: not-allowed;
+    transform: none;
 }
 
 .permission-help {

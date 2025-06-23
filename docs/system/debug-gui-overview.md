@@ -20,15 +20,13 @@ The Debug GUI follows a modular component-based architecture with the main `Debu
   - Centralized prop passing to child components
 
 #### 2. AudioControlPanel (`src/components/audio_control_panel.rs`)
-- **Purpose**: Primary audio engine control interface
+- **Purpose**: Manages microphone permissions and displays the audio engine's core status.
 - **Key Features**:
-  - Audio engine state management (Uninitialized, Initializing, Ready, Processing, Error)
-  - Microphone permission handling integration
-  - MediaStream connection management
-  - Engine initialization, start/stop, and testing controls
-  - Real-time status display with visual indicators
-- **State Management**: Tracks engine state, processing status, and test results
-- **Integration**: Works with MicrophonePermission component for stream access
+  - Integrates the `MicrophonePermission` component to handle user consent.
+  - Displays a single, clear status for the audio engine (e.g., Uninitialized, Ready, Processing).
+  - Automatically initializes and connects the audio engine once permission is granted.
+- **State Management**: Primarily tracks the `AudioEngineState`.
+- **Integration**: Works with `MicrophonePermission` component for stream access and `AudioEngineService` for engine control.
 
 #### 3. MetricsDisplay (`src/components/metrics_display.rs`)
 - **Purpose**: Real-time performance metrics visualization

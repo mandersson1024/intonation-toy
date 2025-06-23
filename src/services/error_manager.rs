@@ -229,6 +229,23 @@ impl ApplicationError {
             "Check browser console for more details".to_string(),
         ])
     }
+
+    /// Create error for microphone device disconnection
+    pub fn microphone_device_disconnected(error_details: &str) -> Self {
+        Self::new(
+            ErrorCategory::DeviceAccess,
+            ErrorSeverity::Warning,
+            "Microphone device disconnected".to_string(),
+            Some(error_details.to_string()),
+            RecoveryStrategy::UserGuidedRetry {
+                instructions: "Please reconnect your microphone and request access again".to_string(),
+            },
+        ).with_recommendations(vec![
+            "Check that your microphone is properly connected".to_string(),
+            "Try unplugging and reconnecting your microphone".to_string(),
+            "Click 'Retry Microphone Permission' after reconnecting".to_string(),
+        ])
+    }
 }
 
 impl From<JsValue> for ApplicationError {

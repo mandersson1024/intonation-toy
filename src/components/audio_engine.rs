@@ -223,6 +223,12 @@ pub fn audio_engine_component(props: &AudioEngineProps) -> Html {
         _ => "audio-engine-inactive",
     };
 
+    // Get metrics for display
+    let processing_rate_display = {
+        let metrics = audio_engine.borrow().get_performance_metrics();
+        format!("{:.1}Hz", metrics.processing_rate_hz())
+    };
+
     html! {
         <div class={classes!("audio-engine-component", state_class)}>
             <div class="audio-engine-status">
@@ -241,6 +247,28 @@ pub fn audio_engine_component(props: &AudioEngineProps) -> Html {
                         </span>
                     </div>
                 }
+                
+                // Configuration details
+                <div class="audio-config-info">
+                    <div class="config-grid">
+                        <div class="config-item">
+                            <span class="config-label">{"Processing Rate:"}</span>
+                            <span class="config-value">{processing_rate_display}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">{"Buffer Size:"}</span>
+                            <span class="config-value">{"1024 samples"}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">{"Sample Rate:"}</span>
+                            <span class="config-value">{"44.1 kHz"}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">{"Channels:"}</span>
+                            <span class="config-value">{"Mono"}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             if let AudioEngineState::Error(error_msg) = &*current_state {

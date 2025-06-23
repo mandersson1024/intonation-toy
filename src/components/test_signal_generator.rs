@@ -2,7 +2,7 @@ use yew::prelude::*;
 use web_sys::{AudioContext, OscillatorNode, OscillatorType, AudioContextState, GainNode, MediaStreamAudioDestinationNode};
 use wasm_bindgen::JsCast;
 use gloo::console;
-use gloo::timers::callback::Interval;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::services::AudioEngineService;
@@ -49,13 +49,14 @@ pub enum Msg {
     ChangeFrequency(f32),
     ChangeAmplitude(f32),
     TogglePipelineMode,
-    UpdateEngineStatus, // New message for state updates
 }
 
 #[derive(Properties, PartialEq)]
 pub struct TestSignalGeneratorProps {
     #[prop_or_default]
     pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    #[prop_or_default]
+    pub on_generation_state_change: Option<Callback<bool>>,
 }
 
 pub struct TestSignalGenerator {
@@ -66,15 +67,14 @@ pub struct TestSignalGenerator {
     gain_node: Option<GainNode>,
     media_destination: Option<MediaStreamAudioDestinationNode>,
     pipeline_mode: bool, // true = route through pipeline, false = direct to speakers
-    _status_update_interval: Option<Interval>, // Polling interval for state updates
 }
 
 impl Component for TestSignalGenerator {
     type Message = Msg;
     type Properties = TestSignalGeneratorProps;
 
-    fn create(ctx: &Context<Self>) -> Self {
-        let mut component = Self {
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {
             is_generating: false,
             config: SignalConfig::default(),
             audio_context: None,
@@ -82,21 +82,20 @@ impl Component for TestSignalGenerator {
             gain_node: None,
             media_destination: None,
             pipeline_mode: true, // Default to pipeline mode
-            _status_update_interval: None,
-        };
-        
-        // Set up polling for AudioEngine state changes
-        component.start_status_polling(ctx);
-        component
+        }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::ToggleGeneration => {
                 if self.is_generating {
-                    self.stop_signal_generation();
+                    self.stop_signal_generation_with_context(ctx);
                 } else {
                     self.start_signal_generation(ctx);
+                }
+                // Notify parent of state change
+                if let Some(ref callback) = ctx.props().on_generation_state_change {
+                    callback.emit(self.is_generating);
                 }
                 true
             }
@@ -104,8 +103,14 @@ impl Component for TestSignalGenerator {
                 self.config.signal_type = signal_type;
                 if self.is_generating {
                     // Restart with new signal type
-                    self.stop_signal_generation();
+                    self.stop_signal_generation_with_context(ctx);
                     self.start_signal_generation(ctx);
+                    // Notify parent of state change (should still be generating)
+                    if let Some(ref callback) = ctx.props().on_generation_state_change {
+                        callback.emit(self.is_generating);
+                    }
+                } else {
+                    self.update_audio_engine_signal_info(ctx);
                 }
                 true
             }
@@ -114,6 +119,7 @@ impl Component for TestSignalGenerator {
                 if let Some(ref oscillator) = self.oscillator_node {
                     oscillator.frequency().set_value(frequency);
                 }
+                self.update_audio_engine_signal_info(ctx);
                 true
             }
             Msg::ChangeAmplitude(amplitude) => {
@@ -121,21 +127,23 @@ impl Component for TestSignalGenerator {
                 if let Some(ref gain) = self.gain_node {
                     gain.gain().set_value(amplitude);
                 }
+                self.update_audio_engine_signal_info(ctx);
                 true
             }
             Msg::TogglePipelineMode => {
                 self.pipeline_mode = !self.pipeline_mode;
                 if self.is_generating {
                     // Restart with new routing
-                    self.stop_signal_generation();
+                    self.stop_signal_generation_with_context(ctx);
                     self.start_signal_generation(ctx);
+                    // Notify parent of state change (should still be generating)
+                    if let Some(ref callback) = ctx.props().on_generation_state_change {
+                        callback.emit(self.is_generating);
+                    }
                 }
                 true
             }
-            Msg::UpdateEngineStatus => {
-                // Just trigger a re-render to update status display
-                true
-            }
+
         }
     }
 
@@ -144,15 +152,6 @@ impl Component for TestSignalGenerator {
 
         html! {
             <div class="test-signal-generator">
-                <div class="generator-header">
-                    <h3>{"🎵 Test Signal Generator"}</h3>
-                    <div class="generation-status">
-                        <span class={if self.is_generating { "status-active" } else { "status-inactive" }}>
-                            {if self.is_generating { "● GENERATING" } else { "○ STOPPED" }}
-                        </span>
-                    </div>
-                </div>
-
                 // Pipeline Mode Toggle
                 <div class="pipeline-mode-control">
                     <label class="control-label">{"Output Mode"}</label>
@@ -163,14 +162,7 @@ impl Component for TestSignalGenerator {
                         >
                             {if self.pipeline_mode { "🔬 Pipeline Mode" } else { "🔊 Direct Output" }}
                         </button>
-                        <div class="mode-description">
-                            {if self.pipeline_mode { 
-                                "Signal routed through pitch detection pipeline" 
-                            } else { 
-                                "Signal output directly to speakers" 
-                            }}
-                        </div>
-                        {self.render_engine_status(ctx)}
+
                     </div>
                 </div>
 
@@ -179,10 +171,10 @@ impl Component for TestSignalGenerator {
                     <div class="control-group">
                         <label class="control-label">{"Waveform Type"}</label>
                         <div class="signal-type-buttons">
-                            {self.render_signal_type_button(&link, SignalType::Sine, "🌊")}
-                            {self.render_signal_type_button(&link, SignalType::Square, "⬜")}
-                            {self.render_signal_type_button(&link, SignalType::Triangle, "📐")}
-                            {self.render_signal_type_button(&link, SignalType::Sawtooth, "🪚")}
+                            {self.render_signal_type_button(&link, SignalType::Sine)}
+                            {self.render_signal_type_button(&link, SignalType::Square)}
+                            {self.render_signal_type_button(&link, SignalType::Triangle)}
+                            {self.render_signal_type_button(&link, SignalType::Sawtooth)}
                         </div>
                     </div>
 
@@ -204,12 +196,6 @@ impl Component for TestSignalGenerator {
                                 Msg::ChangeFrequency(freq)
                             })}
                         />
-                        <div class="frequency-presets">
-                            {self.render_frequency_preset(&link, 220.0, "A3")}
-                            {self.render_frequency_preset(&link, 440.0, "A4")}
-                            {self.render_frequency_preset(&link, 880.0, "A5")}
-                            {self.render_frequency_preset(&link, 1000.0, "1kHz")}
-                        </div>
                     </div>
 
                     // Amplitude Control
@@ -243,110 +229,18 @@ impl Component for TestSignalGenerator {
                     </button>
                 </div>
 
-                // Current Settings Display
-                <div class="current-settings">
-                    <h4>{"Current Settings"}</h4>
-                    <div class="settings-display">
-                        <div class="setting-item">
-                            <span class="setting-label">{"Type:"}</span>
-                            <span class="setting-value">{format!("{:?}", self.config.signal_type)}</span>
-                        </div>
-                        <div class="setting-item">
-                            <span class="setting-label">{"Frequency:"}</span>
-                            <span class="setting-value">{format!("{:.1} Hz", self.config.frequency)}</span>
-                        </div>
-                        <div class="setting-item">
-                            <span class="setting-label">{"Amplitude:"}</span>
-                            <span class="setting-value">{format!("{:.0}%", self.config.amplitude * 100.0)}</span>
-                        </div>
-                        <div class="setting-item">
-                            <span class="setting-label">{"Mode:"}</span>
-                            <span class="setting-value">{if self.pipeline_mode { "Pipeline" } else { "Direct" }}</span>
-                        </div>
-                        <div class="setting-item">
-                            <span class="setting-label">{"Status:"}</span>
-                            <span class="setting-value">{if self.is_generating { "Active" } else { "Stopped" }}</span>
-                        </div>
-                    </div>
-                </div>
+
             </div>
         }
     }
 }
 
 impl TestSignalGenerator {
-    fn start_status_polling(&mut self, ctx: &Context<Self>) {
-        let link = ctx.link().clone();
-        let interval = Interval::new(1000, move || {
-            link.send_message(Msg::UpdateEngineStatus);
-        });
-        self._status_update_interval = Some(interval);
-    }
 
-    fn render_engine_status(&self, ctx: &Context<Self>) -> Html {
-        if self.pipeline_mode {
-            if let Some(audio_engine) = &ctx.props().audio_engine {
-                let engine_ref = audio_engine.borrow();
-                let engine_state = engine_ref.get_state();
-                drop(engine_ref);
-                
-                match engine_state {
-                    crate::services::audio_engine::AudioEngineState::Ready => {
-                        html! {
-                            <div class="engine-status-ok">
-                                {"✅ AudioEngine Ready - Pipeline active"}
-                            </div>
-                        }
-                    }
-                    crate::services::audio_engine::AudioEngineState::Processing => {
-                        html! {
-                            <div class="engine-status-ok">
-                                {"✅ AudioEngine Processing - Pipeline active"}
-                            </div>
-                        }
-                    }
-                    crate::services::audio_engine::AudioEngineState::Uninitialized => {
-                        html! {
-                            <div class="engine-status-info">
-                                {"🔧 AudioEngine will auto-initialize when signal generation starts"}
-                            </div>
-                        }
-                    }
-                    crate::services::audio_engine::AudioEngineState::Initializing => {
-                        html! {
-                            <div class="engine-status-info">
-                                {"🟡 AudioEngine initializing - Signal will connect automatically"}
-                            </div>
-                        }
-                    }
-                    crate::services::audio_engine::AudioEngineState::Error(msg) => {
-                        html! {
-                            <div class="engine-status-error">
-                                {format!("❌ AudioEngine Error: {}", msg)}
-                            </div>
-                        }
-                    }
-                    _ => {
-                        html! {
-                            <div class="engine-status-warning">
-                                {"⚠️ AudioEngine not ready"}
-                            </div>
-                        }
-                    }
-                }
-            } else {
-                html! {
-                    <div class="engine-status-error">
-                        {"❌ No AudioEngine available"}
-                    </div>
-                }
-            }
-        } else {
-            html! {}
-        }
-    }
 
-    fn render_signal_type_button(&self, link: &yew::html::Scope<Self>, signal_type: SignalType, icon: &str) -> Html {
+
+
+    fn render_signal_type_button(&self, link: &yew::html::Scope<Self>, signal_type: SignalType) -> Html {
         let is_active = self.config.signal_type == signal_type;
         let signal_type_clone = signal_type.clone();
         
@@ -356,23 +250,12 @@ impl TestSignalGenerator {
                 onclick={link.callback(move |_| Msg::ChangeSignalType(signal_type_clone.clone()))}
                 title={format!("{:?} Wave", signal_type)}
             >
-                <span class="btn-icon">{icon}</span>
-                <span class="btn-label">{format!("{:?}", signal_type)}</span>
+                {format!("{:?}", signal_type)}
             </button>
         }
     }
 
-    fn render_frequency_preset(&self, link: &yew::html::Scope<Self>, frequency: f32, label: &str) -> Html {
-        html! {
-            <button
-                class="frequency-preset-btn"
-                onclick={link.callback(move |_| Msg::ChangeFrequency(frequency))}
-                title={format!("{} - {:.1} Hz", label, frequency)}
-            >
-                {label}
-            </button>
-        }
-    }
+
 
     fn start_signal_generation(&mut self, ctx: &Context<Self>) {
         // Initialize AudioContext if needed
@@ -530,6 +413,17 @@ impl TestSignalGenerator {
         // Start the oscillator
         oscillator.start()?;
 
+        // Update AudioEngine with test signal information
+        if let Some(audio_engine) = &ctx.props().audio_engine {
+            let mut engine = audio_engine.borrow_mut();
+            engine.set_test_signal_info(
+                self.config.frequency,
+                self.config.amplitude,
+                &format!("{:?}", self.config.signal_type),
+                true
+            );
+        }
+
         // Store references
         self.oscillator_node = Some(oscillator);
         self.gain_node = Some(gain);
@@ -545,6 +439,34 @@ impl TestSignalGenerator {
         self.media_destination = None;
         self.is_generating = false;
         console::log!("Signal generation stopped");
+    }
+
+    fn stop_signal_generation_with_context(&mut self, ctx: &Context<Self>) {
+        self.stop_signal_generation();
+        
+        // Clear test signal info in AudioEngine
+        if let Some(audio_engine) = &ctx.props().audio_engine {
+            let mut engine = audio_engine.borrow_mut();
+            engine.set_test_signal_info(
+                self.config.frequency,
+                self.config.amplitude,
+                &format!("{:?}", self.config.signal_type),
+                false  // Not active anymore
+            );
+        }
+    }
+
+    fn update_audio_engine_signal_info(&self, ctx: &Context<Self>) {
+        // Update AudioEngine with current test signal information
+        if let Some(audio_engine) = &ctx.props().audio_engine {
+            let mut engine = audio_engine.borrow_mut();
+            engine.set_test_signal_info(
+                self.config.frequency,
+                self.config.amplitude,
+                &format!("{:?}", self.config.signal_type),
+                self.is_generating
+            );
+        }
     }
 }
 

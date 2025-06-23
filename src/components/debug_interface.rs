@@ -2,8 +2,9 @@ use yew::prelude::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::services::{AudioEngineService};
+use crate::services::audio_engine::AudioEngineState;
 use crate::services::error_manager::ErrorManager;
-use crate::components::{AudioControlPanel, MetricsDisplay, DebugPanel, AudioInspector, PerformanceMonitor, TestSignalGenerator};
+use crate::components::{AudioControlPanel, MetricsDisplay, DebugPanel, TestSignalGenerator};
 
 #[derive(Properties)]
 pub struct DebugInterfaceProps {
@@ -27,6 +28,55 @@ impl PartialEq for DebugInterfaceProps {
 #[function_component(DebugInterface)]
 pub fn debug_interface(props: &DebugInterfaceProps) -> Html {
     let interface_active = use_state(|| true);
+    let state_check_counter = use_state(|| 0);
+    let generator_is_generating = use_state(|| false);
+    
+    // Force re-check of engine state periodically
+    {
+        let state_check_counter = state_check_counter.clone();
+        use_effect_with(
+            props.audio_engine.clone(),
+            move |_| {
+                // Set up interval to periodically force re-render to check state
+                let counter_clone = state_check_counter.clone();
+                let interval = gloo::timers::callback::Interval::new(1000, move || {
+                    counter_clone.set(*counter_clone + 1);
+                });
+                
+                move || drop(interval)
+            },
+        );
+    }
+    
+    // Get detailed engine state for display
+    let (status_icon, status_text, status_class) = if let Some(audio_engine) = &props.audio_engine {
+        if let Ok(engine_ref) = audio_engine.try_borrow() {
+            let current_state = engine_ref.get_state();
+            
+            match current_state {
+                AudioEngineState::Uninitialized => ("●", "UNINITIALIZED", "status-inactive"),
+                AudioEngineState::Initializing => ("●", "INITIALIZING", "status-warning"),
+                AudioEngineState::Ready => ("●", "READY", "status-active"),
+                AudioEngineState::Processing => ("●", "PROCESSING", "status-active"),
+                AudioEngineState::Suspended => ("●", "SUSPENDED", "status-warning"),
+                AudioEngineState::Error(ref msg) => ("●", "ERROR", "status-error"),
+            }
+        } else {
+            web_sys::console::log_1(&"🔍 Debug: Cannot borrow AudioEngine".into());
+            ("○", "UNAVAILABLE", "status-error")
+        }
+    } else {
+        web_sys::console::log_1(&"🔍 Debug: No AudioEngine available".into());
+        ("○", "NO ENGINE", "status-inactive")
+    };
+
+    // Callback for test signal generator state changes
+    let on_generation_state_change = {
+        let generator_is_generating = generator_is_generating.clone();
+        Callback::from(move |is_generating: bool| {
+            generator_is_generating.set(is_generating);
+        })
+    };
     
     html! {
         <div class="debug-interface">
@@ -40,12 +90,19 @@ pub fn debug_interface(props: &DebugInterfaceProps) -> Html {
             
             <div class="debug-layout">
                 <div class="debug-section audio-controls">
-                    <h2>{ "Audio Engine Controls" }</h2>
-                    <AudioControlPanel audio_engine={props.audio_engine.clone()} />
+                    <div class="metrics-header">
+                        <h3 class="metrics-title">{ "AUDIO ENGINE" }</h3>
+                        <span class={format!("{} status-indicator", status_class)}>
+                            { format!("{} {}", status_icon, status_text) }
+                        </span>
+                    </div>
+                    <AudioControlPanel 
+                        audio_engine={props.audio_engine.clone()}
+                        error_manager={props.error_manager.clone()}
+                    />
                 </div>
                 
                 <div class="debug-section metrics-display">
-                    <h2>{ "Real-time Metrics" }</h2>
                     <MetricsDisplay 
                         audio_engine={props.audio_engine.clone()}
                         update_interval_ms={props.update_interval_ms}
@@ -53,36 +110,26 @@ pub fn debug_interface(props: &DebugInterfaceProps) -> Html {
                 </div>
                 
                 <div class="debug-section error-panel">
-                    <h2>{ "Error & Debug States" }</h2>
-                    <DebugPanel error_manager={props.error_manager.clone()} />
-                </div>
-                
-                <div class="debug-section audio-inspector">
-                    <h2>{ "Audio Data Inspector" }</h2>
-                    <AudioInspector 
-                        audio_engine={props.audio_engine.clone()}
+                    <h2>{ "Errors" }</h2>
+                    <DebugPanel 
+                        error_manager={props.error_manager.clone()}
                         update_interval_ms={props.update_interval_ms}
-                        show_raw_buffers={false}
-                        show_frequency_data={true}
-                        show_pitch_data={true}
+                        auto_refresh={true}
                     />
                 </div>
                 
-                <div class="debug-section performance-monitor">
-                    <h2>{ "Performance Monitor" }</h2>
-                    <PerformanceMonitor 
-                        audio_engine={props.audio_engine.clone()}
-                        update_interval_ms={props.update_interval_ms}
-                        show_memory_stats={true}
-                        show_processing_breakdown={true}
-                        show_wasm_metrics={true}
-                        show_performance_history={true}
-                    />
-                </div>
-                
+
                 <div class="debug-section test-signal-generator-section">
-                    <h2>{ "Test Signal Generator" }</h2>
-                    <TestSignalGenerator audio_engine={props.audio_engine.clone()} />
+                    <div class="metrics-header">
+                        <h3 class="metrics-title">{ "TEST SIGNAL GENERATOR" }</h3>
+                        <span class={if *generator_is_generating { "status-active status-indicator" } else { "status-inactive status-indicator" }}>
+                            { if *generator_is_generating { "● GENERATING" } else { "○ READY" } }
+                        </span>
+                    </div>
+                    <TestSignalGenerator 
+                        audio_engine={props.audio_engine.clone()}
+                        on_generation_state_change={Some(on_generation_state_change)}
+                    />
                 </div>
             </div>
         </div>

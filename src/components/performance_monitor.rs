@@ -79,34 +79,21 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
     let processing_breakdown = use_state(|| None::<ProcessingBreakdown>);
     let wasm_metrics = use_state(|| None::<WasmMetrics>);
     let performance_history = use_state(|| Vec::<PerformanceHistoryEntry>::new());
-    let is_monitoring = use_state(|| false);
     let _interval_handle = use_state(|| None::<Interval>);
     
-    // Start/stop monitoring
-    let toggle_monitoring = {
-        let is_monitoring = is_monitoring.clone();
+    // Start monitoring automatically on mount
+    {
         let memory_stats = memory_stats.clone();
         let processing_breakdown = processing_breakdown.clone();
         let wasm_metrics = wasm_metrics.clone();
         let performance_history = performance_history.clone();
         let interval_handle = _interval_handle.clone();
         let update_interval = props.update_interval_ms;
-        
-        Callback::from(move |_: web_sys::MouseEvent| {
-            let new_monitoring_state = !*is_monitoring;
-            is_monitoring.set(new_monitoring_state);
-            
-            if new_monitoring_state {
-                // Start monitoring - create mock data for demonstration
-                let memory_stats_clone = memory_stats.clone();
-                let processing_breakdown_clone = processing_breakdown.clone();
-                let wasm_metrics_clone = wasm_metrics.clone();
-                let performance_history_clone = performance_history.clone();
-                
+        use_effect_with(
+            (),
+            move |_| {
                 let interval = Interval::new(update_interval, move || {
                     let current_time = js_sys::Date::now();
-                    
-                    // Generate mock memory stats
                     let mock_memory = MemoryStats {
                         used_heap_mb: 12.5 + (current_time / 5000.0).sin() as f64 * 2.0,
                         total_heap_mb: 32.0,
@@ -115,8 +102,6 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
                         buffer_allocations: ((current_time / 1000.0) as u32) % 100,
                         timestamp: current_time,
                     };
-                    
-                    // Generate mock processing breakdown
                     let mock_processing = ProcessingBreakdown {
                         audio_processing_ms: 2.5 + (current_time / 3000.0).sin() as f64 * 0.5,
                         pitch_detection_ms: 1.8 + (current_time / 4000.0).cos() as f64 * 0.3,
@@ -126,8 +111,6 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
                         cpu_utilization: 0.25 + (current_time / 7000.0).sin() as f64 * 0.1,
                         timestamp: current_time,
                     };
-                    
-                    // Generate mock WASM metrics
                     let mock_wasm = WasmMetrics {
                         compilation_time_ms: 45.2,
                         instantiation_time_ms: 12.8,
@@ -137,14 +120,10 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
                         wasm_cpu_usage: 0.15 + (current_time / 9000.0).cos() as f64 * 0.05,
                         timestamp: current_time,
                     };
-                    
-                    // Update state
-                    memory_stats_clone.set(Some(mock_memory.clone()));
-                    processing_breakdown_clone.set(Some(mock_processing.clone()));
-                    wasm_metrics_clone.set(Some(mock_wasm));
-                    
-                    // Add to performance history (keep last 20 entries)
-                    let mut history = (*performance_history_clone).clone();
+                    memory_stats.set(Some(mock_memory.clone()));
+                    processing_breakdown.set(Some(mock_processing.clone()));
+                    wasm_metrics.set(Some(mock_wasm));
+                    let mut history = (*performance_history).clone();
                     let overall_score = calculate_performance_score(&mock_memory, &mock_processing);
                     let history_entry = PerformanceHistoryEntry {
                         timestamp: current_time,
@@ -154,31 +133,17 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
                         memory_usage_mb: mock_memory.used_heap_mb,
                         cpu_usage: mock_processing.cpu_utilization,
                     };
-                    
                     history.push(history_entry);
                     if history.len() > 20 {
                         history.remove(0);
                     }
-                    performance_history_clone.set(history);
+                    performance_history.set(history);
                 });
-                
                 interval_handle.set(Some(interval));
-                console::log_1(&"Started performance monitoring".into());
-            } else {
-                // Stop monitoring
-                interval_handle.set(None);
-                console::log_1(&"Stopped performance monitoring".into());
-            }
-        })
-    };
-    
-    // Clear performance history
-    let clear_history = {
-        let performance_history = performance_history.clone();
-        Callback::from(move |_: web_sys::MouseEvent| {
-            performance_history.set(Vec::new());
-        })
-    };
+                || ()
+            },
+        );
+    }
     
     // Calculate performance grade
     let get_performance_grade = |score: f64| {
@@ -190,26 +155,6 @@ pub fn performance_monitor(props: &PerformanceMonitorProps) -> Html {
     
     html! {
         <div class="performance-monitor">
-            <div class="monitor-header">
-                <h3>{ "Performance Monitoring Dashboard" }</h3>
-                <div class="monitor-controls">
-                    <button 
-                        class={classes!("monitor-toggle", if *is_monitoring { "active" } else { "" })}
-                        onclick={toggle_monitoring}
-                        title="Start/stop performance monitoring"
-                    >
-                        { if *is_monitoring { "⏹ Stop" } else { "▶ Start" } }
-                    </button>
-                    <button 
-                        class="clear-history-btn"
-                        onclick={clear_history}
-                        title="Clear performance history"
-                    >
-                        { "🗑 Clear History" }
-                    </button>
-                </div>
-            </div>
-            
             <div class="monitor-content">
                 { if props.show_memory_stats {
                     html! {

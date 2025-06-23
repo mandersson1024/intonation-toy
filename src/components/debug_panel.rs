@@ -9,11 +9,17 @@ pub struct DebugPanelProps {
     pub error_manager: Option<Rc<RefCell<ErrorManager>>>,
     #[prop_or(false)]
     pub show_all_errors: bool,
+    #[prop_or(1000)]
+    pub update_interval_ms: u32,
+    #[prop_or(true)]
+    pub auto_refresh: bool,
 }
 
 impl PartialEq for DebugPanelProps {
     fn eq(&self, other: &Self) -> bool {
         self.show_all_errors == other.show_all_errors &&
+        self.update_interval_ms == other.update_interval_ms &&
+        self.auto_refresh == other.auto_refresh &&
         self.error_manager.as_ref().map(|e| e.as_ptr()) == other.error_manager.as_ref().map(|e| e.as_ptr())
     }
 }
@@ -60,6 +66,38 @@ pub fn debug_panel(props: &DebugPanelProps) -> Html {
             }
             || ()
         });
+    }
+    
+    // Continuous auto-refresh with interval (if enabled)
+    {
+        let error_manager = props.error_manager.clone();
+        let errors = errors.clone();
+        let auto_refresh = props.auto_refresh;
+        let update_interval_ms = props.update_interval_ms;
+        
+        use_effect_with(
+            (auto_refresh, update_interval_ms),
+            move |(should_auto_refresh, interval_ms)| {
+                if *should_auto_refresh {
+                    let error_manager = error_manager.clone();
+                    let errors = errors.clone();
+                    
+                    let interval = gloo::timers::callback::Interval::new(*interval_ms, move || {
+                        if let Some(manager) = &error_manager {
+                            if let Ok(manager_ref) = manager.try_borrow() {
+                                let all_errors = manager_ref.get_all_errors();
+                                let error_list: Vec<ApplicationError> = all_errors.into_iter().cloned().collect();
+                                errors.set(error_list);
+                            }
+                        }
+                    });
+                    
+                    Box::new(move || drop(interval)) as Box<dyn FnOnce()>
+                } else {
+                    Box::new(move || {}) as Box<dyn FnOnce()>
+                }
+            },
+        );
     }
     
     // Toggle error details view
@@ -122,17 +160,24 @@ pub fn debug_panel(props: &DebugPanelProps) -> Html {
             <div class="debug-panel-header">
                 <h3>{ "Error Debug Panel" }</h3>
                 <div class="panel-controls">
-                    <button 
-                        class="refresh-btn"
-                        onclick={refresh_errors}
-                        title="Refresh error list"
-                    >
-                        { "🔄 Refresh" }
-                    </button>
+                    { if !props.auto_refresh {
+                        html! {
+                            <button 
+                                class="refresh-btn"
+                                onclick={refresh_errors}
+                                title="Refresh error list"
+                            >
+                                { "🔄 Refresh" }
+                            </button>
+                        }
+                    } else {
+                        html! {}
+                    }}
                     <button 
                         class="details-toggle"
                         onclick={toggle_details}
-                        title="Toggle detailed view"
+                        disabled={selected_error.is_none()}
+                        title={if selected_error.is_some() { "Toggle detailed view" } else { "Select an error to view details" }}
                     >
                         { if *show_details { "📋 Simple" } else { "🔍 Details" } }
                     </button>
@@ -252,20 +297,6 @@ pub fn debug_panel(props: &DebugPanelProps) -> Html {
                         </div>
                     }
                 }}
-            </div>
-            
-            <div class="debug-summary">
-                <h4>{ "Debug Summary" }</h4>
-                <div class="summary-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">{ "Total Errors:" }</span>
-                        <span class="stat-value">{ errors.len() }</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">{ "Manager Available:" }</span>
-                        <span class="stat-value">{ if props.error_manager.is_some() { "Yes" } else { "No" } }</span>
-                    </div>
-                </div>
             </div>
         </div>
     }

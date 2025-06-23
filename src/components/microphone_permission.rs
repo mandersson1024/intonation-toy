@@ -38,12 +38,20 @@ pub fn microphone_permission(props: &MicrophonePermissionProps) -> Html {
         }
     });
 
+    // Check if we have a device disconnection error (permission granted but device unavailable)
+    let has_device_error = current_error.as_ref()
+        .map(|err| err.message.contains("device disconnected") || err.message.contains("Device was physically disconnected"))
+        .unwrap_or(false);
+
     let (status_icon, status_text, status_class, can_request) = match &permission_state {
         PermissionState::NotRequested => {
-            ("🎤", "Microphone access not requested", "status-not-requested", true)
+            ("", "", "status-not-requested", true)
         }
         PermissionState::Requesting => {
             ("⏳", "Requesting microphone permission...", "status-requesting", false)
+        }
+        PermissionState::Granted(_) if has_device_error => {
+            ("⚠️", "Microphone device disconnected", "status-device-error", false)
         }
         PermissionState::Granted(_) => {
             ("✅", "Microphone access granted", "status-granted", false)
@@ -60,80 +68,28 @@ pub fn microphone_permission(props: &MicrophonePermissionProps) -> Html {
     let show_browser_info = matches!(permission_state, PermissionState::Unsupported);
 
     html! {
-        <div class="microphone-permission">
-            <div class="permission-status">
-                <div class={classes!("status-display", status_class)}>
-                    <span class="status-icon">{ status_icon }</span>
-                    <span class="status-text">{ status_text }</span>
-                </div>
+        if matches!(permission_state, PermissionState::Granted(_)) {
+            <div class={classes!("microphone-status", "status-granted")}>
+                <span class="status-icon">{"✅"}</span>
+                <span class="status-text">{"🎤 Microphone access granted"}</span>
             </div>
-
-            <div class="permission-controls">
-                if can_request {
-                    <button 
-                        class="permission-btn request-btn"
-                        onclick={request_permission}
-                        disabled={!can_request}
-                    >
-                        if matches!(permission_state, PermissionState::Denied) {
-                            { "🔄 Retry Permission" }
-                        } else {
-                            { "🎤 Request Microphone Access" }
-                        }
-                    </button>
+        } else if can_request {
+            <button 
+                class="microphone-btn request-btn"
+                onclick={request_permission}
+                disabled={!can_request}
+            >
+                if matches!(permission_state, PermissionState::Denied) {
+                    { "🔄 Retry Microphone Permission" }
+                } else {
+                    { "🎤 Request Microphone Access" }
                 }
+            </button>
+        } else {
+            <div class={classes!("microphone-status", status_class)}>
+                <span class="status-icon">{ status_icon }</span>
+                <span class="status-text">{ status_text }</span>
             </div>
-
-            if show_retry_info {
-                <div class="permission-help retry-help">
-                    <h4>{ "Permission Denied" }</h4>
-                    <p>{ "To use this app, microphone access is required. You can:" }</p>
-                    <ul>
-                        <li>{ "Click the retry button to request permission again" }</li>
-                        <li>{ "Check your browser's address bar for permission settings" }</li>
-                        <li>{ "Reload the page and allow microphone access when prompted" }</li>
-                    </ul>
-                </div>
-            }
-
-            if show_browser_info {
-                <div class="permission-help browser-help">
-                    <h4>{ "Browser Not Supported" }</h4>
-                    <p>{ "Your browser doesn't support microphone access. Please try:" }</p>
-                    <ul>
-                        <li>{ "Chrome 47+ or Firefox 36+" }</li>
-                        <li>{ "Safari 11+ (with HTTPS)" }</li>
-                        <li>{ "Edge 79+" }</li>
-                    </ul>
-                    <p><strong>{ "Note:" }</strong>{ " HTTPS is required for microphone access." }</p>
-                </div>
-            }
-
-            if props.show_details {
-                <div class="permission-details">
-                    <h4>{ "Technical Details" }</h4>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <span class="detail-label">{ "State:" }</span>
-                            <span class="detail-value">{ permission_state.display_name() }</span>
-                        </div>
-                        if let Some(error) = &current_error {
-                            <div class="detail-item">
-                                <span class="detail-label">{ "Last Error:" }</span>
-                                <span class="detail-value error">{ &error.message }</span>
-                            </div>
-                        }
-                        <div class="detail-item">
-                            <span class="detail-label">{ "getUserMedia Support:" }</span>
-                            <span class="detail-value">{ 
-                                if web_sys::window()
-                                    .and_then(|w| w.navigator().media_devices().ok())
-                                    .is_some() { "Yes" } else { "No" }
-                            }</span>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
+        }
     }
 } 
