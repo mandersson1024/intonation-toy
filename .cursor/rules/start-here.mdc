@@ -14,6 +14,9 @@ A: Web browsers
 Q: What programming language are we using?
 A: Mainly Rust, compiled to WebAssembly
 
+Q: Do I need to restart the server after each code change?
+A: No! The `trunk` command makes sure that changes ar hot-reloaded.
+
 Q: I want to understand the project structure. Where do I start?
 A: Start by reading docs/syatem/architecture/unified-project-structure.md
 

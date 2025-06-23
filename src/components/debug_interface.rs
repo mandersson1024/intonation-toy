@@ -82,7 +82,7 @@ pub fn debug_interface(props: &DebugInterfaceProps) -> Html {
                 
                 <div class="debug-section test-signal-generator-section">
                     <h2>{ "Test Signal Generator" }</h2>
-                    <TestSignalGenerator />
+                    <TestSignalGenerator audio_engine={props.audio_engine.clone()} />
                 </div>
             </div>
         </div>
