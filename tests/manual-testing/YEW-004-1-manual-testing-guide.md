@@ -199,10 +199,7 @@ This guide provides detailed step-by-step instructions for executing Story YEW-0
          → PerformanceMonitor: □ Visible □ Hidden □ Broken
          → DeviceSelector: □ Visible □ Hidden □ Broken
          → BufferVisualizer: □ Visible □ Hidden □ Broken
-         → PipelineDebugger: □ Visible □ Hidden □ Broken
-         → PerformanceProfiler: □ Visible □ Hidden □ Broken
          → TestSignalGenerator: □ Visible □ Hidden □ Broken
-         → SessionManager: □ Visible □ Hidden □ Broken
 
 □ 3.1.2. Count successful renders
          → Components visible: ___/12

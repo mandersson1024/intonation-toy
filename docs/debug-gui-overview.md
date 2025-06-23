@@ -1,62 +1,120 @@
-# Architecture Documentation Index
-## Real-time Pitch Visualizer
+# Debug GUI Overview
 
-**Purpose**: Navigate architecture documentation
+## Introduction
 
----
+The Debug GUI is a comprehensive developer interface for the pitch-toy audio pitch detection application. It provides real-time monitoring, performance analysis, and debugging capabilities for audio processing workflows. The interface is built using the Yew framework and is designed for technical debugging and functional testing rather than end-user interaction.
 
-## Architecture Overview
+## Architecture
 
-Real-time audio processing using **Rust + Yew**, achieving <50ms audio latency and 60 FPS graphics in modern browsers.
+The Debug GUI follows a modular component-based architecture with the main `DebugInterface` component serving as the root container that orchestrates multiple specialized debugging panels.
 
-**Key Principles:**
-- **Unified Rust**: Frontend and audio processing in Rust
-- **Type Safety**: Compile-time guarantees throughout
-- **Component Architecture**: React-like experience with Rust performance
-- **Minimal JavaScript**: Only ~15KB bridge for browser APIs
+### Core Components
 
----
+#### 1. DebugInterface (`src/components/debug_interface.rs`)
+- **Purpose**: Main container component that orchestrates all debugging panels
+- **Layout**: Grid-based responsive layout with 6 distinct sections
+- **Update Frequency**: Configurable update interval (default: 1000ms)
+- **Features**:
+  - Real-time status indicator
+  - Responsive grid layout that adapts to screen size
+  - Centralized prop passing to child components
 
-## Core Documents
+#### 2. AudioControlPanel (`src/components/audio_control_panel.rs`)
+- **Purpose**: Primary audio engine control interface
+- **Key Features**:
+  - Audio engine state management (Uninitialized, Initializing, Ready, Processing, Error)
+  - Microphone permission handling integration
+  - MediaStream connection management
+  - Engine initialization, start/stop, and testing controls
+  - Real-time status display with visual indicators
+- **State Management**: Tracks engine state, processing status, and test results
+- **Integration**: Works with MicrophonePermission component for stream access
 
-| Document | Purpose |
-|----------|---------|
-| **[tech-stack.md](tech-stack.md)** | Technologies, dependencies, browser support |
-| **[unified-project-structure.md](unified-project-structure.md)** | File organization and naming |
-| **[testing-strategy.md](testing-strategy.md)** | Testing approach and tools |
+#### 3. MetricsDisplay (`src/components/metrics_display.rs`)
+- **Purpose**: Real-time performance metrics visualization
+- **Metrics Tracked**:
+  - Total latency (buffer + processing)
+  - Processing rate (Hz)
+  - Latency compliance status
+  - Update frequency and count
+- **Features**:
+  - Automatic metric updates via intervals
+  - Manual refresh capability
+  - Color-coded compliance indicators
+  - Live monitoring status display
 
----
+#### 4. DebugPanel (`src/components/debug_panel.rs`)
+- **Purpose**: Error state visualization and debugging
+- **Key Features**:
+  - Error list display with severity indicators
+  - Error categorization (Browser, WASM, WebAudio, Media, etc.)
+  - Detailed error inspection with expandable views
+  - Error history management
+  - Refresh and clear functionality
+- **Error Categories**: 16 different error categories with visual icons
+- **UI Elements**: Interactive error selection, detailed breakdowns
 
-## System Architecture
+#### 5. AudioInspector (`src/components/audio_inspector.rs`)
+- **Purpose**: Deep audio data analysis and visualization
+- **Capabilities**:
+  - Real-time audio buffer inspection
+  - Frequency domain analysis (FFT data)
+  - Pitch detection results monitoring
+  - Audio data history tracking
+- **Data Types**:
+  - `AudioBufferData`: Raw sample data with metadata
+  - `FrequencyData`: FFT bins and spectral analysis
+  - `PitchData`: Detected pitch, confidence, musical note information
+- **Features**: Start/stop monitoring, buffer history management, configurable data views
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Browser Environment                       │
-│                                                                  │
-│  ┌─────────────────┐         ┌─────────────────────────────────┐ │
-│  │  Web Audio API  │         │         Main Thread             │ │
-│  │                 │         │        (Yew + WASM)             │ │
-│  │ ┌─────────────┐ │         │                                 │ │
-│  │ │ScriptProc/  │ │         │ ┌─────────────┐ ┌─────────────┐ │ │
-│  │ │MediaStream  │◄┼────────►│ │   Frontend  │ │AudioEngine  │ │ │
-│  │ │             │ │         │ │    (Yew)    │ │   (WASM)    │ │ │
-│  │ └─────────────┘ │         │ │• Components │ │• Pitch Det. │ │ │
-│  │                 │         │ │• UI State   │ │• Processing │ │ │
-│  │ ┌─────────────┐ │         │ │• Rendering  │ │• Analysis   │ │ │
-│  │ │AudioContext │ │         │ └─────────────┘ └─────────────┘ │ │
-│  │ │   Setup     │ │         │                                 │ │
-│  │ └─────────────┘ │         │     wasm-bindgen generated      │ │
-│  └─────────────────┘         │         bindings (~55KB)        │ │
-│                              └─────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
-```
+#### 6. PerformanceMonitor (`src/components/performance_monitor.rs`)
+- **Purpose**: Comprehensive performance analysis dashboard
+- **Monitoring Areas**:
+  - Memory usage (heap utilization, GC metrics)
+  - Processing breakdown (timing analysis per component)
+  - WASM metrics (compilation time, memory pages, function calls)
+  - Performance history with scoring system
+- **Features**:
+  - Real-time monitoring with configurable intervals
+  - Performance scoring algorithm
+  - Historical performance tracking
+  - Visual performance grading (Excellent/Good/Fair/Poor)
 
-## Performance Targets
+#### 7. TestSignalGenerator (`src/components/test_signal_generator.rs`)
+- **Purpose**: Signal generation for testing audio processing
+- **Current State**: Placeholder with planned capabilities
+- **Planned Features**: Waveform generation, frequency sweeps, musical chords
 
-| Metric | Target |
-|--------|--------|
-| **Audio Latency** | <50ms |
-| **Graphics FPS** | 60 FPS |
-| **Pitch Accuracy** | ±5 cents |
-| **Memory Usage** | <100MB |
-| **Browser Support** | Chrome 69+, Firefox 76+, Safari 14.1+, Edge 79+ | 
+## Development Workflow
+
+### Usage in Development
+1. **Initialization**: Load the Debug GUI to assess system readiness
+2. **Engine Setup**: Use Audio Control Panel to initialize and connect audio engine
+3. **Monitoring**: Enable real-time monitoring across all panels
+4. **Testing**: Use test controls and signal generation for validation
+5. **Analysis**: Review performance metrics and error logs for optimization
+
+### Testing Support
+- **Functional Testing**: Engine controls for start/stop/test operations
+- **Performance Testing**: Real-time metrics with compliance checking
+- **Error Testing**: Error injection and recovery validation
+- **Audio Testing**: Signal generation and data inspection
+
+## Configuration Options
+
+### Update Intervals
+- Default: 1000ms (1 second)
+- Range: 100ms - 5000ms
+- Component-specific overrides available
+
+### Display Options
+- Raw buffer display toggle
+- Frequency data visualization control
+- Pitch data display preferences
+- Performance history depth settings
+
+### Monitoring Scope
+- Memory statistics inclusion
+- Processing breakdown detail level
+- WASM metrics visibility
+- Performance history tracking

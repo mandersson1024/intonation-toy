@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::services::{AudioEngineService};
 use crate::services::error_manager::ErrorManager;
-use crate::components::{AudioControlPanel, MetricsDisplay, DebugPanel, AudioInspector, PerformanceMonitor, PipelineDebugger, PerformanceProfiler, TestSignalGenerator, SessionManager};
+use crate::components::{AudioControlPanel, MetricsDisplay, DebugPanel, AudioInspector, PerformanceMonitor, TestSignalGenerator};
 
 #[derive(Properties)]
 pub struct DebugInterfaceProps {
@@ -80,25 +80,9 @@ pub fn debug_interface(props: &DebugInterfaceProps) -> Html {
                     />
                 </div>
                 
-                // Enhanced developer debugging tools
-                <div class="debug-section pipeline-debugger-section">
-                    <h2>{ "Pipeline Debugger" }</h2>
-                    <PipelineDebugger />
-                </div>
-                
-                <div class="debug-section performance-profiler-section">
-                    <h2>{ "Performance Profiler" }</h2>
-                    <PerformanceProfiler />
-                </div>
-                
                 <div class="debug-section test-signal-generator-section">
                     <h2>{ "Test Signal Generator" }</h2>
                     <TestSignalGenerator />
-                </div>
-                
-                <div class="debug-section session-manager-section">
-                    <h2>{ "Session Manager" }</h2>
-                    <SessionManager />
                 </div>
             </div>
         </div>
