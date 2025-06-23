@@ -21,7 +21,10 @@ Q: I see no HTML files. Where is the HTML code?
 A: We use the Yew framework for HTML. Take a look at the Rust files under src/components/
 
 
-## Current state of implementation
+## Current focus
 
-- The current GUI focus is a Debug GUI with the purpose of allowing for easy functional and technical testing
+### Debug GUI (a.k.a Developer Debug Interface)
+
+- The Debug GUI has the purpose of allowing for easy functional and technical testing
 - End user GUI is TBD - don't worry about it at the moment
+- For detailed description, see docs/debug-gui-overview.md
