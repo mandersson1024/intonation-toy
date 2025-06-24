@@ -107,12 +107,12 @@ struct EventQueue {
 > As a **module developer**, I want **compile-time guaranteed event registration** so that I can **subscribe to events without runtime type errors**.
 
 ### Acceptance Criteria
-- [ ] Generic subscription system with compile-time type checking
-- [ ] Module registration with event bus during initialization
-- [ ] Subscription management (add/remove subscribers)
-- [ ] Event routing based on type information
-- [ ] Handler registration with automatic cleanup
-- [ ] Error handling for invalid registrations
+- [x] Generic subscription system with compile-time type checking
+- [x] Module registration with event bus during initialization
+- [x] Subscription management (add/remove subscribers)
+- [x] Event routing based on type information
+- [x] Handler registration with automatic cleanup
+- [x] Error handling for invalid registrations
 
 ### Technical Requirements  
 - **Type Safety:** All event types verified at compile time
@@ -121,12 +121,12 @@ struct EventQueue {
 - **Documentation:** Clear examples for common registration patterns
 
 ### Definition of Done
-- [ ] Generic subscription system implemented
-- [ ] Type-safe event routing working
-- [ ] Handler lifecycle management complete
-- [ ] Unit tests for all registration scenarios
-- [ ] Documentation with examples
-- [ ] Integration testing with multiple event types
+- [x] Generic subscription system implemented
+- [x] Type-safe event routing working
+- [x] Handler lifecycle management complete
+- [x] Unit tests for all registration scenarios
+- [x] Documentation with examples
+- [x] Integration testing with multiple event types
 
 ### Implementation Notes
 ```rust

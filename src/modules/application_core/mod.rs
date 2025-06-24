@@ -6,9 +6,14 @@
 
 pub mod event_bus;
 pub mod priority_event_bus;
+pub mod event_bus_impl;
 
 #[cfg(test)]
 mod integration_tests;
 
+#[cfg(test)]
+mod story_003_integration_tests;
+
 pub use event_bus::*;
 pub use priority_event_bus::*;
+pub use event_bus_impl::*;
