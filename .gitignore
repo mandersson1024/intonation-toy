@@ -14,4 +14,4 @@ Cargo.lock
 
 .DS_Store
 
-bmad-core/**
+.bmad-core/**
