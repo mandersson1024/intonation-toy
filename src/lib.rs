@@ -79,4 +79,5 @@ pub fn detect_pitch_detailed(audio_buffer: &[f32], sample_rate: f32, algorithm: 
 }
 
 // Core modules
+pub mod modules;
 pub mod types;
