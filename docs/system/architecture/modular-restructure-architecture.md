@@ -232,7 +232,7 @@ graph TB
 ```plaintext
 pitch-toy/
 ├── src/
-│   ├── components/          # Yew components
+│   ├── components/         # Yew components
 │   ├── services/           # Business logic services
 │   ├── audio/              # Audio processing
 │   ├── hooks/              # Yew hooks
