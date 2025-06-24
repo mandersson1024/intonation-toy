@@ -135,6 +135,7 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
     let show_device_selector = use_state(|| false);
     
     // Load available input devices and set up device change monitoring
+    // Note: Only load devices when we have a media stream (permission granted)
     {
         let available_devices = available_devices.clone();
         
@@ -142,23 +143,54 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
             let devices = available_devices.clone();
             let on_stream_ready = props.on_stream_ready.clone();
             let selected_device_id_for_effect = selected_device_id.clone();
+            let media_stream = props.media_stream.clone();
             
-            use_effect_with((), move |_| {
-                // Load devices initially
-                {
+            use_effect_with(media_stream, move |stream| {
+                // Load devices when we have permission (media stream available)
+                if stream.is_some() {
                     let devices_initial = devices.clone();
+                    let selected_device_id_initial = selected_device_id_for_effect.clone();
+                    let stream_for_detection = stream.clone();
+                    
                     wasm_bindgen_futures::spawn_local(async move {
                         let device_list = load_audio_input_devices(false).await;
                         devices_initial.set(device_list);
+                        
+                        // If we have a stream, detect the actual device ID and sync with dropdown
+                        if let Some(stream) = stream_for_detection {
+                            let audio_tracks = stream.get_audio_tracks();
+                            if audio_tracks.length() > 0 {
+                                if let Ok(track) = audio_tracks.get(0).dyn_into::<web_sys::MediaStreamTrack>() {
+                                    // Get the actual device ID from the stream
+                                    let settings_result = js_sys::Reflect::get(&track, &"getSettings".into());
+                                    if let Ok(get_settings_fn) = settings_result {
+                                        if let Ok(settings) = js_sys::Reflect::apply(
+                                            &get_settings_fn.dyn_into::<js_sys::Function>().unwrap(),
+                                            &track,
+                                            &js_sys::Array::new()
+                                        ) {
+                                            if let Ok(device_id_js) = js_sys::Reflect::get(&settings, &"deviceId".into()) {
+                                                if let Some(actual_device_id) = device_id_js.as_string() {
+                                                    console::log_1(&format!("🔍 Initial device detection: stream using device ID: {}", actual_device_id).into());
+                                                    selected_device_id_initial.set(Some(actual_device_id));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     });
                 }
                 
                 // Set up device change listener to refresh the list when devices are added/removed
                 // Note: This will be the primary device change listener and will handle both
                 // device list refresh and potential reconnection scenarios
-                if let Some(media_devices) = web_sys::window()
-                    .and_then(|w| w.navigator().media_devices().ok())
-                {
+                // Only set up when we have permission (media stream available)
+                if stream.is_some() {
+                    if let Some(media_devices) = web_sys::window()
+                        .and_then(|w| w.navigator().media_devices().ok())
+                    {
                     let devices_for_change = devices.clone();
                     let on_stream_ready_change = on_stream_ready.clone();
                     let selected_device_id_change = selected_device_id_for_effect.clone();
@@ -183,6 +215,17 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
                                 None
                             };
                             
+                            // Check if current selected device is still in the list
+                            // If not, clear the selection so the UI shows no device selected
+                            let current_selection = (*selected_device_id_reconnect).clone();
+                            if let Some(ref selected_id) = current_selection {
+                                let device_still_exists = device_list.iter().any(|d| &d.device_id == selected_id);
+                                if !device_still_exists {
+                                    console::log_1(&format!("⚠️ Previously selected device {} no longer available - clearing selection", selected_id).into());
+                                    selected_device_id_reconnect.set(None);
+                                }
+                            }
+                            
                             // Set the device list (moves device_list)
                             devices_for_reload.set(device_list);
                             
@@ -199,6 +242,7 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
                                     console::log_1(&format!("✅ Successfully auto-reconnected to first available device: {}", device_id).into());
                                     
                                     // Update the dropdown selection to match the reconnected device
+                                    console::log_1(&format!("🎯 Setting dropdown selection to auto-reconnected device: {}", device_id).into());
                                     selected_device_id_reconnect.set(Some(device_id.clone()));
                                     
                                     // Emit the new stream to update the UI and Device Configuration
@@ -210,9 +254,10 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
                         });
                     }) as Box<dyn Fn(_)>);
                     
-                    media_devices.set_ondevicechange(Some(ondevicechange.as_ref().unchecked_ref()));
-                    ondevicechange.forget(); // Keep the closure alive
-                    console::log_1(&"🔍 Primary device change listener set up for device list refresh and auto-reconnection".into());
+                        media_devices.set_ondevicechange(Some(ondevicechange.as_ref().unchecked_ref()));
+                        ondevicechange.forget(); // Keep the closure alive
+                        console::log_1(&"🔍 Primary device change listener set up for device list refresh and auto-reconnection".into());
+                    }
                 }
                 
                 || ()
@@ -245,11 +290,12 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
                         console::log_1(&format!("Microphone device name: {}", name).into());
                         device_name_clone.set(Some(name.clone()));
                         
-                        // Try to determine the device ID from the stream
+                        // Update the dropdown selection to match the actual connected device
+                        // This ensures UI consistency between dropdown and Device Configuration
                         let audio_tracks = stream_clone.get_audio_tracks();
                         if audio_tracks.length() > 0 {
                             if let Ok(track) = audio_tracks.get(0).dyn_into::<web_sys::MediaStreamTrack>() {
-                                // Use JavaScript to call getSettings()
+                                // Get the actual device ID from the stream
                                 let settings_result = js_sys::Reflect::get(&track, &"getSettings".into());
                                 if let Ok(get_settings_fn) = settings_result {
                                     if let Ok(settings) = js_sys::Reflect::apply(
@@ -258,8 +304,17 @@ pub fn microphone_panel(props: &MicrophonePanelProps) -> Html {
                                         &js_sys::Array::new()
                                     ) {
                                         if let Ok(device_id_js) = js_sys::Reflect::get(&settings, &"deviceId".into()) {
-                                            if let Some(device_id) = device_id_js.as_string() {
-                                                selected_device_id_clone.set(Some(device_id));
+                                            if let Some(actual_device_id) = device_id_js.as_string() {
+                                                console::log_1(&format!("📺 Stream connected with actual device ID: {}", actual_device_id).into());
+                                                console::log_1(&format!("🔍 Current dropdown selection: {:?}", *selected_device_id_clone).into());
+                                                
+                                                // Always update dropdown to match the actual connected device
+                                                if selected_device_id_clone.as_ref() != Some(&actual_device_id) {
+                                                    console::log_1(&format!("🔄 Updating dropdown to match actual connected device: {}", actual_device_id).into());
+                                                    selected_device_id_clone.set(Some(actual_device_id));
+                                                } else {
+                                                    console::log_1(&"✅ Dropdown already matches connected device".into());
+                                                }
                                             }
                                         }
                                     }

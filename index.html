@@ -108,8 +108,18 @@
         // Get available audio input devices
         window.getAudioInputDevices = async function() {
             try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(device => device.kind === 'audioinput');
+                // First, check if we have permission to access device labels
+                let devices = await navigator.mediaDevices.enumerateDevices();
+                let audioInputs = devices.filter(device => device.kind === 'audioinput');
+                
+                // If device labels are empty, we likely need permission
+                const hasLabels = audioInputs.some(device => device.label && device.label.trim() !== '');
+                
+                if (!hasLabels) {
+                    console.log('🔍 Device labels not available, might need microphone permission for enumeration');
+                    // Note: We won't automatically request permission here since that should be user-initiated
+                    // The component will handle this through the permission system
+                }
                 
                 return audioInputs.map(device => ({
                     deviceId: device.deviceId,
