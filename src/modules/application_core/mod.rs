@@ -9,6 +9,8 @@ pub mod priority_event_bus;
 pub mod event_bus_impl;
 pub mod buffer_ref;
 pub mod web_audio_compat;
+pub mod performance_monitor;
+pub mod debug_interface;
 
 #[cfg(test)]
 pub mod buffer_benchmark;
@@ -24,3 +26,5 @@ pub use priority_event_bus::*;
 pub use event_bus_impl::*;
 pub use buffer_ref::*;
 pub use web_audio_compat::*;
+pub use performance_monitor::*;
+pub use debug_interface::*;

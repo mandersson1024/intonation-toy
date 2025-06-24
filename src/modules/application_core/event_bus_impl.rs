@@ -7,6 +7,7 @@ use super::event_bus::{
     Event, EventBus, EventBusError, EventBusMetrics, EventBusState,
     EventHandler, EventPriority, SubscriptionId, HandlerInfo, get_timestamp_ns
 };
+use super::performance_monitor::{EventBusPerformanceMonitor, MonitorConfig};
 use std::any::{Any, TypeId};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -169,6 +170,7 @@ pub struct EventBusImpl {
     processing_thread: Option<thread::JoinHandle<()>>,
     stop_signal: Arc<Mutex<bool>>,
     modules: Arc<RwLock<HashMap<String, ModuleRegistration>>>,
+    performance_monitor: Arc<EventBusPerformanceMonitor>,
 }
 
 impl EventBusImpl {
@@ -190,7 +192,30 @@ impl EventBusImpl {
             processing_thread: None,
             stop_signal: Arc::new(Mutex::new(false)),
             modules: Arc::new(RwLock::new(HashMap::new())),
+            performance_monitor: Arc::new(EventBusPerformanceMonitor::new()),
         }
+    }
+    
+    /// Creates a new event bus with custom performance monitoring configuration
+    pub fn with_monitor_config(capacity: usize, monitor_config: MonitorConfig) -> Self {
+        let capacity = capacity.min(MAX_QUEUE_CAPACITY);
+        
+        Self {
+            state: Arc::new(RwLock::new(EventBusState::Stopped)),
+            queues: Arc::new(Mutex::new(EventQueues::new(capacity))),
+            handlers: Arc::new(RwLock::new(HashMap::new())),
+            metrics: Arc::new(RwLock::new(EventBusMetrics::default())),
+            next_subscription_id: Arc::new(Mutex::new(1)),
+            processing_thread: None,
+            stop_signal: Arc::new(Mutex::new(false)),
+            modules: Arc::new(RwLock::new(HashMap::new())),
+            performance_monitor: Arc::new(EventBusPerformanceMonitor::with_config(monitor_config)),
+        }
+    }
+    
+    /// Gets access to the performance monitor for configuration and querying
+    pub fn get_performance_monitor(&self) -> Arc<EventBusPerformanceMonitor> {
+        Arc::clone(&self.performance_monitor)
     }
     
     /// Registers a module with the event bus
@@ -281,6 +306,7 @@ impl EventBusImpl {
         metrics: Arc<RwLock<EventBusMetrics>>,
         stop_signal: Arc<Mutex<bool>>,
         state: Arc<RwLock<EventBusState>>,
+        performance_monitor: Arc<EventBusPerformanceMonitor>,
     ) {
         let processing_interval = Duration::from_micros(PROCESSING_INTERVAL_US);
         
@@ -303,17 +329,30 @@ impl EventBusImpl {
                 let start_time = Instant::now();
                 
                 // Process the event with appropriate handlers
-                {
+                let processing_success = {
                     let mut handlers = handlers.write().unwrap();
-                    if let Err(e) = (event.processor)(event.event.as_ref(), &mut *handlers) {
-                        // Log processing error (in a real implementation, you'd use proper logging)
-                        eprintln!("Event processing error for {}: {:?}", event.event_type_name, e);
+                    match (event.processor)(event.event.as_ref(), &mut *handlers) {
+                        Ok(()) => true,
+                        Err(e) => {
+                            // Log processing error (in a real implementation, you'd use proper logging)
+                            eprintln!("Event processing error for {}: {:?}", event.event_type_name, e);
+                            false
+                        }
                     }
-                }
+                };
                 
                 let processing_time = start_time.elapsed().as_nanos() as u64;
                 
-                // Update metrics
+                // Record detailed event processing metrics
+                if let Err(e) = performance_monitor.record_event_processing(
+                    event.event_type_name,
+                    processing_time,
+                    processing_success
+                ) {
+                    eprintln!("Failed to record event processing metrics: {}", e);
+                }
+                
+                // Update base metrics
                 {
                     let mut metrics = metrics.write().unwrap();
                     let priority_index = event.priority.as_usize();
@@ -324,17 +363,30 @@ impl EventBusImpl {
                         (current_avg + processing_time) / 2
                     };
                     metrics.total_events_processed += 1;
+                    
+                    // Update error counts if processing failed
+                    if !processing_success {
+                        let error_count = metrics.error_counts
+                            .entry(event.event_type_name.to_string())
+                            .or_insert(0);
+                        *error_count += 1;
+                    }
                 }
             } else {
                 // No events to process, sleep briefly
                 thread::sleep(processing_interval);
             }
             
-            // Update queue depth metrics
+            // Update queue depth metrics and push to performance monitor
             {
                 let queues = queues.lock().unwrap();
                 let mut metrics = metrics.write().unwrap();
                 metrics.queue_depths = queues.get_depths();
+                
+                // Update performance monitor with current metrics
+                if let Err(e) = performance_monitor.update_metrics(metrics.clone()) {
+                    eprintln!("Failed to update performance monitor metrics: {}", e);
+                }
             }
         }
         
@@ -440,9 +492,10 @@ impl EventBus for EventBusImpl {
         let metrics = Arc::clone(&self.metrics);
         let stop_signal = Arc::clone(&self.stop_signal);
         let state = Arc::clone(&self.state);
+        let performance_monitor = Arc::clone(&self.performance_monitor);
         
         let processing_thread = thread::spawn(move || {
-            Self::event_processing_loop(queues, handlers, metrics, stop_signal, state);
+            Self::event_processing_loop(queues, handlers, metrics, stop_signal, state, performance_monitor);
         });
         
         self.processing_thread = Some(processing_thread);
