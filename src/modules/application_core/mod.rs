@@ -21,6 +21,18 @@ mod integration_tests;
 #[cfg(test)]
 mod event_bus_integration_tests;
 
+#[cfg(test)]
+mod comprehensive_tests;
+
+#[cfg(test)]
+mod stress_test_framework;
+
+#[cfg(test)]
+mod benchmark_suite;
+
+#[cfg(test)]
+mod test_infrastructure;
+
 pub use event_bus::*;
 pub use priority_event_bus::*;
 pub use event_bus_impl::*;
