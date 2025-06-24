@@ -13,5 +13,3 @@ Cargo.lock
 **/*.rs.bk
 
 .DS_Store
-
-.bmad-core/**
