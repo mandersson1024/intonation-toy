@@ -1,14 +1,10 @@
 bundle:
-  name: Team Fullstack
-  icon: 🚀
-  description: Team capable of full stack, front end only, or service development.
+  name: Team All
+  icon: 👥
+  description: Includes every core system agent.
 agents:
   - bmad-orchestrator
-  - analyst
-  - pm
-  - ux-expert
-  - architect
-  - po
+  - '*'
 workflows:
   - brownfield-fullstack
   - brownfield-service
