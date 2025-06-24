@@ -7,6 +7,11 @@
 pub mod event_bus;
 pub mod priority_event_bus;
 pub mod event_bus_impl;
+pub mod buffer_ref;
+pub mod web_audio_compat;
+
+#[cfg(test)]
+pub mod buffer_benchmark;
 
 #[cfg(test)]
 mod integration_tests;
@@ -17,3 +22,5 @@ mod event_bus_integration_tests;
 pub use event_bus::*;
 pub use priority_event_bus::*;
 pub use event_bus_impl::*;
+pub use buffer_ref::*;
+pub use web_audio_compat::*;
