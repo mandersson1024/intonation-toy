@@ -1,8 +1,7 @@
 //! # Event Bus Implementation
 //!
-//! This module implements the event bus system for STORY-002 and STORY-003.
-//! It provides priority-based event processing with compile-time type safety,
-//! efficient event routing, and automatic handler lifecycle management.
+//! This module implements the event bus system with priority-based event processing,
+//! compile-time type safety, efficient event routing, and automatic handler lifecycle management.
 
 use super::event_bus::{
     Event, EventBus, EventBusError, EventBusMetrics, EventBusState,
@@ -357,7 +356,6 @@ impl EventBus for EventBusImpl {
             }
         }
         
-        let priority = event.priority();
         let typed_event = TypedEventContainer::new(event);
         
         // Queue the event

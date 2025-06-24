@@ -1,8 +1,7 @@
 //! # Priority-Based Event Bus Implementation
 //!
-//! This module implements the priority queue-based event bus for STORY-002.
-//! The implementation provides priority-based event processing with critical
-//! event bypass, thread safety, and performance monitoring.
+//! This module implements the priority queue-based event bus with priority-based
+//! event processing, critical event bypass, thread safety, and performance monitoring.
 
 use super::event_bus::{
     Event, EventBus, EventBusError, EventBusMetrics, EventBusState,

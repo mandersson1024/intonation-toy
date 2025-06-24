@@ -41,6 +41,7 @@ core_principles:
   - Block Only When Critical - HALT for: missing approval/ambiguous reqs/3 failures/missing config
   - Code Excellence - Clean, secure, maintainable code per loaded standards
   - Numbered Options - Always use numbered lists when presenting choices
+  - Don't refer to story numbers, epic numbers, or acceptance criteria in code, comments and filenames.
 
 commands:  # All commands require * prefix when used (e.g., *help)
   - help: Show numbered list of the following commands to allow selection

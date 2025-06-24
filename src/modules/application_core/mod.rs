@@ -12,7 +12,7 @@ pub mod event_bus_impl;
 mod integration_tests;
 
 #[cfg(test)]
-mod story_003_integration_tests;
+mod event_bus_integration_tests;
 
 pub use event_bus::*;
 pub use priority_event_bus::*;

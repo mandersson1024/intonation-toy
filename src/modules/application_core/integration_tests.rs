@@ -1,4 +1,4 @@
-//! Integration tests for Story 002 - Priority Event Queue Implementation
+//! Integration tests for priority event queue implementation
 
 #[cfg(test)]
 mod priority_queue_integration_tests {

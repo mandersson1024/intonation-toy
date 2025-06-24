@@ -1,7 +1,7 @@
-//! Integration tests for Story 003 - Type-Safe Event Registration System
+//! Integration tests for type-safe event registration system
 
 #[cfg(test)]
-mod story_003_integration_tests {
+mod event_bus_integration_tests {
     use super::super::{EventBusImpl, Event, EventBus, EventHandler, EventPriority, get_timestamp_ns};
     use std::any::Any;
     use std::sync::atomic::{AtomicU32, Ordering};
