@@ -38,6 +38,9 @@ mod benchmark_suite;
 #[cfg(test)]
 mod test_infrastructure;
 
+#[cfg(test)]
+mod application_core_test_suite;
+
 pub use event_bus::*;
 pub use priority_event_bus::*;
 pub use typed_event_bus::*;
