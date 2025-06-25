@@ -11,6 +11,7 @@ pub mod buffer_ref;
 pub mod web_audio_compat;
 pub mod performance_monitor;
 pub mod debug_interface;
+pub mod module_registry;
 
 #[cfg(test)]
 pub mod buffer_benchmark;
@@ -40,3 +41,4 @@ pub use buffer_ref::*;
 pub use web_audio_compat::*;
 pub use performance_monitor::*;
 pub use debug_interface::*;
+pub use module_registry::*;
