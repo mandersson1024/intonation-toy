@@ -36,7 +36,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Unique identifier for a module
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ModuleId(String);
 
 impl ModuleId {
