@@ -1,7 +1,11 @@
-//! # Event Bus Implementation
+//! # Typed Event Bus Implementation
 //!
-//! This module implements the event bus system with priority-based event processing,
+//! This module implements a type-safe event bus system with priority-based event processing,
 //! compile-time type safety, efficient event routing, and automatic handler lifecycle management.
+//!
+//! The TypedEventBus provides compile-time guarantees that event handlers can only be
+//! registered for compatible event types, preventing runtime type errors and ensuring
+//! type-safe event processing throughout the application.
 
 use super::event_bus::{
     Event, EventBus, EventBusError, EventBusMetrics, EventBusState,
@@ -160,8 +164,8 @@ pub struct ModuleRegistration {
     pub registration_timestamp: u64,
 }
 
-/// Thread-safe event bus implementation
-pub struct EventBusImpl {
+/// Thread-safe typed event bus implementation with compile-time type safety
+pub struct TypedEventBus {
     state: Arc<RwLock<EventBusState>>,
     queues: Arc<Mutex<EventQueues>>,
     handlers: Arc<RwLock<HashMap<TypeId, Vec<TypedHandlerContainer>>>>,
@@ -173,13 +177,13 @@ pub struct EventBusImpl {
     performance_monitor: Arc<EventBusPerformanceMonitor>,
 }
 
-impl EventBusImpl {
-    /// Creates a new event bus with default settings
+impl TypedEventBus {
+    /// Creates a new typed event bus with default settings
     pub fn new() -> Self {
         Self::with_capacity(DEFAULT_QUEUE_CAPACITY)
     }
     
-    /// Creates a new event bus with specified queue capacity
+    /// Creates a new typed event bus with specified queue capacity
     pub fn with_capacity(capacity: usize) -> Self {
         let capacity = capacity.min(MAX_QUEUE_CAPACITY);
         
@@ -196,7 +200,7 @@ impl EventBusImpl {
         }
     }
     
-    /// Creates a new event bus with custom performance monitoring configuration
+    /// Creates a new typed event bus with custom performance monitoring configuration
     pub fn with_monitor_config(capacity: usize, monitor_config: MonitorConfig) -> Self {
         let capacity = capacity.min(MAX_QUEUE_CAPACITY);
         
@@ -218,7 +222,7 @@ impl EventBusImpl {
         Arc::clone(&self.performance_monitor)
     }
     
-    /// Registers a module with the event bus
+    /// Registers a module with the typed event bus
     pub fn register_module<T: Event + 'static>(
         &mut self, 
         module_name: String,
@@ -398,7 +402,7 @@ impl EventBusImpl {
     }
 }
 
-impl EventBus for EventBusImpl {
+impl EventBus for TypedEventBus {
     fn publish<T: Event + 'static>(&self, event: T) -> Result<(), EventBusError> {
         // Check if bus is running
         {
@@ -537,15 +541,15 @@ impl EventBus for EventBusImpl {
     }
 }
 
-impl Default for EventBusImpl {
+impl Default for TypedEventBus {
     fn default() -> Self {
         Self::new()
     }
 }
 
-// Ensure EventBusImpl is Send and Sync
-unsafe impl Send for EventBusImpl {}
-unsafe impl Sync for EventBusImpl {}
+// Ensure TypedEventBus is Send and Sync
+unsafe impl Send for TypedEventBus {}
+unsafe impl Sync for TypedEventBus {}
 
 #[cfg(test)]
 mod tests {
@@ -630,14 +634,14 @@ mod tests {
     }
     
     #[test]
-    fn test_event_bus_creation() {
-        let bus = EventBusImpl::new();
+    fn test_typed_event_bus_creation() {
+        let bus = TypedEventBus::new();
         assert_eq!(bus.state(), EventBusState::Stopped);
     }
     
     #[test]
     fn test_subscription_management() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         let processed_count = Arc::new(AtomicU32::new(0));
         
         let handler = TestHandler {
@@ -658,7 +662,7 @@ mod tests {
     
     #[test]
     fn test_module_registration() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         let processed_count = Arc::new(AtomicU32::new(0));
         
         let handlers = vec![
@@ -685,7 +689,7 @@ mod tests {
     
     #[test]
     fn test_event_processing() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         let test_count = Arc::new(AtomicU32::new(0));
         let another_count = Arc::new(AtomicU32::new(0));
         
@@ -730,7 +734,7 @@ mod tests {
     
     #[test]
     fn test_multiple_handlers_same_type() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         let count1 = Arc::new(AtomicU32::new(0));
         let count2 = Arc::new(AtomicU32::new(0));
         
@@ -770,7 +774,7 @@ mod tests {
     
     #[test]
     fn test_error_handling_in_handlers() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         struct FailingHandler;
         impl EventHandler<TestEvent> for FailingHandler {

@@ -36,11 +36,11 @@ Based on our implementation and testing:
 
 ```rust
 use crate::modules::application_core::{
-    EventBusImpl, EventBusPerformanceMonitor, MonitorConfig
+    TypedEventBus, EventBusPerformanceMonitor, MonitorConfig
 };
 
 // Create event bus with performance monitoring
-let mut event_bus = EventBusImpl::new();
+let mut event_bus = TypedEventBus::new();
 
 // Get access to performance monitor
 let performance_monitor = event_bus.get_performance_monitor();
@@ -58,7 +58,7 @@ println!("Current throughput: {:.1} events/sec", metrics.base_metrics.events_per
 
 ```rust
 use crate::modules::application_core::{
-    EventBusImpl, MonitorConfig, PerformanceThresholds
+    TypedEventBus, MonitorConfig, PerformanceThresholds
 };
 
 // Create custom monitoring configuration
@@ -72,7 +72,7 @@ let monitor_config = MonitorConfig {
 };
 
 // Create event bus with custom monitoring
-let mut event_bus = EventBusImpl::with_monitor_config(1000, monitor_config);
+let mut event_bus = TypedEventBus::with_monitor_config(1000, monitor_config);
 
 // Configure performance thresholds
 let performance_monitor = event_bus.get_performance_monitor();

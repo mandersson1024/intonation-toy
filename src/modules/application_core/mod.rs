@@ -6,7 +6,7 @@
 
 pub mod event_bus;
 pub mod priority_event_bus;
-pub mod event_bus_impl;
+pub mod typed_event_bus;
 pub mod buffer_ref;
 pub mod web_audio_compat;
 pub mod performance_monitor;
@@ -35,7 +35,7 @@ mod test_infrastructure;
 
 pub use event_bus::*;
 pub use priority_event_bus::*;
-pub use event_bus_impl::*;
+pub use typed_event_bus::*;
 pub use buffer_ref::*;
 pub use web_audio_compat::*;
 pub use performance_monitor::*;

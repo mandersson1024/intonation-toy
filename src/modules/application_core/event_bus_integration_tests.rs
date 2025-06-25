@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod event_bus_integration_tests {
-    use super::super::{EventBusImpl, Event, EventBus, EventHandler, EventPriority, get_timestamp_ns};
+    use super::super::{TypedEventBus, Event, EventBus, EventHandler, EventPriority, get_timestamp_ns};
     use std::any::Any;
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
@@ -190,7 +190,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_compile_time_type_safety() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         // These should compile fine - correct type matching
         let audio_handler = AudioModuleHandler {
@@ -214,7 +214,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_module_registration_lifecycle() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         // Create handlers for audio module
         let audio_count = Arc::new(AtomicU32::new(0));
@@ -281,7 +281,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_cross_module_event_routing() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         let audio_count = Arc::new(AtomicU32::new(0));
         let system_monitor_count = Arc::new(AtomicU32::new(0));
@@ -337,7 +337,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_event_routing_performance() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         let audio_count = Arc::new(AtomicU32::new(0));
         let ui_count = Arc::new(AtomicU32::new(0));
@@ -404,7 +404,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_handler_error_isolation() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         struct FailingHandler {
             fail_on_count: u32,
@@ -464,7 +464,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_automatic_handler_cleanup() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         let count = Arc::new(AtomicU32::new(0));
         
@@ -514,7 +514,7 @@ mod event_bus_integration_tests {
 
     #[test]
     fn test_priority_based_processing_order() {
-        let mut bus = EventBusImpl::new();
+        let mut bus = TypedEventBus::new();
         
         let processing_order = Arc::new(Mutex::new(Vec::new()));
         
