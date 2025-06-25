@@ -1444,10 +1444,11 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
-    use crate::modules::application_core::module_registry::*;
-    use crate::modules::application_core::application_lifecycle::*;
+    use super::{ConfigurationCoordinator, ConfigurationCoordinatorImpl, ConfigValue, ModuleConfig, ConfigError, ConfigSetting, ValueConstraints};
+    use crate::modules::application_core::module_registry::{Module, ModuleId, ModuleRegistry, ModuleRegistryImpl, ModuleState};
+    use crate::modules::application_core::application_lifecycle::{ApplicationLifecycle, ApplicationLifecycleCoordinator, ApplicationConfig, ApplicationState};
     use std::sync::{Arc, Mutex};
+    use std::collections::HashMap;
 
     // Mock module that uses configuration
     struct ConfigurableModule {

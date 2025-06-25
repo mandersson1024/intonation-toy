@@ -15,6 +15,7 @@ pub mod module_registry;
 pub mod application_lifecycle;
 pub mod dependency_injection;
 pub mod configuration_coordinator;
+pub mod error_recovery;
 
 #[cfg(test)]
 pub mod buffer_benchmark;
@@ -48,3 +49,4 @@ pub use module_registry::*;
 pub use application_lifecycle::*;
 pub use dependency_injection::*;
 pub use configuration_coordinator::*;
+pub use error_recovery::*;

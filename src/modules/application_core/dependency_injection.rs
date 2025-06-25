@@ -1009,7 +1009,7 @@ mod tests {
     }
 
     #[test]
-    fn test_container_clear() {
+    fn test_container_clear_with_mocks() {
         let mut container = DependencyContainerImpl::new();
         
         // Add some services
