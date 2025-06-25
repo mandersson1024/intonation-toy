@@ -129,13 +129,13 @@ pub enum ApplicationState {
 > As a **module developer**, I want **dependency injection for module services** so that I can **access other modules' functionality without tight coupling**.
 
 ### Acceptance Criteria
-- [ ] Dependency injection container implementation
-- [ ] Service registration with interface types
-- [ ] Service resolution with compile-time type safety
-- [ ] Singleton and transient service lifecycle support
-- [ ] Circular dependency detection and prevention
-- [ ] Service mock registration for testing
-- [ ] Service discovery by interface type
+- [x] Dependency injection container implementation
+- [x] Service registration with interface types
+- [x] Service resolution with compile-time type safety
+- [x] Singleton and transient service lifecycle support
+- [x] Circular dependency detection and prevention
+- [x] Service mock registration for testing
+- [x] Service discovery by interface type
 
 ### Technical Requirements
 - **Type Safety:** All dependency injection is compile-time verified
@@ -144,13 +144,13 @@ pub enum ApplicationState {
 - **Error Handling:** Clear error messages for missing dependencies
 
 ### Definition of Done
-- [ ] DI container implementation complete
-- [ ] Service registration and resolution working
-- [ ] Lifecycle management (singleton/transient)
-- [ ] Circular dependency detection implemented
-- [ ] Mock service support for testing
-- [ ] Unit tests for all DI scenarios
-- [ ] Integration tests with multiple modules
+- [x] DI container implementation complete
+- [x] Service registration and resolution working
+- [x] Lifecycle management (singleton/transient)
+- [x] Circular dependency detection implemented
+- [x] Mock service support for testing
+- [x] Unit tests for all DI scenarios
+- [x] Integration tests with multiple modules
 
 ### Implementation Notes
 ```rust
