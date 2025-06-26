@@ -22,10 +22,12 @@ pub mod browser_compat;
 pub mod error_manager;
 pub mod performance_monitor;
 
-// Import services, components, and hooks
-pub mod services;
-pub mod components;
-pub mod hooks;
+// Legacy modules (active during transition)
+pub mod legacy {
+    pub mod services;
+    pub mod components;
+    pub mod hooks;
+}
 
 // Re-export the audio engine for direct access from JavaScript
 pub use audio::engine::AudioEngine;
@@ -34,16 +36,16 @@ pub use audio::engine::AudioEngine;
 pub use audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector, PitchResult};
 
 // Re-export services for Yew integration
-pub use services::{ErrorManager as NewErrorManager, ApplicationError, ErrorSeverity, RecoveryStrategy};
+pub use legacy::services::{ErrorManager as NewErrorManager, ApplicationError, ErrorSeverity, RecoveryStrategy};
 
 // Re-export components for easy access
-pub use components::{
+pub use legacy::components::{
     ErrorDisplayComponent, 
     FallbackUIComponent, ErrorToastComponent, ErrorToastContainer
 };
 
 // Re-export hooks for easy access
-pub use hooks::{use_error_handler, use_microphone_permission, PermissionState};
+pub use legacy::hooks::{use_error_handler, use_microphone_permission, PermissionState};
 
 // Initialize the WASM module
 #[wasm_bindgen(start)]
