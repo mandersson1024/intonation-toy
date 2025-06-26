@@ -297,11 +297,11 @@ impl AudioBufferManager for AudioBufferManagerImpl {
 **Dependencies:** STORY-023  
 
 ### User Story
-> As a **performance-critical system**, I want **optimized buffer allocation** so that I can **minimize memory allocation overhead and garbage collection impact**.
+> As a **performance-critical system**, I want **optimized buffer allocation** so that I can **minimize memory allocation overhead and JavaScript garbage collection pressure at the WASM-JS boundary**.
 
 ### Acceptance Criteria
 - [ ] Smart buffer pool with size-based allocation strategies
-- [ ] Buffer recycling system to minimize garbage collection
+- [ ] Buffer recycling system to minimize JavaScript GC pressure from WASM↔JS interactions
 - [ ] Memory usage monitoring and pool efficiency metrics
 - [ ] Automatic pool sizing based on usage patterns
 - [ ] Integration with Audio Foundations real-time processing
@@ -312,26 +312,32 @@ impl AudioBufferManager for AudioBufferManagerImpl {
 - **Allocation Speed:** <0.5ms for buffer allocation from pool
 - **Memory Efficiency:** <3% overhead for pool management
 - **Pool Hit Rate:** >90% buffer allocation from pool (not new allocation)
-- **Garbage Collection:** <10% reduction in GC pressure
+- **JS GC Pressure:** <10% reduction in JavaScript garbage collection pressure from audio buffer operations
 
 ### Definition of Done
 - [ ] Smart buffer pool implemented with multiple size strategies
-- [ ] Buffer recycling system working efficiently
+- [ ] Buffer recycling system working efficiently for WASM↔JS boundary operations
 - [ ] Memory usage monitoring and pool metrics reporting
 - [ ] Automatic pool sizing and optimization
-- [ ] Zero-copy buffer operations implemented
+- [ ] Zero-copy buffer operations implemented where possible at WASM↔JS boundary
 - [ ] Pool fragmentation prevention mechanisms
-- [ ] Performance benchmarking against direct allocation
+- [ ] Performance benchmarking against direct allocation (measuring both Rust and JS performance)
 - [ ] Integration testing with high-frequency audio processing
 
 ### Implementation Notes
 ```rust
 pub trait BufferRecyclingPool: Send + Sync {
-    /// Get buffer from pool or create new one
+    /// Get buffer from pool or create new one (Rust-side allocation)
     fn get_or_create(&mut self, size: usize) -> Result<Vec<f32>, PoolError>;
     
     /// Return buffer to pool for recycling
     fn recycle(&mut self, buffer: Vec<f32>) -> Result<(), PoolError>;
+    
+    /// Get JS-compatible buffer reference to minimize WASM↔JS boundary overhead
+    fn get_js_buffer_ref(&mut self, size: usize) -> Result<JSBufferRef, PoolError>;
+    
+    /// Return JS buffer reference for recycling (reduces JS GC pressure)
+    fn recycle_js_buffer_ref(&mut self, buffer_ref: JSBufferRef) -> Result<(), PoolError>;
     
     /// Get pool efficiency metrics
     fn get_efficiency_metrics(&self) -> PoolMetrics;
@@ -351,7 +357,16 @@ pub struct PoolMetrics {
     pub hit_rate_percentage: f32,
     pub memory_overhead_bytes: usize,
     pub fragmentation_percentage: f32,
+    pub js_gc_pressure_reduction: f32, // Percentage reduction in JS GC pressure
+    pub wasm_js_boundary_allocations: u64, // Cross-boundary allocations
 }
+
+// WASM↔JS Boundary Architecture Notes:
+// - Rust Vec<f32> for internal processing (no GC impact)
+// - JSBufferRef for shared data to minimize JS object creation
+// - Pool both Rust buffers and JS TypedArray references
+// - Zero-copy sharing where browser supports SharedArrayBuffer
+// - Fallback to copy semantics for unsupported browsers
 ```
 
 ---
