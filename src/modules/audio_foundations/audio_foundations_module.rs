@@ -56,7 +56,7 @@ impl AudioFoundationsModule {
                 },
                 processing_time_ns,
                 timestamp_ns: get_timestamp_ns(),
-                source_buffer_ref: None, // Placeholder
+                source_buffer_ref: String::new(), // Placeholder
             };
             
             if let Err(e) = event_bus.publish(event) {

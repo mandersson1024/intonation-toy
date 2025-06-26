@@ -23,15 +23,19 @@ pub fn get_timestamp_ns() -> u64 {
     }
 }
 
-/// Pitch detection result event
+/// Pitch detection result event - Enhanced for STORY-015
 #[derive(Debug, Clone)]
 pub struct PitchDetectionEvent {
     pub frequency: f32,
     pub confidence: f32,
-    pub signal_info: SignalInfo,
+    pub clarity: f32,
+    pub harmonic_content: f32,
+    pub algorithm_used: crate::modules::audio_foundations::multi_algorithm_pitch_detector::PitchAlgorithm,
     pub processing_time_ns: u64,
     pub timestamp_ns: u64,
-    pub source_buffer_ref: Option<u32>,
+    pub source_buffer_ref: String,
+    pub snr_estimate: f32,
+    pub is_valid: bool,
 }
 
 impl Event for PitchDetectionEvent {
@@ -343,6 +347,142 @@ pub enum RecoveryEventType {
     RecoveryStarted,
     RecoverySucceeded,
     RecoveryFailed,
+}
+
+// STORY-015: Enhanced Audio Events for Multi-Algorithm Pitch Detection
+
+/// Signal analysis event for comprehensive audio signal information
+#[derive(Debug, Clone)]
+pub struct SignalAnalysisEvent {
+    pub snr_estimate: f32,
+    pub signal_complexity: f32,
+    pub buffer_size: usize,
+    pub rms_energy: f32,
+    pub peak_amplitude: f32,
+    pub timestamp_ns: u64,
+}
+
+impl Event for SignalAnalysisEvent {
+    fn event_type(&self) -> &'static str {
+        "SignalAnalysisEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Medium
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Algorithm performance comparison event
+#[derive(Debug, Clone)]
+pub struct AlgorithmPerformanceEvent {
+    pub yin_processing_time_ns: u64,
+    pub mcleod_processing_time_ns: u64,
+    pub yin_accuracy_score: f32,
+    pub mcleod_accuracy_score: f32,
+    pub recommended_algorithm: crate::modules::audio_foundations::multi_algorithm_pitch_detector::PitchAlgorithm,
+    pub recommendation_confidence: f32,
+    pub timestamp_ns: u64,
+}
+
+impl Event for AlgorithmPerformanceEvent {
+    fn event_type(&self) -> &'static str {
+        "AlgorithmPerformanceEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Low
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Algorithm switch event (for runtime switching)
+#[derive(Debug, Clone)]
+pub struct AlgorithmSwitchEvent {
+    pub old_algorithm: crate::modules::audio_foundations::multi_algorithm_pitch_detector::PitchAlgorithm,
+    pub new_algorithm: crate::modules::audio_foundations::multi_algorithm_pitch_detector::PitchAlgorithm,
+    pub reason: AlgorithmSwitchReason,
+    pub timestamp_ns: u64,
+}
+
+impl Event for AlgorithmSwitchEvent {
+    fn event_type(&self) -> &'static str {
+        "AlgorithmSwitchEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Normal
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Reasons for algorithm switching
+#[derive(Debug, Clone, PartialEq)]
+pub enum AlgorithmSwitchReason {
+    UserSelection,
+    AutomaticOptimization,
+    SignalCharacteristicsChange,
+    PerformanceOptimization,
+    ErrorRecovery,
+}
+
+/// Pitch detection configuration change event
+#[derive(Debug, Clone)]
+pub struct PitchConfigurationEvent {
+    pub config_change: PitchConfigurationChange,
+    pub old_value: String,
+    pub new_value: String,
+    pub timestamp_ns: u64,
+}
+
+impl Event for PitchConfigurationEvent {
+    fn event_type(&self) -> &'static str {
+        "PitchConfigurationEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Normal
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Types of pitch detection configuration changes
+#[derive(Debug, Clone, PartialEq)]
+pub enum PitchConfigurationChange {
+    AlgorithmChange,
+    FrequencyRangeChange,
+    ThresholdChange,
+    ConfidenceScoringToggle,
+    HarmonicAnalysisToggle,
+    SampleRateChange,
 }
 
 /// Device state event (updated with more comprehensive information)

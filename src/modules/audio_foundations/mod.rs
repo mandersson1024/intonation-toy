@@ -6,6 +6,10 @@ pub mod audio_foundations_module;
 pub mod audio_engine_wrapper;
 pub mod audio_events;
 
+// STORY-015: Multi-Algorithm Pitch Detection
+pub mod multi_algorithm_pitch_detector;
+pub mod runtime_pitch_switching;
+
 // Device Manager modules - STORY-014
 pub mod device_manager;
 pub mod permission_manager;
@@ -23,12 +27,24 @@ pub mod simple_test;
 #[cfg(test)]
 pub mod device_manager_tests;
 
+#[cfg(test)]
+pub mod multi_algorithm_integration_tests;
+
 pub mod integration_example;
 
 // Re-exports for clean API
 pub use audio_foundations_module::AudioFoundationsModule;
 pub use audio_engine_wrapper::AudioEngineWrapper;
 pub use audio_events::*;
+
+// STORY-015: Multi-Algorithm Pitch Detection re-exports
+pub use multi_algorithm_pitch_detector::{
+    MultiAlgorithmPitchDetector, PitchDetector, PitchAlgorithm, PitchDetectionConfig,
+    PitchResult, PitchError, AlgorithmInfo, PerformanceComparison
+};
+pub use runtime_pitch_switching::{
+    RuntimePitchSwitcher, AutoSwitchConfig, RuntimePerformanceStats
+};
 
 // Device Manager re-exports
 pub use device_manager::{DeviceManager, WebDeviceManager, AudioDevice, AudioDeviceType, DeviceError};
