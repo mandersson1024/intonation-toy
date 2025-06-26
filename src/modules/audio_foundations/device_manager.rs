@@ -30,10 +30,10 @@ pub trait DeviceManager: Send + Sync {
     fn get_active_input_device(&self) -> Option<&AudioDevice>;
     
     /// Request microphone permission from the browser
-    fn request_microphone_permission(&self) -> Result<web_sys::PermissionState, DeviceError>;
+    fn request_microphone_permission(&self) -> Result<PermissionStatus, DeviceError>;
     
     /// Get current microphone permission status
-    fn get_microphone_permission_status(&self) -> Result<web_sys::PermissionState, DeviceError>;
+    fn get_microphone_permission_status(&self) -> Result<PermissionStatus, DeviceError>;
     
     /// Monitor device changes (connections/disconnections)
     fn start_device_monitoring(&mut self) -> Result<(), DeviceError>;
@@ -236,7 +236,7 @@ impl WebDeviceManager {
             let event = MicrophoneStateEvent {
                 state,
                 device_info,
-                permissions: PermissionState::Granted, // Would get actual permission status
+                permissions: PermissionStatus::Granted, // Would get actual permission status
                 timestamp_ns: get_timestamp_ns(),
             };
             
@@ -296,7 +296,7 @@ impl DeviceManager for WebDeviceManager {
         self.current_input_device.as_ref()
     }
     
-    fn request_microphone_permission(&self) -> Result<web_sys::PermissionState, DeviceError> {
+    fn request_microphone_permission(&self) -> Result<PermissionStatus, DeviceError> {
         // This is a simplified implementation
         // In practice, you'd need to actually request permission via getUserMedia
         // and handle the promise/async nature properly

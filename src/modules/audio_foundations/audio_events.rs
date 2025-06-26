@@ -3,6 +3,7 @@
 use std::any::Any;
 use std::fmt;
 use crate::modules::application_core::event_bus::{Event, EventPriority};
+use crate::legacy::hooks::use_microphone_permission::PermissionState;
 
 /// Get current timestamp in nanoseconds
 pub fn get_timestamp_ns() -> u64 {
@@ -224,7 +225,7 @@ impl Event for DeviceListUpdatedEvent {
 #[derive(Debug, Clone)]
 pub struct MicrophonePermissionEvent {
     pub event_type: PermissionEventType,
-    pub permission_status: web_sys::PermissionState,
+    pub permission_status: PermissionStatus,
     pub user_action_required: bool,
     pub recovery_instructions: Option<String>,
     pub timestamp_ns: u64,
@@ -490,7 +491,7 @@ pub enum PitchConfigurationChange {
 pub struct MicrophoneStateEvent {
     pub state: DeviceState,
     pub device_info: Option<crate::modules::audio_foundations::device_manager::AudioDevice>,
-    pub permissions: web_sys::PermissionState,
+    pub permissions: PermissionStatus,
     pub timestamp_ns: u64,
 }
 
@@ -509,6 +510,100 @@ impl Event for MicrophoneStateEvent {
             DeviceState::Disconnected => EventPriority::High,
             DeviceState::Connected => EventPriority::Normal,
         }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+// STORY-017: Performance Monitoring Events
+
+/// Audio performance event for real-time metrics
+#[derive(Debug, Clone)]
+pub struct AudioPerformanceEvent {
+    pub metric_type: String,
+    pub value: f32,
+    pub unit: String,
+    pub timestamp: u64,
+    pub operation_context: Option<String>,
+}
+
+impl Event for AudioPerformanceEvent {
+    fn event_type(&self) -> &'static str {
+        "AudioPerformanceEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Medium
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Performance alert event for threshold violations
+#[derive(Debug, Clone)]
+pub struct PerformanceAlertEvent {
+    pub alert_type: String,
+    pub severity: String,
+    pub threshold_value: f32,
+    pub actual_value: f32,
+    pub message: String,
+    pub timestamp: u64,
+    pub requires_attention: bool,
+}
+
+impl Event for PerformanceAlertEvent {
+    fn event_type(&self) -> &'static str {
+        "PerformanceAlertEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+    
+    fn priority(&self) -> EventPriority {
+        if self.requires_attention {
+            EventPriority::High
+        } else {
+            EventPriority::Normal
+        }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Performance regression detection event
+#[derive(Debug, Clone)]
+pub struct PerformanceRegressionEvent {
+    pub metric_name: String,
+    pub baseline_value: f32,
+    pub current_value: f32,
+    pub regression_percent: f32,
+    pub confidence_level: f32,
+    pub impact_assessment: String,
+    pub timestamp: u64,
+}
+
+impl Event for PerformanceRegressionEvent {
+    fn event_type(&self) -> &'static str {
+        "PerformanceRegressionEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::High
     }
     
     fn as_any(&self) -> &dyn Any {

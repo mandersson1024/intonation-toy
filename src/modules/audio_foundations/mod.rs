@@ -21,6 +21,9 @@ pub mod device_capabilities;
 pub mod graceful_recovery;
 pub mod optimization_settings;
 
+// STORY-017: Performance Monitoring System
+pub mod audio_performance_monitor;
+
 #[cfg(test)]
 pub mod integration_test;
 
@@ -35,6 +38,9 @@ pub mod multi_algorithm_integration_tests;
 
 #[cfg(test)]
 pub mod signal_generator_tests;
+
+#[cfg(test)]
+pub mod audio_performance_monitor_tests;
 
 pub mod integration_example;
 
@@ -65,6 +71,13 @@ pub use device_monitor::{DeviceMonitor, WebDeviceMonitor, DeviceMonitorError, De
 pub use device_capabilities::{DeviceCapabilityManager, WebDeviceCapabilityManager, DeviceCapabilities, AudioUseCase, OptimalAudioSettings, CapabilityError};
 pub use graceful_recovery::{GracefulRecoveryManager, WebGracefulRecoveryManager, RecoveryResult, RecoveryAction, QualityImpact, RecoveryError};
 pub use optimization_settings::{DeviceOptimizationManager, WebDeviceOptimizationManager, DeviceOptimizationSettings, PerformanceRecommendation, OptimizationError};
+
+// STORY-017: Performance Monitoring re-exports
+pub use audio_performance_monitor::{
+    PerformanceMonitor, AudioPerformanceMonitor, AudioPerformanceMetrics, OperationMetrics,
+    ThresholdViolation, ViolationSeverity, PerformanceRegression, PerformanceThresholds,
+    MonitoringOverhead, MonitoringConfig, MeasurementId, DropoutType
+};
 
 // Core traits for the Audio Foundations module
 use std::error::Error;

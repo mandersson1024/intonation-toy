@@ -10,14 +10,15 @@ use crate::modules::audio_foundations::{
     },
     audio_events::{AlgorithmSwitchEvent, AlgorithmSwitchReason, get_timestamp_ns}
 };
-use crate::modules::application_core::event_bus::{EventBus, Event};
+use crate::modules::application_core::event_bus::Event;
+use crate::modules::application_core::typed_event_bus::TypedEventBus;
 
 /// Runtime algorithm switching manager
 pub struct RuntimePitchSwitcher {
     /// Primary detector instance
     detector: Arc<RwLock<MultiAlgorithmPitchDetector>>,
     /// Event bus for notifications
-    event_bus: Option<Arc<dyn EventBus>>,
+    event_bus: Option<Arc<TypedEventBus>>,
     /// Switch history for tracking performance
     switch_history: Vec<AlgorithmSwitchRecord>,
     /// Configuration for automatic switching behavior
@@ -129,7 +130,7 @@ impl RuntimePitchSwitcher {
     /// Create new runtime pitch switcher
     pub fn new(
         detector: MultiAlgorithmPitchDetector, 
-        event_bus: Option<Arc<dyn EventBus>>
+        event_bus: Option<Arc<TypedEventBus>>
     ) -> Self {
         Self {
             detector: Arc::new(RwLock::new(detector)),
