@@ -3,7 +3,7 @@
 **Epic ID:** `EPIC-004`  
 **Priority:** Critical  
 **Dependencies:** Audio Foundations Module (EPIC-003), Application Core Module (EPIC-002), Event Bus Infrastructure (EPIC-001)  
-**Total Stories:** 6
+**Total Stories:** 5
 
 ---
 
@@ -224,12 +224,11 @@ pub struct AudioCapabilities {
 **Dependencies:** STORY-020, Application Core Buffer System  
 
 ### User Story
-> As a **system**, I want **efficient data management** so that I can **handle audio buffers and configuration persistence without performance bottlenecks**.
+> As a **system**, I want **efficient data management** so that I can **handle audio buffers without performance bottlenecks**.
 
 ### Acceptance Criteria
 - [ ] Enhanced audio buffer management built on Application Core BufferRef system
 - [ ] Buffer pool and recycling system for memory efficiency
-- [ ] Configuration persistence with browser storage integration
 - [ ] Data flow coordination between modules
 - [ ] Zero-copy audio data sharing where possible
 - [ ] Buffer utilization monitoring and optimization
@@ -238,14 +237,12 @@ pub struct AudioCapabilities {
 ### Technical Requirements
 - **Buffer Performance:** <1ms allocation/deallocation overhead
 - **Memory Efficiency:** <5% overhead for buffer management
-- **Configuration Access:** <0.1ms read access, <10ms persistence
 - **Data Flow:** Support for 1000+ buffers/second throughput
 
 ### Definition of Done
 - [ ] Data Management module structure created and registered
 - [ ] Enhanced audio buffer manager implemented
 - [ ] Buffer pool and recycling system working
-- [ ] Configuration persistence system integrated
 - [ ] Data flow coordination between modules
 - [ ] Zero-copy buffer sharing mechanisms
 - [ ] Buffer utilization monitoring and reporting
@@ -256,7 +253,6 @@ pub struct AudioCapabilities {
 // Data Management Module Architecture:
 pub struct DataManagementModule {
     buffer_manager: Arc<AudioBufferManagerImpl>,
-    config_manager: Arc<ConfigPersistenceManager>,
     data_flow: Arc<DataFlowCoordinator>,
     buffer_pool: Arc<BufferRecyclingPool>,
     event_bus: Arc<TypedEventBus>,
@@ -282,8 +278,7 @@ impl AudioBufferManager for AudioBufferManagerImpl {
 // Integration strategy:
 // Phase 1: Build on existing BufferRef system from Application Core
 // Phase 2: Add buffer pooling and recycling for performance
-// Phase 3: Implement configuration persistence
-// Phase 4: Create data flow coordination system
+// Phase 3: Create data flow coordination system
 ```
 
 ---
@@ -371,81 +366,9 @@ pub struct PoolMetrics {
 
 ---
 
-## Story 025: Configuration Persistence System
+## Story 025: Data Flow Coordination System
 
 **Story ID:** `STORY-025`  
-**Epic:** Platform & Data Modules  
-**Priority:** Medium  
-**Story Points:** 13  
-**Dependencies:** STORY-023, Application Core Configuration  
-
-### User Story
-> As a **user**, I want **persistent configuration storage** so that I can **have my settings preserved across browser sessions and device changes**.
-
-### Acceptance Criteria
-- [ ] Browser storage integration (localStorage, IndexedDB) for configuration persistence
-- [ ] Configuration validation and migration system
-- [ ] Real-time configuration synchronization across modules
-- [ ] Configuration backup and restore functionality
-- [ ] Module-specific configuration sections with access control
-- [ ] Configuration change monitoring and event publishing
-- [ ] Integration with Application Core configuration coordinator
-
-### Technical Requirements
-- **Storage Performance:** <10ms for configuration save operations
-- **Read Performance:** <0.1ms for configuration value access
-- **Storage Capacity:** Support for up to 1MB of configuration data
-- **Reliability:** 99.9% configuration persistence success rate
-
-### Definition of Done
-- [ ] Browser storage integration implemented and tested
-- [ ] Configuration validation and migration system working
-- [ ] Real-time configuration synchronization across modules
-- [ ] Configuration backup and restore functionality
-- [ ] Module-specific configuration access control
-- [ ] Configuration change event publishing
-- [ ] Migration from existing configuration patterns
-- [ ] Cross-browser storage compatibility testing
-
-### Implementation Notes
-```rust
-pub trait ConfigManager: Send + Sync {
-    /// Load configuration with validation and migration
-    fn load_config(&self) -> Result<Configuration, ConfigError>;
-    
-    /// Save configuration with atomic operations
-    fn save_config(&self, config: &Configuration) -> Result<(), ConfigError>;
-    
-    /// Get configuration value with type safety
-    fn get<T: ConfigValue>(&self, section: &str, key: &str) -> Option<T>;
-    
-    /// Set configuration value with validation
-    fn set<T: ConfigValue>(&mut self, section: &str, key: &str, value: T) -> Result<(), ConfigError>;
-    
-    /// Watch for configuration changes
-    fn watch(&mut self, callback: Box<dyn Fn(&str, &str, &str)>);
-    
-    /// Backup configuration to external storage
-    fn backup_config(&self) -> Result<ConfigurationBackup, ConfigError>;
-    
-    /// Restore configuration from backup
-    fn restore_config(&mut self, backup: ConfigurationBackup) -> Result<(), ConfigError>;
-}
-
-#[derive(Debug, Clone)]
-pub struct ConfigurationBackup {
-    pub timestamp: u64,
-    pub version: String,
-    pub data: HashMap<String, ConfigValue>,
-    pub checksum: String,
-}
-```
-
----
-
-## Story 026: Data Flow Coordination System
-
-**Story ID:** `STORY-026`  
 **Epic:** Platform & Data Modules  
 **Priority:** High  
 **Story Points:** 13  
@@ -512,9 +435,9 @@ pub struct FlowMetrics {
 
 ## Epic 4 Summary
 
-**Total Story Points:** 94  
+**Total Story Points:** 81  
 **Estimated Duration:** 1 week intensive (based on team velocity)  
-**Critical Path:** Story 020 → (021, 022 can be parallel) → 023 → (024, 025, 026 can be parallel)
+**Critical Path:** Story 020 → (021, 022 can be parallel) → 023 → (024, 025 can be parallel)
 
 ### Risk Mitigation
 - **Migration Risk:** Building on proven Epic 3 foundation minimizes integration risks
@@ -528,17 +451,16 @@ pub struct FlowMetrics {
 - **Configuration:** Data Management extends Epic 2 configuration system
 
 ### Success Metrics
-- [ ] All 6 stories completed and accepted
+- [ ] All 5 stories completed and accepted
 - [ ] Platform detection and optimization working across all supported browsers
 - [ ] Data management system handling >1000 operations/second with <2ms overhead
-- [ ] Configuration persistence working reliably across browser sessions
 - [ ] Buffer pool achieving >90% hit rate with <5% memory overhead
 - [ ] Zero performance regression from Epic 3 baseline
 - [ ] Complete integration with existing module ecosystem
 
 ### Integration Points with Future Modules
 - **Graphics Foundations:** Platform capabilities will provide WebGL and graphics optimization
-- **Presentation Layer:** Configuration persistence will support UI themes and preferences
+- **Presentation Layer:** Data flow will support real-time UI updates and data visualization
 - **Development Tools:** Data flow monitoring will enhance debugging capabilities
 - **Performance & Observability:** Platform and data metrics will feed into system-wide monitoring
 
@@ -550,7 +472,7 @@ pub struct FlowMetrics {
 - **Day 1:** Story 020 (Platform Abstraction Foundation)
 - **Day 2:** Story 021 (Browser Compatibility) + Story 022 (Device Capabilities) 
 - **Day 3:** Story 023 (Data Management Foundation)
-- **Day 4:** Story 024 (Buffer Pool) + Story 025 (Configuration Persistence)
-- **Day 5:** Story 026 (Data Flow Coordination) + Integration Testing
+- **Day 4:** Story 024 (Buffer Pool)
+- **Day 5:** Story 025 (Data Flow Coordination) + Integration Testing
 
 This epic completes the critical infrastructure needed for the remaining presentation and development modules, establishing robust platform abstraction and data management capabilities built on the proven Audio Foundations from Epic 3. 

@@ -125,12 +125,11 @@ This document supplements existing project architecture by defining how to refac
 - **New Components:** Application Core, Performance Monitor
 
 #### 4. Data Management
-**Responsibility:** Audio data flow, real-time buffers, configuration persistence
+**Responsibility:** Audio data flow, real-time buffers
 **Integration Points:** Audio Foundations, Platform Abstraction
 
 **Key Interfaces:**
 - `AudioBuffer` - Real-time audio data management
-- `ConfigManager` - Settings persistence
 - `DataFlow` - Inter-module data coordination
 
 **Dependencies:**
@@ -263,10 +262,9 @@ pitch-toy/
 │   │   │   ├── webgl_context.rs
 │   │   │   ├── shader_manager.rs
 │   │   │   └── render_pipeline.rs
-│   │   ├── data_management/        # Data flow & persistence
+│   │   ├── data_management/        # Data flow & buffers
 │   │   │   ├── mod.rs
 │   │   │   ├── audio_buffer.rs
-│   │   │   ├── config_manager.rs
 │   │   │   └── data_flow.rs
 │   │   ├── platform_abstraction/   # Browser compatibility
 │   │   │   ├── mod.rs
@@ -352,8 +350,7 @@ pitch-toy/
 ### Phase 3: Platform & Data Modules (Week 5)
 1. Move browser compatibility code to Platform Abstraction
 2. Create Data Management module for audio buffers
-3. Implement configuration persistence system
-4. Integrate with existing audio processing pipeline
+3. Integrate with existing audio processing pipeline
 
 ### Phase 4: Presentation Layer Restructure (Week 6-7)
 1. Migrate existing Yew components to Presentation Layer module
