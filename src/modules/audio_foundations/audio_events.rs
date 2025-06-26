@@ -79,32 +79,6 @@ impl Event for AudioProcessingStateEvent {
     }
 }
 
-/// Microphone device state change event  
-#[derive(Debug, Clone)]
-pub struct MicrophoneStateEvent {
-    pub state: DeviceState,
-    pub device_info: Option<AudioDeviceInfo>,
-    pub permissions: PermissionStatus,
-    pub timestamp_ns: u64,
-}
-
-impl Event for MicrophoneStateEvent {
-    fn event_type(&self) -> &'static str {
-        "MicrophoneStateEvent"
-    }
-    
-    fn timestamp(&self) -> u64 {
-        self.timestamp_ns
-    }
-    
-    fn priority(&self) -> EventPriority {
-        EventPriority::High
-    }
-    
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
 
 /// Audio performance metrics event
 #[derive(Debug, Clone)]
@@ -213,4 +187,191 @@ pub enum AudioErrorType {
     Critical,
     Warning,
     Info,
+}
+
+// Device Manager Events - STORY-014
+
+/// Device list updated event
+#[derive(Debug, Clone)]
+pub struct DeviceListUpdatedEvent {
+    pub devices: Vec<crate::modules::audio_foundations::device_manager::AudioDevice>,
+    pub timestamp_ns: u64,
+}
+
+impl Event for DeviceListUpdatedEvent {
+    fn event_type(&self) -> &'static str {
+        "DeviceListUpdatedEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        EventPriority::Normal
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Microphone permission event
+#[derive(Debug, Clone)]
+pub struct MicrophonePermissionEvent {
+    pub event_type: PermissionEventType,
+    pub permission_status: web_sys::PermissionState,
+    pub user_action_required: bool,
+    pub recovery_instructions: Option<String>,
+    pub timestamp_ns: u64,
+}
+
+impl Event for MicrophonePermissionEvent {
+    fn event_type(&self) -> &'static str {
+        "MicrophonePermissionEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        match self.event_type {
+            PermissionEventType::Denied => EventPriority::High,
+            PermissionEventType::Granted => EventPriority::Normal,
+            _ => EventPriority::Normal,
+        }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Permission event types
+#[derive(Debug, Clone, PartialEq)]
+pub enum PermissionEventType {
+    RequestStarted,
+    Granted,
+    Denied,
+    Revoked,
+    Changed,
+}
+
+/// Device monitoring event
+#[derive(Debug, Clone)]
+pub struct DeviceMonitoringEvent {
+    pub event_type: DeviceMonitoringEventType,
+    pub message: String,
+    pub timestamp_ns: u64,
+}
+
+impl Event for DeviceMonitoringEvent {
+    fn event_type(&self) -> &'static str {
+        "DeviceMonitoringEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        match self.event_type {
+            DeviceMonitoringEventType::DeviceError => EventPriority::High,
+            DeviceMonitoringEventType::RecoveryActionRequired => EventPriority::High,
+            _ => EventPriority::Normal,
+        }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Device monitoring event types
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeviceMonitoringEventType {
+    MonitoringStarted,
+    MonitoringStopped,
+    DeviceConnected,
+    DeviceDisconnected,
+    DeviceError,
+    DeviceListChanged,
+    RecoveryActionRequired,
+}
+
+/// Recovery event for graceful handling
+#[derive(Debug, Clone)]
+pub struct RecoveryEvent {
+    pub event_type: RecoveryEventType,
+    pub device_id: Option<String>,
+    pub recovery_action: Option<String>,
+    pub success: bool,
+    pub message: String,
+    pub timestamp_ns: u64,
+}
+
+impl Event for RecoveryEvent {
+    fn event_type(&self) -> &'static str {
+        "RecoveryEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        match self.event_type {
+            RecoveryEventType::RecoveryFailed => EventPriority::High,
+            RecoveryEventType::RecordingPaused => EventPriority::High,
+            _ => EventPriority::Normal,
+        }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Recovery event types
+#[derive(Debug, Clone, PartialEq)]
+pub enum RecoveryEventType {
+    RecordingStarted,
+    RecordingStopped,
+    RecordingPaused,
+    RecordingResumed,
+    RecoveryStarted,
+    RecoverySucceeded,
+    RecoveryFailed,
+}
+
+/// Device state event (updated with more comprehensive information)
+#[derive(Debug, Clone)]
+pub struct MicrophoneStateEvent {
+    pub state: DeviceState,
+    pub device_info: Option<crate::modules::audio_foundations::device_manager::AudioDevice>,
+    pub permissions: web_sys::PermissionState,
+    pub timestamp_ns: u64,
+}
+
+impl Event for MicrophoneStateEvent {
+    fn event_type(&self) -> &'static str {
+        "MicrophoneStateEvent"
+    }
+    
+    fn timestamp(&self) -> u64 {
+        self.timestamp_ns
+    }
+    
+    fn priority(&self) -> EventPriority {
+        match self.state {
+            DeviceState::Error(_) => EventPriority::High,
+            DeviceState::Disconnected => EventPriority::High,
+            DeviceState::Connected => EventPriority::Normal,
+        }
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }

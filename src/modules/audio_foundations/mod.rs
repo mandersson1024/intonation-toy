@@ -1,9 +1,18 @@
-// Audio Foundations Module - STORY-013
+// Audio Foundations Module - STORY-013 & STORY-014
 // Wraps existing AudioEngineService with new module interface
+// Includes device management functionality
 
 pub mod audio_foundations_module;
 pub mod audio_engine_wrapper;
 pub mod audio_events;
+
+// Device Manager modules - STORY-014
+pub mod device_manager;
+pub mod permission_manager;
+pub mod device_monitor;
+pub mod device_capabilities;
+pub mod graceful_recovery;
+pub mod optimization_settings;
 
 #[cfg(test)]
 pub mod integration_test;
@@ -11,12 +20,23 @@ pub mod integration_test;
 #[cfg(test)]
 pub mod simple_test;
 
+#[cfg(test)]
+pub mod device_manager_tests;
+
 pub mod integration_example;
 
 // Re-exports for clean API
 pub use audio_foundations_module::AudioFoundationsModule;
 pub use audio_engine_wrapper::AudioEngineWrapper;
 pub use audio_events::*;
+
+// Device Manager re-exports
+pub use device_manager::{DeviceManager, WebDeviceManager, AudioDevice, AudioDeviceType, DeviceError};
+pub use permission_manager::{PermissionManager, WebPermissionManager, PermissionRequestResult, PermissionError, PermissionRecoveryAction};
+pub use device_monitor::{DeviceMonitor, WebDeviceMonitor, DeviceMonitorError, DeviceMonitoringState, DeviceRecoveryAction};
+pub use device_capabilities::{DeviceCapabilityManager, WebDeviceCapabilityManager, DeviceCapabilities, AudioUseCase, OptimalAudioSettings, CapabilityError};
+pub use graceful_recovery::{GracefulRecoveryManager, WebGracefulRecoveryManager, RecoveryResult, RecoveryAction, QualityImpact, RecoveryError};
+pub use optimization_settings::{DeviceOptimizationManager, WebDeviceOptimizationManager, DeviceOptimizationSettings, PerformanceRecommendation, OptimizationError};
 
 // Core traits for the Audio Foundations module
 use std::error::Error;

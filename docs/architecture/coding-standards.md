@@ -164,14 +164,17 @@ pub struct AudioControlProps {
 - Consider context providers for deeply nested prop drilling
 
 ## Documentation Standards
+- Never guess today's date
 
 ### Code Documentation
+- Never refer to Epic numbers, Story numbers or Acceptance Criteria numbers
 
 #### Doc Comments
 - Document all public APIs with `///`
 - Include examples for complex functions
 - Document error conditions and panics
 - Use standard sections: Examples, Panics, Errors, Safety
+- Never refer to Epic numbers, Story numbers or Acceptance Criteria numbers
 
 ```rust
 /// Detects pitch from audio buffer using YIN algorithm
@@ -198,6 +201,7 @@ pub fn detect_pitch(&self, buffer: &[f32], sample_rate: f32) -> Result<f32, Pitc
 - Use sparingly for complex business logic
 - Explain "why" not "what"
 - Update comments when code changes
+- Never refer to Epic numbers, Story numbers or Acceptance Criteria numbers
 
 ### Architecture Documentation
 - Maintain architecture decision records (ADRs)
