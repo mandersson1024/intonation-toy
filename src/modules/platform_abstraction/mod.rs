@@ -10,6 +10,7 @@ pub mod device_capabilities;
 pub mod wasm_bridge;
 pub mod optimization_engine;
 pub mod error_recovery;
+pub mod user_guidance_system;
 
 #[cfg(test)]
 mod tests;
@@ -21,6 +22,7 @@ pub use device_capabilities::*;
 pub use wasm_bridge::*;
 pub use optimization_engine::*;
 pub use error_recovery::*;
+pub use user_guidance_system::*;
 
 /// Core traits for platform abstraction
 pub mod traits {
