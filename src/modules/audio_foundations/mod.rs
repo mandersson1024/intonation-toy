@@ -42,6 +42,27 @@ pub mod signal_generator_tests;
 #[cfg(test)]
 pub mod audio_performance_monitor_tests;
 
+#[cfg(test)]
+pub mod comprehensive_pitch_detector_tests;
+
+#[cfg(test)]
+pub mod performance_regression_tests;
+
+#[cfg(test)]
+pub mod enhanced_integration_tests;
+
+#[cfg(test)]
+pub mod test_signal_validation;
+
+#[cfg(test)]
+pub mod cross_browser_tests;
+
+#[cfg(test)]
+pub mod error_scenario_tests;
+
+#[cfg(test)]
+pub mod memory_leak_detection_tests;
+
 pub mod integration_example;
 
 // Re-exports for clean API

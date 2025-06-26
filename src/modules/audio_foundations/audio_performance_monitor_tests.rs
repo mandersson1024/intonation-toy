@@ -330,7 +330,7 @@ use std::time::Duration;
         let metrics = monitor.get_current_metrics();
         
         // Verify monitoring overhead is less than 5%
-        assert!(metrics.monitoring_overhead.cpu_overhead_percent < MAX_MONITORING_OVERHEAD_PERCENT);
+        assert!(metrics.monitoring_overhead.cpu_overhead_percent < super::super::audio_performance_monitor::MAX_MONITORING_OVERHEAD_PERCENT);
         
         // Verify overhead tracking is working
         assert!(metrics.monitoring_overhead.collection_time_ns > 0);

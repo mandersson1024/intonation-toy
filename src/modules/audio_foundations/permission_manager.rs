@@ -10,6 +10,14 @@ use web_sys::{
     MediaDevices, MediaStream, MediaStreamConstraints,
     Navigator, Window
 };
+
+/// Permission states for audio devices (replacing PermissionState which may not be available)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionState {
+    Granted,
+    Denied,
+    Prompt,
+}
 use js_sys::{Object, Promise};
 use super::audio_events::*;
 use crate::modules::application_core::event_bus::EventBus;
@@ -21,7 +29,7 @@ pub trait PermissionManager: Send + Sync {
     fn request_microphone_permission(&mut self) -> Result<PermissionRequestResult, PermissionError>;
     
     /// Get current microphone permission status
-    fn get_microphone_permission_status(&self) -> Result<web_sys::PermissionState, PermissionError>;
+    fn get_microphone_permission_status(&self) -> Result<PermissionState, PermissionError>;
     
     /// Check if microphone permission is granted
     fn has_microphone_permission(&self) -> bool;
@@ -39,7 +47,7 @@ pub trait PermissionManager: Send + Sync {
 /// Result of a permission request
 #[derive(Debug, Clone, PartialEq)]
 pub struct PermissionRequestResult {
-    pub status: web_sys::PermissionState,
+    pub status: PermissionState,
     pub user_action_required: bool,
     pub recovery_instructions: Option<String>,
     pub can_retry: bool,
@@ -96,7 +104,7 @@ pub enum PermissionRecoveryAction {
 /// Web-based permission manager implementation
 pub struct WebPermissionManager {
     media_devices: MediaDevices,
-    current_permission_status: web_sys::PermissionState,
+    current_permission_status: PermissionState,
     monitoring_active: bool,
     event_bus: Option<Arc<TypedEventBus>>,
     permission_request_in_progress: bool,
@@ -112,7 +120,7 @@ impl WebPermissionManager {
         
         Ok(Self {
             media_devices,
-            current_permission_status: web_sys::PermissionState::Prompt,
+            current_permission_status: PermissionState::Prompt,
             monitoring_active: false,
             event_bus: None,
             permission_request_in_progress: false,
@@ -166,17 +174,17 @@ impl WebPermissionManager {
                     }
                 }
                 
-                self.current_permission_status = web_sys::PermissionState::Granted;
+                self.current_permission_status = PermissionState::Granted;
                 
                 let result = PermissionRequestResult {
-                    status: web_sys::PermissionState::Granted,
+                    status: PermissionState::Granted,
                     user_action_required: false,
                     recovery_instructions: None,
                     can_retry: false,
                 };
                 
                 // Publish permission granted event
-                self.publish_permission_event(PermissionEventType::Granted, web_sys::PermissionState::Granted);
+                self.publish_permission_event(PermissionEventType::Granted, PermissionState::Granted);
                 
                 Ok(result)
             }
@@ -187,7 +195,7 @@ impl WebPermissionManager {
                 let (permission_error, permission_state, recovery_action) = if js_error.contains("NotAllowedError") {
                     (
                         PermissionError::UserDenied,
-                        web_sys::PermissionState::Denied,
+                        PermissionState::Denied,
                         PermissionRecoveryAction::ShowInstructions(
                             "To enable microphone access:\n1. Click the microphone icon in your browser's address bar\n2. Select 'Allow' for this site\n3. Refresh the page and try again".to_string()
                         )
@@ -195,7 +203,7 @@ impl WebPermissionManager {
                 } else if js_error.contains("NotFoundError") {
                     (
                         PermissionError::SystemDenied,
-                        web_sys::PermissionState::Denied,
+                        PermissionState::Denied,
                         PermissionRecoveryAction::ShowInstructions(
                             "No microphone found. Please check that:\n1. A microphone is connected to your device\n2. Your system audio settings allow microphone access\n3. Other applications aren't using the microphone".to_string()
                         )
@@ -203,13 +211,13 @@ impl WebPermissionManager {
                 } else if js_error.contains("NotReadableError") {
                     (
                         PermissionError::TemporarilyUnavailable,
-                        web_sys::PermissionState::Denied,
+                        PermissionState::Denied,
                         PermissionRecoveryAction::RequestAgain
                     )
                 } else {
                     (
                         PermissionError::InternalError(js_error),
-                        web_sys::PermissionState::Denied,
+                        PermissionState::Denied,
                         PermissionRecoveryAction::ContactSupport
                     )
                 };
@@ -235,13 +243,13 @@ impl WebPermissionManager {
     }
     
     /// Query permission status (simplified for now)
-    pub async fn query_permission_status(&mut self) -> Result<web_sys::PermissionState, PermissionError> {
+    pub async fn query_permission_status(&mut self) -> Result<PermissionState, PermissionError> {
         // Simplified implementation - would use Permissions API in full version
         Ok(self.current_permission_status)
     }
     
     /// Publish permission-related events
-    fn publish_permission_event(&self, event_type: PermissionEventType, status: web_sys::PermissionState) {
+    fn publish_permission_event(&self, event_type: PermissionEventType, status: PermissionState) {
         if let Some(ref event_bus) = self.event_bus {
             let event = MicrophonePermissionEvent {
                 event_type,
@@ -258,15 +266,15 @@ impl WebPermissionManager {
     }
     
     /// Get recovery instructions for a permission status
-    fn get_recovery_instructions_for_status(&self, status: web_sys::PermissionState) -> Option<String> {
+    fn get_recovery_instructions_for_status(&self, status: PermissionState) -> Option<String> {
         match status {
-            web_sys::PermissionState::Denied => Some(
+            PermissionState::Denied => Some(
                 "Microphone access is blocked. Please click the microphone icon in your browser's address bar and allow access.".to_string()
             ),
-            web_sys::PermissionState::Prompt => Some(
+            PermissionState::Prompt => Some(
                 "Click 'Allow' when prompted to grant microphone access.".to_string()
             ),
-            web_sys::PermissionState::Granted => None,
+            PermissionState::Granted => None,
         }
     }
 }
@@ -275,9 +283,9 @@ impl PermissionManager for WebPermissionManager {
     fn request_microphone_permission(&mut self) -> Result<PermissionRequestResult, PermissionError> {
         // For synchronous interface, return a placeholder result
         // In practice, the async version should be used
-        if self.current_permission_status == web_sys::PermissionState::Granted {
+        if self.current_permission_status == PermissionState::Granted {
             return Ok(PermissionRequestResult {
-                status: web_sys::PermissionState::Granted,
+                status: PermissionState::Granted,
                 user_action_required: false,
                 recovery_instructions: None,
                 can_retry: false,
@@ -286,19 +294,19 @@ impl PermissionManager for WebPermissionManager {
         
         // Return a result indicating async operation is needed
         Ok(PermissionRequestResult {
-            status: web_sys::PermissionState::Prompt,
+            status: PermissionState::Prompt,
             user_action_required: true,
             recovery_instructions: Some("Use the async request_permission_via_user_media method for actual permission request.".to_string()),
             can_retry: true,
         })
     }
     
-    fn get_microphone_permission_status(&self) -> Result<web_sys::PermissionState, PermissionError> {
+    fn get_microphone_permission_status(&self) -> Result<PermissionState, PermissionError> {
         Ok(self.current_permission_status)
     }
     
     fn has_microphone_permission(&self) -> bool {
-        self.current_permission_status == web_sys::PermissionState::Granted
+        self.current_permission_status == PermissionState::Granted
     }
     
     fn start_permission_monitoring(&mut self) -> Result<(), PermissionError> {
@@ -323,13 +331,13 @@ impl PermissionManager for WebPermissionManager {
     
     fn handle_permission_denied(&self) -> PermissionRecoveryAction {
         match self.current_permission_status {
-            web_sys::PermissionState::Denied => {
+            PermissionState::Denied => {
                 PermissionRecoveryAction::ShowInstructions(
                     "To enable microphone access:\n\n1. Look for the microphone icon in your browser's address bar\n2. Click it and select 'Allow'\n3. Refresh the page\n\nIf you don't see the icon:\n1. Go to your browser settings\n2. Find Privacy/Security settings\n3. Allow microphone access for this site".to_string()
                 )
             }
-            web_sys::PermissionState::Prompt => PermissionRecoveryAction::RequestAgain,
-            web_sys::PermissionState::Granted => PermissionRecoveryAction::NoRecoveryPossible,
+            PermissionState::Prompt => PermissionRecoveryAction::RequestAgain,
+            PermissionState::Granted => PermissionRecoveryAction::NoRecoveryPossible,
         }
     }
 }
@@ -350,13 +358,13 @@ mod tests {
     #[test]
     fn test_permission_request_result() {
         let result = PermissionRequestResult {
-            status: web_sys::PermissionState::Granted,
+            status: PermissionState::Granted,
             user_action_required: false,
             recovery_instructions: None,
             can_retry: false,
         };
         
-        assert_eq!(result.status, web_sys::PermissionState::Granted);
+        assert_eq!(result.status, PermissionState::Granted);
         assert!(!result.user_action_required);
         assert!(result.recovery_instructions.is_none());
     }

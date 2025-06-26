@@ -198,7 +198,7 @@ impl WebDeviceMonitor {
             let event = MicrophoneStateEvent {
                 state,
                 device_info,
-                permissions: web_sys::PermissionState::Granted, // Placeholder
+                permissions: super::permission_manager::PermissionState::Granted, // Placeholder
                 timestamp_ns: get_timestamp_ns(),
             };
             

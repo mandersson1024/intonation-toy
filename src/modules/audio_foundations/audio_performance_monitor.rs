@@ -25,7 +25,7 @@ const MAX_HISTORY_POINTS: usize = 86400; // 24 hours at 1-second intervals
 const DEFAULT_SAMPLING_INTERVAL_NS: u64 = 1_000_000_000;
 
 /// Performance monitoring overhead target (<5%)
-const MAX_MONITORING_OVERHEAD_PERCENT: f32 = 5.0;
+pub const MAX_MONITORING_OVERHEAD_PERCENT: f32 = 5.0;
 
 /// Unique identifier for measurements
 pub type MeasurementId = u64;
@@ -878,7 +878,7 @@ mod tests {
             assert_eq!(thresholds.max_end_to_end_latency_ms, 5.0);
             assert_eq!(thresholds.max_processing_latency_ms, 2.0);
             assert_eq!(thresholds.max_cpu_usage_percent, 50.0);
-        }
+        };
     }
     
     #[test]
