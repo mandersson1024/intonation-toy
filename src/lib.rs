@@ -23,17 +23,26 @@ pub mod error_manager;
 pub mod performance_monitor;
 
 // Legacy modules (active during transition)
-pub mod legacy {
-    pub mod services;
-    pub mod components;
-    pub mod hooks;
-}
+pub mod legacy;
 
 // Re-export the audio engine for direct access from JavaScript
 pub use audio::engine::AudioEngine;
 
 // Re-export pitch detection components for JavaScript integration
 pub use audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector, PitchResult};
+
+// Backward compatibility exports for existing legacy code
+pub mod services {
+    pub use crate::legacy::services::*;
+}
+
+pub mod components {
+    pub use crate::legacy::components::*;
+}
+
+pub mod hooks {
+    pub use crate::legacy::hooks::*;
+}
 
 // Re-export services for Yew integration
 pub use legacy::services::{ErrorManager as NewErrorManager, ApplicationError, ErrorSeverity, RecoveryStrategy};

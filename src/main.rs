@@ -4,13 +4,12 @@ mod audio;
 mod browser_compat;
 mod error_manager;
 mod performance_monitor;
-mod components;
-mod services;
+mod legacy;
+mod modules;
 mod types;
-mod hooks;
 
-use components::DebugInterface;
-use services::{AudioEngineService, ErrorManager};
+use legacy::components::DebugInterface;
+use legacy::services::{AudioEngineService, ErrorManager};
 use std::rc::Rc;
 use std::cell::RefCell;
 
