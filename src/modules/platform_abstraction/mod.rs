@@ -87,6 +87,7 @@ pub mod traits {
 pub mod types {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
+    use std::time::Instant;
     
     /// Platform-specific error types
     #[derive(Debug, Clone)]
@@ -204,6 +205,131 @@ pub mod types {
         pub max_buffer_size: usize,
         pub audio_input_devices: Vec<AudioDevice>,
         pub performance_capability: PerformanceCapability,
+    }
+    
+    /// Comprehensive device capabilities structure
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AllDeviceCapabilities {
+        pub audio: AudioCapabilities,
+        pub graphics: GraphicsCapabilities,
+        pub performance: PerformanceCapabilities,
+        pub hardware_acceleration: HardwareAcceleration,
+    }
+    
+    /// Audio capabilities structure
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AudioCapabilities {
+        pub max_sample_rate: u32,
+        pub min_sample_rate: u32,
+        pub supported_buffer_sizes: Vec<u32>,
+        pub max_channels: u8,
+        pub supports_audio_worklet: bool,
+        pub supports_echo_cancellation: bool,
+        pub latency_characteristics: LatencyProfile,
+    }
+    
+    /// Graphics capabilities structure
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct GraphicsCapabilities {
+        pub supports_webgl: bool,
+        pub supports_webgl2: bool,
+        pub supports_canvas_2d: bool,
+        pub max_texture_size: u32,
+        pub max_renderbuffer_size: u32,
+        pub supports_float_textures: bool,
+        pub gpu_vendor: String,
+        pub gpu_renderer: String,
+        pub gpu_performance_tier: GpuPerformanceTier,
+    }
+    
+    /// Performance capabilities structure
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct PerformanceCapabilities {
+        pub logical_cores: u32,
+        pub estimated_memory: u64,
+        pub supports_shared_array_buffer: bool,
+        pub supports_web_workers: bool,
+        pub supports_audio_worklet: bool,
+        pub cpu_performance_tier: CpuPerformanceTier,
+        pub memory_pressure_level: MemoryPressureLevel,
+    }
+    
+    /// Hardware acceleration capabilities
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct HardwareAcceleration {
+        pub audio_processing: bool,
+        pub graphics_rendering: bool,
+        pub video_decoding: bool,
+        pub crypto_operations: bool,
+        pub simd_support: bool,
+        pub offscreen_canvas: bool,
+    }
+    
+    /// Optimal settings calculated from device capabilities
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct OptimalSettings {
+        pub audio_sample_rate: u32,
+        pub audio_buffer_size: u32,
+        pub audio_channels: u32,
+        pub enable_echo_cancellation: bool,
+        pub enable_webgl: bool,
+        pub canvas_resolution: (u32, u32),
+        pub use_web_workers: bool,
+        pub max_concurrent_operations: u32,
+        pub enable_hardware_acceleration: bool,
+        pub memory_management_strategy: MemoryStrategy,
+    }
+    
+    /// Capability change notification structure
+    #[derive(Debug, Clone)]
+    pub struct CapabilityChange {
+        pub change_type: CapabilityChangeType,
+        pub old_capabilities: Option<DeviceCapabilities>,
+        pub new_capabilities: DeviceCapabilities,
+        pub timestamp: Instant,
+    }
+    
+    /// Types of capability changes
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum CapabilityChangeType {
+        DeviceAdded,
+        DeviceRemoved,
+        DeviceChange,
+        PerformanceChange,
+        HardwareAccelerationChange,
+    }
+    
+    /// GPU performance tiers
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum GpuPerformanceTier {
+        High,
+        Medium,
+        Low,
+    }
+    
+    /// Memory pressure levels
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum MemoryPressureLevel {
+        Low,
+        Normal,
+        High,
+    }
+    
+    /// Memory management strategies
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum MemoryStrategy {
+        Aggressive,
+        Balanced,
+        Conservative,
+    }
+    
+    /// Audio latency profile
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum LatencyProfile {
+        UltraLow,   // <5ms
+        Low,        // 5-10ms
+        Medium,     // 10-50ms
+        High,       // >50ms
     }
     
     /// Audio device information
