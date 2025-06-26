@@ -10,6 +10,9 @@ pub mod audio_events;
 pub mod multi_algorithm_pitch_detector;
 pub mod runtime_pitch_switching;
 
+// STORY-016: Signal Generator
+pub mod signal_generator;
+
 // Device Manager modules - STORY-014
 pub mod device_manager;
 pub mod permission_manager;
@@ -30,6 +33,9 @@ pub mod device_manager_tests;
 #[cfg(test)]
 pub mod multi_algorithm_integration_tests;
 
+#[cfg(test)]
+pub mod signal_generator_tests;
+
 pub mod integration_example;
 
 // Re-exports for clean API
@@ -44,6 +50,12 @@ pub use multi_algorithm_pitch_detector::{
 };
 pub use runtime_pitch_switching::{
     RuntimePitchSwitcher, AutoSwitchConfig, RuntimePerformanceStats
+};
+
+// STORY-016: Signal Generator re-exports
+pub use signal_generator::{
+    SignalGenerator, WebSignalGenerator, SignalConfig, WaveformType, SignalError,
+    TestSignalLibrary, TuningReference, SignalInjector
 };
 
 // Device Manager re-exports
