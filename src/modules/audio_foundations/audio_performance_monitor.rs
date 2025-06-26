@@ -429,7 +429,7 @@ impl AudioPerformanceMonitor {
                 timestamp: get_timestamp_ns(),
                 operation_context: Some(format!("{:?}", dropout_type)),
             };
-            let _ = event_bus.publish_high(event);
+            let _ = event_bus.publish(event);
         }
     }
     
@@ -535,7 +535,7 @@ impl AudioPerformanceMonitor {
                         timestamp: violation.timestamp,
                         requires_attention: violation.violation_severity >= ViolationSeverity::Alert,
                     };
-                    let _ = event_bus.publish_high(alert_event);
+                    let _ = event_bus.publish(alert_event);
                 }
             }
         }
@@ -645,7 +645,7 @@ impl PerformanceMonitor for AudioPerformanceMonitor {
                         timestamp: end_timestamp,
                         operation_context: Some(measurement.operation),
                     };
-                    let _ = event_bus.publish_normal(event);
+                    let _ = event_bus.publish(event);
                 }
             }
         }
@@ -670,7 +670,7 @@ impl PerformanceMonitor for AudioPerformanceMonitor {
                 timestamp: get_timestamp_ns(),
                 operation_context: None,
             };
-            let _ = event_bus.publish_normal(event);
+            let _ = event_bus.publish(event);
         }
     }
     
@@ -778,7 +778,7 @@ impl PerformanceMonitor for AudioPerformanceMonitor {
                             },
                             timestamp: regression.detected_timestamp,
                         };
-                        let _ = event_bus.publish_high(regression_event);
+                        let _ = event_bus.publish(regression_event);
                     }
                     
                     return Some(regression);

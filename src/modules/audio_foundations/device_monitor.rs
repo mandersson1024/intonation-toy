@@ -10,6 +10,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, Event, MediaDevices, Navigator, Window};
 use super::audio_events::*;
 use super::device_manager::{AudioDevice, DeviceError};
+use crate::modules::application_core::event_bus::EventBus;
 use crate::modules::application_core::typed_event_bus::TypedEventBus;
 
 /// Trait for monitoring device state changes
@@ -329,10 +330,15 @@ impl DeviceMonitor for WebDeviceMonitor {
     }
     
     fn handle_device_error(&mut self, device_id: &str, error: String) {
-        // Update device state to error if it exists
         if let Some(device) = self.known_devices.get(device_id) {
             // Publish device error event
-            self.publish_device_state_event(device_id, DeviceState::Error, Some(device.clone()));
+            self.publish_device_state_event(device_id, DeviceState::Error(error.clone()), Some(device.clone()));
+            
+            // Log error details
+            #[cfg(target_arch = "wasm32")]
+            web_sys::console::error_1(&format!(
+                "Device error on {}: {}", device_id, error
+            ).into());
         }
         
         // Publish monitoring event
@@ -340,8 +346,6 @@ impl DeviceMonitor for WebDeviceMonitor {
             DeviceMonitoringEventType::DeviceError,
             format!("Device error on {}: {}", device_id, error)
         );
-        
-        web_sys::console::error_1(&format!("Device error on {}: {}", device_id, error).into());
     }
 }
 

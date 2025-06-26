@@ -3,16 +3,14 @@
 
 use std::error::Error;
 use std::fmt;
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{
-    MediaDevices, MediaDeviceInfo, MediaStream, MediaStreamConstraints,
-    Navigator, Window
-};
+use web_sys::{MediaDevices, MediaStream, MediaStreamConstraints, MediaDeviceInfo, Navigator, Window};
 use js_sys::{Array, Promise};
 use super::audio_events::*;
+use crate::modules::application_core::event_bus::EventBus;
 use crate::modules::application_core::typed_event_bus::TypedEventBus;
 
 /// Core trait for device management functionality
@@ -165,51 +163,59 @@ impl WebDeviceManager {
     
     /// Create AudioDevice from MediaDeviceInfo
     fn create_audio_device_from_media_info(&self, info: MediaDeviceInfo) -> Result<AudioDevice, DeviceError> {
-        let device_type = match info.kind().as_str() {
-            "audioinput" => AudioDeviceType::Input,
-            "audiooutput" => AudioDeviceType::Output,
-            _ => return Err(DeviceError::InternalError("Unknown device type".to_string())),
+        let device_id = info.device_id();
+        let device_name = info.label();
+        
+        // Convert MediaDeviceKind to our AudioDeviceType
+        let device_type = match info.kind() {
+            web_sys::MediaDeviceKind::Audioinput => AudioDeviceType::Input,
+            web_sys::MediaDeviceKind::Audiooutput => AudioDeviceType::Output,
+            _ => return Err(DeviceError::InvalidDeviceId("Unsupported device type".to_string())),
         };
         
-        // Default capabilities - in a real implementation, these would be probed
-        let supported_sample_rates = vec![44100, 48000];
-        let max_channels = if device_type == AudioDeviceType::Input { 2 } else { 8 };
-        
         Ok(AudioDevice {
-            device_id: info.device_id(),
-            device_name: info.label(),
-            is_default: info.device_id() == "default",
+            device_id,
+            device_name,
+            is_default: false, // Would need to determine this from browser defaults
             device_type,
-            supported_sample_rates,
-            max_channels,
+            supported_sample_rates: vec![44100, 48000], // Default values
+            max_channels: 2, // Default stereo
             group_id: Some(info.group_id()),
         })
     }
     
     /// Request media stream for a specific device
     pub async fn request_media_stream(&mut self, device_id: &str) -> Result<MediaStream, DeviceError> {
+        let device = self.available_devices.get(device_id)
+            .ok_or_else(|| DeviceError::DeviceNotFound(device_id.to_string()))?;
+        
+        if device.device_type != AudioDeviceType::Input && device.device_type != AudioDeviceType::InputOutput {
+            return Err(DeviceError::InvalidDeviceId(format!("Device {} is not an input device", device_id)));
+        }
+        
         let mut constraints = MediaStreamConstraints::new();
         
-        // Configure audio constraints
-        let mut audio_constraints = MediaTrackConstraints::new();
-        if device_id != "default" {
-            audio_constraints.device_id(&device_id.into());
-        }
-        audio_constraints.echo_cancellation(&true.into());
-        audio_constraints.noise_suppression(&true.into());
-        audio_constraints.auto_gain_control(&true.into());
+        // Set audio constraints
+        let audio_constraints = js_sys::Object::new();
+        js_sys::Reflect::set(&audio_constraints, &"deviceId".into(), &device_id.into())
+            .map_err(|_| DeviceError::InternalError("Failed to set device constraints".to_string()))?;
+        js_sys::Reflect::set(&audio_constraints, &"echoCancellation".into(), &true.into())
+            .map_err(|_| DeviceError::InternalError("Failed to set echo cancellation".to_string()))?;
         
         constraints.audio(&audio_constraints.into());
         constraints.video(&false.into());
         
         let promise = self.media_devices.get_user_media_with_constraints(&constraints)
-            .map_err(|e| DeviceError::PermissionDenied)?;
+            .map_err(|_| DeviceError::BrowserNotSupported)?;
         
         let stream = JsFuture::from(promise).await
-            .map_err(|e| DeviceError::PermissionDenied)?;
+            .map_err(|_| DeviceError::PermissionDenied)?;
         
         let media_stream: MediaStream = stream.into();
         self.current_stream = Some(media_stream.clone());
+        
+        // Publish device connection event
+        self.publish_device_state_change(device_id, DeviceState::Connected);
         
         Ok(media_stream)
     }
@@ -224,6 +230,7 @@ impl WebDeviceManager {
             };
             
             if let Err(e) = event_bus.publish(event) {
+                #[cfg(target_arch = "wasm32")]
                 web_sys::console::warn_1(&format!("Failed to publish device list updated event: {:?}", e).into());
             }
         }
@@ -241,6 +248,7 @@ impl WebDeviceManager {
             };
             
             if let Err(e) = event_bus.publish(event) {
+                #[cfg(target_arch = "wasm32")]
                 web_sys::console::warn_1(&format!("Failed to publish device state event: {:?}", e).into());
             }
         }
@@ -300,13 +308,13 @@ impl DeviceManager for WebDeviceManager {
         // This is a simplified implementation
         // In practice, you'd need to actually request permission via getUserMedia
         // and handle the promise/async nature properly
-        Ok(web_sys::PermissionState::Granted)
+        Ok(PermissionStatus::Granted)
     }
     
-    fn get_microphone_permission_status(&self) -> Result<web_sys::PermissionState, DeviceError> {
+    fn get_microphone_permission_status(&self) -> Result<PermissionStatus, DeviceError> {
         // This would query the actual permission status from the browser
         // For now, return a placeholder
-        Ok(web_sys::PermissionState::Granted)
+        Ok(PermissionStatus::Granted)
     }
     
     fn start_device_monitoring(&mut self) -> Result<(), DeviceError> {

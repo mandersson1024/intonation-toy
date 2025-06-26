@@ -10,6 +10,7 @@ use web_sys::MediaStream;
 use super::device_manager::{AudioDevice, DeviceError};
 use super::device_monitor::{DeviceRecoveryAction};
 use super::audio_events::*;
+use crate::modules::application_core::event_bus::EventBus;
 use crate::modules::application_core::typed_event_bus::TypedEventBus;
 
 /// Trait for graceful recovery management
@@ -226,10 +227,9 @@ impl WebGracefulRecoveryManager {
         if let Some(ref stream) = self.current_stream {
             let tracks = stream.get_audio_tracks();
             for i in 0..tracks.length() {
-                if let Some(track) = tracks.get(i) {
-                    let track: web_sys::MediaStreamTrack = track.into();
-                    track.stop();
-                }
+                let track = tracks.get(i);
+                let track: web_sys::MediaStreamTrack = track.into();
+                track.stop();
             }
         }
         

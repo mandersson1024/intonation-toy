@@ -172,7 +172,7 @@ impl WebSignalGenerator {
     fn validate_params(&self, freq: f64, amplitude: f32, duration_ms: u32) -> Result<(), SignalError> {
         if freq <= 0.0 || freq > (self.sample_rate as f64 / 2.0) {
             return Err(SignalError::InvalidFrequency(
-                format!("Frequency {} must be between 0 and {} Hz", freq, self.sample_rate / 2.0)
+                format!("Frequency {} must be between 0 and {} Hz", freq, self.sample_rate as f32 / 2.0)
             ));
         }
         
@@ -368,7 +368,7 @@ impl SignalGenerator for WebSignalGenerator {
             // For continuous generation, just validate frequency and amplitude
             if config.frequency <= 0.0 || config.frequency > (self.sample_rate as f64 / 2.0) {
                 return Err(SignalError::InvalidFrequency(
-                    format!("Frequency {} Hz must be between 0 and {} Hz", config.frequency, self.sample_rate / 2)
+                    format!("Frequency {} Hz must be between 0 and {} Hz", config.frequency, self.sample_rate as f32 / 2.0)
                 ));
             }
             if config.amplitude < 0.0 || config.amplitude > 1.0 {

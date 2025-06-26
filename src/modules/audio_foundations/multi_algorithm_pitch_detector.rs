@@ -3,8 +3,9 @@
 
 use pitch_detection::detector::{mcleod::McLeodDetector, yin::YINDetector, PitchDetector as PitchDetectorTrait};
 use std::time::{Duration, Instant};
-use crate::modules::audio_foundations::audio_events::{PitchDetectionEvent, SignalAnalysisEvent};
-use crate::modules::application_core::event_bus::{EventBus, Event};
+use crate::modules::audio_foundations::audio_events::{PitchDetectionEvent, SignalAnalysisEvent, get_timestamp_ns};
+use crate::modules::application_core::event_bus::EventBus;
+use crate::modules::application_core::typed_event_bus::TypedEventBus;
 use std::sync::Arc;
 
 /// Multi-algorithm pitch detection algorithms available
@@ -169,7 +170,7 @@ pub struct MultiAlgorithmPitchDetector {
     config: PitchDetectionConfig,
     yin_detector: Option<YINDetector<f32>>,
     mcleod_detector: Option<McLeodDetector<f32>>,
-    event_bus: Option<Arc<dyn EventBus>>,
+    event_bus: Option<Arc<TypedEventBus>>,
     event_publishing_enabled: bool,
     
     // Performance tracking
@@ -181,11 +182,15 @@ pub struct MultiAlgorithmPitchDetector {
     // Signal analysis for auto-selection
     recent_snr_estimates: Vec<f32>,
     recent_harmonic_content: Vec<f32>,
+    
+    // Buffer reference tracking for events
+    current_buffer_ref: String,
+    buffer_ref_counter: u64,
 }
 
 impl MultiAlgorithmPitchDetector {
     /// Create new multi-algorithm pitch detector
-    pub fn new(config: PitchDetectionConfig, event_bus: Option<Arc<dyn EventBus>>) -> Result<Self, PitchError> {
+    pub fn new(config: PitchDetectionConfig, event_bus: Option<Arc<TypedEventBus>>) -> Result<Self, PitchError> {
         Self::validate_config(&config)?;
         
         Ok(Self {
@@ -200,6 +205,8 @@ impl MultiAlgorithmPitchDetector {
             mcleod_accuracy_samples: Vec::with_capacity(100),
             recent_snr_estimates: Vec::with_capacity(20),
             recent_harmonic_content: Vec::with_capacity(20),
+            current_buffer_ref: String::new(),
+            buffer_ref_counter: 0,
         })
     }
     
@@ -536,12 +543,18 @@ impl MultiAlgorithmPitchDetector {
     }
     
     /// Publish pitch detection event if event bus is available
-    fn publish_pitch_event(&self, result: &PitchResult, buffer_ref: Option<String>) {
+    fn publish_pitch_event(&mut self, result: &PitchResult) {
         if !self.event_publishing_enabled {
             return;
         }
         
         if let Some(ref event_bus) = self.event_bus {
+            // Generate buffer reference
+            self.buffer_ref_counter += 1;
+            self.current_buffer_ref = format!("buf_{:08x}_{}", 
+                self.buffer_ref_counter, 
+                get_timestamp_ns() / 1_000_000); // Include millisecond timestamp
+            
             let event = PitchDetectionEvent {
                 frequency: result.frequency,
                 confidence: result.confidence,
@@ -549,16 +562,17 @@ impl MultiAlgorithmPitchDetector {
                 harmonic_content: result.harmonic_content,
                 algorithm_used: result.algorithm_used,
                 processing_time_ns: result.processing_time_ns,
-                timestamp_ns: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos() as u64,
-                source_buffer_ref: buffer_ref.unwrap_or_default(),
+                timestamp_ns: get_timestamp_ns(),
+                source_buffer_ref: self.current_buffer_ref.clone(),
                 snr_estimate: result.snr_estimate,
                 is_valid: result.is_valid,
             };
             
-            let _ = event_bus.publish_critical(Box::new(event));
+            // Use standard publish method - event priority is determined by the event itself
+            if let Err(e) = event_bus.publish(event) {
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::warn_1(&format!("Failed to publish pitch detection event: {:?}", e).into());
+            }
         }
     }
     
@@ -575,13 +589,14 @@ impl MultiAlgorithmPitchDetector {
                 buffer_size: buffer.len(),
                 rms_energy: (buffer.iter().map(|&x| x * x).sum::<f32>() / buffer.len() as f32).sqrt(),
                 peak_amplitude: buffer.iter().map(|&x| x.abs()).fold(0.0f32, f32::max),
-                timestamp_ns: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos() as u64,
+                timestamp_ns: get_timestamp_ns(),
             };
             
-            let _ = event_bus.publish_medium(Box::new(event));
+            // Use standard publish method - event priority is determined by the event itself
+            if let Err(e) = event_bus.publish(event) {
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::warn_1(&format!("Failed to publish signal analysis event: {:?}", e).into());
+            }
         }
     }
 }
@@ -625,7 +640,7 @@ impl PitchDetector for MultiAlgorithmPitchDetector {
         match result {
             Some(pitch_result) => {
                 // Publish events
-                self.publish_pitch_event(&pitch_result, None);
+                self.publish_pitch_event(&pitch_result);
                 
                 if self.config.enable_harmonic_analysis {
                     let snr = self.estimate_snr(buffer);

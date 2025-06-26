@@ -373,7 +373,7 @@ impl Event for SignalAnalysisEvent {
     }
     
     fn priority(&self) -> EventPriority {
-        EventPriority::Medium
+        EventPriority::Normal
     }
     
     fn as_any(&self) -> &dyn Any {
@@ -403,7 +403,7 @@ impl Event for AlgorithmPerformanceEvent {
     }
     
     fn priority(&self) -> EventPriority {
-        EventPriority::Low
+        EventPriority::Normal
     }
     
     fn as_any(&self) -> &dyn Any {
@@ -539,7 +539,7 @@ impl Event for AudioPerformanceEvent {
     }
     
     fn priority(&self) -> EventPriority {
-        EventPriority::Medium
+        EventPriority::Normal
     }
     
     fn as_any(&self) -> &dyn Any {
@@ -609,4 +609,239 @@ impl Event for PerformanceRegressionEvent {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+// Audio Lifecycle Events - Task 3
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioSessionEvent {
+    pub session_id: String,
+    pub event_type: AudioSessionEventType,
+    pub timestamp_ns: u64,
+    pub session_duration_ms: Option<u64>,
+    pub buffer_size: Option<usize>,
+    pub sample_rate: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AudioSessionEventType {
+    Started,
+    Stopped,
+    Paused,
+    Resumed,
+    Error(String),
+}
+
+impl Event for AudioSessionEvent {
+    fn event_type(&self) -> &'static str { "AudioSessionEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::High }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BufferProcessingEvent {
+    pub buffer_id: String,
+    pub processing_stage: BufferProcessingStage,
+    pub latency_ms: f32,
+    pub buffer_size: usize,
+    pub timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BufferProcessingStage {
+    Received,
+    Processing,
+    Completed,
+    Error(String),
+}
+
+impl Event for BufferProcessingEvent {
+    fn event_type(&self) -> &'static str { "BufferProcessingEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Normal }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+// Music Theory Events - Task 6
+#[derive(Debug, Clone, PartialEq)]
+pub struct MusicalIntervalEvent {
+    pub interval_type: IntervalType,
+    pub frequency_1: f32,
+    pub frequency_2: f32,
+    pub accuracy_score: f32,
+    pub timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum IntervalType {
+    Unison,
+    MinorSecond,
+    MajorSecond,
+    MinorThird,
+    MajorThird,
+    PerfectFourth,
+    Tritone,
+    PerfectFifth,
+    MinorSixth,
+    MajorSixth,
+    MinorSeventh,
+    MajorSeventh,
+    Octave,
+}
+
+impl Event for MusicalIntervalEvent {
+    fn event_type(&self) -> &'static str { "MusicalIntervalEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Normal }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PitchAccuracyEvent {
+    pub target_frequency: f32,
+    pub actual_frequency: f32,
+    pub accuracy_percentage: f32,
+    pub deviation_cents: f32,
+    pub timestamp_ns: u64,
+}
+
+impl Event for PitchAccuracyEvent {
+    fn event_type(&self) -> &'static str { "PitchAccuracyEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Normal }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+// Error Tracking Events - Task 5
+#[derive(Debug, Clone, PartialEq)]
+pub struct ErrorEvent {
+    pub error_type: ErrorType,
+    pub error_source: ErrorSource,
+    pub error_message: String,
+    pub severity: ErrorSeverity,
+    pub recovery_suggestion: Option<String>,
+    pub timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorType {
+    DeviceError,
+    ProcessingError,
+    NetworkError,
+    PermissionError,
+    ConfigurationError,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorSource {
+    AudioEngine,
+    DeviceManager,
+    PermissionManager,
+    PitchDetector,
+    EventBus,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl Event for ErrorEvent {
+    fn event_type(&self) -> &'static str { "ErrorEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { 
+        match self.severity {
+            ErrorSeverity::Critical => EventPriority::Critical,
+            ErrorSeverity::High => EventPriority::High,
+            ErrorSeverity::Medium => EventPriority::Normal,
+            ErrorSeverity::Low => EventPriority::Low,
+        }
+    }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+// Performance Monitoring Events - Task 4
+#[derive(Debug, Clone, PartialEq)]
+pub struct PerformanceMetricsEvent {
+    pub latency_ms: f32,
+    pub throughput_samples_per_sec: f32,
+    pub cpu_usage_percent: f32,
+    pub memory_usage_bytes: u64,
+    pub buffer_underruns: u32,
+    pub timestamp_ns: u64,
+}
+
+impl Event for PerformanceMetricsEvent {
+    fn event_type(&self) -> &'static str { "PerformanceMetricsEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Normal }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LatencyViolationEvent {
+    pub expected_latency_ms: f32,
+    pub actual_latency_ms: f32,
+    pub violation_severity: ViolationSeverity,
+    pub component: String,
+    pub timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ViolationSeverity {
+    Minor,
+    Moderate,
+    Severe,
+    Critical,
+}
+
+impl Event for LatencyViolationEvent {
+    fn event_type(&self) -> &'static str { "LatencyViolationEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { 
+        match self.violation_severity {
+            ViolationSeverity::Critical => EventPriority::Critical,
+            ViolationSeverity::Severe => EventPriority::High,
+            ViolationSeverity::Moderate => EventPriority::Normal,
+            ViolationSeverity::Minor => EventPriority::Low,
+        }
+    }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+// Event Batching Support - Task 7
+#[derive(Debug, Clone, PartialEq)]
+pub struct BatchedEvents {
+    pub event_type: String,
+    pub batch_size: usize,
+    pub events: Vec<String>, // Serialized events for efficiency
+    pub batch_created_ns: u64,
+    pub batch_window_ms: u32,
+}
+
+impl Event for BatchedEvents {
+    fn event_type(&self) -> &'static str { "BatchedEvents" }
+    fn timestamp(&self) -> u64 { self.batch_created_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Low }
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BatchingMetricsEvent {
+    pub events_batched: u32,
+    pub compression_ratio: f32,
+    pub memory_saved_bytes: u64,
+    pub processing_time_saved_ms: f32,
+    pub timestamp_ns: u64,
+}
+
+impl Event for BatchingMetricsEvent {
+    fn event_type(&self) -> &'static str { "BatchingMetricsEvent" }
+    fn timestamp(&self) -> u64 { self.timestamp_ns }
+    fn priority(&self) -> EventPriority { EventPriority::Low }
+    fn as_any(&self) -> &dyn Any { self }
 }

@@ -10,8 +10,9 @@ use web_sys::{
     MediaDevices, MediaStream, MediaStreamConstraints,
     Navigator, Window
 };
-use js_sys::Promise;
+use js_sys::{Object, Promise};
 use super::audio_events::*;
+use crate::modules::application_core::event_bus::EventBus;
 use crate::modules::application_core::typed_event_bus::TypedEventBus;
 
 /// Trait for managing audio permissions
@@ -135,11 +136,14 @@ impl WebPermissionManager {
         self.publish_permission_event(PermissionEventType::RequestStarted, self.current_permission_status);
         
         let mut constraints = MediaStreamConstraints::new();
-        let mut audio_constraints = MediaTrackConstraints::new();
         
-        // Request basic audio with echo cancellation
-        audio_constraints.echo_cancellation(&true.into());
-        audio_constraints.noise_suppression(&true.into());
+        // Create audio constraints using Object
+        let audio_constraints = Object::new();
+        js_sys::Reflect::set(&audio_constraints, &"echoCancellation".into(), &true.into())
+            .map_err(|_| PermissionError::InternalError("Failed to set audio constraints".to_string()))?;
+        js_sys::Reflect::set(&audio_constraints, &"noiseSuppression".into(), &true.into())
+            .map_err(|_| PermissionError::InternalError("Failed to set audio constraints".to_string()))?;
+        
         constraints.audio(&audio_constraints.into());
         constraints.video(&false.into());
         
@@ -199,13 +203,13 @@ impl WebPermissionManager {
                 } else if js_error.contains("NotReadableError") {
                     (
                         PermissionError::TemporarilyUnavailable,
-                        web_sys::PermissionState::Prompt,
+                        web_sys::PermissionState::Denied,
                         PermissionRecoveryAction::RequestAgain
                     )
                 } else {
                     (
-                        PermissionError::InternalError(js_error.clone()),
-                        web_sys::PermissionState::Prompt,
+                        PermissionError::InternalError(js_error),
+                        web_sys::PermissionState::Denied,
                         PermissionRecoveryAction::ContactSupport
                     )
                 };
@@ -214,18 +218,18 @@ impl WebPermissionManager {
                 
                 let result = PermissionRequestResult {
                     status: permission_state,
-                    user_action_required: matches!(recovery_action, PermissionRecoveryAction::ShowInstructions(_)),
-                    recovery_instructions: match &recovery_action {
-                        PermissionRecoveryAction::ShowInstructions(instructions) => Some(instructions.clone()),
-                        _ => None,
-                    },
+                    user_action_required: true,
+                    recovery_instructions: Some(match recovery_action {
+                        PermissionRecoveryAction::ShowInstructions(ref msg) => msg.clone(),
+                        _ => "Please check your browser settings and try again".to_string(),
+                    }),
                     can_retry: matches!(recovery_action, PermissionRecoveryAction::RequestAgain),
                 };
                 
                 // Publish permission denied event
                 self.publish_permission_event(PermissionEventType::Denied, permission_state);
                 
-                Ok(result)
+                Err(permission_error)
             }
         }
     }
