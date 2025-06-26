@@ -12,11 +12,14 @@
 //! - [`BufferRecyclingPool`]: Buffer pool and recycling system for memory efficiency
 //! - [`DataFlowCoordinator`]: Data flow coordination between modules
 //! - [`BufferUtilizationMonitor`]: Buffer utilization monitoring and optimization
+//! - [`PoolMetricsMonitor`]: Real-time pool efficiency monitoring
+//! - [`PoolOptimizationEngine`]: Automatic pool sizing optimization
 //!
 //! ## Performance Targets
 //!
-//! - Buffer operations: <1ms allocation/deallocation overhead
-//! - Memory efficiency: <5% overhead for buffer management tracking
+//! - Buffer operations: <0.5ms allocation/deallocation overhead
+//! - Memory efficiency: <3% overhead for buffer management tracking
+//! - Pool hit rate: >90% allocation success from pool
 //! - Throughput: Support for 1000+ buffers/second without performance degradation
 
 pub mod data_management_module;
@@ -24,6 +27,8 @@ pub mod audio_buffer_manager;
 pub mod buffer_recycling_pool;
 pub mod data_flow_coordinator;
 pub mod buffer_utilization_monitor;
+pub mod pool_metrics;
+pub mod pool_optimization;\npub mod wasm_js_bridge;
 
 #[cfg(test)]
 mod integration_tests;
@@ -33,4 +38,6 @@ pub use data_management_module::*;
 pub use audio_buffer_manager::*;
 pub use buffer_recycling_pool::*;
 pub use data_flow_coordinator::*;
-pub use buffer_utilization_monitor::*; 
+pub use buffer_utilization_monitor::*;
+pub use pool_metrics::*;
+pub use pool_optimization::*;\npub use wasm_js_bridge::*;
