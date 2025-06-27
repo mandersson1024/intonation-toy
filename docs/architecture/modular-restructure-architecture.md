@@ -69,7 +69,7 @@ This document supplements existing project architecture by defining how to refac
 | **Runtime**        | WebAssembly        | Current | Browser execution    | Compilation target for modules |
 | **Framework**      | Yew                | 0.21    | Frontend components  | Maintained for Presentation Layer |
 | **Audio API**      | Web Audio API      | Current | Audio processing     | Core dependency for Audio Foundations |
-| **Graphics**       | WebGL              | 2.0     | Future visualization | To be implemented in Graphics Foundations |
+| **Graphics**       | wgpu               | Latest  | Future visualization | Third-party graphics abstraction for Graphics Foundations |
 | **Build Tool**     | Trunk              | Current | Development & build  | Maintained for hot reload and WASM compilation |
 | **Testing**        | Cargo + Jest       | Current | Unit & integration   | Extended for module testing |
 
@@ -77,6 +77,7 @@ This document supplements existing project architecture by defining how to refac
 
 | Technology | Version | Purpose | Rationale | Integration Method |
 | :--------- | :------ | :------ | :-------- | :----------------- |
+| **wgpu** | Latest | Graphics rendering abstraction | Safe, portable graphics without low-level WebGL complexity | Cargo dependency with WebGL backend |
 | Event Bus Pattern | Custom | Inter-module communication | Decoupled module coordination | Rust trait-based system |
 | Feature Flags | Custom | Conditional compilation | Debug module inclusion control | Cargo features |
 
@@ -112,17 +113,18 @@ This document supplements existing project architecture by defining how to refac
 - **New Components:** Application Core
 
 #### 3. Graphics Foundations
-**Responsibility:** WebGL setup, shader management, rendering utilities
-**Integration Points:** HTML Canvas elements, Performance Monitor
+**Responsibility:** wgpu integration, high-level rendering abstractions, visualization pipeline
+**Integration Points:** HTML Canvas elements, Performance Monitor, wgpu rendering backend
 
 **Key Interfaces:**
-- `WebGLContext` - Graphics context management
-- `ShaderManager` - Shader compilation and caching
-- `RenderPipeline` - Core rendering coordination
+- `WgpuContext` - Graphics context management via wgpu
+- `RenderPipeline` - High-level rendering coordination
+- `VisualizationRenderer` - Audio visualization specific rendering
 
 **Dependencies:**
 - **Existing Components:** None (new module)
 - **New Components:** Application Core, Performance Monitor
+- **Third-party:** wgpu crate for graphics abstraction
 
 #### 4. Data Management
 **Responsibility:** Audio data flow, real-time buffers
@@ -257,10 +259,10 @@ pitch-toy/
 │   │   │   ├── pitch_detector.rs   # Existing audio/pitch_detector.rs
 │   │   │   ├── device_manager.rs
 │   │   │   └── signal_generator.rs
-│   │   ├── graphics_foundations/   # WebGL & rendering (new)
+│   │   ├── graphics_foundations/   # wgpu-based rendering (new)
 │   │   │   ├── mod.rs
-│   │   │   ├── webgl_context.rs
-│   │   │   ├── shader_manager.rs
+│   │   │   ├── wgpu_context.rs
+│   │   │   ├── visualization_renderer.rs
 │   │   │   └── render_pipeline.rs
 │   │   ├── data_management/        # Data flow & buffers
 │   │   │   ├── mod.rs
@@ -303,6 +305,21 @@ pitch-toy/
 - **File Naming:** Snake_case following existing Rust conventions
 - **Folder Organization:** Module-first organization with clear boundaries
 - **Import/Export Patterns:** Each module exposes public interface through mod.rs
+
+### Graphics Technology Integration (wgpu)
+
+**Architectural Decision:** Use wgpu as graphics abstraction layer instead of raw WebGL
+**Rationale:** 
+- Provides safe, high-level graphics API without low-level complexity
+- Excellent Rust/WASM support with WebGL backend for browsers
+- Lighter weight than full game engines (three.js, babylon.js)
+- Actively maintained with strong community support
+
+**Integration Strategy:**
+- Graphics Foundations module wraps wgpu functionality
+- Canvas integration through wgpu's web backend
+- Shader management handled by wgpu's built-in systems
+- Performance monitoring through wgpu's profiling capabilities
 
 ## Testing Strategy
 
