@@ -104,7 +104,7 @@ pub trait DebugComponentRegistry {
 > As a **developer**, I want **UI Coordinator architecture with debug overlay integration** so that I can **establish the foundation for future immersive UI while maintaining comprehensive debug capabilities**.
 
 ### **CRITICAL ARCHITECTURAL NOTE:**
-This story establishes the **coordination layer and debug overlay system** ONLY. The actual immersive audio visualization rendering will be implemented in the subsequent Graphics Epic after Graphics Foundations (Story 029) is complete. This story provides the architectural foundation but not the visual immersive experience itself.
+This story establishes the **coordination layer and debug overlay system** ONLY. The actual immersive audio visualization rendering will be implemented in the subsequent Graphics Epic after Graphics Foundations (Story 028) is complete. This story provides the architectural foundation but not the visual immersive experience itself.
 
 ### Acceptance Criteria
 - [x] UI Coordinator architecture implemented (without actual immersive rendering)
@@ -194,86 +194,9 @@ impl ImmersiveRenderer for StubImmersiveRenderer {
 
 ---
 
-## Story 028: Immersive UI Theme System
+## Story 028: Graphics Foundations Module Structure
 
 **Story ID:** `STORY-028`  
-**Epic:** Presentation Layer Restructure  
-**Priority:** High  
-**Story Points:** 13  
-**Dependencies:** STORY-027  
-
-### User Story
-> As a **user**, I want **rich visual theming for the immersive audio visualization** so that I can **customize the visual experience to match my preferences and environment**.
-
-### Acceptance Criteria
-- [ ] Theme definition system for immersive UI (color palettes, materials, effects)
-- [ ] Runtime theme switching for immersive experience without interruption
-- [ ] Theme persistence in browser local storage
-- [ ] wgpu-compatible theme abstractions (shaders, materials, lighting)
-- [ ] Dark/light mode themes optimized for audio visualization
-- [ ] Custom theme creation and import capabilities
-- [ ] Simple, functional debug overlay styling (separate from immersive themes)
-
-### Technical Requirements
-- **Performance:** Theme switching in <100ms without visual artifacts
-- **Graphics Compatibility:** Themes compatible with wgpu rendering pipeline
-- **Debug Simplicity:** Debug overlay uses minimal, functional styling focused on readability
-- **Accessibility:** Immersive themes consider visual accessibility for audio feedback
-
-### Definition of Done
-- [ ] Immersive UI theme system implemented
-- [ ] Runtime theme switching for immersive experience working
-- [ ] Theme persistence implemented
-- [ ] wgpu-compatible theme abstractions working
-- [ ] Default immersive themes (dark/light) implemented
-- [ ] Debug overlay uses simple, functional styling
-- [ ] Custom theme import/export working
-
-### Implementation Notes
-```rust
-pub trait ImmersiveThemeManager: Send + Sync {
-    fn get_current_theme(&self) -> &ImmersiveTheme;
-    fn set_theme(&mut self, theme: ImmersiveTheme) -> Result<(), ThemeError>;
-    fn list_available_themes(&self) -> Vec<ThemeMetadata>;
-    fn export_theme(&self, theme_id: &str) -> Result<String, ThemeError>;
-    fn import_theme(&mut self, theme_data: &str) -> Result<String, ThemeError>;
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImmersiveTheme {
-    pub id: String,
-    pub name: String,
-    pub visual_palette: VisualPalette,
-    pub material_properties: MaterialProperties,
-    pub lighting_config: LightingConfig,
-    pub effects_config: EffectsConfig,
-}
-
-#[derive(Debug, Clone)]
-pub struct VisualPalette {
-    pub primary_color: [f32; 4],      // RGBA for wgpu
-    pub secondary_color: [f32; 4],
-    pub background_color: [f32; 4],
-    pub accent_colors: Vec<[f32; 4]>,
-    pub gradient_stops: Vec<[f32; 4]>,
-}
-
-// Debug overlay uses simple, hardcoded functional styling
-#[cfg(debug_assertions)]
-pub struct DebugOverlayStyle {
-    // Simple CSS variables for functional debug interface
-    pub background: &'static str,     // e.g., "rgba(0,0,0,0.8)"
-    pub text_color: &'static str,     // e.g., "#ffffff"
-    pub border_color: &'static str,   // e.g., "#666666"
-    // No theming complexity - just functional readability
-}
-```
-
----
-
-## Story 029: Graphics Foundations Module Structure
-
-**Story ID:** `STORY-029`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 8  
@@ -334,6 +257,128 @@ pub struct GraphicsCapabilities {
     pub performance_tier: GraphicsPerformanceTier,
 }
 ```
+
+---
+
+## Story 029: Developer-Defined Theme System
+
+**Story ID:** `STORY-029`  
+**Epic:** Presentation Layer Restructure  
+**Priority:** High  
+**Story Points:** 13  
+**Dependencies:** STORY-029 (Graphics Foundations) - **MUST BE COMPLETE FIRST**
+
+
+### User Stories
+
+#### Primary User Story
+> As a **user**, I want to **select from beautiful pre-made visual themes** so that I can **personalize my audio visualization experience without complexity**.
+
+#### Developer Story  
+> As a **developer**, I want **comprehensive theme configuration with shaders and animations** so that I can **create stunning visual experiences and maintain creative control**.
+
+### Acceptance Criteria
+
+#### User Experience
+- [ ] Simple theme selection UI with 5-8 curated themes
+- [ ] Live preview capability before applying theme
+- [ ] Instant theme switching without interruption (<100ms)
+- [ ] Theme persistence in browser local storage
+- [ ] Each theme provides distinct visual personality
+
+#### Developer Configuration
+- [ ] Compile-time theme definition system
+- [ ] Per-theme shader variants and material properties
+- [ ] Animation configuration (timing, curves, effects)
+- [ ] Lighting setup per theme
+- [ ] Particle system configuration per theme
+- [ ] Color palette and gradient definitions
+
+#### Technical Implementation
+- [ ] wgpu-compatible theme abstractions
+- [ ] Hot-swappable shader pipeline per theme
+- [ ] Theme registry for compile-time definitions
+- [ ] Debug overlay maintains simple functional styling (separate from themes)
+
+### Technical Requirements
+- **Performance:** Theme switching in <100ms without visual artifacts
+- **Graphics Compatibility:** Full integration with wgpu rendering pipeline  
+- **Developer Experience:** Rich configuration API for shaders and animations
+- **User Experience:** Zero configuration complexity for end users
+- **Build Integration:** Themes compiled into application, no runtime loading
+
+### Definition of Done
+- [ ] All 6 predefined themes fully configured and working (Aurora, Oceanic, Neon, Forest, Minimal, Cosmic)
+- [ ] Theme selection UI with preview functionality implemented
+- [ ] Theme switching working seamlessly (<100ms)
+- [ ] Theme persistence implemented and tested
+- [ ] Developer theme definition system supports all configuration options
+- [ ] All shader variants implemented and tested
+- [ ] Performance requirements met for theme switching
+- [ ] Debug overlay styling remains simple and separate
+
+### Implementation Notes
+```rust
+// Developer-defined theme architecture
+pub struct ThemeDefinition {
+    pub name: &'static str,
+    pub display_name: &'static str,
+    pub description: &'static str,
+    
+    // Visual Configuration
+    pub color_palette: ColorPalette,
+    pub material_properties: MaterialProperties,
+    pub lighting_config: LightingRig,
+    
+    // Rendering Configuration  
+    pub shader_variants: ShaderSet,
+    pub particle_systems: ParticleConfig,
+    pub animation_timings: AnimationConfig,
+    pub post_effects: EffectChain,
+}
+
+// Compile-time theme registry
+const AVAILABLE_THEMES: &[ThemeDefinition] = &[
+    AURORA_THEME,      // Northern lights inspired
+    OCEANIC_THEME,     // Deep sea visualization  
+    NEON_THEME,        // Cyberpunk aesthetic
+    FOREST_THEME,      // Natural earth tones
+    MINIMAL_THEME,     // Clean, focused
+    COSMIC_THEME,      // Space/galaxy theme
+];
+
+// User selection interface (no customization complexity)
+pub enum UserThemeChoice {
+    Aurora, Oceanic, Neon, Forest, Minimal, Cosmic,
+}
+
+pub trait ThemeManager: Send + Sync {
+    fn get_available_themes(&self) -> Vec<ThemeMetadata>;
+    fn get_current_theme(&self) -> &ThemeDefinition;  
+    fn set_theme(&mut self, choice: UserThemeChoice) -> Result<(), ThemeError>;
+    fn get_theme_preview(&self, choice: UserThemeChoice) -> ThemePreview;
+}
+
+// Theme file organization
+// src/themes/
+// ├── mod.rs                    # Theme registry and manager
+// ├── definitions/              # Individual theme definitions
+// │   ├── aurora.rs, oceanic.rs, neon.rs, forest.rs, minimal.rs, cosmic.rs
+// ├── shaders/                  # Per-theme shader variants
+// │   ├── aurora/, oceanic/, neon/, forest/, minimal/, cosmic/
+// ├── animations/               # Animation configuration per theme
+// └── materials/                # Material property definitions per theme
+
+// Debug overlay uses simple, hardcoded functional styling (unchanged)
+#[cfg(debug_assertions)]
+pub struct DebugOverlayStyle {
+    pub background: &'static str,     // e.g., "rgba(0,0,0,0.8)"
+    pub text_color: &'static str,     // e.g., "#ffffff"
+    pub border_color: &'static str,   // e.g., "#666666"
+    // No theming complexity - just functional readability
+}
+```
+
 
 ---
 
@@ -530,8 +575,8 @@ mod component_migration_tests {
 1. **Story 026** (Complete): Developer UI module creation
 2. **Story 027** (Complete): UI Coordinator with stub renderer + debug overlay
 3. **Story 029** (Next): Graphics Foundations structure
-4. **Future Graphics Epic** (Dependent on 029): Actual immersive UI rendering
-5. **Story 028** (Themes): Can be implemented after Graphics Epic delivers rendering
+4. **Story 028** (Themes): Requires Story 029 complete first
+5. **Future Graphics Epic** (Dependent on 029): Actual immersive UI rendering
 
 ### Risk Mitigation
 - **Component Migration Risk:** Migration to debug overlay with conditional compilation safety
