@@ -44,6 +44,9 @@ pub mod debug_component_registry;
 #[cfg(debug_assertions)]
 pub mod startup_shutdown_coordinator;
 
+#[cfg(test)]
+pub mod integration_tests;
+
 #[cfg(debug_assertions)]
 pub use debug_app::DebugApp;
 
