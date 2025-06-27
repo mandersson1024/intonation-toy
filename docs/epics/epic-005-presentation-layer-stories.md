@@ -284,7 +284,7 @@ pub struct GraphicsCapabilities {
 - [ ] Instant theme switching without interruption (<100ms)
 - [ ] Theme persistence in browser local storage
 - [ ] Each theme provides distinct visual personality
-- [ ] Themes are placehodera for now and will be fleshed out later
+- [ ] Themes are placehoders and will be fleshed out later
 
 #### Developer Configuration
 - [ ] Compile-time theme definition system
