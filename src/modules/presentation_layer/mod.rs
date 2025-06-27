@@ -29,19 +29,34 @@ pub mod ui_coordinator;
 pub mod presentation_coordinator;
 pub mod immersive_renderer;
 pub mod event_handler;
+pub mod theme_manager;
+pub mod theme_renderer;
+pub mod theme_selection;
+pub mod graphics_theme_integration;
 
 // Debug overlay - conditionally compiled for debug builds only
 #[cfg(debug_assertions)]
 pub mod debug_overlay;
+
+// Debug styling - conditionally compiled for debug builds only
+#[cfg(debug_assertions)]
+pub mod debug_styling;
 
 // Re-exports for clean API surface
 pub use ui_coordinator::*;
 pub use presentation_coordinator::*;
 pub use immersive_renderer::*;
 pub use event_handler::*;
+pub use theme_manager::*;
+pub use theme_renderer::*;
+pub use theme_selection::*;
+pub use graphics_theme_integration::*;
 
 #[cfg(debug_assertions)]
 pub use debug_overlay::*;
+
+#[cfg(debug_assertions)]
+pub use debug_styling::*;
 
 /// Presentation Layer Module - Core UI coordination
 pub struct PresentationLayerModule {
