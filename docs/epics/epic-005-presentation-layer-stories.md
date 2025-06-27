@@ -91,7 +91,7 @@ pub trait DebugComponentRegistry {
 
 ---
 
-## Story 027: Immersive UI with Debug Overlay Coordinator
+## Story 027: UI Coordinator Architecture (Foundation for Future Immersive UI)
 
 **Story ID:** `STORY-027`  
 **Epic:** Presentation Layer Restructure  
@@ -100,34 +100,41 @@ pub trait DebugComponentRegistry {
 **Dependencies:** STORY-026  
 
 ### User Story
-> As a **user**, I want **an immersive audio visualization interface** with **optional debug overlay for developers** so that I can **enjoy rich visual feedback while developers can troubleshoot and monitor system performance**.
+> As a **developer**, I want **UI Coordinator architecture with debug overlay integration** so that I can **establish the foundation for future immersive UI while maintaining comprehensive debug capabilities**.
+
+### **CRITICAL ARCHITECTURAL NOTE:**
+This story establishes the **coordination layer and debug overlay system** ONLY. The actual immersive audio visualization rendering will be implemented in the subsequent Graphics Epic after Graphics Foundations (Story 029) is complete. This story provides the architectural foundation but not the visual immersive experience itself.
 
 ### Acceptance Criteria
-- [ ] UI Coordinator manages immersive UI as primary interface
+- [ ] UI Coordinator architecture implemented (without actual immersive rendering)
 - [ ] Debug overlay system for Yew-based development tools
 - [ ] Debug overlay conditionally compiled for development builds only
-- [ ] Event routing between immersive UI and debug overlay
-- [ ] State synchronization between main UI and debug information
+- [ ] Event routing infrastructure between future immersive UI and debug overlay
+- [ ] State synchronization framework for UI and debug information
 - [ ] Debug overlay can be toggled on/off during development
 - [ ] Zero performance impact when debug overlay disabled
+- [ ] Placeholder/stub immersive renderer for coordination testing
 
 ### Technical Requirements
-- **Architecture:** Single immersive UI with optional debug overlay
-- **Performance:** <16ms render loop for 60fps immersive experience
-- **Debug Performance:** Debug overlay rendering <5ms to avoid interfering with main UI
+- **Architecture:** UI Coordinator foundation for future immersive UI with debug overlay
+- **Performance:** Coordination layer overhead <1ms (actual rendering performance in Graphics Epic)
+- **Debug Performance:** Debug overlay rendering <5ms to avoid interfering with future main UI
 - **Conditional Compilation:** Debug overlay completely removed from production builds
+- **Future Compatibility:** Architecture must support wgpu-based rendering integration
 
 ### Definition of Done
-- [ ] UI Coordinator architecture implemented for immersive + debug coordination
-- [ ] Immersive UI foundation established (preparation for wgpu)
+- [ ] UI Coordinator architecture implemented for future immersive + debug coordination
+- [ ] Stub/placeholder immersive renderer for testing coordination architecture
 - [ ] Debug overlay system with Yew components working
 - [ ] Conditional compilation for debug features working
-- [ ] Event system integration between immersive UI and debug overlay
-- [ ] Performance monitoring shows no impact when debug disabled
+- [ ] Event system integration infrastructure between future immersive UI and debug overlay
+- [ ] Performance monitoring shows no coordination overhead when debug disabled
 - [ ] Debug overlay toggle functionality working
+- [ ] Architecture validated as ready for Graphics Foundations integration (Story 029)
 
 ### Implementation Notes
 ```rust
+// COORDINATION ARCHITECTURE ONLY - Actual rendering in Graphics Epic
 pub trait UICoordinator: Send + Sync {
     fn render_immersive_ui(&mut self, state: &UIState) -> Result<(), RenderError>;
     #[cfg(debug_assertions)]
@@ -139,6 +146,7 @@ pub trait UICoordinator: Send + Sync {
 }
 
 pub struct PresentationCoordinator {
+    // STUB RENDERER - Will be replaced with wgpu renderer in Graphics Epic
     immersive_renderer: Box<dyn ImmersiveRenderer>,
     #[cfg(debug_assertions)]
     developer_ui: Option<crate::modules::developer_ui::DeveloperUI>,
@@ -152,10 +160,34 @@ pub struct DebugOverlay {
     debug_components: Vec<Box<dyn DebugComponent>>,
 }
 
+// PLACEHOLDER INTERFACE - Actual immersive rendering in Graphics Epic
 pub trait ImmersiveRenderer: Send + Sync {
     fn render(&mut self, state: &UIState) -> Result<(), RenderError>;
     fn handle_interaction(&mut self, interaction: UserInteraction) -> Result<UIEvent, UIError>;
     fn initialize(&mut self, canvas: &web_sys::HtmlCanvasElement) -> Result<(), RenderError>;
+}
+
+// STUB IMPLEMENTATION for Story 027 testing
+pub struct StubImmersiveRenderer {
+    canvas: Option<web_sys::HtmlCanvasElement>,
+}
+
+impl ImmersiveRenderer for StubImmersiveRenderer {
+    fn render(&mut self, _state: &UIState) -> Result<(), RenderError> {
+        // Placeholder rendering - just clear canvas or show simple placeholder
+        Ok(())
+    }
+    
+    fn handle_interaction(&mut self, _interaction: UserInteraction) -> Result<UIEvent, UIError> {
+        // Stub interaction handling
+        Ok(UIEvent::NoOp)
+    }
+    
+    fn initialize(&mut self, canvas: &web_sys::HtmlCanvasElement) -> Result<(), RenderError> {
+        self.canvas = Some(canvas.clone());
+        // Basic canvas setup without actual rendering pipeline
+        Ok(())
+    }
 }
 ```
 
@@ -244,10 +276,13 @@ pub struct DebugOverlayStyle {
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 8  
-**Dependencies:** STORY-027  
+**Dependencies:** STORY-027 (UI Coordinator architecture must be complete)
 
 ### User Story
 > As a **developer**, I want **Graphics Foundations module structure prepared** so that I can **begin implementing wgpu-based immersive visualizations in the next phase**.
+
+### **ARCHITECTURAL DEPENDENCY NOTE:**
+This story requires Story 027's UI Coordinator architecture to be complete because Graphics Foundations must integrate with the established coordination layer. This story prepares the structure for actual immersive rendering which will happen in the subsequent Graphics Epic.
 
 ### Acceptance Criteria
 - [ ] Graphics Foundations module directory structure created
@@ -483,10 +518,19 @@ mod component_migration_tests {
 - **EPIC-002 (Application Core):** Presentation Layer registers as module and uses event bus for communication
 - **Future Graphics Epic:** Graphics Foundations structure enables immersive UI implementation with wgpu
 
-### Architectural Clarification
-**Primary UI:** wgpu-based immersive audio visualization (main user experience)
-**Debug Overlay:** Yew-based development tools (conditionally compiled, developer-only)
+### **CRITICAL ARCHITECTURAL CLARIFICATION**
+**Epic 005 Scope:** UI coordination architecture and debug overlay system ONLY
+**Future Graphics Epic Scope:** Actual wgpu-based immersive audio visualization rendering
+**Story 027:** Provides coordination layer with stub/placeholder renderer for testing
+**Story 029:** Provides Graphics Foundations structure for future immersive implementation
 **No User Mode Switching:** Single immersive experience for users, debug overlay for developers
+
+### **Implementation Sequence Dependency Chain:**
+1. **Story 026** (Complete): Developer UI module creation
+2. **Story 027** (Next): UI Coordinator with stub renderer + debug overlay
+3. **Story 029** (Dependent on 027): Graphics Foundations structure
+4. **Future Graphics Epic** (Dependent on 029): Actual immersive UI rendering
+5. **Story 028** (Themes): Can be implemented after Graphics Epic delivers rendering
 
 ### Risk Mitigation
 - **Component Migration Risk:** Migration to debug overlay with conditional compilation safety
