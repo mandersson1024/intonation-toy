@@ -7,7 +7,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use crate::modules::application_core::{ModuleError, EventBus};
+use crate::modules::application_core::EventBus;
 use super::debug_component_registry::{OverlayState, OverlayPosition, OverlaySize};
 
 /// Manager for debug overlay coordination and layout
@@ -86,7 +86,7 @@ impl Default for OverlayGlobalSettings {
 #[cfg(debug_assertions)]
 impl OverlayManager {
     /// Create a new overlay manager
-    pub fn new() -> Result<Self, ModuleError> {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             overlays: HashMap::new(),
             active_overlays: Vec::new(),
@@ -98,7 +98,7 @@ impl OverlayManager {
     }
 
     /// Initialize the overlay manager
-    pub fn initialize(&mut self) -> Result<(), ModuleError> {
+    pub fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.initialized {
             return Ok(());
         }
@@ -114,7 +114,7 @@ impl OverlayManager {
     }
 
     /// Shutdown the overlay manager
-    pub fn shutdown(&mut self) -> Result<(), ModuleError> {
+    pub fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.overlays.clear();
         self.active_overlays.clear();
         self.initialized = false;
@@ -122,15 +122,15 @@ impl OverlayManager {
     }
 
     /// Connect to event bus
-    pub fn connect_event_bus(&mut self, event_bus: Rc<dyn EventBus>) -> Result<(), ModuleError> {
+    pub fn connect_event_bus(&mut self, event_bus: Rc<dyn EventBus>) -> Result<(), Box<dyn std::error::Error>> {
         self.event_bus = Some(event_bus);
         Ok(())
     }
 
     /// Register a debug overlay
-    pub fn register_overlay(&mut self, overlay: DebugOverlay) -> Result<(), ModuleError> {
+    pub fn register_overlay(&mut self, overlay: DebugOverlay) -> Result<(), Box<dyn std::error::Error>> {
         if self.overlays.contains_key(&overlay.id) {
-            return Err(ModuleError::InitializationError(
+            return Err((
                 format!("Overlay '{}' is already registered", overlay.id)
             ));
         }
@@ -140,16 +140,16 @@ impl OverlayManager {
     }
 
     /// Unregister a debug overlay
-    pub fn unregister_overlay(&mut self, overlay_id: &str) -> Result<(), ModuleError> {
+    pub fn unregister_overlay(&mut self, overlay_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.overlays.remove(overlay_id);
         self.active_overlays.retain(|id| id != overlay_id);
         Ok(())
     }
 
     /// Show an overlay
-    pub fn show_overlay(&mut self, overlay_id: &str) -> Result<(), ModuleError> {
+    pub fn show_overlay(&mut self, overlay_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         if !self.overlays.contains_key(overlay_id) {
-            return Err(ModuleError::RuntimeError(
+            return Err((
                 format!("Overlay '{}' not found", overlay_id)
             ));
         }
@@ -171,7 +171,7 @@ impl OverlayManager {
     }
 
     /// Hide an overlay
-    pub fn hide_overlay(&mut self, overlay_id: &str) -> Result<(), ModuleError> {
+    pub fn hide_overlay(&mut self, overlay_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(overlay) = self.overlays.get_mut(overlay_id) {
             overlay.state.visible = false;
         }
@@ -181,10 +181,10 @@ impl OverlayManager {
     }
 
     /// Move an overlay to a new position
-    pub fn move_overlay(&mut self, overlay_id: &str, position: OverlayPosition) -> Result<(), ModuleError> {
+    pub fn move_overlay(&mut self, overlay_id: &str, position: OverlayPosition) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(overlay) = self.overlays.get_mut(overlay_id) {
             if !overlay.movable {
-                return Err(ModuleError::RuntimeError(
+                return Err((
                     format!("Overlay '{}' is not movable", overlay_id)
                 ));
             }
@@ -207,10 +207,10 @@ impl OverlayManager {
     }
 
     /// Resize an overlay
-    pub fn resize_overlay(&mut self, overlay_id: &str, size: OverlaySize) -> Result<(), ModuleError> {
+    pub fn resize_overlay(&mut self, overlay_id: &str, size: OverlaySize) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(overlay) = self.overlays.get_mut(overlay_id) {
             if !overlay.resizable {
-                return Err(ModuleError::RuntimeError(
+                return Err((
                     format!("Overlay '{}' is not resizable", overlay_id)
                 ));
             }
@@ -222,7 +222,7 @@ impl OverlayManager {
     }
 
     /// Set layout mode
-    pub fn set_layout_mode(&mut self, mode: LayoutMode) -> Result<(), ModuleError> {
+    pub fn set_layout_mode(&mut self, mode: LayoutMode) -> Result<(), Box<dyn std::error::Error>> {
         self.layout_mode = mode;
         self.arrange_overlays()?;
         Ok(())
@@ -254,7 +254,7 @@ impl OverlayManager {
     }
 
     /// Arrange overlays according to current layout mode
-    fn arrange_overlays(&mut self) -> Result<(), ModuleError> {
+    fn arrange_overlays(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         match self.layout_mode {
             LayoutMode::Free => {
                 // No automatic arrangement in free mode
@@ -273,7 +273,7 @@ impl OverlayManager {
     }
 
     /// Arrange overlays in tiled layout
-    fn arrange_tiled(&mut self) -> Result<(), ModuleError> {
+    fn arrange_tiled(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let overlay_count = self.active_overlays.len();
         if overlay_count == 0 {
             return Ok(());
@@ -309,7 +309,7 @@ impl OverlayManager {
     }
 
     /// Arrange overlays in docked layout
-    fn arrange_docked(&mut self) -> Result<(), ModuleError> {
+    fn arrange_docked(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Dock overlays to edges of the viewport
         let viewport_width = 1200.0;
         let viewport_height = 800.0;
@@ -344,7 +344,7 @@ impl OverlayManager {
     }
 
     /// Arrange overlays in tabbed layout
-    fn arrange_tabbed(&mut self) -> Result<(), ModuleError> {
+    fn arrange_tabbed(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // All overlays occupy the same space, with tabs for switching
         let viewport_width = 1200.0;
         let viewport_height = 800.0;
@@ -373,14 +373,14 @@ impl OverlayManager {
     }
 
     /// Resolve overlay collisions
-    fn resolve_collisions(&mut self, _overlay_id: &str) -> Result<(), ModuleError> {
+    fn resolve_collisions(&mut self, _overlay_id: &str) -> Result<(), Box<dyn std::error::Error>> {
         // Collision detection and resolution logic would be implemented here
         // This is a placeholder for the collision resolution system
         Ok(())
     }
 
     /// Setup default debug overlays
-    fn setup_default_overlays(&mut self) -> Result<(), ModuleError> {
+    fn setup_default_overlays(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let default_overlays = vec![
             DebugOverlay {
                 id: "audio_controls".to_string(),
@@ -437,7 +437,7 @@ impl OverlayManager {
     }
 
     /// Initialize layout system
-    fn initialize_layout_system(&mut self) -> Result<(), ModuleError> {
+    fn initialize_layout_system(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Initialize the layout management system
         // This would setup event listeners, calculate initial positions, etc.
         Ok(())

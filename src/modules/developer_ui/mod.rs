@@ -73,18 +73,18 @@ impl DeveloperUIModule {
     }
 
     /// Register a debug component with the component registry
-    pub fn register_debug_component<T: DebugComponent + 'static>(&mut self, component: T) -> Result<(), ModuleError> {
+    pub fn register_debug_component<T: DebugComponent + 'static>(&mut self, component: T) -> Result<(), Box<dyn std::error::Error>> {
         self.component_registry.register_component(Box::new(component))
     }
 
     /// Register all available debug components
-    pub fn register_all_debug_components(&mut self) -> Result<(), ModuleError> {
+    pub fn register_all_debug_components(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Component registration will be implemented as components are migrated
         Ok(())
     }
 
     /// Setup debug event integration with main application
-    pub fn setup_debug_event_integration(&mut self) -> Result<(), ModuleError> {
+    pub fn setup_debug_event_integration(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(event_bus) = &self.event_bus {
             self.debug_app.connect_event_bus(event_bus.clone())?;
             self.overlay_manager.connect_event_bus(event_bus.clone())?;
@@ -182,10 +182,10 @@ pub trait DebugComponent {
     fn name(&self) -> &'static str;
     
     /// Initialize the debug component
-    fn initialize(&mut self) -> Result<(), ModuleError>;
+    fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>>;
     
     /// Shutdown the debug component
-    fn shutdown(&mut self) -> Result<(), ModuleError>;
+    fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>>;
     
     /// Check if the component is currently active
     fn is_active(&self) -> bool;

@@ -244,5 +244,4 @@ pub fn audio_control_panel(props: &AudioControlPanelProps) -> Html {
     }
 }
 
-#[cfg(debug_assertions)]
-pub use implementation::*; 
+// Implementation re-exports would go here when components are fully migrated 

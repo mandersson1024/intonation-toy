@@ -6,7 +6,7 @@
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::modules::application_core::{ModuleError, EventBus};
+use crate::modules::application_core::EventBus;
 
 /// Main debug application coordinator
 #[cfg(debug_assertions)]
@@ -56,7 +56,7 @@ impl Default for DebugState {
 #[cfg(debug_assertions)]
 impl DebugApp {
     /// Create a new debug app instance
-    pub fn new() -> Result<Self, ModuleError> {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             event_bus: None,
             initialized: false,
@@ -67,7 +67,7 @@ impl DebugApp {
     }
 
     /// Initialize the debug application
-    pub fn initialize(&mut self) -> Result<(), ModuleError> {
+    pub fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.initialized {
             return Ok(());
         }
@@ -84,7 +84,7 @@ impl DebugApp {
     }
 
     /// Shutdown the debug application
-    pub fn shutdown(&mut self) -> Result<(), ModuleError> {
+    pub fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.initialized {
             return Ok(());
         }
@@ -97,7 +97,7 @@ impl DebugApp {
     }
 
     /// Connect to the main application event bus
-    pub fn connect_event_bus(&mut self, event_bus: Rc<dyn EventBus>) -> Result<(), ModuleError> {
+    pub fn connect_event_bus(&mut self, event_bus: Rc<dyn EventBus>) -> Result<(), Box<dyn std::error::Error>> {
         self.event_bus = Some(event_bus);
         
         if self.initialized {
@@ -163,7 +163,7 @@ impl DebugApp {
     }
 
     /// Start performance monitoring
-    fn start_performance_monitoring(&mut self) -> Result<(), ModuleError> {
+    fn start_performance_monitoring(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.performance_monitoring {
             return Ok(());
         }
@@ -175,13 +175,13 @@ impl DebugApp {
     }
 
     /// Stop performance monitoring
-    fn stop_performance_monitoring(&mut self) -> Result<(), ModuleError> {
+    fn stop_performance_monitoring(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.performance_monitoring = false;
         Ok(())
     }
 
     /// Start error tracking
-    fn start_error_tracking(&mut self) -> Result<(), ModuleError> {
+    fn start_error_tracking(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.error_tracking {
             return Ok(());
         }
@@ -193,13 +193,13 @@ impl DebugApp {
     }
 
     /// Stop error tracking
-    fn stop_error_tracking(&mut self) -> Result<(), ModuleError> {
+    fn stop_error_tracking(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.error_tracking = false;
         Ok(())
     }
 
     /// Setup debug event handlers
-    fn setup_debug_event_handlers(&mut self) -> Result<(), ModuleError> {
+    fn setup_debug_event_handlers(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(_event_bus) = &self.event_bus {
             // Setup event handlers for debug functionality
             // This would register handlers for:
@@ -212,7 +212,7 @@ impl DebugApp {
     }
 
     /// Handle keyboard shortcuts for debug functionality
-    pub fn handle_keyboard_shortcut(&mut self, key: &str, ctrl: bool, alt: bool, shift: bool) -> Result<bool, ModuleError> {
+    pub fn handle_keyboard_shortcut(&mut self, key: &str, ctrl: bool, alt: bool, shift: bool) -> Result<bool, Box<dyn std::error::Error>> {
         match (key, ctrl, alt, shift) {
             // Ctrl+Shift+D: Toggle debug UI
             ("d", true, false, true) => {

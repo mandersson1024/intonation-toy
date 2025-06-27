@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::modules::application_core::ModuleError;
+// ModuleError replaced with Box<dyn std::error::Error>
 use super::DebugComponent;
 
 /// Registry for managing debug components
@@ -68,11 +68,11 @@ impl DebugComponentRegistry {
     }
 
     /// Register a debug component
-    pub fn register_component(&mut self, component: Box<dyn DebugComponent>) -> Result<(), ModuleError> {
+    pub fn register_component(&mut self, component: Box<dyn DebugComponent>) -> Result<(), Box<dyn std::error::Error>> {
         let name = component.name().to_string();
         
         if self.components.contains_key(&name) {
-            return Err(ModuleError::InitializationError(
+            return Err((
                 format!("Debug component '{}' is already registered", name)
             ));
         }
@@ -88,7 +88,7 @@ impl DebugComponentRegistry {
     }
 
     /// Unregister a debug component
-    pub fn unregister_component(&mut self, name: &str) -> Result<(), ModuleError> {
+    pub fn unregister_component(&mut self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(mut component) = self.components.remove(name) {
             component.shutdown()?;
         }
@@ -100,9 +100,9 @@ impl DebugComponentRegistry {
     }
 
     /// Activate a debug component for display
-    pub fn activate_component(&mut self, name: &str) -> Result<(), ModuleError> {
+    pub fn activate_component(&mut self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         if !self.components.contains_key(name) {
-            return Err(ModuleError::RuntimeError(
+            return Err((
                 format!("Debug component '{}' not found", name)
             ));
         }
@@ -115,7 +115,7 @@ impl DebugComponentRegistry {
     }
 
     /// Deactivate a debug component
-    pub fn deactivate_component(&mut self, name: &str) -> Result<(), ModuleError> {
+    pub fn deactivate_component(&mut self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.active_components.retain(|comp_name| comp_name != name);
         Ok(())
     }
@@ -167,7 +167,7 @@ impl DebugComponentRegistry {
     }
 
     /// Initialize all registered components
-    pub fn initialize_all_components(&mut self) -> Result<(), ModuleError> {
+    pub fn initialize_all_components(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         for (name, component) in self.components.iter_mut() {
             if let Err(e) = component.initialize() {
                 eprintln!("Failed to initialize debug component '{}': {:?}", name, e);
@@ -177,7 +177,7 @@ impl DebugComponentRegistry {
     }
 
     /// Shutdown all registered components
-    pub fn shutdown_all_components(&mut self) -> Result<(), ModuleError> {
+    pub fn shutdown_all_components(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         for (name, component) in self.components.iter_mut() {
             if let Err(e) = component.shutdown() {
                 eprintln!("Failed to shutdown debug component '{}': {:?}", name, e);
@@ -201,13 +201,13 @@ impl DebugComponentRegistry {
 #[cfg(debug_assertions)]
 pub trait OverlayCoordinator {
     /// Handle overlay position changes
-    fn on_overlay_position_changed(&mut self, position: OverlayPosition) -> Result<(), ModuleError>;
+    fn on_overlay_position_changed(&mut self, position: OverlayPosition) -> Result<(), Box<dyn std::error::Error>>;
     
     /// Handle overlay size changes
-    fn on_overlay_size_changed(&mut self, size: OverlaySize) -> Result<(), ModuleError>;
+    fn on_overlay_size_changed(&mut self, size: OverlaySize) -> Result<(), Box<dyn std::error::Error>>;
     
     /// Handle overlay visibility changes
-    fn on_overlay_visibility_changed(&mut self, visible: bool) -> Result<(), ModuleError>;
+    fn on_overlay_visibility_changed(&mut self, visible: bool) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 #[cfg(test)]
@@ -236,12 +236,12 @@ mod tests {
             self.name
         }
 
-        fn initialize(&mut self) -> Result<(), ModuleError> {
+        fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             self.initialized = true;
             Ok(())
         }
 
-        fn shutdown(&mut self) -> Result<(), ModuleError> {
+        fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             self.initialized = false;
             self.active = false;
             Ok(())
