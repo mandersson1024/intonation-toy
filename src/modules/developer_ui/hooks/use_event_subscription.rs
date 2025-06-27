@@ -28,15 +28,20 @@
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::time::Instant;
 use yew::{hook, use_state, use_effect_with, UseStateHandle};
 use crate::modules::application_core::event_bus::Event;
 use crate::modules::application_core::priority_event_bus::PriorityEventBus;
+use crate::modules::developer_ui::utils::debug_event_performance_monitor::{DebugEventPerformanceMonitor, create_performance_monitor};
 
 /// Event subscription handle that manages cleanup automatically
 pub struct EventSubscriptionHandle {
     subscription_id: u64,
     event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
     cleanup_callback: Option<Box<dyn FnOnce()>>,
+    performance_monitor: Rc<RefCell<DebugEventPerformanceMonitor>>,
+    event_type: String,
+    subscription_start_time: Instant,
 }
 
 impl EventSubscriptionHandle {
@@ -44,11 +49,24 @@ impl EventSubscriptionHandle {
         subscription_id: u64,
         event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
         cleanup_callback: Option<Box<dyn FnOnce()>>,
+        performance_monitor: Rc<RefCell<DebugEventPerformanceMonitor>>,
+        event_type: String,
     ) -> Self {
+        let subscription_start_time = Instant::now();
+        
+        // Record subscription performance
+        {
+            let mut monitor = performance_monitor.borrow_mut();
+            monitor.record_subscription(&event_type, subscription_start_time.elapsed());
+        }
+        
         Self {
             subscription_id,
             event_bus,
             cleanup_callback,
+            performance_monitor,
+            event_type,
+            subscription_start_time,
         }
     }
     
@@ -59,6 +77,8 @@ impl EventSubscriptionHandle {
 
 impl Drop for EventSubscriptionHandle {
     fn drop(&mut self) {
+        let unsubscription_start = Instant::now();
+        
         // Execute cleanup callback if available
         if let Some(cleanup) = self.cleanup_callback.take() {
             cleanup();
@@ -74,6 +94,12 @@ impl Drop for EventSubscriptionHandle {
                 web_sys::console::warn_1(&format!("Failed to cleanup event subscription: {}", self.subscription_id).into());
             }
         }
+        
+        // Record unsubscription performance
+        let unsubscription_duration = unsubscription_start.elapsed();
+        if let Ok(mut monitor) = self.performance_monitor.try_borrow_mut() {
+            monitor.record_unsubscription(&self.event_type, unsubscription_duration);
+        }
     }
 }
 
@@ -84,14 +110,16 @@ pub fn use_event_subscription<T: Event + Clone + 'static>(
 ) -> UseStateHandle<Option<T>> {
     let state = use_state(|| None);
     let subscription_handle = use_state(|| None::<EventSubscriptionHandle>);
+    let performance_monitor = use_state(|| Rc::new(RefCell::new(create_performance_monitor())));
     
     {
         let state = state.clone();
         let subscription_handle = subscription_handle.clone();
         let event_bus = event_bus.clone();
+        let performance_monitor = performance_monitor.clone();
         
         use_effect_with(
-            event_bus,
+            event_bus.clone(),
             move |event_bus| {
                 // Clear previous subscription if it exists
                 subscription_handle.set(None);
@@ -99,6 +127,7 @@ pub fn use_event_subscription<T: Event + Clone + 'static>(
                 if let Some(bus) = event_bus {
                     let state_clone = state.clone();
                     let subscription_id = generate_subscription_id();
+                    let event_type = std::any::type_name::<T>().to_string();
                     
                     // Create cleanup callback for memory leak prevention
                     let cleanup_callback = {
@@ -109,11 +138,13 @@ pub fn use_event_subscription<T: Event + Clone + 'static>(
                         })
                     };
                     
-                    // Create subscription handle with automatic cleanup
+                    // Create subscription handle with automatic cleanup and performance monitoring
                     let handle = EventSubscriptionHandle::new(
                         subscription_id,
                         Some(bus.clone()),
                         Some(cleanup_callback),
+                        (*performance_monitor).clone(),
+                        event_type,
                     );
                     
                     subscription_handle.set(Some(handle));
@@ -142,14 +173,16 @@ pub fn use_conditional_event_subscription<T: Event + Clone + 'static>(
 ) -> UseStateHandle<Option<T>> {
     let state = use_state(|| None);
     let subscription_handle = use_state(|| None::<EventSubscriptionHandle>);
+    let performance_monitor = use_state(|| Rc::new(RefCell::new(create_performance_monitor())));
     
     {
         let state = state.clone();
         let subscription_handle = subscription_handle.clone();
         let event_bus = event_bus.clone();
+        let performance_monitor = performance_monitor.clone();
         
         use_effect_with(
-            (event_bus, enabled),
+            (event_bus.clone(), enabled),
             move |(event_bus, enabled)| {
                 // Clear previous subscription
                 subscription_handle.set(None);
@@ -158,6 +191,7 @@ pub fn use_conditional_event_subscription<T: Event + Clone + 'static>(
                     let bus = event_bus.as_ref().unwrap();
                     let state_clone = state.clone();
                     let subscription_id = generate_subscription_id();
+                    let event_type = std::any::type_name::<T>().to_string();
                     
                     let cleanup_callback = {
                         let state = state.clone();
@@ -171,6 +205,8 @@ pub fn use_conditional_event_subscription<T: Event + Clone + 'static>(
                         subscription_id,
                         Some(bus.clone()),
                         Some(cleanup_callback),
+                        (*performance_monitor).clone(),
+                        event_type,
                     );
                     
                     subscription_handle.set(Some(handle));

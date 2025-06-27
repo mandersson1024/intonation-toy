@@ -7,11 +7,13 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::modules::application_core::event_bus::{Event, EventBus, EventPriority, get_timestamp_ns};
 use crate::modules::application_core::priority_event_bus::PriorityEventBus;
+use crate::modules::developer_ui::utils::debug_event_performance_monitor::{DebugEventPerformanceMonitor, create_performance_monitor};
 
 /// Publisher for debug events from developer UI components
 pub struct DebugEventPublisher {
     event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
     performance_monitor: Option<DebugPublishingMetrics>,
+    event_performance_monitor: Rc<RefCell<DebugEventPerformanceMonitor>>,
 }
 
 impl DebugEventPublisher {
@@ -20,17 +22,25 @@ impl DebugEventPublisher {
         Self {
             event_bus,
             performance_monitor: Some(DebugPublishingMetrics::new()),
+            event_performance_monitor: Rc::new(RefCell::new(create_performance_monitor())),
         }
     }
 
     /// Publish a debug event to the application event bus
     pub fn publish<T: Event + 'static>(&mut self, event: T) -> Result<(), DebugPublishError> {
-        let start_time = instant::Instant::now();
+        let start_time = std::time::Instant::now();
+        let event_type = event.event_type();
 
         if let Some(event_bus) = &self.event_bus {
             match event_bus.borrow_mut().publish(event) {
                 Ok(()) => {
                     self.record_publish_success(start_time);
+                    
+                    // Record throughput for performance monitoring
+                    if let Ok(mut monitor) = self.event_performance_monitor.try_borrow_mut() {
+                        monitor.record_event_processed(event_type);
+                    }
+                    
                     Ok(())
                 }
                 Err(error) => {
@@ -54,7 +64,7 @@ impl DebugEventPublisher {
     }
 
     /// Record successful publish
-    fn record_publish_success(&mut self, start_time: instant::Instant) {
+    fn record_publish_success(&mut self, start_time: std::time::Instant) {
         if let Some(metrics) = &mut self.performance_monitor {
             let duration = start_time.elapsed();
             metrics.record_publish(duration);
@@ -163,7 +173,7 @@ impl DebugPublishingMetrics {
     }
 
     /// Record a successful publish
-    pub fn record_publish(&mut self, duration: instant::Duration) {
+    pub fn record_publish(&mut self, duration: std::time::Duration) {
         self.total_published += 1;
         
         let duration_us = duration.as_micros() as u64;
