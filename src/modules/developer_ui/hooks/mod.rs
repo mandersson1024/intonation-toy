@@ -10,9 +10,15 @@ pub mod use_error_handler;
 #[cfg(debug_assertions)]
 pub mod use_microphone_permission;
 
+#[cfg(debug_assertions)]
+pub mod use_event_subscription;
+
 // Re-exports for easy access
 #[cfg(debug_assertions)]
 pub use use_error_handler::*;
 
 #[cfg(debug_assertions)]
-pub use use_microphone_permission::*; 
+pub use use_microphone_permission::*;
+
+#[cfg(debug_assertions)]
+pub use use_event_subscription::*; 
