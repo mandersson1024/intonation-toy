@@ -7,9 +7,9 @@
 
 ---
 
-## Story 025: Developer UI Module Creation
+## Story 026: Developer UI Module Creation
 
-**Story ID:** `STORY-025`  
+**Story ID:** `STORY-026`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** Critical  
 **Story Points:** 13  
@@ -91,13 +91,13 @@ pub trait DebugComponentRegistry {
 
 ---
 
-## Story 026: Immersive UI with Debug Overlay Coordinator
+## Story 027: Immersive UI with Debug Overlay Coordinator
 
-**Story ID:** `STORY-026`  
+**Story ID:** `STORY-027`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** Critical  
 **Story Points:** 21  
-**Dependencies:** STORY-025  
+**Dependencies:** STORY-026  
 
 ### User Story
 > As a **user**, I want **an immersive audio visualization interface** with **optional debug overlay for developers** so that I can **enjoy rich visual feedback while developers can troubleshoot and monitor system performance**.
@@ -161,13 +161,13 @@ pub trait ImmersiveRenderer: Send + Sync {
 
 ---
 
-## Story 027: Immersive UI Theme System
+## Story 028: Immersive UI Theme System
 
-**Story ID:** `STORY-027`  
+**Story ID:** `STORY-028`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 13  
-**Dependencies:** STORY-026  
+**Dependencies:** STORY-027  
 
 ### User Story
 > As a **user**, I want **rich visual theming for the immersive audio visualization** so that I can **customize the visual experience to match my preferences and environment**.
@@ -238,13 +238,13 @@ pub struct DebugOverlayStyle {
 
 ---
 
-## Story 028: Graphics Foundations Module Structure
+## Story 029: Graphics Foundations Module Structure
 
-**Story ID:** `STORY-028`  
+**Story ID:** `STORY-029`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 8  
-**Dependencies:** STORY-026  
+**Dependencies:** STORY-027  
 
 ### User Story
 > As a **developer**, I want **Graphics Foundations module structure prepared** so that I can **begin implementing wgpu-based immersive visualizations in the next phase**.
@@ -301,13 +301,13 @@ pub struct GraphicsCapabilities {
 
 ---
 
-## Story 029: Developer UI Event Integration
+## Story 030: Developer UI Event Integration
 
-**Story ID:** `STORY-029`  
+**Story ID:** `STORY-030`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 13  
-**Dependencies:** STORY-025, STORY-026  
+**Dependencies:** STORY-026, STORY-027  
 
 ### User Story
 > As a **developer**, I want **developer UI components integrated with the module event system** so that I can **monitor application state changes and trigger debug actions through the debug overlay**.
@@ -393,13 +393,13 @@ pub fn use_event_subscription<T: Event + Clone + 'static>(
 
 ---
 
-## Story 030: Developer UI and Immersive UI Integration Testing
+## Story 031: Developer UI and Immersive UI Integration Testing
 
-**Story ID:** `STORY-030`  
+**Story ID:** `STORY-031`  
 **Epic:** Presentation Layer Restructure  
 **Priority:** High  
 **Story Points:** 8  
-**Dependencies:** STORY-025, STORY-026, STORY-027, STORY-028, STORY-029  
+**Dependencies:** STORY-026, STORY-027, STORY-028, STORY-029, STORY-030  
 
 ### User Story
 > As a **QA engineer**, I want **comprehensive integration tests for both Developer UI and Immersive UI coordination** so that I can **verify debug tools work correctly and have zero impact on production builds**.
