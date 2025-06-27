@@ -1,7 +1,7 @@
-//! # Metrics Display Component
+//! # Event-Driven Metrics Display Component
 //!
-//! Placeholder for migrated metrics display component.
-//! Will be implemented during component migration task.
+//! Real-time metrics display component with event-driven updates.
+//! Subscribes to performance and audio events for instant metric visualization.
 
 #[cfg(debug_assertions)]
 use yew::prelude::*;
@@ -14,6 +14,17 @@ use gloo::console;
 #[cfg(debug_assertions)]
 use gloo::timers::callback::Interval;
 
+// Event system imports
+#[cfg(debug_assertions)]
+use crate::modules::developer_ui::hooks::use_event_subscription::use_event_subscription;
+#[cfg(debug_assertions)]
+use crate::modules::application_core::priority_event_bus::PriorityEventBus;
+#[cfg(debug_assertions)]
+use crate::modules::audio_foundations::audio_events::{
+    AudioPerformanceMetricsEvent, PitchDetectionEvent, SignalAnalysisEvent,
+    AudioProcessingStateEvent, BufferProcessingEvent
+};
+
 // TODO: Update these imports once legacy services are migrated to modules
 #[cfg(debug_assertions)]
 use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioEngineState, AudioData};
@@ -24,6 +35,9 @@ use crate::audio::performance_monitor::PerformanceMetrics;
 #[derive(Properties)]
 pub struct MetricsDisplayProps {
     pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    /// Event bus for subscribing to real-time performance and audio events
+    #[prop_or(None)]
+    pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
     #[prop_or(1000)]
     pub update_interval_ms: u32,
 }
@@ -32,11 +46,12 @@ pub struct MetricsDisplayProps {
 impl PartialEq for MetricsDisplayProps {
     fn eq(&self, other: &Self) -> bool {
         self.update_interval_ms == other.update_interval_ms &&
-        self.audio_engine.as_ref().map(|e| e.as_ptr()) == other.audio_engine.as_ref().map(|e| e.as_ptr())
+        self.audio_engine.as_ref().map(|e| e.as_ptr()) == other.audio_engine.as_ref().map(|e| e.as_ptr()) &&
+        self.event_bus.as_ref().map(|e| e.as_ptr()) == other.event_bus.as_ref().map(|e| e.as_ptr())
     }
 }
 
-/// Real-time metrics display component showing audio processing performance
+/// Event-driven real-time metrics display component showing audio processing performance
 #[cfg(debug_assertions)]
 #[function_component(MetricsDisplay)]
 pub fn metrics_display(props: &MetricsDisplayProps) -> Html {
@@ -45,7 +60,88 @@ pub fn metrics_display(props: &MetricsDisplayProps) -> Html {
     let is_monitoring = use_state(|| false);
     let interval_handle = use_state(|| None::<Interval>);
     
-    // Set up automatic metrics updates
+    // Event-driven state for real-time metrics
+    let event_performance = use_state(|| None::<AudioPerformanceMetricsEvent>);
+    let event_pitch_detection = use_state(|| None::<PitchDetectionEvent>);
+    let event_signal_analysis = use_state(|| None::<SignalAnalysisEvent>);
+    let last_buffer_event = use_state(|| None::<BufferProcessingEvent>);
+    
+    // Subscribe to real-time events
+    let performance_event = use_event_subscription::<AudioPerformanceMetricsEvent>(props.event_bus.clone());
+    let pitch_event = use_event_subscription::<PitchDetectionEvent>(props.event_bus.clone());
+    let signal_event = use_event_subscription::<SignalAnalysisEvent>(props.event_bus.clone());
+    let state_event = use_event_subscription::<AudioProcessingStateEvent>(props.event_bus.clone());
+    let buffer_event = use_event_subscription::<BufferProcessingEvent>(props.event_bus.clone());
+    
+    // Event-driven updates: React to performance metrics events
+    {
+        let event_performance = event_performance.clone();
+        let is_monitoring = is_monitoring.clone();
+        use_effect_with(performance_event.clone(), move |event| {
+            if let Some(perf_event) = &**event {
+                console::log!(&format!("Metrics display: Performance metrics updated - Latency: {:.1}ms, CPU: {:.1}%", 
+                    perf_event.end_to_end_latency_ms, perf_event.cpu_usage_percent));
+                event_performance.set(Some(perf_event.clone()));
+                is_monitoring.set(true);
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to pitch detection events
+    {
+        let event_pitch_detection = event_pitch_detection.clone();
+        use_effect_with(pitch_event.clone(), move |event| {
+            if let Some(pitch_event) = &**event {
+                console::log!(&format!("Metrics display: Pitch detected - {:.2}Hz (confidence: {:.1}%)", 
+                    pitch_event.frequency, pitch_event.confidence * 100.0));
+                event_pitch_detection.set(Some(pitch_event.clone()));
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to signal analysis events
+    {
+        let event_signal_analysis = event_signal_analysis.clone();
+        use_effect_with(signal_event.clone(), move |event| {
+            if let Some(signal_event) = &**event {
+                console::log!(&format!("Metrics display: Signal analysis - SNR: {:.1}dB, RMS: {:.3}", 
+                    signal_event.snr_estimate, signal_event.rms_energy));
+                event_signal_analysis.set(Some(signal_event.clone()));
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to buffer processing events
+    {
+        let last_buffer_event = last_buffer_event.clone();
+        use_effect_with(buffer_event.clone(), move |event| {
+            if let Some(buffer_event) = &**event {
+                console::log!(&format!("Metrics display: Buffer processing - Stage: {:?}, Latency: {:.1}ms", 
+                    buffer_event.processing_stage, buffer_event.latency_ms));
+                last_buffer_event.set(Some(buffer_event.clone()));
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to processing state changes
+    {
+        let is_monitoring = is_monitoring.clone();
+        use_effect_with(state_event.clone(), move |event| {
+            if let Some(state_event) = &**event {
+                let is_processing = matches!(state_event.new_state, 
+                    crate::modules::audio_foundations::audio_events::AudioEngineState::Processing);
+                console::log!(&format!("Metrics display: Processing state changed - Monitoring: {}", is_processing));
+                is_monitoring.set(is_processing);
+            }
+            || ()
+        });
+    }
+    
+    // Set up automatic metrics updates (legacy fallback)
     {
         let metrics = metrics.clone();
         let audio_data = audio_data.clone();
@@ -127,12 +223,138 @@ pub fn metrics_display(props: &MetricsDisplayProps) -> Html {
     html! {
         <div class="metrics-display">
             <div class="metrics-header">
-                <h3 class="metrics-title">{ "REAL-TIME METRICS" }</h3>
+                <h3 class="metrics-title">{ "EVENT-DRIVEN METRICS" }</h3>
                 <span class={if *is_monitoring { "status-active status-indicator" } else { "status-inactive status-indicator" }}>
-                    { if *is_monitoring { "● LIVE" } else { "○ STOPPED" } }
+                    { if *is_monitoring { "● LIVE EVENTS" } else { "○ NO EVENTS" } }
                 </span>
             </div>
             
+            // Event-driven metrics section
+            { if event_performance.is_some() || event_pitch_detection.is_some() || event_signal_analysis.is_some() {
+                html! {
+                    <div class="event-metrics-content">
+                        <div class="metrics-stack">
+                            // Event-driven performance metrics
+                            { if let Some(ref perf) = *event_performance {
+                                html! {
+                                    <div class="device-config-table event-performance-section">
+                                        <div class="latency-header">
+                                            <h3 class="device-config-title">{ "🚀 Live Performance (Events)" }</h3>
+                                            <span class="latency-total-value">{ format!("{:.1}ms", perf.end_to_end_latency_ms) }</span>
+                                        </div>
+                                        <div class="device-config-rows">
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Processing Latency:"}</span>
+                                                <span class="config-value">{ format!("{:.1}ms", perf.processing_latency_ms) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"CPU Usage:"}</span>
+                                                <span class={classes!("config-value", 
+                                                    if perf.cpu_usage_percent > 70.0 { "warning" } else { "good" })}
+                                                >
+                                                    { format!("{:.1}%", perf.cpu_usage_percent) }
+                                                </span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Memory Usage:"}</span>
+                                                <span class="config-value">{ format!("{:.1}MB", perf.memory_usage_bytes as f64 / 1024.0 / 1024.0) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Buffer Underruns:"}</span>
+                                                <span class={classes!("config-value",
+                                                    if perf.buffer_underruns > 0 { "warning" } else { "good" })}
+                                                >
+                                                    { perf.buffer_underruns }
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            } else { html! {} }}
+                            
+                            // Event-driven pitch detection
+                            { if let Some(ref pitch) = *event_pitch_detection {
+                                html! {
+                                    <div class="device-config-table event-pitch-section">
+                                        <h3 class="device-config-title">{ "🎵 Live Pitch Detection (Events)" }</h3>
+                                        <div class="device-config-rows">
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Frequency:"}</span>
+                                                <span class="config-value">{ format!("{:.2} Hz", pitch.frequency) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Confidence:"}</span>
+                                                <span class={classes!("config-value",
+                                                    if pitch.confidence > 0.8 { "good" } else if pitch.confidence > 0.5 { "warning" } else { "poor" })}
+                                                >
+                                                    { format!("{:.1}%", pitch.confidence * 100.0) }
+                                                </span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Note:"}</span>
+                                                <span class="config-value">{ frequency_to_note_name(pitch.frequency) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Algorithm:"}</span>
+                                                <span class="config-value">{ format!("{:?}", pitch.algorithm_used) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Processing Time:"}</span>
+                                                <span class="config-value">{ format!("{:.2}μs", pitch.processing_time_ns as f64 / 1000.0) }</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            } else { html! {} }}
+                            
+                            // Event-driven signal analysis
+                            { if let Some(ref signal) = *event_signal_analysis {
+                                html! {
+                                    <div class="device-config-table event-signal-section">
+                                        <h3 class="device-config-title">{ "📊 Live Signal Analysis (Events)" }</h3>
+                                        <div class="device-config-rows">
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"SNR Estimate:"}</span>
+                                                <span class={classes!("config-value",
+                                                    if signal.snr_estimate > 20.0 { "good" } else if signal.snr_estimate > 10.0 { "warning" } else { "poor" })}
+                                                >
+                                                    { format!("{:.1} dB", signal.snr_estimate) }
+                                                </span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"RMS Energy:"}</span>
+                                                <span class="config-value">{ format!("{:.3}", signal.rms_energy) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Peak Amplitude:"}</span>
+                                                <span class="config-value">{ format!("{:.3}", signal.peak_amplitude) }</span>
+                                            </div>
+                                            <div class="device-config-row">
+                                                <span class="config-label">{"Signal Complexity:"}</span>
+                                                <span class="config-value">{ format!("{:.2}", signal.signal_complexity) }</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            } else { html! {} }}
+                        </div>
+                    </div>
+                }
+            } else {
+                html! {
+                    <div class="event-metrics-placeholder">
+                        <div class="placeholder-content">
+                            <span class="placeholder-icon">{ "📡" }</span>
+                            <p>{ "Waiting for real-time events..." }</p>
+                            <p class="placeholder-hint">
+                                { "Event-driven metrics will appear here when audio processing starts" }
+                            </p>
+                        </div>
+                    </div>
+                }
+            }}
+            
+            // Legacy metrics section (fallback)
             { if let Some(current_metrics) = &*metrics {
                 html! {
                     <div class="metrics-content">

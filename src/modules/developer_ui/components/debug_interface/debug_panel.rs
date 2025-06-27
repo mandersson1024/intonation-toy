@@ -1,7 +1,7 @@
 //! # Debug Panel Component
 //!
-//! Placeholder for migrated debug panel component.
-//! Will be implemented during component migration task.
+//! Event-driven debug panel component with real-time performance and error monitoring.
+//! Subscribes to performance and error events for automatic updates.
 
 #[cfg(debug_assertions)]
 use yew::prelude::*;
@@ -12,6 +12,17 @@ use std::cell::RefCell;
 #[cfg(debug_assertions)]
 use gloo::console;
 
+// Event system imports
+#[cfg(debug_assertions)]
+use crate::modules::developer_ui::hooks::use_event_subscription::use_event_subscription;
+#[cfg(debug_assertions)]
+use crate::modules::application_core::priority_event_bus::PriorityEventBus;
+#[cfg(debug_assertions)]
+use crate::modules::audio_foundations::audio_events::{
+    AudioPerformanceMetricsEvent, AudioErrorEvent, PerformanceAlertEvent,
+    LatencyViolationEvent, PerformanceRegressionEvent
+};
+
 // TODO: Update these imports once legacy services are migrated to modules
 #[cfg(debug_assertions)]
 use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationError, ErrorSeverity, ErrorCategory};
@@ -20,6 +31,9 @@ use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationEr
 #[derive(Properties)]
 pub struct DebugPanelProps {
     pub error_manager: Option<Rc<RefCell<ErrorManager>>>,
+    /// Event bus for subscribing to performance and error events
+    #[prop_or(None)]
+    pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
     #[prop_or(false)]
     pub show_all_errors: bool,
     #[prop_or(1000)]
@@ -34,17 +48,128 @@ impl PartialEq for DebugPanelProps {
         self.show_all_errors == other.show_all_errors &&
         self.update_interval_ms == other.update_interval_ms &&
         self.auto_refresh == other.auto_refresh &&
-        self.error_manager.as_ref().map(|e| e.as_ptr()) == other.error_manager.as_ref().map(|e| e.as_ptr())
+        self.error_manager.as_ref().map(|e| e.as_ptr()) == other.error_manager.as_ref().map(|e| e.as_ptr()) &&
+        self.event_bus.as_ref().map(|e| e.as_ptr()) == other.event_bus.as_ref().map(|e| e.as_ptr())
     }
 }
 
-/// Debug panel component for error state visualization and debugging
+/// Event-driven debug panel component for error state visualization and performance monitoring
 #[cfg(debug_assertions)]
 #[function_component(DebugPanel)]
 pub fn debug_panel(props: &DebugPanelProps) -> Html {
     let errors = use_state(|| Vec::<ApplicationError>::new());
     let selected_error = use_state(|| None::<usize>);
     let show_details = use_state(|| false);
+    
+    // Event-driven state for real-time performance monitoring
+    let current_performance = use_state(|| None::<AudioPerformanceMetricsEvent>);
+    let performance_alerts = use_state(|| Vec::<PerformanceAlertEvent>::new());
+    let latency_violations = use_state(|| Vec::<LatencyViolationEvent>::new());
+    
+    // Subscribe to performance events
+    let performance_event = use_event_subscription::<AudioPerformanceMetricsEvent>(props.event_bus.clone());
+    let performance_alert_event = use_event_subscription::<PerformanceAlertEvent>(props.event_bus.clone());
+    let latency_violation_event = use_event_subscription::<LatencyViolationEvent>(props.event_bus.clone());
+    let performance_regression_event = use_event_subscription::<PerformanceRegressionEvent>(props.event_bus.clone());
+    
+    // Subscribe to audio error events
+    let audio_error_event = use_event_subscription::<AudioErrorEvent>(props.event_bus.clone());
+    
+    // Event-driven updates: React to performance metrics
+    {
+        let current_performance = current_performance.clone();
+        use_effect_with(performance_event.clone(), move |event| {
+            if let Some(perf_event) = &**event {
+                console::log!(&format!("Performance metrics updated: CPU {}%, Latency {}ms", 
+                    perf_event.cpu_usage_percent, perf_event.end_to_end_latency_ms));
+                current_performance.set(Some(perf_event.clone()));
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to performance alerts
+    {
+        let performance_alerts = performance_alerts.clone();
+        use_effect_with(performance_alert_event.clone(), move |event| {
+            if let Some(alert_event) = &**event {
+                console::warn!(&format!("Performance alert: {} - {} ({})", 
+                    alert_event.alert_type, alert_event.severity, alert_event.actual_value));
+                
+                let mut alerts = (*performance_alerts).clone();
+                alerts.push(alert_event.clone());
+                // Keep only the last 20 alerts
+                if alerts.len() > 20 {
+                    alerts.drain(0..alerts.len() - 20);
+                }
+                performance_alerts.set(alerts);
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to latency violations
+    {
+        let latency_violations = latency_violations.clone();
+        use_effect_with(latency_violation_event.clone(), move |event| {
+            if let Some(latency_event) = &**event {
+                console::warn!(&format!("Latency violation: Expected {}ms, Got {}ms", 
+                    latency_event.expected_latency_ms, latency_event.actual_latency_ms));
+                
+                let mut violations = (*latency_violations).clone();
+                violations.push(latency_event.clone());
+                // Keep only the last 10 violations
+                if violations.len() > 10 {
+                    violations.drain(0..violations.len() - 10);
+                }
+                latency_violations.set(violations);
+            }
+            || ()
+        });
+    }
+    
+    // Event-driven updates: React to audio errors
+    {
+        let errors = errors.clone();
+        let error_manager = props.error_manager.clone();
+        use_effect_with(audio_error_event.clone(), move |event| {
+            if let Some(audio_error) = &**event {
+                console::error!(&format!("Audio error received via event: {}", audio_error.message));
+                
+                // Convert audio error to application error and add to local state
+                let app_error = ApplicationError {
+                    id: format!("audio-event-{}", chrono::Utc::now().timestamp_millis()),
+                    message: audio_error.message.clone(),
+                    details: Some(format!("Type: {:?}, Context: {}", audio_error.error_type, audio_error.context)),
+                    severity: match audio_error.error_type {
+                        crate::modules::audio_foundations::audio_events::AudioErrorType::Critical => ErrorSeverity::Critical,
+                        _ => ErrorSeverity::Warning,
+                    },
+                    category: ErrorCategory::WebAudioSupport,
+                    component: "EventDrivenDebugPanel".to_string(),
+                    timestamp: chrono::Utc::now().timestamp_millis() as u64,
+                    retry_count: 0,
+                    can_continue: audio_error.recovery_suggestion.is_some(),
+                    recommendations: audio_error.recovery_suggestion.as_ref()
+                        .map(|s| vec![s.clone()])
+                        .unwrap_or_default(),
+                };
+                
+                // Add to local errors list for immediate display
+                let mut current_errors = (*errors).clone();
+                current_errors.push(app_error.clone());
+                errors.set(current_errors);
+                
+                // Also add to error manager if available
+                if let Some(manager) = &error_manager {
+                    if let Ok(mut manager_ref) = manager.try_borrow_mut() {
+                        manager_ref.add_error(app_error);
+                    }
+                }
+            }
+            || ()
+        });
+    }
     
     // Load errors from error manager
     let refresh_errors = {
@@ -173,7 +298,76 @@ pub fn debug_panel(props: &DebugPanelProps) -> Html {
     html! {
         <div class="debug-panel">
             <div class="debug-panel-header">
-                <h3>{ "Error Debug Panel" }</h3>
+                <h3>{ "Event-Driven Debug Panel" }</h3>
+                
+                // Real-time performance section
+                <div class="performance-section">
+                    <h4>{ "Real-Time Performance" }</h4>
+                    { if let Some(ref perf) = *current_performance {
+                        html! {
+                            <div class="performance-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">{ "Latency:" }</span>
+                                    <span class={classes!("metric-value", 
+                                        if perf.end_to_end_latency_ms > 50.0 { "warning" } else { "good" })}
+                                    >
+                                        { format!("{:.1}ms", perf.end_to_end_latency_ms) }
+                                    </span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{ "CPU:" }</span>
+                                    <span class={classes!("metric-value",
+                                        if perf.cpu_usage_percent > 70.0 { "warning" } else { "good" })}
+                                    >
+                                        { format!("{:.1}%", perf.cpu_usage_percent) }
+                                    </span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{ "Memory:" }</span>
+                                    <span class="metric-value">{ format!("{:.1}MB", perf.memory_usage_bytes as f64 / 1024.0 / 1024.0) }</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{ "Dropouts:" }</span>
+                                    <span class={classes!("metric-value",
+                                        if perf.dropout_count > 0 { "warning" } else { "good" })}
+                                    >
+                                        { perf.dropout_count }
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    } else {
+                        html! {
+                            <div class="no-performance-data">
+                                <span>{ "⏳ Waiting for performance data..." }</span>
+                            </div>
+                        }
+                    }}
+                </div>
+                
+                // Event indicators
+                <div class="event-indicators">
+                    <h4>{ "Event Status" }</h4>
+                    <div class="indicator-grid">
+                        <span class={classes!("event-indicator", if performance_event.is_some() { "active" } else { "inactive" })}>
+                            { "📊 Performance" }
+                        </span>
+                        <span class={classes!("event-indicator", if audio_error_event.is_some() { "active" } else { "inactive" })}>
+                            { "🚨 Audio Errors" }
+                        </span>
+                        <span class={classes!("event-indicator", 
+                            if !performance_alerts.is_empty() { "alert" } else { "inactive" })}
+                        >
+                            { format!("⚠️ Alerts ({})", performance_alerts.len()) }
+                        </span>
+                        <span class={classes!("event-indicator",
+                            if !latency_violations.is_empty() { "alert" } else { "inactive" })}
+                        >
+                            { format!("⏱️ Latency ({} violations)", latency_violations.len()) }
+                        </span>
+                    </div>
+                </div>
+                
                 <div class="panel-controls">
                     { if !props.auto_refresh {
                         html! {

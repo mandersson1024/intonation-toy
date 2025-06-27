@@ -1,7 +1,7 @@
-//! # Test Signal Generator Component
+//! # Event-Driven Test Signal Generator Component
 //!
-//! Placeholder for migrated test signal generator component.
-//! Will be implemented during component migration task.
+//! Test signal generator component with real-time event-driven state synchronization.
+//! Subscribes to audio events for automatic state management and signal coordination.
 
 #[cfg(debug_assertions)]
 use yew::prelude::*;
@@ -15,6 +15,18 @@ use gloo::console;
 use std::rc::Rc;
 #[cfg(debug_assertions)]
 use std::cell::RefCell;
+
+// Event system imports
+#[cfg(debug_assertions)]
+use crate::modules::developer_ui::hooks::use_event_subscription::use_event_subscription;
+#[cfg(debug_assertions)]
+use crate::modules::developer_ui::utils::debug_event_publisher::{DebugEventPublisher, DebugControlEvent};
+#[cfg(debug_assertions)]
+use crate::modules::application_core::priority_event_bus::PriorityEventBus;
+#[cfg(debug_assertions)]
+use crate::modules::audio_foundations::audio_events::{
+    AudioProcessingStateEvent, AudioSessionEvent, AudioPerformanceMetricsEvent
+};
 
 // TODO: Update these imports once legacy services are migrated to modules
 #[cfg(debug_assertions)]
@@ -67,6 +79,11 @@ pub enum Msg {
     ChangeFrequency(f32),
     ChangeAmplitude(f32),
     TogglePipelineMode,
+    
+    // Event-driven messages
+    AudioStateChanged(crate::modules::audio_foundations::audio_events::AudioEngineState),
+    AudioSessionUpdate(AudioSessionEvent),
+    PerformanceMetricsUpdate(AudioPerformanceMetricsEvent),
 }
 
 #[cfg(debug_assertions)]
@@ -76,6 +93,9 @@ pub struct TestSignalGeneratorProps {
     pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
     #[prop_or_default]
     pub on_generation_state_change: Option<Callback<bool>>,
+    /// Event bus for subscribing to audio events and publishing test signal events
+    #[prop_or_default]
+    pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
 }
 
 #[cfg(debug_assertions)]
@@ -87,6 +107,12 @@ pub struct TestSignalGenerator {
     gain_node: Option<GainNode>,
     media_destination: Option<MediaStreamAudioDestinationNode>,
     pipeline_mode: bool, // true = route through pipeline, false = direct to speakers
+    
+    // Event-driven state
+    debug_publisher: Option<DebugEventPublisher>,
+    last_audio_state: Option<crate::modules::audio_foundations::audio_events::AudioEngineState>,
+    last_session_event: Option<AudioSessionEvent>,
+    last_performance_metrics: Option<AudioPerformanceMetricsEvent>,
 }
 
 #[cfg(debug_assertions)]
@@ -94,7 +120,10 @@ impl Component for TestSignalGenerator {
     type Message = Msg;
     type Properties = TestSignalGeneratorProps;
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
+        let debug_publisher = ctx.props().event_bus.as_ref()
+            .map(|event_bus| DebugEventPublisher::new(Some(event_bus.clone())));
+        
         Self {
             is_generating: false,
             config: SignalConfig::default(),
@@ -103,6 +132,12 @@ impl Component for TestSignalGenerator {
             gain_node: None,
             media_destination: None,
             pipeline_mode: true, // Default to pipeline mode
+            
+            // Initialize event-driven state
+            debug_publisher,
+            last_audio_state: None,
+            last_session_event: None,
+            last_performance_metrics: None,
         }
     }
 
@@ -163,6 +198,74 @@ impl Component for TestSignalGenerator {
                     }
                 }
                 true
+            }
+            
+            // Event-driven message handlers
+            Msg::AudioStateChanged(new_state) => {
+                console::log(&format!("Test Signal Generator: Audio state changed to {:?}", new_state));
+                self.last_audio_state = Some(new_state.clone());
+                
+                // Auto-stop signal generation if audio engine stops
+                match new_state {
+                    crate::modules::audio_foundations::audio_events::AudioEngineState::Idle |
+                    crate::modules::audio_foundations::audio_events::AudioEngineState::Error(_) => {
+                        if self.is_generating {
+                            console::log("Auto-stopping test signal due to audio engine state change");
+                            self.stop_signal_generation_with_context(ctx);
+                        }
+                    }
+                    _ => {}
+                }
+                
+                // Publish test signal state event
+                if let Some(ref mut publisher) = self.debug_publisher {
+                    let event = DebugControlEvent::CustomCommand {
+                        command: "test_signal_state_sync".to_string(),
+                        parameters: {
+                            let mut params = std::collections::HashMap::new();
+                            params.insert("generating".to_string(), self.is_generating.to_string());
+                            params.insert("audio_state".to_string(), format!("{:?}", new_state));
+                            params
+                        },
+                    };
+                    if let Err(e) = publisher.publish_control_event(event) {
+                        console::error(&format!("Failed to publish test signal sync event: {}", e));
+                    }
+                }
+                
+                true
+            }
+            
+            Msg::AudioSessionUpdate(session_event) => {
+                console::log(&format!("Test Signal Generator: Session event received - {:?}", session_event.event_type));
+                self.last_session_event = Some(session_event.clone());
+                
+                // Adjust signal generation based on session changes
+                match session_event.event_type {
+                    crate::modules::audio_foundations::audio_events::AudioSessionEventType::Started => {
+                        console::log("Audio session started - test signal can be used");
+                    }
+                    crate::modules::audio_foundations::audio_events::AudioSessionEventType::Stopped => {
+                        if self.is_generating {
+                            console::log("Audio session stopped - auto-stopping test signal");
+                            self.stop_signal_generation_with_context(ctx);
+                        }
+                    }
+                    _ => {}
+                }
+                
+                true
+            }
+            
+            Msg::PerformanceMetricsUpdate(performance_event) => {
+                self.last_performance_metrics = Some(performance_event.clone());
+                
+                // Adjust signal amplitude based on performance if needed
+                if performance_event.cpu_usage_percent > 80.0 && self.is_generating {
+                    console::warn("High CPU usage detected - consider reducing test signal complexity");
+                }
+                
+                false // Don't trigger re-render for performance updates
             }
         }
     }
@@ -246,6 +349,115 @@ impl Component for TestSignalGenerator {
                     >
                         {if self.is_generating { "⏹ Stop Generation" } else { "▶ Start Generation" }}
                     </button>
+                </div>
+                
+                // Event-driven synchronization status
+                <div class="event-sync-status">
+                    <h4>{ "🔄 Event Synchronization Status" }</h4>
+                    
+                    // Audio state synchronization
+                    { if let Some(ref audio_state) = self.last_audio_state {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "Audio Engine State:" }</span>
+                                <span class={classes!("sync-value",
+                                    match audio_state {
+                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Processing => "good",
+                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Idle => "neutral",
+                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Error(_) => "warning",
+                                        _ => "neutral"
+                                    })}
+                                >
+                                    { format!("{:?}", audio_state) }
+                                </span>
+                            </div>
+                        }
+                    } else {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "Audio Engine State:" }</span>
+                                <span class="sync-value neutral">{ "No events received" }</span>
+                            </div>
+                        }
+                    }}
+                    
+                    // Session synchronization
+                    { if let Some(ref session) = self.last_session_event {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "Audio Session:" }</span>
+                                <span class={classes!("sync-value",
+                                    match session.event_type {
+                                        crate::modules::audio_foundations::audio_events::AudioSessionEventType::Started => "good",
+                                        crate::modules::audio_foundations::audio_events::AudioSessionEventType::Stopped => "warning",
+                                        _ => "neutral"
+                                    })}
+                                >
+                                    { format!("{:?}", session.event_type) }
+                                </span>
+                            </div>
+                        }
+                    } else {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "Audio Session:" }</span>
+                                <span class="sync-value neutral">{ "No session events" }</span>
+                            </div>
+                        }
+                    }}
+                    
+                    // Performance monitoring
+                    { if let Some(ref perf) = self.last_performance_metrics {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "System Performance:" }</span>
+                                <span class={classes!("sync-value",
+                                    if perf.cpu_usage_percent > 80.0 { "warning" } 
+                                    else if perf.cpu_usage_percent > 60.0 { "neutral" } 
+                                    else { "good" })}
+                                >
+                                    { format!("CPU: {:.1}%", perf.cpu_usage_percent) }
+                                </span>
+                            </div>
+                        }
+                    } else {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "System Performance:" }</span>
+                                <span class="sync-value neutral">{ "No performance data" }</span>
+                            </div>
+                        }
+                    }}
+                    
+                    // Debug event publisher status
+                    { if let Some(ref publisher) = self.debug_publisher {
+                        if let Some(metrics) = publisher.get_metrics() {
+                            html! {
+                                <div class="sync-status-item">
+                                    <span class="sync-label">{ "Event Publishing:" }</span>
+                                    <span class={classes!("sync-value",
+                                        if metrics.meets_performance_requirements() { "good" } else { "warning" })}
+                                    >
+                                        { format!("Published: {}, Success: {:.1}%", metrics.total_published, metrics.success_rate()) }
+                                    </span>
+                                </div>
+                            }
+                        } else {
+                            html! {
+                                <div class="sync-status-item">
+                                    <span class="sync-label">{ "Event Publishing:" }</span>
+                                    <span class="sync-value good">{ "Ready" }</span>
+                                </div>
+                            }
+                        }
+                    } else {
+                        html! {
+                            <div class="sync-status-item">
+                                <span class="sync-label">{ "Event Publishing:" }</span>
+                                <span class="sync-value neutral">{ "Not available" }</span>
+                            </div>
+                        }
+                    }}
                 </div>
             </div>
         }

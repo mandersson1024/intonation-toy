@@ -36,6 +36,9 @@ pub mod components;
 pub mod hooks;
 
 #[cfg(debug_assertions)]
+pub mod utils;
+
+#[cfg(debug_assertions)]
 pub mod debug_component_registry;
 
 #[cfg(debug_assertions)]
@@ -196,6 +199,7 @@ pub trait DebugComponent {
 pub mod exports {
     pub use super::components::*;
     pub use super::hooks::*;
+    pub use super::utils::*;
     pub use super::{DeveloperUIModule, DebugComponent};
 }
 
