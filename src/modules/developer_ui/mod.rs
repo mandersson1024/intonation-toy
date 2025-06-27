@@ -42,6 +42,9 @@ pub mod utils;
 pub mod debug_component_registry;
 
 #[cfg(debug_assertions)]
+pub mod startup_shutdown_coordinator;
+
+#[cfg(debug_assertions)]
 pub use debug_app::DebugApp;
 
 #[cfg(debug_assertions)]
@@ -50,12 +53,16 @@ pub use overlay_manager::OverlayManager;
 #[cfg(debug_assertions)]
 pub use debug_component_registry::DebugComponentRegistry;
 
+#[cfg(debug_assertions)]
+pub use startup_shutdown_coordinator::StartupShutdownCoordinator;
+
 /// Developer UI Module - Available only in debug builds
 #[cfg(debug_assertions)]
 pub struct DeveloperUIModule {
     debug_app: DebugApp,
     overlay_manager: OverlayManager,
     component_registry: DebugComponentRegistry,
+    startup_shutdown_coordinator: StartupShutdownCoordinator,
     event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
     initialized: bool,
     started: bool,
@@ -69,6 +76,7 @@ impl DeveloperUIModule {
             debug_app: DebugApp::new()?,
             overlay_manager: OverlayManager::new()?,
             component_registry: DebugComponentRegistry::new(),
+            startup_shutdown_coordinator: StartupShutdownCoordinator::new(),
             event_bus: None,
             initialized: false,
             started: false,
