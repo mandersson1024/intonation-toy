@@ -8,6 +8,7 @@ pub mod audio_foundations;
 pub mod platform_abstraction;
 pub mod data_management;
 pub mod presentation_layer;
+pub mod graphics_foundations;
 
 // Developer UI module - conditionally compiled for debug builds only
 #[cfg(debug_assertions)]
