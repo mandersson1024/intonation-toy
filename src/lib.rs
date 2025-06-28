@@ -18,9 +18,9 @@ macro_rules! console_log {
 pub mod audio;
 
 // Import browser compatibility and error management
-pub mod browser_compat;
-pub mod error_manager;
-pub mod performance_monitor;
+// pub mod browser_compat;
+// pub mod error_manager;
+// pub mod performance_monitor;
 
 // Legacy modules (active during transition)
 pub mod legacy;
@@ -93,3 +93,7 @@ pub fn detect_pitch_detailed(audio_buffer: &[f32], sample_rate: f32, algorithm: 
 pub mod modules;
 pub mod types;
 pub mod themes;
+pub mod bootstrap;
+
+// Add bootstrap export
+pub use bootstrap::ApplicationBootstrap;

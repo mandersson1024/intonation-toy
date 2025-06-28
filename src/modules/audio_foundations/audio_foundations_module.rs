@@ -37,9 +37,33 @@ impl AudioFoundationsModule {
         }
     }
     
+    /// Create module with event bus integration for modular communication
+    pub fn new_with_event_bus(
+        legacy_engine: Rc<RefCell<AudioEngineService>>, 
+        event_bus: Arc<TypedEventBus>
+    ) -> Self {
+        let mut module = Self::new(legacy_engine);
+        module.set_event_bus(event_bus);
+        module
+    }
+    
     /// Set the event bus for publishing audio events
     pub fn set_event_bus(&mut self, event_bus: Arc<TypedEventBus>) {
         self.event_bus = Some(event_bus);
+    }
+    
+    /// Setup periodic pitch detection event publishing
+    /// This bridges legacy audio processing to the modular event system
+    pub fn start_event_publishing(&self) {
+        // TODO: Implementation would setup timer/callback to publish real audio events
+        // For now, log that event publishing capability is ready
+        web_sys::console::log_1(&"AudioFoundations: Event publishing capability ready".into());
+    }
+    
+    /// Get module health status
+    pub fn get_health_status(&self) -> String {
+        format!("AudioFoundations: initialized={}, started={}, engine_state={:?}", 
+                self.initialized, self.started, self.audio_engine.get_state())
     }
     
     /// Publish pitch detection event

@@ -1,23 +1,26 @@
-//! # Modules
-//!
-//! This module contains the core application modules that provide the foundational
-//! services and infrastructure for the pitch-toy application.
+//! Pitch-Toy Modular Architecture
+//! 
+//! This module provides the complete modular system infrastructure for the application.
 
 pub mod application_core;
 pub mod audio_foundations;
-pub mod platform_abstraction;
 pub mod data_management;
-pub mod presentation_layer;
-pub mod graphics_foundations;
-
-// Developer UI module - conditionally compiled for debug builds only
-#[cfg(debug_assertions)]
 pub mod developer_ui;
+pub mod graphics_foundations;
+pub mod platform_abstraction;
+pub mod presentation_layer;
 
-pub use application_core::*;
-pub use audio_foundations::*;
-pub use platform_abstraction::*;
+// Re-export key types for easy access
+pub use application_core::{
+    ApplicationLifecycleCoordinator, 
+    ApplicationConfig, 
+    ApplicationState, 
+    CoreError,
+    ModuleId,
+    ModuleState
+};
 
-// Re-export developer UI for debug builds
+pub use audio_foundations::AudioFoundationsModule;
+
 #[cfg(debug_assertions)]
-pub use developer_ui::exports::*;
+pub use developer_ui::DeveloperUIModule;
