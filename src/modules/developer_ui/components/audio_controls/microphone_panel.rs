@@ -20,7 +20,7 @@ use std::cell::RefCell;
 #[cfg(debug_assertions)]
 use crate::modules::audio_foundations::ModularAudioService;
 #[cfg(debug_assertions)]
-use crate::modules::application_core::error_service::ApplicationError;
+use crate::legacy::active::services::error_manager::ApplicationError;
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::components::microphone_permission::MicrophonePermission;
 

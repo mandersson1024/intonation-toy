@@ -16,7 +16,7 @@ use gloo::console;
 
 // Use modular error types instead of legacy
 #[cfg(debug_assertions)]
-use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity, ErrorCategory};
 use crate::modules::application_core::RecoveryStrategy;
 
 #[cfg(debug_assertions)]

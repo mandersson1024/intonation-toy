@@ -28,7 +28,7 @@ use crate::modules::audio_foundations::audio_events::{
 // Use modular services instead of legacy
 #[cfg(debug_assertions)]
 use crate::modules::audio_foundations::{ModularAudioService, AudioEngineState};
-use crate::services::AudioData;
+use crate::legacy::active::services::AudioData;
 #[cfg(debug_assertions)]
 use crate::audio::performance_monitor::PerformanceMetrics;
 

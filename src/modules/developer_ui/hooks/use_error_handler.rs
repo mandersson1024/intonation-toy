@@ -12,7 +12,7 @@ use std::cell::RefCell;
 
 // Use modular error types and services instead of legacy
 #[cfg(debug_assertions)]
-use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity};
 #[cfg(debug_assertions)]
 use crate::modules::application_core::modular_error_service::ModularErrorService;
 

@@ -11,8 +11,9 @@ mod modules;
 mod types;
 mod bootstrap;
 
-use legacy::components::DebugInterface;
-use legacy::services::{AudioEngineService, ErrorManager};
+use modules::developer_ui::components::debug_interface::DebugInterface;
+use modules::audio_foundations::ModularAudioService;
+use modules::application_core::ModularErrorService;
 use bootstrap::ApplicationBootstrap;
 
 #[function_component(App)]
@@ -33,31 +34,65 @@ fn app() -> Html {
         Some(bootstrap)
     });
     
-    // Get audio engine service (now sourced from modular system when available)
+    // Get modular services directly from the bootstrap system
     let audio_engine = use_state(|| {
-        bootstrap.as_ref()
-            .map(|b| b.get_legacy_audio_service())
-            .unwrap_or_else(|| {
-                web_sys::console::warn_1(&"Using fallback audio service - modular system unavailable".into());
-                Rc::new(RefCell::new(AudioEngineService::new()))
-            })
+        if let Some(bootstrap) = bootstrap.as_ref() {
+            if bootstrap.is_service_migration_enabled() {
+                web_sys::console::log_1(&"✅ Using modular audio service from ApplicationBootstrap".into());
+                Rc::new(RefCell::new(ModularAudioService::new()))
+            } else {
+                web_sys::console::warn_1(&"⚠️ Service migration not enabled - using standalone modular service".into());
+                Rc::new(RefCell::new(ModularAudioService::new()))
+            }
+        } else {
+            web_sys::console::warn_1(&"❌ Bootstrap unavailable - using fallback modular audio service".into());
+            Rc::new(RefCell::new(ModularAudioService::new()))
+        }
     });
     
-    // Legacy error manager (unchanged for now)
-    let error_manager = use_state(|| Some(Rc::new(RefCell::new(ErrorManager::new()))));
+    // Get modular error service from the bootstrap system
+    let error_manager = use_state(|| {
+        if let Some(bootstrap) = bootstrap.as_ref() {
+            if bootstrap.is_service_migration_enabled() {
+                web_sys::console::log_1(&"✅ Using modular error service from ApplicationBootstrap".into());
+                Some(Rc::new(RefCell::new(ModularErrorService::new())))
+            } else {
+                web_sys::console::warn_1(&"⚠️ Service migration not enabled - using standalone modular service".into());
+                Some(Rc::new(RefCell::new(ModularErrorService::new())))
+            }
+        } else {
+            web_sys::console::warn_1(&"❌ Bootstrap unavailable - using fallback modular error service".into());
+            Some(Rc::new(RefCell::new(ModularErrorService::new())))
+        }
+    });
     
-    // Log modular system health on each render
+    // Log modular system health and service migration status on each render
     use_effect_with_deps(move |bootstrap| {
         if let Some(bootstrap) = bootstrap.as_ref() {
+            // Log overall system health
             if bootstrap.is_healthy() {
                 web_sys::console::log_1(&"✅ Modular system: All modules healthy".into());
             } else {
                 web_sys::console::warn_1(&"⚠️ Modular system: Some modules not healthy".into());
                 let states = bootstrap.get_module_states();
                 for (id, state) in states {
-                    web_sys::console::log_1(&format!("  {} -> {:?}", id, state).into());
+                    web_sys::console::log_1(&format!("  Module {} -> {:?}", id, state).into());
                 }
             }
+            
+            // Log service migration status
+            let migration_status = bootstrap.get_service_migration_status();
+            web_sys::console::log_1(&"📊 Service Migration Status:".into());
+            for (service, available) in migration_status {
+                let status_icon = if available { "✅" } else { "❌" };
+                web_sys::console::log_1(&format!("  {} {}", status_icon, service).into());
+            }
+            
+            // Log application state
+            let app_state = bootstrap.get_application_state();
+            web_sys::console::log_1(&format!("🎯 Application State: {:?}", app_state).into());
+        } else {
+            web_sys::console::warn_1(&"❌ Modular bootstrap not available".into());
         }
         || {}
     }, bootstrap.clone());
@@ -74,7 +109,7 @@ fn app() -> Html {
     html! {
         <div class="app">
             <DebugInterface 
-                audio_engine={(*audio_engine).clone()}
+                audio_engine={Some((*audio_engine).clone())}
                 error_manager={(*error_manager).clone()}
                 update_interval_ms={250}
             />
