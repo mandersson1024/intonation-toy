@@ -105,6 +105,46 @@ impl DeveloperUIModule {
         }
         Ok(())
     }
+    
+    /// Create module with real-time event subscriptions
+    pub fn new_with_subscriptions() -> Result<Self, Box<dyn std::error::Error>> {
+        let mut module = Self::new()?;
+        
+        // Subscribe to audio events for real-time UI updates
+        module.setup_audio_event_subscriptions();
+        
+        Ok(module)
+    }
+    
+    /// Setup real-time audio event subscriptions
+    fn setup_audio_event_subscriptions(&mut self) {
+        // TODO: Implement actual event subscription when TypedEventBus integration is complete
+        // For now, log that subscription capability is ready
+        web_sys::console::log_1(&"DeveloperUI: Audio event subscription capability ready".into());
+        
+        // This will be implemented to subscribe to:
+        // - AudioEvent::PitchDetected for real-time pitch display
+        // - AudioEvent::DeviceChanged for device status display
+        // - PerformanceEvent::AudioMetricsUpdate for performance monitoring display
+    }
+    
+    // Event handler implementations (placeholders for full implementation)
+    fn update_pitch_visualization(frequency: f32, clarity: f32, timestamp: std::time::Instant) {
+        // TODO: Update real-time pitch visualization
+        web_sys::console::log_1(&format!("Real-time pitch: {:.2}Hz (clarity: {:.2})", frequency, clarity).into());
+    }
+    
+    fn update_device_status(device: &Option<crate::types::AudioDeviceInfo>) {
+        // TODO: Update device status in UI
+        if let Some(device) = device {
+            web_sys::console::log_1(&format!("Audio device changed to: {}", device.label).into());
+        }
+    }
+    
+    fn update_performance_display(latency_ms: f32, cpu_usage: f32) {
+        // TODO: Update performance metrics in UI
+        web_sys::console::log_1(&format!("Audio performance: {:.1}ms latency, {:.1}% CPU", latency_ms, cpu_usage).into());
+    }
 }
 
 #[cfg(debug_assertions)]

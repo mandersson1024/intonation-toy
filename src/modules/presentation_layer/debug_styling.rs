@@ -376,7 +376,7 @@ impl DebugStyleUtils {
         format!(
             "<div class=\"metric\">
                 <span class=\"metric-label\">{}</span>
-                <span class=\"metric-value {}\">{}}</span>
+                <span class=\"metric-value {}\">{}</span>
             </div>",
             label, status_class, value
         )

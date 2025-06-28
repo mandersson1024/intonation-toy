@@ -4,10 +4,7 @@
 //! Enables gradual migration to modular architecture without disrupting current functionality.
 
 use crate::modules::application_core::*;
-use crate::modules::audio_foundations::AudioFoundationsModule;
-use crate::legacy::services::AudioEngineService;
-use std::rc::Rc;
-use std::cell::RefCell;
+use crate::modules::audio_foundations::{AudioFoundationsModule, AudioFoundationsConfig, PitchAlgorithm};
 use std::collections::HashMap;
 
 #[cfg(debug_assertions)]
@@ -16,7 +13,6 @@ use crate::modules::developer_ui::DeveloperUIModule;
 /// Application bootstrap coordinator for modular system integration
 pub struct ApplicationBootstrap {
     lifecycle: ApplicationLifecycleCoordinator,
-    audio_service: Rc<RefCell<AudioEngineService>>, // Bridge to legacy
 }
 
 impl ApplicationBootstrap {
@@ -24,21 +20,31 @@ impl ApplicationBootstrap {
     pub fn new() -> Self {
         Self {
             lifecycle: ApplicationLifecycleCoordinator::new(),
-            audio_service: Rc::new(RefCell::new(AudioEngineService::new())),
         }
     }
     
     /// Register all available modules with the lifecycle coordinator
     pub fn register_modules(&mut self) -> Result<(), CoreError> {
-        // Register AudioFoundationsModule with legacy bridge
-        let audio_module = AudioFoundationsModule::new(self.audio_service.clone());
+        // Register AudioFoundationsModule with native implementation
+        let audio_config = AudioFoundationsConfig {
+            sample_rate: 44100.0,
+            buffer_size: 2048,
+            pitch_detection_algorithm: PitchAlgorithm::McLeod,
+            event_publishing_interval_ms: 50, // 20Hz for real-time updates
+            device_monitoring_enabled: true,
+            performance_metrics_enabled: cfg!(debug_assertions),
+        };
+        
+        let audio_module = AudioFoundationsModule::new()
+            .with_config(audio_config);
+            
         self.lifecycle.get_module_registry_mut()
             .register_module(Box::new(audio_module))?;
             
-        // Register DeveloperUIModule (debug builds only)
+        // Register DeveloperUIModule with event subscriptions (debug builds only)
         #[cfg(debug_assertions)]
         {
-            let dev_ui_module = DeveloperUIModule::new()
+            let dev_ui_module = DeveloperUIModule::new_with_subscriptions()
                 .map_err(|e| CoreError::ModuleInitializationFailed(
                     ModuleId::new("developer_ui"), 
                     e.to_string()
@@ -65,9 +71,24 @@ impl ApplicationBootstrap {
         Ok(())
     }
     
-    /// Get legacy audio service for backward compatibility
-    pub fn get_legacy_audio_service(&self) -> Rc<RefCell<AudioEngineService>> {
-        self.audio_service.clone()
+    /// Get real-time audio metrics from native implementation
+    pub fn get_audio_metrics(&self) -> Option<crate::modules::audio_foundations::AudioPerformanceMetrics> {
+        let registry = self.lifecycle.get_module_registry();
+        if let Some(audio_module) = registry.get_module::<AudioFoundationsModule>(&ModuleId::new("audio-foundations")) {
+            Some(audio_module.get_performance_metrics().clone())
+        } else {
+            None
+        }
+    }
+    
+    /// Get available audio devices from native implementation
+    pub fn get_available_devices(&self) -> Vec<crate::types::AudioDeviceInfo> {
+        let registry = self.lifecycle.get_module_registry();
+        if let Some(audio_module) = registry.get_module::<AudioFoundationsModule>(&ModuleId::new("audio-foundations")) {
+            audio_module.get_available_devices().to_vec()
+        } else {
+            vec![]
+        }
     }
     
     /// Get module states for health monitoring

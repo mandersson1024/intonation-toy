@@ -66,13 +66,17 @@ pub mod memory_leak_detection_tests;
 pub mod integration_example;
 
 // Re-exports for clean API
-pub use audio_foundations_module::AudioFoundationsModule;
+pub use audio_foundations_module::{
+    AudioFoundationsModule, AudioFoundationsConfig, PitchAlgorithm, 
+    AudioPerformanceMetrics, DeviceCapabilities, LatencyProfile,
+    AudioEvent, PerformanceEvent
+};
 pub use audio_engine_wrapper::AudioEngineWrapper;
 pub use audio_events::*;
 
 // STORY-015: Multi-Algorithm Pitch Detection re-exports
 pub use multi_algorithm_pitch_detector::{
-    MultiAlgorithmPitchDetector, PitchDetector, PitchAlgorithm, PitchDetectionConfig,
+    MultiAlgorithmPitchDetector, PitchDetector, PitchDetectionConfig,
     PitchResult, PitchError, AlgorithmInfo, PerformanceComparison
 };
 pub use runtime_pitch_switching::{
@@ -89,13 +93,13 @@ pub use signal_generator::{
 pub use device_manager::{DeviceManager, WebDeviceManager, AudioDevice, AudioDeviceType, DeviceError};
 pub use permission_manager::{PermissionManager, WebPermissionManager, PermissionRequestResult, PermissionError, PermissionRecoveryAction};
 pub use device_monitor::{DeviceMonitor, WebDeviceMonitor, DeviceMonitorError, DeviceMonitoringState, DeviceRecoveryAction};
-pub use device_capabilities::{DeviceCapabilityManager, WebDeviceCapabilityManager, DeviceCapabilities, AudioUseCase, OptimalAudioSettings, CapabilityError};
+pub use device_capabilities::{DeviceCapabilityManager, WebDeviceCapabilityManager, DeviceCapabilities as StoredDeviceCapabilities, AudioUseCase, OptimalAudioSettings, CapabilityError};
 pub use graceful_recovery::{GracefulRecoveryManager, WebGracefulRecoveryManager, RecoveryResult, RecoveryAction, QualityImpact, RecoveryError};
 pub use optimization_settings::{DeviceOptimizationManager, WebDeviceOptimizationManager, DeviceOptimizationSettings, PerformanceRecommendation, OptimizationError};
 
 // STORY-017: Performance Monitoring re-exports
 pub use audio_performance_monitor::{
-    PerformanceMonitor, AudioPerformanceMonitor, AudioPerformanceMetrics, OperationMetrics,
+    PerformanceMonitor, AudioPerformanceMonitor, AudioPerformanceMetrics as LegacyAudioPerformanceMetrics, OperationMetrics,
     ThresholdViolation, ViolationSeverity, PerformanceRegression, PerformanceThresholds,
     MonitoringOverhead, MonitoringConfig, MeasurementId, DropoutType
 };
