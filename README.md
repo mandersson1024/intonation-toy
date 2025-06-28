@@ -13,8 +13,7 @@ cargo test
 
 # Start server (builds + serves with hot reload)
 # Visit http://localhost:8080/
-./serve.sh dev
-./serve.sh release
+trunk serve
 ```
 
 ### License

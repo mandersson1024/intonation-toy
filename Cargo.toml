@@ -1,132 +1,14 @@
 [package]
-name = "pitch-toy"
+name = "hello-yew"
 version = "0.1.0"
 edition = "2021"
 description = "Real-time pitch detection with Rust/WASM and Web Audio API"
 repository = "https://github.com/user/pitch-toy"
 license = "MIT"
 
+[dependencies]
+yew = { version = "0.21", features = ["csr"] }
+wasm-bindgen = "0.2.100"
+
 [lib]
 crate-type = ["cdylib"]
-
-[[bin]]
-name = "pitch-toy"
-path = "src/main.rs"
-
-[dependencies]
-wasm-bindgen = "0.2"
-js-sys = "0.3"
-pitch-detection = "0.3"
-chrono = { version = "0.4", features = ["serde"] }
-yew = { version = "0.21", features = ["csr"] }
-yew-hooks = "0.3"
-yew-router = "0.18"
-wasm-bindgen-futures = "0.4"
-gloo = "0.10"
-gloo-timers = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-wgpu = { version = "22", features = ["webgl"] }
-
-[dependencies.web-sys]
-version = "0.3"
-features = [
-  "console",
-  "AudioContext",
-  "AudioWorklet",
-  "AudioWorkletNode",
-  "AudioWorkletProcessor",
-  "OscillatorNode",
-  "OscillatorType", 
-  "AudioContextState",
-  "GainNode",
-  "PeriodicWave",
-  "AudioDestinationNode",
-  "AudioParam",
-  "MediaStreamAudioDestinationNode",
-  "MessagePort",
-  "MediaDevices",
-  "MediaDeviceInfo",
-  "MediaDeviceKind",
-  "Navigator",
-  "Window",
-  "Document",
-  "Element",
-  "HtmlElement",
-  "HtmlSelectElement",
-  "HtmlInputElement",
-  "HtmlCanvasElement",
-  "CanvasRenderingContext2d",
-  "WebGlRenderingContext",
-  "WebGl2RenderingContext",
-  "Performance",
-  # Additional features for error management
-  "Location",
-  "MediaStream", 
-  "MediaStreamConstraints",
-  "MediaStreamTrack",
-  "Event",
-  "EventTarget",
-  "InputEvent",
-]
-
-# 🚀 Enhanced Build Profiles for Phase 5
-
-[profile.dev]
-# Development profile - full debugging
-opt-level = 0
-debug = true
-split-debuginfo = "unpacked"
-debug-assertions = true
-overflow-checks = true
-lto = false
-panic = "unwind"
-incremental = true
-codegen-units = 256
-
-[profile.release]
-# Production profile - maximum performance
-opt-level = 3
-debug = false
-split-debuginfo = "off"
-debug-assertions = false
-overflow-checks = false
-lto = "fat"
-panic = "abort"
-incremental = false
-codegen-units = 1
-
-
-# Feature Flags for Different Build Targets
-
-[features]
-default = ["basic-features"]
-
-# Core feature sets
-basic-features = ["audio-processing", "pitch-detection"]
-full-features = ["basic-features", "debug-features", "advanced-features"]
-
-# Development features
-debug-features = ["debug-logging", "performance-profiling", "memory-debugging"]
-debug-logging = []
-performance-profiling = []
-memory-debugging = []
-
-# Advanced features
-advanced-features = ["enhanced-validation", "stress-testing"]
-enhanced-validation = []
-stress-testing = []
-
-# Core audio features
-audio-processing = []
-pitch-detection = []
-
-# Testing features
-test-features = ["mock-audio", "automated-testing"]
-mock-audio = []
-automated-testing = []
-
-# Demo features
-demo-features = ["simplified-ui", "essential-audio-only"]
-simplified-ui = []
-essential-audio-only = [] 
