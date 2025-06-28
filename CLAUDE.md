@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never refer to Epics, Stories or Acceptance Criteria etc in comments or names.
 - When refactoring, never refer to before/after, old/new, legacy/enhanced etc in comments or names.
 - Never mention that "this was added" or "that was deleted" etc in comments.
+- Never pretend that you can test something that requires manual testing.
 
 ## Project Overview
 
@@ -85,29 +86,6 @@ The project is in early development with a minimal "Hello World" Yew application
    - FPS monitoring
    - Processing latency metrics
    - Input audio volume/pitch display
-
-## File Structure
-
-```
-pitch-toy/
-├── Cargo.toml              # Project dependencies and metadata
-├── README.md               # Basic project documentation
-├── index.html              # HTML entry point for web app
-├── src/
-│   ├── lib.rs              # Main application entry point
-│   └── modules/            # Module directory (currently empty)
-├── build-configs/          # Build configuration files
-│   ├── dev.toml           # Development build settings
-│   └── release.toml       # Production build settings
-├── docs/                   # Project documentation
-│   ├── project-brief-prompt.txt  # Detailed project specification
-│   ├── architecture/       # Architecture documentation (empty)
-│   ├── epics/             # Epic documentation (empty)
-│   └── stories/           # User stories (empty)
-├── dist/                   # Build output directory
-├── target/                 # Rust build artifacts
-└── .cursor/rules/          # Cursor AI agent rules
-```
 
 ## Dependencies
 
