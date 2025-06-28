@@ -6,7 +6,7 @@ mod audio_foundations_tests {
     use std::cell::RefCell;
     use std::sync::Arc;
     
-    use crate::legacy::services::AudioEngineService;
+    use super::AudioEngineService;
     use crate::modules::audio_foundations::{AudioFoundationsModule, AudioFoundations};
     use crate::modules::application_core::{Module, typed_event_bus::TypedEventBus};
 

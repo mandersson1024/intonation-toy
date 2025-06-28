@@ -5,14 +5,9 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use gloo::console;
 
-// Note: Core audio engine functionality is implemented directly in this service
-// use crate::audio::engine::AudioEngine as CoreAudioEngine;
 use crate::audio::performance_monitor::PerformanceMetrics;
 use crate::audio::engine::AudioEngine;
-
-// Now using the real AudioEngine for actual performance monitoring
-type CoreAudioEngine = AudioEngine;
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
+use crate::modules::application_core::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
 
 /// Audio processing state for Yew components
 #[derive(Clone, Debug, PartialEq)]
@@ -80,7 +75,7 @@ pub struct AudioDeviceInfo {
 /// AudioEngine service for real-time audio processing in web applications
 pub struct AudioEngineService {
     audio_context: Option<AudioContext>,
-    core_engine: Rc<RefCell<CoreAudioEngine>>,
+    core_engine: Rc<RefCell<AudioEngine>>,
     state: AudioEngineState,
     target_latency_ms: f32,
     test_signal_info: TestSignalInfo,
@@ -199,80 +194,72 @@ impl AudioEngineService {
         self.state.clone()
     }
 
-    /// Get performance metrics and update with fresh audio processing
+    /// Get current performance metrics from underlying engine
     pub fn get_performance_metrics(&self) -> PerformanceMetrics {
-        // Process fresh audio data to generate current metrics
-        if matches!(self.state, AudioEngineState::Processing) {
-            self.process_continuous_audio();
+        match self.core_engine.try_borrow() {
+            Ok(engine) => engine.get_performance_metrics(),
+            Err(_) => PerformanceMetrics::default(),
         }
-        
-        self.core_engine.borrow().get_performance_metrics()
     }
 
-    /// Get audio device configuration information
+    /// Get current device information (simplified implementation)
     pub fn get_device_info(&self) -> Option<AudioDeviceInfo> {
         self.audio_context.as_ref().map(|ctx| {
-            // Calculate buffer latency based on buffer size and sample rate
-            let buffer_latency = 1024.0 / ctx.sample_rate() as f64;
-            
             AudioDeviceInfo {
                 sample_rate: ctx.sample_rate(),
-                buffer_size: 1024, // We're using fixed buffer size
-                channels: 1, // Mono for pitch detection
-                device_name: "Default Audio Input".to_string(), // Browser doesn't expose device names
-                latency: buffer_latency, // Buffer latency in seconds
+                buffer_size: 1024, // Hardcoded for now
+                channels: 2,       // Hardcoded for now
+                device_name: "Default".to_string(),
+                latency: self.target_latency_ms as f64 / 1000.0,
             }
         })
     }
-    
-    /// Process continuous audio data to keep metrics fresh
+
+    /// Continuous audio processing loop for generating realistic test data
     fn process_continuous_audio(&self) {
-        // Generate a fresh audio buffer with slight variations for realistic metrics
-        let sample_rate = 44100.0;
-        let duration_ms = 23.0; // Shorter buffer for continuous processing
-        let samples = (sample_rate * duration_ms / 1000.0) as usize;
+        let mut engine = self.core_engine.borrow_mut();
         
-        // Add some time-based variation to simulate real audio changes
-        let time_factor = (js_sys::Date::now() / 1000.0) as f32;
-        let frequency = self.test_signal_info.frequency + (time_factor * 0.5).sin() * 5.0; // Small frequency drift
-        let amplitude = if self.test_signal_info.is_active { 
-            self.test_signal_info.amplitude * (1.0 + (time_factor * 0.3).sin() * 0.1) // Slight amplitude variation
-        } else { 
-            0.05 + (time_factor * 0.2).sin() * 0.03 // Background noise variation
+        // Generate realistic test audio data
+        let time_ms = js_sys::Date::now();
+        let frequency = 440.0 + 20.0 * (time_ms / 1000.0).sin() as f32;
+        let confidence = 0.8 + 0.2 * (time_ms / 500.0).cos() as f32;
+        
+        let audio_data = AudioData {
+            pitch_frequency: frequency,
+            confidence: confidence,
+            processing_time_ms: 2.5 + 1.0 * (time_ms / 750.0).sin() as f32,
+            audio_level: 0.5 + 0.3 * (time_ms / 300.0).cos() as f32,
+            timestamp: time_ms,
         };
         
-        let mut audio_buffer: Vec<f32> = Vec::with_capacity(samples);
-        for i in 0..samples {
-            let t = i as f32 / sample_rate + time_factor; // Add time offset for variation
-            let sample = amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin();
-            // Add small amount of noise for realism
-            let noise = (time_factor * 1000.0 + i as f32).sin() * 0.001;
-            audio_buffer.push(sample + noise);
+        // Notify subscribers
+        if let Some(callback) = &self.on_audio_data {
+            callback.emit(audio_data);
         }
         
-        // Process the fresh audio buffer to update metrics
-        if let Ok(mut engine) = self.core_engine.try_borrow_mut() {
-            let _result = engine.process_realtime_audio(&audio_buffer);
-            
-            // Update latency components with slight variation to simulate browser changes
-            let context_latency = 2.0 + (time_factor * 0.1).sin() * 0.5;
-            let output_latency = 1.5 + (time_factor * 0.15).sin() * 0.3;
-            engine.update_latency_components(context_latency, output_latency);
+        // Update performance metrics
+        if let Some(callback) = &self.on_performance_update {
+            callback.emit(engine.get_performance_metrics());
         }
     }
 
-    /// Set target latency
+    /// Set target processing latency
     pub fn set_target_latency(&mut self, latency_ms: f32) {
         self.target_latency_ms = latency_ms;
         self.core_engine.borrow_mut().set_target_latency(latency_ms);
     }
 
-    /// Enable/disable audio processing
+    /// Enable or disable audio processing
     pub fn set_enabled(&mut self, enabled: bool) {
-        self.core_engine.borrow_mut().set_enabled(enabled);
+        // Implementation depends on specific engine capabilities
+        if enabled && matches!(self.state, AudioEngineState::Ready) {
+            self.set_state(AudioEngineState::Processing);
+        } else if !enabled && matches!(self.state, AudioEngineState::Processing) {
+            self.set_state(AudioEngineState::Ready);
+        }
     }
 
-    /// Update test signal information for pitch detection simulation
+    /// Set test signal information
     pub fn set_test_signal_info(&mut self, frequency: f32, amplitude: f32, signal_type: &str, is_active: bool) {
         self.test_signal_info = TestSignalInfo {
             frequency,
@@ -287,99 +274,111 @@ impl AudioEngineService {
         &self.test_signal_info
     }
 
-    /// Get simulated audio data based on current test signal
+    /// Get simulated audio data for testing
     pub fn get_simulated_audio_data(&self) -> Option<AudioData> {
-        if matches!(self.state, AudioEngineState::Processing) && self.test_signal_info.is_active {
-            let current_time = js_sys::Date::now();
-            
-            // Create realistic pitch detection simulation based on actual test signal
+        if matches!(self.state, AudioEngineState::Processing) {
+            let time_ms = js_sys::Date::now();
             Some(AudioData {
-                pitch_frequency: self.test_signal_info.frequency + (current_time / 5000.0).sin() as f32 * 2.0, // Small oscillation around target
-                confidence: if self.test_signal_info.amplitude > 0.1 { 
-                    0.90 + (current_time / 3000.0).sin() as f32 * 0.05 // High confidence for strong signals
-                } else {
-                    0.70 + (current_time / 3000.0).sin() as f32 * 0.15 // Lower confidence for weak signals
-                },
-                processing_time_ms: 2.0 + (current_time / 2000.0).sin() as f32 * 0.5,
-                audio_level: self.test_signal_info.amplitude + (current_time / 1500.0).sin() as f32 * 0.05,
-                timestamp: current_time,
+                pitch_frequency: 440.0 + 50.0 * (time_ms / 1000.0).sin() as f32,
+                confidence: 0.85 + 0.1 * (time_ms / 800.0).cos() as f32,
+                processing_time_ms: 2.0 + 0.5 * (time_ms / 600.0).sin() as f32,
+                audio_level: 0.6 + 0.2 * (time_ms / 400.0).cos() as f32,
+                timestamp: time_ms,
             })
         } else {
             None
         }
     }
 
-    /// Switch to a different input device
+    /// Switch to different input device
     pub fn switch_input_device(&mut self, device_id: &str) -> Result<(), ApplicationError> {
-        console::log!(&format!("Switching to audio input device: {}", device_id));
+        // Simplified implementation - would need actual device switching logic
+        console::log!(&format!("Switching to device: {}", device_id));
         
-        // For now, this is a placeholder implementation
-        // In a full implementation, you would:
-        // 1. Stop current stream if active
-        // 2. Request new stream with specific device constraint
-        // 3. Reconnect the processing pipeline
-        
-        // Simulate device switch success
-        Ok(())
+        // For now, just simulate success
+        if self.audio_context.is_some() {
+            Ok(())
+        } else {
+            Err(ApplicationError::new(
+                ErrorCategory::AudioContextCreation,
+                ErrorSeverity::Warning,
+                "Cannot switch device: AudioContext not initialized".to_string(),
+                None,
+                RecoveryStrategy::UserGuidedRetry {
+                    instructions: "Initialize audio engine before switching devices".to_string(),
+                },
+            ))
+        }
     }
-
-    /// Start audio processing simulation to generate real performance metrics
+    
+    /// Start audio processing simulation for testing
     fn start_audio_processing_simulation(&mut self) {
-        // Generate a test audio buffer to feed to the engine
-        let sample_rate = 44100.0;
-        let duration_ms = 50.0; // 50ms of audio
-        let samples = (sample_rate * duration_ms / 1000.0) as usize;
+        use wasm_bindgen::closure::Closure;
+        use wasm_bindgen::JsCast;
         
-        // Create a sine wave test signal
-        let frequency = self.test_signal_info.frequency;
-        let amplitude = if self.test_signal_info.is_active { 
-            self.test_signal_info.amplitude 
-        } else { 
-            0.1 // Default small amplitude for background processing
+        let process_callback = {
+            let engine = self.core_engine.clone();
+            let on_audio_data = self.on_audio_data.clone();
+            let on_performance_update = self.on_performance_update.clone();
+            
+            Closure::wrap(Box::new(move || {
+                // Simulate continuous audio processing
+                let time_ms = js_sys::Date::now();
+                let frequency = 440.0 + 20.0 * (time_ms / 1000.0).sin() as f32;
+                let confidence = 0.8 + 0.2 * (time_ms / 500.0).cos() as f32;
+                
+                let audio_data = AudioData {
+                    pitch_frequency: frequency,
+                    confidence: confidence,
+                    processing_time_ms: 2.5 + 1.0 * (time_ms / 750.0).sin() as f32,
+                    audio_level: 0.5 + 0.3 * (time_ms / 300.0).cos() as f32,
+                    timestamp: time_ms,
+                };
+                
+                if let Some(callback) = &on_audio_data {
+                    callback.emit(audio_data);
+                }
+                
+                if let Some(callback) = &on_performance_update {
+                    if let Ok(eng) = engine.try_borrow() {
+                        callback.emit(eng.get_performance_metrics());
+                    }
+                }
+            }) as Box<dyn Fn()>)
         };
         
-        let mut audio_buffer: Vec<f32> = Vec::with_capacity(samples);
-        for i in 0..samples {
-            let t = i as f32 / sample_rate;
-            let sample = amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin();
-            audio_buffer.push(sample);
-        }
-        
-        // Process the audio buffer through the engine to generate real metrics
-        if let Ok(mut engine) = self.core_engine.try_borrow_mut() {
-            let _result = engine.process_realtime_audio(&audio_buffer);
-            
-            // Update latency components with realistic browser values
-            engine.update_latency_components(2.0, 1.5); // 2ms context + 1.5ms output latency
-            
-            console::log!("Audio processing simulation started - real metrics being generated");
-        } else {
-            console::warn!("Could not start audio processing simulation - engine borrowed");
+        // Set up periodic callback
+        if let Some(window) = web_sys::window() {
+            let _ = window.set_interval_with_callback_and_timeout_and_arguments_0(
+                process_callback.as_ref().unchecked_ref(),
+                50, // 50ms interval for 20Hz updates
+            );
+            process_callback.forget();
         }
     }
 
-    /// Handle internal errors
+    /// Handle errors and notify subscribers
     fn handle_error(&mut self, error: ApplicationError) {
-        console::error!(&format!("AudioEngine error: {}", error.message));
-        
-        let error_message = error.message.clone();
-        let error_severity = error.severity.clone();
-        
         if let Some(callback) = &self.on_error {
-            callback.emit(error);
+            callback.emit(error.clone());
         }
-
-        // Set error state if critical
-        if matches!(error_severity, ErrorSeverity::Critical) {
-            self.set_state(AudioEngineState::Error(error_message));
+        
+        // Log error to console
+        console::error!(&format!("AudioEngine Error: {}", error.message));
+        if let Some(details) = &error.details {
+            console::error!(&format!("Error Details: {}", details));
+        }
+        
+        // Update state if it's a critical error
+        if matches!(error.severity, ErrorSeverity::Critical) {
+            self.set_state(AudioEngineState::Error(error.message.clone()));
         }
     }
 
-    /// Set internal state and notify callbacks
+    /// Update state and notify subscribers
     fn set_state(&mut self, new_state: AudioEngineState) {
         if self.state != new_state {
             self.state = new_state.clone();
-            
             if let Some(callback) = &self.on_state_change {
                 callback.emit(new_state);
             }
@@ -395,17 +394,14 @@ impl Default for AudioEngineService {
 
 impl Drop for AudioEngineService {
     fn drop(&mut self) {
-        self.disconnect_stream();
-        console::log!("AudioEngineService dropped and cleaned up");
+        if matches!(self.state, AudioEngineState::Processing) {
+            self.disconnect_stream();
+        }
     }
 }
 
 impl PartialEq for AudioEngineService {
     fn eq(&self, other: &Self) -> bool {
-        // Simple equality check for Yew properties
-        // AudioContext doesn't implement PartialEq, so we skip it
-        self.state == other.state &&
-        self.target_latency_ms == other.target_latency_ms &&
-        self.test_signal_info == other.test_signal_info
+        self.state == other.state && self.target_latency_ms == other.target_latency_ms
     }
 } 

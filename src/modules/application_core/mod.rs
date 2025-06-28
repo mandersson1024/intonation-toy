@@ -16,6 +16,7 @@ pub mod application_lifecycle;
 pub mod dependency_injection;
 pub mod configuration_coordinator;
 pub mod error_recovery;
+pub mod error_manager;
 
 // Service Layer Migration - Step 2.1
 pub mod error_types;
@@ -60,3 +61,4 @@ pub use error_service::{
     ErrorService, ErrorServiceFactory
 };
 pub use modular_error_service::{ModularErrorService, ModularErrorServiceFactory};
+pub use error_manager::ErrorManager;

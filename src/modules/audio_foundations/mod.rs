@@ -5,6 +5,8 @@
 pub mod audio_foundations_module;
 pub mod audio_engine_wrapper;
 pub mod audio_events;
+pub mod audio_engine_service;
+pub mod microphone_permission;
 
 // Service Layer Migration - Step 2.1
 pub mod audio_service;
@@ -87,6 +89,8 @@ pub use audio_foundations_module::{
 };
 pub use audio_engine_wrapper::AudioEngineWrapper;
 pub use audio_events::*;
+pub use audio_engine_service::{AudioEngineService, AudioData, TestSignalInfo as EngineTestSignalInfo, AudioDeviceInfo};
+pub use microphone_permission::{PermissionState, use_microphone_permission};
 
 // Service Layer Migration re-exports
 pub use audio_service::{

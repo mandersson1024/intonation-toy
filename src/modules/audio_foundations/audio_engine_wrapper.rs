@@ -4,8 +4,7 @@
 use std::error::Error;
 use std::rc::Rc;
 use std::cell::RefCell;
-use super::{AudioEngine, AudioEngineState};
-use crate::legacy::services::{AudioEngineService, AudioEngineState as LegacyState};
+use super::{AudioEngine, AudioEngineState, AudioEngineService};
 
 /// Wrapper around existing AudioEngineService to implement new AudioEngine trait
 pub struct AudioEngineWrapper {
@@ -25,16 +24,9 @@ impl AudioEngineWrapper {
         self.legacy_service.clone()
     }
     
-    /// Convert legacy state to new state format
-    fn convert_state(legacy_state: &LegacyState) -> AudioEngineState {
-        match legacy_state {
-            LegacyState::Uninitialized => AudioEngineState::Uninitialized,
-            LegacyState::Initializing => AudioEngineState::Initializing,
-            LegacyState::Ready => AudioEngineState::Ready,
-            LegacyState::Processing => AudioEngineState::Processing,
-            LegacyState::Error(msg) => AudioEngineState::Error(msg.clone()),
-            LegacyState::Suspended => AudioEngineState::Suspended,
-        }
+    /// Convert service state to engine state format (currently they're the same)
+    fn convert_state(service_state: &AudioEngineState) -> AudioEngineState {
+        service_state.clone()
     }
 }
 
@@ -52,9 +44,9 @@ impl AudioEngine for AudioEngineWrapper {
     }
     
     fn get_state(&self) -> AudioEngineState {
-        // Convert legacy state to new state format
-        let legacy_state = self.legacy_service.borrow().get_state();
-        Self::convert_state(&legacy_state)
+        // Get current service state
+        let service_state = self.legacy_service.borrow().get_state();
+        Self::convert_state(&service_state)
     }
     
     fn set_target_latency(&mut self, latency_ms: f32) -> Result<(), Box<dyn Error>> {

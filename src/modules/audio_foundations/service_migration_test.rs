@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_error_service_basic_operations() {
-        use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
+        use crate::modules::application_core::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
         
         let factory = ModularErrorServiceFactory::new();
         let mut service = factory.create_error_service();

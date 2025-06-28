@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::fmt;
 use crate::modules::application_core::event_bus::{Event, EventPriority};
-use crate::legacy::hooks::use_microphone_permission::PermissionState;
+use super::PermissionState;
 
 /// Get current timestamp in nanoseconds
 pub fn get_timestamp_ns() -> u64 {

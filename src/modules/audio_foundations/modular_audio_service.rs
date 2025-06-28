@@ -12,9 +12,8 @@ use yew::prelude::*;
 
 use super::audio_service::{AudioService, AudioError, AudioProcessingConfig, PitchResult};
 use super::{AudioEngineState, AudioPerformanceMetrics, PitchAlgorithm};
-use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioData, TestSignalInfo};
+use super::{AudioEngineService, AudioData, TestSignalInfo, AudioDeviceInfo};
 use crate::modules::application_core::ApplicationError;
-use crate::types::AudioDeviceInfo;
 
 /// Modular audio service implementation that wraps legacy AudioEngineService
 /// 
@@ -220,15 +219,8 @@ impl AudioService for ModularAudioService {
         // Get current state from legacy service if available
         let legacy_state = self.legacy_service.borrow().get_state();
         
-        // Convert legacy state to modular state if they differ
-        match legacy_state {
-            crate::legacy::active::services::audio_engine::AudioEngineState::Uninitialized => AudioEngineState::Uninitialized,
-            crate::legacy::active::services::audio_engine::AudioEngineState::Initializing => AudioEngineState::Initializing,
-            crate::legacy::active::services::audio_engine::AudioEngineState::Ready => AudioEngineState::Ready,
-            crate::legacy::active::services::audio_engine::AudioEngineState::Processing => AudioEngineState::Processing,
-            crate::legacy::active::services::audio_engine::AudioEngineState::Error(msg) => AudioEngineState::Error(msg),
-            crate::legacy::active::services::audio_engine::AudioEngineState::Suspended => AudioEngineState::Suspended,
-        }
+        // Since we're now using the same AudioEngineState type, just return it directly
+        legacy_state
     }
     
     fn get_performance_metrics(&self) -> AudioPerformanceMetrics {
@@ -236,14 +228,9 @@ impl AudioService for ModularAudioService {
         
         // Convert legacy metrics to modular format
         AudioPerformanceMetrics {
-            audio_latency_ms: legacy_metrics.audio_latency_ms,
-            processing_latency_ms: legacy_metrics.processing_latency_ms,
-            cpu_usage_percent: legacy_metrics.cpu_usage_percent,
-            memory_usage_mb: legacy_metrics.memory_usage_mb,
-            buffer_underruns: legacy_metrics.buffer_underruns,
-            sample_rate: legacy_metrics.sample_rate,
-            buffer_size: legacy_metrics.buffer_size,
-            timestamp: legacy_metrics.timestamp,
+            pitch_detection_rate_hz: legacy_metrics.processing_latency_ms,
+            memory_usage_bytes: (legacy_metrics.memory_usage_mb * 1024.0 * 1024.0) as u64,
+            active_since: legacy_metrics.timestamp,
         }
     }
     

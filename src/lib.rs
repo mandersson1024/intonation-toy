@@ -23,7 +23,7 @@ pub mod audio;
 // pub mod performance_monitor;
 
 // Legacy modules (active during transition)
-pub mod legacy;
+// Legacy module removed - functionality moved to modules/
 
 // Re-export the audio engine for direct access from JavaScript
 pub use audio::engine::AudioEngine;

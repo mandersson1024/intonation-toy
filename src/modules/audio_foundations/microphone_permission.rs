@@ -3,7 +3,7 @@ use web_sys::{MediaStreamConstraints, MediaDevices};
 use wasm_bindgen::{JsValue, JsCast, closure::Closure};
 use wasm_bindgen_futures::JsFuture;
 use gloo::console;
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory};
+use crate::modules::application_core::{ApplicationError, ErrorCategory};
 
 /// Microphone permission states
 #[derive(Clone, Debug, PartialEq)]
@@ -198,48 +198,53 @@ pub fn use_microphone_permission() -> (
                                         let current_error_clone = current_error.clone();
                                         
                                         let onended = Closure::wrap(Box::new(move |_: web_sys::Event| {
-                                            console::warn!("🎤 Microphone device disconnected - track ended");
-                                            // Keep permission as Granted - disconnection is a device issue, not permission issue
+                                            console::warn!("🎤 Microphone track ended");
                                             current_error_clone.set(Some(
                                                 ApplicationError::microphone_device_disconnected(
-                                                    "Device was physically disconnected or became unavailable. Reconnect your device - no additional permission needed."
+                                                    "Microphone disconnected. Please reconnect your device."
                                                 )
                                             ));
+                                            // Don't change state to Denied - keep as Granted so reconnection is easier
                                         }) as Box<dyn Fn(_)>);
                                         
                                         track.set_onended(Some(onended.as_ref().unchecked_ref()));
-                                        onended.forget(); // Keep the closure alive
+                                        onended.forget();
                                     }
                                 }
                                 
                                 permission_state.set(PermissionState::Granted(stream));
                             }
                             Err(js_error) => {
-                                // Permission denied or other getUserMedia error
-                                let error_msg = js_error
-                                    .as_string()
-                                    .unwrap_or_else(|| "Unknown getUserMedia error".to_string());
+                                // Permission denied or other error
+                                console::warn!("🎤 Microphone permission denied or failed");
                                 
-                                console::error!(&format!("getUserMedia failed: {}", error_msg));
+                                // Try to extract meaningful error message
+                                let error_message = if let Some(error_str) = js_error.as_string() {
+                                    error_str
+                                } else {
+                                    "Permission denied or device unavailable".to_string()
+                                };
                                 
                                 permission_state.set(PermissionState::Denied);
                                 current_error.set(Some(
-                                    ApplicationError::microphone_permission_denied(&error_msg)
+                                    ApplicationError::microphone_permission_denied(&error_message)
                                 ));
                             }
                         }
                     }
                     Err(js_error) => {
-                        // Error creating getUserMedia promise
-                        let error_msg = js_error
-                            .as_string()
-                            .unwrap_or_else(|| "Failed to create getUserMedia request".to_string());
+                        // Error creating promise
+                        console::error!("🎤 Failed to request microphone permission");
                         
-                        console::error!(&format!("getUserMedia request failed: {}", error_msg));
+                        let error_message = if let Some(error_str) = js_error.as_string() {
+                            error_str
+                        } else {
+                            "Failed to request microphone access".to_string()
+                        };
                         
                         permission_state.set(PermissionState::Denied);
                         current_error.set(Some(
-                            ApplicationError::microphone_permission_denied(&error_msg)
+                            ApplicationError::microphone_permission_denied(&error_message)
                         ));
                     }
                 }

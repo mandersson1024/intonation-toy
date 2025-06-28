@@ -160,13 +160,15 @@ pub fn audio_control_panel(props: &AudioControlPanelProps) -> Html {
                 // Forward error to error manager if available
                 if let Some(manager) = &error_manager {
                     if let Ok(mut manager_ref) = manager.try_borrow_mut() {
-                        let app_error = crate::legacy::active::services::error_manager::ApplicationError {
-                            message: error_event.message.clone(),
-                            details: Some(error_event.context.clone()),
-                            severity: crate::legacy::active::services::error_manager::ErrorSeverity::Medium,
-                            component: "AudioControlPanel".to_string(),
-                            timestamp: chrono::Utc::now().timestamp_millis() as u64,
-                        };
+                        let app_error = crate::modules::application_core::ApplicationError::new(
+                            crate::modules::application_core::ErrorCategory::ComponentRender,
+                            crate::modules::application_core::ErrorSeverity::Warning,
+                            error_event.message.clone(),
+                            Some(error_event.context.clone()),
+                            crate::modules::application_core::RecoveryStrategy::GracefulDegradation {
+                                fallback_description: "Audio control panel may show degraded information".to_string(),
+                            },
+                        );
                         manager_ref.add_error(app_error);
                     }
                 }
