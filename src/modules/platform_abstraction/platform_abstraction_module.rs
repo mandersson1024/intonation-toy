@@ -530,13 +530,13 @@ impl IntegratedPlatformAbstractionModule {
         let event_bus = Arc::clone(&self.event_bus);
         
         // Start background monitoring task
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5)); // Monitor every 5 seconds
+        wasm_bindgen_futures::spawn_local(async move {
             let mut measurement_count = 0;
             const MAX_MEASUREMENTS: u32 = 120; // Monitor for 10 minutes (120 * 5 seconds)
             
             loop {
-                interval.tick().await;
+                // Use browser setTimeout for interval timing
+                gloo_timers::future::TimeoutFuture::new(5_000).await;
                 measurement_count += 1;
                 
                 // Measure current performance

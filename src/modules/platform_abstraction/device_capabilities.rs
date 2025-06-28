@@ -423,8 +423,9 @@ mod tests {
         assert!(optimal_settings.audio_channels <= 2);
     }
     
-    #[tokio::test]
-    async fn test_capability_monitoring() {
+    #[cfg(test)]
+    #[test]
+    fn test_capability_monitoring() {
         let detector = DeviceCapabilityDetectorImpl::new();
         
         // Start monitoring
