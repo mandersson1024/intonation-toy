@@ -31,30 +31,12 @@ pub use audio::engine::AudioEngine;
 // Re-export pitch detection components for JavaScript integration
 pub use audio::pitch_detector::{PitchAlgorithm, PitchConfig, PitchDetector, PitchResult};
 
-// Backward compatibility exports for existing legacy code
-pub mod services {
-    pub use crate::legacy::services::*;
-}
-
-pub mod components {
-    pub use crate::legacy::components::*;
-}
-
-pub mod hooks {
-    pub use crate::legacy::hooks::*;
-}
-
-// Re-export services for Yew integration
-pub use legacy::services::{ErrorManager as NewErrorManager, ApplicationError, ErrorSeverity, RecoveryStrategy};
-
-// Re-export components for easy access
-pub use legacy::components::{
-    ErrorDisplayComponent, 
-    FallbackUIComponent, ErrorToastComponent, ErrorToastContainer
+// Re-export services for Yew integration - pure modular types only
+pub use modules::application_core::{ApplicationError, ErrorSeverity, RecoveryStrategy};
+pub use modules::audio_foundations::{
+    PureAudioService, PureAudioServiceFactory, PureModularAudioService, 
+    PureModularAudioServiceFactory, PureServicePitchResult, PureAudioError
 };
-
-// Re-export hooks for easy access
-pub use legacy::hooks::{use_error_handler, use_microphone_permission, PermissionState};
 
 // Initialize the WASM module
 #[wasm_bindgen(start)]

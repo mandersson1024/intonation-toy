@@ -386,7 +386,7 @@ mod story_022_integration_test {
                     audio_caps.supported_buffer_sizes.len(), audio_caps.max_channels);
                 success_count += 1;
             }
-            Err(e) => println!("  LIMITED: Audio detection constrained in test environment: {:?}", e);
+            Err(e) => println!("  LIMITED: Audio detection constrained in test environment: {:?}", e),
         }
         
         // AC2: Graphics capability detection for future visualization features
@@ -398,7 +398,7 @@ mod story_022_integration_test {
                     graphics_caps.max_texture_size, graphics_caps.gpu_renderer);
                 success_count += 1;
             }
-            Err(e) => println!("  LIMITED: Graphics detection constrained in test environment: {:?}", e);
+            Err(e) => println!("  LIMITED: Graphics detection constrained in test environment: {:?}", e),
         }
         
         // AC3: Performance capability assessment (CPU, memory, threading)
@@ -410,7 +410,7 @@ mod story_022_integration_test {
                     perf_caps.supports_web_workers);
                 success_count += 1;
             }
-            Err(e) => println!("  LIMITED: Performance assessment constrained in test environment: {:?}", e);
+            Err(e) => println!("  LIMITED: Performance assessment constrained in test environment: {:?}", e),
         }
         
         // AC4: Hardware acceleration detection and utilization ✓
@@ -422,7 +422,7 @@ mod story_022_integration_test {
                     hw_accel.audio_processing || hw_accel.graphics_rendering);
                 success_count += 1;
             }
-            Err(e) => println!("  ⚠ LIMITED: Hardware acceleration detection constrained in test environment: {:?}", e);
+            Err(e) => println!("  ⚠ LIMITED: Hardware acceleration detection constrained in test environment: {:?}", e),
         }
         
         // AC5: Optimal settings calculation based on detected capabilities ✓
@@ -435,7 +435,7 @@ mod story_022_integration_test {
                     settings.enable_hardware_acceleration);
                 success_count += 1;
             }
-            Err(e) => println!("  ⚠ LIMITED: Optimal settings calculation constrained in test environment: {:?}", e);
+            Err(e) => println!("  ⚠ LIMITED: Optimal settings calculation constrained in test environment: {:?}", e),
         }
         
         // AC6: Capability change monitoring for dynamic optimization [-]
@@ -446,7 +446,7 @@ mod story_022_integration_test {
                 let _ = detector.stop_capability_monitoring();
                 // Note: Full dynamic monitoring requires browser environment with device change events
             }
-            Err(e) => println!("  ⚠ LIMITED: Monitoring constrained in test environment: {:?}", e);
+            Err(e) => println!("  ⚠ LIMITED: Monitoring constrained in test environment: {:?}", e),
         }
         
         // AC7: Integration with Audio Foundations device manager ✓
@@ -458,7 +458,7 @@ mod story_022_integration_test {
                     capabilities.performance_capability);
                 success_count += 1;
             }
-            Err(e) => println!("  ⚠ LIMITED: Integration constrained in test environment: {:?}", e);
+            Err(e) => println!("  ⚠ LIMITED: Integration constrained in test environment: {:?}", e),
         }
         
         // Test comprehensive capability detection
@@ -471,7 +471,7 @@ mod story_022_integration_test {
                 println!("    Performance: {} cores, tier {:?}", all_caps.performance.logical_cores, all_caps.performance.cpu_performance_tier);
                 println!("    Hardware: Audio {}, Graphics {}", all_caps.hardware_acceleration.audio_processing, all_caps.hardware_acceleration.graphics_rendering);
             }
-            Err(e) => println!("  ⚠ LIMITED: Comprehensive detection constrained in test environment: {:?}", e);
+            Err(e) => println!("  ⚠ LIMITED: Comprehensive detection constrained in test environment: {:?}", e),
         }
         
         // Summary

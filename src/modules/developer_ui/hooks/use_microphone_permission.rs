@@ -16,8 +16,7 @@ use gloo::console;
 
 // Use modular error types instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity, ErrorCategory};
-use crate::modules::application_core::RecoveryStrategy;
+use crate::modules::application_core::{ApplicationError, ErrorSeverity, ErrorCategory, RecoveryStrategy};
 
 #[cfg(debug_assertions)]
 #[derive(Clone, PartialEq)]
@@ -68,46 +67,36 @@ pub fn use_microphone_permission() -> (UseStateHandle<PermissionState>, Callback
 #[cfg(debug_assertions)]
 async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
     // Check if mediaDevices is supported
-    let window = web_sys::window().ok_or_else(|| ApplicationError {
-        id: "MEDIA_NO_WINDOW".to_string(),
-        message: "Window object not available".to_string(),
-        severity: ErrorSeverity::Critical,
-        category: ErrorCategory::BrowserCompatibility,
-        timestamp: js_sys::Date::now(),
-        details: Some("Cannot access window object in this environment".to_string()),
-        user_agent: get_user_agent(),
-        can_continue: false,
-        retry_count: 0,
-        max_retries: 0,
-        recommendations: vec![
+    let window = web_sys::window().ok_or_else(|| {
+        ApplicationError::new(
+            ErrorCategory::BrowserCompatibility,
+            ErrorSeverity::Critical,
+            "Window object not available".to_string(),
+            Some("Cannot access window object in this environment".to_string()),
+            RecoveryStrategy::ErrorEscalation {
+                escalation_message: "Critical browser compatibility issue".to_string(),
+            },
+        ).with_recommendations(vec![
             "Ensure this code is running in a browser environment".to_string(),
             "Check if the application is properly loaded".to_string(),
-        ],
-        recovery_strategy: RecoveryStrategy::ErrorEscalation {
-            escalation_message: "Critical browser compatibility issue".to_string(),
-        },
+        ])
     })?;
     
     let navigator = window.navigator();
-    let media_devices = navigator.media_devices().map_err(|_| ApplicationError {
-        id: "MEDIA_DEVICES_UNSUPPORTED".to_string(),
-        message: "MediaDevices API not supported in this browser".to_string(),
-        severity: ErrorSeverity::Critical,
-        category: ErrorCategory::MediaDevicesSupport,
-        timestamp: js_sys::Date::now(),
-        details: Some("The MediaDevices API is required for microphone access".to_string()),
-        user_agent: get_user_agent(),
-        can_continue: false,
-        retry_count: 0,
-        max_retries: 0,
-        recommendations: vec![
+    let media_devices = navigator.media_devices().map_err(|_| {
+        ApplicationError::new(
+            ErrorCategory::MediaDevicesSupport,
+            ErrorSeverity::Critical,
+            "MediaDevices API not supported in this browser".to_string(),
+            Some("The MediaDevices API is required for microphone access".to_string()),
+            RecoveryStrategy::GracefulDegradation {
+                fallback_description: "Microphone functionality unavailable".to_string(),
+            },
+        ).with_recommendations(vec![
             "Use a modern browser that supports WebRTC".to_string(),
             "Update your browser to the latest version".to_string(),
             "Enable microphone permissions in browser settings".to_string(),
-        ],
-        recovery_strategy: RecoveryStrategy::GracefulDegradation {
-            fallback_description: "Microphone functionality unavailable".to_string(),
-        },
+        ])
     })?;
     
     // Create constraints for audio-only stream
@@ -118,26 +107,19 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
     // Request user media
     let promise = media_devices.get_user_media_with_constraints(&constraints).map_err(|e| {
         console::error!(&format!("Failed to call getUserMedia: {:?}", e));
-        ApplicationError {
-            id: "MEDIA_REQUEST_FAILED".to_string(),
-            message: "Failed to request microphone access".to_string(),
-            severity: ErrorSeverity::Warning,
-            category: ErrorCategory::MicrophonePermission,
-            timestamp: js_sys::Date::now(),
-            details: Some(format!("getUserMedia call failed: {:?}", e)),
-            user_agent: get_user_agent(),
-            can_continue: true,
-            retry_count: 0,
-            max_retries: 3,
-            recommendations: vec![
-                "Check browser permissions for this site".to_string(),
-                "Ensure microphone is connected and working".to_string(),
-                "Try refreshing the page".to_string(),
-            ],
-            recovery_strategy: RecoveryStrategy::UserGuidedRetry {
+        ApplicationError::new(
+            ErrorCategory::MicrophonePermission,
+            ErrorSeverity::Warning,
+            "Failed to request microphone access".to_string(),
+            Some(format!("getUserMedia call failed: {:?}", e)),
+            RecoveryStrategy::UserGuidedRetry {
                 instructions: "Please check your microphone permissions and try again".to_string(),
             },
-        }
+        ).with_recommendations(vec![
+            "Check browser permissions for this site".to_string(),
+            "Ensure microphone is connected and working".to_string(),
+            "Try refreshing the page".to_string(),
+        ]).with_max_retries(3)
     })?;
     
     let stream_js = wasm_bindgen_futures::JsFuture::from(promise).await.map_err(|e| {
@@ -146,110 +128,70 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
         
         // Determine error type based on the error message
         if error_message.contains("NotAllowedError") || error_message.contains("PermissionDeniedError") {
-            ApplicationError {
-                id: "MICROPHONE_PERMISSION_DENIED".to_string(),
-                message: "Microphone permission denied by user".to_string(),
-                severity: ErrorSeverity::Warning,
-                category: ErrorCategory::MicrophonePermission,
-                timestamp: js_sys::Date::now(),
-                details: Some("User explicitly denied microphone permission".to_string()),
-                user_agent: get_user_agent(),
-                can_continue: true,
-                retry_count: 0,
-                max_retries: 3,
-                recommendations: vec![
+            ApplicationError::microphone_permission_denied("User explicitly denied microphone permission")
+                .with_recommendations(vec![
                     "Click the microphone icon in the address bar to allow access".to_string(),
                     "Check browser settings for microphone permissions".to_string(),
                     "Reload the page and try again".to_string(),
-                ],
-                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
-                    instructions: "Please allow microphone access when prompted".to_string(),
-                },
-            }
+                ])
         } else if error_message.contains("NotFoundError") || error_message.contains("DevicesNotFoundError") {
-            ApplicationError {
-                id: "MICROPHONE_NOT_FOUND".to_string(),
-                message: "No microphone device found".to_string(),
-                severity: ErrorSeverity::Warning,
-                category: ErrorCategory::DeviceAccess,
-                timestamp: js_sys::Date::now(),
-                details: Some("No audio input devices are available".to_string()),
-                user_agent: get_user_agent(),
-                can_continue: false,
-                retry_count: 0,
-                max_retries: 1,
-                recommendations: vec![
-                    "Connect a microphone to your computer".to_string(),
-                    "Check that your microphone is working in other applications".to_string(),
-                    "Try a different microphone if available".to_string(),
-                ],
-                recovery_strategy: RecoveryStrategy::GracefulDegradation {
+            ApplicationError::new(
+                ErrorCategory::DeviceAccess,
+                ErrorSeverity::Warning,
+                "No microphone device found".to_string(),
+                Some("No audio input devices are available".to_string()),
+                RecoveryStrategy::GracefulDegradation {
                     fallback_description: "Audio input functionality disabled".to_string(),
                 },
-            }
+            ).with_recommendations(vec![
+                "Connect a microphone to your computer".to_string(),
+                "Check that your microphone is working in other applications".to_string(),
+                "Try a different microphone if available".to_string(),
+            ]).with_max_retries(1)
         } else if error_message.contains("NotReadableError") || error_message.contains("TrackStartError") {
-            ApplicationError {
-                id: "MICROPHONE_HARDWARE_ERROR".to_string(),
-                message: "Microphone hardware error".to_string(),
-                severity: ErrorSeverity::Warning,
-                category: ErrorCategory::DeviceAccess,
-                timestamp: js_sys::Date::now(),
-                details: Some("Hardware or driver issue with microphone".to_string()),
-                user_agent: get_user_agent(),
-                can_continue: true,
-                retry_count: 0,
-                max_retries: 2,
-                recommendations: vec![
-                    "Check microphone drivers are up to date".to_string(),
-                    "Try restarting your browser".to_string(),
-                    "Disconnect and reconnect your microphone".to_string(),
-                ],
-                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
+            ApplicationError::new(
+                ErrorCategory::DeviceAccess,
+                ErrorSeverity::Warning,
+                "Microphone hardware error".to_string(),
+                Some("Hardware or driver issue with microphone".to_string()),
+                RecoveryStrategy::UserGuidedRetry {
                     instructions: "Please check your microphone hardware and try again".to_string(),
                 },
-            }
+            ).with_recommendations(vec![
+                "Check microphone drivers are up to date".to_string(),
+                "Try restarting your browser".to_string(),
+                "Disconnect and reconnect your microphone".to_string(),
+            ]).with_max_retries(2)
         } else {
-            ApplicationError {
-                id: "MICROPHONE_UNKNOWN_ERROR".to_string(),
-                message: "Unknown microphone access error".to_string(),
-                severity: ErrorSeverity::Warning,
-                category: ErrorCategory::Unknown,
-                timestamp: js_sys::Date::now(),
-                details: Some(error_message),
-                user_agent: get_user_agent(),
-                can_continue: true,
-                retry_count: 0,
-                max_retries: 2,
-                recommendations: vec![
-                    "Try refreshing the page".to_string(),
-                    "Check browser console for more details".to_string(),
-                    "Try using a different browser".to_string(),
-                ],
-                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
+            ApplicationError::new(
+                ErrorCategory::Unknown,
+                ErrorSeverity::Warning,
+                "Unknown microphone access error".to_string(),
+                Some(error_message),
+                RecoveryStrategy::UserGuidedRetry {
                     instructions: "Please try again or contact support if the problem persists".to_string(),
                 },
-            }
+            ).with_recommendations(vec![
+                "Try refreshing the page".to_string(),
+                "Check browser console for more details".to_string(),
+                "Try using a different browser".to_string(),
+            ]).with_max_retries(2)
         }
     })?;
     
-    let stream: MediaStream = stream_js.dyn_into().map_err(|_| ApplicationError {
-        id: "MEDIA_STREAM_CONVERSION_ERROR".to_string(),
-        message: "Failed to convert media stream".to_string(),
-        severity: ErrorSeverity::Critical,
-        category: ErrorCategory::Unknown,
-        timestamp: js_sys::Date::now(),
-        details: Some("Media stream object conversion failed".to_string()),
-        user_agent: get_user_agent(),
-        can_continue: false,
-        retry_count: 0,
-        max_retries: 0,
-        recommendations: vec![
+    let stream: MediaStream = stream_js.dyn_into().map_err(|_| {
+        ApplicationError::new(
+            ErrorCategory::Unknown,
+            ErrorSeverity::Critical,
+            "Failed to convert media stream".to_string(),
+            Some("Media stream object conversion failed".to_string()),
+            RecoveryStrategy::ErrorEscalation {
+                escalation_message: "Critical media stream conversion failure".to_string(),
+            },
+        ).with_recommendations(vec![
             "This is likely a browser compatibility issue".to_string(),
             "Try using a different browser".to_string(),
-        ],
-        recovery_strategy: RecoveryStrategy::ErrorEscalation {
-            escalation_message: "Critical media stream conversion failure".to_string(),
-        },
+        ])
     })?;
     
     console::log!("Successfully obtained microphone stream");

@@ -13,7 +13,7 @@ use yew::prelude::*;
 use super::audio_service::{AudioService, AudioError, AudioProcessingConfig, PitchResult};
 use super::{AudioEngineState, AudioPerformanceMetrics, PitchAlgorithm};
 use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioData, TestSignalInfo};
-use crate::legacy::active::services::error_manager::ApplicationError;
+use crate::modules::application_core::ApplicationError;
 use crate::types::AudioDeviceInfo;
 
 /// Modular audio service implementation that wraps legacy AudioEngineService
@@ -55,19 +55,20 @@ impl ModularAudioService {
         self.legacy_service.clone()
     }
     
-    /// Convert legacy ApplicationError to AudioError
+    /// Convert modular ApplicationError to AudioError
     fn convert_legacy_error(&self, error: ApplicationError) -> AudioError {
+        use crate::modules::application_core::ErrorCategory;
         match error.category {
-            crate::legacy::active::services::error_manager::ErrorCategory::AudioContextCreation => {
+            ErrorCategory::AudioContextCreation => {
                 AudioError::InitializationFailed(error.message)
             }
-            crate::legacy::active::services::error_manager::ErrorCategory::PitchDetection => {
+            ErrorCategory::PitchDetection => {
                 AudioError::ProcessingFailed(error.message)
             }
-            crate::legacy::active::services::error_manager::ErrorCategory::DeviceAccess => {
+            ErrorCategory::DeviceAccess => {
                 AudioError::DeviceAccessFailed(error.message)
             }
-            crate::legacy::active::services::error_manager::ErrorCategory::MicrophonePermission => {
+            ErrorCategory::MicrophonePermission => {
                 AudioError::DeviceAccessFailed(error.message)
             }
             _ => AudioError::ProcessingFailed(error.message)

@@ -10,7 +10,7 @@ use gloo::timers::callback::Timeout;
 
 // Use modular error types instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity};
+use crate::modules::application_core::{ApplicationError, ErrorSeverity};
 
 #[cfg(debug_assertions)]
 #[derive(Properties, PartialEq)]

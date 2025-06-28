@@ -32,7 +32,7 @@ use crate::modules::audio_foundations::audio_events::{
 #[cfg(debug_assertions)]
 use crate::modules::audio_foundations::{ModularAudioService, AudioEngineState, AudioDeviceInfo};
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::ApplicationError;
+use crate::modules::application_core::ApplicationError;
 use crate::modules::application_core::ModularErrorService;
 
 // JavaScript binding for getting audio output device name

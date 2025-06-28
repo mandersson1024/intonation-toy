@@ -24,7 +24,7 @@ use crate::modules::audio_foundations::audio_events::{
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::hooks::use_microphone_permission::{use_microphone_permission, PermissionState};
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::ApplicationError;
+use crate::modules::application_core::ApplicationError;
 
 #[cfg(debug_assertions)]
 #[derive(Properties, PartialEq)]

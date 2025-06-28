@@ -10,6 +10,10 @@ pub mod audio_events;
 pub mod audio_service;
 pub mod modular_audio_service;
 
+// Service Layer Migration - Step 2.2 (Pure Modular Services)
+pub mod pure_audio_service;
+pub mod pure_modular_audio_service;
+
 // STORY-015: Multi-Algorithm Pitch Detection
 pub mod multi_algorithm_pitch_detector;
 pub mod runtime_pitch_switching;
@@ -56,6 +60,9 @@ pub mod performance_regression_tests;
 pub mod service_migration_test;
 
 #[cfg(test)]
+pub mod pure_audio_service_test;
+
+#[cfg(test)]
 pub mod enhanced_integration_tests;
 
 #[cfg(test)]
@@ -87,6 +94,18 @@ pub use audio_service::{
     PitchResult as ServicePitchResult, AudioError
 };
 pub use modular_audio_service::{ModularAudioService, ModularAudioServiceFactory};
+
+// Pure Modular Service re-exports (Step 2.2)
+pub use pure_audio_service::{
+    PureAudioService, PureAudioServiceFactory, 
+    AudioProcessingConfig as PureAudioProcessingConfig,
+    PitchResult as PureServicePitchResult, 
+    AudioError as PureAudioError
+};
+pub use pure_modular_audio_service::{
+    PureModularAudioService, PureModularAudioServiceFactory,
+    AudioProcessingEvent, AudioStateChangeEvent, TestSignalInfo
+};
 
 // STORY-015: Multi-Algorithm Pitch Detection re-exports
 pub use multi_algorithm_pitch_detector::{

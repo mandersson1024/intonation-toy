@@ -25,7 +25,7 @@ use crate::modules::audio_foundations::audio_events::{
 
 // Use modular error types and services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::modules::application_core::{ApplicationError, ErrorSeverity, ErrorCategory};
 use crate::modules::application_core::ModularErrorService;
 
 #[cfg(debug_assertions)]

@@ -8,7 +8,7 @@ use std::fmt::{self, Display};
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use crate::modules::application_core::{Event, EventBus, EventPriority};
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory, ErrorSeverity};
+use super::error_types::{ApplicationError, ErrorCategory, ErrorSeverity};
 
 /// Error service error types
 #[derive(Debug, Clone, PartialEq)]

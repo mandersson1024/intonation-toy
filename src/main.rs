@@ -6,7 +6,6 @@ mod audio;
 // mod browser_compat;
 // mod error_manager;
 // mod performance_monitor;
-mod legacy;
 mod modules;
 mod types;
 mod bootstrap;
@@ -67,7 +66,7 @@ fn app() -> Html {
     });
     
     // Log modular system health and service migration status on each render
-    use_effect_with_deps(move |bootstrap| {
+    use_effect(|| {
         if let Some(bootstrap) = bootstrap.as_ref() {
             // Log overall system health
             if bootstrap.is_healthy() {
@@ -95,16 +94,19 @@ fn app() -> Html {
             web_sys::console::warn_1(&"❌ Modular bootstrap not available".into());
         }
         || {}
-    }, bootstrap.clone());
+    });
     
     // Cleanup on unmount
-    use_effect_with_deps(move |_| {
-        || {
-            if let Some(mut bootstrap) = bootstrap.take() {
-                let _ = bootstrap.shutdown();
+    use_effect({
+        let bootstrap = bootstrap.clone();
+        move || {
+            || {
+                if let Some(mut bootstrap) = bootstrap.take() {
+                    let _ = bootstrap.shutdown();
+                }
             }
         }
-    }, ());
+    });
     
     html! {
         <div class="app">

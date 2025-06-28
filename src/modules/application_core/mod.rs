@@ -18,6 +18,7 @@ pub mod configuration_coordinator;
 pub mod error_recovery;
 
 // Service Layer Migration - Step 2.1
+pub mod error_types;
 pub mod error_service;
 pub mod modular_error_service;
 
@@ -54,6 +55,7 @@ pub use application_lifecycle::*;
 pub use error_recovery::*;
 
 // Service Layer Migration re-exports
+pub use error_types::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
 pub use error_service::{
     ErrorService, ErrorServiceFactory
 };
