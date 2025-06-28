@@ -88,7 +88,7 @@ pub fn microphone_permission(props: &MicrophonePermissionProps) -> Html {
         use_effect_with(device_list_event.clone(), move |event| {
             if let Some(device_event) = &**event {
                 let mic_count = device_event.devices.iter()
-                    .filter(|d| d.kind == crate::modules::audio_foundations::audio_events::AudioDeviceKind::AudioInput)
+                    .filter(|d| d.kind == crate::types::audio::AudioDeviceKind::AudioInput)
                     .count();
                 web_sys::console::log_1(&format!("Device list updated: {} microphones available", mic_count).into());
                 last_device_update.set(Some(device_event.clone()));
@@ -224,7 +224,7 @@ pub fn microphone_permission(props: &MicrophonePermissionProps) -> Html {
                                         match mic_event.state {
                                             crate::modules::audio_foundations::audio_events::DeviceState::Active => "good",
                                             crate::modules::audio_foundations::audio_events::DeviceState::Inactive => "neutral",
-                                            crate::modules::audio_foundations::audio_events::DeviceState::Error => "warning",
+                                            crate::modules::audio_foundations::audio_events::DeviceState::Error(_) => "warning",
                                             _ => "neutral"
                                         })}
                                     >
@@ -251,7 +251,7 @@ pub fn microphone_permission(props: &MicrophonePermissionProps) -> Html {
                         // Device list status
                         { if let Some(ref device_event) = *last_device_update {
                             let mic_count = device_event.devices.iter()
-                                .filter(|d| d.kind == crate::modules::audio_foundations::audio_events::AudioDeviceKind::AudioInput)
+                                .filter(|d| d.kind == crate::types::audio::AudioDeviceKind::AudioInput)
                                 .count();
                             html! {
                                 <div class="event-status-item">

@@ -10,6 +10,8 @@ use web_sys::{AudioContext, OscillatorNode, OscillatorType, AudioContextState, G
 #[cfg(debug_assertions)]
 use wasm_bindgen::JsCast;
 #[cfg(debug_assertions)]
+use wasm_bindgen::closure::Closure;
+#[cfg(debug_assertions)]
 use gloo::console;
 #[cfg(debug_assertions)]
 use std::rc::Rc;

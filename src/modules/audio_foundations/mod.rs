@@ -9,7 +9,6 @@ pub mod audio_events;
 // Service Layer Migration - Step 2.1
 pub mod audio_service;
 pub mod modular_audio_service;
-pub mod legacy_bridge;
 
 // STORY-015: Multi-Algorithm Pitch Detection
 pub mod multi_algorithm_pitch_detector;
@@ -88,7 +87,6 @@ pub use audio_service::{
     PitchResult as ServicePitchResult, AudioError
 };
 pub use modular_audio_service::{ModularAudioService, ModularAudioServiceFactory};
-pub use legacy_bridge::LegacyAudioBridge;
 
 // STORY-015: Multi-Algorithm Pitch Detection re-exports
 pub use multi_algorithm_pitch_detector::{

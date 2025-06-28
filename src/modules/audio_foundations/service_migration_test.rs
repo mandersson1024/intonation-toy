@@ -8,11 +8,10 @@ mod tests {
     use super::*;
     use crate::modules::audio_foundations::{
         AudioService, ModularAudioService, ModularAudioServiceFactory, 
-        AudioProcessingConfig, PitchAlgorithm, LegacyAudioBridge
+        AudioProcessingConfig, PitchAlgorithm
     };
     use crate::modules::application_core::{
-        ErrorService, ModularErrorService, ModularErrorServiceFactory,
-        LegacyErrorBridge
+        ErrorService, ModularErrorService, ModularErrorServiceFactory
     };
     use std::sync::{Arc, Mutex};
     use std::cell::RefCell;
@@ -36,25 +35,6 @@ mod tests {
         assert!(true); // Basic creation test
     }
 
-    #[test]
-    fn test_legacy_audio_bridge_creation() {
-        let factory = ModularAudioServiceFactory::new();
-        let modular_service = Arc::new(Mutex::new(factory.create_audio_service()));
-        let bridge = LegacyAudioBridge::new(modular_service);
-        
-        // Bridge should be created successfully
-        assert!(true); // Basic creation test
-    }
-
-    #[test]
-    fn test_legacy_error_bridge_creation() {
-        let factory = ModularErrorServiceFactory::new();
-        let modular_service = Arc::new(Mutex::new(factory.create_error_service()));
-        let bridge = LegacyErrorBridge::new(modular_service);
-        
-        // Bridge should be created successfully
-        assert!(true); // Basic creation test
-    }
 
     #[test]
     fn test_audio_service_initialization() {

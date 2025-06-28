@@ -12,13 +12,11 @@ use std::sync::{Arc, Mutex};
 
 // Service Layer Migration imports
 use crate::modules::audio_foundations::{
-    AudioService, ModularAudioService, ModularAudioServiceFactory, LegacyAudioBridge
+    AudioService, ModularAudioService, ModularAudioServiceFactory
 };
 use crate::modules::application_core::{
-    ErrorService, ModularErrorService, ModularErrorServiceFactory, LegacyErrorBridge
+    ErrorService, ModularErrorService, ModularErrorServiceFactory
 };
-use crate::legacy::active::services::audio_engine::AudioEngineService;
-use crate::legacy::active::services::error_manager::ErrorManager;
 
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::DeveloperUIModule;
@@ -30,8 +28,6 @@ pub struct ApplicationBootstrap {
     // Service Layer Migration - Step 2.1
     modular_audio_service: Option<Arc<Mutex<dyn AudioService>>>,
     modular_error_service: Option<Arc<Mutex<dyn ErrorService>>>,
-    legacy_audio_bridge: Option<Rc<RefCell<LegacyAudioBridge>>>,
-    legacy_error_bridge: Option<Rc<RefCell<LegacyErrorBridge>>>,
 }
 
 impl ApplicationBootstrap {
@@ -41,8 +37,6 @@ impl ApplicationBootstrap {
             lifecycle: ApplicationLifecycleCoordinator::new(),
             modular_audio_service: None,
             modular_error_service: None,
-            legacy_audio_bridge: None,
-            legacy_error_bridge: None,
         }
     }
     
@@ -120,14 +114,7 @@ impl ApplicationBootstrap {
         };
         self.modular_error_service = Some(error_service.clone());
         
-        // Create legacy bridges
-        let audio_bridge = LegacyAudioBridge::new(audio_service);
-        self.legacy_audio_bridge = Some(Rc::new(RefCell::new(audio_bridge)));
-        
-        let error_bridge = LegacyErrorBridge::new(error_service);
-        self.legacy_error_bridge = Some(Rc::new(RefCell::new(error_bridge)));
-        
-        web_sys::console::log_1(&"Service Migration: Modular services and bridges initialized".into());
+        web_sys::console::log_1(&"Service Migration: Modular services initialized".into());
         Ok(())
     }
     
@@ -175,9 +162,7 @@ impl ApplicationBootstrap {
     pub fn shutdown(&mut self) -> Result<(), CoreError> {
         web_sys::console::log_1(&"Modular system: Starting shutdown".into());
         
-        // Clean up service bridges
-        self.legacy_audio_bridge = None;
-        self.legacy_error_bridge = None;
+        // Clean up modular services
         self.modular_audio_service = None;
         self.modular_error_service = None;
         
@@ -185,48 +170,8 @@ impl ApplicationBootstrap {
     }
     
     // =============================================================================
-    // Service Layer Migration - Step 2.1: Legacy Bridge Methods
+    // Service Layer Migration - Direct Access to Modular Services
     // =============================================================================
-    
-    /// Get legacy AudioEngineService interface (bridge method)
-    /// 
-    /// Returns a legacy-compatible AudioEngineService that uses the modular
-    /// audio service underneath. This enables legacy components to continue
-    /// working without modification during the migration period.
-    pub fn get_legacy_audio_service(&self) -> Option<Rc<RefCell<AudioEngineService>>> {
-        // This method needs to be implemented differently since LegacyAudioBridge
-        // doesn't directly implement AudioEngineService trait. For now, we'll
-        // return None and guide users to use the bridge directly.
-        None
-    }
-    
-    /// Get legacy ErrorManager interface (bridge method)
-    /// 
-    /// Returns a legacy-compatible ErrorManager that uses the modular
-    /// error service underneath. This enables legacy components to continue
-    /// working without modification during the migration period.
-    pub fn get_legacy_error_manager(&self) -> Option<Rc<RefCell<ErrorManager>>> {
-        // This method needs to be implemented differently since LegacyErrorBridge
-        // doesn't directly implement ErrorManager trait. For now, we'll
-        // return None and guide users to use the bridge directly.
-        None
-    }
-    
-    /// Get the legacy audio bridge (direct access)
-    /// 
-    /// Provides direct access to the legacy audio bridge for components
-    /// that need to transition gradually to the new interface.
-    pub fn get_audio_bridge(&self) -> Option<Rc<RefCell<LegacyAudioBridge>>> {
-        self.legacy_audio_bridge.clone()
-    }
-    
-    /// Get the legacy error bridge (direct access)
-    /// 
-    /// Provides direct access to the legacy error bridge for components
-    /// that need to transition gradually to the new interface.
-    pub fn get_error_bridge(&self) -> Option<Rc<RefCell<LegacyErrorBridge>>> {
-        self.legacy_error_bridge.clone()
-    }
     
     /// Get modular audio service (direct access)
     /// 
@@ -260,8 +205,6 @@ impl ApplicationBootstrap {
         let mut status = HashMap::new();
         status.insert("modular_audio_service".to_string(), self.modular_audio_service.is_some());
         status.insert("modular_error_service".to_string(), self.modular_error_service.is_some());
-        status.insert("legacy_audio_bridge".to_string(), self.legacy_audio_bridge.is_some());
-        status.insert("legacy_error_bridge".to_string(), self.legacy_error_bridge.is_some());
         status.insert("service_migration_enabled".to_string(), self.is_service_migration_enabled());
         status
     }
