@@ -6,6 +6,11 @@ pub mod audio_foundations_module;
 pub mod audio_engine_wrapper;
 pub mod audio_events;
 
+// Service Layer Migration - Step 2.1
+pub mod audio_service;
+pub mod modular_audio_service;
+pub mod legacy_bridge;
+
 // STORY-015: Multi-Algorithm Pitch Detection
 pub mod multi_algorithm_pitch_detector;
 pub mod runtime_pitch_switching;
@@ -49,6 +54,9 @@ pub mod comprehensive_pitch_detector_tests;
 pub mod performance_regression_tests;
 
 #[cfg(test)]
+pub mod service_migration_test;
+
+#[cfg(test)]
 pub mod enhanced_integration_tests;
 
 #[cfg(test)]
@@ -73,6 +81,14 @@ pub use audio_foundations_module::{
 };
 pub use audio_engine_wrapper::AudioEngineWrapper;
 pub use audio_events::*;
+
+// Service Layer Migration re-exports
+pub use audio_service::{
+    AudioService, AudioServiceFactory, AudioProcessingConfig, 
+    PitchResult as ServicePitchResult, AudioError
+};
+pub use modular_audio_service::{ModularAudioService, ModularAudioServiceFactory};
+pub use legacy_bridge::LegacyAudioBridge;
 
 // STORY-015: Multi-Algorithm Pitch Detection re-exports
 pub use multi_algorithm_pitch_detector::{

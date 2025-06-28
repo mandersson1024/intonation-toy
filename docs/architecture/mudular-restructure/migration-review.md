@@ -155,6 +155,21 @@ fn main() {
 2. **UI Update Events**: Subscribe to audio events for real-time visualization updates
 3. **Configuration Events**: Connect UI changes to configuration management
 
+### Phase 2.2: Update Modular Components
+- Remove legacy service imports from modular components
+- Use modular services directly instead of bridges
+- Test modular component functionality
+
+### Phase 2.3: Service Layer Cleanup
+- Remove duplicate service implementations
+- Consolidate service interfaces
+- Optimize service performance
+
+### Phase 3.0: Main Application Migration
+- Switch main.rs to use modular DebugInterface
+- Remove direct legacy component usage
+- Prepare for legacy deprecation
+
 ## Conclusion
 
 ### Overall Assessment Summary

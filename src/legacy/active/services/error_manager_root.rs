@@ -1,4 +1,4 @@
-use crate::browser_compat::{BrowserInfo, CompatibilityLevel};
+use crate::legacy::active::services::browser_compat::{BrowserInfo, CompatibilityLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;

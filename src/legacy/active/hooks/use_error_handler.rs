@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationError, ErrorCategory, ErrorSeverity};
-use crate::browser_compat::BrowserInfo;
+use crate::legacy::active::services::browser_compat::BrowserInfo;
 
 pub struct ErrorHandler {
     manager: UseStateHandle<ErrorManager>,

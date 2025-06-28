@@ -17,6 +17,11 @@ pub mod dependency_injection;
 pub mod configuration_coordinator;
 pub mod error_recovery;
 
+// Service Layer Migration - Step 2.1
+pub mod error_service;
+pub mod modular_error_service;
+pub mod error_service_bridge;
+
 #[cfg(test)]
 pub mod buffer_benchmark;
 
@@ -53,3 +58,11 @@ pub use application_lifecycle::*;
 pub use dependency_injection::*;
 pub use configuration_coordinator::*;
 pub use error_recovery::*;
+
+// Service Layer Migration re-exports
+pub use error_service::{
+    ErrorService, ErrorServiceFactory, ErrorEvent, RecoveryEvent,
+    ServiceError, ErrorCallback, SubscriptionId
+};
+pub use modular_error_service::{ModularErrorService, ModularErrorServiceFactory};
+pub use error_service_bridge::LegacyErrorBridge;
