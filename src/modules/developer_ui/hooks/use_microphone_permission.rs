@@ -14,9 +14,10 @@ use wasm_bindgen::JsValue;
 #[cfg(debug_assertions)]
 use gloo::console;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular error types instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::modules::application_core::RecoveryStrategy;
 
 #[cfg(debug_assertions)]
 #[derive(Clone, PartialEq)]
@@ -82,7 +83,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
             "Ensure this code is running in a browser environment".to_string(),
             "Check if the application is properly loaded".to_string(),
         ],
-        recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::ErrorEscalation {
+        recovery_strategy: RecoveryStrategy::ErrorEscalation {
             escalation_message: "Critical browser compatibility issue".to_string(),
         },
     })?;
@@ -104,7 +105,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
             "Update your browser to the latest version".to_string(),
             "Enable microphone permissions in browser settings".to_string(),
         ],
-        recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::GracefulDegradation {
+        recovery_strategy: RecoveryStrategy::GracefulDegradation {
             fallback_description: "Microphone functionality unavailable".to_string(),
         },
     })?;
@@ -133,7 +134,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
                 "Ensure microphone is connected and working".to_string(),
                 "Try refreshing the page".to_string(),
             ],
-            recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::UserGuidedRetry {
+            recovery_strategy: RecoveryStrategy::UserGuidedRetry {
                 instructions: "Please check your microphone permissions and try again".to_string(),
             },
         }
@@ -161,7 +162,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
                     "Check browser settings for microphone permissions".to_string(),
                     "Reload the page and try again".to_string(),
                 ],
-                recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::UserGuidedRetry {
+                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
                     instructions: "Please allow microphone access when prompted".to_string(),
                 },
             }
@@ -182,7 +183,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
                     "Check that your microphone is working in other applications".to_string(),
                     "Try a different microphone if available".to_string(),
                 ],
-                recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::GracefulDegradation {
+                recovery_strategy: RecoveryStrategy::GracefulDegradation {
                     fallback_description: "Audio input functionality disabled".to_string(),
                 },
             }
@@ -203,7 +204,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
                     "Try restarting your browser".to_string(),
                     "Disconnect and reconnect your microphone".to_string(),
                 ],
-                recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::UserGuidedRetry {
+                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
                     instructions: "Please check your microphone hardware and try again".to_string(),
                 },
             }
@@ -224,7 +225,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
                     "Check browser console for more details".to_string(),
                     "Try using a different browser".to_string(),
                 ],
-                recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::UserGuidedRetry {
+                recovery_strategy: RecoveryStrategy::UserGuidedRetry {
                     instructions: "Please try again or contact support if the problem persists".to_string(),
                 },
             }
@@ -246,7 +247,7 @@ async fn request_microphone_access() -> Result<MediaStream, ApplicationError> {
             "This is likely a browser compatibility issue".to_string(),
             "Try using a different browser".to_string(),
         ],
-        recovery_strategy: crate::legacy::active::services::error_manager::RecoveryStrategy::ErrorEscalation {
+        recovery_strategy: RecoveryStrategy::ErrorEscalation {
             escalation_message: "Critical media stream conversion failure".to_string(),
         },
     })?;

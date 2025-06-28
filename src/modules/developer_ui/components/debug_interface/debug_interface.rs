@@ -10,13 +10,11 @@ use std::rc::Rc;
 #[cfg(debug_assertions)]
 use std::cell::RefCell;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::{AudioEngineService};
+use crate::modules::audio_foundations::{ModularAudioService, AudioEngineState};
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::audio_engine::AudioEngineState;
-#[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::ErrorManager;
+use crate::modules::application_core::ModularErrorService;
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::components::{
     audio_controls::AudioControlPanel,
@@ -28,8 +26,8 @@ use crate::modules::developer_ui::components::{
 #[cfg(debug_assertions)]
 #[derive(Properties)]
 pub struct DebugInterfaceProps {
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
-    pub error_manager: Option<Rc<RefCell<ErrorManager>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
+    pub error_manager: Option<Rc<RefCell<ModularErrorService>>>,
     #[prop_or(1000)]
     pub update_interval_ms: u32,
 }

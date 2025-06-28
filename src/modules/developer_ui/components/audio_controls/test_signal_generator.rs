@@ -28,9 +28,9 @@ use crate::modules::audio_foundations::audio_events::{
     AudioProcessingStateEvent, AudioSessionEvent, AudioPerformanceMetricsEvent
 };
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular audio service instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::AudioEngineService;
+use crate::modules::audio_foundations::ModularAudioService;
 
 #[cfg(debug_assertions)]
 #[derive(Clone, Debug, PartialEq)]
@@ -90,7 +90,7 @@ pub enum Msg {
 #[derive(Properties, PartialEq)]
 pub struct TestSignalGeneratorProps {
     #[prop_or_default]
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
     #[prop_or_default]
     pub on_generation_state_change: Option<Callback<bool>>,
     /// Event bus for subscribing to audio events and publishing test signal events
@@ -202,7 +202,7 @@ impl Component for TestSignalGenerator {
             
             // Event-driven message handlers
             Msg::AudioStateChanged(new_state) => {
-                console::log(&format!("Test Signal Generator: Audio state changed to {:?}", new_state));
+                console::log!(&format!("Test Signal Generator: Audio state changed to {:?}", new_state));
                 self.last_audio_state = Some(new_state.clone());
                 
                 // Auto-stop signal generation if audio engine stops
@@ -210,7 +210,7 @@ impl Component for TestSignalGenerator {
                                     crate::modules::audio_foundations::AudioEngineState::Idle |
                 crate::modules::audio_foundations::AudioEngineState::Error(_) => {
                         if self.is_generating {
-                            console::log("Auto-stopping test signal due to audio engine state change");
+                            console::log!("Auto-stopping test signal due to audio engine state change");
                             self.stop_signal_generation_with_context(ctx);
                         }
                     }
@@ -229,7 +229,7 @@ impl Component for TestSignalGenerator {
                         },
                     };
                     if let Err(e) = publisher.publish_control_event(event) {
-                        console::error(&format!("Failed to publish test signal sync event: {}", e));
+                        console::error!(&format!("Failed to publish test signal sync event: {}", e));
                     }
                 }
                 
@@ -237,17 +237,17 @@ impl Component for TestSignalGenerator {
             }
             
             Msg::AudioSessionUpdate(session_event) => {
-                console::log(&format!("Test Signal Generator: Session event received - {:?}", session_event.event_type));
+                console::log!(&format!("Test Signal Generator: Session event received - {:?}", session_event.event_type));
                 self.last_session_event = Some(session_event.clone());
                 
                 // Adjust signal generation based on session changes
                 match session_event.event_type {
                     crate::modules::audio_foundations::audio_events::AudioSessionEventType::Started => {
-                        console::log("Audio session started - test signal can be used");
+                        console::log!("Audio session started - test signal can be used");
                     }
                     crate::modules::audio_foundations::audio_events::AudioSessionEventType::Stopped => {
                         if self.is_generating {
-                            console::log("Audio session stopped - auto-stopping test signal");
+                            console::log!("Audio session stopped - auto-stopping test signal");
                             self.stop_signal_generation_with_context(ctx);
                         }
                     }
@@ -262,7 +262,7 @@ impl Component for TestSignalGenerator {
                 
                 // Adjust signal amplitude based on performance if needed
                 if performance_event.cpu_usage_percent > 80.0 && self.is_generating {
-                    console::warn("High CPU usage detected - consider reducing test signal complexity");
+                    console::warn!("High CPU usage detected - consider reducing test signal complexity");
                 }
                 
                 false // Don't trigger re-render for performance updates

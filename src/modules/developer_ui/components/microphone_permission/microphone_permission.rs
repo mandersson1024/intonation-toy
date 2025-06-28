@@ -20,11 +20,11 @@ use crate::modules::audio_foundations::audio_events::{
     MicrophonePermissionEvent, MicrophoneStateEvent, DeviceListUpdatedEvent
 };
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular services instead of legacy
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::hooks::use_microphone_permission::{use_microphone_permission, PermissionState};
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::ApplicationError;
+use crate::modules::application_core::error_service::ApplicationError;
 
 #[cfg(debug_assertions)]
 #[derive(Properties, PartialEq)]

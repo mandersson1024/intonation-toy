@@ -25,16 +25,17 @@ use crate::modules::audio_foundations::audio_events::{
     AudioProcessingStateEvent, BufferProcessingEvent
 };
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioEngineState, AudioData};
+use crate::modules::audio_foundations::{ModularAudioService, AudioEngineState};
+use crate::services::AudioData;
 #[cfg(debug_assertions)]
 use crate::audio::performance_monitor::PerformanceMetrics;
 
 #[cfg(debug_assertions)]
 #[derive(Properties)]
 pub struct MetricsDisplayProps {
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
     /// Event bus for subscribing to real-time performance and audio events
     #[prop_or(None)]
     pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,

@@ -28,11 +28,12 @@ use crate::modules::audio_foundations::audio_events::{
     AudioErrorEvent, DeviceListUpdatedEvent
 };
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Modular service imports
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioEngineState, AudioDeviceInfo};
+use crate::modules::audio_foundations::{ModularAudioService, AudioEngineState, AudioDeviceInfo};
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorManager};
+use crate::modules::application_core::error_service::ApplicationError;
+use crate::modules::application_core::ModularErrorService;
 
 // JavaScript binding for getting audio output device name
 #[cfg(debug_assertions)]
@@ -45,9 +46,9 @@ extern "C" {
 #[cfg(debug_assertions)]
 #[derive(Properties)]
 pub struct AudioControlPanelProps {
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
     #[prop_or(None)]
-    pub error_manager: Option<Rc<RefCell<ErrorManager>>>,
+    pub error_manager: Option<Rc<RefCell<ModularErrorService>>>,
     /// Event bus for subscribing to audio events and publishing debug events
     #[prop_or(None)]
     pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
@@ -159,10 +160,10 @@ pub fn audio_control_panel(props: &AudioControlPanelProps) -> Html {
                 // Forward error to error manager if available
                 if let Some(manager) = &error_manager {
                     if let Ok(mut manager_ref) = manager.try_borrow_mut() {
-                        let app_error = crate::legacy::active::services::error_manager::ApplicationError {
+                        let app_error = crate::modules::application_core::error_service::ApplicationError {
                             message: error_event.message.clone(),
                             details: Some(error_event.context.clone()),
-                            severity: crate::legacy::active::services::error_manager::ErrorSeverity::Medium,
+                            severity: crate::modules::application_core::error_service::ErrorSeverity::Medium,
                             component: "AudioControlPanel".to_string(),
                             timestamp: chrono::Utc::now().timestamp_millis() as u64,
                         };

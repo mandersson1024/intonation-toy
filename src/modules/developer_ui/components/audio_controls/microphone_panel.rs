@@ -16,11 +16,11 @@ use std::rc::Rc;
 #[cfg(debug_assertions)]
 use std::cell::RefCell;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::audio_engine::AudioEngineService;
+use crate::modules::audio_foundations::ModularAudioService;
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorManager};
+use crate::modules::application_core::error_service::ApplicationError;
 #[cfg(debug_assertions)]
 use crate::modules::developer_ui::components::microphone_permission::MicrophonePermission;
 
@@ -126,7 +126,7 @@ pub struct MicrophonePanelProps {
     pub on_error: Option<Callback<ApplicationError>>,
     /// Audio engine for accessing audio data
     #[prop_or(None)]
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
     /// Current MediaStream for input level monitoring
     #[prop_or(None)]
     pub media_stream: Option<web_sys::MediaStream>,

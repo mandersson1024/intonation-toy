@@ -10,12 +10,14 @@ use std::rc::Rc;
 #[cfg(debug_assertions)]
 use std::cell::RefCell;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular error types and services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorManager, ErrorSeverity};
+use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity};
+#[cfg(debug_assertions)]
+use crate::modules::application_core::modular_error_service::ModularErrorService;
 
 #[cfg(debug_assertions)]
-pub fn use_error_handler(error_manager: Option<Rc<RefCell<ErrorManager>>>) -> Callback<ApplicationError> {
+pub fn use_error_handler(error_manager: Option<Rc<RefCell<ModularErrorService>>>) -> Callback<ApplicationError> {
     let error_manager = error_manager.clone();
     
     Callback::from(move |error: ApplicationError| {

@@ -6,9 +6,10 @@
 #[cfg(debug_assertions)]
 use yew::prelude::*;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular error types instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity, RecoveryStrategy};
+use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity};
+use crate::modules::application_core::RecoveryStrategy;
 
 #[cfg(debug_assertions)]
 #[derive(Properties, PartialEq)]

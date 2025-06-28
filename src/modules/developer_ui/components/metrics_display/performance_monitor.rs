@@ -14,14 +14,14 @@ use std::cell::RefCell;
 #[cfg(debug_assertions)]
 use gloo::timers::callback::Interval;
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::audio_engine::AudioEngineService;
+use crate::modules::audio_foundations::ModularAudioService;
 
 #[cfg(debug_assertions)]
 #[derive(Properties)]
 pub struct PerformanceMonitorProps {
-    pub audio_engine: Option<Rc<RefCell<AudioEngineService>>>,
+    pub audio_engine: Option<Rc<RefCell<ModularAudioService>>>,
     #[prop_or(1000)]
     pub update_interval_ms: u32,
     #[prop_or(true)]

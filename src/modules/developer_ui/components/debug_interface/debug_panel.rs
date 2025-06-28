@@ -23,14 +23,15 @@ use crate::modules::audio_foundations::audio_events::{
     LatencyViolationEvent, PerformanceRegressionEvent
 };
 
-// TODO: Update these imports once legacy services are migrated to modules
+// Use modular error types and services instead of legacy
 #[cfg(debug_assertions)]
-use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::modules::application_core::error_service::{ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::modules::application_core::ModularErrorService;
 
 #[cfg(debug_assertions)]
 #[derive(Properties)]
 pub struct DebugPanelProps {
-    pub error_manager: Option<Rc<RefCell<ErrorManager>>>,
+    pub error_manager: Option<Rc<RefCell<ModularErrorService>>>,
     /// Event bus for subscribing to performance and error events
     #[prop_or(None)]
     pub event_bus: Option<Rc<RefCell<PriorityEventBus>>>,
