@@ -81,7 +81,7 @@ pub enum Msg {
     TogglePipelineMode,
     
     // Event-driven messages
-    AudioStateChanged(crate::modules::audio_foundations::audio_events::AudioEngineState),
+    AudioStateChanged(crate::modules::audio_foundations::AudioEngineState),
     AudioSessionUpdate(AudioSessionEvent),
     PerformanceMetricsUpdate(AudioPerformanceMetricsEvent),
 }
@@ -110,7 +110,7 @@ pub struct TestSignalGenerator {
     
     // Event-driven state
     debug_publisher: Option<DebugEventPublisher>,
-    last_audio_state: Option<crate::modules::audio_foundations::audio_events::AudioEngineState>,
+    last_audio_state: Option<crate::modules::audio_foundations::AudioEngineState>,
     last_session_event: Option<AudioSessionEvent>,
     last_performance_metrics: Option<AudioPerformanceMetricsEvent>,
 }
@@ -207,8 +207,8 @@ impl Component for TestSignalGenerator {
                 
                 // Auto-stop signal generation if audio engine stops
                 match new_state {
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Idle |
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Error(_) => {
+                                    crate::modules::audio_foundations::AudioEngineState::Idle |
+                crate::modules::audio_foundations::AudioEngineState::Error(_) => {
                         if self.is_generating {
                             console::log("Auto-stopping test signal due to audio engine state change");
                             self.stop_signal_generation_with_context(ctx);
@@ -362,9 +362,9 @@ impl Component for TestSignalGenerator {
                                 <span class="sync-label">{ "Audio Engine State:" }</span>
                                 <span class={classes!("sync-value",
                                     match audio_state {
-                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Processing => "good",
-                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Idle => "neutral",
-                                        crate::modules::audio_foundations::audio_events::AudioEngineState::Error(_) => "warning",
+                                                                crate::modules::audio_foundations::AudioEngineState::Processing => "good",
+                        crate::modules::audio_foundations::AudioEngineState::Idle => "neutral",
+                        crate::modules::audio_foundations::AudioEngineState::Error(_) => "warning",
                                         _ => "neutral"
                                     })}
                                 >

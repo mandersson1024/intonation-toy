@@ -1,7 +1,7 @@
 use yew::prelude::*;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::services::error_manager::{ErrorManager, ApplicationError, ErrorSeverity, ErrorCategory};
+use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationError, ErrorSeverity, ErrorCategory};
 use gloo::console;
 
 #[derive(Properties)]

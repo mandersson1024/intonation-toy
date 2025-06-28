@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use crate::services::error_manager::{ErrorManager, ApplicationError, ErrorCategory, ErrorSeverity};
+use crate::legacy::active::services::error_manager::{ErrorManager, ApplicationError, ErrorCategory, ErrorSeverity};
 use crate::browser_compat::BrowserInfo;
 
 pub struct ErrorHandler {
@@ -127,7 +127,7 @@ impl SimpleErrorHandler {
             ErrorSeverity::Warning,
             message.to_string(),
             details.map(|d| d.to_string()),
-            crate::services::error_manager::RecoveryStrategy::UserGuidedRetry {
+            crate::legacy::active::services::error_manager::RecoveryStrategy::UserGuidedRetry {
                 instructions: "Please try again or refresh the page if the problem persists.".to_string(),
             },
         );
@@ -140,7 +140,7 @@ impl SimpleErrorHandler {
             ErrorSeverity::Critical,
             message.to_string(),
             details.map(|d| d.to_string()),
-            crate::services::error_manager::RecoveryStrategy::ApplicationReset {
+            crate::legacy::active::services::error_manager::RecoveryStrategy::ApplicationReset {
                 reset_message: "Please refresh the page to continue.".to_string(),
             },
         );

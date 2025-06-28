@@ -5,7 +5,7 @@ use gloo::console;
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::services::AudioEngineService;
+use crate::legacy::active::services::AudioEngineService;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignalType {
@@ -312,8 +312,8 @@ impl TestSignalGenerator {
                 drop(engine_ref); // Release borrow before async operation
                 
                 match engine_state {
-                    crate::services::audio_engine::AudioEngineState::Ready | 
-                    crate::services::audio_engine::AudioEngineState::Processing => {
+                    crate::legacy::active::services::audio_engine::AudioEngineState::Ready | 
+                    crate::legacy::active::services::audio_engine::AudioEngineState::Processing => {
                         // Engine is ready, proceed with connection
                         let destination = audio_context.create_media_stream_destination()?;
                         gain.connect_with_audio_node(&destination)?;
@@ -332,7 +332,7 @@ impl TestSignalGenerator {
                         
                         self.media_destination = Some(destination);
                     }
-                    crate::services::audio_engine::AudioEngineState::Uninitialized => {
+                    crate::legacy::active::services::audio_engine::AudioEngineState::Uninitialized => {
                         // Auto-initialize the AudioEngine
                         console::log!("🔧 AudioEngine not initialized. Auto-initializing for signal generation...");
                         let destination = audio_context.create_media_stream_destination()?;
@@ -367,7 +367,7 @@ impl TestSignalGenerator {
                         
                         self.media_destination = Some(destination);
                     }
-                    crate::services::audio_engine::AudioEngineState::Initializing => {
+                    crate::legacy::active::services::audio_engine::AudioEngineState::Initializing => {
                         // Engine is already initializing, wait for it to complete
                         console::log!("🟡 AudioEngine is initializing. Waiting for completion...");
                         let destination = audio_context.create_media_stream_destination()?;
@@ -391,7 +391,7 @@ impl TestSignalGenerator {
                         
                         self.media_destination = Some(destination);
                     }
-                    crate::services::audio_engine::AudioEngineState::Error(msg) => {
+                    crate::legacy::active::services::audio_engine::AudioEngineState::Error(msg) => {
                         console::error!(&format!("❌ AudioEngine error: {}. Falling back to direct output.", msg));
                         gain.connect_with_audio_node(&audio_context.destination())?;
                     }

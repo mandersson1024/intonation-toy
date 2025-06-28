@@ -12,7 +12,7 @@ use crate::audio::engine::AudioEngine;
 
 // Now using the real AudioEngine for actual performance monitoring
 type CoreAudioEngine = AudioEngine;
-use crate::services::error_manager::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory, ErrorSeverity, RecoveryStrategy};
 
 /// Audio processing state for Yew components
 #[derive(Clone, Debug, PartialEq)]

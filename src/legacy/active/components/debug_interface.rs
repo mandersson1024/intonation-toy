@@ -1,10 +1,10 @@
 use yew::prelude::*;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::services::{AudioEngineService};
-use crate::services::audio_engine::AudioEngineState;
-use crate::services::error_manager::ErrorManager;
-use crate::components::{AudioControlPanel, MetricsDisplay, DebugPanel, TestSignalGenerator};
+use crate::legacy::active::services::{AudioEngineService};
+use crate::legacy::active::services::audio_engine::AudioEngineState;
+use crate::legacy::active::services::error_manager::ErrorManager;
+use crate::legacy::active::components::{AudioControlPanel, MetricsDisplay, DebugPanel, TestSignalGenerator};
 
 #[derive(Properties)]
 pub struct DebugInterfaceProps {

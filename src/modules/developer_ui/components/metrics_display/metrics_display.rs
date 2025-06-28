@@ -133,7 +133,7 @@ pub fn metrics_display(props: &MetricsDisplayProps) -> Html {
         use_effect_with(state_event.clone(), move |event| {
             if let Some(state_event) = &**event {
                 let is_processing = matches!(state_event.new_state, 
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Processing);
+                                            crate::modules::audio_foundations::AudioEngineState::Processing);
                 console::log!(&format!("Metrics display: Processing state changed - Monitoring: {}", is_processing));
                 is_monitoring.set(is_processing);
             }

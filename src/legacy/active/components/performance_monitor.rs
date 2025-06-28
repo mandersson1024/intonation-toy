@@ -2,7 +2,7 @@ use yew::prelude::*;
 use web_sys::console;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::services::audio_engine::AudioEngineService;
+use crate::legacy::active::services::audio_engine::AudioEngineService;
 use gloo::timers::callback::Interval;
 
 #[derive(Properties)]

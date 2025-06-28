@@ -4,9 +4,9 @@ use wasm_bindgen::prelude::*;
 use js_sys::Float32Array;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::components::microphone_permission::MicrophonePermission;
-use crate::services::audio_engine::AudioEngineService;
-use crate::services::error_manager::{ApplicationError, ErrorManager};
+use crate::legacy::active::components::microphone_permission::MicrophonePermission;
+use crate::legacy::active::services::audio_engine::AudioEngineService;
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorManager};
 
 #[derive(Clone, PartialEq)]
 pub struct AudioInputDevice {

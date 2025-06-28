@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use gloo::timers::callback::Timeout;
-use crate::services::error_manager::{ApplicationError, ErrorSeverity};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity};
 
 #[derive(Properties, PartialEq)]
 pub struct ErrorToastProps {

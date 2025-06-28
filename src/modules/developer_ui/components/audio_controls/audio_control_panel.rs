@@ -101,13 +101,13 @@ pub fn audio_control_panel(props: &AudioControlPanelProps) -> Html {
                 
                 // Map audio foundation state to legacy state for compatibility
                 match state_event.new_state {
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Idle => {
+                    crate::modules::audio_foundations::AudioEngineState::Idle => {
                         engine_state.set(AudioEngineState::Ready);
                     }
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Processing => {
+                    crate::modules::audio_foundations::AudioEngineState::Processing => {
                         engine_state.set(AudioEngineState::Processing);
                     }
-                    crate::modules::audio_foundations::audio_events::AudioEngineState::Error(ref msg) => {
+                    crate::modules::audio_foundations::AudioEngineState::Error(ref msg) => {
                         engine_state.set(AudioEngineState::Error(msg.clone()));
                     }
                     _ => {
@@ -140,7 +140,7 @@ pub fn audio_control_panel(props: &AudioControlPanelProps) -> Html {
             if let Some(device_event) = &**event {
                 // Find the default output device from the updated list
                 if let Some(output_device) = device_event.devices.iter()
-                    .find(|device| device.is_default && device.kind == crate::modules::audio_foundations::audio_events::AudioDeviceKind::AudioOutput) {
+                    .find(|device| device.is_default && device.kind == crate::types::audio::AudioDeviceKind::AudioOutput) {
                     console::log_1(&format!("Output device updated: {}", output_device.name).into());
                     output_device_name.set(Some(output_device.name.clone()));
                 }

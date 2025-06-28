@@ -3,9 +3,9 @@ use web_sys::console;
 use wasm_bindgen::prelude::*;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::services::audio_engine::{AudioEngineService, AudioEngineState, AudioDeviceInfo};
-use crate::components::microphone_panel::MicrophonePanel;
-use crate::services::error_manager::{ApplicationError, ErrorManager};
+use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioEngineState, AudioDeviceInfo};
+use crate::legacy::active::components::microphone_panel::MicrophonePanel;
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorManager};
 
 // JavaScript binding for getting audio output device name
 #[wasm_bindgen]

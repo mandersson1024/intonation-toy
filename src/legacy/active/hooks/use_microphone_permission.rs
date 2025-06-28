@@ -3,7 +3,7 @@ use web_sys::{MediaStreamConstraints, MediaDevices};
 use wasm_bindgen::{JsValue, JsCast, closure::Closure};
 use wasm_bindgen_futures::JsFuture;
 use gloo::console;
-use crate::services::error_manager::{ApplicationError, ErrorCategory};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorCategory};
 
 /// Microphone permission states
 #[derive(Clone, Debug, PartialEq)]

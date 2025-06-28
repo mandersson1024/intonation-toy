@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use crate::services::error_manager::{ApplicationError, ErrorSeverity};
+use crate::legacy::active::services::error_manager::{ApplicationError, ErrorSeverity};
 
 #[derive(Properties, PartialEq)]
 pub struct FallbackUIProps {

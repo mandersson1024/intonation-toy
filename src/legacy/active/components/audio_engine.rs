@@ -4,9 +4,9 @@ use gloo::console;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::services::audio_engine::{AudioEngineService, AudioEngineState, AudioData};
+use crate::legacy::active::services::audio_engine::{AudioEngineService, AudioEngineState, AudioData};
 use crate::audio::performance_monitor::PerformanceMetrics;
-use crate::services::error_manager::ApplicationError;
+use crate::legacy::active::services::error_manager::ApplicationError;
 
 /// Properties for AudioEngine component
 #[derive(Properties, PartialEq)]

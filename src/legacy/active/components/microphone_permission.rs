@@ -1,6 +1,6 @@
 use yew::prelude::*;
-use crate::hooks::use_microphone_permission::{use_microphone_permission, PermissionState};
-use crate::services::error_manager::ApplicationError;
+use crate::legacy::active::hooks::use_microphone_permission::{use_microphone_permission, PermissionState};
+use crate::legacy::active::services::error_manager::ApplicationError;
 
 #[derive(Properties, PartialEq)]
 pub struct MicrophonePermissionProps {
