@@ -4,11 +4,17 @@
 use std::collections::HashMap;
 use super::output::ConsoleOutput;
 
+// Result of command execution
+pub enum CommandResult {
+    Output(ConsoleOutput),
+    ClearAndOutput(ConsoleOutput),
+}
+
 // Trait for extensible console commands
 pub trait DevCommand {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
-    fn execute(&self, args: Vec<&str>) -> ConsoleOutput;
+    fn execute(&self, args: Vec<&str>, registry: &CommandRegistry) -> CommandResult;
 }
 
 // Command registry for managing available commands
@@ -34,18 +40,18 @@ impl CommandRegistry {
         self.commands.insert(command.name().to_string(), command);
     }
     
-    pub fn execute(&self, input: &str) -> ConsoleOutput {
+    pub fn execute(&self, input: &str) -> CommandResult {
         let parts: Vec<&str> = input.trim().split_whitespace().collect();
         if parts.is_empty() {
-            return ConsoleOutput::error("Empty command");
+            return CommandResult::Output(ConsoleOutput::error("Empty command"));
         }
         
         let command_name = parts[0];
         let args = parts[1..].to_vec();
         
         match self.commands.get(command_name) {
-            Some(command) => command.execute(args),
-            None => ConsoleOutput::error(format!("Unknown command: {}", command_name)),
+            Some(command) => command.execute(args, self),
+            None => CommandResult::Output(ConsoleOutput::error(format!("Unknown command: {}", command_name))),
         }
     }
     
@@ -66,12 +72,18 @@ impl DevCommand for HelpCommand {
         "Display available commands and usage"
     }
     
-    fn execute(&self, _args: Vec<&str>) -> ConsoleOutput {
-        let help_text = "Available commands:\n\
-            help - Display available commands and usage\n\
-            clear - Clear console output\n\
-            status - Show application status";
-        ConsoleOutput::info(help_text)
+    fn execute(&self, _args: Vec<&str>, registry: &CommandRegistry) -> CommandResult {
+        let mut help_lines = vec!["Available commands:".to_string()];
+        
+        let mut commands = registry.get_commands();
+        commands.sort_by(|a, b| a.name().cmp(b.name()));
+        
+        for command in commands {
+            help_lines.push(format!("  {} - {}", command.name(), command.description()));
+        }
+        
+        let help_text = help_lines.join("\n");
+        CommandResult::Output(ConsoleOutput::info(help_text))
     }
 }
 
@@ -87,8 +99,8 @@ impl DevCommand for ClearCommand {
         "Clear console output"
     }
     
-    fn execute(&self, _args: Vec<&str>) -> ConsoleOutput {
-        ConsoleOutput::success("Console cleared")
+    fn execute(&self, _args: Vec<&str>, _registry: &CommandRegistry) -> CommandResult {
+        CommandResult::ClearAndOutput(ConsoleOutput::info("Console cleared"))
     }
 }
 
@@ -104,8 +116,8 @@ impl DevCommand for StatusCommand {
         "Show application status"
     }
     
-    fn execute(&self, _args: Vec<&str>) -> ConsoleOutput {
-        ConsoleOutput::info("Application Status: Development Build Running")
+    fn execute(&self, _args: Vec<&str>, _registry: &CommandRegistry) -> CommandResult {
+        CommandResult::Output(ConsoleOutput::info("Application Status: Development Build Running"))
     }
 }
 
@@ -120,28 +132,33 @@ mod tests {
         // Test help command
         let result = registry.execute("help");
         match result {
-            ConsoleOutput::Info(text) => assert!(text.contains("Available commands")),
+            CommandResult::Output(ConsoleOutput::Info(text)) => {
+                assert!(text.contains("Available commands"));
+                assert!(text.contains("help - Display available commands and usage"));
+                assert!(text.contains("clear - Clear console output"));
+                assert!(text.contains("status - Show application status"));
+            },
             _ => panic!("Expected Info output from help command"),
         }
         
         // Test clear command
         let result = registry.execute("clear");
         match result {
-            ConsoleOutput::Success(text) => assert_eq!(text, "Console cleared"),
-            _ => panic!("Expected Success output from clear command"),
+            CommandResult::ClearAndOutput(ConsoleOutput::Info(text)) => assert_eq!(text, "Console cleared"),
+            _ => panic!("Expected ClearAndOutput result from clear command"),
         }
         
         // Test status command
         let result = registry.execute("status");
         match result {
-            ConsoleOutput::Info(text) => assert!(text.contains("Development Build")),
+            CommandResult::Output(ConsoleOutput::Info(text)) => assert!(text.contains("Development Build")),
             _ => panic!("Expected Info output from status command"),
         }
         
         // Test unknown command
         let result = registry.execute("unknown");
         match result {
-            ConsoleOutput::Error(text) => assert!(text.contains("Unknown command")),
+            CommandResult::Output(ConsoleOutput::Error(text)) => assert!(text.contains("Unknown command")),
             _ => panic!("Expected Error output for unknown command"),
         }
     }
@@ -153,14 +170,14 @@ mod tests {
         // Test empty command
         let result = registry.execute("");
         match result {
-            ConsoleOutput::Error(text) => assert_eq!(text, "Empty command"),
+            CommandResult::Output(ConsoleOutput::Error(text)) => assert_eq!(text, "Empty command"),
             _ => panic!("Expected Error output for empty command"),
         }
         
         // Test command with whitespace
         let result = registry.execute("  help  ");
         match result {
-            ConsoleOutput::Info(_) => (), // Success
+            CommandResult::Output(ConsoleOutput::Info(_)) => (), // Success
             _ => panic!("Expected Info output from help command with whitespace"),
         }
     }
@@ -177,4 +194,5 @@ mod tests {
         assert_ne!(error, debug);
         assert_ne!(debug, info);
     }
+    
 }
