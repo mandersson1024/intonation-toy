@@ -190,7 +190,7 @@ Trunk Build (--release)
 Production Bundle (dist/production/)
     │
     ├─── index.html
-    ├─── pitch-toy.wasm (<500KB)
+    ├─── pitch-toy.wasm
     ├─── pitch-toy.js
     └─── static/
 ```

@@ -25,7 +25,7 @@
 
 #### Web Audio API
 - **AudioContext**: Main audio processing context
-  - Sample rates: 44.1kHz (standard), 22.05kHz-96kHz (development)
+  - Sample rates: 44.1kHz and 48kHz (standard), 22.05kHz-96kHz (development)
   - Buffer sizes: 1024 samples (production), 128-2048 (development)
 
 - **AudioWorklet**: Real-time audio processing thread
@@ -96,7 +96,7 @@
 - **Arc<T> Sharing**: Minimize data copying
 
 ### Bundle Optimization
-- **Production Bundle**: ≤500KB compressed WebAssembly
+- **Production Bundle**: Compressed WebAssembly
 - **Code Splitting**: Lazy loading for development features
 - **Asset Optimization**: Texture compression and shader minification
 - **Tree Shaking**: Dead code elimination

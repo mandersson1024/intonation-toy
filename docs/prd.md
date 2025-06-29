@@ -40,13 +40,12 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 
 - NFR1: Audio processing latency shall not exceed 30ms in production builds (50ms in development)
 - NFR2: Graphics rendering shall maintain consistent 60fps performance
-- NFR3: Production WebAssembly bundle size shall not exceed 500KB compressed
 - NFR4: Application load time shall not exceed 3 seconds on 3G connections
 - NFR5: CPU usage for audio processing shall not exceed 5% on modern devices
 - NFR6: GPU memory usage shall not exceed 50MB for texture and buffer allocation
 - NFR7: Application shall support Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
 - NFR8: Mobile compatibility shall include iOS Safari 14.5+ and Chrome Android 66+
-- NFR9: Sample rate support of 44.1kHz standard with 22.05kHz-96kHz for development testing
+- NFR9: Sample rate support of 44.1kHz and 48kHz standard with 22.05kHz-96kHz for development testing
 - NFR10: Buffer sizes of 1024 samples (production) and 128-2048 samples (development)
 
 ## User Interface Design Goals
@@ -207,7 +206,7 @@ so that I can use my voice or instrument for pitch detection.
 #### Acceptance Criteria
 
 - 1: Application requests microphone permission using getUserMedia API
-- 2: AudioContext initialized at appropriate sample rate (44.1kHz standard)
+- 2: AudioContext initialized at appropriate sample rate (44.1kHz and 48kHz standard)
 - 3: AudioWorklet processes incoming audio in real-time
 - 4: Stream reconnection logic handles device disconnection/reconnection
 - 5: Console commands for microphone status and manual permission requests
@@ -432,7 +431,6 @@ so that the application meets all specified latency and frame rate requirements.
 - 2: Graphics rendering maintains consistent 60fps under typical usage
 - 3: Memory usage profiling confirms compliance with specified limits
 - 4: CPU usage optimization for both audio processing and graphics rendering
-- 5: WebAssembly bundle size optimization for production builds
 - 6: Performance regression testing integrated into development workflow
 
 ### Story 5.2 - Production Build Configuration
@@ -443,7 +441,6 @@ so that users experience fast loading and minimal resource usage.
 
 #### Acceptance Criteria
 
-- 1: Production WebAssembly bundle under 500KB compressed as specified
 - 2: Application loads in under 3 seconds on 3G connections
 - 3: Debug features and development console removed in production builds
 - 4: Asset optimization including shaders and textures

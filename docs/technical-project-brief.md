@@ -71,7 +71,7 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 
 ### Audio Processing
 - **Latency Target**: ≤ 30ms (production), ≤ 50ms (development)
-- **Sample Rate**: 44.1kHz standard, 22.05kHz - 96kHz (development testing)
+- **Sample Rate**: 44.1kHz and 48kHz standard, 22.05kHz - 96kHz (development testing)
 - **Buffer Size**: 1024 samples (production), 128-2048 samples (development)
 - **Processing Overhead**: ≤ 5% CPU usage on modern devices
 
@@ -82,8 +82,6 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 - **Rendering Resolution**: Adaptive based on display size
 
 ### WebAssembly Bundle
-- **Production Bundle**: ≤ 500KB compressed
-- **Development Bundle**: ≤ 2MB (includes debug symbols and testing framework)
 - **Load Time**: ≤ 3 seconds on 3G connection
 
 ## Technical Specifications
@@ -611,7 +609,7 @@ pub struct RenderState {
 - Create automated testing and profiling tools
 
 ### Phase 6: Polish & Optimization
-- Performance optimization and bundle size reduction
+- Performance optimization
 - Cross-browser compatibility testing and fixes
 - Documentation and deployment preparation
 - User acceptance testing and bug fixes
@@ -634,14 +632,14 @@ pub struct RenderState {
 - Audio latency measurement and optimization
 - Graphics rendering frame rate consistency
 - Memory usage profiling and leak detection
-- WebAssembly bundle size and load time analysis
+- WebAssembly load time analysis
 
 ## Deployment and Distribution
 
 ### Build Configurations
 - **Development**: Full debugging, source maps, comprehensive logging
 - **Staging**: Production optimizations with debug symbols for testing
-- **Production**: Maximum optimization, minimal bundle size, error reporting
+- **Production**: Maximum optimization, error reporting
 
 ### Distribution Strategy
 - Static file hosting (GitHub Pages, Netlify, Vercel)

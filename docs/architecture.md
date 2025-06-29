@@ -19,7 +19,6 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 
 - **Audio Latency**: ≤30ms (production), ≤50ms (development)
 - **Graphics Performance**: Consistent 60fps rendering
-- **Bundle Size**: ≤500KB compressed WebAssembly (production)
 - **Memory Usage**: ≤50MB GPU memory, ≤100KB audio buffers
 - **CPU Usage**: ≤5% for audio processing on modern devices
 
@@ -96,7 +95,7 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 ```
 Microphone Input
     │
-    ▼ (128-sample chunks @ 44.1kHz)
+    ▼ (128-sample chunks @ 44.1/48kHz)
 AudioWorklet Processing
     │
     ▼ (Buffered audio data)
@@ -260,13 +259,11 @@ Audio Processor
 
 #### Development Build
 - **Features**: Full debugging symbols, hot reload, development console
-- **Bundle Size**: ≤2MB (includes debug framework)
 - **Performance**: Relaxed latency targets for debugging
 - **Logging**: Comprehensive structured logging
 
 #### Production Build
-- **Features**: Maximum optimization, minimal bundle size
-- **Bundle Size**: ≤500KB compressed
+- **Features**: Maximum optimization
 - **Performance**: Strict latency and FPS targets
 - **Logging**: Error reporting only
 
@@ -288,7 +285,7 @@ Audio Processor
 - **Latency Measurement**: Audio processing and rendering latency
 - **Frame Rate Consistency**: 60fps maintenance under load
 - **Memory Profiling**: Leak detection and usage optimization
-- **Bundle Analysis**: Size optimization and load time measurement
+- **Bundle Analysis**: Load time measurement
 
 ## Deployment Architecture
 
