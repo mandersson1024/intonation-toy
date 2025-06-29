@@ -52,8 +52,9 @@ impl ConsoleOutput {
         Self::Empty
     }
 
-    /// Get the message content as a string
-    pub fn message(&self) -> &str {
+    /// Get the raw message content as a string (test-only)
+    #[cfg(test)]
+    pub fn raw_message(&self) -> &str {
         match self {
             Self::Info(msg) | Self::Success(msg) | Self::Warning(msg) 
             | Self::Error(msg) | Self::Echo(msg) => msg,
@@ -74,9 +75,15 @@ impl ConsoleOutput {
     }
 
 
-    /// Get HTML-safe message content (escapes special characters)
-    pub fn html_safe_message(&self) -> String {
-        self.message()
+    /// Get message content (HTML-safe, escapes special characters)
+    pub fn message(&self) -> String {
+        let raw_message = match self {
+            Self::Info(msg) | Self::Success(msg) | Self::Warning(msg) 
+            | Self::Error(msg) | Self::Echo(msg) => msg,
+            Self::Empty => "",
+        };
+        
+        raw_message
             .replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
@@ -261,10 +268,19 @@ impl ConsoleOutputManager {
 
     /// Format output for display (with optional timestamps)
     pub fn format_entry(&self, entry: &ConsoleEntry) -> String {
+        let safe_content = match &entry.output {
+            ConsoleOutput::Info(_) => format!("[INFO] {}", entry.output.message()),
+            ConsoleOutput::Success(_) => format!("[SUCCESS] {}", entry.output.message()),
+            ConsoleOutput::Warning(_) => format!("[WARNING] {}", entry.output.message()),
+            ConsoleOutput::Error(_) => format!("[ERROR] {}", entry.output.message()),
+            ConsoleOutput::Echo(_) => format!("> {}", entry.output.message()),
+            ConsoleOutput::Empty => String::new(),
+        };
+        
         if self.show_timestamps {
-            format!("[{}] {}", entry.format_time(), entry.output)
+            format!("[{}] {}", entry.format_time(), safe_content)
         } else {
-            entry.output.to_string()
+            safe_content
         }
     }
 
@@ -359,16 +375,16 @@ mod tests {
     #[test]
     fn test_console_output_creation() {
         let info = ConsoleOutput::info("Test info");
-        assert_eq!(info.message(), "Test info");
+        assert_eq!(info.raw_message(), "Test info");
         assert_eq!(info.output_type(), "info");
 
         let success = ConsoleOutput::success("Test success");
         assert_eq!(success.output_type(), "success");
-        assert_eq!(success.message(), "Test success");
+        assert_eq!(success.raw_message(), "Test success");
 
         let error = ConsoleOutput::error("Test error");
         assert_eq!(error.output_type(), "error");
-        assert_eq!(error.message(), "Test error");
+        assert_eq!(error.raw_message(), "Test error");
 
     }
 
@@ -393,7 +409,7 @@ mod tests {
     #[test]
     fn test_html_safe_message() {
         let output = ConsoleOutput::info("Test <script>alert('xss')</script>");
-        let safe = output.html_safe_message();
+        let safe = output.message();
         assert!(safe.contains("&lt;script&gt;"));
         assert!(safe.contains("&#x27;"));
     }
@@ -441,8 +457,8 @@ mod tests {
 
         assert_eq!(manager.len(), 2);
         let entries = manager.entries();
-        assert_eq!(entries[0].output.message(), "Third"); // Most recent first
-        assert_eq!(entries[1].output.message(), "Second");
+        assert_eq!(entries[0].output.raw_message(), "Third"); // Most recent first
+        assert_eq!(entries[1].output.raw_message(), "Second");
     }
 
     #[test]

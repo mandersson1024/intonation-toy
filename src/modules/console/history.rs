@@ -139,12 +139,6 @@ impl ConsoleHistory {
         self.commands.is_empty()
     }
 
-    /// Clear all command history
-    pub fn clear(&mut self) {
-        self.commands.clear();
-        self.current_position = None;
-    }
-
     /// Get all commands in history (most recent first)
     #[cfg(test)]
     pub fn commands(&self) -> &[String] {
@@ -368,17 +362,6 @@ mod tests {
         
         assert_eq!(history.navigate_previous(), Some("help"));
         history.reset_navigation();
-        assert_eq!(history.current_command(), None);
-    }
-
-    #[test]
-    fn test_clear() {
-        let mut history = ConsoleHistory::new();
-        history.add_command("help".to_string());
-        
-        assert!(!history.is_empty());
-        history.clear();
-        assert!(history.is_empty());
         assert_eq!(history.current_command(), None);
     }
 
