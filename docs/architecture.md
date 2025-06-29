@@ -13,6 +13,7 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 3. **Performance Isolation**: GPU rendering isolated from audio processing to prevent interference
 4. **Modular Development**: Each component can be developed and tested independently
 5. **Configuration-Driven**: Build profiles and feature flags control development vs. production behavior
+6. **YAGNI Compliance**: Follow "You Aren't Gonna Need It" principle - implement only what's needed now (see [Coding Standards](architecture/coding-standards.md#yagni-you-arent-gonna-need-it))
 
 ### Key Performance Targets
 
