@@ -181,27 +181,31 @@ Audio Processor
   - Smooth theme transitions without performance impact
 - **Built-in Themes**: "Kids" (playful), "Nerds" (scientific)
 
-##### Graphics Renderer (wgpu)
+##### Graphics Renderer (wgpu) - PRIMARY USER INTERFACE
 - **Responsibilities**:
-  - GPU-accelerated rendering pipeline
+  - **ALL end-user interface rendering** - No HTML/CSS for production UI
+  - GPU-accelerated rendering pipeline for complete user experience
   - Immersive full-screen visualizations
-  - Interactive GPU-rendered controls
+  - Interactive GPU-rendered controls (buttons, sliders, theme selection)
   - 60fps performance with adaptive resolution
 - **Capabilities**: WebGPU/wgpu cross-platform graphics
+- **Critical Constraint**: HTML/CSS forbidden for end-user interface elements
 
 #### 4. Development Infrastructure
 
-##### Development Console (Yew)
+##### Development Console (Yew) - HTML/CSS ALLOWED
 - **Purpose**: Interactive debugging and development interface
 - **Features**:
   - Command execution system with extensible DevCommand trait
   - Real-time system control and configuration
   - Audio processing debugging and testing
+- **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Availability**: Development builds only
 
-##### Debug Overlay (Yew)
+##### Debug Overlay (Yew) - HTML/CSS ALLOWED
 - **Purpose**: Non-intrusive performance monitoring
 - **Metrics**: FPS, audio latency, memory usage, CPU utilization
+- **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Integration**: Real-time metrics from all system components
 
 ## Technical Implementation

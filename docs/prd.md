@@ -53,7 +53,16 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 
 ### Overall UX Vision
 
-Create a real-time pitch detection interface that provides immediate visual feedback for audio input through GPU-powered graphics. The interface should prioritize performance and responsiveness while offering comprehensive development tools for debugging and configuration.
+Create a **fully immersive, GPU-rendered** real-time pitch detection interface that provides immediate visual feedback for audio input. **All end-user interactions must be rendered via GPU graphics using wgpu** - HTML/CSS is strictly limited to development tools (console and debug overlay). The interface should prioritize performance and responsiveness while offering comprehensive development tools for debugging and configuration.
+
+### Critical UI Architecture Constraint
+
+**GPU-Only End-User Interface**: All user-facing controls, visualizations, and interactions must be rendered through the wgpu graphics pipeline. HTML/CSS usage is restricted to:
+- Development Console (Yew component for debugging)
+- Debug Overlay (Yew component for performance metrics)
+- Development-only tools and metering
+
+**No HTML/CSS for Production UI**: Theme switching, pitch visualization, volume controls, and all user interactions must be implemented as GPU-rendered elements, not DOM elements.
 
 ### Key Interaction Paradigms
 
@@ -64,10 +73,10 @@ Create a real-time pitch detection interface that provides immediate visual feed
 
 ### Core Screens and Views
 
-- **Main Pitch Visualization**: Real-time pitch detection display with note identification and frequency information
-- **Development Console**: Interactive command-line interface for debugging and configuration
-- **Performance Metrics Display**: Real-time monitoring of frame rate, latency, and resource usage
-- **Theme Selection Interface**: Controls for switching between available visual themes
+- **Main Pitch Visualization** (GPU-rendered): Immersive real-time pitch detection display with note identification and frequency information
+- **Development Console** (HTML/Yew): Interactive command-line interface for debugging and configuration (development builds only)
+- **Performance Metrics Display** (HTML/Yew): Real-time monitoring of frame rate, latency, and resource usage (development builds only)
+- **Theme Selection Interface** (GPU-rendered): GPU-rendered controls for switching between available visual themes
 
 ### Accessibility: WCAG 2.1 AA
 

@@ -10,6 +10,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never mention that "this was added" or "that was deleted" etc in comments.
 - Never pretend that you can test something that requires manual testing.
 
+## Critical UI Architecture Rules
+**IMMERSIVE GPU-ONLY USER INTERFACE**: All end-user interactions, controls, and visualizations MUST be rendered via wgpu GPU graphics. HTML/CSS is FORBIDDEN for production user interface.
+
+### HTML/CSS Usage Restrictions:
+- ✅ **ALLOWED**: Development Console (Yew component, dev builds only)
+- ✅ **ALLOWED**: Debug Overlay (Yew component, dev builds only)  
+- ✅ **ALLOWED**: Performance metrics and debugging tools
+- ❌ **FORBIDDEN**: Any end-user interface elements (pitch visualization, controls, themes)
+- ❌ **FORBIDDEN**: Production UI components
+- ❌ **FORBIDDEN**: Theme switching controls via HTML
+- ❌ **FORBIDDEN**: Volume or pitch display via HTML
+
+### GPU Rendering Requirements:
+- All user-facing controls (buttons, sliders, theme selection) must be GPU-rendered
+- All visualizations (pitch detection, spectrum, volume) must be GPU-rendered  
+- All themes and visual customization must be implemented in GPU shaders
+- Canvas element serves only as wgpu render target, not for HTML overlay
+
 ## Project Overview
 
 **Pitch Toy** is a real-time pitch detection and visualization web application built with Rust/WebAssembly and the Yew framework. The project aims to create a browser-based tool that captures microphone input, performs pitch detection with confidence scoring, and visualizes pitch and volume using GPU-powered graphics.
