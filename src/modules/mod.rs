@@ -4,9 +4,6 @@
 pub mod common;
 
 #[cfg(debug_assertions)]
-pub mod debug;
-
-#[cfg(debug_assertions)]
 pub mod console;
 
 // Future modules for upcoming stories (following YAGNI principle):

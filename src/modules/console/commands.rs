@@ -2,15 +2,7 @@
 // Provides extensible command framework for development console
 
 use std::collections::HashMap;
-
-// Console output types for command results
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConsoleOutput {
-    Info(String),
-    Success(String),
-    Error(String),
-    Debug(String),
-}
+use super::output::ConsoleOutput;
 
 // Trait for extensible console commands
 pub trait DevCommand {
@@ -45,7 +37,7 @@ impl CommandRegistry {
     pub fn execute(&self, input: &str) -> ConsoleOutput {
         let parts: Vec<&str> = input.trim().split_whitespace().collect();
         if parts.is_empty() {
-            return ConsoleOutput::Error("Empty command".to_string());
+            return ConsoleOutput::error("Empty command");
         }
         
         let command_name = parts[0];
@@ -53,7 +45,7 @@ impl CommandRegistry {
         
         match self.commands.get(command_name) {
             Some(command) => command.execute(args),
-            None => ConsoleOutput::Error(format!("Unknown command: {}", command_name)),
+            None => ConsoleOutput::error(format!("Unknown command: {}", command_name)),
         }
     }
     
@@ -79,7 +71,7 @@ impl DevCommand for HelpCommand {
             help - Display available commands and usage\n\
             clear - Clear console output\n\
             status - Show application status";
-        ConsoleOutput::Info(help_text.to_string())
+        ConsoleOutput::info(help_text)
     }
 }
 
@@ -96,7 +88,7 @@ impl DevCommand for ClearCommand {
     }
     
     fn execute(&self, _args: Vec<&str>) -> ConsoleOutput {
-        ConsoleOutput::Success("Console cleared".to_string())
+        ConsoleOutput::success("Console cleared")
     }
 }
 
@@ -113,7 +105,7 @@ impl DevCommand for StatusCommand {
     }
     
     fn execute(&self, _args: Vec<&str>) -> ConsoleOutput {
-        ConsoleOutput::Info("Application Status: Development Build Running".to_string())
+        ConsoleOutput::info("Application Status: Development Build Running")
     }
 }
 
@@ -175,10 +167,10 @@ mod tests {
     
     #[test]
     fn test_console_output_types() {
-        let info = ConsoleOutput::Info("test".to_string());
-        let success = ConsoleOutput::Success("test".to_string());
-        let error = ConsoleOutput::Error("test".to_string());
-        let debug = ConsoleOutput::Debug("test".to_string());
+        let info = ConsoleOutput::info("test");
+        let success = ConsoleOutput::success("test");
+        let error = ConsoleOutput::error("test");
+        let debug = ConsoleOutput::debug("test");
         
         assert_ne!(info, success);
         assert_ne!(success, error);

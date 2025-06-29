@@ -145,13 +145,20 @@ impl ConsoleEntry {
 
     /// Get current timestamp in milliseconds since epoch
     fn current_timestamp() -> u64 {
-        // In a real browser environment, this would use js_sys::Date::now()
-        // For testing, we'll use a simple approach
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Use browser's Date API for WASM builds
+            js_sys::Date::now() as u64
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // Use SystemTime for native builds (tests)
+            use std::time::{SystemTime, UNIX_EPOCH};
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+        }
     }
 
     /// Generate a unique ID for this entry

@@ -5,5 +5,7 @@
 pub mod commands;
 pub mod history;
 pub mod output;
+pub mod component;
 
-// TODO: component.rs - DevConsole Yew component (Task 5)
+// Re-export main component for easy access
+pub use component::DevConsole;
