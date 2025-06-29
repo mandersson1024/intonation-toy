@@ -52,15 +52,6 @@ impl ConsoleOutput {
         Self::Empty
     }
 
-    /// Get the raw message content as a string (test-only)
-    #[cfg(test)]
-    pub fn raw_message(&self) -> &str {
-        match self {
-            Self::Info(msg) | Self::Success(msg) | Self::Warning(msg) 
-            | Self::Error(msg) | Self::Echo(msg) => msg,
-            Self::Empty => "",
-        }
-    }
 
     /// Get the output type as a string (for CSS classes)
     pub fn output_type(&self) -> &'static str {
@@ -75,20 +66,13 @@ impl ConsoleOutput {
     }
 
 
-    /// Get message content (HTML-safe, escapes special characters)
-    pub fn message(&self) -> String {
-        let raw_message = match self {
+    /// Get the message content as a string
+    pub fn message(&self) -> &str {
+        match self {
             Self::Info(msg) | Self::Success(msg) | Self::Warning(msg) 
             | Self::Error(msg) | Self::Echo(msg) => msg,
             Self::Empty => "",
-        };
-        
-        raw_message
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-            .replace('\'', "&#x27;")
+        }
     }
 }
 
@@ -105,42 +89,19 @@ impl fmt::Display for ConsoleOutput {
     }
 }
 
-/// Console output entry with timestamp and formatting information
 #[derive(Debug, Clone)]
 pub struct ConsoleEntry {
     /// The output message
     pub output: ConsoleOutput,
-    /// Timestamp when the entry was created (milliseconds since epoch)
-    pub timestamp: u64,
     /// Unique identifier for this entry
     pub id: u64,
 }
 
 impl ConsoleEntry {
-    /// Create a new console entry with current timestamp
     pub fn new(output: ConsoleOutput) -> Self {
         Self {
             output,
-            timestamp: Self::current_timestamp(),
             id: Self::generate_id(),
-        }
-    }
-
-    /// Get current timestamp in milliseconds since epoch
-    fn current_timestamp() -> u64 {
-        #[cfg(target_arch = "wasm32")]
-        {
-            // Use browser's Date API for WASM builds
-            js_sys::Date::now() as u64
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // Use SystemTime for native builds (tests)
-            use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64
         }
     }
 
@@ -149,15 +110,6 @@ impl ConsoleEntry {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(1);
         COUNTER.fetch_add(1, Ordering::Relaxed)
-    }
-
-    /// Format timestamp as HH:MM:SS
-    pub fn format_time(&self) -> String {
-        let seconds = (self.timestamp / 1000) % 86400; // seconds in a day
-        let hours = seconds / 3600;
-        let minutes = (seconds % 3600) / 60;
-        let secs = seconds % 60;
-        format!("{:02}:{:02}:{:02}", hours, minutes, secs)
     }
 }
 
@@ -168,8 +120,6 @@ pub struct ConsoleOutputManager {
     entries: Vec<ConsoleEntry>,
     /// Maximum number of entries to store
     max_entries: usize,
-    /// Whether to show timestamps
-    show_timestamps: bool,
 }
 
 impl ConsoleOutputManager {
@@ -178,16 +128,15 @@ impl ConsoleOutputManager {
         Self {
             entries: Vec::new(),
             max_entries: 1000, // Same as history limit
-            show_timestamps: true,
         }
     }
 
+    #[cfg(test)]
     /// Create a new output manager with custom settings
-    pub fn with_settings(max_entries: usize, show_timestamps: bool) -> Self {
+    pub fn with_settings(max_entries: usize) -> Self {
         Self {
             entries: Vec::new(),
             max_entries: max_entries.max(1),
-            show_timestamps,
         }
     }
 
@@ -202,13 +151,6 @@ impl ConsoleOutputManager {
         }
     }
 
-    /// Add multiple output entries
-    pub fn add_outputs(&mut self, outputs: Vec<ConsoleOutput>) {
-        for output in outputs {
-            self.add_output(output);
-        }
-    }
-
     /// Clear all output entries
     pub fn clear(&mut self) {
         self.entries.clear();
@@ -219,53 +161,27 @@ impl ConsoleOutputManager {
         self.entries.iter().collect()
     }
 
+    #[cfg(test)]
     /// Get number of entries
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    #[cfg(test)]
     /// Check if output manager is empty
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
-
-    /// Toggle timestamp visibility
-    pub fn toggle_timestamps(&mut self) -> bool {
-        self.show_timestamps = !self.show_timestamps;
-        self.show_timestamps
-    }
-
-    /// Set timestamp visibility
-    pub fn set_show_timestamps(&mut self, show: bool) {
-        self.show_timestamps = show;
-    }
-
-    /// Get timestamp visibility setting
-    pub fn show_timestamps(&self) -> bool {
-        self.show_timestamps
-    }
-
-    /// Get maximum entries limit
-    pub fn max_entries(&self) -> usize {
-        self.max_entries
-    }
-
-    /// Format output for display (with optional timestamps)
+    /// Format output for display
     pub fn format_entry(&self, entry: &ConsoleEntry) -> String {
-        let safe_content = match &entry.output {
+        match &entry.output {
             ConsoleOutput::Info(_) => format!("[INFO] {}", entry.output.message()),
             ConsoleOutput::Success(_) => format!("[SUCCESS] {}", entry.output.message()),
             ConsoleOutput::Warning(_) => format!("[WARNING] {}", entry.output.message()),
             ConsoleOutput::Error(_) => format!("[ERROR] {}", entry.output.message()),
             ConsoleOutput::Echo(_) => format!("> {}", entry.output.message()),
             ConsoleOutput::Empty => String::new(),
-        };
-        
-        if self.show_timestamps {
-            format!("[{}] {}", entry.format_time(), safe_content)
-        } else {
-            safe_content
         }
     }
 
@@ -360,16 +276,16 @@ mod tests {
     #[test]
     fn test_console_output_creation() {
         let info = ConsoleOutput::info("Test info");
-        assert_eq!(info.raw_message(), "Test info");
+        assert_eq!(info.message(), "Test info");
         assert_eq!(info.output_type(), "info");
 
         let success = ConsoleOutput::success("Test success");
         assert_eq!(success.output_type(), "success");
-        assert_eq!(success.raw_message(), "Test success");
+        assert_eq!(success.message(), "Test success");
 
         let error = ConsoleOutput::error("Test error");
         assert_eq!(error.output_type(), "error");
-        assert_eq!(error.raw_message(), "Test error");
+        assert_eq!(error.message(), "Test error");
 
     }
 
@@ -392,25 +308,12 @@ mod tests {
     }
 
     #[test]
-    fn test_html_safe_message() {
-        let output = ConsoleOutput::info("Test <script>alert('xss')</script>");
-        let safe = output.message();
-        assert!(safe.contains("&lt;script&gt;"));
-        assert!(safe.contains("&#x27;"));
-    }
-
-    #[test]
     fn test_console_entry() {
         let output = ConsoleOutput::info("Test message");
         let entry = ConsoleEntry::new(output.clone());
         
         assert_eq!(entry.output, output);
-        assert!(entry.timestamp > 0);
         assert!(entry.id > 0);
-
-        let time_str = entry.format_time();
-        assert!(time_str.contains(':'));
-        assert_eq!(time_str.len(), 8); // HH:MM:SS format
     }
 
     #[test]
@@ -430,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_output_manager_size_limit() {
-        let mut manager = ConsoleOutputManager::with_settings(2, true);
+        let mut manager = ConsoleOutputManager::with_settings(2);
         
         manager.add_output(ConsoleOutput::info("First"));
         manager.add_output(ConsoleOutput::info("Second"));
@@ -438,8 +341,8 @@ mod tests {
 
         assert_eq!(manager.len(), 2);
         let entries = manager.entries();
-        assert_eq!(entries[0].output.raw_message(), "Third"); // Most recent first
-        assert_eq!(entries[1].output.raw_message(), "Second");
+        assert_eq!(entries[0].output.message(), "Third"); // Most recent first
+        assert_eq!(entries[1].output.message(), "Second");
     }
 
     #[test]
@@ -457,23 +360,12 @@ mod tests {
         let manager = ConsoleOutputManager::new();
         let entry = ConsoleEntry::new(ConsoleOutput::info("Test"));
         
+        // Test text formatting (no escaping)
         let formatted = manager.format_entry(&entry);
-        assert!(formatted.contains("[INFO] Test"));
-        assert!(formatted.contains(':')); // Timestamp should be included
-
+        assert_eq!(formatted, "[INFO] Test");
+        
         let css_class = manager.entry_css_class(&entry);
         assert_eq!(css_class, "console-output console-info");
-    }
-
-    #[test]
-    fn test_output_manager_toggles() {
-        let mut manager = ConsoleOutputManager::new();
-        
-        // Test timestamp toggle
-        assert!(manager.show_timestamps());
-        let result = manager.toggle_timestamps();
-        assert!(!result);
-        assert!(!manager.show_timestamps());
     }
 
     #[test]

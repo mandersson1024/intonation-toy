@@ -57,7 +57,7 @@ impl Component for DevConsole {
         let mut output_manager = ConsoleOutputManager::new();
         
         // Add welcome message
-        output_manager.add_output(ConsoleOutput::info("Development Console initialized"));
+        output_manager.add_output(ConsoleOutput::info("Dev Console initialized"));
         output_manager.add_output(ConsoleOutput::info("Type 'help' for available commands"));
         
         // Load command history from local storage
@@ -87,7 +87,7 @@ impl Component for DevConsole {
                     
                     // Save history to local storage
                     self.save_history_to_storage();
-                    
+
                     // Echo the command
                     self.output_manager.add_output(ConsoleOutput::echo(command));
                     
@@ -187,7 +187,7 @@ impl Component for DevConsole {
                 
                 <div class="console-modal">
                     <div class="console-header">
-                        <span class="console-title">{ "Development Console" }</span>
+                        <span class="console-title">{ "Dev Console" }</span>
                         <div class="console-controls">
                             <span class="console-hint" title="Press ESC to toggle console">
                                 { "ESC to toggle" }

@@ -69,7 +69,6 @@ fn App() -> Html {
             
             let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
                 if let Ok(keyboard_event) = event.dyn_into::<KeyboardEvent>() {
-                    web_sys::console::log_2(&"Key pressed:".into(), &keyboard_event.key().into());
                     if keyboard_event.key() == "Escape" {
                         web_sys::console::log_1(&"Escape key detected - toggling console".into());
                         keyboard_event.prevent_default();
