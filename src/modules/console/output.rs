@@ -126,15 +126,6 @@ impl ConsoleEntry {
         }
     }
 
-    /// Create a new console entry with explicit timestamp
-    pub fn with_timestamp(output: ConsoleOutput, timestamp: u64) -> Self {
-        Self {
-            output,
-            timestamp,
-            id: Self::generate_id(),
-        }
-    }
-
     /// Get current timestamp in milliseconds since epoch
     fn current_timestamp() -> u64 {
         #[cfg(target_arch = "wasm32")]
@@ -167,12 +158,6 @@ impl ConsoleEntry {
         let minutes = (seconds % 3600) / 60;
         let secs = seconds % 60;
         format!("{:02}:{:02}:{:02}", hours, minutes, secs)
-    }
-
-    /// Format timestamp as HH:MM:SS.mmm (with milliseconds)
-    pub fn format_time_detailed(&self) -> String {
-        let millis = self.timestamp % 1000;
-        format!("{}.{:03}", self.format_time(), millis)
     }
 }
 
@@ -426,10 +411,6 @@ mod tests {
         let time_str = entry.format_time();
         assert!(time_str.contains(':'));
         assert_eq!(time_str.len(), 8); // HH:MM:SS format
-
-        let detailed_time = entry.format_time_detailed();
-        assert!(detailed_time.contains('.'));
-        assert_eq!(detailed_time.len(), 12); // HH:MM:SS.mmm format
     }
 
     #[test]
