@@ -1,6 +1,6 @@
 [build]
-target = "../index.html"
-dist = "../dist/production"
+target = "index.html"
+dist = "dist/production"
 release = true
 public-url = "/"
 

@@ -1,11 +1,11 @@
 [build]
-target = "../index.html"
-dist = "../dist/development"
+target = "index.html"
+dist = "dist/development"
 public-url = "/"
 
 [watch]
-watch = ["../src"]
-ignore = ["../target", "../dist"]
+watch = ["src"]
+ignore = ["target", "dist"]
 
 [serve]
 addresses = ["127.0.0.1"]

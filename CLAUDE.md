@@ -7,8 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never implement changes unless explicitly instructed to do so. If you are uncertain, ask something like "Do you want me to implement these changes?"
 - Never refer to Epics, Stories or Acceptance Criteria etc in comments or names.
 - When refactoring, never refer to before/after, old/new, legacy/enhanced etc in comments or names.
-- Never mention that "this was added" or "that was deleted" etc in comments.
-- Never pretend that you can test something that requires manual testing.
+- Never mention that "this was added", "this replaced that" or "that was deleted/removed" etc in comments.
+- Never pretend that you can test something that requires manual testing. Always tell the user to test manually, be specific about what to test, and wait for confirmation.
+- Never create unreferenced infrastructure for future tasks. It will only create compiler warnings, complicate code review. The roadmap might change before we get to use it anyway. Assume for now that you aren't gonna need it (YAGNI). Write TODO comments for expected future code. Use stubs as placeholders for incomplete but referenced implementations.
+- All UI placeholder/fake values should be drawn in magenta color to make it absolutely clear that they are not implemented.
 
 ## Critical UI Architecture Rules
 **IMMERSIVE GPU-ONLY USER INTERFACE**: All end-user interactions, controls, and visualizations MUST be rendered via wgpu GPU graphics. HTML/CSS is FORBIDDEN for production user interface.
