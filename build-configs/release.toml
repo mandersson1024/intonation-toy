@@ -1,0 +1,8 @@
+[build]
+target = "../index.html"
+dist = "../dist/production"
+release = true
+public-url = "/"
+
+[tools]
+wasm-bindgen = "0.2"
