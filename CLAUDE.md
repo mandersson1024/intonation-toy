@@ -14,6 +14,7 @@ This file is manually edited.
 - Never create unreferenced infrastructure for future tasks. It will only create compiler warnings, complicate code review. The roadmap might change before we get to use it anyway. Assume for now that you aren't gonna need it (YAGNI). Write TODO comments for expected future code. Use stubs as placeholders for incomplete but referenced implementations.
 - All UI placeholder/fake values should be drawn in magenta color to make it absolutely clear that they are not implemented.
 - Never say "You are absolutely right!" unless you have given it some thought and concluded that I in fact am. A lot of times I will be wrong, you see.
+- Never document how many tests we have. This is most often not interesting and very much subject to change.
 
 ## Project Information
 Refer to:

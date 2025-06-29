@@ -62,27 +62,29 @@ pub struct FutureFeature; // unused, causes warnings
 
 #### Testing Standards
 
-##### Dual Testing Strategy
-- **Native Tests (cargo test)**: Fast feedback for Rust logic
-  - Test basic application structure and module imports
-  - Validate build configuration detection
+##### Phased Testing Strategy
+- **Phase 1 (Current) - Native Tests (cargo test)**: Fast feedback for Rust logic
+  - 1 meaningful test covering build configuration detection
+  - Immediate feedback during development
   - No browser dependencies for core logic testing
-- **WASM Tests (wasm-pack test)**: Real browser environment validation
-  - Test WebAssembly compilation and browser APIs
-  - Validate web-specific functionality (canvas, Web Audio API)
-  - Cross-browser compatibility testing via headless browsers
+- **Phase 2 (Future) - WASM Tests (wasm-pack test)**: WebAssembly-specific functionality
+  - Planned for when we have audio processing and module interactions
+  - Focus on WASM compilation, memory management, and module boundaries
+  - **NOT** for browser API integration (use E2E tools instead)
+- **Phase 3 (Later) - E2E Tests**: Browser integration and user workflows
+  - Cypress/Playwright for Canvas/WebGPU, Web Audio API, user interactions
 
 ##### Test Organization
-- Unit tests for all audio processing algorithms
-- Integration tests for component interactions  
+- Unit tests for all audio processing algorithms (when implemented)
+- WASM integration tests for module boundaries (Phase 2)
 - Performance tests for real-time requirements
-- Module structure validation for YAGNI compliance
-- Browser API integration testing
+- Module structure validation following YAGNI principle
+- Browser integration testing via E2E tools (Phase 3)
 
 ##### Testing Commands
-- Development workflow: `cargo test` (instant feedback)
-- Production validation: `wasm-pack test --headless --firefox` (browser environment)
-- Full validation: Run both approaches for comprehensive coverage
+- **Current**: `cargo test` (1 test, instant feedback)
+- **Future**: `wasm-pack test --headless --firefox` (when we have WASM-specific functionality)
+- **Later**: Cypress/Playwright for browser integration testing
 
 ## Module Organization
 

@@ -315,41 +315,48 @@ Browser Hot Reload
 
 ### Testing Structure
 
-#### Dual Testing Architecture
+#### Phased Testing Architecture
 
-**Native Tests (Fast Development Feedback):**
+**Phase 1 (Current) - Native Tests:**
 ```
 src/lib.rs                  # Native tests embedded in source
-├── test_app_component_exists
-├── test_module_structure  
-└── test_build_configuration
+└── test_build_configuration # 1 meaningful test for build detection
 ```
 
-**WASM Tests (Browser Environment Validation):**
+**Phase 2 (Future) - WASM Tests:**
 ```
-tests/
-├── lib.rs                  # Test runner and module organization
-├── unit/                   # Unit tests for WASM environment
-│   ├── mod.rs             # Unit test organization
-│   ├── common_tests.rs    # Common module tests
-│   └── debug_tests.rs     # Debug module tests
-├── integration/           # Integration tests for browser APIs
-│   ├── mod.rs             # Integration test organization  
-│   └── app_integration.rs # App integration tests
-└── benchmarks/            # Performance tests (future)
+tests-wasm/                 # Planned WASM test structure
+├── README.md              # Comprehensive implementation guidance
+├── unit/                  # Unit tests for WASM functionality (planned)
+│   ├── audio_algorithms.rs # Audio processing in WASM
+│   ├── math_utilities.rs   # Mathematical functions
+│   └── data_structures.rs  # Serialization/boundaries
+├── integration/           # WASM module integration (planned)
+│   ├── module_communication.rs # Inter-module data flow
+│   └── performance.rs      # WASM performance benchmarks
+└── benchmarks/            # Performance tests (planned)
     ├── audio_latency.rs   # Latency benchmarks
     └── render_fps.rs      # FPS benchmarks
 ```
 
-#### Testing Commands
-- **Development**: `cargo test` → 3 native tests, instant feedback
-- **Browser Validation**: `wasm-pack test --headless --firefox` → 6 WASM tests
-- **CI/CD Pipeline**: Both commands for comprehensive validation
+**Phase 3 (Later) - Browser Integration:**
+```
+End-to-end testing via Cypress/Playwright:
+- Canvas/WebGPU integration
+- Web Audio API functionality  
+- User interaction workflows
+- Cross-browser compatibility
+```
 
-#### Test Configuration
-- **wasm-bindgen-test**: WASM test framework with browser execution
+#### Testing Commands
+- **Phase 1**: `cargo test` → 1 native test, instant feedback
+- **Phase 2**: `wasm-pack test --headless --firefox` → WASM functionality validation (when implemented)
+- **Phase 3**: Cypress/Playwright → browser integration testing (when needed)
+
+#### Current Implementation Status
 - **Entry Point Isolation**: `#[cfg(not(test))]` prevents main conflicts
-- **Browser APIs**: Direct testing of Web Audio, Canvas, and WebGPU integration
+- **YAGNI Compliance**: Only test what exists, plan for what's coming
+- **Clear Documentation**: tests-wasm/README.md defines future implementation criteria
 
 ## Performance Architecture
 

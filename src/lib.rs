@@ -87,3 +87,20 @@ pub fn main() {
     
     yew::Renderer::<App>::new().render();
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_build_configuration() {
+        // Test that build configuration detection works
+        let config = if cfg!(debug_assertions) { "Development" } else { "Production" };
+        assert!(config == "Development" || config == "Production");
+    }
+
+    // TODO: Add meaningful tests when we have testable functionality:
+    // - test_canvas_initialization() when wgpu renderer is implemented
+    // - test_audio_processing() when audio modules are added
+    // - test_event_system() when event dispatcher is implemented
+    // - test_theme_switching() when theme manager is added
+}

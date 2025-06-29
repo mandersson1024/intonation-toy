@@ -269,29 +269,30 @@ Audio Processor
 
 ### Testing Strategy
 
-#### Dual Testing Approach
-- **Native Tests (cargo test)**: Fast feedback loop for Rust logic validation
-  - 3 tests covering basic application structure and build configuration
+#### Phased Testing Approach
+- **Phase 1 (Current) - Native Tests (cargo test)**: Fast feedback loop for Rust logic validation
   - Immediate feedback during development
   - No browser dependency for core logic testing
-- **WASM Tests (wasm-pack test)**: Real browser environment validation
-  - 6 tests running in headless Firefox for WebAssembly compilation
-  - Web API and browser-specific behavior testing
-  - Validates actual runtime environment integration
+- **Phase 2 (Future) - WASM Tests (wasm-pack test)**: WebAssembly-specific functionality validation
+  - Planned for when we have audio processing and module interactions
+  - Focus on WASM compilation, memory management, and module boundaries
+  - **NOT** for browser API integration (use E2E tools like Cypress/Playwright instead)
+- **Phase 3 (Later) - E2E Tests**: Browser integration and user workflows
+  - Cypress/Playwright for Canvas/WebGPU, Web Audio API, user interactions
 
 #### Unit Testing
-- **Audio Algorithms**: Known signal inputs for validation
-- **Mathematical Functions**: FFT, autocorrelation, note mapping
-- **Event System**: Message routing and subscription management
-- **Theme System**: Color calculations and transitions
-- **Module Structure**: Validates module imports and basic functionality
+- **Phase 1 (Current)**: Build configuration detection (native tests)
+- **Phase 2 (Future)**: Audio algorithms, mathematical functions, event system (WASM tests when implemented)
+- **Module Structure**: Validates module imports following YAGNI principle
+- **Theme System**: Color calculations and transitions (when implemented)
 
 #### Integration Testing
-- **End-to-End Pipeline**: Microphone to visualization (WASM tests)
+- **End-to-End Pipeline**: Microphone to visualization (E2E tools like Cypress/Playwright)
 - **Performance Testing**: Real-time performance under load
-- **Cross-Browser Testing**: Automated compatibility validation via wasm-pack
+- **Cross-Browser Testing**: Automated compatibility validation via E2E testing
 - **Mobile Testing**: Different screen sizes and capabilities
-- **Canvas Integration**: wgpu canvas initialization and GPU rendering setup
+- **Canvas Integration**: wgpu canvas initialization and GPU rendering setup (E2E tools)
+- **WASM Integration**: Module-to-module communication and data boundaries (wasm-pack test)
 
 #### Performance Testing
 - **Latency Measurement**: Audio processing and rendering latency
@@ -300,9 +301,10 @@ Audio Processor
 - **Bundle Analysis**: Load time measurement
 
 #### Testing Commands
-- **Development**: `cargo test` for fast native feedback
-- **Production Validation**: `wasm-pack test --headless --firefox` for browser environment
-- **Full Suite**: Run both test approaches for comprehensive validation
+- **Current Phase**: `cargo test` for fast native feedback
+- **Future Phase**: `wasm-pack test --headless --firefox` for WebAssembly validation (when implemented)
+- **Later Phase**: Cypress/Playwright for end-to-end browser testing
+- **Full Suite**: Phased approach based on development maturity
 
 ## Deployment Architecture
 

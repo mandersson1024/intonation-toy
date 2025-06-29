@@ -135,8 +135,9 @@ serde = { version = "1.0", features = ["derive"] }
 js-sys = "0.3"
 console_log = "0.2"
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3"
+# TODO: Add WASM testing in future story when we have WASM-specific functionality to test
+# [dev-dependencies]
+# wasm-bindgen-test = "0.3"  # For testing WASM compilation and module boundaries
 ```
 
 **Features:**
@@ -146,11 +147,12 @@ wasm-bindgen-test = "0.3"
 - Test signal generation
 - Hot reload capability
 - Verbose logging
-- Dual testing strategy (native + WASM)
+- Phased testing strategy (Native → WASM → E2E)
 
 **Testing Commands:**
-- `cargo test` - native tests for fast feedback
-- `wasm-pack test --headless --firefox` - WASM tests for browser validation
+- **Phase 1**: `cargo test` - native tests for fast feedback (current)
+- **Phase 2**: `wasm-pack test --headless --firefox` - WASM functionality validation (future)
+- **Phase 3**: Cypress/Playwright - browser integration testing (later)
 
 ### Production Stack
 ```toml
