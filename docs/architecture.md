@@ -269,23 +269,40 @@ Audio Processor
 
 ### Testing Strategy
 
+#### Dual Testing Approach
+- **Native Tests (cargo test)**: Fast feedback loop for Rust logic validation
+  - 3 tests covering basic application structure and build configuration
+  - Immediate feedback during development
+  - No browser dependency for core logic testing
+- **WASM Tests (wasm-pack test)**: Real browser environment validation
+  - 6 tests running in headless Firefox for WebAssembly compilation
+  - Web API and browser-specific behavior testing
+  - Validates actual runtime environment integration
+
 #### Unit Testing
 - **Audio Algorithms**: Known signal inputs for validation
 - **Mathematical Functions**: FFT, autocorrelation, note mapping
 - **Event System**: Message routing and subscription management
 - **Theme System**: Color calculations and transitions
+- **Module Structure**: Validates module imports and basic functionality
 
 #### Integration Testing
-- **End-to-End Pipeline**: Microphone to visualization
+- **End-to-End Pipeline**: Microphone to visualization (WASM tests)
 - **Performance Testing**: Real-time performance under load
-- **Cross-Browser Testing**: Automated compatibility validation
+- **Cross-Browser Testing**: Automated compatibility validation via wasm-pack
 - **Mobile Testing**: Different screen sizes and capabilities
+- **Canvas Integration**: wgpu canvas initialization and GPU rendering setup
 
 #### Performance Testing
 - **Latency Measurement**: Audio processing and rendering latency
 - **Frame Rate Consistency**: 60fps maintenance under load
 - **Memory Profiling**: Leak detection and usage optimization
 - **Bundle Analysis**: Load time measurement
+
+#### Testing Commands
+- **Development**: `cargo test` for fast native feedback
+- **Production Validation**: `wasm-pack test --headless --firefox` for browser environment
+- **Full Suite**: Run both test approaches for comprehensive validation
 
 ## Deployment Architecture
 

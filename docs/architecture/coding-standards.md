@@ -61,10 +61,28 @@ pub struct FutureFeature; // unused, causes warnings
 - Maintain architecture decision records
 
 #### Testing Standards
+
+##### Dual Testing Strategy
+- **Native Tests (cargo test)**: Fast feedback for Rust logic
+  - Test basic application structure and module imports
+  - Validate build configuration detection
+  - No browser dependencies for core logic testing
+- **WASM Tests (wasm-pack test)**: Real browser environment validation
+  - Test WebAssembly compilation and browser APIs
+  - Validate web-specific functionality (canvas, Web Audio API)
+  - Cross-browser compatibility testing via headless browsers
+
+##### Test Organization
 - Unit tests for all audio processing algorithms
-- Integration tests for component interactions
+- Integration tests for component interactions  
 - Performance tests for real-time requirements
-- Cross-browser compatibility testing
+- Module structure validation for YAGNI compliance
+- Browser API integration testing
+
+##### Testing Commands
+- Development workflow: `cargo test` (instant feedback)
+- Production validation: `wasm-pack test --headless --firefox` (browser environment)
+- Full validation: Run both approaches for comprehensive coverage
 
 ## Module Organization
 

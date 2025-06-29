@@ -8,13 +8,25 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 - Modern web browser with WebAssembly and Web Audio API support
 
 ```bash
-# Run unit tests
+# Development Testing (fast feedback)
 cargo test
 
-# Start server (builds + serves with hot reload)
+# Browser Testing (WebAssembly validation)
+wasm-pack test --headless --firefox
+
+# Start development server (builds + serves with hot reload)
 # Visit http://localhost:8080/
 trunk serve
 ```
+
+### Testing Strategy
+
+This project uses a dual testing approach:
+
+- **Native Tests**: `cargo test` runs 3 tests for fast feedback on Rust logic
+- **WASM Tests**: `wasm-pack test --headless --firefox` runs 6 tests in real browser environment
+
+This ensures both rapid development iteration and production environment validation.
 
 ### License
 

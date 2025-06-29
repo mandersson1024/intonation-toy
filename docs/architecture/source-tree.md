@@ -315,19 +315,41 @@ Browser Hot Reload
 
 ### Testing Structure
 
+#### Dual Testing Architecture
+
+**Native Tests (Fast Development Feedback):**
+```
+src/lib.rs                  # Native tests embedded in source
+├── test_app_component_exists
+├── test_module_structure  
+└── test_build_configuration
+```
+
+**WASM Tests (Browser Environment Validation):**
 ```
 tests/
-├── unit/                   # Unit tests
-│   ├── audio/             # Audio module tests
-│   ├── graphics/          # Graphics module tests
-│   └── common/            # Utility tests
-├── integration/           # Integration tests
-│   ├── audio_pipeline.rs  # End-to-end audio
-│   └── render_pipeline.rs # End-to-end graphics
-└── benchmarks/            # Performance tests
+├── lib.rs                  # Test runner and module organization
+├── unit/                   # Unit tests for WASM environment
+│   ├── mod.rs             # Unit test organization
+│   ├── common_tests.rs    # Common module tests
+│   └── debug_tests.rs     # Debug module tests
+├── integration/           # Integration tests for browser APIs
+│   ├── mod.rs             # Integration test organization  
+│   └── app_integration.rs # App integration tests
+└── benchmarks/            # Performance tests (future)
     ├── audio_latency.rs   # Latency benchmarks
     └── render_fps.rs      # FPS benchmarks
 ```
+
+#### Testing Commands
+- **Development**: `cargo test` → 3 native tests, instant feedback
+- **Browser Validation**: `wasm-pack test --headless --firefox` → 6 WASM tests
+- **CI/CD Pipeline**: Both commands for comprehensive validation
+
+#### Test Configuration
+- **wasm-bindgen-test**: WASM test framework with browser execution
+- **Entry Point Isolation**: `#[cfg(not(test))]` prevents main conflicts
+- **Browser APIs**: Direct testing of Web Audio, Canvas, and WebGPU integration
 
 ## Performance Architecture
 

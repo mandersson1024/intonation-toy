@@ -82,6 +82,13 @@
 - **WASM Inspector**: Module analysis
 - **Audio Analyzer**: Web Audio debugging
 
+#### Testing Framework
+- **wasm-bindgen-test 0.3**: WebAssembly test framework
+  - Browser environment testing
+  - Headless browser automation
+  - Web API integration testing
+  - Cross-browser compatibility validation
+
 ## Performance Stack
 
 ### Latency Optimization
@@ -127,6 +134,9 @@
 serde = { version = "1.0", features = ["derive"] }
 js-sys = "0.3"
 console_log = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
 ```
 
 **Features:**
@@ -136,6 +146,11 @@ console_log = "0.2"
 - Test signal generation
 - Hot reload capability
 - Verbose logging
+- Dual testing strategy (native + WASM)
+
+**Testing Commands:**
+- `cargo test` - native tests for fast feedback
+- `wasm-pack test --headless --firefox` - WASM tests for browser validation
 
 ### Production Stack
 ```toml
