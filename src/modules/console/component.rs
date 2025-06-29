@@ -89,7 +89,7 @@ impl Component for DevConsole {
                     self.save_history_to_storage();
                     
                     // Echo the command
-                    self.output_manager.add_output(ConsoleOutput::command(command));
+                    self.output_manager.add_output(ConsoleOutput::echo(command));
                     
                     // Execute the command
                     let result = self.command_registry.execute(command);
@@ -100,6 +100,11 @@ impl Component for DevConsole {
                         CommandResult::ClearAndOutput(output) => {
                             self.output_manager.clear();
                             self.output_manager.add_output(output);
+                        }
+                        CommandResult::MultipleOutputs(outputs) => {
+                            for output in outputs {
+                                self.output_manager.add_output(output);
+                            }
                         }
                     }
                     
@@ -236,7 +241,7 @@ impl Component for DevConsole {
 impl DevConsole {
     /// Render the console output
     fn render_output(&self) -> Html {
-        let entries = self.output_manager.visible_entries();
+        let entries = self.output_manager.entries();
         
         html! {
             <div class="console-output-content">

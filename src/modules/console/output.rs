@@ -14,10 +14,8 @@ pub enum ConsoleOutput {
     Warning(String),
     /// Error message (red styling)
     Error(String),
-    /// Debug message (gray styling, verbose information)
-    Debug(String),
     /// Command echo (shows the executed command)
-    Command(String),
+    Echo(String),
     /// Empty output (used for spacing or clearing)
     Empty,
 }
@@ -43,14 +41,10 @@ impl ConsoleOutput {
         Self::Error(message.into())
     }
 
-    /// Create a debug message
-    pub fn debug(message: impl Into<String>) -> Self {
-        Self::Debug(message.into())
-    }
 
     /// Create a command echo message
-    pub fn command(message: impl Into<String>) -> Self {
-        Self::Command(message.into())
+    pub fn echo(message: impl Into<String>) -> Self {
+        Self::Echo(message.into())
     }
 
     /// Create an empty output
@@ -62,7 +56,7 @@ impl ConsoleOutput {
     pub fn message(&self) -> &str {
         match self {
             Self::Info(msg) | Self::Success(msg) | Self::Warning(msg) 
-            | Self::Error(msg) | Self::Debug(msg) | Self::Command(msg) => msg,
+            | Self::Error(msg) | Self::Echo(msg) => msg,
             Self::Empty => "",
         }
     }
@@ -74,19 +68,11 @@ impl ConsoleOutput {
             Self::Success(_) => "success",
             Self::Warning(_) => "warning",
             Self::Error(_) => "error",
-            Self::Debug(_) => "debug",
-            Self::Command(_) => "command",
+            Self::Echo(_) => "command",
             Self::Empty => "empty",
         }
     }
 
-    /// Check if this output should be visible in normal mode (non-debug)
-    pub fn is_visible_in_normal_mode(&self) -> bool {
-        match self {
-            Self::Debug(_) => false, // Debug messages hidden by default
-            _ => true,
-        }
-    }
 
     /// Get HTML-safe message content (escapes special characters)
     pub fn html_safe_message(&self) -> String {
@@ -106,8 +92,7 @@ impl fmt::Display for ConsoleOutput {
             Self::Success(msg) => write!(f, "[SUCCESS] {}", msg),
             Self::Warning(msg) => write!(f, "[WARNING] {}", msg),
             Self::Error(msg) => write!(f, "[ERROR] {}", msg),
-            Self::Debug(msg) => write!(f, "[DEBUG] {}", msg),
-            Self::Command(msg) => write!(f, "> {}", msg),
+            Self::Echo(msg) => write!(f, "> {}", msg),
             Self::Empty => write!(f, ""),
         }
     }
@@ -191,8 +176,6 @@ pub struct ConsoleOutputManager {
     entries: Vec<ConsoleEntry>,
     /// Maximum number of entries to store
     max_entries: usize,
-    /// Whether to show debug messages
-    show_debug: bool,
     /// Whether to show timestamps
     show_timestamps: bool,
 }
@@ -203,17 +186,15 @@ impl ConsoleOutputManager {
         Self {
             entries: Vec::new(),
             max_entries: 1000, // Same as history limit
-            show_debug: false,
             show_timestamps: true,
         }
     }
 
     /// Create a new output manager with custom settings
-    pub fn with_settings(max_entries: usize, show_debug: bool, show_timestamps: bool) -> Self {
+    pub fn with_settings(max_entries: usize, show_timestamps: bool) -> Self {
         Self {
             entries: Vec::new(),
             max_entries: max_entries.max(1),
-            show_debug,
             show_timestamps,
         }
     }
@@ -241,18 +222,9 @@ impl ConsoleOutputManager {
         self.entries.clear();
     }
 
-    /// Get all visible entries (respecting debug/timestamp settings)
-    pub fn visible_entries(&self) -> Vec<&ConsoleEntry> {
-        self.entries
-            .iter()
-            .filter(|entry| {
-                if self.show_debug {
-                    true
-                } else {
-                    entry.output.is_visible_in_normal_mode()
-                }
-            })
-            .collect()
+    /// Get all visible entries
+    pub fn entries(&self) -> Vec<&ConsoleEntry> {
+        self.entries.iter().collect()
     }
 
     /// Get number of entries
@@ -265,21 +237,6 @@ impl ConsoleOutputManager {
         self.entries.is_empty()
     }
 
-    /// Toggle debug message visibility
-    pub fn toggle_debug(&mut self) -> bool {
-        self.show_debug = !self.show_debug;
-        self.show_debug
-    }
-
-    /// Set debug message visibility
-    pub fn set_show_debug(&mut self, show: bool) {
-        self.show_debug = show;
-    }
-
-    /// Get debug message visibility setting
-    pub fn show_debug(&self) -> bool {
-        self.show_debug
-    }
 
     /// Toggle timestamp visibility
     pub fn toggle_timestamps(&mut self) -> bool {
@@ -355,11 +312,6 @@ pub const CONSOLE_OUTPUT_CSS: &str = r#"
     background-color: rgba(248, 113, 113, 0.1);
 }
 
-.console-debug {
-    color: #9ca3af;
-    background-color: rgba(156, 163, 175, 0.05);
-    font-style: italic;
-}
 
 .console-command {
     color: #60a5fa;
@@ -368,7 +320,7 @@ pub const CONSOLE_OUTPUT_CSS: &str = r#"
 }
 
 .console-empty {
-    height: 8px;
+    height: 16.8px;
 }
 
 .console-output-container {
@@ -409,17 +361,15 @@ mod tests {
         let info = ConsoleOutput::info("Test info");
         assert_eq!(info.message(), "Test info");
         assert_eq!(info.output_type(), "info");
-        assert!(info.is_visible_in_normal_mode());
 
         let success = ConsoleOutput::success("Test success");
         assert_eq!(success.output_type(), "success");
+        assert_eq!(success.message(), "Test success");
 
         let error = ConsoleOutput::error("Test error");
         assert_eq!(error.output_type(), "error");
+        assert_eq!(error.message(), "Test error");
 
-        let debug = ConsoleOutput::debug("Test debug");
-        assert_eq!(debug.output_type(), "debug");
-        assert!(!debug.is_visible_in_normal_mode());
     }
 
     #[test]
@@ -433,7 +383,7 @@ mod tests {
         let error = ConsoleOutput::error("Failed");
         assert_eq!(error.to_string(), "[ERROR] Failed");
 
-        let command = ConsoleOutput::command("help");
+        let command = ConsoleOutput::echo("help");
         assert_eq!(command.to_string(), "> help");
 
         let empty = ConsoleOutput::empty();
@@ -472,31 +422,25 @@ mod tests {
         assert!(manager.is_empty());
 
         manager.add_output(ConsoleOutput::info("First message"));
-        manager.add_output(ConsoleOutput::debug("Debug message"));
         manager.add_output(ConsoleOutput::success("Success message"));
 
-        assert_eq!(manager.len(), 3);
+        assert_eq!(manager.len(), 2);
 
-        // Without debug mode, only 2 messages should be visible
-        let visible = manager.visible_entries();
+        // All messages should be visible
+        let visible = manager.entries();
         assert_eq!(visible.len(), 2);
-
-        // With debug mode, all 3 messages should be visible
-        manager.set_show_debug(true);
-        let visible_debug = manager.visible_entries();
-        assert_eq!(visible_debug.len(), 3);
     }
 
     #[test]
     fn test_output_manager_size_limit() {
-        let mut manager = ConsoleOutputManager::with_settings(2, false, true);
+        let mut manager = ConsoleOutputManager::with_settings(2, true);
         
         manager.add_output(ConsoleOutput::info("First"));
         manager.add_output(ConsoleOutput::info("Second"));
         manager.add_output(ConsoleOutput::info("Third")); // Should remove "First"
 
         assert_eq!(manager.len(), 2);
-        let entries = manager.visible_entries();
+        let entries = manager.entries();
         assert_eq!(entries[0].output.message(), "Third"); // Most recent first
         assert_eq!(entries[1].output.message(), "Second");
     }
@@ -528,12 +472,6 @@ mod tests {
     fn test_output_manager_toggles() {
         let mut manager = ConsoleOutputManager::new();
         
-        // Test debug toggle
-        assert!(!manager.show_debug());
-        let result = manager.toggle_debug();
-        assert!(result);
-        assert!(manager.show_debug());
-
         // Test timestamp toggle
         assert!(manager.show_timestamps());
         let result = manager.toggle_timestamps();

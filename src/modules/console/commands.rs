@@ -8,6 +8,7 @@ use super::output::ConsoleOutput;
 pub enum CommandResult {
     Output(ConsoleOutput),
     ClearAndOutput(ConsoleOutput),
+    MultipleOutputs(Vec<ConsoleOutput>),
 }
 
 // Trait for extensible console commands
@@ -32,6 +33,7 @@ impl CommandRegistry {
         registry.register(Box::new(HelpCommand));
         registry.register(Box::new(ClearCommand));
         registry.register(Box::new(StatusCommand));
+        registry.register(Box::new(TestCommand));
         
         registry
     }
@@ -121,6 +123,36 @@ impl DevCommand for StatusCommand {
     }
 }
 
+// Built-in Test Command - Shows examples of all ConsoleOutput variants
+struct TestCommand;
+
+impl DevCommand for TestCommand {
+    fn name(&self) -> &str {
+        "test"
+    }
+    
+    fn description(&self) -> &str {
+        "Show examples of all console output types"
+    }
+    
+    fn execute(&self, _args: Vec<&str>, _registry: &CommandRegistry) -> CommandResult {
+        // This command demonstrates all available ConsoleOutput variants
+        // by returning multiple outputs with proper styling
+        
+        let outputs = vec![
+            ConsoleOutput::info("Console Output Examples:"),
+            ConsoleOutput::empty(),
+            ConsoleOutput::info("This is an informational message"),
+            ConsoleOutput::success("This is a success message"),
+            ConsoleOutput::warning("This is a warning message"),
+            ConsoleOutput::error("This is an error message"),
+            ConsoleOutput::empty(),
+        ];
+        
+        CommandResult::MultipleOutputs(outputs)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,6 +169,7 @@ mod tests {
                 assert!(text.contains("help - Display available commands and usage"));
                 assert!(text.contains("clear - Clear console output"));
                 assert!(text.contains("status - Show application status"));
+                assert!(text.contains("test - Show examples of all console output types"));
             },
             _ => panic!("Expected Info output from help command"),
         }
@@ -160,6 +193,20 @@ mod tests {
         match result {
             CommandResult::Output(ConsoleOutput::Error(text)) => assert!(text.contains("Unknown command")),
             _ => panic!("Expected Error output for unknown command"),
+        }
+        
+        // Test test command
+        let result = registry.execute("test");
+        match result {
+            CommandResult::MultipleOutputs(outputs) => {
+                assert!(!outputs.is_empty());
+                // Should contain examples of different output types
+                assert!(outputs.iter().any(|o| matches!(o, ConsoleOutput::Info(_))));
+                assert!(outputs.iter().any(|o| matches!(o, ConsoleOutput::Success(_))));
+                assert!(outputs.iter().any(|o| matches!(o, ConsoleOutput::Warning(_))));
+                assert!(outputs.iter().any(|o| matches!(o, ConsoleOutput::Error(_))));
+            },
+            _ => panic!("Expected MultipleOutputs result from test command"),
         }
     }
     
@@ -185,14 +232,12 @@ mod tests {
     #[test]
     fn test_console_output_types() {
         let info = ConsoleOutput::info("test");
-        let success = ConsoleOutput::success("test");
         let error = ConsoleOutput::error("test");
-        let debug = ConsoleOutput::debug("test");
+        let command = ConsoleOutput::echo("test");
         
-        assert_ne!(info, success);
-        assert_ne!(success, error);
-        assert_ne!(error, debug);
-        assert_ne!(debug, info);
+        assert_ne!(info, error);
+        assert_ne!(error, command);
+        assert_ne!(command, info);
     }
     
 }
