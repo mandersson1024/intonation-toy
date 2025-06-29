@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never pretend that you can test something that requires manual testing. Always tell the user to test manually, be specific about what to test, and wait for confirmation.
 - Never create unreferenced infrastructure for future tasks. It will only create compiler warnings, complicate code review. The roadmap might change before we get to use it anyway. Assume for now that you aren't gonna need it (YAGNI). Write TODO comments for expected future code. Use stubs as placeholders for incomplete but referenced implementations.
 - All UI placeholder/fake values should be drawn in magenta color to make it absolutely clear that they are not implemented.
+- Never say "You are absolutely right!" unless you have given it some thought and concluded that I in fact am. A lot of times I will be wrong, you see.
 
 ## Critical UI Architecture Rules
 **IMMERSIVE GPU-ONLY USER INTERFACE**: All end-user interactions, controls, and visualizations MUST be rendered via wgpu GPU graphics. HTML/CSS is FORBIDDEN for production user interface.
@@ -133,17 +134,15 @@ cargo test
 trunk serve
 
 # Build for development (with debug symbols)
-# Uses build-configs/dev.toml settings
-trunk build --config build-configs/dev.toml
+trunk build --config dev.toml
 
 # Build for production (optimized)
-# Uses build-configs/release.toml settings
-trunk build --config build-configs/release.toml --release
+trunk build --config release.toml
 ```
 
 ### Build Configurations
 
-#### Development (`build-configs/dev.toml`)
+#### Development (`dev.toml`)
 - Full debugging capabilities
 - Source maps enabled
 - Verbose logging
@@ -151,7 +150,7 @@ trunk build --config build-configs/release.toml --release
 - Multiple buffer sizes and sample rates for testing
 - Output: `dist/development/`
 
-#### Production (`build-configs/release.toml`)
+#### Production (`release.toml`)
 - Maximum optimization (level 3)
 - No debug symbols or source maps
 - Minimal bundle size
