@@ -2,18 +2,40 @@
 
 Real-time pitch detection and visualization tool with musical interval analysis for web browsers.
 
-### Getting Started
+### Prerequisites
 
-- Rust 1.70+ with Cargo
-- Modern web browser with WebAssembly and Web Audio API support
+- **Rust 1.70+** with Cargo
+- **Trunk** - WebAssembly application bundler (`cargo install trunk`)
+- **Modern web browser** with WebAssembly and Web Audio API support:
+  - Chrome 66+ / Firefox 76+ / Safari 14.1+ / Edge 79+
+
+### Quick Start
 
 ```bash
-# Run tests (current: native tests for fast feedback)
-cargo test
+# Install Trunk (if not already installed)
+cargo install trunk
 
-# Start development server (builds + serves with hot reload)
-# Visit http://localhost:8080/
+# Start development server with hot reload
 trunk serve
+
+# Visit http://localhost:8080/ in your browser
+```
+
+### Development Commands
+
+```bash
+# Testing
+cargo test                      # Run native tests (fast feedback)
+
+# Development
+trunk serve                     # Start dev server with hot reload at localhost:8080
+
+# Building
+trunk build --release           # Create production build in dist/
+
+# Cleanup  
+cargo clean                     # Clean Rust build artifacts
+rm -rf dist/                    # Clean Trunk build output
 ```
 
 ### Testing Strategy
@@ -30,6 +52,30 @@ This project uses a phased testing approach:
 - **Browser Integration**: Cypress/Playwright for end-to-end browser API testing
 
 This ensures appropriate testing tools for each development phase.
+
+### Development Workflow
+
+1. **Make code changes** in `src/`
+2. **Hot reload** automatically rebuilds and refreshes browser
+3. **Run tests** with `cargo test` for immediate feedback
+4. **Check build** with `trunk build --release` before commits
+
+### Project Structure
+
+```
+src/
+├── lib.rs           # Main application entry point  
+└── modules/         # Modular architecture (following YAGNI principle)
+```
+
+### Browser Compatibility
+
+| Browser | Version | WebAssembly | Web Audio | AudioWorklet |
+|---------|---------|-------------|-----------|--------------|
+| Chrome  | 66+     | ✅          | ✅        | ✅           |
+| Firefox | 76+     | ✅          | ✅        | ✅           |
+| Safari  | 14.1+   | ✅          | ✅        | ✅           |
+| Edge    | 79+     | ✅          | ✅        | ✅           |
 
 ### License
 
