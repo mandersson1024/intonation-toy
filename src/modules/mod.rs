@@ -6,9 +6,9 @@ pub mod common;
 #[cfg(debug_assertions)]
 pub mod debug;
 
-// Future modules for upcoming stories:
-// pub mod audio;        // Audio processing and pitch detection
-// pub mod graphics;     // wgpu GPU rendering
-// pub mod events;       // Event dispatcher system
-// pub mod presentation; // Presentation layer
-// pub mod theme;        // Theme management
+// Future modules for upcoming stories (following YAGNI principle):
+// TODO: audio/audio_processor.rs - implement when audio processing is needed
+// TODO: events/event_dispatcher.rs - implement when event system is needed
+// TODO: graphics/graphics_renderer.rs - implement when wgpu rendering is needed
+// TODO: presentation/presentation_layer.rs - implement when visualization is needed
+// TODO: themes/theme_manager.rs - implement when theming is needed
