@@ -2,7 +2,7 @@
 // Maintains command history with navigation support for the development console
 
 /// Maximum number of commands to store in history to prevent memory issues
-const MAX_HISTORY_SIZE: usize = 1000;
+const MAX_HISTORY_SIZE: usize = 100;
 
 /// Console command history manager
 /// 
@@ -29,6 +29,7 @@ impl ConsoleHistory {
     }
 
     /// Create a new console history manager with custom size limit
+    #[cfg(test)]
     pub fn with_max_size(max_size: usize) -> Self {
         Self {
             commands: Vec::new(),
@@ -115,6 +116,7 @@ impl ConsoleHistory {
     }
 
     /// Get current command at navigation position
+    #[cfg(test)]
     pub fn current_command(&self) -> Option<&str> {
         match self.current_position {
             None => None,
@@ -144,11 +146,13 @@ impl ConsoleHistory {
     }
 
     /// Get all commands in history (most recent first)
+    #[cfg(test)]
     pub fn commands(&self) -> &[String] {
         &self.commands
     }
 
     /// Get maximum history size
+    #[cfg(test)]
     pub fn max_size(&self) -> usize {
         self.max_size
     }
