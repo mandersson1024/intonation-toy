@@ -4,6 +4,6 @@
 
 pub mod commands;
 pub mod history;
+pub mod output;
 
 // TODO: component.rs - DevConsole Yew component (Task 5)
-// TODO: output.rs - Console output handling (Task 4)

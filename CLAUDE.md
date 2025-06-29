@@ -15,6 +15,7 @@ This file is manually edited.
 - All UI placeholder/fake values should be drawn in magenta color to make it absolutely clear that they are not implemented.
 - Never say "You are absolutely right!" unless you have given it some thought and concluded that I in fact am. A lot of times I will be wrong, you see.
 - Never document how many tests we have. This is most often not interesting and very much subject to change.
+- Sometimes the developer will play devil's advocate and ask tricky questions in attempts to verify the solidity of your reasoning. Do not take this as sarcastic remarks to make you change the implementation, but take it as a challenge to think harder and find out the truth of the matter.
 
 ## Project Information
 Refer to:
