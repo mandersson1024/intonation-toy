@@ -27,45 +27,18 @@ trunk serve
 # Testing
 cargo test                      # Run native tests (fast feedback)
 
-# Development
-trunk serve                     # Start dev server with hot reload at localhost:8080
-
 # Building
-trunk build --release           # Create production build in dist/
+trunk build                     # Development build
+trunk build --release           # Release build
+
+# Development
+trunk serve                     # Start dev server (localhost:8080, development build)
+trunk serve --release           # Start dev server (localhost:8080, release build)
+
 
 # Cleanup  
 cargo clean                     # Clean Rust build artifacts
 rm -rf dist/                    # Clean Trunk build output
-```
-
-### Testing Strategy
-
-This project uses a phased testing approach:
-
-**Phase 1 (Current):**
-- **Native Tests**: `cargo test` runs 1 meaningful test for fast feedback on Rust logic
-
-**Phase 2 (Future):**
-- **WASM Tests**: `wasm-pack test --headless --firefox` for WebAssembly-specific functionality (when we have audio processing modules)
-
-**Phase 3 (Later):**
-- **Browser Integration**: Cypress/Playwright for end-to-end browser API testing
-
-This ensures appropriate testing tools for each development phase.
-
-### Development Workflow
-
-1. **Make code changes** in `src/`
-2. **Hot reload** automatically rebuilds and refreshes browser
-3. **Run tests** with `cargo test` for immediate feedback
-4. **Check build** with `trunk build --release` before commits
-
-### Project Structure
-
-```
-src/
-├── lib.rs           # Main application entry point  
-└── modules/         # Modular architecture (following YAGNI principle)
 ```
 
 ### Browser Compatibility
