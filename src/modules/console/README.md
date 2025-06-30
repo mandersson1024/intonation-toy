@@ -5,15 +5,6 @@ The Console Module implements a terminal-style debugging interface rendered as a
 - **Interactive Command System**: Extensible command framework with built-in development commands
 - **Persistent Command History**: Browser storage-backed history with navigation support  
 - **Real-time System Control**: Runtime configuration and debugging capabilities
-- **Development-Only Availability**: Conditional compilation ensures production builds exclude console overhead
-
-### Core Design Principles
-
-1. **Development-First**: Optimized for developer productivity during implementation
-2. **Self-Contained**: Component manages its own lifecycle and state independently
-3. **Clean API Surface**: Minimal public interface hiding implementation complexity
-4. **Non-Intrusive**: Modal overlay design doesn't interfere with main application
-5. **Performance Aware**: Zero impact on production builds through conditional compilation
 
 ## Public API
 
