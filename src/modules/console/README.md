@@ -46,40 +46,6 @@ impl ConsoleCommand for MyCustomCommand {
 register_command(Box::new(MyCustomCommand));
 ```
 
-### Internal Architecture (Implementation Details)
-
-#### Built-in Commands
-
-| Command | Description | Usage |
-|---------|------------|--------|
-| `help` | List all available commands | `help` |
-| `clear` | Clear console output | `clear` |
-| `status` | Show application status | `status` |
-| `test` | Demonstrate output types | `test` |
-
-## Usage
-
-### Basic Usage
-
-Simply include the component in your Yew application:
-
-```rust
-use crate::modules::console::DevConsole;
-
-#[function_component(App)]
-fn app() -> Html {
-    html! {
-        <div>
-            // Your main application
-            <main>{ "Your content here" }</main>
-            
-            // Console (debug builds only)
-            <DevConsole />
-        </div>
-    }
-}
-```
-
 ### User Interaction
 
 - **Toggle Visibility**: Press `ESC` key to show/hide console
@@ -143,15 +109,4 @@ User Input (ESC) → Console Toggle → Command Entry
                                         │
                                         ▼
                           History Storage & Display
-```
-
-### Module Structure
-
-```
-src/modules/console/
-├── mod.rs              # Clean public API (only exports DevConsole)
-├── commands.rs         # Private: Command system and built-in commands  
-├── component.rs        # Private: Yew console UI component implementation
-├── history.rs          # Private: Command history management
-└── output.rs           # Private: Output formatting and styling
 ```
