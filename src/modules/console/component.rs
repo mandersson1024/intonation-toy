@@ -4,6 +4,7 @@
 
 use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
+use wasm_bindgen::{closure::Closure, JsCast};
 
 use super::commands::{CommandRegistry, CommandResult};
 use super::history::ConsoleHistory;
@@ -14,12 +15,7 @@ const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
 
 /// Properties for the DevConsole component
 #[derive(Properties, PartialEq)]
-pub struct DevConsoleProps {
-    /// Whether the console is visible
-    pub visible: bool,
-    /// Callback to toggle console visibility
-    pub on_toggle: Callback<()>,
-}
+pub struct DevConsoleProps {}
 
 /// State for the DevConsole component
 pub struct DevConsole {
@@ -35,6 +31,8 @@ pub struct DevConsole {
     input_ref: NodeRef,
     /// Reference to the output container element for auto-scrolling
     output_ref: NodeRef,
+    /// Whether the console is currently visible
+    visible: bool,
     /// Track previous visibility state for focus management
     was_visible: bool,
 }
@@ -47,6 +45,8 @@ pub enum DevConsoleMsg {
     UpdateInput(String),
     /// Handle keyboard events (history navigation, shortcuts)
     HandleKeyDown(KeyboardEvent),
+    /// Toggle console visibility
+    ToggleVisibility,
 }
 
 impl Component for DevConsole {
@@ -73,6 +73,7 @@ impl Component for DevConsole {
             input_value: String::new(),
             input_ref: NodeRef::default(),
             output_ref: NodeRef::default(),
+            visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
         }
     }
@@ -148,17 +149,22 @@ impl Component for DevConsole {
                     }
                     "Escape" => {
                         // Let the global handler manage console toggling
-                        // Don't prevent default to allow global handler to work
                         false
                     }
                     _ => false
                 }
             }
+            
+            DevConsoleMsg::ToggleVisibility => {
+                web_sys::console::log_3(&"DevConsole: Toggling visibility from".into(), &self.visible.into(), &format!("to {}", !self.visible).into());
+                self.visible = !self.visible;
+                true
+            }
         }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        if !ctx.props().visible {
+        if !self.visible {
             return html! {};
         }
 
@@ -218,10 +224,15 @@ impl Component for DevConsole {
     }
 
     fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
-        let is_visible = ctx.props().visible;
+        let is_visible = self.visible;
+        
+        // Set up global keyboard listener on first render
+        if first_render {
+            self.setup_global_keyboard_listener(ctx);
+        }
         
         // Focus input on first render or when console becomes visible
-        if first_render {
+        if first_render && is_visible {
             self.focus_input();
             self.scroll_to_bottom();
         } else if !self.was_visible && is_visible {
@@ -279,6 +290,36 @@ impl DevConsole {
         if let Some(output_container) = self.output_ref.cast::<web_sys::Element>() {
             output_container.set_scroll_top(output_container.scroll_height());
         }
+    }
+
+    /// Set up global keyboard event listener for Escape key
+    fn setup_global_keyboard_listener(&self, ctx: &Context<Self>) {
+        let link = ctx.link().clone();
+        
+        let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
+            if let Ok(keyboard_event) = event.dyn_into::<KeyboardEvent>() {
+                if keyboard_event.key() == "Escape" {
+                    web_sys::console::log_1(&"Global Escape key detected - toggling console".into());
+                    keyboard_event.prevent_default();
+                    
+                    // Toggle console visibility
+                    link.send_message(DevConsoleMsg::ToggleVisibility);
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+        
+        let window = web_sys::window()
+            .expect("Failed to get window");
+        web_sys::console::log_1(&"DevConsole: Setting up global keydown event listener".into());
+        window
+            .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
+            .expect("Failed to add keydown event listener to window");
+        
+        // Store closure to prevent it from being dropped
+        closure.forget();
+        
+        // Note: In a real application, we should properly manage the closure cleanup
+        // For this development console, the memory leak is acceptable
     }
 }
 
@@ -477,6 +518,7 @@ mod tests {
             input_value: "test command".to_string(),
             input_ref: NodeRef::default(),
             output_ref: NodeRef::default(),
+            visible: true,
             was_visible: false,
         };
 
@@ -500,6 +542,7 @@ mod tests {
             input_value: String::new(),
             input_ref: NodeRef::default(),
             output_ref: NodeRef::default(),
+            visible: true,
             was_visible: false,
         };
 
@@ -533,6 +576,7 @@ mod tests {
             input_value: String::new(),
             input_ref: NodeRef::default(),
             output_ref: NodeRef::default(),
+            visible: true,
             was_visible: false,
         };
         

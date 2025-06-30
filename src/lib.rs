@@ -2,10 +2,6 @@ use yew::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
-#[cfg(debug_assertions)]
-use web_sys::KeyboardEvent;
-#[cfg(debug_assertions)]
-use wasm_bindgen::{closure::Closure, JsCast};
 
 mod modules;
 
@@ -16,99 +12,22 @@ use modules::console::DevConsole;
 
 /// Render development console if in debug mode
 #[cfg(debug_assertions)]
-fn render_dev_console(visible: bool, on_toggle: Callback<()>) -> Html {
-    html! { <DevConsole visible={visible} on_toggle={on_toggle} /> }
+fn render_dev_console() -> Html {
+    html! { <DevConsole /> }
 }
 
 /// Render nothing in release mode
 #[cfg(not(debug_assertions))]
-fn render_dev_console(_visible: bool, _on_toggle: Callback<()>) -> Html {
+fn render_dev_console() -> Html {
     html! {}
 }
 
-/// Console visibility state (development builds only)
-#[cfg(debug_assertions)]
-#[derive(Clone, PartialEq)]
-struct ConsoleState {
-    visible: bool,
-}
-
-/// Console visibility action for reducer (development builds only)
-#[cfg(debug_assertions)]
-#[derive(Clone, PartialEq)]
-enum ConsoleAction {
-    Toggle,
-}
-
-#[cfg(debug_assertions)]
-impl Reducible for ConsoleState {
-    type Action = ConsoleAction;
-    
-    fn reduce(self: std::rc::Rc<Self>, action: Self::Action) -> std::rc::Rc<Self> {
-        match action {
-            ConsoleAction::Toggle => {
-                let new_state = !self.visible;
-                web_sys::console::log_3(&"Reducer: Toggling console from".into(), &self.visible.into(), &format!("to {}", new_state).into());
-                std::rc::Rc::new(ConsoleState { visible: new_state })
-            }
-        }
-    }
-}
 
 /// Main application component for Pitch Toy
 #[function_component]
 fn App() -> Html {
     let canvas_ref = use_node_ref();
     
-    // Console state management (development builds only)
-    #[cfg(debug_assertions)]
-    let console_state = use_reducer(|| ConsoleState { visible: true });
-    
-    #[cfg(debug_assertions)]
-    let toggle_console = {
-        let console_state = console_state.clone();
-        Callback::from(move |_| {
-            console_state.dispatch(ConsoleAction::Toggle);
-        })
-    };
-    
-    #[cfg(not(debug_assertions))]
-    let toggle_console = Callback::from(move |_| {});
-    
-    // Global keyboard event handler for Escape key to toggle console (development builds only)
-    #[cfg(debug_assertions)]
-    {
-        let console_state = console_state.clone();
-        use_effect_with((), move |_| {
-            let console_state_ref = console_state.clone();
-            
-            let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
-                if let Ok(keyboard_event) = event.dyn_into::<KeyboardEvent>() {
-                    if keyboard_event.key() == "Escape" {
-                        web_sys::console::log_1(&"Escape key detected - toggling console".into());
-                        keyboard_event.prevent_default();
-                        
-                        // Use dispatcher to avoid closure capture issues
-                        console_state_ref.dispatch(ConsoleAction::Toggle);
-                    }
-                }
-            }) as Box<dyn FnMut(_)>);
-            
-            let window = web_sys::window()
-                .expect("Failed to get window");
-            web_sys::console::log_1(&"Setting up global keydown event listener on window".into());
-            window
-                .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
-                .expect("Failed to add keydown event listener to window");
-            
-            // Store closure to prevent it from being dropped
-            closure.forget();
-            
-            // Note: In a real application, we should properly manage the closure cleanup
-            // For this development console, the memory leak is acceptable
-            || {}
-        });
-    }
     
     // Initialize wgpu canvas after component is rendered
     use_effect_with(canvas_ref.clone(), {
@@ -123,16 +42,10 @@ fn App() -> Html {
         }
     });
 
-    // Determine console visibility
-    #[cfg(debug_assertions)]
-    let console_visible = console_state.visible;
-    #[cfg(not(debug_assertions))]
-    let console_visible = false;
-
     html! {
         <div>
             // Development console (debug builds only)
-            { render_dev_console(console_visible, toggle_console) }
+            { render_dev_console() }
             
             // Canvas for wgpu GPU rendering
             <canvas 
