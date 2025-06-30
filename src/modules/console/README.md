@@ -11,9 +11,9 @@ The Console Module implements a terminal-style debugging interface rendered as a
 The console module provides a **minimal, clean API** that encapsulates all internal complexity:
 
 ```rust
-use crate::modules::console::DevConsole;
-use crate::modules::console::{ConsoleCommand, ConsoleCommandResult, register_command};
-use crate::modules::console::output::ConsoleOutput;
+pub use component::DevConsole;
+pub use commands::{ConsoleCommand, ConsoleCommandResult};
+pub use command_registry::register_command;
 
 // In your Yew application root
 #[function_component(App)]
