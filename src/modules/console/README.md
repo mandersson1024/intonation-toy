@@ -46,7 +46,7 @@ impl ConsoleCommand for MyCustomCommand {
 register_command(Box::new(MyCustomCommand));
 ```
 
-### User Interaction
+## User Interaction
 
 - **Toggle Visibility**: Press `ESC` key to show/hide console
 - **Command Entry**: Type commands in the input field and press `Enter`
