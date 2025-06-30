@@ -8,8 +8,6 @@ The Console Module implements a terminal-style debugging interface rendered as a
 
 ## Public API
 
-### Clean Component Interface
-
 The console module provides a **minimal, clean API** that encapsulates all internal complexity:
 
 ```rust
