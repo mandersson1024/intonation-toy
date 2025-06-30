@@ -2,7 +2,6 @@ use yew::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
-
 mod modules;
 
 use modules::common::dev_log;
@@ -11,23 +10,18 @@ use modules::common::dev_log;
 use modules::console::DevConsole;
 
 /// Render development console if in debug mode
-#[cfg(debug_assertions)]
 fn render_dev_console() -> Html {
+    #[cfg(debug_assertions)]
     html! { <DevConsole /> }
-}
-
-/// Render nothing in release mode
-#[cfg(not(debug_assertions))]
-fn render_dev_console() -> Html {
+    
+    #[cfg(not(debug_assertions))]
     html! {}
 }
-
 
 /// Main application component for Pitch Toy
 #[function_component]
 fn App() -> Html {
     let canvas_ref = use_node_ref();
-    
     
     // Initialize wgpu canvas after component is rendered
     use_effect_with(canvas_ref.clone(), {
