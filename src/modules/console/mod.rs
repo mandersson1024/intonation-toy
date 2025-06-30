@@ -8,7 +8,7 @@ mod component;
 mod command_registry;
 
 pub use component::DevConsole;
-pub use commands::{DevCommand, CommandResult};
+pub use commands::{Command, CommandResult};
 pub use command_registry::register_command;
 
 #[cfg(test)]
@@ -17,7 +17,7 @@ mod tests {
     
     struct ExternallyRegisteredCommand;
     
-    impl DevCommand for ExternallyRegisteredCommand {
+    impl Command for ExternallyRegisteredCommand {
         fn name(&self) -> &str {
             "external"
         }

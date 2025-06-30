@@ -12,7 +12,7 @@ pub enum CommandResult {
 }
 
 // Trait for extensible console commands
-pub trait DevCommand: Send + Sync {
+pub trait Command: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn execute(&self, args: Vec<&str>, registry: &CommandRegistry) -> CommandResult;
@@ -20,7 +20,7 @@ pub trait DevCommand: Send + Sync {
 
 // Command registry for managing available commands
 pub struct CommandRegistry {
-    commands: HashMap<String, Box<dyn DevCommand>>,
+    commands: HashMap<String, Box<dyn Command>>,
 }
 
 impl CommandRegistry {
@@ -38,7 +38,7 @@ impl CommandRegistry {
         registry
     }
     
-    pub fn register(&mut self, command: Box<dyn DevCommand>) {
+    pub fn register(&mut self, command: Box<dyn Command>) {
         self.commands.insert(command.name().to_string(), command);
     }
     
@@ -57,7 +57,7 @@ impl CommandRegistry {
         }
     }
     
-    pub fn get_commands(&self) -> Vec<&dyn DevCommand> {
+    pub fn get_commands(&self) -> Vec<&dyn Command> {
         self.commands.values().map(|cmd| cmd.as_ref()).collect()
     }
 }
@@ -65,7 +65,7 @@ impl CommandRegistry {
 // Built-in Help Command
 struct HelpCommand;
 
-impl DevCommand for HelpCommand {
+impl Command for HelpCommand {
     fn name(&self) -> &str {
         "help"
     }
@@ -92,7 +92,7 @@ impl DevCommand for HelpCommand {
 // Built-in Clear Command
 struct ClearCommand;
 
-impl DevCommand for ClearCommand {
+impl Command for ClearCommand {
     fn name(&self) -> &str {
         "clear"
     }
@@ -109,7 +109,7 @@ impl DevCommand for ClearCommand {
 // Built-in Status Command
 struct StatusCommand;
 
-impl DevCommand for StatusCommand {
+impl Command for StatusCommand {
     fn name(&self) -> &str {
         "status"
     }
@@ -126,7 +126,7 @@ impl DevCommand for StatusCommand {
 // Built-in Test Command - Shows examples of all ConsoleOutput variants
 struct TestCommand;
 
-impl DevCommand for TestCommand {
+impl Command for TestCommand {
     fn name(&self) -> &str {
         "test"
     }
