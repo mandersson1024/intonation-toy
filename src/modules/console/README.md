@@ -1,17 +1,3 @@
-# Console Module
-
-The Console Module is an interactive development interface for the Pitch Toy application, providing comprehensive debugging capabilities, system control, and runtime configuration. Available only in debug builds, it serves as the primary development tool during implementation and testing phases.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Public API](#public-api)
-- [Architecture](#architecture)
-- [Usage Examples](#usage-examples)
-- [Implementation Details](#implementation-details)
-- [Performance Characteristics](#performance-characteristics)
-- [Future Improvements](#future-improvements)
-
 ## Overview
 
 The Console Module implements a terminal-style debugging interface rendered as a modal overlay using Yew components. It provides:
@@ -37,6 +23,8 @@ The console module provides a **minimal, clean API** that encapsulates all inter
 
 ```rust
 use crate::modules::console::DevConsole;
+use crate::modules::console::{ConsoleCommand, ConsoleCommandResult, register_command};
+use crate::modules::console::output::ConsoleOutput;
 
 // In your Yew application root
 #[function_component(App)]
@@ -47,6 +35,26 @@ pub fn app() -> Html {
         </div>
     }
 }
+
+// Define a custom command
+struct MyCustomCommand;
+
+impl ConsoleCommand for MyCustomCommand {
+    fn name(&self) -> &str {
+        "mycmd"
+    }
+    
+    fn description(&self) -> &str {
+        "My custom development command"
+    }
+    
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        ConsoleCommandResult::Output(ConsoleOutput::success("Custom command executed!"))
+    }
+}
+
+// Register the command
+register_command(Box::new(MyCustomCommand));
 ```
 
 ### Internal Architecture (Implementation Details)

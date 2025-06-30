@@ -8,7 +8,7 @@ mod component;
 mod command_registry;
 
 pub use component::DevConsole;
-pub use commands::{Command, CommandResult};
+pub use commands::{ConsoleCommand, ConsoleCommandResult};
 pub use command_registry::register_command;
 
 #[cfg(test)]
@@ -17,7 +17,7 @@ mod tests {
     
     struct ExternallyRegisteredCommand;
     
-    impl Command for ExternallyRegisteredCommand {
+    impl ConsoleCommand for ExternallyRegisteredCommand {
         fn name(&self) -> &str {
             "external"
         }
@@ -26,8 +26,8 @@ mod tests {
             "Test command registered from outside the module"
         }
         
-        fn execute(&self, _args: Vec<&str>, _registry: &commands::CommandRegistry) -> CommandResult {
-            CommandResult::Output(output::ConsoleOutput::success("External command executed!"))
+        fn execute(&self, _args: Vec<&str>, _registry: &commands::ConsoleCommandRegistry) -> ConsoleCommandResult {
+            ConsoleCommandResult::Output(output::ConsoleOutput::success("External command executed!"))
         }
     }
     
@@ -44,7 +44,7 @@ mod tests {
         // Test that the command can be executed through the global registry
         let result = command_registry::execute_command("external");
         match result {
-            commands::CommandResult::Output(output::ConsoleOutput::Success(msg)) => {
+            commands::ConsoleCommandResult::Output(output::ConsoleOutput::Success(msg)) => {
                 assert_eq!(msg, "External command executed!");
             }
             _ => panic!("Expected success output from external command"),

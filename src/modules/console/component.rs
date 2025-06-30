@@ -6,7 +6,7 @@ use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use wasm_bindgen::{closure::Closure, JsCast};
 
-use super::commands::CommandResult;
+use super::commands::ConsoleCommandResult;
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 
@@ -92,14 +92,14 @@ impl Component for DevConsole {
                     // Execute the command using global registry
                     let result = super::command_registry::execute_command(command);
                     match result {
-                        CommandResult::Output(output) => {
+                        ConsoleCommandResult::Output(output) => {
                             self.output_manager.add_output(output);
                         }
-                        CommandResult::ClearAndOutput(output) => {
+                        ConsoleCommandResult::ClearAndOutput(output) => {
                             self.output_manager.clear();
                             self.output_manager.add_output(output);
                         }
-                        CommandResult::MultipleOutputs(outputs) => {
+                        ConsoleCommandResult::MultipleOutputs(outputs) => {
                             for output in outputs {
                                 self.output_manager.add_output(output);
                             }
