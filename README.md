@@ -15,17 +15,11 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 # Install Trunk (if not already installed)
 cargo install trunk
 
-# Start development server with hot reload
-trunk serve
-
-# Visit http://localhost:8080/ in your browser
-```
-
-### Development Commands
-
-```bash
 # Testing
 cargo test                      # Run native tests (fast feedback)
+
+# Documentation
+cargo doc --no-deps --document-private-items # Module documentation
 
 # Building
 trunk build                     # Development build
@@ -34,7 +28,6 @@ trunk build --release           # Release build
 # Development
 trunk serve                     # Start dev server (localhost:8080, development build)
 trunk serve --release           # Start dev server (localhost:8080, release build)
-
 
 # Cleanup  
 cargo clean                     # Clean Rust build artifacts
