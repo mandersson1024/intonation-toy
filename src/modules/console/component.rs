@@ -6,7 +6,7 @@ use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use wasm_bindgen::{closure::Closure, JsCast};
 
-use super::commands::{CommandRegistry, CommandResult};
+use super::commands::CommandResult;
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 
@@ -19,8 +19,6 @@ pub struct DevConsoleProps {}
 
 /// State for the DevConsole component
 pub struct DevConsole {
-    /// Command registry for executing commands
-    command_registry: CommandRegistry,
     /// Command history for navigation
     command_history: ConsoleHistory,
     /// Output manager for displaying results
@@ -67,7 +65,6 @@ impl Component for DevConsole {
         }
         
         Self {
-            command_registry: CommandRegistry::new(),
             command_history,
             output_manager,
             input_value: String::new(),
@@ -92,8 +89,8 @@ impl Component for DevConsole {
                     // Echo the command
                     self.output_manager.add_output(ConsoleOutput::echo(command));
                     
-                    // Execute the command
-                    let result = self.command_registry.execute(command);
+                    // Execute the command using global registry
+                    let result = super::command_registry::execute_command(command);
                     match result {
                         CommandResult::Output(output) => {
                             self.output_manager.add_output(output);
@@ -512,7 +509,6 @@ mod tests {
     fn test_console_message_handling() {
         // Create a test console state
         let mut console = DevConsole {
-            command_registry: CommandRegistry::new(),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: "test command".to_string(),
@@ -536,7 +532,6 @@ mod tests {
     #[test]
     fn test_console_history_integration() {
         let mut console = DevConsole {
-            command_registry: CommandRegistry::new(),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -570,7 +565,6 @@ mod tests {
         assert!(history.is_empty() || !history.is_empty()); // Should not panic
         
         let console = DevConsole {
-            command_registry: CommandRegistry::new(),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),

@@ -12,7 +12,7 @@ pub enum CommandResult {
 }
 
 // Trait for extensible console commands
-pub trait DevCommand {
+pub trait DevCommand: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn execute(&self, args: Vec<&str>, registry: &CommandRegistry) -> CommandResult;
