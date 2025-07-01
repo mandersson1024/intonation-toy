@@ -208,6 +208,110 @@ Audio Processor
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Integration**: Real-time metrics from all system components
 
+## Platform Requirements & Browser Compatibility
+
+### Critical API Dependencies
+
+Pitch Toy implements a **zero-tolerance, fail-fast policy** for missing browser APIs. The application will **prevent startup** rather than provide degraded functionality when critical APIs are unavailable.
+
+#### Required Browser APIs (Application Cannot Start Without)
+
+1. **WebAssembly Support**
+   - Required for: Core application logic and audio processing
+   - Minimum browser versions enforced during startup validation
+
+2. **Web Audio API & getUserMedia**
+   - Required for: Microphone access and real-time audio processing
+   - Includes: MediaDevices API for device enumeration and permission management
+   - Validation: API availability checked before audio system initialization
+
+3. **AudioWorklet Support**
+   - Required for: Low-latency real-time audio processing in dedicated thread
+   - Performance target: ≤30ms audio processing latency
+   - Alternative: None - application will not start without AudioWorklet support
+
+4. **WebGPU/Canvas Support**
+   - Required for: GPU-accelerated graphics rendering (primary user interface)
+   - All end-user interactions must be GPU-rendered - no HTML/CSS fallbacks
+   - Performance target: Consistent 60fps rendering
+
+### Platform Validation Architecture
+
+#### Startup Validation Flow
+```
+Application Load
+    │
+    ▼
+Platform Feature Detection
+    │
+    ├─── WebAssembly Available? ──── NO ──┐
+    ├─── Web Audio API Available? ─── NO ──┤
+    ├─── AudioWorklet Available? ──── NO ──┤
+    ├─── WebGPU/Canvas Available? ─── NO ──┤
+    │                                      │
+    ▼ ALL YES                              ▼
+Initialize Application                Error Screen
+    │                                   │
+    ▼                                   ├─── Browser Requirements
+Normal Startup Flow                     ├─── Upgrade Instructions
+                                        └─── Technical Details
+```
+
+#### Error Handling Strategy
+
+- **Critical API Missing**: Application displays informative error screen and prevents initialization
+- **User Permission Denied**: Graceful handling with retry options and user guidance  
+- **Device Unavailable**: Graceful handling with device reconnection logic
+- **Runtime API Failures**: Error recovery where possible, graceful degradation for non-critical features only
+
+#### Platform Module Implementation
+
+The `Platform` component provides centralized feature detection:
+
+```rust
+// Platform feature validation results
+pub enum PlatformValidationResult {
+    AllSupported,
+    MissingCriticalApis(Vec<MissingApi>),
+}
+
+pub enum MissingApi {
+    WebAssembly,
+    WebAudioApi,
+    GetUserMedia,
+    AudioWorklet,
+    WebGpu,
+    Canvas,
+}
+```
+
+### Browser Compatibility Matrix
+
+#### Minimum Requirements (Enforced at Startup)
+| Browser | Version | WebAssembly | Web Audio | AudioWorklet | WebGPU | Status |
+|---------|---------|-------------|-----------|--------------|--------|--------|
+| Chrome  | 66+     | ✅          | ✅        | ✅           | 113+   | **Required** |
+| Firefox | 76+     | ✅          | ✅        | ✅           | 113+   | **Required** |
+| Safari  | 14.1+   | ✅          | ✅        | ✅           | 18+    | **Required** |
+| Edge    | 79+     | ✅          | ✅        | ✅           | 113+   | **Required** |
+
+#### Mobile Support (Enforced at Startup)
+| Platform | Version | Status | Notes |
+|----------|---------|--------|-------|
+| iOS Safari | 14.5+ | **Required** | AudioWorklet and WebGPU support enforced |
+| Chrome Android | 66+ | **Required** | Full feature support validation |
+| Samsung Internet | 10+ | ⚠️ **Conditional** | Feature detection determines compatibility |
+| Firefox Mobile | 79+ | ⚠️ **Conditional** | AudioWorklet support validation required |
+
+#### Feature Detection Implementation
+
+The platform validation system checks each required API during application startup:
+
+- **Immediate Validation**: All APIs checked before any component initialization
+- **Clear Error Messaging**: Specific missing APIs identified in error screens
+- **No Graceful Degradation**: Missing critical APIs prevent application startup
+- **Development Console Integration**: Platform validation results accessible via console commands
+
 ## Technical Implementation
 
 ### Technology Stack
@@ -248,10 +352,10 @@ Audio Processor
 - **Bundle Optimization**: Code splitting, dead code elimination, compression
 
 #### Browser Compatibility
-- **Minimum Requirements**: Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
-- **Required APIs**: WebAssembly, Web Audio API, AudioWorklet, WebGPU
-- **Mobile Support**: iOS Safari 14.5+, Chrome Android 66+
-- **Feature Detection**: Graceful degradation for unsupported features
+- **Minimum Requirements**: Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ (enforced at startup)
+- **Required APIs**: WebAssembly, Web Audio API, AudioWorklet, WebGPU (fail-fast validation)
+- **Mobile Support**: iOS Safari 14.5+, Chrome Android 66+ (startup validation required)
+- **Feature Detection**: **Fail-fast policy** - application prevents startup when critical APIs are missing
 
 ## Development Workflow
 
@@ -289,7 +393,7 @@ Audio Processor
 #### Integration Testing
 - **End-to-End Pipeline**: Microphone to visualization (E2E tools like Cypress/Playwright)
 - **Performance Testing**: Real-time performance under load
-- **Cross-Browser Testing**: Automated compatibility validation via E2E testing
+- **Cross-Browser Testing**: Automated compatibility validation via E2E testing with fail-fast API validation
 - **Mobile Testing**: Different screen sizes and capabilities
 - **Canvas Integration**: wgpu canvas initialization and GPU rendering setup (E2E tools)
 - **WASM Integration**: Module-to-module communication and data boundaries (wasm-pack test)
@@ -329,10 +433,10 @@ Audio Processor
 - **CORS Compliance**: Cross-origin resource sharing policies
 
 ### Audio Privacy
-- **Permission-Based Access**: Explicit microphone consent required
+- **Permission-Based Access**: Explicit microphone consent required (after API validation)
 - **Local Processing**: No audio data transmission or storage
 - **Session Isolation**: No persistent audio data retention
-- **Secure Context**: HTTPS requirement for getUserMedia
+- **Secure Context**: HTTPS requirement for getUserMedia (validated at startup)
 
 ## Future Enhancements
 

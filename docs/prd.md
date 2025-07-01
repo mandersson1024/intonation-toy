@@ -20,6 +20,7 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 | Date | Version | Description | Author |
 | :--- | :------ | :---------- | :----- |
 | 2025-06-29 | 1.0 | Initial PRD creation | John (PM) |
+| 2025-07-01 | 1.1 | Added Platform Requirements & fail-fast policy for critical browser APIs | Sarah (PO) |
 
 ## Requirements
 
@@ -35,6 +36,7 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 - FR8: The system shall display performance metrics and debugging information in development builds
 - FR9: The application shall support multiple tuning systems including equal temperament and just intonation
 - FR10: The system shall provide extensible command system for runtime configuration
+- FR11: The application shall validate all required browser APIs during initialization and prevent startup when critical APIs are unavailable
 
 ### Non Functional
 
@@ -43,7 +45,7 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 - NFR4: Application load time shall not exceed 3 seconds on 3G connections
 - NFR5: CPU usage for audio processing shall not exceed 5% on modern devices
 - NFR6: GPU memory usage shall not exceed 50MB for texture and buffer allocation
-- NFR7: Application shall support Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
+- NFR7: Application shall support Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ with **mandatory** WebAssembly, Web Audio API, AudioWorklet, and WebGPU support. Application startup SHALL be prevented if any required API is unavailable
 - NFR8: Mobile compatibility shall include iOS Safari 14.5+ and Chrome Android 66+
 - NFR9: Sample rate support of 44.1kHz and 48kHz standard with 22.05kHz-96kHz for development testing
 - NFR10: Buffer sizes of 1024 samples (production) and 128-2048 samples (development)
@@ -93,6 +95,33 @@ Create a **fully immersive, GPU-rendered** real-time pitch detection interface t
 ### Target Device and Platforms
 
 Web Responsive (Desktop and Mobile) - Modern browsers with WebAssembly and Web Audio API support including Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+, iOS Safari 14.5+, and Chrome Android 66+
+
+## Platform Requirements & Compatibility
+
+### Critical Browser APIs (Application Cannot Start Without)
+
+The application has **zero tolerance for missing critical APIs** and implements a **fail-fast policy** for platform validation:
+
+- **WebAssembly Support**: Required for core application logic and audio processing
+- **Web Audio API**: Required for microphone access and real-time audio processing  
+- **getUserMedia API**: Required for microphone input capture
+- **AudioWorklet**: Required for low-latency real-time audio processing
+- **WebGPU/Canvas Support**: Required for GPU-accelerated graphics rendering
+- **MediaDevices API**: Required for device enumeration and permission management
+
+### Application Startup Behavior
+
+- **Fail Fast Policy**: If any critical browser API is missing, the application SHALL display a clear error message and prevent initialization
+- **No Graceful Degradation**: The application SHALL NOT attempt to provide alternative implementations when critical APIs are unavailable
+- **User Notification**: Missing feature errors SHALL include specific browser requirements and upgrade recommendations
+- **Development Console Access**: Platform validation errors SHALL be accessible through development console commands for debugging
+
+### Error Handling Strategy
+
+- **Critical API Missing**: Application prevents startup with informative error screen
+- **User Permission Denied**: Graceful handling with retry options and user guidance  
+- **Device Unavailable**: Graceful handling with device reconnection logic
+- **Runtime API Failures**: Error recovery where possible, graceful degradation for non-critical features only
 
 ## Technical Assumptions
 
@@ -210,7 +239,7 @@ so that I can use my voice or instrument for pitch detection.
 - 3: AudioWorklet processes incoming audio in real-time
 - 4: Stream reconnection logic handles device disconnection/reconnection
 - 5: Console commands for microphone status and manual permission requests
-- 6: Error handling for permission denied and device unavailable states
+- 6: Critical API validation with application startup prevention when Web Audio API, getUserMedia, or AudioWorklet are unavailable; graceful error handling only for user permission states
 
 ### Story 2.2 - Audio Buffer Management
 
@@ -457,7 +486,7 @@ so that I can rely on it regardless of my platform choice.
 
 - 1: Comprehensive testing on Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
 - 2: Mobile compatibility verified on iOS Safari 14.5+ and Chrome Android 66+
-- 3: WebAssembly and Web Audio API feature detection with appropriate fallbacks
+- 3: WebAssembly and Web Audio API feature detection with **fail-fast behavior** for missing critical APIs
 - 4: Browser-specific optimization for audio latency and graphics performance
 - 5: Automated browser testing integrated into development workflow
 - 6: Performance benchmarking across different device capabilities
@@ -474,7 +503,7 @@ so that the application can be successfully deployed and maintained.
 - 2: User documentation explains application features and browser requirements
 - 3: Deployment configuration for static hosting environments
 - 4: Performance monitoring and error reporting integration
-- 5: Browser compatibility documentation with fallback strategies
+- 5: Browser compatibility documentation with **fail-fast policy** for critical API requirements
 - 6: Development setup instructions for future contributors
 
 ## Next Steps
