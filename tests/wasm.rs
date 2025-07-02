@@ -1,8 +1,10 @@
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::*;
 
-// Remove run_in_browser configuration to avoid browser-specific issues
-// wasm_bindgen_test_configure!(run_in_browser);
+// Configure tests to run in Node.js environment
+// For browser-specific testing, use manual testing as needed
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
 fn test_wasm_build_configuration() {
     // Test that WASM compilation works and can detect build configuration
@@ -10,12 +12,14 @@ fn test_wasm_build_configuration() {
     assert!(config == "Development" || config == "Production");
 }
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
 fn test_wasm_basic_functionality() {
     // Test basic WASM functionality works
     let result = 2 + 2;
     assert_eq!(result, 4);
 }
+
 
 // TODO: Re-enable this test when wasm-bindgen toolchain compatibility is resolved
 //

@@ -17,6 +17,8 @@ cargo install trunk
 
 # Testing
 cargo test                      # Run native tests (fast feedback)
+wasm-pack test --node           # Run WASM tests in Node.js environment
+cargo test && wasm-pack test --node # Run full test suite
 
 # Documentation
 cargo doc --no-deps --document-private-items # Module documentation
