@@ -100,16 +100,16 @@ pub fn main() {
                     dev_log!("✓ Audio system initialized successfully");
                     yew::Renderer::<App>::new().render();
                 }
-                Err(e) => {
-                    dev_log!("✗ Audio system initialization failed: {}", e);
+                Err(_e) => {
+                    dev_log!("✗ Audio system initialization failed: {}", _e);
                     dev_log!("Application cannot continue without audio system");
                     // TODO: Add error screen rendering in future story when UI requirements are defined
                 }
             }
         }
-        PlatformValidationResult::MissingCriticalApis(missing_apis) => {
-            let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
-            dev_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
+        PlatformValidationResult::MissingCriticalApis(_missing_apis) => {
+            let _api_list: Vec<String> = _missing_apis.iter().map(|api| api.to_string()).collect();
+            dev_log!("✗ CRITICAL: Missing required browser APIs: {}", _api_list.join(", "));
             dev_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
             // TODO: Add error screen rendering in future story when UI requirements are defined
         }
