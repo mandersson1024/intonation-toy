@@ -1,10 +1,14 @@
 use yew::prelude::*;
-use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
 pub mod modules;
 
 use modules::common::dev_log;
+
+#[cfg(not(test))]
+use wasm_bindgen::prelude::*;
+
+#[cfg(not(test))]
 use modules::platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]

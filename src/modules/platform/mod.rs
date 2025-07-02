@@ -2,6 +2,8 @@
 // Centralizes browser API availability checks and platform-specific logic
 
 use crate::modules::common::dev_log;
+
+#[cfg(target_arch = "wasm32")]
 use crate::modules::audio::MicrophoneManager;
 
 #[cfg(target_arch = "wasm32")]
