@@ -12,16 +12,10 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 ### Quick Start
 
 ```bash
-# Install Trunk (if not already installed)
-cargo install trunk
-
 # Testing
 cargo test                      # Run native tests (fast feedback)
 wasm-pack test --node           # Run WASM tests in Node.js environment
 cargo test && wasm-pack test --node # Run full test suite
-
-# Documentation
-cargo doc --no-deps --document-private-items # Module documentation
 
 # Building
 trunk build                     # Development build
@@ -30,6 +24,9 @@ trunk build --release           # Release build
 # Development
 trunk serve                     # Start dev server (localhost:8080, development build)
 trunk serve --release           # Start dev server (localhost:8080, release build)
+
+# Documentation
+cargo doc --no-deps --document-private-items # Module documentation
 
 # Cleanup  
 cargo clean                     # Clean Rust build artifacts
