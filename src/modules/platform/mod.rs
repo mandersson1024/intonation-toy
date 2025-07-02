@@ -4,6 +4,9 @@
 use crate::modules::common::dev_log;
 use crate::modules::audio::MicrophoneManager;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+
 /// Platform feature validation results
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlatformValidationResult {
@@ -20,6 +23,7 @@ pub enum CriticalApi {
     GetUserMedia,
     AudioWorklet,
     Canvas,
+    WebGL2,
 }
 
 
@@ -38,6 +42,7 @@ impl std::fmt::Display for CriticalApi {
             CriticalApi::GetUserMedia => write!(f, "getUserMedia API"),
             CriticalApi::AudioWorklet => write!(f, "AudioWorklet"),
             CriticalApi::Canvas => write!(f, "Canvas"),
+            CriticalApi::WebGL2 => write!(f, "WebGL2"),
         }
     }
 }
@@ -55,26 +60,157 @@ impl Platform {
             CriticalApi::GetUserMedia,
             CriticalApi::AudioWorklet,
             CriticalApi::Canvas,
+            CriticalApi::WebGL2,
         ]
     }
 
     /// Get detailed status of all critical APIs
+    /// Optimized to reuse shared contexts (AudioContext, Canvas) across multiple checks
     pub fn get_api_status() -> Vec<ApiStatus> {
-        Self::get_critical_apis()
-            .into_iter()
-            .map(|api| Self::check_api_status(api))
-            .collect()
-    }
-
-    /// Check status of a specific API with details
-    pub fn check_api_status(api: CriticalApi) -> ApiStatus {
-        match api {
-            CriticalApi::WebAudioApi => Self::check_webaudio_status(),
-            CriticalApi::GetUserMedia => Self::check_getusermedia_status(),
-            CriticalApi::AudioWorklet => Self::check_audioworklet_status(),
-            CriticalApi::Canvas => Self::check_canvas_status(),
+        #[cfg(target_arch = "wasm32")]
+        {
+        let mut results = Vec::new();
+        
+        // Get shared window/document once
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => {
+                // If window fails, all browser APIs fail
+                return Self::get_critical_apis()
+                    .into_iter()
+                    .map(|api| ApiStatus {
+                        api,
+                        supported: false,
+                        details: Some("Window object not available".to_string()),
+                    })
+                    .collect();
+            }
+        };
+        
+        let document = window.document();
+        
+        // Check getUserMedia (safe, no popup)
+        let is_supported = MicrophoneManager::is_supported();
+        results.push(ApiStatus {
+            api: CriticalApi::GetUserMedia,
+            supported: is_supported,
+            details: if is_supported {
+                Some("getUserMedia API available".to_string())
+            } else {
+                Some("getUserMedia API not available".to_string())
+            },
+        });
+        
+        // Create shared AudioContext for WebAudio + AudioWorklet checks
+        let audio_context = if js_sys::Reflect::has(&window, &"AudioContext".into()).unwrap_or(false) {
+            js_sys::Reflect::get(&window, &"AudioContext".into())
+                .ok()
+                .and_then(|constructor| constructor.dyn_into::<js_sys::Function>().ok())
+                .and_then(|constructor| js_sys::Reflect::construct(&constructor, &js_sys::Array::new()).ok())
+        } else {
+            None
+        };
+        
+        // WebAudio check using shared context
+        results.push(match &audio_context {
+            Some(_) => ApiStatus {
+                api: CriticalApi::WebAudioApi,
+                supported: true,
+                details: Some("AudioContext creation successful".to_string()),
+            },
+            None => ApiStatus {
+                api: CriticalApi::WebAudioApi,
+                supported: false,
+                details: Some("AudioContext creation failed".to_string()),
+            },
+        });
+        
+        // AudioWorklet check using same AudioContext
+        results.push(match &audio_context {
+            Some(ctx) => {
+                let has_audioworklet = js_sys::Reflect::has(ctx, &"audioWorklet".into()).unwrap_or(false);
+                ApiStatus {
+                    api: CriticalApi::AudioWorklet,
+                    supported: has_audioworklet,
+                    details: if has_audioworklet {
+                        Some("AudioWorklet API available".to_string())
+                    } else {
+                        Some("AudioWorklet not supported".to_string())
+                    },
+                }
+            },
+            None => ApiStatus {
+                api: CriticalApi::AudioWorklet,
+                supported: false,
+                details: Some("AudioContext creation failed".to_string()),
+            },
+        });
+        
+        // Create shared canvas for Canvas + WebGL2 checks
+        let canvas = document.and_then(|doc| {
+            doc.create_element("canvas").ok().and_then(|canvas| {
+                canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok()
+            })
+        });
+        
+        // Canvas check using shared canvas
+        results.push(match &canvas {
+            Some(_) => ApiStatus {
+                api: CriticalApi::Canvas,
+                supported: true,
+                details: Some("Canvas element creation successful".to_string()),
+            },
+            None => ApiStatus {
+                api: CriticalApi::Canvas,
+                supported: false,
+                details: Some("Canvas element creation failed".to_string()),
+            },
+        });
+        
+        // WebGL2 check using same canvas
+        results.push(match &canvas {
+            Some(canvas) => {
+                match canvas.get_context("webgl2") {
+                    Ok(Some(_)) => ApiStatus {
+                        api: CriticalApi::WebGL2,
+                        supported: true,
+                        details: Some("WebGL2 context creation successful".to_string()),
+                    },
+                    Ok(None) => ApiStatus {
+                        api: CriticalApi::WebGL2,
+                        supported: false,
+                        details: Some("WebGL2 context not available".to_string()),
+                    },
+                    Err(_) => ApiStatus {
+                        api: CriticalApi::WebGL2,
+                        supported: false,
+                        details: Some("WebGL2 not supported".to_string()),
+                    },
+                }
+            },
+            None => ApiStatus {
+                api: CriticalApi::WebGL2,
+                supported: false,
+                details: Some("Canvas element creation failed".to_string()),
+            },
+        });
+        
+        results
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Self::get_critical_apis()
+                .into_iter()
+                .map(|api| ApiStatus {
+                    api,
+                    supported: false,
+                    details: Some("Not running in browser environment".to_string()),
+                })
+                .collect()
         }
     }
+
 
     /// Validate all critical platform features required for application startup
     /// Returns validation result that caller MUST handle - application should not start if APIs are missing
@@ -96,141 +232,7 @@ impl Platform {
             PlatformValidationResult::MissingCriticalApis(missing_apis)
         }
     }
-    
-    /// Check Web Audio API support status
-    fn check_webaudio_status() -> ApiStatus {
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                let audio_context_available = js_sys::Reflect::has(&window, &"AudioContext".into()).unwrap_or(false);
-                if audio_context_available {
-                    ApiStatus {
-                        api: CriticalApi::WebAudioApi,
-                        supported: true,
-                        details: Some("Web Audio API available".to_string()),
-                    }
-                } else {
-                    ApiStatus {
-                        api: CriticalApi::WebAudioApi,
-                        supported: false,
-                        details: Some("AudioContext not found".to_string()),
-                    }
-                }
-            } else {
-                ApiStatus {
-                    api: CriticalApi::WebAudioApi,
-                    supported: false,
-                    details: Some("Window object not available".to_string()),
-                }
-            }
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        ApiStatus {
-            api: CriticalApi::WebAudioApi,
-            supported: false,
-            details: Some("Not running in browser environment".to_string()),
-        }
-    }
 
-    /// Check getUserMedia API support status
-    fn check_getusermedia_status() -> ApiStatus {
-        let is_supported = MicrophoneManager::is_supported();
-        
-        ApiStatus {
-            api: CriticalApi::GetUserMedia,
-            supported: is_supported,
-            details: if is_supported {
-                Some("getUserMedia API available".to_string())
-            } else {
-                Some("getUserMedia API not available".to_string())
-            },
-        }
-    }
-
-    /// Check AudioWorklet support status
-    fn check_audioworklet_status() -> ApiStatus {
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                let navigator = window.navigator();
-                if let Ok(media_devices) = navigator.media_devices() {
-                    // AudioWorklet is available if we can access the AudioContext constructor
-                    let has_audioworklet = js_sys::Reflect::has(&window, &"audioWorklet".into()).unwrap_or(false);
-                    
-                    ApiStatus {
-                        api: CriticalApi::AudioWorklet,
-                        supported: has_audioworklet,
-                        details: if has_audioworklet {
-                            Some("AudioWorklet API available".to_string())
-                        } else {
-                            Some("AudioWorklet not supported".to_string())
-                        },
-                    }
-                } else {
-                    ApiStatus {
-                        api: CriticalApi::AudioWorklet,
-                        supported: false,
-                        details: Some("MediaDevices not available".to_string()),
-                    }
-                }
-            } else {
-                ApiStatus {
-                    api: CriticalApi::AudioWorklet,
-                    supported: false,
-                    details: Some("Window object not available".to_string()),
-                }
-            }
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        ApiStatus {
-            api: CriticalApi::AudioWorklet,
-            supported: false,
-            details: Some("Not running in browser environment".to_string()),
-        }
-    }
-
-    /// Check Canvas support status
-    fn check_canvas_status() -> ApiStatus {
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                if let Some(document) = window.document() {
-                    let has_canvas = document.create_element("canvas").is_ok();
-                    
-                    ApiStatus {
-                        api: CriticalApi::Canvas,
-                        supported: has_canvas,
-                        details: if has_canvas {
-                            Some("HTML5 Canvas API available".to_string())
-                        } else {
-                            Some("Canvas element not supported".to_string())
-                        },
-                    }
-                } else {
-                    ApiStatus {
-                        api: CriticalApi::Canvas,
-                        supported: false,
-                        details: Some("Document object not available".to_string()),
-                    }
-                }
-            } else {
-                ApiStatus {
-                    api: CriticalApi::Canvas,
-                    supported: false,
-                    details: Some("Window object not available".to_string()),
-                }
-            }
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        ApiStatus {
-            api: CriticalApi::Canvas,
-            supported: false,
-            details: Some("Not running in browser environment".to_string()),
-        }
-    }
 
     /// Get platform information string for debugging
     pub fn get_platform_info() -> String {
@@ -268,11 +270,12 @@ mod tests {
         let all_supported = PlatformValidationResult::AllSupported;
         assert!(matches!(all_supported, PlatformValidationResult::AllSupported));
 
-        let missing = PlatformValidationResult::MissingCriticalApis(vec![CriticalApi::WebAudioApi]);
+        let missing = PlatformValidationResult::MissingCriticalApis(vec![CriticalApi::WebAudioApi, CriticalApi::WebGL2]);
         match missing {
             PlatformValidationResult::MissingCriticalApis(apis) => {
-                assert_eq!(apis.len(), 1);
+                assert_eq!(apis.len(), 2);
                 assert_eq!(apis[0], CriticalApi::WebAudioApi);
+                assert_eq!(apis[1], CriticalApi::WebGL2);
             }
             _ => panic!("Expected MissingCriticalApis variant"),
         }
