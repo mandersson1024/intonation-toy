@@ -3,6 +3,8 @@
 
 use std::collections::HashMap;
 use super::output::ConsoleOutput;
+#[cfg(not(test))]
+use crate::modules::common::dev_log;
 
 #[cfg(not(test))]
 use crate::modules::platform::Platform;
@@ -156,7 +158,7 @@ impl ConsoleCommand for StatusCommand {
                 );
                 
                 // Log to web console for debugging
-                web_sys::console::log_1(&formatted_string.clone().into());
+                dev_log!("{}", &formatted_string);
                 
                 let output = if status.supported {
                     ConsoleOutput::success(&formatted_string)
