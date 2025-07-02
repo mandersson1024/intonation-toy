@@ -5,7 +5,7 @@
 **Language**: Rust  
 **Target Platform**: Browser (WebAssembly)  
 **Frontend Framework**: Yew  
-**Rendering Backend**: wgpu  
+**Rendering Backend**: three-d (3D graphics engine)  
 **Build Tool**: Trunk  
 **License**: MIT  
 
@@ -48,7 +48,7 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
             [Theme Manager]              [Realtime Meters (Yew)]
                      │
                      ▼
-            [Graphics Renderer (wgpu)]
+            [Graphics Renderer (three-d)]
 ```
 
 ### Architecture Principles
@@ -100,14 +100,14 @@ rustfft = "6.0"                                     # FFT implementation for spe
 **Optional Enhancements:**
 ```toml
 # Add as needed for advanced features:
-wgpu = "0.17"                                       # GPU graphics (if Canvas 2D insufficient)
+three-d = "0.17"                                    # 3D graphics engine with WebGL backend
 wasm-bindgen = "0.2"                                # Custom Rust-JS bindings (if needed)
 serde = { version = "1.0", features = ["derive"] }  # Settings persistence
 js-sys = "0.3"                                      # JS globals (if web-sys insufficient)
 ```
 
 ### Browser Compatibility
-- **Required APIs**: WebAssembly, Web Audio API (AudioWorklet), getUserMedia
+- **Required APIs**: WebAssembly, Web Audio API (AudioWorklet), getUserMedia, WebGL
 - **Minimum Browser Versions** (AudioWorklet support):
   - Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
 - **Mobile Support**: iOS Safari 14.5+, Chrome Android 66+
@@ -534,7 +534,7 @@ pub struct PitchColorMap {
 - **Kids**: Bright, playful colors with large, friendly visual elements
 - **Nerds**: Scientific aesthetic with precise measurements, grid lines, and technical styling for music theory enthusiasts
 
-### 9. Graphics Renderer (wgpu) Module
+### 9. Graphics Renderer (three-d) Module
 
 **Responsibilities**:
 - **Primary user interface rendering**: All end-user interactions via GPU graphics
@@ -547,12 +547,11 @@ pub struct PitchColorMap {
 **Implementation Details**:
 ```rust
 pub struct GraphicsRenderer {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface: wgpu::Surface,
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    uniform_buffer: wgpu::Buffer,
+    context: three_d::Context,
+    camera: three_d::Camera,
+    objects: Vec<three_d::Object>,
+    lights: Vec<three_d::Light>,
+    materials: HashMap<String, three_d::Material>,
 }
 
 pub struct RenderState {
@@ -591,16 +590,16 @@ pub struct RenderState {
 - Develop audio processing unit tests and benchmarks
 
 ### Phase 3: Visualization Core
-- Set up wgpu rendering pipeline
+- Set up three-d rendering pipeline with WebGL backend
 - Implement basic pitch indicator visualization
 - Create volume meter with smooth animations
 - Add theme system with light/dark themes
 
 ### Phase 4: Immersive User Interface
-- Develop immersive wgpu-rendered user interface
+- Develop immersive three-d-rendered user interface
 - Implement theme switching with GPU-rendered themes ("Kids" and "Nerds")
 - Create responsive GPU rendering for mobile and desktop
-- Build interactive wgpu-based controls and feedback systems
+- Build interactive three-d-based controls and feedback systems
 
 ### Phase 5: Enhanced Development Tools
 - Enhance development console with advanced commands

@@ -81,8 +81,8 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 │  │                                     │                   │   │
 │  │                                     ▼                   │   │
 │  │                        ┌─────────────────────────────┐ │   │
-│  │                        │   Graphics Renderer (wgpu)  │ │   │
-│  │                        │   • GPU Pipeline           │ │   │
+│  │                        │   Graphics Renderer (three-d)│ │   │
+│  │                        │   • WebGL Pipeline         │ │   │
 │  │                        │   • Immersive UI           │ │   │
 │  │                        │   • Real-time Visualization│ │   │
 │  │                        └─────────────────────────────┘ │   │
@@ -123,7 +123,7 @@ Audio Processor
                         Theme Manager
                               │
                               ▼
-                        Graphics Renderer
+                        Graphics Renderer (three-d)
                               │
                               ▼
                         GPU Visualization
@@ -181,14 +181,14 @@ Audio Processor
   - Smooth theme transitions without performance impact
 - **Built-in Themes**: "Kids" (playful), "Nerds" (scientific)
 
-##### Graphics Renderer (wgpu) - PRIMARY USER INTERFACE
+##### Graphics Renderer (three-d) - PRIMARY USER INTERFACE
 - **Responsibilities**:
   - **ALL end-user interface rendering** - No HTML/CSS for production UI
   - GPU-accelerated rendering pipeline for complete user experience
   - Immersive full-screen visualizations
   - Interactive GPU-rendered controls (buttons, sliders, theme selection)
   - 60fps performance with adaptive resolution
-- **Capabilities**: WebGPU/wgpu cross-platform graphics
+- **Capabilities**: WebGL-based graphics via three-d engine
 - **Critical Constraint**: HTML/CSS forbidden for end-user interface elements
 
 #### 4. Development Infrastructure
@@ -230,7 +230,7 @@ Pitch Toy implements a **zero-tolerance, fail-fast policy** for missing browser 
    - Performance target: ≤30ms audio processing latency
    - Alternative: None - application will not start without AudioWorklet support
 
-4. **WebGPU/Canvas Support**
+4. **WebGL/Canvas Support**
    - Required for: GPU-accelerated graphics rendering (primary user interface)
    - All end-user interactions must be GPU-rendered - no HTML/CSS fallbacks
    - Performance target: Consistent 60fps rendering
@@ -247,7 +247,7 @@ Platform Feature Detection
     ├─── WebAssembly Available? ──── NO ──┐
     ├─── Web Audio API Available? ─── NO ──┤
     ├─── AudioWorklet Available? ──── NO ──┤
-    ├─── WebGPU/Canvas Available? ─── NO ──┤
+    ├─── WebGL/Canvas Available? ───── NO ──┤
     │                                      │
     ▼ ALL YES                              ▼
 Initialize Application                Error Screen
@@ -264,41 +264,20 @@ Normal Startup Flow                     ├─── Upgrade Instructions
 - **Device Unavailable**: Graceful handling with device reconnection logic
 - **Runtime API Failures**: Error recovery where possible, graceful degradation for non-critical features only
 
-#### Platform Module Implementation
-
-The `Platform` component provides centralized feature detection:
-
-```rust
-// Platform feature validation results
-pub enum PlatformValidationResult {
-    AllSupported,
-    MissingCriticalApis(Vec<MissingApi>),
-}
-
-pub enum MissingApi {
-    WebAssembly,
-    WebAudioApi,
-    GetUserMedia,
-    AudioWorklet,
-    WebGpu,
-    Canvas,
-}
-```
-
 ### Browser Compatibility Matrix
 
 #### Minimum Requirements (Enforced at Startup)
-| Browser | Version | WebAssembly | Web Audio | AudioWorklet | WebGPU | Status |
-|---------|---------|-------------|-----------|--------------|--------|--------|
-| Chrome  | 66+     | ✅          | ✅        | ✅           | 113+   | **Required** |
-| Firefox | 76+     | ✅          | ✅        | ✅           | 113+   | **Required** |
-| Safari  | 14.1+   | ✅          | ✅        | ✅           | 18+    | **Required** |
-| Edge    | 79+     | ✅          | ✅        | ✅           | 113+   | **Required** |
+| Browser | Version | WebAssembly | Web Audio | AudioWorklet | WebGL | Status |
+|---------|---------|-------------|-----------|--------------|-------|--------|
+| Chrome  | 66+     | ✅          | ✅        | ✅           | ✅    | **Required** |
+| Firefox | 76+     | ✅          | ✅        | ✅           | ✅    | **Required** |
+| Safari  | 14.1+   | ✅          | ✅        | ✅           | ✅    | **Required** |
+| Edge    | 79+     | ✅          | ✅        | ✅           | ✅    | **Required** |
 
 #### Mobile Support (Enforced at Startup)
 | Platform | Version | Status | Notes |
 |----------|---------|--------|-------|
-| iOS Safari | 14.5+ | **Required** | AudioWorklet and WebGPU support enforced |
+| iOS Safari | 14.5+ | **Required** | AudioWorklet and WebGL support enforced |
 | Chrome Android | 66+ | **Required** | Full feature support validation |
 | Samsung Internet | 10+ | ⚠️ **Conditional** | Feature detection determines compatibility |
 | Firefox Mobile | 79+ | ⚠️ **Conditional** | AudioWorklet support validation required |
@@ -329,9 +308,9 @@ The platform validation system checks each required API during application start
 - **rustfft 6.0**: Fast Fourier Transform library
 
 #### Graphics Rendering
-- **wgpu 0.17**: Cross-platform GPU abstraction
-- **WebGPU**: Modern browser graphics API
-- **WGSL**: WebGPU Shading Language for GPU shaders
+- **three-d 0.17**: High-level 3D graphics engine
+- **WebGL**: Cross-platform browser graphics API
+- **GLSL**: OpenGL Shading Language for GPU shaders
 
 #### Browser Integration
 - **web-sys 0.3**: Web API bindings for Rust
@@ -353,7 +332,7 @@ The platform validation system checks each required API during application start
 
 #### Browser Compatibility
 - **Minimum Requirements**: Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ (enforced at startup)
-- **Required APIs**: WebAssembly, Web Audio API, AudioWorklet, WebGPU (fail-fast validation)
+- **Required APIs**: WebAssembly, Web Audio API, AudioWorklet, WebGL (fail-fast validation)
 - **Mobile Support**: iOS Safari 14.5+, Chrome Android 66+ (startup validation required)
 - **Feature Detection**: **Fail-fast policy** - application prevents startup when critical APIs are missing
 
@@ -395,7 +374,7 @@ The platform validation system checks each required API during application start
 - **Performance Testing**: Real-time performance under load
 - **Cross-Browser Testing**: Automated compatibility validation via E2E testing with fail-fast API validation
 - **Mobile Testing**: Different screen sizes and capabilities
-- **Canvas Integration**: wgpu canvas initialization and GPU rendering setup (E2E tools)
+- **Canvas Integration**: three-d canvas initialization and GPU rendering setup (E2E tools)
 - **WASM Integration**: Module-to-module communication and data boundaries (wasm-pack test)
 
 #### Performance Testing
