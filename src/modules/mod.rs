@@ -7,6 +7,7 @@ pub mod common;
 pub mod console;
 
 pub mod audio;
+pub mod platform;
 
 // Future modules for upcoming stories (following YAGNI principle):
 // TODO: events/event_dispatcher.rs - implement when event system is needed

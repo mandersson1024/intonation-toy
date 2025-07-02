@@ -5,6 +5,7 @@ use web_sys::HtmlCanvasElement;
 mod modules;
 
 use modules::common::dev_log;
+use modules::platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]
 use modules::console::DevConsole;
@@ -82,23 +83,33 @@ pub fn main() {
     dev_log!("Starting Pitch Toy application");
     dev_log!("Build configuration: {}", if cfg!(debug_assertions) { "Development" } else { "Production" });
     
-    // Initialize audio system
-    initialize_audio_system();
-    
-    yew::Renderer::<App>::new().render();
+    // Validate critical platform APIs before proceeding
+    match Platform::check_feature_support() {
+        PlatformValidationResult::AllSupported => {
+            dev_log!("✓ Platform validation passed - initializing application");
+            
+            // Initialize audio system
+            match modules::audio::initialize_audio_system() {
+                Ok(_) => {
+                    dev_log!("✓ Audio system initialized successfully");
+                    yew::Renderer::<App>::new().render();
+                }
+                Err(e) => {
+                    dev_log!("✗ Audio system initialization failed: {}", e);
+                    dev_log!("Application cannot continue without audio system");
+                    // TODO: Add error screen rendering in future story when UI requirements are defined
+                }
+            }
+        }
+        PlatformValidationResult::MissingCriticalApis(missing_apis) => {
+            let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
+            dev_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
+            dev_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
+            // TODO: Add error screen rendering in future story when UI requirements are defined
+        }
+    }
 }
 
-/// Initialize audio system
-fn initialize_audio_system() {
-    dev_log!("Initializing audio system");
-    
-    // TODO: Initialize AudioContext when context manager is implemented
-    // TODO: Setup microphone permissions when microphone manager is implemented  
-    // TODO: Initialize AudioWorklet when worklet processor is implemented
-    // TODO: Setup stream management when stream handler is implemented
-    
-    dev_log!("Audio system initialization placeholder completed");
-}
 
 #[cfg(test)]
 mod tests {
