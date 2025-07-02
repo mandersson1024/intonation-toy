@@ -2,7 +2,7 @@ use yew::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
-mod modules;
+pub mod modules;
 
 use modules::common::dev_log;
 use modules::platform::{Platform, PlatformValidationResult};
@@ -74,6 +74,7 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 }
 
 /// Application entry point
+#[cfg(not(test))]
 #[wasm_bindgen(start)]
 pub fn main() {
     // Initialize console logging for development
@@ -82,6 +83,7 @@ pub fn main() {
     
     dev_log!("Starting Pitch Toy application");
     dev_log!("Build configuration: {}", if cfg!(debug_assertions) { "Development" } else { "Production" });
+    dev_log!("{}", Platform::get_platform_info());
     
     // Validate critical platform APIs before proceeding
     match Platform::check_feature_support() {

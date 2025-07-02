@@ -323,20 +323,18 @@ src/lib.rs                  # Native tests embedded in source
 └── test_build_configuration # 1 meaningful test for build detection
 ```
 
-**Phase 2 (Future) - WASM Tests:**
+**Phase 2 (Current) - WASM Tests:**
 ```
-tests-wasm/                 # Planned WASM test structure
-├── README.md              # Comprehensive implementation guidance
-├── unit/                  # Unit tests for WASM functionality (planned)
-│   ├── audio_algorithms.rs # Audio processing in WASM
-│   ├── math_utilities.rs   # Mathematical functions
-│   └── data_structures.rs  # Serialization/boundaries
-├── integration/           # WASM module integration (planned)
-│   ├── module_communication.rs # Inter-module data flow
-│   └── performance.rs      # WASM performance benchmarks
-└── benchmarks/            # Performance tests (planned)
-    ├── audio_latency.rs   # Latency benchmarks
-    └── render_fps.rs      # FPS benchmarks
+tests/                     # WASM test structure
+└── wasm.rs               # WASM integration tests
+    ├── test_wasm_build_configuration # Build configuration detection
+    ├── test_wasm_basic_functionality # Basic WASM functionality
+    └── TODO: Future WASM-specific tests:
+        ├── audio_algorithms   # Audio processing in WASM
+        ├── math_utilities     # Mathematical functions
+        ├── data_structures    # Serialization/boundaries
+        ├── module_communication # Inter-module data flow
+        └── performance_benchmarks # WASM performance tests
 ```
 
 **Phase 3 (Later) - Browser Integration:**
@@ -350,7 +348,7 @@ End-to-end testing via Cypress/Playwright:
 
 #### Testing Commands
 - **Phase 1**: `cargo test` → 1 native test, instant feedback
-- **Phase 2**: `wasm-pack test --headless --firefox` → WASM functionality validation (when implemented)
+- **Phase 2**: `wasm-pack test --headless --firefox` → WASM functionality validation (now available)
 - **Phase 3**: Cypress/Playwright → browser integration testing (when needed)
 
 #### Current Implementation Status

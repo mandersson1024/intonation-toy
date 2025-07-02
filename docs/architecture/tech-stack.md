@@ -151,7 +151,7 @@ console_log = "0.2"
 
 **Testing Commands:**
 - **Phase 1**: `cargo test` - native tests for fast feedback (current)
-- **Phase 2**: `wasm-pack test --headless --firefox` - WASM functionality validation (future)
+- **Phase 2**: `wasm-pack test --headless --firefox` - WASM functionality validation (now available)
 - **Phase 3**: Cypress/Playwright - browser integration testing (later)
 
 ### Production Stack
