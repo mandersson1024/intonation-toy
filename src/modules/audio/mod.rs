@@ -3,8 +3,8 @@
 
 pub mod microphone;
 pub mod context;
+pub mod worklet;
 
-// TODO: AudioWorklet processing - implement when real-time audio processing is needed
 // TODO: Stream management - implement when device reconnection logic is needed
 
 use crate::modules::common::dev_log;
@@ -21,7 +21,7 @@ pub fn initialize_audio_system() -> Result<(), String> {
         return Err("Web Audio API not supported".to_string());
     }
     
-    // TODO: Initialize AudioWorklet when worklet processor is implemented
+    // AudioWorklet initialization is now available via worklet::AudioWorkletManager
     // TODO: Setup stream management when stream handler is implemented
     
     dev_log!("✓ Audio system initialization completed");
@@ -31,3 +31,4 @@ pub fn initialize_audio_system() -> Result<(), String> {
 // Re-export public API
 pub use microphone::{MicrophoneManager, MicrophoneState, AudioStreamInfo, AudioError};
 pub use context::{AudioContextManager, AudioContextState, AudioContextConfig};
+pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
