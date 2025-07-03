@@ -11,7 +11,7 @@ use std::rc::Rc;
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
-use crate::modules::audio::{AudioPermission, permission::PermissionManager, get_audio_context_manager};
+use crate::audio::{AudioPermission, permission::PermissionManager, get_audio_context_manager};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -870,7 +870,7 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::console::ConsoleCommandRegistry;
+    use crate::console::ConsoleCommandRegistry;
 
     #[test]
     fn test_console_message_handling() {

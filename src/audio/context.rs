@@ -16,7 +16,7 @@
 //! ## Usage Examples
 //!
 //! ```rust,no_run
-//! use pitch_toy::modules::audio::{AudioContextManager, AudioContextConfig};
+//! use pitch_toy::audio::{AudioContextManager, AudioContextConfig};
 //!
 //! async fn setup_audio() {
 //!     // Create manager with default configuration (48kHz, 1024 buffer)
@@ -51,7 +51,7 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use std::fmt;
-use crate::modules::common::dev_log;
+use crate::common::dev_log;
 use super::AudioError;
 
 /// AudioContext configuration states

@@ -1,21 +1,23 @@
 use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 
-pub mod modules;
+pub mod audio;
+pub mod console;
+pub mod console_commands;
+pub mod common;
+pub mod platform;
 
-use modules::common::dev_log;
+use common::dev_log;
 
 #[cfg(not(test))]
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(test))]
-use modules::platform::{Platform, PlatformValidationResult};
+use platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]
-use modules::console::DevConsole;
+use console::DevConsole;
 
-#[cfg(debug_assertions)]
-use modules::console_commands;
 
 #[cfg(debug_assertions)]
 use std::rc::Rc;
@@ -24,7 +26,7 @@ use std::rc::Rc;
 fn render_dev_console() -> Html {
     #[cfg(debug_assertions)]
     {
-        let registry = Rc::new(console_commands::create_console_registry());
+        let registry = Rc::new(crate::console_commands::create_console_registry());
         html! { <DevConsole registry={registry} /> }
     }
     
@@ -105,7 +107,7 @@ pub fn main() {
             
             // Initialize audio system asynchronously
             wasm_bindgen_futures::spawn_local(async {
-                match modules::audio::initialize_audio_system().await {
+                match audio::initialize_audio_system().await {
                     Ok(_) => {
                         dev_log!("✓ Audio system initialized successfully");
                         yew::Renderer::<App>::new().render();

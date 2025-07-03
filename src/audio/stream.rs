@@ -14,7 +14,7 @@
 //! # Example Usage
 //!
 //! ```rust
-//! # use pitch_toy::modules::audio::stream::{StreamReconnectionHandler, StreamConfig, StreamState};
+//! # use pitch_toy::audio::stream::{StreamReconnectionHandler, StreamConfig, StreamState};
 //! # #[cfg(target_arch = "wasm32")]
 //! # use web_sys::MediaStream;
 //! # #[cfg(target_arch = "wasm32")]
@@ -76,7 +76,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{MediaStream, MediaStreamTrack, MediaStreamTrackState};
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::modules::common::dev_log;
+use crate::common::dev_log;
 
 /// Stream connection states for tracking MediaStream lifecycle
 /// 
@@ -122,7 +122,7 @@ pub struct StreamHealth {
 /// # Example
 /// 
 /// ```rust
-/// # use pitch_toy::modules::audio::stream::StreamConfig;
+/// # use pitch_toy::audio::stream::StreamConfig;
 /// let config = StreamConfig {
 ///     max_reconnect_attempts: 5,      // Try up to 5 times
 ///     reconnect_delay_ms: 2000,       // Wait 2 seconds between attempts  

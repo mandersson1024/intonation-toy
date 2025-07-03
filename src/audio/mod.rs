@@ -8,7 +8,7 @@ pub mod stream;
 pub mod permission;
 pub mod buffer;
 
-use crate::modules::common::dev_log;
+use crate::common::dev_log;
 
 use std::cell::RefCell;
 use std::rc::Rc;

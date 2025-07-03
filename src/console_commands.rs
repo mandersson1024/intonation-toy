@@ -4,10 +4,10 @@
 //
 // Commands should not be unit tested
 
-use crate::modules::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
+use crate::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
-use crate::modules::audio::{AudioContextManager, get_audio_context_manager};
-use crate::modules::{platform::Platform, common::dev_log};
+use crate::audio::{AudioContextManager, get_audio_context_manager};
+use crate::{platform::Platform, common::dev_log};
 
 /// Creates a fully configured console command registry with all module commands
 pub fn create_console_registry() -> ConsoleCommandRegistry {
@@ -122,12 +122,12 @@ impl ConsoleCommand for AudioContextCommand {
             // Show detailed system status based on context state
             let system_status_text = format!("  Audio System: {}", state);
             let system_output = match state {
-                crate::modules::audio::AudioContextState::Running => ConsoleOutput::success(&system_status_text),
-                crate::modules::audio::AudioContextState::Suspended => ConsoleOutput::warning(&system_status_text),
-                crate::modules::audio::AudioContextState::Closed => ConsoleOutput::error(&system_status_text),
-                crate::modules::audio::AudioContextState::Uninitialized => ConsoleOutput::warning(&system_status_text),
-                crate::modules::audio::AudioContextState::Initializing => ConsoleOutput::info(&system_status_text),
-                crate::modules::audio::AudioContextState::Recreating => ConsoleOutput::warning(&system_status_text),
+                crate::audio::AudioContextState::Running => ConsoleOutput::success(&system_status_text),
+                crate::audio::AudioContextState::Suspended => ConsoleOutput::warning(&system_status_text),
+                crate::audio::AudioContextState::Closed => ConsoleOutput::error(&system_status_text),
+                crate::audio::AudioContextState::Uninitialized => ConsoleOutput::warning(&system_status_text),
+                crate::audio::AudioContextState::Initializing => ConsoleOutput::info(&system_status_text),
+                crate::audio::AudioContextState::Recreating => ConsoleOutput::warning(&system_status_text),
             };
             outputs.push(system_output);
         } else {

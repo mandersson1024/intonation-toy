@@ -25,7 +25,10 @@ pitch-toy/
 │   └── tech-spec.md           # Technical specification
 ├── 📁 src/                     # Source code
 │   ├── lib.rs                 # Application entry point
-│   └── modules/               # Modular components
+│   ├── audio/                 # Audio processing modules
+│   ├── console/               # Development console
+│   ├── common/                # Shared utilities
+│   └── platform/              # Platform detection
 ├── 📁 target/                  # Rust build artifacts
 ├── Cargo.toml                  # Rust project configuration
 ├── index.html                  # HTML entry point
@@ -39,66 +42,91 @@ pitch-toy/
 ```
 src/
 ├── lib.rs                      # Main application entry point
-└── modules/                    # Module directory (planned)
+├── 📁 audio/                   # Audio processing modules
+│   ├── mod.rs                  # Audio module exports
+│   ├── microphone.rs           # Microphone input handling
+│   ├── context.rs              # AudioContext management
+│   ├── worklet.rs              # AudioWorklet processing
+│   ├── stream.rs               # Stream management and reconnection
+│   ├── permission.rs           # Audio permission handling
+│   └── buffer.rs               # Audio buffer management (NEW)
+├── 📁 console/                 # Development console
+│   ├── mod.rs                  # Console module exports
+│   ├── component.rs            # Yew console component
+│   ├── command_registry.rs     # Console command system
+│   ├── history.rs              # Command history management
+│   └── output.rs               # Console output formatting
+├── 📁 common/                  # Shared utilities
+│   └── mod.rs                  # Common module exports
+├── 📁 platform/                # Platform detection and validation
+│   └── mod.rs                  # Platform module
+└── console_commands.rs         # Console command implementations
 ```
 
-### Planned Modular Structure
+### Planned Future Structure
 
 ```
 src/
 ├── lib.rs                      # Application bootstrap and Yew app
-├── 📁 modules/
-│   ├── 📁 audio/              # Audio processing modules
-│   │   ├── mod.rs             # Audio module exports
-│   │   ├── microphone.rs      # Microphone input handling
-│   │   ├── processor.rs       # Audio processing pipeline
-│   │   ├── pitch_detector.rs  # YIN algorithm implementation
-│   │   ├── volume_detector.rs # Volume level analysis
-│   │   ├── buffer.rs          # Audio buffer management
-│   │   └── test_signals.rs    # Test signal generation
-│   ├── 📁 graphics/           # GPU rendering modules
-│   │   ├── mod.rs             # Graphics module exports
-│   │   ├── renderer.rs        # wgpu rendering pipeline
-│   │   ├── shaders/           # WGSL shader files
-│   │   │   ├── vertex.wgsl    # Vertex shaders
-│   │   │   └── fragment.wgsl  # Fragment shaders
-│   │   ├── pipeline.rs        # Render pipeline management
-│   │   ├── buffers.rs         # GPU buffer management
-│   │   └── textures.rs        # Texture management
-│   ├── 📁 presentation/       # Visual presentation layer
-│   │   ├── mod.rs             # Presentation module exports
-│   │   ├── layer.rs           # Main presentation controller
-│   │   ├── visualizations.rs  # Visualization logic
-│   │   ├── animations.rs      # Animation systems
-│   │   └── commands.rs        # Render command generation
-│   ├── 📁 events/             # Event system
-│   │   ├── mod.rs             # Event module exports
-│   │   ├── dispatcher.rs      # Central event dispatcher
-│   │   ├── types.rs           # Event type definitions
-│   │   └── handlers.rs        # Event handler traits
-│   ├── 📁 theme/              # Theme management
-│   │   ├── mod.rs             # Theme module exports
-│   │   ├── manager.rs         # Theme state management
-│   │   ├── themes.rs          # Built-in theme definitions
-│   │   └── colors.rs          # Color palette management
-│   ├── 📁 console/            # Development console
-│   │   ├── mod.rs             # Console module exports
-│   │   ├── component.rs       # Yew console component
-│   │   ├── command_registry.rs # Console command system
-│   │   ├── history.rs         # Command history management
-│   │   └── output.rs          # Console output formatting
-│   ├── 📁 debug/              # Debug and monitoring
-│   │   ├── mod.rs             # Debug module exports
-│   │   ├── overlay.rs         # Debug overlay component
-│   │   ├── metrics.rs         # Performance metrics
-│   │   ├── profiler.rs        # Performance profiling
-│   │   └── logger.rs          # Structured logging
-│   └── 📁 common/             # Shared utilities
-│       ├── mod.rs             # Common module exports
-│       ├── types.rs           # Common type definitions
-│       ├── math.rs            # Mathematical utilities
-│       ├── time.rs            # Timing utilities
-│       └── config.rs          # Configuration management
+├── 📁 audio/                   # Audio processing modules (CURRENT)
+│   ├── mod.rs                  # Audio module exports
+│   ├── microphone.rs           # Microphone input handling
+│   ├── context.rs              # AudioContext management
+│   ├── worklet.rs              # AudioWorklet processing
+│   ├── stream.rs               # Stream management and reconnection
+│   ├── permission.rs           # Audio permission handling
+│   ├── buffer.rs               # Audio buffer management
+│   ├── buffer_pool.rs          # Memory pool management (PLANNED)
+│   ├── buffer_analyzer.rs      # Sequential analysis (PLANNED)
+│   ├── pitch_detector.rs       # YIN algorithm implementation (PLANNED)
+│   ├── volume_detector.rs      # Volume level analysis (PLANNED)
+│   └── test_signals.rs         # Test signal generation (PLANNED)
+├── 📁 graphics/                # GPU rendering modules (PLANNED)
+│   ├── mod.rs                  # Graphics module exports
+│   ├── renderer.rs             # wgpu rendering pipeline
+│   ├── shaders/                # WGSL shader files
+│   │   ├── vertex.wgsl         # Vertex shaders
+│   │   └── fragment.wgsl       # Fragment shaders
+│   ├── pipeline.rs             # Render pipeline management
+│   ├── buffers.rs              # GPU buffer management
+│   └── textures.rs             # Texture management
+├── 📁 presentation/            # Visual presentation layer (PLANNED)
+│   ├── mod.rs                  # Presentation module exports
+│   ├── layer.rs                # Main presentation controller
+│   ├── visualizations.rs       # Visualization logic
+│   ├── animations.rs           # Animation systems
+│   └── commands.rs             # Render command generation
+├── 📁 events/                  # Event system (PLANNED)
+│   ├── mod.rs                  # Event module exports
+│   ├── dispatcher.rs           # Central event dispatcher
+│   ├── types.rs                # Event type definitions
+│   └── handlers.rs             # Event handler traits
+├── 📁 theme/                   # Theme management (PLANNED)
+│   ├── mod.rs                  # Theme module exports
+│   ├── manager.rs              # Theme state management
+│   ├── themes.rs               # Built-in theme definitions
+│   └── colors.rs               # Color palette management
+├── 📁 console/                 # Development console (CURRENT)
+│   ├── mod.rs                  # Console module exports
+│   ├── component.rs            # Yew console component
+│   ├── command_registry.rs     # Console command system
+│   ├── history.rs              # Command history management
+│   └── output.rs               # Console output formatting
+├── 📁 debug/                   # Debug and monitoring (PLANNED)
+│   ├── mod.rs                  # Debug module exports
+│   ├── overlay.rs              # Debug overlay component
+│   ├── metrics.rs              # Performance metrics
+│   ├── profiler.rs             # Performance profiling
+│   └── logger.rs               # Structured logging
+├── 📁 common/                  # Shared utilities (CURRENT)
+│   ├── mod.rs                  # Common module exports
+│   ├── types.rs                # Common type definitions (PLANNED)
+│   ├── math.rs                 # Mathematical utilities (PLANNED)
+│   ├── time.rs                 # Timing utilities (PLANNED)
+│   └── config.rs               # Configuration management (PLANNED)
+├── 📁 platform/                # Platform detection (CURRENT)
+│   └── mod.rs                  # Platform module
+└── console_commands.rs         # Console command implementations (CURRENT)
 ```
 
 ## Module Dependency Graph

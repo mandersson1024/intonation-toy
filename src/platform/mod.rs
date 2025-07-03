@@ -1,10 +1,10 @@
 // Platform detection and feature support module
 // Centralizes browser API availability checks and platform-specific logic
 
-use crate::modules::common::dev_log;
+use crate::common::dev_log;
 
 #[cfg(target_arch = "wasm32")]
-use crate::modules::audio::MicrophoneManager;
+use crate::audio::MicrophoneManager;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;

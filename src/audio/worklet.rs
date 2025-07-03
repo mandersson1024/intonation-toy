@@ -16,7 +16,7 @@
 //! ## Usage Examples
 //!
 //! ```rust,no_run
-//! use pitch_toy::modules::audio::{AudioWorkletManager, AudioContextManager};
+//! use pitch_toy::audio::{AudioWorkletManager, AudioContextManager};
 //!
 //! async fn setup_audio_processing() {
 //!     let mut context_manager = AudioContextManager::new();
@@ -46,7 +46,7 @@ use web_sys::{
     AudioNode
 };
 use std::fmt;
-use crate::modules::common::dev_log;
+use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager};
 
 /// AudioWorklet processor states
