@@ -3,7 +3,7 @@ use wasm_bindgen_test::*;
 #[cfg(target_arch = "wasm32")]
 use pitch_toy::modules::audio::{
     MicrophoneManager, AudioContextManager, StreamReconnectionHandler,
-    MicrophoneState, AudioContextState, StreamState,
+    AudioPermission, AudioContextState, StreamState,
     AudioStreamInfo, AudioContextConfig, StreamConfig
 };
 

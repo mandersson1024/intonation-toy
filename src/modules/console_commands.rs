@@ -110,11 +110,11 @@ impl ConsoleCommand for MicStatusCommand {
         
         let status_text = format!("  Permission Status: {}", state);
         let output = match state {
-            crate::modules::audio::MicrophoneState::Granted => ConsoleOutput::success(&status_text),
-            crate::modules::audio::MicrophoneState::Denied => ConsoleOutput::error(&status_text),
-            crate::modules::audio::MicrophoneState::Requesting => ConsoleOutput::warning(&status_text),
-            crate::modules::audio::MicrophoneState::Unavailable => ConsoleOutput::error(&status_text),
-            crate::modules::audio::MicrophoneState::Uninitialized => ConsoleOutput::warning(&status_text),
+            crate::modules::audio::AudioPermission::Granted => ConsoleOutput::success(&status_text),
+            crate::modules::audio::AudioPermission::Denied => ConsoleOutput::error(&status_text),
+            crate::modules::audio::AudioPermission::Requesting => ConsoleOutput::warning(&status_text),
+            crate::modules::audio::AudioPermission::Unavailable => ConsoleOutput::error(&status_text),
+            crate::modules::audio::AudioPermission::Uninitialized => ConsoleOutput::warning(&status_text),
         };
         outputs.push(output);
         

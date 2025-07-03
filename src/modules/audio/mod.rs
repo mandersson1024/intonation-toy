@@ -5,6 +5,7 @@ pub mod microphone;
 pub mod context;
 pub mod worklet;
 pub mod stream;
+pub mod permission;
 
 use crate::modules::common::dev_log;
 
@@ -72,10 +73,11 @@ pub fn is_audio_system_ready() -> bool {
 }
 
 // Re-export public API
-pub use microphone::{MicrophoneManager, MicrophoneState, AudioStreamInfo, AudioError};
+pub use microphone::{MicrophoneManager, AudioPermission, AudioStreamInfo, AudioError};
 pub use context::{AudioContextManager, AudioContextState, AudioContextConfig};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
+pub use permission::PermissionManager;
 
 #[cfg(test)]
 mod tests {
@@ -141,15 +143,15 @@ mod tests {
     #[test]
     fn test_microphone_state_enum() {
         // Test all microphone states
-        assert_eq!(MicrophoneState::Uninitialized.to_string(), "Uninitialized");
-        assert_eq!(MicrophoneState::Requesting.to_string(), "Requesting");
-        assert_eq!(MicrophoneState::Granted.to_string(), "Granted");
-        assert_eq!(MicrophoneState::Denied.to_string(), "Denied");
-        assert_eq!(MicrophoneState::Unavailable.to_string(), "Unavailable");
+        assert_eq!(AudioPermission::Uninitialized.to_string(), "Uninitialized");
+        assert_eq!(AudioPermission::Requesting.to_string(), "Requesting");
+        assert_eq!(AudioPermission::Granted.to_string(), "Granted");
+        assert_eq!(AudioPermission::Denied.to_string(), "Denied");
+        assert_eq!(AudioPermission::Unavailable.to_string(), "Unavailable");
 
         // Test PartialEq implementation
-        assert_eq!(MicrophoneState::Granted, MicrophoneState::Granted);
-        assert_ne!(MicrophoneState::Granted, MicrophoneState::Denied);
+        assert_eq!(AudioPermission::Granted, AudioPermission::Granted);
+        assert_ne!(AudioPermission::Granted, AudioPermission::Denied);
     }
 
     #[test]
@@ -233,7 +235,7 @@ mod tests {
     fn test_manager_creation() {
         // Test that all managers can be created successfully
         let mic_manager = MicrophoneManager::new();
-        assert_eq!(*mic_manager.state(), MicrophoneState::Uninitialized);
+        assert_eq!(*mic_manager.state(), AudioPermission::Uninitialized);
 
         let audio_manager = AudioContextManager::new();
         assert_eq!(*audio_manager.state(), AudioContextState::Uninitialized);
