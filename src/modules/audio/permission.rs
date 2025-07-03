@@ -172,6 +172,43 @@ impl PermissionManager {
             }
         }
     }
+
+    /// Request microphone permission with user gesture and callback
+    /// Must be called from a user gesture (button click, etc.)
+    /// Returns permission state and optionally calls callback with result
+    pub async fn request_permission_with_callback<F>(callback: F) -> AudioPermission
+    where
+        F: Fn(AudioPermission) + 'static,
+    {
+        web_sys::console::log_1(&"Requesting microphone permission...".into());
+        
+        match Self::request_microphone_permission().await {
+            Ok(stream) => {
+                // Permission granted - stop the stream immediately since we just needed permission
+                Self::stop_media_stream(&stream);
+                web_sys::console::log_1(&"✅ Microphone permission granted".into());
+                callback(AudioPermission::Granted);
+                AudioPermission::Granted
+            }
+            Err(error) => {
+                let permission_state = Self::error_to_permission(&error);
+                // Log permission denial/unavailability
+                match permission_state {
+                    AudioPermission::Denied => {
+                        web_sys::console::warn_1(&"❌ Microphone permission denied".into());
+                    }
+                    AudioPermission::Unavailable => {
+                        web_sys::console::warn_1(&"❌ Microphone not available".into());
+                    }
+                    _ => {
+                        web_sys::console::warn_1(&format!("⚠️ Microphone permission issue: {:?}", error).into());
+                    }
+                }
+                callback(permission_state.clone());
+                permission_state
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -208,23 +208,13 @@ impl Component for DevConsole {
             DevConsoleMsg::RequestAudioPermission => {
                 // Update state to requesting immediately
                 self.audio_permission = AudioPermission::Requesting;
-                self.output_manager.add_output(ConsoleOutput::info("Requesting microphone permission..."));
                 
                 // Request permission - must be in same call stack as user gesture
                 let link = ctx.link().clone();
                 spawn_local(async move {
-                    match PermissionManager::request_microphone_permission().await {
-                        Ok(stream) => {
-                            // Permission granted - stop the stream immediately since we just needed permission
-                            // Following best practice: stop tracks if not using stream immediately
-                            PermissionManager::stop_media_stream(&stream);
-                            link.send_message(DevConsoleMsg::UpdateAudioPermission(AudioPermission::Granted));
-                        }
-                        Err(error) => {
-                            let permission_state = PermissionManager::error_to_permission(&error);
-                            link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
-                        }
-                    }
+                    let _result = PermissionManager::request_permission_with_callback(move |permission_state| {
+                        link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
+                    }).await;
                 });
                 
                 true
@@ -234,25 +224,9 @@ impl Component for DevConsole {
                 let old_permission = self.audio_permission.clone();
                 self.audio_permission = permission;
                 
-                // Only log permission changes after the initial check
-                // Don't log when transitioning from Uninitialized to the actual state
-                if old_permission != AudioPermission::Uninitialized {
-                    match self.audio_permission {
-                        AudioPermission::Granted => {
-                            self.output_manager.add_output(ConsoleOutput::success("✅ Microphone permission granted"));
-                            // Refresh device list when permission is granted to show device labels
-                            ctx.link().send_message(DevConsoleMsg::RefreshDevices);
-                        }
-                        AudioPermission::Denied => {
-                            self.output_manager.add_output(ConsoleOutput::error("❌ Microphone permission denied"));
-                        }
-                        AudioPermission::Unavailable => {
-                            self.output_manager.add_output(ConsoleOutput::error("❌ Microphone not available"));
-                        }
-                        _ => {
-                            // Don't log for other states
-                        }
-                    }
+                // Refresh device list when permission is granted to show device labels
+                if old_permission != AudioPermission::Granted && self.audio_permission == AudioPermission::Granted {
+                    ctx.link().send_message(DevConsoleMsg::RefreshDevices);
                 }
                 
                 // Only re-render if permission actually changed
@@ -264,15 +238,19 @@ impl Component for DevConsole {
                 let link = ctx.link().clone();
                 spawn_local(async move {
                     if let Some(manager_rc) = get_audio_context_manager() {
-                        // Properly scope the borrow to avoid conflicts
-                        let result = {
-                            let mut manager = manager_rc.borrow_mut();
-                            manager.refresh_audio_devices().await
-                        }; // Borrow ends here
-                        
-                        // After refresh completes, trigger a re-render to show updated devices
-                        if result.is_ok() {
-                            link.send_message(DevConsoleMsg::DevicesRefreshed);
+                        // Try to borrow mutably, but handle the case where it's already borrowed
+                        match manager_rc.try_borrow_mut() {
+                            Ok(mut manager) => {
+                                let result = manager.refresh_audio_devices().await;
+                                // After refresh completes, trigger a re-render to show updated devices
+                                if result.is_ok() {
+                                    link.send_message(DevConsoleMsg::DevicesRefreshed);
+                                }
+                            }
+                            Err(_) => {
+                                // Manager is currently borrowed, try again in a moment
+                                web_sys::console::log_1(&"AudioContextManager busy, skipping device refresh".into());
+                            }
                         }
                     }
                 });
