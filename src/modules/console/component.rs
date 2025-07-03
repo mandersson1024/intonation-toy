@@ -5,12 +5,13 @@
 use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use wasm_bindgen::{closure::Closure, JsCast};
+use wasm_bindgen_futures::spawn_local;
 use std::rc::Rc;
 
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
-use crate::modules::audio::AudioPermission;
+use crate::modules::audio::{AudioPermission, permission::PermissionManager};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -63,6 +64,8 @@ pub enum DevConsoleMsg {
     ToggleVisibility,
     /// Request audio permission
     RequestAudioPermission,
+    /// Update audio permission state
+    UpdateAudioPermission(AudioPermission),
 }
 
 impl Component for DevConsole {
@@ -82,7 +85,7 @@ impl Component for DevConsole {
             output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
         }
         
-        Self {
+        let console = Self {
             registry: Rc::clone(&ctx.props().registry),
             command_history,
             output_manager,
@@ -92,7 +95,16 @@ impl Component for DevConsole {
             visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-        }
+        };
+        
+        // Check microphone permission status on component creation
+        let link = ctx.link().clone();
+        spawn_local(async move {
+            let permission = PermissionManager::check_microphone_permission().await;
+            link.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
+        });
+        
+        console
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -179,15 +191,55 @@ impl Component for DevConsole {
             }
             
             DevConsoleMsg::RequestAudioPermission => {
-                // Stub implementation - just update state to Requesting
+                // Update state to requesting immediately
                 self.audio_permission = AudioPermission::Requesting;
-                self.output_manager.add_output(ConsoleOutput::info("Audio permission request (stub implementation)"));
+                self.output_manager.add_output(ConsoleOutput::info("Requesting microphone permission..."));
                 
-                // TODO: Implement actual permission request
-                // For now, simulate different outcomes for testing
-                // This will be replaced with actual permission logic later
+                // Request permission - must be in same call stack as user gesture
+                let link = ctx.link().clone();
+                spawn_local(async move {
+                    match PermissionManager::request_microphone_permission().await {
+                        Ok(stream) => {
+                            // Permission granted - stop the stream immediately since we just needed permission
+                            // Following best practice: stop tracks if not using stream immediately
+                            PermissionManager::stop_media_stream(&stream);
+                            link.send_message(DevConsoleMsg::UpdateAudioPermission(AudioPermission::Granted));
+                        }
+                        Err(error) => {
+                            let permission_state = PermissionManager::error_to_permission(&error);
+                            link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
+                        }
+                    }
+                });
                 
                 true
+            }
+            
+            DevConsoleMsg::UpdateAudioPermission(permission) => {
+                let old_permission = self.audio_permission.clone();
+                self.audio_permission = permission;
+                
+                // Only log permission changes after the initial check
+                // Don't log when transitioning from Uninitialized to the actual state
+                if old_permission != AudioPermission::Uninitialized {
+                    match self.audio_permission {
+                        AudioPermission::Granted => {
+                            self.output_manager.add_output(ConsoleOutput::success("✅ Microphone permission granted"));
+                        }
+                        AudioPermission::Denied => {
+                            self.output_manager.add_output(ConsoleOutput::error("❌ Microphone permission denied"));
+                        }
+                        AudioPermission::Unavailable => {
+                            self.output_manager.add_output(ConsoleOutput::error("❌ Microphone not available"));
+                        }
+                        _ => {
+                            // Don't log for other states
+                        }
+                    }
+                }
+                
+                // Only re-render if permission actually changed
+                old_permission != self.audio_permission
             }
         }
     }
