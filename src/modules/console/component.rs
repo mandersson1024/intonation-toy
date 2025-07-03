@@ -5,8 +5,9 @@
 use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use wasm_bindgen::{closure::Closure, JsCast};
+use std::rc::Rc;
 
-use super::commands::ConsoleCommandResult;
+use super::commands::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 
@@ -14,11 +15,23 @@ use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
 
 /// Properties for the DevConsole component
-#[derive(Properties, PartialEq)]
-pub struct DevConsoleProps {}
+#[derive(Properties)]
+pub struct DevConsoleProps {
+    /// Command registry to use for executing commands
+    pub registry: Rc<ConsoleCommandRegistry>,
+}
+
+impl PartialEq for DevConsoleProps {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare by pointer equality since registries are immutable after creation
+        Rc::ptr_eq(&self.registry, &other.registry)
+    }
+}
 
 /// State for the DevConsole component
 pub struct DevConsole {
+    /// Command registry for executing commands
+    registry: Rc<ConsoleCommandRegistry>,
     /// Command history for navigation
     command_history: ConsoleHistory,
     /// Output manager for displaying results
@@ -51,7 +64,7 @@ impl Component for DevConsole {
     type Message = DevConsoleMsg;
     type Properties = DevConsoleProps;
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         let mut output_manager = ConsoleOutputManager::new();
         
         // Add welcome message
@@ -65,6 +78,7 @@ impl Component for DevConsole {
         }
         
         Self {
+            registry: Rc::clone(&ctx.props().registry),
             command_history,
             output_manager,
             input_value: String::new(),
@@ -89,8 +103,8 @@ impl Component for DevConsole {
                     // Echo the command
                     self.output_manager.add_output(ConsoleOutput::echo(command));
                     
-                    // Execute the command using global registry
-                    let result = super::command_registry::execute_command(command);
+                    // Execute the command using the provided registry
+                    let result = self.registry.execute(command);
                     match result {
                         ConsoleCommandResult::Output(output) => {
                             self.output_manager.add_output(output);
@@ -504,11 +518,13 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::console::ConsoleCommandRegistry;
 
     #[test]
     fn test_console_message_handling() {
         // Create a test console state
         let mut console = DevConsole {
+            registry: Rc::new(ConsoleCommandRegistry::new()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: "test command".to_string(),
@@ -532,6 +548,7 @@ mod tests {
     #[test]
     fn test_console_history_integration() {
         let mut console = DevConsole {
+            registry: Rc::new(ConsoleCommandRegistry::new()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -565,6 +582,7 @@ mod tests {
         assert!(history.is_empty() || !history.is_empty()); // Should not panic
         
         let console = DevConsole {
+            registry: Rc::new(ConsoleCommandRegistry::new()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),

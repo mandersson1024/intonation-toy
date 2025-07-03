@@ -5,11 +5,10 @@ mod commands;
 mod history;
 mod output;
 mod component;
-mod command_registry;
 
 pub use component::DevConsole;
-pub use commands::{ConsoleCommand, ConsoleCommandResult};
-pub use command_registry::register_command;
+pub use commands::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
+pub use output::ConsoleOutput;
 
 #[cfg(test)]
 mod tests {
@@ -33,16 +32,18 @@ mod tests {
     
     #[test]
     fn test_external_command_registration() {
-        // Test the API we want for external command registration
+        // Test that external commands can be registered with a registry
+        let mut registry = commands::ConsoleCommandRegistry::new();
+        
         let cmd = ExternallyRegisteredCommand;
         assert_eq!(cmd.name(), "external");
         assert_eq!(cmd.description(), "Test command registered from outside the module");
         
         // Test that we can register the command
-        register_command(Box::new(ExternallyRegisteredCommand));
+        registry.register(Box::new(ExternallyRegisteredCommand));
         
-        // Test that the command can be executed through the global registry
-        let result = command_registry::execute_command("external");
+        // Test that the command can be executed through the registry
+        let result = registry.execute("external");
         match result {
             commands::ConsoleCommandResult::Output(output::ConsoleOutput::Success(msg)) => {
                 assert_eq!(msg, "External command executed!");

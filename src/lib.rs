@@ -14,10 +14,19 @@ use modules::platform::{Platform, PlatformValidationResult};
 #[cfg(debug_assertions)]
 use modules::console::DevConsole;
 
+#[cfg(debug_assertions)]
+use modules::console_commands;
+
+#[cfg(debug_assertions)]
+use std::rc::Rc;
+
 /// Render development console if in debug mode
 fn render_dev_console() -> Html {
     #[cfg(debug_assertions)]
-    html! { <DevConsole /> }
+    {
+        let registry = Rc::new(console_commands::create_console_registry());
+        html! { <DevConsole registry={registry} /> }
+    }
     
     #[cfg(not(debug_assertions))]
     html! {}

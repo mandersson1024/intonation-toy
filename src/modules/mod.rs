@@ -6,6 +6,9 @@ pub mod common;
 #[cfg(debug_assertions)]
 pub mod console;
 
+#[cfg(debug_assertions)]
+pub mod console_commands;
+
 pub mod audio;
 pub mod platform;
 
