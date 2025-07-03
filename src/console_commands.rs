@@ -6,7 +6,6 @@
 
 use crate::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
-use crate::audio::{AudioContextManager, get_audio_context_manager};
 use crate::{platform::Platform, common::dev_log};
 
 /// Creates a fully configured console command registry with all module commands
@@ -16,8 +15,16 @@ pub fn create_console_registry() -> ConsoleCommandRegistry {
     // Register platform module commands
     registry.register(Box::new(ApiStatusCommand));
     
+    registry
+}
+
+/// Creates a fully configured console command registry with all module commands
+/// including audio commands
+pub fn create_console_registry_with_audio() -> ConsoleCommandRegistry {
+    let mut registry = create_console_registry();
+    
     // Register audio module commands
-    registry.register(Box::new(AudioContextCommand));
+    crate::audio::register_audio_commands(&mut registry);
     
     registry
 }
@@ -78,65 +85,5 @@ impl ConsoleCommand for ApiStatusCommand {
     }
 }
 
-// Audio Commands Implementation
-// These commands require access to the audio module and are therefore not built-in
-
-
-// Audio Context Command
-struct AudioContextCommand;
-
-impl ConsoleCommand for AudioContextCommand {
-    fn name(&self) -> &str {
-        "audio-context"
-    }
-    
-    fn description(&self) -> &str {
-        "Show AudioContext status and configuration"
-    }
-    
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
-        // Check API support
-        if !AudioContextManager::is_supported() {
-            outputs.push(ConsoleOutput::error("  Web Audio API not supported"));
-            return ConsoleCommandResult::MultipleOutputs(outputs);
-        }
-        
-        // Get the global audio context manager
-        if let Some(manager_rc) = get_audio_context_manager() {
-            let manager = manager_rc.borrow();
-            let state = manager.state();
-            
-            // Show configuration
-            let config = manager.config();
-            outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} samples", config.buffer_size)));
-            
-            // Show context details if available
-            if let Some(context) = manager.get_context() {
-                outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {} Hz", context.sample_rate())));
-            } else {
-                outputs.push(ConsoleOutput::warning("  No active context"));
-            }
-            
-            // Show detailed system status based on context state
-            let system_status_text = format!("  Audio System: {}", state);
-            let system_output = match state {
-                crate::audio::AudioContextState::Running => ConsoleOutput::success(&system_status_text),
-                crate::audio::AudioContextState::Suspended => ConsoleOutput::warning(&system_status_text),
-                crate::audio::AudioContextState::Closed => ConsoleOutput::error(&system_status_text),
-                crate::audio::AudioContextState::Uninitialized => ConsoleOutput::warning(&system_status_text),
-                crate::audio::AudioContextState::Initializing => ConsoleOutput::info(&system_status_text),
-                crate::audio::AudioContextState::Recreating => ConsoleOutput::warning(&system_status_text),
-            };
-            outputs.push(system_output);
-        } else {
-            outputs.push(ConsoleOutput::warning("  Audio Context State: Not Initialized"));
-            outputs.push(ConsoleOutput::warning("  Audio system has not been initialized yet"));
-        }
-        
-        ConsoleCommandResult::MultipleOutputs(outputs)
-    }
-}
 
 

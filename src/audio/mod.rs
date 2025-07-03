@@ -7,6 +7,8 @@ pub mod worklet;
 pub mod stream;
 pub mod permission;
 pub mod buffer;
+pub mod console_service;
+pub mod commands;
 
 use crate::common::dev_log;
 
@@ -73,6 +75,37 @@ pub fn is_audio_system_ready() -> bool {
     })
 }
 
+/// Create a ConsoleAudioService instance
+/// Returns a configured console audio service with audio context manager if available
+pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImpl {
+    let mut service = console_service::ConsoleAudioServiceImpl::new();
+    
+    // Set audio context manager if available
+    if let Some(manager) = get_audio_context_manager() {
+        service.set_audio_context_manager(manager);
+    }
+    
+    service
+}
+
+/// Create a ConsoleAudioService instance with event dispatcher
+/// Returns a configured console audio service with both audio context manager and event dispatcher
+pub fn create_console_audio_service_with_events(
+    event_dispatcher: crate::events::SharedEventDispatcher
+) -> console_service::ConsoleAudioServiceImpl {
+    let mut service = console_service::ConsoleAudioServiceImpl::new();
+    
+    // Set audio context manager if available
+    if let Some(manager) = get_audio_context_manager() {
+        service.set_audio_context_manager(manager);
+    }
+    
+    // Set event dispatcher
+    service.set_event_dispatcher(event_dispatcher);
+    
+    service
+}
+
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError};
 pub use permission::AudioPermission;
@@ -81,13 +114,13 @@ pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
 pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX, DEV_BUFFER_SIZE_DEFAULT, AUDIO_CHUNK_SIZE, get_buffer_size, validate_buffer_size, validate_buffer_size_for_creation};
+pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
+pub use commands::register_audio_commands;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     
-    #[cfg(target_arch = "wasm32")]
-    use wasm_bindgen_test::*;
 
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen_test::wasm_bindgen_test]

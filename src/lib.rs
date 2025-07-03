@@ -6,6 +6,7 @@ pub mod console;
 pub mod console_commands;
 pub mod common;
 pub mod platform;
+pub mod events;
 
 use common::dev_log;
 
@@ -26,8 +27,13 @@ use std::rc::Rc;
 fn render_dev_console() -> Html {
     #[cfg(debug_assertions)]
     {
-        let registry = Rc::new(crate::console_commands::create_console_registry());
-        html! { <DevConsole registry={registry} /> }
+        // Create shared event dispatcher
+        let event_dispatcher = crate::events::create_shared_dispatcher();
+        
+        // Create audio service with event dispatcher
+        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher)) as Rc<dyn crate::audio::ConsoleAudioService>;
+        let registry = Rc::new(crate::console_commands::create_console_registry_with_audio());
+        html! { <DevConsole registry={registry} audio_service={audio_service} /> }
     }
     
     #[cfg(not(debug_assertions))]

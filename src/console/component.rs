@@ -11,7 +11,7 @@ use std::rc::Rc;
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
-use crate::audio::{AudioPermission, permission::PermissionManager, get_audio_context_manager};
+use crate::audio::{AudioPermission, ConsoleAudioService, AudioDevices, permission::PermissionManager};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -21,12 +21,15 @@ const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
 pub struct DevConsoleProps {
     /// Command registry to use for executing commands
     pub registry: Rc<ConsoleCommandRegistry>,
+    /// Audio service for audio operations
+    pub audio_service: Rc<dyn ConsoleAudioService>,
 }
 
 impl PartialEq for DevConsoleProps {
     fn eq(&self, other: &Self) -> bool {
-        // Compare by pointer equality since registries are immutable after creation
-        Rc::ptr_eq(&self.registry, &other.registry)
+        // Compare by pointer equality since registries and services are immutable after creation
+        Rc::ptr_eq(&self.registry, &other.registry) && 
+        Rc::ptr_eq(&self.audio_service, &other.audio_service)
     }
 }
 
@@ -34,6 +37,8 @@ impl PartialEq for DevConsoleProps {
 pub struct DevConsole {
     /// Command registry for executing commands
     registry: Rc<ConsoleCommandRegistry>,
+    /// Audio service for audio operations
+    audio_service: Rc<dyn ConsoleAudioService>,
     /// Command history for navigation
     command_history: ConsoleHistory,
     /// Output manager for displaying results
@@ -48,10 +53,10 @@ pub struct DevConsole {
     visible: bool,
     /// Track previous visibility state for focus management
     was_visible: bool,
-    /// Current audio permission state
+    /// Current audio permission state (managed via events)
     audio_permission: AudioPermission,
-    /// Closure for device change event listener (kept alive)
-    device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
+    /// Current audio devices (managed via events)
+    audio_devices: AudioDevices,
 }
 
 /// Messages for the DevConsole component
@@ -68,10 +73,10 @@ pub enum DevConsoleMsg {
     RequestAudioPermission,
     /// Update audio permission state
     UpdateAudioPermission(AudioPermission),
-    /// Periodic device refresh tick
+    /// Update audio device list
+    UpdateAudioDevices(AudioDevices),
+    /// Refresh devices (trigger service refresh)
     RefreshDevices,
-    /// Device refresh completed - trigger re-render
-    DevicesRefreshed,
 }
 
 impl Component for DevConsole {
@@ -91,8 +96,9 @@ impl Component for DevConsole {
             output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
         }
         
-        let mut console = Self {
+        let console = Self {
             registry: Rc::clone(&ctx.props().registry),
+            audio_service: Rc::clone(&ctx.props().audio_service),
             command_history,
             output_manager,
             input_value: String::new(),
@@ -101,19 +107,18 @@ impl Component for DevConsole {
             visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
+            audio_devices: AudioDevices::new(),
         };
         
-        // Check microphone permission status on component creation
+        // Set up event subscriptions for audio state updates
+        console.setup_audio_event_subscriptions(ctx);
+        
+        // Check initial microphone permission status
         let link = ctx.link().clone();
         spawn_local(async move {
             let permission = PermissionManager::check_microphone_permission().await;
             link.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
         });
-        
-        // Set up device change listener
-        let link_for_devices = ctx.link().clone();
-        console.setup_device_change_listener(link_for_devices);
         
         console
     }
@@ -206,13 +211,22 @@ impl Component for DevConsole {
                 // Update state to requesting immediately
                 self.audio_permission = AudioPermission::Requesting;
                 
-                // Request permission - must be in same call stack as user gesture
-                let link = ctx.link().clone();
-                spawn_local(async move {
-                    let _result = PermissionManager::request_permission_with_callback(move |permission_state| {
-                        link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
-                    }).await;
-                });
+                // Validate the request can be made through the audio service
+                match self.audio_service.request_permissions() {
+                    Ok(_) => {
+                        // Request permission - must be in same call stack as user gesture
+                        let link = ctx.link().clone();
+                        spawn_local(async move {
+                            let _result = PermissionManager::request_permission_with_callback(move |permission_state| {
+                                link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
+                            }).await;
+                        });
+                    }
+                    Err(e) => {
+                        self.output_manager.add_output(ConsoleOutput::error(&format!("Permission request failed: {}", e)));
+                        self.audio_permission = AudioPermission::Unavailable;
+                    }
+                }
                 
                 true
             }
@@ -222,7 +236,7 @@ impl Component for DevConsole {
                 self.audio_permission = permission;
                 
                 // Refresh device list when permission is granted to show device labels
-                if old_permission != AudioPermission::Granted && self.audio_permission == AudioPermission::Granted {
+                if self.audio_permission == AudioPermission::Granted {
                     ctx.link().send_message(DevConsoleMsg::RefreshDevices);
                 }
                 
@@ -230,34 +244,18 @@ impl Component for DevConsole {
                 old_permission != self.audio_permission
             }
             
-            DevConsoleMsg::RefreshDevices => {
-                // Refresh audio devices in background
-                let link = ctx.link().clone();
-                spawn_local(async move {
-                    if let Some(manager_rc) = get_audio_context_manager() {
-                        // Try to borrow mutably, but handle the case where it's already borrowed
-                        match manager_rc.try_borrow_mut() {
-                            Ok(mut manager) => {
-                                let result = manager.refresh_audio_devices().await;
-                                // After refresh completes, trigger a re-render to show updated devices
-                                if result.is_ok() {
-                                    link.send_message(DevConsoleMsg::DevicesRefreshed);
-                                }
-                            }
-                            Err(_) => {
-                                // Manager is currently borrowed, try again in a moment
-                                web_sys::console::log_1(&"AudioContextManager busy, skipping device refresh".into());
-                            }
-                        }
-                    }
-                });
-                false // No need to re-render immediately
+            DevConsoleMsg::UpdateAudioDevices(devices) => {
+                // Update device list from event system
+                self.audio_devices = devices;
+                true // Re-render to show updated devices
             }
             
-            DevConsoleMsg::DevicesRefreshed => {
-                // Device refresh completed, trigger re-render to show updated devices
-                true
+            DevConsoleMsg::RefreshDevices => {
+                // Refresh audio devices through the audio service
+                self.audio_service.refresh_devices();
+                false // No need to re-render immediately (events will trigger updates)
             }
+            
             
         }
     }
@@ -354,52 +352,27 @@ impl Component for DevConsole {
 }
 
 impl DevConsole {
-    /// Set up device change event listener to refresh devices when they change
-    fn setup_device_change_listener(&mut self, link: yew::html::Scope<Self>) {
-        // Only set up if we don't already have a listener
-        if self.device_change_callback.is_some() {
-            return;
-        }
+    /// Set up audio event subscriptions for real-time updates
+    fn setup_audio_event_subscriptions(&self, ctx: &Context<Self>) {
+        let link = ctx.link().clone();
         
-        let window = match web_sys::window() {
-            Some(w) => w,
-            None => {
-                web_sys::console::warn_1(&"No window available for device change listener".into());
-                return;
-            }
-        };
+        // Subscribe to permission changes
+        let link_permission = link.clone();
+        self.audio_service.subscribe_permission_changes(Box::new(move |permission| {
+            link_permission.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
+        }));
         
-        let navigator = window.navigator();
-        let media_devices = match navigator.media_devices() {
-            Ok(devices) => devices,
-            Err(_) => {
-                web_sys::console::warn_1(&"MediaDevices not available for device change listener".into());
-                return;
-            }
-        };
+        // Subscribe to device changes
+        let link_devices = link.clone();
+        self.audio_service.subscribe_device_changes(Box::new(move |devices| {
+            link_devices.send_message(DevConsoleMsg::UpdateAudioDevices(devices));
+        }));
         
-        // Create closure for device change events
-        let callback = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            web_sys::console::log_1(&"Audio devices changed - refreshing device list".into());
-            link.send_message(DevConsoleMsg::RefreshDevices);
-        }) as Box<dyn FnMut(_)>);
-        
-        // Add the event listener
-        if let Err(e) = media_devices.add_event_listener_with_callback(
-            "devicechange", 
-            callback.as_ref().unchecked_ref()
-        ) {
-            web_sys::console::warn_2(&"Failed to add device change listener:".into(), &e);
-            return;
-        }
-        
-        web_sys::console::log_1(&"Device change listener set up successfully".into());
-        
-        // Store the callback to keep it alive
-        self.device_change_callback = Some(callback);
-        
-        // Note: Initial device refresh will be triggered by the callback
-        // We can't trigger it here since link was moved into the closure
+        // Get initial devices from audio service
+        let status = self.audio_service.get_current_status();
+        let link_init = link.clone();
+        // Note: Permission state is checked separately in component creation
+        link_init.send_message(DevConsoleMsg::UpdateAudioDevices(status.devices));
     }
 
     /// Render the audio permission UI based on current state
@@ -445,21 +418,8 @@ impl DevConsole {
 
     /// Render the audio device list
     fn render_device_list(&self) -> Html {
-        if let Some(manager_rc) = get_audio_context_manager() {
-            // Try to borrow, but handle the case where it's already borrowed
-            let devices = match manager_rc.try_borrow() {
-                Ok(manager) => manager.get_cached_devices().clone(),
-                Err(_) => {
-                    // Manager is currently borrowed (probably refreshing), show loading state
-                    return html! {
-                        <div class="console-device-list">
-                            <div class="device-section">
-                                <div class="device-item empty">{ "Refreshing devices..." }</div>
-                            </div>
-                        </div>
-                    };
-                }
-            };
+        // Use the cached device list from component state (updated via events)
+        let devices = &self.audio_devices;
             
             html! {
                 <div class="console-device-list">
@@ -496,15 +456,6 @@ impl DevConsole {
                     </div>
                 </div>
             }
-        } else {
-            html! {
-                <div class="console-device-list">
-                    <div class="device-section">
-                        <div class="device-item empty">{ "Audio system not initialized" }</div>
-                    </div>
-                </div>
-            }
-        }
     }
 
     /// Render the console output
@@ -877,6 +828,7 @@ mod tests {
         // Create a test console state
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
+            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: "test command".to_string(),
@@ -885,7 +837,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
+            audio_devices: AudioDevices::new(),
         };
 
         // Test updating input
@@ -903,6 +855,7 @@ mod tests {
     fn test_console_history_integration() {
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
+            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -911,7 +864,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
+            audio_devices: AudioDevices::new(),
         };
 
         // Add some commands to history
@@ -934,6 +887,7 @@ mod tests {
     fn test_audio_permission_state_transitions() {
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
+            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -942,7 +896,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
+            audio_devices: AudioDevices::new(),
         };
 
         // Test initial state
@@ -970,6 +924,7 @@ mod tests {
         
         let console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
+            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -978,6 +933,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
+            audio_devices: AudioDevices::new(),
         };
         
         // Save should not panic

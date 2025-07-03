@@ -1,7 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::*;
 #[cfg(target_arch = "wasm32")]
-use pitch_toy::modules::audio::{
+use pitch_toy::audio::{
     MicrophoneManager, AudioContextManager, StreamReconnectionHandler,
     AudioPermission, AudioContextState, StreamState,
     AudioStreamInfo, AudioContextConfig, StreamConfig
@@ -22,7 +22,7 @@ fn test_wasm_build_configuration() {
 #[wasm_bindgen_test]
 fn test_wasm_audio_data_structures() {
     // Test that audio data structures work correctly in WASM
-    let mic_state = MicrophoneState::Uninitialized;
+    let mic_state = AudioPermission::Uninitialized;
     assert_eq!(mic_state.to_string(), "Uninitialized");
     
     let context_state = AudioContextState::Running;
@@ -49,7 +49,7 @@ fn test_wasm_audio_data_structures() {
 fn test_wasm_manager_creation() {
     // Test that audio managers can be created in WASM environment
     let mic_manager = MicrophoneManager::new();
-    assert_eq!(*mic_manager.state(), MicrophoneState::Uninitialized);
+    assert_eq!(*mic_manager.state(), AudioPermission::Uninitialized);
     
     let audio_manager = AudioContextManager::new();
     assert_eq!(*audio_manager.state(), AudioContextState::Uninitialized);

@@ -40,10 +40,10 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 │  │                                                         │   │
 │  │  ┌─────────────┐    ┌─────────────────┐               │   │
 │  │  │ Dev Console │    │ Event Dispatcher│               │   │
-│  │  │   (Yew)     │◄───┤   (Core Event   │               │   │
+│  │  │   (Yew)     │    │   (Core Event   │               │   │
 │  │  └─────────────┘    │     System)     │               │   │
 │  │         │            └─────────────────┘               │   │
-│  │         ▼                       │                      │   │
+│  │         ▼                       ▲                      │   │
 │  │  ┌─────────────┐               │                      │   │
 │  │  │Debug Overlay│               │                      │   │
 │  │  │   (Yew)     │               │                      │   │
@@ -68,6 +68,14 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 │  │  │  ┌─────────────────────────┐││                     ││   │
 │  │  │  │   Test Signal Generator │││                     ││   │
 │  │  │  │  (Development/Testing)  │││                     ││   │
+│  │  │  └─────────────────────────┘││                     ││   │
+│  │  │              │               ││                     ││   │
+│  │  │              ▼               ││                     ││   │
+│  │  │  ┌─────────────────────────┐││                     ││   │
+│  │  │  │  ConsoleAudioService    │││                     ││   │
+│  │  │  │  • Permission Interface │││                     ││   │
+│  │  │  │  • Device Management    │││                     ││   │
+│  │  │  │  • Event Publishing     │││                     ││   │
 │  │  │  └─────────────────────────┘││                     ││   │
 │  │  └─────────────────────────────┘│└─────────────────────┘│   │
 │  │                                │           │           │   │
@@ -108,25 +116,28 @@ Audio Processor
     └─── Volume Level Detection ───┤
                                    │
                                    ▼
+                         ConsoleAudioService
+                                   │
+                                   ▼
                             Event Dispatcher
                                    │
                     ┌──────────────┼──────────────┐
                     │              │              │
                     ▼              ▼              ▼
             Dev Console    Presentation    Debug Overlay
-                           Layer
-                              │
-                              ▼
-                        Render Commands
-                              │
-                              ▼
-                        Theme Manager
-                              │
-                              ▼
+          (Service Interface)     Layer
+                                  │
+                                  ▼
+                            Render Commands
+                                  │
+                                  ▼
+                            Theme Manager
+                                  │
+                                  ▼
                         Graphics Renderer (three-d)
-                              │
-                              ▼
-                        GPU Visualization
+                                  │
+                                  ▼
+                            GPU Visualization
 ```
 
 ## Component Architecture
@@ -195,10 +206,12 @@ Audio Processor
 
 ##### Development Console (Yew) - HTML/CSS ALLOWED
 - **Purpose**: Interactive debugging and development interface
+- **Architecture**: Decoupled from audio system via service interface pattern
 - **Features**:
   - Command execution system with extensible DevCommand trait
   - Real-time system control and configuration
   - Audio processing debugging and testing
+- **Service Integration**: Uses ConsoleAudioService interface for audio operations
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Availability**: Development builds only
 
@@ -206,7 +219,35 @@ Audio Processor
 - **Purpose**: Non-intrusive performance monitoring
 - **Metrics**: FPS, audio latency, memory usage, CPU utilization
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
-- **Integration**: Real-time metrics from all system components
+- **Integration**: Real-time metrics from all system components via event system
+
+#### 5. Audio-Console Decoupling Architecture
+
+##### ConsoleAudioService Interface
+- **Purpose**: Clean abstraction layer between console and audio modules
+- **Pattern**: Service interface pattern for dependency injection
+- **Key Features**:
+  - Permission management delegation (respects browser gesture requirements)
+  - Device management interface for audio device enumeration
+  - Event publishing for real-time state updates
+  - Maintains user interaction context for browser API compliance
+- **Implementation**: Trait-based interface with concrete implementation in audio module
+
+##### Event System Architecture
+- **Purpose**: Event-driven communication for real-time updates
+- **Components**:
+  - **Event Dispatcher**: Central event routing and subscription management
+  - **Audio Events**: Typed events for device changes, permission state, context state
+  - **Subscription Model**: Callback-based event handling with automatic cleanup
+- **Performance**: Zero-allocation event publishing for hot paths
+- **Integration**: Seamless integration with existing Event Dispatcher system
+
+##### Benefits of Decoupling
+- **Separation of Concerns**: Console focuses on UI/UX, audio module handles audio processing
+- **Testability**: Console component can be tested independently with mock service
+- **Maintainability**: Changes to audio internals don't affect console implementation
+- **Browser Compliance**: Permission requests maintain proper user gesture context
+- **Extensibility**: Service interface allows for future audio system enhancements
 
 ## Platform Requirements & Browser Compatibility
 
