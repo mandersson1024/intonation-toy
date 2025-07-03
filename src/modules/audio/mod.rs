@@ -4,8 +4,7 @@
 pub mod microphone;
 pub mod context;
 pub mod worklet;
-
-// TODO: Stream management - implement when device reconnection logic is needed
+pub mod stream;
 
 use crate::modules::common::dev_log;
 
@@ -22,7 +21,7 @@ pub fn initialize_audio_system() -> Result<(), String> {
     }
     
     // AudioWorklet initialization is now available via worklet::AudioWorkletManager
-    // TODO: Setup stream management when stream handler is implemented
+    // Stream management is now available via stream::StreamReconnectionHandler
     
     dev_log!("✓ Audio system initialization completed");
     Ok(())
@@ -32,3 +31,4 @@ pub fn initialize_audio_system() -> Result<(), String> {
 pub use microphone::{MicrophoneManager, MicrophoneState, AudioStreamInfo, AudioError};
 pub use context::{AudioContextManager, AudioContextState, AudioContextConfig};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
+pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
