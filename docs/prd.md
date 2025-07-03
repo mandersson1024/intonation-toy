@@ -252,7 +252,7 @@ so that pitch detection can operate with minimal latency and memory overhead.
 
 - 1: Audio buffer system handles real-time input streaming
 - 2: Configurable buffer sizes as specified (1024 production, 128-2048 development)
-- 3: Sliding window analysis with appropriate overlap
+- 3: Sequential buffer analysis without overlap
 - 4: Memory usage stays within specified limits (≤50MB GPU memory)
 - 5: Buffer overflow protection with proper error handling
 - 6: Zero-allocation operations during steady-state processing
