@@ -88,6 +88,8 @@ pub struct CircularBuffer<T> {
     read_pos: usize,
     /// Track if buffer has been used (for overflow detection)
     has_wrapped: bool,
+    /// Count number of times overflow occurred
+    overflow_count: usize,
 }
 
 impl<T> CircularBuffer<T>
@@ -106,6 +108,7 @@ where
             write_pos: 0,
             read_pos: 0,
             has_wrapped: false,
+            overflow_count: 0,
         })
     }
 
@@ -152,6 +155,7 @@ where
             self.buffer.pop_front();
             self.has_wrapped = true;
             self.state = BufferState::Overflow;
+            self.overflow_count += 1;
         }
 
         self.buffer.push_back(sample);
@@ -245,11 +249,24 @@ where
         self.write_pos = 0;
         self.read_pos = 0;
         self.has_wrapped = false;
+        self.overflow_count = 0;
     }
 
     /// Check if the buffer has experienced overflow
     pub fn has_overflowed(&self) -> bool {
         self.has_wrapped || self.state == BufferState::Overflow
+    }
+
+    /// Return total number of overflows experienced since creation/reset
+    pub fn overflow_count(&self) -> usize {
+        self.overflow_count
+    }
+
+    /// Reset overflow indicators and counter (recovery)
+    pub fn reset_overflow(&mut self) {
+        self.has_wrapped = false;
+        self.overflow_count = 0;
+        self.update_state();
     }
 
     /// Update buffer state based on current conditions
@@ -288,6 +305,7 @@ where
             .field("write_pos", &self.write_pos)
             .field("read_pos", &self.read_pos)
             .field("has_wrapped", &self.has_wrapped)
+            .field("overflow_count", &self.overflow_count)
             .finish()
     }
 }
@@ -500,5 +518,26 @@ mod tests {
         assert_eq!(buffer.capacity(), get_buffer_size());
         assert_eq!(buffer.len(), 0);
         assert_eq!(buffer.state(), BufferState::Empty);
+    }
+
+    #[test]
+    fn test_circular_buffer_overflow_count_and_reset() {
+        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+
+        // Trigger two overflows
+        for _ in 0..(256 + 10) {
+            buffer.write(1.0);
+        }
+        for _ in 0..(10) {
+            buffer.write(2.0);
+        }
+
+        assert!(buffer.has_overflowed());
+        assert!(buffer.overflow_count() >= 2);
+
+        // Reset overflow status
+        buffer.reset_overflow();
+        assert!(!buffer.has_overflowed());
+        assert_eq!(buffer.overflow_count(), 0);
     }
 }
