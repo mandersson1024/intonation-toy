@@ -7,7 +7,7 @@ use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use wasm_bindgen::{closure::Closure, JsCast};
 use std::rc::Rc;
 
-use super::commands::{ConsoleCommandResult, ConsoleCommandRegistry};
+use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 

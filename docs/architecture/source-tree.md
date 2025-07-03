@@ -84,7 +84,7 @@ src/
 │   ├── 📁 console/            # Development console
 │   │   ├── mod.rs             # Console module exports
 │   │   ├── component.rs       # Yew console component
-│   │   ├── commands.rs        # Console command system
+│   │   ├── command_registry.rs # Console command system
 │   │   ├── history.rs         # Command history management
 │   │   └── output.rs          # Console output formatting
 │   ├── 📁 debug/              # Debug and monitoring

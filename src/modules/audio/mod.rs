@@ -8,16 +8,41 @@ pub mod stream;
 
 use crate::modules::common::dev_log;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
+// Global audio context manager for application-wide access
+thread_local! {
+    static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
+}
+
 /// Initialize audio system
 /// Returns Result to allow caller to handle initialization failures
-pub fn initialize_audio_system() -> Result<(), String> {
+pub async fn initialize_audio_system() -> Result<(), String> {
     dev_log!("Initializing audio system");
-    
-    // This function assumes all critical APIs are available
     
     // Check AudioContext support
     if !context::AudioContextManager::is_supported() {
         return Err("Web Audio API not supported".to_string());
+    }
+    
+    // Create and initialize AudioContext with default configuration (48kHz, 1024 buffer)
+    let mut audio_manager = context::AudioContextManager::new();
+    
+    match audio_manager.initialize().await {
+        Ok(_) => {
+            dev_log!("✓ AudioContext created successfully");
+            dev_log!("  Sample rate: {:.1} kHz", audio_manager.config().sample_rate / 1000.0);
+            dev_log!("  Buffer size: {} samples", audio_manager.config().buffer_size);
+            
+            // Store the initialized manager globally for application use
+            AUDIO_CONTEXT_MANAGER.with(|manager| {
+                *manager.borrow_mut() = Some(Rc::new(RefCell::new(audio_manager)));
+            });
+        }
+        Err(e) => {
+            return Err(format!("Failed to initialize AudioContext: {}", e));
+        }
     }
     
     // AudioWorklet initialization is now available via worklet::AudioWorkletManager
@@ -25,6 +50,25 @@ pub fn initialize_audio_system() -> Result<(), String> {
     
     dev_log!("✓ Audio system initialization completed");
     Ok(())
+}
+
+/// Get the global AudioContext manager
+/// Returns None if audio system hasn't been initialized
+pub fn get_audio_context_manager() -> Option<Rc<RefCell<context::AudioContextManager>>> {
+    AUDIO_CONTEXT_MANAGER.with(|manager| {
+        manager.borrow().as_ref().cloned()
+    })
+}
+
+/// Check if audio system is initialized and running
+pub fn is_audio_system_ready() -> bool {
+    AUDIO_CONTEXT_MANAGER.with(|manager| {
+        if let Some(ref audio_manager_rc) = *manager.borrow() {
+            audio_manager_rc.borrow().is_running()
+        } else {
+            false
+        }
+    })
 }
 
 // Re-export public API
@@ -36,12 +80,15 @@ pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamCon
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
+    
     #[cfg(target_arch = "wasm32")]
-    fn test_initialize_audio_system_success() {
+    use wasm_bindgen_test::*;
+
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn test_initialize_audio_system_success() {
         // This test only runs on wasm32 where Web Audio API might be available
-        let result = initialize_audio_system();
+        let result = initialize_audio_system().await;
         
         // The result depends on the WASM test environment's Web Audio API support
         match result {

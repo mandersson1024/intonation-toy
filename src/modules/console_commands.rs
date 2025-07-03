@@ -6,7 +6,7 @@
 
 use crate::modules::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
-use crate::modules::audio::{MicrophoneManager, AudioContextManager};
+use crate::modules::audio::{MicrophoneManager, AudioContextManager, get_audio_context_manager, is_audio_system_ready};
 use crate::modules::{platform::Platform, common::dev_log};
 
 /// Creates a fully configured console command registry with all module commands
@@ -190,32 +190,46 @@ impl ConsoleCommand for AudioContextCommand {
         
         // Check API support
         if !AudioContextManager::is_supported() {
+            outputs.push(ConsoleOutput::error("  Web Audio API not supported"));
             return ConsoleCommandResult::MultipleOutputs(outputs);
         }
         
-        // Create a manager to check current state
-        let manager = AudioContextManager::new();
-        let state = manager.state();
-        
-        let status_text = format!("  Audio Context State: {}", state);
-        let output = match state {
-            crate::modules::audio::AudioContextState::Running => ConsoleOutput::success(&status_text),
-            crate::modules::audio::AudioContextState::Suspended => ConsoleOutput::warning(&status_text),
-            crate::modules::audio::AudioContextState::Closed => ConsoleOutput::error(&status_text),
-            crate::modules::audio::AudioContextState::Uninitialized => ConsoleOutput::warning(&status_text),
-            crate::modules::audio::AudioContextState::Initializing => ConsoleOutput::warning(&status_text),
-            crate::modules::audio::AudioContextState::Recreating => ConsoleOutput::warning(&status_text),
-        };
-        outputs.push(output);
-        
-        // Show configuration if available
-        if let Some(context) = manager.get_context() {
+        // Get the global audio context manager
+        if let Some(manager_rc) = get_audio_context_manager() {
+            let manager = manager_rc.borrow();
+            let state = manager.state();
+            
+            let status_text = format!("  Audio Context State: {}", state);
+            let output = match state {
+                crate::modules::audio::AudioContextState::Running => ConsoleOutput::success(&status_text),
+                crate::modules::audio::AudioContextState::Suspended => ConsoleOutput::warning(&status_text),
+                crate::modules::audio::AudioContextState::Closed => ConsoleOutput::error(&status_text),
+                crate::modules::audio::AudioContextState::Uninitialized => ConsoleOutput::warning(&status_text),
+                crate::modules::audio::AudioContextState::Initializing => ConsoleOutput::warning(&status_text),
+                crate::modules::audio::AudioContextState::Recreating => ConsoleOutput::warning(&status_text),
+            };
+            outputs.push(output);
+            
+            // Show configuration
             let config = manager.config();
-            outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {:.1} kHz", config.sample_rate / 1000.0)));
             outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} samples", config.buffer_size)));
-            outputs.push(ConsoleOutput::info(&format!("  Current Time: {:.3} seconds", context.current_time())));
+            
+            // Show context details if available
+            if let Some(context) = manager.get_context() {
+                outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {} Hz", context.sample_rate())));
+            } else {
+                outputs.push(ConsoleOutput::warning("  No active context"));
+            }
+            
+            // Show system ready status
+            if is_audio_system_ready() {
+                outputs.push(ConsoleOutput::success("  Audio System: Ready"));
+            } else {
+                outputs.push(ConsoleOutput::warning("  Audio System: Not Ready"));
+            }
         } else {
-            outputs.push(ConsoleOutput::warning("  No active context"));
+            outputs.push(ConsoleOutput::warning("  Audio Context State: Not Initialized"));
+            outputs.push(ConsoleOutput::warning("  Audio system has not been initialized yet"));
         }
         
         ConsoleCommandResult::MultipleOutputs(outputs)

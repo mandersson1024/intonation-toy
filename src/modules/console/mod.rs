@@ -1,13 +1,13 @@
 // Dev Console Module
 // Provides interactive debugging and development tools for pitch-toy application
 
-mod commands;
+mod command_registry;
 mod history;
 mod output;
 mod component;
 
 pub use component::DevConsole;
-pub use commands::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
+pub use command_registry::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
 pub use output::ConsoleOutput;
 
 #[cfg(test)]
@@ -25,7 +25,7 @@ mod tests {
             "Test command registered from outside the module"
         }
         
-        fn execute(&self, _args: Vec<&str>, _registry: &commands::ConsoleCommandRegistry) -> ConsoleCommandResult {
+        fn execute(&self, _args: Vec<&str>, _registry: &command_registry::ConsoleCommandRegistry) -> ConsoleCommandResult {
             ConsoleCommandResult::Output(output::ConsoleOutput::success("External command executed!"))
         }
     }
@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn test_external_command_registration() {
         // Test that external commands can be registered with a registry
-        let mut registry = commands::ConsoleCommandRegistry::new();
+        let mut registry = command_registry::ConsoleCommandRegistry::new();
         
         let cmd = ExternallyRegisteredCommand;
         assert_eq!(cmd.name(), "external");
@@ -45,7 +45,7 @@ mod tests {
         // Test that the command can be executed through the registry
         let result = registry.execute("external");
         match result {
-            commands::ConsoleCommandResult::Output(output::ConsoleOutput::Success(msg)) => {
+            command_registry::ConsoleCommandResult::Output(output::ConsoleOutput::Success(msg)) => {
                 assert_eq!(msg, "External command executed!");
             }
             _ => panic!("Expected success output from external command"),

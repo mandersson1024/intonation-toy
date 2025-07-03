@@ -103,18 +103,20 @@ pub fn main() {
         PlatformValidationResult::AllSupported => {
             dev_log!("✓ Platform validation passed - initializing application");
             
-            // Initialize audio system
-            match modules::audio::initialize_audio_system() {
-                Ok(_) => {
-                    dev_log!("✓ Audio system initialized successfully");
-                    yew::Renderer::<App>::new().render();
+            // Initialize audio system asynchronously
+            wasm_bindgen_futures::spawn_local(async {
+                match modules::audio::initialize_audio_system().await {
+                    Ok(_) => {
+                        dev_log!("✓ Audio system initialized successfully");
+                        yew::Renderer::<App>::new().render();
+                    }
+                    Err(_e) => {
+                        dev_log!("✗ Audio system initialization failed: {}", _e);
+                        dev_log!("Application cannot continue without audio system");
+                        // TODO: Add error screen rendering in future story when UI requirements are defined
+                    }
                 }
-                Err(_e) => {
-                    dev_log!("✗ Audio system initialization failed: {}", _e);
-                    dev_log!("Application cannot continue without audio system");
-                    // TODO: Add error screen rendering in future story when UI requirements are defined
-                }
-            }
+            });
         }
         PlatformValidationResult::MissingCriticalApis(_missing_apis) => {
             let _api_list: Vec<String> = _missing_apis.iter().map(|api| api.to_string()).collect();
