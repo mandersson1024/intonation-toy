@@ -10,6 +10,7 @@
 - Establish comprehensive development tools and debugging capabilities
 - Enable cross-platform browser compatibility with no installation requirements
 - Support extensible architecture for future audio processing enhancements
+- **Adopt a system-wide event-driven design using typed events and a central Event Dispatcher to maximize decoupling and maintainability across all modules**
 
 ### Background Context
 
@@ -148,7 +149,7 @@ Client-side only application with no backend dependencies. All processing occurs
 - Graphics rendering uses three-d engine for WebGL-based GPU acceleration
 - Development environment includes comprehensive debugging tools and interactive console
 - No external dependencies or network requests required for core functionality
-- Event-driven architecture with typed events through Event Dispatcher
+- **Event-driven architecture with typed events through Event Dispatcher** ➜ **MANDATORY system-wide event-driven architecture using strongly-typed events and the central Event Dispatcher for ALL inter-module communication (audio, graphics, UI, configuration, etc.)**
 - Modular component design enabling independent development and testing
 
 ## Epics

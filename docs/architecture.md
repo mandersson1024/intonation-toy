@@ -8,8 +8,8 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 
 ### Core Architecture Principles
 
-1. **Event-Driven Design**: All components communicate via typed events through a central Event Dispatcher
-2. **Separation of Concerns**: Clear boundaries between audio processing, visualization, and UI management
+1. **Event-Driven Design**: All components communicate via typed events through a central Event Dispatcher for maximum decoupling
+2. **Separation of Concerns**: Clear boundaries between audio processing, visualization, and UI management maintained through event interfaces
 3. **Performance Isolation**: GPU rendering isolated from audio processing to prevent interference
 4. **Modular Development**: Each component can be developed and tested independently
 5. **Configuration-Driven**: Build profiles and feature flags control development vs. production behavior
@@ -234,13 +234,14 @@ Audio Processor
 - **Implementation**: Trait-based interface with concrete implementation in audio module
 
 ##### Event System Architecture
-- **Purpose**: Event-driven communication for real-time updates
+- **Purpose**: Provide an application-wide, event-driven communication layer that enables real-time updates **and** loose coupling between _all_ modules (audio, graphics, UI, theme, configuration, etc.).
 - **Components**:
-  - **Event Dispatcher**: Central event routing and subscription management
-  - **Audio Events**: Typed events for device changes, permission state, context state
+  - **Event Dispatcher**: Central event routing and subscription management used by every subsystem
+  - **Typed Events**: Domain-specific events such as _AudioEvents_, _GraphicsEvents_, _UIEvents_, _ThemeEvents_, _SystemEvents_, etc. Encourage strongly-typed definitions for decoupled communication
   - **Subscription Model**: Callback-based event handling with automatic cleanup
 - **Performance**: Zero-allocation event publishing for hot paths
 - **Integration**: Seamless integration with existing Event Dispatcher system
+- **Guideline**: New modules SHOULD prefer communicating via events instead of direct references to maintain maximum decoupling and testability
 
 ##### Benefits of Decoupling
 - **Separation of Concerns**: Console focuses on UI/UX, audio module handles audio processing
