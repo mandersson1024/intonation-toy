@@ -6,7 +6,7 @@
 
 use crate::modules::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
-use crate::modules::audio::{MicrophoneManager, AudioContextManager, get_audio_context_manager};
+use crate::modules::audio::{AudioContextManager, get_audio_context_manager};
 use crate::modules::{platform::Platform, common::dev_log};
 
 /// Creates a fully configured console command registry with all module commands
@@ -17,7 +17,6 @@ pub fn create_console_registry() -> ConsoleCommandRegistry {
     registry.register(Box::new(StatusCommand));
     
     // Register audio module commands
-    registry.register(Box::new(MicStatusCommand));
     registry.register(Box::new(AudioContextCommand));
     
     registry
@@ -81,57 +80,6 @@ impl ConsoleCommand for StatusCommand {
 
 // Audio Commands Implementation
 // These commands require access to the audio module and are therefore not built-in
-
-// Microphone Status Command
-struct MicStatusCommand;
-
-impl ConsoleCommand for MicStatusCommand {
-    fn name(&self) -> &str {
-        "mic-status"
-    }
-    
-    fn description(&self) -> &str {
-        "Show microphone status and device information"
-    }
-    
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
-        if !MicrophoneManager::is_supported() {
-            return ConsoleCommandResult::MultipleOutputs(outputs);
-        }
-
-        // Create a manager to check current state
-        let manager = MicrophoneManager::new();
-        let state = manager.state();
-        
-        let status_text = format!("  Permission Status: {}", state);
-        let output = match state {
-            crate::modules::audio::AudioPermission::Granted => ConsoleOutput::success(&status_text),
-            crate::modules::audio::AudioPermission::Denied => ConsoleOutput::error(&status_text),
-            crate::modules::audio::AudioPermission::Requesting => ConsoleOutput::warning(&status_text),
-            crate::modules::audio::AudioPermission::Unavailable => ConsoleOutput::error(&status_text),
-            crate::modules::audio::AudioPermission::Uninitialized => ConsoleOutput::warning(&status_text),
-        };
-        outputs.push(output);
-        
-        // Show stream info if available
-        if let Some(_stream) = manager.get_stream() {
-            let info = manager.stream_info();
-            outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {:.1} kHz", info.sample_rate / 1000.0)));
-            outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} samples", info.buffer_size)));
-            
-            if let Some(device_label) = &info.device_label {
-                outputs.push(ConsoleOutput::info(&format!("  Device: {}", device_label)));
-            }
-        } else {
-            outputs.push(ConsoleOutput::warning("  No active stream"));
-        }
-        
-        ConsoleCommandResult::MultipleOutputs(outputs)
-    }
-}
-
 
 
 // Audio Context Command
