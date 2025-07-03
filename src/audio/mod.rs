@@ -11,6 +11,7 @@ pub mod buffer_analyzer;
 pub mod buffer_pool;
 pub mod console_service;
 pub mod commands;
+pub mod pitch_detector;
 
 use crate::common::dev_log;
 
@@ -137,6 +138,7 @@ pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
 pub use buffer_pool::{BufferPool, MAX_GPU_MEMORY_BYTES};
 pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
 pub use commands::register_audio_commands;
+pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem};
 
 #[cfg(test)]
 mod tests {
