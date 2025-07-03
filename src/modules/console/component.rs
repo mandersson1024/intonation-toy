@@ -11,7 +11,7 @@ use std::rc::Rc;
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
-use crate::modules::audio::{AudioPermission, permission::PermissionManager};
+use crate::modules::audio::{AudioPermission, permission::PermissionManager, get_audio_context_manager};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -50,6 +50,8 @@ pub struct DevConsole {
     was_visible: bool,
     /// Current audio permission state
     audio_permission: AudioPermission,
+    /// Closure for device change event listener (kept alive)
+    device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
 /// Messages for the DevConsole component
@@ -66,6 +68,10 @@ pub enum DevConsoleMsg {
     RequestAudioPermission,
     /// Update audio permission state
     UpdateAudioPermission(AudioPermission),
+    /// Periodic device refresh tick
+    RefreshDevices,
+    /// Device refresh completed - trigger re-render
+    DevicesRefreshed,
 }
 
 impl Component for DevConsole {
@@ -85,7 +91,7 @@ impl Component for DevConsole {
             output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
         }
         
-        let console = Self {
+        let mut console = Self {
             registry: Rc::clone(&ctx.props().registry),
             command_history,
             output_manager,
@@ -95,6 +101,7 @@ impl Component for DevConsole {
             visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
+            device_change_callback: None,
         };
         
         // Check microphone permission status on component creation
@@ -103,6 +110,13 @@ impl Component for DevConsole {
             let permission = PermissionManager::check_microphone_permission().await;
             link.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
         });
+        
+        // Set up device change listener
+        let link_for_devices = ctx.link().clone();
+        console.setup_device_change_listener(link_for_devices);
+        
+        // Trigger initial device refresh
+        ctx.link().send_message(DevConsoleMsg::RefreshDevices);
         
         console
     }
@@ -137,6 +151,7 @@ impl Component for DevConsole {
                             }
                         }
                     }
+                    
                     
                     // Clear input
                     self.input_value.clear();
@@ -241,6 +256,32 @@ impl Component for DevConsole {
                 // Only re-render if permission actually changed
                 old_permission != self.audio_permission
             }
+            
+            DevConsoleMsg::RefreshDevices => {
+                // Refresh audio devices in background
+                let link = ctx.link().clone();
+                spawn_local(async move {
+                    if let Some(manager_rc) = get_audio_context_manager() {
+                        // Properly scope the borrow to avoid conflicts
+                        let result = {
+                            let mut manager = manager_rc.borrow_mut();
+                            manager.refresh_audio_devices().await
+                        }; // Borrow ends here
+                        
+                        // After refresh completes, trigger a re-render to show updated devices
+                        if result.is_ok() {
+                            link.send_message(DevConsoleMsg::DevicesRefreshed);
+                        }
+                    }
+                });
+                false // No need to re-render immediately
+            }
+            
+            DevConsoleMsg::DevicesRefreshed => {
+                // Device refresh completed, trigger re-render to show updated devices
+                true
+            }
+            
         }
     }
 
@@ -302,6 +343,8 @@ impl Component for DevConsole {
                             autofocus={true}
                         />
                     </div>
+                    
+                    { self.render_device_list() }
                 </div>
             </div>
         }
@@ -334,6 +377,54 @@ impl Component for DevConsole {
 }
 
 impl DevConsole {
+    /// Set up device change event listener to refresh devices when they change
+    fn setup_device_change_listener(&mut self, link: yew::html::Scope<Self>) {
+        // Only set up if we don't already have a listener
+        if self.device_change_callback.is_some() {
+            return;
+        }
+        
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => {
+                web_sys::console::warn_1(&"No window available for device change listener".into());
+                return;
+            }
+        };
+        
+        let navigator = window.navigator();
+        let media_devices = match navigator.media_devices() {
+            Ok(devices) => devices,
+            Err(_) => {
+                web_sys::console::warn_1(&"MediaDevices not available for device change listener".into());
+                return;
+            }
+        };
+        
+        // Create closure for device change events
+        let callback = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            web_sys::console::log_1(&"Audio devices changed - refreshing device list".into());
+            link.send_message(DevConsoleMsg::RefreshDevices);
+        }) as Box<dyn FnMut(_)>);
+        
+        // Add the event listener
+        if let Err(e) = media_devices.add_event_listener_with_callback(
+            "devicechange", 
+            callback.as_ref().unchecked_ref()
+        ) {
+            web_sys::console::warn_2(&"Failed to add device change listener:".into(), &e);
+            return;
+        }
+        
+        web_sys::console::log_1(&"Device change listener set up successfully".into());
+        
+        // Store the callback to keep it alive
+        self.device_change_callback = Some(callback);
+        
+        // Note: Initial device refresh will be triggered by the callback
+        // We can't trigger it here since link was moved into the closure
+    }
+
     /// Render the audio permission UI based on current state
     fn render_audio_permission_ui(&self, ctx: &Context<Self>) -> Html {
         match self.audio_permission {
@@ -371,6 +462,70 @@ impl DevConsole {
                         { "Audio permission denied" }
                     </span>
                 }
+            }
+        }
+    }
+
+    /// Render the audio device list
+    fn render_device_list(&self) -> Html {
+        if let Some(manager_rc) = get_audio_context_manager() {
+            // Try to borrow, but handle the case where it's already borrowed
+            let devices = match manager_rc.try_borrow() {
+                Ok(manager) => manager.get_cached_devices().clone(),
+                Err(_) => {
+                    // Manager is currently borrowed (probably refreshing), show loading state
+                    return html! {
+                        <div class="console-device-list">
+                            <div class="device-section">
+                                <div class="device-item empty">{ "Refreshing devices..." }</div>
+                            </div>
+                        </div>
+                    };
+                }
+            };
+            
+            html! {
+                <div class="console-device-list">
+                    <div class="device-sections">
+                        <div class="device-section">
+                            <h4>{ "🎤 Input Devices" }</h4>
+                            if devices.input_devices.is_empty() {
+                                <div class="device-item empty">{ "No input devices found" }</div>
+                            } else {
+                                { for devices.input_devices.iter().map(|(device_id, label)| {
+                                    html! {
+                                        <div class="device-item" title={device_id.clone()}>
+                                            { label.clone() }
+                                        </div>
+                                    }
+                                })}
+                            }
+                        </div>
+                        
+                        <div class="device-section">
+                            <h4>{ "🔊 Output Devices" }</h4>
+                            if devices.output_devices.is_empty() {
+                                <div class="device-item empty">{ "No output devices found" }</div>
+                            } else {
+                                { for devices.output_devices.iter().map(|(device_id, label)| {
+                                    html! {
+                                        <div class="device-item" title={device_id.clone()}>
+                                            { label.clone() }
+                                        </div>
+                                    }
+                                })}
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        } else {
+            html! {
+                <div class="console-device-list">
+                    <div class="device-section">
+                        <div class="device-item empty">{ "Audio system not initialized" }</div>
+                    </div>
+                </div>
             }
         }
     }
@@ -652,6 +807,60 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
     background: #6b7280;
 }
 
+/* Device list styling */
+.console-device-list {
+    background-color: rgba(31, 41, 55, 0.6);
+    border-top: 1px solid #4b5563;
+    padding: 8px 16px;
+    flex: 1;
+    overflow-y: auto;
+    font-size: 11px;
+}
+
+.device-sections {
+    display: flex;
+    gap: 16px;
+}
+
+.device-section {
+    flex: 1;
+    margin-bottom: 8px;
+}
+
+.device-section:last-child {
+    margin-bottom: 0;
+}
+
+.device-section h4 {
+    color: #9ca3af;
+    font-size: 10px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.device-item {
+    color: #f9fafb;
+    padding: 2px 4px;
+    border-radius: 2px;
+    margin-bottom: 1px;
+    font-family: inherit;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-item:hover {
+    background-color: rgba(75, 85, 99, 0.3);
+}
+
+.device-item.empty {
+    color: #6b7280;
+    font-style: italic;
+}
+
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .console-modal {
@@ -669,6 +878,14 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
     
     .console-input-container {
         padding: 8px 12px;
+    }
+    
+    .console-device-list {
+        font-size: 10px;
+    }
+    
+    .device-sections {
+        gap: 8px;
     }
 }
 "#;
@@ -691,6 +908,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
+            device_change_callback: None,
         };
 
         // Test updating input
@@ -716,6 +934,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
+            device_change_callback: None,
         };
 
         // Add some commands to history
@@ -746,6 +965,7 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
+            device_change_callback: None,
         };
 
         // Test initial state

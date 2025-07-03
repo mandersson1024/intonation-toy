@@ -245,18 +245,28 @@ impl ConsoleCommand for AudioDevicesCommand {
     }
     
     fn description(&self) -> &str {
-        "List available audio input devices"
+        "List available audio input and output devices"
     }
     
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         let mut outputs = Vec::new();
         
-        if !MicrophoneManager::is_supported() {
+        if !AudioContextManager::is_supported() {
+            outputs.push(ConsoleOutput::error("  Web Audio API not supported"));
             return ConsoleCommandResult::MultipleOutputs(outputs);
         }
         
-        outputs.push(ConsoleOutput::warning("  Note: Device enumeration requires async implementation"));
-        outputs.push(ConsoleOutput::warning("  Use 'mic-status' to see current device information"));
+        // Check if we have an audio context manager
+        if let Some(_manager_rc) = get_audio_context_manager() {
+            outputs.push(ConsoleOutput::info("Audio devices are displayed in the device list below the console output."));
+            outputs.push(ConsoleOutput::info("Devices are automatically refreshed when audio hardware changes."));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Note: Device labels require microphone permission."));
+            outputs.push(ConsoleOutput::info("Use 'Request Audio Permission' button if labels show 'permission required'."));
+        } else {
+            outputs.push(ConsoleOutput::warning("  Audio Context State: Not Initialized"));
+            outputs.push(ConsoleOutput::info("  Initialize audio system first to see devices"));
+        }
         
         ConsoleCommandResult::MultipleOutputs(outputs)
     }

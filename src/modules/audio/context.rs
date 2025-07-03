@@ -47,6 +47,8 @@
 //! - AudioWorklet support for real-time processing (used by other modules)
 
 use web_sys::{AudioContext, AudioContextOptions};
+use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen::JsCast;
 use std::fmt;
 use crate::modules::common::dev_log;
 use super::AudioError;
@@ -134,12 +136,29 @@ impl AudioContextConfig {
     }
 }
 
+/// Cached audio device information
+#[derive(Debug, Clone)]
+pub struct AudioDevices {
+    pub input_devices: Vec<(String, String)>,
+    pub output_devices: Vec<(String, String)>,
+}
+
+impl AudioDevices {
+    pub fn new() -> Self {
+        Self {
+            input_devices: Vec::new(),
+            output_devices: Vec::new(),
+        }
+    }
+}
+
 /// AudioContext manager handles Web Audio API context lifecycle
 pub struct AudioContextManager {
     context: Option<AudioContext>,
     state: AudioContextState,
     config: AudioContextConfig,
     recreation_attempts: u32,
+    cached_devices: Option<AudioDevices>,
 }
 
 impl AudioContextManager {
@@ -150,6 +169,7 @@ impl AudioContextManager {
             state: AudioContextState::Uninitialized,
             config: AudioContextConfig::default(),
             recreation_attempts: 0,
+            cached_devices: None,
         }
     }
     
@@ -160,6 +180,7 @@ impl AudioContextManager {
             state: AudioContextState::Uninitialized,
             config,
             recreation_attempts: 0,
+            cached_devices: None,
         }
     }
     
@@ -354,15 +375,79 @@ impl AudioContextManager {
         self.recreation_attempts = 0;
     }
     
-    /// Get available audio input devices
-    /// TODO: Implement device enumeration functionality
-    pub async fn enumerate_audio_devices(&self) -> Result<Vec<(String, String)>, AudioError> {
-        // Stub implementation - returns placeholder device list
-        Ok(vec![
-            ("default".to_string(), "Default Audio Device".to_string()),
-            ("placeholder".to_string(), "Placeholder Device".to_string()),
-        ])
+    /// Private helper to perform the actual device enumeration
+    async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
+        let window = web_sys::window()
+            .ok_or_else(|| AudioError::Generic("No window object".to_string()))?;
+        
+        let navigator = window.navigator();
+        let media_devices = navigator.media_devices()
+            .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
+
+        let promise = media_devices.enumerate_devices()
+            .map_err(|e| AudioError::Generic(format!("Failed to enumerate devices: {:?}", e)))?;
+
+        match JsFuture::from(promise).await {
+            Ok(devices_js) => {
+                let devices = js_sys::Array::from(&devices_js);
+                let mut input_devices = Vec::new();
+                let mut output_devices = Vec::new();
+
+                for i in 0..devices.length() {
+                    if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
+                        let device_id = device_info.device_id();
+                        let label = device_info.label();
+                        
+                        // Use fallback label if permission not granted
+                        let display_label = if label.is_empty() {
+                            format!("Device {} (permission required for label)", i + 1)
+                        } else {
+                            label
+                        };
+
+                        match device_info.kind() {
+                            web_sys::MediaDeviceKind::Audioinput => {
+                                input_devices.push((device_id, display_label));
+                            }
+                            web_sys::MediaDeviceKind::Audiooutput => {
+                                output_devices.push((device_id, display_label));
+                            }
+                            _ => {
+                                // Skip video devices
+                            }
+                        }
+                    }
+                }
+
+                Ok((input_devices, output_devices))
+            }
+            Err(e) => Err(AudioError::Generic(format!("Device enumeration failed: {:?}", e)))
+        }
     }
+
+    /// Query WebAudio for devices, await the result, and store them in the manager
+    pub async fn refresh_audio_devices(&mut self) -> Result<(), AudioError> {
+        let (input_devices, output_devices) = Self::enumerate_devices_internal().await?;
+        
+        // Store the devices in the manager
+        self.cached_devices = Some(AudioDevices {
+            input_devices,
+            output_devices,
+        });
+
+        Ok(())
+    }
+
+    /// Get cached audio devices (returns empty if not refreshed yet)
+    pub fn get_cached_devices(&self) -> &AudioDevices {
+        static EMPTY_DEVICES: AudioDevices = AudioDevices {
+            input_devices: Vec::new(),
+            output_devices: Vec::new(),
+        };
+        
+        self.cached_devices.as_ref().unwrap_or(&EMPTY_DEVICES)
+    }
+
 }
 
 impl Drop for AudioContextManager {
@@ -454,15 +539,39 @@ mod tests {
     }
 
     #[test]
-    fn test_enumerate_audio_devices_structure() {
+    fn test_refresh_audio_devices_structure() {
         let _manager = AudioContextManager::new();
         
-        // Test that the method exists and has the correct signature
+        // Test that the refresh method exists and has the correct signature
         // We can't actually test the functionality in a unit test environment
         // since it requires browser APIs
-        let _result_type: Result<Vec<(String, String)>, AudioError> = Ok(Vec::new());
+        let _result_type: Result<(), AudioError> = Ok(());
         
         // The test verifies the function signature is correct
         assert!(true);
+    }
+
+    #[test]
+    fn test_audio_devices_struct() {
+        let devices = AudioDevices::new();
+        assert!(devices.input_devices.is_empty());
+        assert!(devices.output_devices.is_empty());
+        
+        let devices_with_data = AudioDevices {
+            input_devices: vec![("id1".to_string(), "Microphone".to_string())],
+            output_devices: vec![("id2".to_string(), "Speakers".to_string())],
+        };
+        assert_eq!(devices_with_data.input_devices.len(), 1);
+        assert_eq!(devices_with_data.output_devices.len(), 1);
+    }
+
+    #[test]
+    fn test_cached_devices_functionality() {
+        let manager = AudioContextManager::new();
+        
+        // Initially should return empty devices
+        let cached = manager.get_cached_devices();
+        assert!(cached.input_devices.is_empty());
+        assert!(cached.output_devices.is_empty());
     }
 }

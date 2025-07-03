@@ -73,8 +73,9 @@ pub fn is_audio_system_ready() -> bool {
 }
 
 // Re-export public API
-pub use microphone::{MicrophoneManager, AudioPermission, AudioStreamInfo, AudioError};
-pub use context::{AudioContextManager, AudioContextState, AudioContextConfig};
+pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError};
+pub use permission::AudioPermission;
+pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
