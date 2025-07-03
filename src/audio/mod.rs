@@ -7,6 +7,7 @@ pub mod worklet;
 pub mod stream;
 pub mod permission;
 pub mod buffer;
+pub mod buffer_analyzer;
 pub mod console_service;
 pub mod commands;
 
@@ -114,6 +115,7 @@ pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
 pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX, DEV_BUFFER_SIZE_DEFAULT, AUDIO_CHUNK_SIZE, get_buffer_size, validate_buffer_size, validate_buffer_size_for_creation};
+pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
 pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
 pub use commands::register_audio_commands;
 
