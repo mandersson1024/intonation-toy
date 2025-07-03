@@ -105,6 +105,43 @@ impl<'a> BufferAnalyzer<'a> {
 
         Some(block)
     }
+
+    /// Zero-allocation variant of `next_block`. The caller supplies a mutable
+    /// slice (`output`) that will be filled with `block_size` samples. Returns
+    /// `true` when the slice has been filled, `false` when insufficient data is
+    /// currently available in the underlying buffer.
+    ///
+    /// This method performs **no heap allocations** during steady-state
+    /// processing, satisfying Story 2.2 AC 6 (zero-allocation operations).
+    pub fn next_block_into(&mut self, output: &mut [f32]) -> bool {
+        if output.len() != self.block_size {
+            // Mismatched slice size; treat as programmer error
+            panic!("output slice length {} does not match analyzer block_size {}", output.len(), self.block_size);
+        }
+
+        if self.buffer.len() < self.block_size {
+            return false;
+        }
+
+        // Read samples directly into caller-provided slice
+        let read = self.buffer.read_chunk(output);
+        if read != self.block_size {
+            // Should not happen because we pre-checked len()
+            return false;
+        }
+
+        // Apply windowing coefficients in-place
+        match self.window_fn {
+            WindowFunction::None => {},
+            _ => {
+                for (sample, coeff) in output.iter_mut().zip(self.window_coeffs.iter()) {
+                    *sample *= *coeff;
+                }
+            }
+        }
+
+        true
+    }
 }
 
 #[cfg(test)]
@@ -156,5 +193,28 @@ mod tests {
         // Each sample should now equal its window coefficient (since original sample = 1.0)
         let coeffs = generate_window(128, WindowFunction::Hamming);
         assert_eq!(block, coeffs);
+    }
+
+    #[test]
+    fn test_zero_allocation_next_block_into() {
+        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        // Fill with 256 samples of value 1.0
+        for _ in 0..256 {
+            circ.write(1.0);
+        }
+
+        let mut analyzer = BufferAnalyzer::new(&mut circ, 128, WindowFunction::None).unwrap();
+        let mut output = vec![0.0_f32; 128];
+
+        // Call next_block_into; should return true and fill slice without allocating
+        let filled = analyzer.next_block_into(&mut output);
+        assert!(filled);
+        assert_eq!(output, vec![1.0_f32; 128]);
+
+        // Second call should also work
+        assert!(analyzer.next_block_into(&mut output));
+
+        // Third call should return false (not enough samples left)
+        assert!(!analyzer.next_block_into(&mut output));
     }
 } 
