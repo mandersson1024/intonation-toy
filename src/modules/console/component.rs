@@ -50,8 +50,6 @@ pub struct DevConsole {
     was_visible: bool,
     /// Current audio permission state
     audio_permission: AudioPermission,
-    /// Closure for device change event listener (kept alive)
-    device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
 /// Messages for the DevConsole component
@@ -91,7 +89,7 @@ impl Component for DevConsole {
             output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
         }
         
-        let mut console = Self {
+        let console = Self {
             registry: Rc::clone(&ctx.props().registry),
             command_history,
             output_manager,
@@ -101,8 +99,16 @@ impl Component for DevConsole {
             visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
         };
+        
+        // Set up device change listener on the audio context manager
+        let link_for_devices = ctx.link().clone();
+        if let Some(manager_rc) = get_audio_context_manager() {
+            let mut manager = manager_rc.borrow_mut();
+            let _ = manager.setup_device_change_listener(move || {
+                link_for_devices.send_message(DevConsoleMsg::RefreshDevices);
+            });
+        }
         
         // Check microphone permission status on component creation
         let link = ctx.link().clone();
@@ -110,13 +116,6 @@ impl Component for DevConsole {
             let permission = PermissionManager::check_microphone_permission().await;
             link.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
         });
-        
-        // Set up device change listener
-        let link_for_devices = ctx.link().clone();
-        console.setup_device_change_listener(link_for_devices);
-        
-        // Trigger initial device refresh
-        ctx.link().send_message(DevConsoleMsg::RefreshDevices);
         
         console
     }
@@ -357,53 +356,6 @@ impl Component for DevConsole {
 }
 
 impl DevConsole {
-    /// Set up device change event listener to refresh devices when they change
-    fn setup_device_change_listener(&mut self, link: yew::html::Scope<Self>) {
-        // Only set up if we don't already have a listener
-        if self.device_change_callback.is_some() {
-            return;
-        }
-        
-        let window = match web_sys::window() {
-            Some(w) => w,
-            None => {
-                web_sys::console::warn_1(&"No window available for device change listener".into());
-                return;
-            }
-        };
-        
-        let navigator = window.navigator();
-        let media_devices = match navigator.media_devices() {
-            Ok(devices) => devices,
-            Err(_) => {
-                web_sys::console::warn_1(&"MediaDevices not available for device change listener".into());
-                return;
-            }
-        };
-        
-        // Create closure for device change events
-        let callback = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            web_sys::console::log_1(&"Audio devices changed - refreshing device list".into());
-            link.send_message(DevConsoleMsg::RefreshDevices);
-        }) as Box<dyn FnMut(_)>);
-        
-        // Add the event listener
-        if let Err(e) = media_devices.add_event_listener_with_callback(
-            "devicechange", 
-            callback.as_ref().unchecked_ref()
-        ) {
-            web_sys::console::warn_2(&"Failed to add device change listener:".into(), &e);
-            return;
-        }
-        
-        web_sys::console::log_1(&"Device change listener set up successfully".into());
-        
-        // Store the callback to keep it alive
-        self.device_change_callback = Some(callback);
-        
-        // Note: Initial device refresh will be triggered by the callback
-        // We can't trigger it here since link was moved into the closure
-    }
 
     /// Render the audio permission UI based on current state
     fn render_audio_permission_ui(&self, ctx: &Context<Self>) -> Html {
@@ -888,7 +840,6 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
         };
 
         // Test updating input
@@ -914,7 +865,6 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
         };
 
         // Add some commands to history
@@ -945,7 +895,6 @@ mod tests {
             visible: true,
             was_visible: false,
             audio_permission: AudioPermission::Uninitialized,
-            device_change_callback: None,
         };
 
         // Test initial state

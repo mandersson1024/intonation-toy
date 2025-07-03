@@ -49,6 +49,7 @@
 use web_sys::{AudioContext, AudioContextOptions};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::closure::Closure;
 use std::fmt;
 use crate::modules::common::dev_log;
 use super::AudioError;
@@ -159,6 +160,8 @@ pub struct AudioContextManager {
     config: AudioContextConfig,
     recreation_attempts: u32,
     cached_devices: Option<AudioDevices>,
+    /// Device change event listener callback (kept alive)
+    device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
 impl AudioContextManager {
@@ -170,6 +173,7 @@ impl AudioContextManager {
             config: AudioContextConfig::default(),
             recreation_attempts: 0,
             cached_devices: None,
+            device_change_callback: None,
         }
     }
     
@@ -181,6 +185,7 @@ impl AudioContextManager {
             config,
             recreation_attempts: 0,
             cached_devices: None,
+            device_change_callback: None,
         }
     }
     
@@ -448,10 +453,79 @@ impl AudioContextManager {
         self.cached_devices.as_ref().unwrap_or(&EMPTY_DEVICES)
     }
 
+    /// Set up device change event listener to automatically refresh devices when they change
+    /// The callback will be called whenever audio devices are added or removed
+    pub fn setup_device_change_listener<F>(&mut self, callback: F) -> Result<(), AudioError>
+    where
+        F: Fn() + 'static,
+    {
+        // Only set up if we don't already have a listener
+        if self.device_change_callback.is_some() {
+            dev_log!("Device change listener already set up");
+            return Ok(());
+        }
+        
+        let window = web_sys::window()
+            .ok_or_else(|| AudioError::Generic("No window available for device change listener".to_string()))?;
+        
+        let navigator = window.navigator();
+        let media_devices = navigator.media_devices()
+            .map_err(|_| AudioError::NotSupported("MediaDevices not available for device change listener".to_string()))?;
+        
+        // Create closure for device change events
+        let device_change_closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            dev_log!("Audio devices changed - triggering callback");
+            callback();
+        }) as Box<dyn FnMut(_)>);
+        
+        // Add the event listener
+        media_devices.add_event_listener_with_callback(
+            "devicechange", 
+            device_change_closure.as_ref().unchecked_ref()
+        ).map_err(|e| AudioError::Generic(format!("Failed to add device change listener: {:?}", e)))?;
+        
+        dev_log!("Device change listener set up successfully");
+        
+        // Store the callback to keep it alive
+        self.device_change_callback = Some(device_change_closure);
+        
+        Ok(())
+    }
+    
+    /// Remove device change event listener
+    pub fn remove_device_change_listener(&mut self) -> Result<(), AudioError> {
+        if let Some(callback) = &self.device_change_callback {
+            let window = web_sys::window()
+                .ok_or_else(|| AudioError::Generic("No window available".to_string()))?;
+            
+            let navigator = window.navigator();
+            let media_devices = navigator.media_devices()
+                .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
+            
+            // Remove the event listener
+            media_devices.remove_event_listener_with_callback(
+                "devicechange",
+                callback.as_ref().unchecked_ref()
+            ).map_err(|e| AudioError::Generic(format!("Failed to remove device change listener: {:?}", e)))?;
+            
+            dev_log!("Device change listener removed");
+        }
+        
+        self.device_change_callback = None;
+        Ok(())
+    }
+    
+    /// Check if device change listener is active
+    pub fn has_device_change_listener(&self) -> bool {
+        self.device_change_callback.is_some()
+    }
 }
 
 impl Drop for AudioContextManager {
     fn drop(&mut self) {
+        // Clean up device change listener
+        let _ = self.remove_device_change_listener();
+        
         if let Some(context) = &self.context {
             // Try to close context on drop, but don't panic if it fails
             let _ = context.close();
@@ -503,6 +577,7 @@ mod tests {
         assert!(!manager.is_running());
         assert!(manager.get_context().is_none());
         assert_eq!(manager.recreation_attempts(), 0);
+        assert!(!manager.has_device_change_listener());
     }
 
     #[test]
@@ -573,5 +648,16 @@ mod tests {
         let cached = manager.get_cached_devices();
         assert!(cached.input_devices.is_empty());
         assert!(cached.output_devices.is_empty());
+    }
+
+    #[test]
+    fn test_device_change_listener_state() {
+        let manager = AudioContextManager::new();
+        
+        // Initially should not have a device change listener
+        assert!(!manager.has_device_change_listener());
+        
+        // Test that the device change listener field exists and is properly initialized
+        // We can't test the actual listener setup in unit tests since it requires browser APIs
     }
 }
