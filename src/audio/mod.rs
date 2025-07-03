@@ -138,7 +138,7 @@ pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
 pub use buffer_pool::{BufferPool, MAX_GPU_MEMORY_BYTES};
 pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
 pub use commands::register_audio_commands;
-pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem};
+pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 
 #[cfg(test)]
 mod tests {
