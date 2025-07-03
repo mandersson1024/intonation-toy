@@ -176,12 +176,90 @@ impl ConsoleCommand for AudioRefreshCommand {
     }
 }
 
+/// Buffer Status Command - show information for each buffer in the global pool
+pub struct BufferStatusCommand;
+
+impl ConsoleCommand for BufferStatusCommand {
+    fn name(&self) -> &str { "buffer-status" }
+    fn description(&self) -> &str { "Show current buffer pool status" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        use crate::audio::get_global_buffer_pool;
+        let mut outputs = Vec::new();
+        if let Some(pool_rc) = get_global_buffer_pool() {
+            let pool = pool_rc.borrow();
+            outputs.push(ConsoleOutput::info(&format!("Total Buffers: {} (capacity: {} samples each)", pool.len(), pool.buffer_capacity())));
+            outputs.push(ConsoleOutput::info(&format!("Memory Usage: {:.2} KB", pool.memory_usage_bytes() as f64 / 1024.0)));
+            for idx in 0..pool.len() {
+                if let Some(buf) = pool.get(idx) {
+                    outputs.push(ConsoleOutput::info(&format!("Buffer {} - len: {}/{} state: {} overflows: {}", idx, buf.len(), buf.capacity(), buf.state(), buf.overflow_count())));
+                }
+            }
+            ConsoleCommandResult::MultipleOutputs(outputs)
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
+        }
+    }
+}
+
+/// Buffer Metrics Command - high-level metrics summary
+pub struct BufferMetricsCommand;
+
+impl ConsoleCommand for BufferMetricsCommand {
+    fn name(&self) -> &str { "buffer-metrics" }
+    fn description(&self) -> &str { "Display buffer pool metrics" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        use crate::audio::get_global_buffer_pool;
+        if let Some(pool_rc) = get_global_buffer_pool() {
+            let pool = pool_rc.borrow();
+            let msg = format!("Buffers: {}  Overflows: {}  Memory: {:.2} KB", pool.len(), pool.total_overflows(), pool.memory_usage_bytes() as f64 / 1024.0);
+            ConsoleCommandResult::Output(ConsoleOutput::info(msg))
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
+        }
+    }
+}
+
+/// Buffer Reset Command - clear all buffers and reset overflow counters
+pub struct BufferResetCommand;
+
+impl ConsoleCommand for BufferResetCommand {
+    fn name(&self) -> &str { "buffer-reset" }
+    fn description(&self) -> &str { "Reset buffer pool state" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        use crate::audio::get_global_buffer_pool;
+        if let Some(pool_rc) = get_global_buffer_pool() {
+            pool_rc.borrow_mut().reset_all();
+            ConsoleCommandResult::Output(ConsoleOutput::success("Buffer pool cleared"))
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
+        }
+    }
+}
+
+/// Buffer Debug Command - toggle debug logging flag (simple runtime flag)
+pub struct BufferDebugCommand;
+
+thread_local! { static BUFFER_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false); }
+
+impl ConsoleCommand for BufferDebugCommand {
+    fn name(&self) -> &str { "buffer-debug" }
+    fn description(&self) -> &str { "Toggle buffer debug logging" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let enabled = BUFFER_DEBUG_ENABLED.with(|c| { let val = !c.get(); c.set(val); val });
+        ConsoleCommandResult::Output(ConsoleOutput::info(&format!("Buffer debug logging {}", if enabled { "enabled" } else { "disabled" })))
+    }
+}
+
 /// Register all audio commands with a command registry
 /// This function creates and registers all audio-related console commands
 pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(AudioContextCommand));
     registry.register(Box::new(AudioDeviceListCommand));
     registry.register(Box::new(AudioRefreshCommand));
+    registry.register(Box::new(BufferStatusCommand));
+    registry.register(Box::new(BufferMetricsCommand));
+    registry.register(Box::new(BufferResetCommand));
+    registry.register(Box::new(BufferDebugCommand));
 }
 
 #[cfg(test)]

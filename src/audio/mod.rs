@@ -22,6 +22,11 @@ thread_local! {
     static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
 }
 
+// Global buffer pool reference
+thread_local! {
+    static BUFFER_POOL_GLOBAL: RefCell<Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>>> = RefCell::new(None);
+}
+
 /// Initialize audio system
 /// Returns Result to allow caller to handle initialization failures
 pub async fn initialize_audio_system() -> Result<(), String> {
@@ -106,6 +111,18 @@ pub fn create_console_audio_service_with_events(
     service.set_event_dispatcher(event_dispatcher);
     
     service
+}
+
+/// Set the global BufferPool instance (called after creation)
+pub fn set_global_buffer_pool(pool: Rc<RefCell<buffer_pool::BufferPool<f32>>>) {
+    BUFFER_POOL_GLOBAL.with(|bp| {
+        *bp.borrow_mut() = Some(pool);
+    });
+}
+
+/// Get the global BufferPool instance
+pub fn get_global_buffer_pool() -> Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>> {
+    BUFFER_POOL_GLOBAL.with(|bp| bp.borrow().as_ref().cloned())
 }
 
 // Re-export public API
