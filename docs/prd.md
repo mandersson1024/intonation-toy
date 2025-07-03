@@ -292,16 +292,15 @@ so that I can monitor my input and ensure proper signal levels for pitch detecti
 
 As a developer,
 I want FFT-based spectral analysis capabilities,
-so that I can provide enhanced pitch detection confidence and visualization data.
+so that I can provide visualization data.
 
 #### Acceptance Criteria
 
 - 1: FFT implementation using rustfft crate for frequency domain analysis
 - 2: Windowing functions applied for spectral accuracy
 - 3: Magnitude spectrum calculation with appropriate scaling
-- 4: Frequency bins mapped to musical notes and octaves
-- 5: Spectrum data available for visualization components
-- 6: Configurable FFT size based on analysis requirements
+- 4: Spectrum data available for visualization components
+- 5: Configurable FFT size based on analysis requirements
 
 ## Epic 3 - Visual Presentation System
 
