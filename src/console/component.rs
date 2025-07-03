@@ -11,7 +11,7 @@ use std::rc::Rc;
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
-use crate::audio::{AudioPermission, ConsoleAudioService, AudioDevices, permission::PermissionManager};
+use crate::audio::{AudioPermission, ConsoleAudioService, AudioDevices};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -22,7 +22,7 @@ pub struct DevConsoleProps {
     /// Command registry to use for executing commands
     pub registry: Rc<ConsoleCommandRegistry>,
     /// Audio service for audio operations
-    pub audio_service: Rc<dyn ConsoleAudioService>,
+    pub audio_service: Rc<crate::audio::ConsoleAudioServiceImpl>,
 }
 
 impl PartialEq for DevConsoleProps {
@@ -38,7 +38,7 @@ pub struct DevConsole {
     /// Command registry for executing commands
     registry: Rc<ConsoleCommandRegistry>,
     /// Audio service for audio operations
-    audio_service: Rc<dyn ConsoleAudioService>,
+    audio_service: Rc<crate::audio::ConsoleAudioServiceImpl>,
     /// Command history for navigation
     command_history: ConsoleHistory,
     /// Output manager for displaying results
@@ -115,8 +115,9 @@ impl Component for DevConsole {
         
         // Check initial microphone permission status
         let link = ctx.link().clone();
+        let audio_service = Rc::clone(&ctx.props().audio_service);
         spawn_local(async move {
-            let permission = PermissionManager::check_microphone_permission().await;
+            let permission = audio_service.get_current_permission().await;
             link.send_message(DevConsoleMsg::UpdateAudioPermission(permission));
         });
         
@@ -216,8 +217,9 @@ impl Component for DevConsole {
                     Ok(_) => {
                         // Request permission - must be in same call stack as user gesture
                         let link = ctx.link().clone();
+                        let audio_service = Rc::clone(&self.audio_service);
                         spawn_local(async move {
-                            let _result = PermissionManager::request_permission_with_callback(move |permission_state| {
+                            let _result = audio_service.request_permission_with_callback(move |permission_state| {
                                 link.send_message(DevConsoleMsg::UpdateAudioPermission(permission_state));
                             }).await;
                         });
@@ -828,7 +830,7 @@ mod tests {
         // Create a test console state
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
-            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
+            audio_service: Rc::new(crate::audio::create_console_audio_service()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: "test command".to_string(),
@@ -855,7 +857,7 @@ mod tests {
     fn test_console_history_integration() {
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
-            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
+            audio_service: Rc::new(crate::audio::create_console_audio_service()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -887,7 +889,7 @@ mod tests {
     fn test_audio_permission_state_transitions() {
         let mut console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
-            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
+            audio_service: Rc::new(crate::audio::create_console_audio_service()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),
@@ -924,7 +926,7 @@ mod tests {
         
         let console = DevConsole {
             registry: Rc::new(ConsoleCommandRegistry::new()),
-            audio_service: Rc::new(crate::audio::create_console_audio_service()) as Rc<dyn crate::audio::ConsoleAudioService>,
+            audio_service: Rc::new(crate::audio::create_console_audio_service()),
             command_history: ConsoleHistory::new(),
             output_manager: ConsoleOutputManager::new(),
             input_value: String::new(),

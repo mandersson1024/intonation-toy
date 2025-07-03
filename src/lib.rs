@@ -31,7 +31,7 @@ fn render_dev_console() -> Html {
         let event_dispatcher = crate::events::create_shared_dispatcher();
         
         // Create audio service with event dispatcher
-        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher)) as Rc<dyn crate::audio::ConsoleAudioService>;
+        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher));
         let registry = Rc::new(crate::console_commands::create_console_registry_with_audio());
         html! { <DevConsole registry={registry} audio_service={audio_service} /> }
     }

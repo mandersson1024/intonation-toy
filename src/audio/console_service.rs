@@ -54,6 +54,15 @@ pub trait ConsoleAudioService {
     /// Refresh audio device list
     /// This triggers a background refresh of available audio devices
     fn refresh_devices(&self);
+    
+    /// Get current audio permission state
+    fn get_current_permission(&self) -> impl std::future::Future<Output = AudioPermission>;
+    
+    /// Request permission with callback
+    /// Must be called from a user gesture context (button click, etc.)
+    fn request_permission_with_callback<F>(&self, callback: F) -> impl std::future::Future<Output = AudioPermission>
+    where 
+        F: Fn(AudioPermission) + 'static;
 }
 
 /// Implementation of ConsoleAudioService
@@ -314,6 +323,17 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         } else {
             dev_log!("No audio context manager available for device refresh");
         }
+    }
+    
+    fn get_current_permission(&self) -> impl std::future::Future<Output = AudioPermission> {
+        PermissionManager::check_microphone_permission()
+    }
+    
+    fn request_permission_with_callback<F>(&self, callback: F) -> impl std::future::Future<Output = AudioPermission>
+    where 
+        F: Fn(AudioPermission) + 'static,
+    {
+        PermissionManager::request_permission_with_callback(callback)
     }
 }
 
