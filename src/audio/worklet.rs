@@ -126,6 +126,8 @@ pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
     config: AudioWorkletConfig,
+    buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
+    event_dispatcher: Option<crate::events::SharedEventDispatcher>,
 }
 
 impl AudioWorkletManager {
@@ -135,6 +137,8 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config: AudioWorkletConfig::default(),
+            buffer_pool: None,
+            event_dispatcher: None,
         }
     }
     
@@ -144,6 +148,8 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config,
+            buffer_pool: None,
+            event_dispatcher: None,
         }
     }
     
@@ -351,6 +357,58 @@ impl AudioWorkletManager {
     pub fn chunk_size(&self) -> u32 {
         self.config.chunk_size
     }
+
+    /// Attach a shared buffer pool for real-time audio filling
+    pub fn set_buffer_pool(&mut self, pool: std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>) {
+        self.buffer_pool = Some(pool);
+    }
+
+    /// Attach an event dispatcher for publishing BufferEvents
+    pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::SharedEventDispatcher) {
+        self.event_dispatcher = Some(dispatcher);
+    }
+
+    /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
+    /// This method is platform-agnostic and can be unit-tested natively.
+    pub fn feed_input_chunk(&mut self, samples: &[f32]) -> Result<(), String> {
+        if samples.len() as u32 != self.config.chunk_size {
+            return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
+        }
+
+        let pool_rc = self.buffer_pool.as_ref().ok_or("No buffer pool attached")?.clone();
+        let mut pool = pool_rc.borrow_mut();
+        let buffer = pool.get_mut(0).ok_or("BufferPool is empty")?;
+
+        buffer.write_chunk(samples);
+
+        // Publish events if dispatcher present
+        if let Some(dispatcher) = &self.event_dispatcher {
+            if buffer.is_full() {
+                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferFilled {
+                    buffer_index: 0,
+                    length: buffer.len(),
+                });
+            }
+
+            if buffer.has_overflowed() {
+                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferOverflow {
+                    buffer_index: 0,
+                    overflow_count: buffer.overflow_count(),
+                });
+            }
+
+            // Periodically publish metrics (every 256 chunks for example) – simple heuristic here
+            if buffer.len() % 256 == 0 {
+                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferMetrics {
+                    total_buffers: pool.len(),
+                    total_overflows: pool.total_overflows(),
+                    memory_bytes: pool.memory_usage_bytes(),
+                });
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Drop for AudioWorkletManager {
@@ -441,5 +499,35 @@ mod tests {
         
         assert!(manager.disconnect().is_ok());
         assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
+    }
+
+    #[test]
+    fn test_feed_input_chunk_and_events() {
+        use crate::audio::{BufferPool};
+        use crate::events::event_dispatcher::create_shared_dispatcher;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+
+        // Create dispatcher and track events
+        let dispatcher = create_shared_dispatcher();
+        let received = Rc::new(RefCell::new(Vec::new()));
+        let recv_clone = received.clone();
+        dispatcher.borrow_mut().subscribe("buffer_filled", move |e| { recv_clone.borrow_mut().push(e); });
+
+        // Create pool with one buffer 256 samples capacity
+        let pool = Rc::new(RefCell::new(BufferPool::<f32>::new(1, 256).unwrap()));
+
+        // Create manager
+        let mut mgr = AudioWorkletManager::new();
+        mgr.set_buffer_pool(pool.clone());
+        mgr.set_event_dispatcher(dispatcher.clone());
+
+        // Feed two chunks of 128 samples each (fills buffer)
+        let chunk = vec![0.0_f32; 128];
+        mgr.feed_input_chunk(&chunk).unwrap();
+        mgr.feed_input_chunk(&chunk).unwrap();
+
+        // Expect buffer_filled event
+        assert_eq!(received.borrow().len(), 1);
     }
 }

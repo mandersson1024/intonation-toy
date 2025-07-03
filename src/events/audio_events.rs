@@ -15,6 +15,12 @@ pub enum AudioEvent {
     PermissionChanged(AudioPermission),
     /// Audio context state has changed
     ContextStateChanged(AudioContextState),
+    /// Circular buffer has been filled (ready for processing)
+    BufferFilled { buffer_index: usize, length: usize },
+    /// Circular buffer experienced overflow
+    BufferOverflow { buffer_index: usize, overflow_count: usize },
+    /// Buffer pool metrics update (periodic)
+    BufferMetrics { total_buffers: usize, total_overflows: usize, memory_bytes: usize },
 }
 
 impl AudioEvent {
@@ -24,6 +30,9 @@ impl AudioEvent {
             AudioEvent::DeviceListChanged(_) => "device_list_changed",
             AudioEvent::PermissionChanged(_) => "permission_changed",
             AudioEvent::ContextStateChanged(_) => "context_state_changed",
+            AudioEvent::BufferFilled { .. } => "buffer_filled",
+            AudioEvent::BufferOverflow { .. } => "buffer_overflow",
+            AudioEvent::BufferMetrics { .. } => "buffer_metrics",
         }
     }
     
@@ -40,6 +49,15 @@ impl AudioEvent {
             }
             AudioEvent::ContextStateChanged(state) => {
                 format!("Audio context state changed to: {}", state)
+            }
+            AudioEvent::BufferFilled { buffer_index, length } => {
+                format!("Buffer {} filled ({} samples)", buffer_index, length)
+            }
+            AudioEvent::BufferOverflow { buffer_index, overflow_count } => {
+                format!("Buffer {} overflow (count = {})", buffer_index, overflow_count)
+            }
+            AudioEvent::BufferMetrics { total_buffers, total_overflows, memory_bytes } => {
+                format!("Buffer metrics: {} buffers, {} overflows, {:.2} MB", total_buffers, total_overflows, *memory_bytes as f64 / 1_048_576.0)
             }
         }
     }
@@ -74,5 +92,20 @@ mod tests {
         
         let context_event = AudioEvent::ContextStateChanged(AudioContextState::Running);
         assert!(context_event.description().contains("Audio context state changed"));
+    }
+
+    #[test]
+    fn test_buffer_event_types_and_descriptions() {
+        let filled = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
+        assert_eq!(filled.event_type(), "buffer_filled");
+        assert!(filled.description().contains("Buffer 0 filled"));
+
+        let overflow = AudioEvent::BufferOverflow { buffer_index: 1, overflow_count: 3 };
+        assert_eq!(overflow.event_type(), "buffer_overflow");
+        assert!(overflow.description().contains("overflow"));
+
+        let metrics = AudioEvent::BufferMetrics { total_buffers: 8, total_overflows: 5, memory_bytes: 32768 };
+        assert_eq!(metrics.event_type(), "buffer_metrics");
+        assert!(metrics.description().contains("8 buffers"));
     }
 }
