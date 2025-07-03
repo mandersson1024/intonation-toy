@@ -155,7 +155,7 @@ mod tests {
                 assert!(text.contains("clear - Clear console output"));
                 assert!(text.contains("test - Show examples of all console output types"));
                 // Module commands should NOT be present in built-ins only registry
-                assert!(!text.contains("status - Show application status"));
+                assert!(!text.contains("api-status - Show application and API status"));
                 assert!(!text.contains("mic-status"));
                 assert!(!text.contains("audio-context"));
             },

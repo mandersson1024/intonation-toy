@@ -385,11 +385,11 @@ mod tests {
         let mut history = ConsoleHistory::new();
         history.add_command("help".to_string());
         history.add_command("clear".to_string());
-        history.add_command("status".to_string());
+        history.add_command("api-status".to_string());
         
         let json = history.to_json().unwrap();
         // Commands are stored most recent first
-        assert_eq!(json, r#"["status","clear","help"]"#);
+        assert_eq!(json, r#"["api-status","clear","help"]"#);
     }
 
     #[test]
@@ -411,11 +411,11 @@ mod tests {
     #[test]
     fn test_json_deserialization() {
         let mut history = ConsoleHistory::new();
-        history.from_json(r#"["status","clear","help"]"#);
+        history.from_json(r#"["api-status","clear","help"]"#);
         
         // Commands should be restored in original order (most recent first)
         assert_eq!(history.len(), 3);
-        assert_eq!(history.commands()[0], "status");
+        assert_eq!(history.commands()[0], "api-status");
         assert_eq!(history.commands()[1], "clear");
         assert_eq!(history.commands()[2], "help");
     }

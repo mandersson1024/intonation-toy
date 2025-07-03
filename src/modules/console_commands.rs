@@ -14,7 +14,7 @@ pub fn create_console_registry() -> ConsoleCommandRegistry {
     let mut registry = ConsoleCommandRegistry::new();
     
     // Register platform module commands
-    registry.register(Box::new(StatusCommand));
+    registry.register(Box::new(ApiStatusCommand));
     
     // Register audio module commands
     registry.register(Box::new(AudioContextCommand));
@@ -25,16 +25,16 @@ pub fn create_console_registry() -> ConsoleCommandRegistry {
 // Platform Commands Implementation
 // These commands require access to platform module and are therefore not built-in
 
-// Status Command
-struct StatusCommand;
+// API Status Command
+struct ApiStatusCommand;
 
-impl ConsoleCommand for StatusCommand {
+impl ConsoleCommand for ApiStatusCommand {
     fn name(&self) -> &str {
-        "status"
+        "api-status"
     }
     
     fn description(&self) -> &str {
-        "Show application status"
+        "Show application and API status"
     }
     
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
