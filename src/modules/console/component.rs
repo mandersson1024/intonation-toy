@@ -10,6 +10,7 @@ use std::rc::Rc;
 use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
 use super::history::ConsoleHistory;
 use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
+use crate::modules::audio::AudioPermission;
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_console_history";
@@ -46,6 +47,8 @@ pub struct DevConsole {
     visible: bool,
     /// Track previous visibility state for focus management
     was_visible: bool,
+    /// Current audio permission state
+    audio_permission: AudioPermission,
 }
 
 /// Messages for the DevConsole component
@@ -58,6 +61,8 @@ pub enum DevConsoleMsg {
     HandleKeyDown(KeyboardEvent),
     /// Toggle console visibility
     ToggleVisibility,
+    /// Request audio permission
+    RequestAudioPermission,
 }
 
 impl Component for DevConsole {
@@ -86,6 +91,7 @@ impl Component for DevConsole {
             output_ref: NodeRef::default(),
             visible: true, // Start visible by default (matching current behavior)
             was_visible: false,
+            audio_permission: AudioPermission::Uninitialized,
         }
     }
 
@@ -171,6 +177,18 @@ impl Component for DevConsole {
                 self.visible = !self.visible;
                 true
             }
+            
+            DevConsoleMsg::RequestAudioPermission => {
+                // Stub implementation - just update state to Requesting
+                self.audio_permission = AudioPermission::Requesting;
+                self.output_manager.add_output(ConsoleOutput::info("Audio permission request (stub implementation)"));
+                
+                // TODO: Implement actual permission request
+                // For now, simulate different outcomes for testing
+                // This will be replaced with actual permission logic later
+                
+                true
+            }
         }
     }
 
@@ -204,11 +222,14 @@ impl Component for DevConsole {
                 
                 <div class="console-modal">
                     <div class="console-header">
-                        <span class="console-title">{ "Dev Console" }</span>
-                        <div class="console-controls">
+                        <div class="console-left">
+                            <span class="console-title">{ "Dev Console" }</span>
                             <span class="console-hint" title="Press ESC to toggle console">
-                                { "ESC to toggle" }
+                                { "(ESC to toggle)" }
                             </span>
+                        </div>
+                        <div class="console-controls">
+                            { self.render_audio_permission_ui(ctx) }
                         </div>
                     </div>
                     
@@ -261,6 +282,47 @@ impl Component for DevConsole {
 }
 
 impl DevConsole {
+    /// Render the audio permission UI based on current state
+    fn render_audio_permission_ui(&self, ctx: &Context<Self>) -> Html {
+        match self.audio_permission {
+            AudioPermission::Uninitialized | AudioPermission::Unavailable => {
+                let onclick = {
+                    let link = ctx.link().clone();
+                    Callback::from(move |_| {
+                        link.send_message(DevConsoleMsg::RequestAudioPermission);
+                    })
+                };
+                
+                html! {
+                    <button class="audio-permission-button" onclick={onclick}>
+                        { "Request Audio Permission" }
+                    </button>
+                }
+            }
+            AudioPermission::Requesting => {
+                html! {
+                    <span class="audio-permission-status requesting">
+                        { "Requesting permission..." }
+                    </span>
+                }
+            }
+            AudioPermission::Granted => {
+                html! {
+                    <span class="audio-permission-status granted">
+                        { "Audio permission granted" }
+                    </span>
+                }
+            }
+            AudioPermission::Denied => {
+                html! {
+                    <span class="audio-permission-status denied">
+                        { "Audio permission denied" }
+                    </span>
+                }
+            }
+        }
+    }
+
     /// Render the console output
     fn render_output(&self) -> Html {
         let entries = self.output_manager.entries();
@@ -410,6 +472,12 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
     font-size: 14px;
 }
 
+.console-left {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 .console-controls {
     display: flex;
     gap: 8px;
@@ -420,7 +488,45 @@ const CONSOLE_COMPONENT_CSS: &str = r#"
     color: #9ca3af;
     font-size: 11px;
     font-style: italic;
-    padding: 4px 8px;
+}
+
+.audio-permission-button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: background-color 0.2s;
+}
+
+.audio-permission-button:hover {
+    background-color: #2563eb;
+}
+
+.audio-permission-status {
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin-right: 8px;
+    font-weight: 500;
+}
+
+.audio-permission-status.granted {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.audio-permission-status.denied {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.audio-permission-status.requesting {
+    color: #f59e0b;
+    background-color: rgba(245, 158, 11, 0.1);
 }
 
 
@@ -532,6 +638,7 @@ mod tests {
             output_ref: NodeRef::default(),
             visible: true,
             was_visible: false,
+            audio_permission: AudioPermission::Uninitialized,
         };
 
         // Test updating input
@@ -556,6 +663,7 @@ mod tests {
             output_ref: NodeRef::default(),
             visible: true,
             was_visible: false,
+            audio_permission: AudioPermission::Uninitialized,
         };
 
         // Add some commands to history
@@ -574,6 +682,36 @@ mod tests {
         assert_eq!(CONSOLE_HISTORY_STORAGE_KEY, "pitch_toy_console_history");
     }
 
+    #[test]
+    fn test_audio_permission_state_transitions() {
+        let mut console = DevConsole {
+            registry: Rc::new(ConsoleCommandRegistry::new()),
+            command_history: ConsoleHistory::new(),
+            output_manager: ConsoleOutputManager::new(),
+            input_value: String::new(),
+            input_ref: NodeRef::default(),
+            output_ref: NodeRef::default(),
+            visible: true,
+            was_visible: false,
+            audio_permission: AudioPermission::Uninitialized,
+        };
+
+        // Test initial state
+        assert_eq!(console.audio_permission, AudioPermission::Uninitialized);
+
+        // Test state change to requesting
+        console.audio_permission = AudioPermission::Requesting;
+        assert_eq!(console.audio_permission, AudioPermission::Requesting);
+
+        // Test state change to granted
+        console.audio_permission = AudioPermission::Granted;
+        assert_eq!(console.audio_permission, AudioPermission::Granted);
+
+        // Test state change to denied
+        console.audio_permission = AudioPermission::Denied;
+        assert_eq!(console.audio_permission, AudioPermission::Denied);
+    }
+
     #[cfg(target_arch = "wasm32")]
     #[test]
     fn test_local_storage_functionality() {
@@ -590,6 +728,7 @@ mod tests {
             output_ref: NodeRef::default(),
             visible: true,
             was_visible: false,
+            audio_permission: AudioPermission::Uninitialized,
         };
         
         // Save should not panic
