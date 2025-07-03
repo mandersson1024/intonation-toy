@@ -1,6 +1,8 @@
 // Console Commands Orchestrator
 // Central location for registering all non-built-in console commands
 // Provides a clean separation between console infrastructure and module-specific commands
+//
+// Commands should not be unit tested
 
 use crate::modules::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 

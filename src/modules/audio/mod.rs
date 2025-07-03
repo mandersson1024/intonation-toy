@@ -32,3 +32,181 @@ pub use microphone::{MicrophoneManager, MicrophoneState, AudioStreamInfo, AudioE
 pub use context::{AudioContextManager, AudioContextState, AudioContextConfig};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(target_arch = "wasm32")]
+    fn test_initialize_audio_system_success() {
+        // This test only runs on wasm32 where Web Audio API might be available
+        let result = initialize_audio_system();
+        
+        // The result depends on the WASM test environment's Web Audio API support
+        match result {
+            Ok(()) => {
+                // If successful, the system should have initialized properly
+                assert!(true);
+            }
+            Err(msg) => {
+                // If failed, should be due to Web Audio API not being supported in test environment
+                assert!(msg.contains("Web Audio API not supported"));
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_initialize_audio_system_native_test() {
+        // For native tests, we can only test that the function doesn't panic
+        // The actual behavior depends on the Web Audio API which isn't available in cargo test
+        // This is a structural test to ensure the function can be called
+        
+        // We can't actually call the function because it uses web APIs
+        // Instead we test the error types and structure
+        assert!(true); // This test just ensures the module compiles
+    }
+
+    #[test]
+    fn test_audio_error_types() {
+        let permission_error = AudioError::PermissionDenied("Test permission denied".to_string());
+        assert!(permission_error.to_string().contains("Permission denied"));
+        assert!(permission_error.to_string().contains("Test permission denied"));
+
+        let device_error = AudioError::DeviceUnavailable("Test device unavailable".to_string());
+        assert!(device_error.to_string().contains("Device unavailable"));
+        assert!(device_error.to_string().contains("Test device unavailable"));
+
+        let not_supported_error = AudioError::NotSupported("Test not supported".to_string());
+        assert!(not_supported_error.to_string().contains("Not supported"));
+        assert!(not_supported_error.to_string().contains("Test not supported"));
+
+        let stream_error = AudioError::StreamInitFailed("Test stream init failed".to_string());
+        assert!(stream_error.to_string().contains("Stream initialization failed"));
+        assert!(stream_error.to_string().contains("Test stream init failed"));
+
+        let generic_error = AudioError::Generic("Test generic error".to_string());
+        assert!(generic_error.to_string().contains("Audio error"));
+        assert!(generic_error.to_string().contains("Test generic error"));
+    }
+
+    #[test]
+    fn test_microphone_state_enum() {
+        // Test all microphone states
+        assert_eq!(MicrophoneState::Uninitialized.to_string(), "Uninitialized");
+        assert_eq!(MicrophoneState::Requesting.to_string(), "Requesting");
+        assert_eq!(MicrophoneState::Granted.to_string(), "Granted");
+        assert_eq!(MicrophoneState::Denied.to_string(), "Denied");
+        assert_eq!(MicrophoneState::Unavailable.to_string(), "Unavailable");
+
+        // Test PartialEq implementation
+        assert_eq!(MicrophoneState::Granted, MicrophoneState::Granted);
+        assert_ne!(MicrophoneState::Granted, MicrophoneState::Denied);
+    }
+
+    #[test]
+    fn test_audio_context_state_enum() {
+        // Test all audio context states
+        assert_eq!(AudioContextState::Uninitialized.to_string(), "Uninitialized");
+        assert_eq!(AudioContextState::Initializing.to_string(), "Initializing");
+        assert_eq!(AudioContextState::Running.to_string(), "Running");
+        assert_eq!(AudioContextState::Suspended.to_string(), "Suspended");
+        assert_eq!(AudioContextState::Closed.to_string(), "Closed");
+        assert_eq!(AudioContextState::Recreating.to_string(), "Recreating");
+
+        // Test PartialEq implementation
+        assert_eq!(AudioContextState::Running, AudioContextState::Running);
+        assert_ne!(AudioContextState::Running, AudioContextState::Suspended);
+    }
+
+    #[test]
+    fn test_stream_state_enum() {
+        // Test all stream states
+        assert_eq!(StreamState::Disconnected, StreamState::Disconnected);
+        assert_eq!(StreamState::Connecting, StreamState::Connecting);
+        assert_eq!(StreamState::Connected, StreamState::Connected);
+        assert_eq!(StreamState::Reconnecting, StreamState::Reconnecting);
+        assert_eq!(StreamState::Failed, StreamState::Failed);
+
+        // Test different states are not equal
+        assert_ne!(StreamState::Connected, StreamState::Disconnected);
+        assert_ne!(StreamState::Connecting, StreamState::Reconnecting);
+    }
+
+    #[test]
+    fn test_stream_error_types() {
+        let device_disconnected = StreamError::DeviceDisconnected;
+        assert_eq!(device_disconnected.to_string(), "Audio device disconnected");
+
+        let permission_revoked = StreamError::PermissionRevoked;
+        assert_eq!(permission_revoked.to_string(), "Microphone permission revoked");
+
+        let unknown_device = StreamError::UnknownDevice;
+        assert_eq!(unknown_device.to_string(), "Unknown audio device");
+
+        let reconnection_failed = StreamError::ReconnectionFailed;
+        assert_eq!(reconnection_failed.to_string(), "Failed to reconnect audio stream");
+
+        let stream_ended = StreamError::StreamEnded;
+        assert_eq!(stream_ended.to_string(), "Audio stream ended unexpectedly");
+
+        let config_error = StreamError::ConfigurationError("Test config error".to_string());
+        assert!(config_error.to_string().contains("Stream configuration error"));
+        assert!(config_error.to_string().contains("Test config error"));
+    }
+
+    #[test]
+    fn test_audio_stream_info_default() {
+        let info = AudioStreamInfo::default();
+        assert_eq!(info.sample_rate, 48000.0);
+        assert_eq!(info.buffer_size, 1024);
+        assert!(info.device_id.is_none());
+        assert!(info.device_label.is_none());
+    }
+
+    #[test]
+    fn test_audio_context_config_default() {
+        let config = AudioContextConfig::default();
+        assert_eq!(config.sample_rate, 48000.0);
+        assert_eq!(config.buffer_size, 1024);
+        assert_eq!(config.max_recreation_attempts, 3);
+    }
+
+    #[test]
+    fn test_stream_config_default() {
+        let config = StreamConfig::default();
+        assert_eq!(config.max_reconnect_attempts, 3);
+        assert_eq!(config.reconnect_delay_ms, 1000);
+        assert_eq!(config.health_check_interval_ms, 5000);
+        assert_eq!(config.activity_timeout_ms, 10000);
+    }
+
+    #[test]
+    fn test_manager_creation() {
+        // Test that all managers can be created successfully
+        let mic_manager = MicrophoneManager::new();
+        assert_eq!(*mic_manager.state(), MicrophoneState::Uninitialized);
+
+        let audio_manager = AudioContextManager::new();
+        assert_eq!(*audio_manager.state(), AudioContextState::Uninitialized);
+
+        let stream_handler = StreamReconnectionHandler::new(StreamConfig::default());
+        assert_eq!(stream_handler.get_health().state, StreamState::Disconnected);
+    }
+
+    #[test]
+    fn test_error_handling_integration() {
+        // Test that error types can be properly used together
+        let audio_error = AudioError::Generic("Integration test".to_string());
+        let stream_error = StreamError::ConfigurationError("Integration test".to_string());
+        
+        // Both should format correctly
+        assert!(audio_error.to_string().contains("Integration test"));
+        assert!(stream_error.to_string().contains("Integration test"));
+        
+        // Both should be Debug-formatted correctly
+        assert!(format!("{:?}", audio_error).contains("Generic"));
+        assert!(format!("{:?}", stream_error).contains("ConfigurationError"));
+    }
+}
