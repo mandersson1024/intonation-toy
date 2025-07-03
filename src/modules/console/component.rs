@@ -240,6 +240,8 @@ impl Component for DevConsole {
                     match self.audio_permission {
                         AudioPermission::Granted => {
                             self.output_manager.add_output(ConsoleOutput::success("✅ Microphone permission granted"));
+                            // Refresh device list when permission is granted to show device labels
+                            ctx.link().send_message(DevConsoleMsg::RefreshDevices);
                         }
                         AudioPermission::Denied => {
                             self.output_manager.add_output(ConsoleOutput::error("❌ Microphone permission denied"));
