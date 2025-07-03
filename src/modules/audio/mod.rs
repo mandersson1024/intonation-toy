@@ -6,6 +6,7 @@ pub mod context;
 pub mod worklet;
 pub mod stream;
 pub mod permission;
+pub mod buffer;
 
 use crate::modules::common::dev_log;
 
@@ -79,6 +80,7 @@ pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, Au
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
+pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX, DEV_BUFFER_SIZE_DEFAULT, AUDIO_CHUNK_SIZE, get_buffer_size, validate_buffer_size, validate_buffer_size_for_creation};
 
 #[cfg(test)]
 mod tests {
