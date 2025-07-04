@@ -712,9 +712,162 @@ impl ConsoleCommand for VolumeTestCommand {
     }
 }
 
+/// Base Audio Command - handles "audio" with subcommands
+pub struct AudioCommand;
+
+impl ConsoleCommand for AudioCommand {
+    fn name(&self) -> &str { "audio" }
+    fn description(&self) -> &str { "Audio system commands" }
+    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            // Show available audio subcommands
+            let variants = registry.get_command_variants("audio");
+            if !variants.is_empty() {
+                let mut help_lines = vec!["Available audio commands:".to_string()];
+                for variant in variants {
+                    let variant_name = variant.name().strip_prefix("audio-").unwrap_or(variant.name());
+                    help_lines.push(format!("  audio {} - {}", variant_name, variant.description()));
+                }
+                let help_text = help_lines.join("\n");
+                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
+            } else {
+                return ConsoleCommandResult::Output(ConsoleOutput::error("No audio subcommands available"));
+            }
+        }
+        
+        let subcommand = args[0];
+        let sub_args = args[1..].to_vec();
+        
+        match subcommand {
+            "context" => AudioContextCommand.execute(sub_args, registry),
+            "devices" => AudioDeviceListCommand.execute(sub_args, registry),
+            "refresh" => AudioRefreshCommand.execute(sub_args, registry),
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown audio subcommand: {}", subcommand))),
+        }
+    }
+}
+
+/// Base Buffer Command - handles "buffer" with subcommands
+pub struct BufferCommand;
+
+impl ConsoleCommand for BufferCommand {
+    fn name(&self) -> &str { "buffer" }
+    fn description(&self) -> &str { "Buffer management commands" }
+    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            // Show available buffer subcommands
+            let variants = registry.get_command_variants("buffer");
+            if !variants.is_empty() {
+                let mut help_lines = vec!["Available buffer commands:".to_string()];
+                for variant in variants {
+                    let variant_name = variant.name().strip_prefix("buffer-").unwrap_or(variant.name());
+                    help_lines.push(format!("  buffer {} - {}", variant_name, variant.description()));
+                }
+                let help_text = help_lines.join("\n");
+                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
+            } else {
+                return ConsoleCommandResult::Output(ConsoleOutput::error("No buffer subcommands available"));
+            }
+        }
+        
+        let subcommand = args[0];
+        let sub_args = args[1..].to_vec();
+        
+        match subcommand {
+            "status" => BufferStatusCommand.execute(sub_args, registry),
+            "metrics" => BufferMetricsCommand.execute(sub_args, registry),
+            "reset" => BufferResetCommand.execute(sub_args, registry),
+            "debug" => BufferDebugCommand.execute(sub_args, registry),
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown buffer subcommand: {}", subcommand))),
+        }
+    }
+}
+
+/// Base Pitch Command - handles "pitch" with subcommands
+pub struct PitchCommand;
+
+impl ConsoleCommand for PitchCommand {
+    fn name(&self) -> &str { "pitch" }
+    fn description(&self) -> &str { "Pitch detection commands" }
+    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            // Show available pitch subcommands
+            let variants = registry.get_command_variants("pitch");
+            if !variants.is_empty() {
+                let mut help_lines = vec!["Available pitch commands:".to_string()];
+                for variant in variants {
+                    let variant_name = variant.name().strip_prefix("pitch-").unwrap_or(variant.name());
+                    help_lines.push(format!("  pitch {} - {}", variant_name, variant.description()));
+                }
+                let help_text = help_lines.join("\n");
+                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
+            } else {
+                return ConsoleCommandResult::Output(ConsoleOutput::error("No pitch subcommands available"));
+            }
+        }
+        
+        let subcommand = args[0];
+        let sub_args = args[1..].to_vec();
+        
+        match subcommand {
+            "status" => PitchStatusCommand.execute(sub_args, registry),
+            "detect" => PitchDetectCommand.execute(sub_args, registry),
+            "threshold" => PitchThresholdCommand.execute(sub_args, registry),
+            "tuning" => PitchTuningCommand.execute(sub_args, registry),
+            "window" => PitchWindowCommand.execute(sub_args, registry),
+            "range" => PitchRangeCommand.execute(sub_args, registry),
+            "debug" => PitchDebugCommand.execute(sub_args, registry),
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown pitch subcommand: {}", subcommand))),
+        }
+    }
+}
+
+/// Base Volume Command - handles "volume" with subcommands
+pub struct VolumeCommand;
+
+impl ConsoleCommand for VolumeCommand {
+    fn name(&self) -> &str { "volume" }
+    fn description(&self) -> &str { "Volume detection commands" }
+    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            // Show available volume subcommands
+            let variants = registry.get_command_variants("volume");
+            if !variants.is_empty() {
+                let mut help_lines = vec!["Available volume commands:".to_string()];
+                for variant in variants {
+                    let variant_name = variant.name().strip_prefix("volume-").unwrap_or(variant.name());
+                    help_lines.push(format!("  volume {} - {}", variant_name, variant.description()));
+                }
+                let help_text = help_lines.join("\n");
+                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
+            } else {
+                return ConsoleCommandResult::Output(ConsoleOutput::error("No volume subcommands available"));
+            }
+        }
+        
+        let subcommand = args[0];
+        let sub_args = args[1..].to_vec();
+        
+        match subcommand {
+            "status" => VolumeStatusCommand.execute(sub_args, registry),
+            "config" => VolumeConfigCommand.execute(sub_args, registry),
+            "test" => VolumeTestCommand.execute(sub_args, registry),
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown volume subcommand: {}", subcommand))),
+        }
+    }
+}
+
 /// Register all audio commands with a command registry
 /// This function creates and registers all audio-related console commands
 pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
+    // Register base commands that handle subcommands
+    registry.register(Box::new(AudioCommand));
+    registry.register(Box::new(BufferCommand));
+    registry.register(Box::new(PitchCommand));
+    registry.register(Box::new(VolumeCommand));
+    
+    // Register compound commands for variant discovery and backward compatibility
+    // These won't appear in help but will be found when parsing compound commands
     registry.register(Box::new(AudioContextCommand));
     registry.register(Box::new(AudioDeviceListCommand));
     registry.register(Box::new(AudioRefreshCommand));
@@ -840,5 +993,26 @@ mod tests {
         
         assert_eq!(command.name(), "volume-test");
         assert_eq!(command.description(), "Test volume detection with generated signals: sine <freq> <amplitude> | silence | pink-noise <amplitude>");
+    }
+
+    #[test]
+    fn test_base_command_variant_display() {
+        use crate::console::ConsoleCommandRegistry;
+        
+        // Create a registry and register audio commands
+        let mut registry = ConsoleCommandRegistry::new();
+        register_audio_commands(&mut registry);
+        
+        // Test that calling "audio" without arguments shows subcommands
+        let result = registry.execute("audio");
+        match result {
+            crate::console::ConsoleCommandResult::Output(crate::console::ConsoleOutput::Info(text)) => {
+                assert!(text.contains("Available audio commands:"));
+                assert!(text.contains("  audio context - Show AudioContext status and configuration"));
+                assert!(text.contains("  audio devices - List available audio input and output devices"));
+                assert!(text.contains("  audio refresh - Refresh the audio device list"));
+            },
+            _ => panic!("Expected single Info output when showing audio subcommands"),
+        }
     }
 }
