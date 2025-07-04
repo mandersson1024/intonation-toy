@@ -20,7 +20,6 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 - **Audio Latency**: ≤30ms (production), ≤50ms (development)
 - **Graphics Performance**: Consistent 60fps rendering
 - **Memory Usage**: ≤50MB GPU memory, ≤100KB audio buffers
-- **CPU Usage**: ≤5% for audio processing on modern devices
 
 ## System Architecture
 

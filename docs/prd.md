@@ -45,7 +45,6 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 - NFR1: Audio processing latency shall not exceed 30ms in production builds (50ms in development)
 - NFR2: Graphics rendering shall maintain consistent 60fps performance
 - NFR4: Application load time shall not exceed 3 seconds on 3G connections
-- NFR5: CPU usage for audio processing shall not exceed 5% on modern devices
 - NFR6: GPU memory usage shall not exceed 50MB for texture and buffer allocation
 - NFR7: Application shall support Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ with **mandatory** WebAssembly, Web Audio API, AudioWorklet, and WebGL support. Application startup SHALL be prevented if any required API is unavailable
 - NFR8: Mobile compatibility shall include iOS Safari 14.5+ and Chrome Android 66+
