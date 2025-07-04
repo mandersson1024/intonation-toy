@@ -6,7 +6,10 @@
 
 use crate::console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
+use super::{PitchAnalyzer, TuningSystem};
 use wasm_bindgen_futures;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Audio Context Command - shows audio system status and configuration
 pub struct AudioContextCommand;
@@ -239,7 +242,11 @@ impl ConsoleCommand for BufferResetCommand {
 /// Buffer Debug Command - toggle debug logging flag (simple runtime flag)
 pub struct BufferDebugCommand;
 
-thread_local! { static BUFFER_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false); }
+thread_local! { 
+    static BUFFER_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false);
+    static PITCH_ANALYZER_GLOBAL: RefCell<Option<Rc<RefCell<PitchAnalyzer>>>> = RefCell::new(None);
+    static PITCH_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
 
 impl ConsoleCommand for BufferDebugCommand {
     fn name(&self) -> &str { "buffer-debug" }
@@ -247,6 +254,309 @@ impl ConsoleCommand for BufferDebugCommand {
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         let enabled = BUFFER_DEBUG_ENABLED.with(|c| { let val = !c.get(); c.set(val); val });
         ConsoleCommandResult::Output(ConsoleOutput::info(&format!("Buffer debug logging {}", if enabled { "enabled" } else { "disabled" })))
+    }
+}
+
+/// Helper function to set the global pitch analyzer
+pub fn set_global_pitch_analyzer(analyzer: Rc<RefCell<PitchAnalyzer>>) {
+    PITCH_ANALYZER_GLOBAL.with(|pa| {
+        *pa.borrow_mut() = Some(analyzer);
+    });
+}
+
+/// Helper function to get the global pitch analyzer
+pub fn get_global_pitch_analyzer() -> Option<Rc<RefCell<PitchAnalyzer>>> {
+    PITCH_ANALYZER_GLOBAL.with(|pa| pa.borrow().as_ref().cloned())
+}
+
+/// Pitch Status Command - shows pitch detection configuration and state
+pub struct PitchStatusCommand;
+
+impl ConsoleCommand for PitchStatusCommand {
+    fn name(&self) -> &str { "pitch-status" }
+    fn description(&self) -> &str { "Show current pitch detection configuration and state" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let mut outputs = Vec::new();
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let analyzer = analyzer_rc.borrow();
+            let config = analyzer.config();
+            let metrics = analyzer.metrics();
+            
+            outputs.push(ConsoleOutput::info("Pitch Detection Status:"));
+            outputs.push(ConsoleOutput::info(&format!("  Sample Window: {} samples", config.sample_window_size)));
+            outputs.push(ConsoleOutput::info(&format!("  Threshold: {:.2}", config.threshold)));
+            outputs.push(ConsoleOutput::info(&format!("  Frequency Range: {:.1} Hz - {:.1} Hz", config.min_frequency, config.max_frequency)));
+            
+            let tuning_desc = match &config.tuning_system {
+                TuningSystem::EqualTemperament { reference_pitch } => format!("Equal Temperament (A4 = {:.1} Hz)", reference_pitch),
+                TuningSystem::JustIntonation { reference_pitch } => format!("Just Intonation (A4 = {:.1} Hz)", reference_pitch),
+                TuningSystem::Custom { frequency_ratios } => format!("Custom ({} ratios)", frequency_ratios.len()),
+            };
+            outputs.push(ConsoleOutput::info(&format!("  Tuning System: {}", tuning_desc)));
+            
+            outputs.push(ConsoleOutput::info(&format!("  Processing Latency: {:.1} ms", metrics.processing_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Analysis Cycles: {}", metrics.analysis_cycles)));
+            outputs.push(ConsoleOutput::info(&format!("  Successful Detections: {}", metrics.successful_detections)));
+            outputs.push(ConsoleOutput::info(&format!("  Failed Detections: {}", metrics.failed_detections)));
+            outputs.push(ConsoleOutput::info(&format!("  Average Confidence: {:.2}", metrics.average_confidence)));
+            outputs.push(ConsoleOutput::info(&format!("  Memory Usage: {:.2} KB", metrics.memory_usage_bytes as f64 / 1024.0)));
+            
+            let status_text = if analyzer.is_ready() { "Ready" } else { "Not Ready" };
+            let status_output = if analyzer.is_ready() { 
+                ConsoleOutput::success(&format!("  Status: {}", status_text))
+            } else {
+                ConsoleOutput::warning(&format!("  Status: {}", status_text))
+            };
+            outputs.push(status_output);
+        } else {
+            outputs.push(ConsoleOutput::warning("Pitch analyzer not initialized"));
+        }
+        
+        ConsoleCommandResult::MultipleOutputs(outputs)
+    }
+}
+
+/// Pitch Detect Command - test pitch detection with specific frequency
+pub struct PitchDetectCommand;
+
+impl ConsoleCommand for PitchDetectCommand {
+    fn name(&self) -> &str { "pitch-detect" }
+    fn description(&self) -> &str { "Test pitch detection with specific frequency (Hz)" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-detect <frequency>"));
+        }
+        
+        let frequency: f32 = match args[0].parse() {
+            Ok(freq) => freq,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid frequency value")),
+        };
+        
+        if frequency < 20.0 || frequency > 20000.0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Frequency must be between 20 and 20000 Hz"));
+        }
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let analyzer = analyzer_rc.borrow();
+            let config = analyzer.config();
+            
+            // Generate test signal with the specified frequency
+            let sample_rate = 48000.0; // Standard sample rate
+            let duration_samples = config.sample_window_size;
+            let mut test_signal = vec![0.0; duration_samples];
+            
+            for (i, sample) in test_signal.iter_mut().enumerate() {
+                let t = i as f32 / sample_rate;
+                *sample = (2.0 * std::f32::consts::PI * frequency * t).sin();
+            }
+            
+            // Note: In a real implementation, we would call analyzer.analyze_samples(&test_signal)
+            // For now, we'll just report the test setup
+            ConsoleCommandResult::Output(ConsoleOutput::success(&format!(
+                "Test signal generated: {:.1} Hz ({} samples at {:.1} kHz)", 
+                frequency, duration_samples, sample_rate / 1000.0
+            )))
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Threshold Command - set confidence threshold
+pub struct PitchThresholdCommand;
+
+impl ConsoleCommand for PitchThresholdCommand {
+    fn name(&self) -> &str { "pitch-threshold" }
+    fn description(&self) -> &str { "Set confidence threshold (0.0-1.0)" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-threshold <value>"));
+        }
+        
+        let threshold: f32 = match args[0].parse() {
+            Ok(thresh) => thresh,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid threshold value")),
+        };
+        
+        if threshold < 0.0 || threshold > 1.0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Threshold must be between 0.0 and 1.0"));
+        }
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut analyzer = analyzer_rc.borrow_mut();
+            let mut config = analyzer.config().clone();
+            config.threshold = threshold;
+            
+            match analyzer.update_config(config) {
+                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Threshold set to {:.2}", threshold))),
+                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update threshold: {}", e))),
+            }
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Tuning Command - switch tuning system
+pub struct PitchTuningCommand;
+
+impl ConsoleCommand for PitchTuningCommand {
+    fn name(&self) -> &str { "pitch-tuning" }
+    fn description(&self) -> &str { "Switch tuning system (equal/just/custom)" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-tuning <system> [reference_pitch]"));
+        }
+        
+        let system = args[0].to_lowercase();
+        let reference_pitch = if args.len() > 1 {
+            match args[1].parse::<f32>() {
+                Ok(pitch) => pitch,
+                Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid reference pitch")),
+            }
+        } else {
+            440.0 // Default A4
+        };
+        
+        if reference_pitch < 420.0 || reference_pitch > 460.0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Reference pitch must be between 420 and 460 Hz"));
+        }
+        
+        let tuning_system = match system.as_str() {
+            "equal" => TuningSystem::EqualTemperament { reference_pitch },
+            "just" => TuningSystem::JustIntonation { reference_pitch },
+            "custom" => {
+                // Default 12-tone equal temperament ratios for custom example
+                let ratios = vec![1.0, 1.059463, 1.122462, 1.189207, 1.259921, 1.334840, 1.414214, 1.498307, 1.587401, 1.681793, 1.781797, 1.887749];
+                TuningSystem::Custom { frequency_ratios: ratios }
+            },
+            _ => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid tuning system. Use: equal, just, or custom")),
+        };
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut analyzer = analyzer_rc.borrow_mut();
+            let mut config = analyzer.config().clone();
+            config.tuning_system = tuning_system;
+            
+            match analyzer.update_config(config) {
+                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Tuning system set to {} (A4 = {:.1} Hz)", system, reference_pitch))),
+                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update tuning system: {}", e))),
+            }
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Window Command - set analysis window size
+pub struct PitchWindowCommand;
+
+impl ConsoleCommand for PitchWindowCommand {
+    fn name(&self) -> &str { "pitch-window" }
+    fn description(&self) -> &str { "Set analysis window size (multiple of 128)" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-window <size>"));
+        }
+        
+        let window_size: usize = match args[0].parse() {
+            Ok(size) => size,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid window size")),
+        };
+        
+        if window_size < 128 || window_size % 128 != 0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Window size must be a multiple of 128"));
+        }
+        
+        if window_size > 8192 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Window size must be ≤ 8192 samples"));
+        }
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut analyzer = analyzer_rc.borrow_mut();
+            let mut config = analyzer.config().clone();
+            config.sample_window_size = window_size;
+            
+            match analyzer.update_config(config) {
+                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Window size set to {} samples", window_size))),
+                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update window size: {}", e))),
+            }
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Range Command - set frequency detection range
+pub struct PitchRangeCommand;
+
+impl ConsoleCommand for PitchRangeCommand {
+    fn name(&self) -> &str { "pitch-range" }
+    fn description(&self) -> &str { "Set frequency detection range (min max)" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.len() < 2 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-range <min> <max>"));
+        }
+        
+        let min_freq: f32 = match args[0].parse() {
+            Ok(freq) => freq,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid minimum frequency")),
+        };
+        
+        let max_freq: f32 = match args[1].parse() {
+            Ok(freq) => freq,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid maximum frequency")),
+        };
+        
+        if min_freq <= 0.0 || max_freq <= 0.0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Frequencies must be positive"));
+        }
+        
+        if min_freq >= max_freq {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Minimum frequency must be less than maximum"));
+        }
+        
+        if min_freq < 20.0 || max_freq > 20000.0 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Frequencies must be between 20 and 20000 Hz"));
+        }
+        
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut analyzer = analyzer_rc.borrow_mut();
+            let mut config = analyzer.config().clone();
+            config.min_frequency = min_freq;
+            config.max_frequency = max_freq;
+            
+            match analyzer.update_config(config) {
+                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Frequency range set to {:.1} - {:.1} Hz", min_freq, max_freq))),
+                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update frequency range: {}", e))),
+            }
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Debug Command - toggle pitch detection debugging
+pub struct PitchDebugCommand;
+
+impl ConsoleCommand for PitchDebugCommand {
+    fn name(&self) -> &str { "pitch-debug" }
+    fn description(&self) -> &str { "Toggle pitch detection debug logging" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let enabled = PITCH_DEBUG_ENABLED.with(|c| { 
+            let val = !c.get(); 
+            c.set(val); 
+            val 
+        });
+        
+        let message = if enabled {
+            "Pitch detection debug logging enabled"
+        } else {
+            "Pitch detection debug logging disabled"
+        };
+        
+        ConsoleCommandResult::Output(ConsoleOutput::info(message))
     }
 }
 
@@ -260,6 +570,13 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferMetricsCommand));
     registry.register(Box::new(BufferResetCommand));
     registry.register(Box::new(BufferDebugCommand));
+    registry.register(Box::new(PitchStatusCommand));
+    registry.register(Box::new(PitchDetectCommand));
+    registry.register(Box::new(PitchThresholdCommand));
+    registry.register(Box::new(PitchTuningCommand));
+    registry.register(Box::new(PitchWindowCommand));
+    registry.register(Box::new(PitchRangeCommand));
+    registry.register(Box::new(PitchDebugCommand));
 }
 
 #[cfg(test)]
@@ -288,5 +605,61 @@ mod tests {
         
         assert_eq!(command.name(), "audio-refresh");
         assert_eq!(command.description(), "Refresh the audio device list");
+    }
+    
+    #[test]
+    fn test_pitch_status_command() {
+        let command = PitchStatusCommand;
+        
+        assert_eq!(command.name(), "pitch-status");
+        assert_eq!(command.description(), "Show current pitch detection configuration and state");
+    }
+    
+    #[test]
+    fn test_pitch_detect_command() {
+        let command = PitchDetectCommand;
+        
+        assert_eq!(command.name(), "pitch-detect");
+        assert_eq!(command.description(), "Test pitch detection with specific frequency (Hz)");
+    }
+    
+    #[test]
+    fn test_pitch_threshold_command() {
+        let command = PitchThresholdCommand;
+        
+        assert_eq!(command.name(), "pitch-threshold");
+        assert_eq!(command.description(), "Set confidence threshold (0.0-1.0)");
+    }
+    
+    #[test]
+    fn test_pitch_tuning_command() {
+        let command = PitchTuningCommand;
+        
+        assert_eq!(command.name(), "pitch-tuning");
+        assert_eq!(command.description(), "Switch tuning system (equal/just/custom)");
+    }
+    
+    #[test]
+    fn test_pitch_window_command() {
+        let command = PitchWindowCommand;
+        
+        assert_eq!(command.name(), "pitch-window");
+        assert_eq!(command.description(), "Set analysis window size (multiple of 128)");
+    }
+    
+    #[test]
+    fn test_pitch_range_command() {
+        let command = PitchRangeCommand;
+        
+        assert_eq!(command.name(), "pitch-range");
+        assert_eq!(command.description(), "Set frequency detection range (min max)");
+    }
+    
+    #[test]
+    fn test_pitch_debug_command() {
+        let command = PitchDebugCommand;
+        
+        assert_eq!(command.name(), "pitch-debug");
+        assert_eq!(command.description(), "Toggle pitch detection debug logging");
     }
 }

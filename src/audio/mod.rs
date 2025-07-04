@@ -139,7 +139,7 @@ pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER
 pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
 pub use buffer_pool::{BufferPool, MAX_GPU_MEMORY_BYTES};
 pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
-pub use commands::register_audio_commands;
+pub use commands::{register_audio_commands, set_global_pitch_analyzer, get_global_pitch_analyzer};
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
