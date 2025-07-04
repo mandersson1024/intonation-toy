@@ -4,7 +4,7 @@
 //! by various components of the application. These events enable loose coupling between
 //! the audio subsystem and other components like the console.
 
-use crate::audio::{AudioPermission, AudioDevices, AudioContextState};
+use crate::audio::{AudioPermission, AudioDevices, AudioContextState, MusicalNote};
 
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
@@ -21,6 +21,25 @@ pub enum AudioEvent {
     BufferOverflow { buffer_index: usize, overflow_count: usize },
     /// Buffer pool metrics update (periodic)
     BufferMetrics { total_buffers: usize, total_overflows: usize, memory_bytes: usize },
+    /// Pitch successfully detected
+    PitchDetected {
+        frequency: f32,
+        confidence: f32,
+        note: MusicalNote,
+        clarity: f32,
+        timestamp: f64,
+    },
+    /// Pitch detection lost (below threshold)
+    PitchLost {
+        last_frequency: f32,
+        timestamp: f64,
+    },
+    /// Confidence level changed significantly
+    ConfidenceChanged {
+        frequency: f32,
+        confidence: f32,
+        timestamp: f64,
+    },
 }
 
 impl AudioEvent {
@@ -33,6 +52,9 @@ impl AudioEvent {
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
             AudioEvent::BufferMetrics { .. } => "buffer_metrics",
+            AudioEvent::PitchDetected { .. } => "pitch_detected",
+            AudioEvent::PitchLost { .. } => "pitch_lost",
+            AudioEvent::ConfidenceChanged { .. } => "pitch_confidence_changed",
         }
     }
     
@@ -58,6 +80,15 @@ impl AudioEvent {
             }
             AudioEvent::BufferMetrics { total_buffers, total_overflows, memory_bytes } => {
                 format!("Buffer metrics: {} buffers, {} overflows, {:.2} MB", total_buffers, total_overflows, *memory_bytes as f64 / 1_048_576.0)
+            }
+            AudioEvent::PitchDetected { frequency, confidence, note, .. } => {
+                format!("Pitch detected: {:.2}Hz ({}) confidence={:.2}", frequency, note, confidence)
+            }
+            AudioEvent::PitchLost { last_frequency, .. } => {
+                format!("Pitch lost (was {:.2}Hz)", last_frequency)
+            }
+            AudioEvent::ConfidenceChanged { frequency, confidence, .. } => {
+                format!("Confidence changed: {:.2}Hz confidence={:.2}", frequency, confidence)
             }
         }
     }
@@ -107,5 +138,39 @@ mod tests {
         let metrics = AudioEvent::BufferMetrics { total_buffers: 8, total_overflows: 5, memory_bytes: 32768 };
         assert_eq!(metrics.event_type(), "buffer_metrics");
         assert!(metrics.description().contains("8 buffers"));
+    }
+
+    #[test]
+    fn test_pitch_event_types_and_descriptions() {
+        use crate::audio::{NoteName, MusicalNote};
+
+        let note = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
+        let detected = AudioEvent::PitchDetected {
+            frequency: 440.0,
+            confidence: 0.9,
+            note,
+            clarity: 0.8,
+            timestamp: 1000.0,
+        };
+        assert_eq!(detected.event_type(), "pitch_detected");
+        assert!(detected.description().contains("440.00Hz"));
+        assert!(detected.description().contains("A4"));
+        assert!(detected.description().contains("confidence=0.90"));
+
+        let lost = AudioEvent::PitchLost {
+            last_frequency: 440.0,
+            timestamp: 1000.0,
+        };
+        assert_eq!(lost.event_type(), "pitch_lost");
+        assert!(lost.description().contains("was 440.00Hz"));
+
+        let confidence_changed = AudioEvent::ConfidenceChanged {
+            frequency: 440.0,
+            confidence: 0.7,
+            timestamp: 1000.0,
+        };
+        assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
+        assert!(confidence_changed.description().contains("440.00Hz"));
+        assert!(confidence_changed.description().contains("confidence=0.70"));
     }
 }

@@ -13,6 +13,7 @@ pub mod console_service;
 pub mod commands;
 pub mod pitch_detector;
 pub mod note_mapper;
+pub mod pitch_analyzer;
 
 use crate::common::dev_log;
 
@@ -141,6 +142,7 @@ pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioSta
 pub use commands::register_audio_commands;
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 pub use note_mapper::NoteMapper;
+pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 
 #[cfg(test)]
 mod tests {
