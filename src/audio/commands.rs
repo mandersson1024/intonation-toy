@@ -61,26 +61,31 @@ impl ConsoleCommand for AudioContextCommand {
             };
             outputs.push(system_output);
             
-            // Show device information
+            // Show device information in one consolidated message
             let devices = manager.get_cached_devices();
             let input_count = devices.input_devices.len();
             let output_count = devices.output_devices.len();
-            outputs.push(ConsoleOutput::info(&format!("  Audio Devices: {} input, {} output", input_count, output_count)));
             
-            // List device details
+            let mut device_lines = vec![format!("  Audio Devices: {} input, {} output", input_count, output_count)];
+            
+            // Add input devices
             if !devices.input_devices.is_empty() {
-                outputs.push(ConsoleOutput::info("  Input Devices:"));
+                device_lines.push("  Input Devices:".to_string());
                 for (device_id, label) in &devices.input_devices {
-                    outputs.push(ConsoleOutput::info(&format!("    • {} ({})", label, device_id)));
+                    device_lines.push(format!("    • {} ({})", label, device_id));
                 }
             }
             
+            // Add output devices
             if !devices.output_devices.is_empty() {
-                outputs.push(ConsoleOutput::info("  Output Devices:"));
+                device_lines.push("  Output Devices:".to_string());
                 for (device_id, label) in &devices.output_devices {
-                    outputs.push(ConsoleOutput::info(&format!("    • {} ({})", label, device_id)));
+                    device_lines.push(format!("    • {} ({})", label, device_id));
                 }
             }
+            
+            let device_text = device_lines.join("\n");
+            outputs.push(ConsoleOutput::info(device_text));
         } else {
             outputs.push(ConsoleOutput::warning("  Audio Context State: Not Initialized"));
             outputs.push(ConsoleOutput::warning("  Audio system has not been initialized yet"));
