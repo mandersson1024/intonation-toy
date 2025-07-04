@@ -45,9 +45,10 @@ use web_sys::{
     AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
     AudioNode
 };
+use js_sys;
 use std::fmt;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -128,6 +129,9 @@ pub struct AudioWorkletManager {
     config: AudioWorkletConfig,
     buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
     event_dispatcher: Option<crate::events::SharedEventDispatcher>,
+    volume_detector: Option<VolumeDetector>,
+    last_volume_analysis: Option<VolumeAnalysis>,
+    chunk_counter: u32,
 }
 
 impl AudioWorkletManager {
@@ -139,6 +143,9 @@ impl AudioWorkletManager {
             config: AudioWorkletConfig::default(),
             buffer_pool: None,
             event_dispatcher: None,
+            volume_detector: None,
+            last_volume_analysis: None,
+            chunk_counter: 0,
         }
     }
     
@@ -150,6 +157,9 @@ impl AudioWorkletManager {
             config,
             buffer_pool: None,
             event_dispatcher: None,
+            volume_detector: None,
+            last_volume_analysis: None,
+            chunk_counter: 0,
         }
     }
     
@@ -368,20 +378,123 @@ impl AudioWorkletManager {
         self.event_dispatcher = Some(dispatcher);
     }
 
+    /// Set volume detector for real-time volume analysis
+    pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
+        self.volume_detector = Some(detector);
+    }
+
+    /// Update volume detector configuration
+    pub fn update_volume_config(&mut self, config: VolumeDetectorConfig) -> Result<(), String> {
+        if let Some(detector) = &mut self.volume_detector {
+            detector.update_config(config)
+        } else {
+            Err("No volume detector attached".to_string())
+        }
+    }
+
+    /// Get current volume analysis result
+    pub fn last_volume_analysis(&self) -> Option<&VolumeAnalysis> {
+        self.last_volume_analysis.as_ref()
+    }
+
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
     /// This method is platform-agnostic and can be unit-tested natively.
+    /// Also performs real-time volume analysis if VolumeDetector is attached.
     pub fn feed_input_chunk(&mut self, samples: &[f32]) -> Result<(), String> {
+        self.feed_input_chunk_with_timestamp(samples, None)
+    }
+
+    /// Feed input chunk with explicit timestamp (for testing)
+    pub fn feed_input_chunk_with_timestamp(&mut self, samples: &[f32], timestamp: Option<f64>) -> Result<(), String> {
         if samples.len() as u32 != self.config.chunk_size {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
         }
 
+        // Get timestamp for volume analysis
+        let timestamp = timestamp.unwrap_or_else(|| {
+            #[cfg(target_arch = "wasm32")]
+            {
+                js_sys::Date::now()
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                // For native tests, use a mock timestamp
+                1000.0 + (self.chunk_counter as f64 * 2.67) // ~2.67ms per chunk at 48kHz
+            }
+        });
+
+        // Perform volume analysis if detector is available
+        if let Some(detector) = &mut self.volume_detector {
+            let volume_analysis = detector.process_buffer(samples, timestamp);
+            
+            // Check for volume change events
+            if let Some(previous) = &self.last_volume_analysis {
+                let rms_change = (volume_analysis.rms_db - previous.rms_db).abs();
+                
+                // Publish volume change event if significant change (>3dB)
+                if rms_change > 3.0 {
+                    if let Some(dispatcher) = &self.event_dispatcher {
+                        dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeChanged {
+                            previous_rms_db: previous.rms_db,
+                            current_rms_db: volume_analysis.rms_db,
+                            change_db: volume_analysis.rms_db - previous.rms_db,
+                            timestamp,
+                        });
+                    }
+                }
+
+                // Check for volume warnings (problematic levels)
+                let current_problematic = matches!(volume_analysis.level, 
+                    super::VolumeLevel::Silent | super::VolumeLevel::Clipping);
+                let previous_problematic = matches!(previous.level, 
+                    super::VolumeLevel::Silent | super::VolumeLevel::Clipping);
+                
+                if current_problematic && !previous_problematic {
+                    if let Some(dispatcher) = &self.event_dispatcher {
+                        let message = match volume_analysis.level {
+                            super::VolumeLevel::Silent => "Input level too low".to_string(),
+                            super::VolumeLevel::Clipping => "Input level clipping".to_string(),
+                            _ => "Volume level warning".to_string(),
+                        };
+                        
+                        dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeWarning {
+                            level: volume_analysis.level,
+                            rms_db: volume_analysis.rms_db,
+                            message,
+                            timestamp,
+                        });
+                    }
+                }
+            }
+
+            // Publish volume detected event every 16 chunks (~11.6ms at 48kHz)
+            self.chunk_counter += 1;
+            if self.chunk_counter % 16 == 0 {
+                if let Some(dispatcher) = &self.event_dispatcher {
+                    dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeDetected {
+                        rms_db: volume_analysis.rms_db,
+                        peak_db: volume_analysis.peak_db,
+                        peak_fast_db: volume_analysis.peak_fast_db,
+                        peak_slow_db: volume_analysis.peak_slow_db,
+                        level: volume_analysis.level,
+                        confidence_weight: volume_analysis.confidence_weight,
+                        timestamp,
+                    });
+                }
+            }
+
+            // Store the current analysis for next comparison
+            self.last_volume_analysis = Some(volume_analysis);
+        }
+
+        // Buffer management
         let pool_rc = self.buffer_pool.as_ref().ok_or("No buffer pool attached")?.clone();
         let mut pool = pool_rc.borrow_mut();
         let buffer = pool.get_mut(0).ok_or("BufferPool is empty")?;
 
         buffer.write_chunk(samples);
 
-        // Publish events if dispatcher present
+        // Publish buffer events if dispatcher present
         if let Some(dispatcher) = &self.event_dispatcher {
             if buffer.is_full() {
                 dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferFilled {
@@ -503,7 +616,7 @@ mod tests {
 
     #[test]
     fn test_feed_input_chunk_and_events() {
-        use crate::audio::{BufferPool};
+        use crate::audio::{BufferPool, VolumeDetector};
         use crate::events::event_dispatcher::create_shared_dispatcher;
         use std::rc::Rc;
         use std::cell::RefCell;
@@ -517,17 +630,74 @@ mod tests {
         // Create pool with one buffer 256 samples capacity
         let pool = Rc::new(RefCell::new(BufferPool::<f32>::new(1, 256).unwrap()));
 
-        // Create manager
+        // Create manager with volume detector
         let mut mgr = AudioWorkletManager::new();
         mgr.set_buffer_pool(pool.clone());
         mgr.set_event_dispatcher(dispatcher.clone());
+        mgr.set_volume_detector(VolumeDetector::new_default());
 
         // Feed two chunks of 128 samples each (fills buffer)
-        let chunk = vec![0.0_f32; 128];
+        let chunk = vec![0.1_f32; 128]; // Use small signal for volume detection
         mgr.feed_input_chunk(&chunk).unwrap();
         mgr.feed_input_chunk(&chunk).unwrap();
 
         // Expect buffer_filled event
         assert_eq!(received.borrow().len(), 1);
+        
+        // Should have volume analysis available
+        assert!(mgr.last_volume_analysis().is_some());
+    }
+
+    #[test]
+    fn test_volume_detection_integration() {
+        use crate::audio::{BufferPool, VolumeDetector, VolumeDetectorConfig};
+        use crate::events::event_dispatcher::create_shared_dispatcher;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+
+        // Create dispatcher and track volume events
+        let dispatcher = create_shared_dispatcher();
+        let volume_events = Rc::new(RefCell::new(Vec::new()));
+        let vol_clone = volume_events.clone();
+        dispatcher.borrow_mut().subscribe("volume_detected", move |e| { vol_clone.borrow_mut().push(e); });
+
+        // Create pool and manager with volume detector
+        let pool = Rc::new(RefCell::new(BufferPool::<f32>::new(1, 256).unwrap()));
+        let mut mgr = AudioWorkletManager::new();
+        mgr.set_buffer_pool(pool.clone());
+        mgr.set_event_dispatcher(dispatcher.clone());
+        
+        let config = VolumeDetectorConfig {
+            sample_rate: 48000.0,
+            ..VolumeDetectorConfig::default()
+        };
+        mgr.set_volume_detector(VolumeDetector::new(config).unwrap());
+
+        // Feed 16 chunks to trigger volume event publication
+        let chunk = vec![0.1_f32; 128];
+        for _ in 0..16 {
+            mgr.feed_input_chunk(&chunk).unwrap();
+        }
+
+        // Should have published volume detected event
+        assert!(volume_events.borrow().len() > 0);
+        
+        // Should have volume analysis available
+        let analysis = mgr.last_volume_analysis().unwrap();
+        assert!(analysis.rms_db.is_finite());
+        assert!(analysis.confidence_weight > 0.0);
+    }
+
+    #[test]
+    fn test_volume_config_update() {
+        let mut mgr = AudioWorkletManager::new();
+        
+        // Should fail without volume detector
+        let config = VolumeDetectorConfig::default();
+        assert!(mgr.update_volume_config(config.clone()).is_err());
+        
+        // Should succeed with volume detector
+        mgr.set_volume_detector(VolumeDetector::new_default());
+        assert!(mgr.update_volume_config(config).is_ok());
     }
 }

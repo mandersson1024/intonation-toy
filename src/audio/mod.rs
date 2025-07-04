@@ -14,6 +14,7 @@ pub mod commands;
 pub mod pitch_detector;
 pub mod note_mapper;
 pub mod pitch_analyzer;
+pub mod volume_detector;
 
 use crate::common::dev_log;
 
@@ -143,6 +144,7 @@ pub use commands::{register_audio_commands, set_global_pitch_analyzer, get_globa
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
+pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
 
 #[cfg(test)]
 mod tests {

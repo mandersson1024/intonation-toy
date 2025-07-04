@@ -2,6 +2,7 @@ use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 use super::note_mapper::NoteMapper;
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
+use super::volume_detector::VolumeAnalysis;
 use crate::events::SharedEventDispatcher;
 use crate::events::audio_events::AudioEvent;
 
@@ -49,6 +50,9 @@ pub struct PitchAnalyzer {
     confidence_threshold_for_events: f32,
     // Pre-allocated buffer for zero-allocation processing
     analysis_buffer: Vec<f32>,
+    // Volume-based confidence weighting
+    last_volume_analysis: Option<VolumeAnalysis>,
+    volume_confidence_enabled: bool,
 }
 
 impl PitchAnalyzer {
@@ -73,6 +77,8 @@ impl PitchAnalyzer {
             last_detection: None,
             confidence_threshold_for_events: 0.1, // Threshold for confidence change events
             analysis_buffer,
+            last_volume_analysis: None,
+            volume_confidence_enabled: true,
         })
     }
 
@@ -84,6 +90,30 @@ impl PitchAnalyzer {
     /// Set the confidence threshold for confidence change events
     pub fn set_confidence_threshold(&mut self, threshold: f32) {
         self.confidence_threshold_for_events = threshold.clamp(0.0, 1.0);
+    }
+
+    /// Enable or disable volume-based confidence weighting
+    pub fn set_volume_confidence_enabled(&mut self, enabled: bool) {
+        self.volume_confidence_enabled = enabled;
+    }
+
+    /// Update volume analysis for confidence weighting
+    pub fn update_volume_analysis(&mut self, volume_analysis: VolumeAnalysis) {
+        self.last_volume_analysis = Some(volume_analysis);
+    }
+
+    /// Get the current volume-weighted confidence multiplier
+    /// Returns 1.0 if volume confidence is disabled or no volume data is available
+    fn get_volume_confidence_weight(&self) -> f32 {
+        if !self.volume_confidence_enabled {
+            return 1.0;
+        }
+
+        if let Some(ref volume) = self.last_volume_analysis {
+            volume.confidence_weight
+        } else {
+            1.0 // No volume data, assume optimal
+        }
     }
 
     /// Analyze audio samples and publish pitch events
@@ -293,17 +323,22 @@ impl PitchAnalyzer {
         // Convert frequency to musical note
         let note = self.note_mapper.frequency_to_note(result.frequency);
 
-        // Check if this is a significant confidence change
+        // Apply volume-based confidence weighting
+        let volume_weight = self.get_volume_confidence_weight();
+        let weighted_confidence = result.confidence * volume_weight;
+
+        // Check if this is a significant confidence change (using weighted confidence)
         let confidence_changed = if let Some(ref last) = self.last_detection {
-            (result.confidence - last.confidence).abs() > self.confidence_threshold_for_events
+            let last_weighted = last.confidence * self.get_volume_confidence_weight();
+            (weighted_confidence - last_weighted).abs() > self.confidence_threshold_for_events
         } else {
             true // First detection is always a change
         };
 
-        // Publish pitch detected event
+        // Publish pitch detected event with volume-weighted confidence
         let pitch_event = AudioEvent::PitchDetected {
             frequency: result.frequency,
-            confidence: result.confidence,
+            confidence: weighted_confidence,
             note,
             clarity: result.clarity,
             timestamp: result.timestamp,
@@ -314,14 +349,14 @@ impl PitchAnalyzer {
         if confidence_changed {
             let confidence_event = AudioEvent::ConfidenceChanged {
                 frequency: result.frequency,
-                confidence: result.confidence,
+                confidence: weighted_confidence,
                 timestamp: result.timestamp,
             };
             self.publish_event(confidence_event);
         }
 
-        // Update average confidence (simple moving average over last few samples)
-        self.update_average_confidence(result.confidence);
+        // Update average confidence using weighted value
+        self.update_average_confidence(weighted_confidence);
 
         Ok(())
     }

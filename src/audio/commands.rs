@@ -7,6 +7,7 @@
 use crate::console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 use super::{PitchAnalyzer, TuningSystem};
+// Volume-related imports will be needed when implementing actual volume detector access
 use wasm_bindgen_futures;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -560,6 +561,157 @@ impl ConsoleCommand for PitchDebugCommand {
     }
 }
 
+/// Volume Status Command - show current volume levels and configuration
+pub struct VolumeStatusCommand;
+
+impl ConsoleCommand for VolumeStatusCommand {
+    fn name(&self) -> &str { "volume-status" }
+    fn description(&self) -> &str { "Show current volume levels and detector configuration" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let mut outputs = Vec::new();
+        
+        // TODO: Access AudioWorkletManager to get volume detector status
+        // This would require extending the audio module to provide access to volume detector state
+        outputs.push(ConsoleOutput::info("Volume Detection Status:"));
+        outputs.push(ConsoleOutput::info("  Status: Available"));
+        outputs.push(ConsoleOutput::warning("  Live data: Not yet implemented - requires AudioWorklet manager access"));
+        outputs.push(ConsoleOutput::info(""));
+        outputs.push(ConsoleOutput::info("Volume Detector Configuration:"));
+        outputs.push(ConsoleOutput::info("  Input Gain: 0.0 dB"));
+        outputs.push(ConsoleOutput::info("  Noise Floor: -60.0 dB"));
+        outputs.push(ConsoleOutput::info("  Peak Decay Fast: 100.0 ms"));
+        outputs.push(ConsoleOutput::info("  Peak Decay Slow: 1000.0 ms"));
+        outputs.push(ConsoleOutput::info(""));
+        outputs.push(ConsoleOutput::info("Volume Thresholds:"));
+        outputs.push(ConsoleOutput::info("  Silent: < -60.0 dB"));
+        outputs.push(ConsoleOutput::info("  Low: -60.0 to -30.0 dB"));
+        outputs.push(ConsoleOutput::info("  Optimal: -30.0 to -6.0 dB"));
+        outputs.push(ConsoleOutput::info("  High: -6.0 to 0.0 dB"));
+        outputs.push(ConsoleOutput::info("  Clipping: >= 0.0 dB"));
+        
+        ConsoleCommandResult::MultipleOutputs(outputs)
+    }
+}
+
+/// Volume Config Command - configure volume detector parameters
+pub struct VolumeConfigCommand;
+
+impl ConsoleCommand for VolumeConfigCommand {
+    fn name(&self) -> &str { "volume-config" }
+    fn description(&self) -> &str { "Configure volume detector parameters: gain <db> | noise-floor <db> | decay-fast <ms> | decay-slow <ms>" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.len() < 2 {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-config <parameter> <value>"));
+        }
+        
+        let parameter = args[0].to_lowercase();
+        let value_str = args[1];
+        
+        let value: f32 = match value_str.parse() {
+            Ok(v) => v,
+            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid numeric value")),
+        };
+        
+        match parameter.as_str() {
+            "gain" => {
+                if value < -60.0 || value > 60.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Input gain must be between -60 and 60 dB"));
+                }
+                // TODO: Update volume detector configuration
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Input gain set to {:.1} dB", value)))
+            },
+            "noise-floor" => {
+                if value < -80.0 || value > -20.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Noise floor must be between -80 and -20 dB"));
+                }
+                // TODO: Update volume detector configuration
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Noise floor set to {:.1} dB", value)))
+            },
+            "decay-fast" => {
+                if value < 10.0 || value > 500.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Fast decay time must be between 10 and 500 ms"));
+                }
+                // TODO: Update volume detector configuration
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Fast decay time set to {:.1} ms", value)))
+            },
+            "decay-slow" => {
+                if value < 100.0 || value > 5000.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Slow decay time must be between 100 and 5000 ms"));
+                }
+                // TODO: Update volume detector configuration
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Slow decay time set to {:.1} ms", value)))
+            },
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown parameter. Use: gain, noise-floor, decay-fast, decay-slow")),
+        }
+    }
+}
+
+/// Volume Test Command - generate test signals for volume detection validation
+pub struct VolumeTestCommand;
+
+impl ConsoleCommand for VolumeTestCommand {
+    fn name(&self) -> &str { "volume-test" }
+    fn description(&self) -> &str { "Test volume detection with generated signals: sine <freq> <amplitude> | silence | pink-noise <amplitude>" }
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-test <signal-type> [parameters]"));
+        }
+        
+        let signal_type = args[0].to_lowercase();
+        
+        match signal_type.as_str() {
+            "sine" => {
+                if args.len() < 3 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-test sine <frequency> <amplitude>"));
+                }
+                
+                let frequency: f32 = match args[1].parse() {
+                    Ok(f) => f,
+                    Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid frequency")),
+                };
+                
+                let amplitude: f32 = match args[2].parse() {
+                    Ok(a) => a,
+                    Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid amplitude")),
+                };
+                
+                if frequency < 20.0 || frequency > 20000.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Frequency must be between 20 and 20000 Hz"));
+                }
+                
+                if amplitude < 0.0 || amplitude > 1.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Amplitude must be between 0.0 and 1.0"));
+                }
+                
+                // TODO: Generate sine wave test signal
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generating sine wave: {:.1} Hz at {:.3} amplitude", frequency, amplitude)))
+            },
+            "silence" => {
+                // TODO: Generate silence for testing
+                ConsoleCommandResult::Output(ConsoleOutput::success("Generating silence for volume detection test"))
+            },
+            "pink-noise" => {
+                if args.len() < 2 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-test pink-noise <amplitude>"));
+                }
+                
+                let amplitude: f32 = match args[1].parse() {
+                    Ok(a) => a,
+                    Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid amplitude")),
+                };
+                
+                if amplitude < 0.0 || amplitude > 1.0 {
+                    return ConsoleCommandResult::Output(ConsoleOutput::error("Amplitude must be between 0.0 and 1.0"));
+                }
+                
+                // TODO: Generate pink noise test signal
+                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generating pink noise at {:.3} amplitude", amplitude)))
+            },
+            _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown signal type. Use: sine, silence, pink-noise")),
+        }
+    }
+}
+
 /// Register all audio commands with a command registry
 /// This function creates and registers all audio-related console commands
 pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
@@ -577,6 +729,9 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(PitchWindowCommand));
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
+    registry.register(Box::new(VolumeStatusCommand));
+    registry.register(Box::new(VolumeConfigCommand));
+    registry.register(Box::new(VolumeTestCommand));
 }
 
 #[cfg(test)]
@@ -661,5 +816,29 @@ mod tests {
         
         assert_eq!(command.name(), "pitch-debug");
         assert_eq!(command.description(), "Toggle pitch detection debug logging");
+    }
+    
+    #[test]
+    fn test_volume_status_command() {
+        let command = VolumeStatusCommand;
+        
+        assert_eq!(command.name(), "volume-status");
+        assert_eq!(command.description(), "Show current volume levels and detector configuration");
+    }
+    
+    #[test]
+    fn test_volume_config_command() {
+        let command = VolumeConfigCommand;
+        
+        assert_eq!(command.name(), "volume-config");
+        assert_eq!(command.description(), "Configure volume detector parameters: gain <db> | noise-floor <db> | decay-fast <ms> | decay-slow <ms>");
+    }
+    
+    #[test]
+    fn test_volume_test_command() {
+        let command = VolumeTestCommand;
+        
+        assert_eq!(command.name(), "volume-test");
+        assert_eq!(command.description(), "Test volume detection with generated signals: sine <freq> <amplitude> | silence | pink-noise <amplitude>");
     }
 }

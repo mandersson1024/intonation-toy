@@ -23,6 +23,8 @@ pub struct DevConsoleProps {
     pub registry: Rc<ConsoleCommandRegistry>,
     /// Audio service for audio operations
     pub audio_service: Rc<crate::audio::ConsoleAudioServiceImpl>,
+    /// Event dispatcher for audio events (optional)
+    pub event_dispatcher: Option<crate::events::SharedEventDispatcher>,
 }
 
 impl PartialEq for DevConsoleProps {
@@ -77,6 +79,8 @@ pub enum DevConsoleMsg {
     UpdateAudioDevices(AudioDevices),
     /// Refresh devices (trigger service refresh)
     RefreshDevices,
+    /// Update volume level display (for real-time monitoring)
+    UpdateVolumeLevel(String),
 }
 
 impl Component for DevConsole {
@@ -258,6 +262,11 @@ impl Component for DevConsole {
                 false // No need to re-render immediately (events will trigger updates)
             }
             
+            DevConsoleMsg::UpdateVolumeLevel(level_info) => {
+                // Add volume level update to console output
+                self.output_manager.add_output(ConsoleOutput::info(&format!("Volume: {}", level_info)));
+                true // Re-render to show volume update
+            }
             
         }
     }
