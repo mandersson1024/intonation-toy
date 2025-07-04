@@ -242,6 +242,46 @@ where
         Some(block)
     }
 
+    /// Non-destructive read of multiple samples starting at offset
+    /// Returns the actual number of samples read into output buffer
+    /// Preserves data in the circular buffer for sliding window processing
+    pub fn peek_chunk(&self, offset: usize, output: &mut [T]) -> usize {
+        let mut read_count = 0;
+        
+        for i in 0..output.len() {
+            if let Some(sample) = self.buffer.get(offset + i) {
+                output[i] = sample.clone();
+                read_count += 1;
+            } else {
+                break;
+            }
+        }
+        
+        read_count
+    }
+
+    /// Non-destructive read of multiple samples starting at offset
+    /// Returns a Vec containing the requested samples
+    /// More convenient than peek_chunk when you don't have a pre-allocated buffer
+    pub fn peek_chunk_vec(&self, offset: usize, count: usize) -> Vec<T> {
+        let available = std::cmp::min(count, self.buffer.len().saturating_sub(offset));
+        let mut result = Vec::with_capacity(available);
+        
+        for i in offset..offset + available {
+            if let Some(sample) = self.buffer.get(i) {
+                result.push(sample.clone());
+            }
+        }
+        
+        result
+    }
+
+    /// Check if enough samples are available for a sliding window operation
+    /// Returns true if we can read 'window_size' samples starting at 'offset'
+    pub fn can_read_window(&self, offset: usize, window_size: usize) -> bool {
+        self.buffer.len() >= offset + window_size
+    }
+
     /// Clear the buffer and reset state
     pub fn clear(&mut self) {
         self.buffer.clear();
@@ -539,5 +579,107 @@ mod tests {
         buffer.reset_overflow();
         assert!(!buffer.has_overflowed());
         assert_eq!(buffer.overflow_count(), 0);
+    }
+
+    #[test]
+    fn test_circular_buffer_peek_chunk() {
+        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        
+        // Write some samples
+        for i in 0..10 {
+            buffer.write(i as f32);
+        }
+        
+        // Peek at samples without removing them
+        let mut output = vec![0.0; 5];
+        let read = buffer.peek_chunk(2, &mut output);
+        assert_eq!(read, 5);
+        assert_eq!(output, vec![2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(buffer.len(), 10); // Length unchanged
+        
+        // Peek beyond available samples
+        let mut output = vec![0.0; 5];
+        let read = buffer.peek_chunk(8, &mut output);
+        assert_eq!(read, 2);
+        assert_eq!(output[0..2], vec![8.0, 9.0]);
+        
+        // Peek at offset beyond buffer
+        let mut output = vec![0.0; 5];
+        let read = buffer.peek_chunk(20, &mut output);
+        assert_eq!(read, 0);
+    }
+
+    #[test]
+    fn test_circular_buffer_peek_chunk_vec() {
+        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        
+        // Write some samples
+        for i in 0..10 {
+            buffer.write(i as f32);
+        }
+        
+        // Peek at samples without removing them
+        let peeked = buffer.peek_chunk_vec(3, 4);
+        assert_eq!(peeked, vec![3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(buffer.len(), 10); // Length unchanged
+        
+        // Peek beyond available samples
+        let peeked = buffer.peek_chunk_vec(8, 5);
+        assert_eq!(peeked, vec![8.0, 9.0]);
+        
+        // Peek at offset beyond buffer
+        let peeked = buffer.peek_chunk_vec(20, 5);
+        assert_eq!(peeked, Vec::<f32>::new());
+    }
+
+    #[test]
+    fn test_circular_buffer_can_read_window() {
+        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        
+        // Write some samples
+        for i in 0..10 {
+            buffer.write(i as f32);
+        }
+        
+        // Check valid window reads
+        assert!(buffer.can_read_window(0, 5));
+        assert!(buffer.can_read_window(5, 5));
+        assert!(buffer.can_read_window(0, 10));
+        
+        // Check invalid window reads
+        assert!(!buffer.can_read_window(0, 11));
+        assert!(!buffer.can_read_window(5, 6));
+        assert!(!buffer.can_read_window(10, 1));
+    }
+
+    #[test]
+    fn test_sliding_window_simulation() {
+        let mut buffer = CircularBuffer::<f32>::new(1024).unwrap();
+        
+        // Write 800 samples (less than window size to fit in buffer)
+        for i in 0..800 {
+            buffer.write(i as f32);
+        }
+        
+        // Simulate sliding window with 50% overlap
+        let window_size = 512;
+        let hop_size = 256;
+        
+        // First window at offset 0
+        assert!(buffer.can_read_window(0, window_size));
+        let window1 = buffer.peek_chunk_vec(0, window_size);
+        assert_eq!(window1.len(), window_size);
+        assert_eq!(window1[0], 0.0);
+        assert_eq!(window1[511], 511.0);
+        
+        // Second window at offset 256 (50% overlap)
+        assert!(buffer.can_read_window(hop_size, window_size));
+        let window2 = buffer.peek_chunk_vec(hop_size, window_size);
+        assert_eq!(window2.len(), window_size);
+        assert_eq!(window2[0], 256.0);
+        assert_eq!(window2[511], 767.0);
+        
+        // Verify overlap: last 256 samples of window1 == first 256 samples of window2
+        assert_eq!(window1[256..512], window2[0..256]);
     }
 }
