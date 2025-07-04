@@ -301,12 +301,33 @@ impl ConsoleCommand for PitchStatusCommand {
             };
             outputs.push(ConsoleOutput::info(&format!("  Tuning System: {}", tuning_desc)));
             
-            outputs.push(ConsoleOutput::info(&format!("  Processing Latency: {:.1} ms", metrics.processing_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Latest Latency: {:.1} ms", metrics.processing_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Average Latency: {:.1} ms", metrics.average_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Min/Max Latency: {:.1}/{:.1} ms", metrics.min_latency_ms, metrics.max_latency_ms)));
             outputs.push(ConsoleOutput::info(&format!("  Analysis Cycles: {}", metrics.analysis_cycles)));
-            outputs.push(ConsoleOutput::info(&format!("  Successful Detections: {}", metrics.successful_detections)));
+            outputs.push(ConsoleOutput::info(&format!("  Successful Detections: {} ({:.1}%)", metrics.successful_detections, metrics.success_rate * 100.0)));
             outputs.push(ConsoleOutput::info(&format!("  Failed Detections: {}", metrics.failed_detections)));
+            outputs.push(ConsoleOutput::info(&format!("  Latency Violations (>50ms): {}", metrics.latency_violations)));
             outputs.push(ConsoleOutput::info(&format!("  Average Confidence: {:.2}", metrics.average_confidence)));
+            outputs.push(ConsoleOutput::info(&format!("  YIN Processing Time: {:.0} μs", metrics.yin_processing_time_us)));
             outputs.push(ConsoleOutput::info(&format!("  Memory Usage: {:.2} KB", metrics.memory_usage_bytes as f64 / 1024.0)));
+            
+            // Show performance and accuracy characteristics
+            let performance_grade = analyzer.performance_grade();
+            let meets_requirements = analyzer.meets_performance_requirements();
+            let (estimated_latency, latency_grade) = analyzer.pitch_detector().get_performance_characteristics();
+            let (frequency_resolution, accuracy_grade) = analyzer.pitch_detector().get_accuracy_characteristics();
+            
+            let grade_output = if meets_requirements {
+                ConsoleOutput::success(&format!("  Performance Grade: {} ✓", performance_grade))
+            } else {
+                ConsoleOutput::warning(&format!("  Performance Grade: {} ⚠", performance_grade))
+            };
+            outputs.push(grade_output);
+            outputs.push(ConsoleOutput::info(&format!("  Estimated Latency: {:.1} ms ({})", estimated_latency, latency_grade)));
+            outputs.push(ConsoleOutput::info(&format!("  Frequency Resolution: {:.1} Hz ({})", frequency_resolution, accuracy_grade)));
+            outputs.push(ConsoleOutput::info(&format!("  Early Exit Optimization: {}", 
+                if analyzer.pitch_detector().early_exit_enabled() { "enabled" } else { "disabled" })));
             
             let status_text = if analyzer.is_ready() { "Ready" } else { "Not Ready" };
             let status_output = if analyzer.is_ready() { 
@@ -566,6 +587,161 @@ impl ConsoleCommand for PitchDebugCommand {
     }
 }
 
+/// Pitch Benchmarks Command - run performance benchmarks for different window sizes
+pub struct PitchBenchmarksCommand;
+
+impl ConsoleCommand for PitchBenchmarksCommand {
+    fn name(&self) -> &str { "pitch-benchmarks" }
+    fn description(&self) -> &str { "Run performance benchmarks for different window sizes" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut outputs = Vec::new();
+            outputs.push(ConsoleOutput::info("Running pitch detection benchmarks..."));
+            
+            let sample_rate = 48000.0; // Default sample rate for benchmarks
+            let benchmark_results = {
+                let mut analyzer = analyzer_rc.borrow_mut();
+                analyzer.benchmark_window_sizes(sample_rate)
+            };
+            
+            outputs.push(ConsoleOutput::info("Benchmark Results:"));
+            outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {:.0} Hz", sample_rate)));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("  Window Size | Avg Time (ms) | Min Time (ms) | Performance"));
+            outputs.push(ConsoleOutput::info("  ------------|---------------|---------------|------------"));
+            
+            for (window_size, avg_time, min_time) in benchmark_results {
+                let performance_grade = if avg_time <= 20.0 {
+                    "Fast"
+                } else if avg_time <= 35.0 {
+                    "Balanced"
+                } else if avg_time <= 50.0 {
+                    "Accurate"
+                } else if avg_time <= 100.0 {
+                    "High-Accuracy"
+                } else {
+                    "Maximum-Accuracy"
+                };
+                
+                let performance_output = if avg_time <= 50.0 {
+                    ConsoleOutput::info(&format!("  {:>11} | {:>13.1} | {:>13.1} | {}", 
+                                              window_size, avg_time, min_time, performance_grade))
+                } else {
+                    ConsoleOutput::warning(&format!("  {:>11} | {:>13.1} | {:>13.1} | {}", 
+                                                   window_size, avg_time, min_time, performance_grade))
+                };
+                outputs.push(performance_output);
+            }
+            
+            // Performance summary
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Performance Categories (Accuracy-Optimized):"));
+            outputs.push(ConsoleOutput::info("  • Fast:           ≤20ms (Speed-focused)"));
+            outputs.push(ConsoleOutput::info("  • Balanced:       ≤35ms (Speed/accuracy balance)"));
+            outputs.push(ConsoleOutput::info("  • Accurate:       ≤50ms (Production target)"));
+            outputs.push(ConsoleOutput::info("  • High-Accuracy:  ≤100ms (Research quality)"));
+            outputs.push(ConsoleOutput::info("  • Maximum-Accuracy: >100ms (Offline analysis)"));
+            
+            // Show current analyzer performance
+            let analyzer = analyzer_rc.borrow();
+            let current_metrics = analyzer.metrics();
+            let current_grade = analyzer.performance_grade();
+            let meets_requirements = analyzer.meets_performance_requirements();
+            
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Current Pitch Analyzer Performance:"));
+            outputs.push(ConsoleOutput::info(&format!("  Window Size: {} samples", analyzer.config().sample_window_size)));
+            outputs.push(ConsoleOutput::info(&format!("  Average Latency: {:.1} ms", current_metrics.average_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Latest Latency: {:.1} ms", current_metrics.processing_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Min/Max Latency: {:.1}/{:.1} ms", current_metrics.min_latency_ms, current_metrics.max_latency_ms)));
+            outputs.push(ConsoleOutput::info(&format!("  Latency Violations: {} ({:.1}%)", 
+                                            current_metrics.latency_violations,
+                                            if current_metrics.analysis_cycles > 0 {
+                                                current_metrics.latency_violations as f32 / current_metrics.analysis_cycles as f32 * 100.0
+                                            } else { 0.0 })));
+            outputs.push(ConsoleOutput::info(&format!("  YIN Algorithm Time: {:.0} μs", current_metrics.yin_processing_time_us)));
+            
+            let grade_output = if meets_requirements {
+                ConsoleOutput::success(&format!("  Performance Grade: {} ✓", current_grade))
+            } else {
+                ConsoleOutput::warning(&format!("  Performance Grade: {} ⚠", current_grade))
+            };
+            outputs.push(grade_output);
+            
+            if !meets_requirements {
+                outputs.push(ConsoleOutput::warning(""));
+                outputs.push(ConsoleOutput::warning("Performance Recommendations:"));
+                if current_metrics.average_latency_ms > 50.0 {
+                    outputs.push(ConsoleOutput::warning("  • Consider reducing window size for faster processing"));
+                }
+                if current_metrics.latency_violations > current_metrics.analysis_cycles / 20 {
+                    outputs.push(ConsoleOutput::warning("  • Too many latency violations - check system load"));
+                }
+                outputs.push(ConsoleOutput::warning("  • Use 'pitch window <size>' to adjust window size"));
+                outputs.push(ConsoleOutput::warning("  • Use 'pitch optimize-accuracy' for maximum accuracy"));
+                outputs.push(ConsoleOutput::warning("  • Recommended sizes: 1024 (balanced), 2048 (accurate), 4096 (max)"));
+            }
+            
+            ConsoleCommandResult::MultipleOutputs(outputs)
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::warning("Pitch analyzer not initialized"))
+        }
+    }
+}
+
+/// Pitch Optimize Accuracy Command - optimize configuration for maximum accuracy
+pub struct PitchOptimizeAccuracyCommand;
+
+impl ConsoleCommand for PitchOptimizeAccuracyCommand {
+    fn name(&self) -> &str { "pitch-optimize-accuracy" }
+    fn description(&self) -> &str { "Optimize configuration for maximum accuracy within 50ms latency" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+            let mut outputs = Vec::new();
+            
+            // Get current configuration
+            let old_window_size = {
+                let analyzer = analyzer_rc.borrow();
+                analyzer.config().sample_window_size
+            };
+            
+            // Optimize for accuracy
+            let result = {
+                let mut analyzer = analyzer_rc.borrow_mut();
+                analyzer.optimize_for_accuracy()
+            };
+            
+            match result {
+                Ok(()) => {
+                    let analyzer = analyzer_rc.borrow();
+                    let new_window_size = analyzer.config().sample_window_size;
+                    let (estimated_latency, performance_grade) = analyzer.pitch_detector().get_performance_characteristics();
+                    let (frequency_resolution, accuracy_grade) = analyzer.pitch_detector().get_accuracy_characteristics();
+                    
+                    outputs.push(ConsoleOutput::success("Configuration optimized for accuracy"));
+                    outputs.push(ConsoleOutput::info(&format!("  Window size: {} → {} samples", old_window_size, new_window_size)));
+                    outputs.push(ConsoleOutput::info(&format!("  Estimated latency: {:.1} ms ({})", estimated_latency, performance_grade)));
+                    outputs.push(ConsoleOutput::info(&format!("  Frequency resolution: {:.1} Hz ({})", frequency_resolution, accuracy_grade)));
+                    outputs.push(ConsoleOutput::info(&format!("  Early exit optimization: disabled (for accuracy)")));
+                    
+                    if estimated_latency <= 50.0 {
+                        outputs.push(ConsoleOutput::success("✓ Meets 50ms real-time requirement"));
+                    } else {
+                        outputs.push(ConsoleOutput::warning(&format!("⚠ Exceeds 50ms requirement by {:.1}ms", estimated_latency - 50.0)));
+                    }
+                }
+                Err(e) => {
+                    outputs.push(ConsoleOutput::error(&format!("Failed to optimize: {}", e)));
+                }
+            }
+            
+            ConsoleCommandResult::MultipleOutputs(outputs)
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::warning("Pitch analyzer not initialized"))
+        }
+    }
+}
+
 /// Volume Status Command - show current volume levels and configuration
 pub struct VolumeStatusCommand;
 
@@ -822,6 +998,8 @@ impl ConsoleCommand for PitchCommand {
             "window" => PitchWindowCommand.execute(sub_args, registry),
             "range" => PitchRangeCommand.execute(sub_args, registry),
             "debug" => PitchDebugCommand.execute(sub_args, registry),
+            "benchmarks" => PitchBenchmarksCommand.execute(sub_args, registry),
+            "optimize-accuracy" => PitchOptimizeAccuracyCommand.execute(sub_args, registry),
             _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown pitch subcommand: {}", subcommand))),
         }
     }
@@ -887,6 +1065,8 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(PitchWindowCommand));
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
+    registry.register(Box::new(PitchBenchmarksCommand));
+    registry.register(Box::new(PitchOptimizeAccuracyCommand));
     registry.register(Box::new(VolumeStatusCommand));
     registry.register(Box::new(VolumeConfigCommand));
     registry.register(Box::new(VolumeTestCommand));
@@ -974,6 +1154,22 @@ mod tests {
         
         assert_eq!(command.name(), "pitch-debug");
         assert_eq!(command.description(), "Toggle pitch detection debug logging");
+    }
+    
+    #[test]
+    fn test_pitch_benchmarks_command() {
+        let command = PitchBenchmarksCommand;
+        
+        assert_eq!(command.name(), "pitch-benchmarks");
+        assert_eq!(command.description(), "Run performance benchmarks for different window sizes");
+    }
+    
+    #[test]
+    fn test_pitch_optimize_accuracy_command() {
+        let command = PitchOptimizeAccuracyCommand;
+        
+        assert_eq!(command.name(), "pitch-optimize-accuracy");
+        assert_eq!(command.description(), "Optimize configuration for maximum accuracy within 50ms latency");
     }
     
     #[test]

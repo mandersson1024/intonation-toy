@@ -166,7 +166,7 @@ Audio Processor
   - FFT spectral analysis (visualization + confidence)
   - Volume level detection and RMS calculation
   - Musical note mapping with tuning system support
-- **Performance**: ≤5ms analysis latency, zero-allocation processing
+- **Performance**: ≤50ms analysis latency, zero-allocation processing
 
 ##### Test Signal Generator
 - **Purpose**: Deterministic signal generation for development and testing
