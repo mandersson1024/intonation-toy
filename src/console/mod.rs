@@ -1,4 +1,4 @@
-// Dev Console Module
+// Command Console Module
 // Provides interactive debugging and development tools for pitch-toy application
 
 mod command_registry;

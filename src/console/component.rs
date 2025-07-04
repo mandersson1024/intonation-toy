@@ -302,7 +302,7 @@ impl Component for DevConsole {
                 <div class="console-modal">
                     <div class="console-header">
                         <div class="console-left">
-                            <span class="console-title">{ "Dev Console" }</span>
+                            <span class="console-title">{ "Command Console" }</span>
                             <span class="console-hint" title="Press ESC to toggle console">
                                 { "(ESC to toggle)" }
                             </span>

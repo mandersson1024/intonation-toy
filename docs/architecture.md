@@ -38,7 +38,7 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 │  │                 Pitch Toy Application                   │   │
 │  │                                                         │   │
 │  │  ┌─────────────┐    ┌─────────────────┐               │   │
-│  │  │ Dev Console │    │ Event Dispatcher│               │   │
+│  │  │ Command Console │    │ Event Dispatcher│               │   │
 │  │  │   (Yew)     │    │   (Core Event   │               │   │
 │  │  └─────────────┘    │     System)     │               │   │
 │  │         │            └─────────────────┘               │   │
@@ -123,7 +123,7 @@ Audio Processor
                     ┌──────────────┼──────────────┐
                     │              │              │
                     ▼              ▼              ▼
-            Dev Console    Presentation    Debug Overlay
+            Command Console    Presentation    Debug Overlay
           (Service Interface)     Layer
                                   │
                                   ▼

@@ -59,7 +59,7 @@ register_command(Box::new(MyCustomCommand));
 
 ```
 ┌─────────────────────────────────────────┐
-│             Dev Console                 │
+│             Command Console                 │
 │              (Yew UI)                   │
 └─────────────────┬───────────────────────┘
                   │
