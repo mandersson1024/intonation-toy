@@ -6,9 +6,9 @@ use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use std::rc::Rc;
 
-use super::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
-use super::history::ConsoleHistory;
-use super::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
+use crate::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
+use crate::history::ConsoleHistory;
+use crate::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";

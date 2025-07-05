@@ -2,7 +2,7 @@
 // Provides extensible command framework for development console
 
 use std::collections::HashMap;
-use super::output::ConsoleOutput;
+use crate::output::ConsoleOutput;
 
 // Result of command execution
 #[derive(Debug)]

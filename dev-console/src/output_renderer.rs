@@ -4,7 +4,7 @@
 // It provides utilities for styling and displaying different types of console output.
 
 use yew::prelude::*;
-use crate::console::ConsoleOutput;
+use crate::output::ConsoleOutput;
 
 /// Output renderer for debug console messages
 pub struct OutputRenderer;
