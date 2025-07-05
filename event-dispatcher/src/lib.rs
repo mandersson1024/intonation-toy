@@ -13,7 +13,7 @@
 //! # Example Usage
 //!
 //! ```rust
-//! use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher};
+//! use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher, SubscriptionId};
 //!
 //! // Define your domain-specific event type
 //! #[derive(Clone, Debug)]
@@ -41,12 +41,15 @@
 //! // Create a shared dispatcher for your domain
 //! let dispatcher = create_shared_dispatcher::<MyEvent>();
 //!
-//! // Subscribe to events
-//! dispatcher.borrow_mut().subscribe("something_happened", |event| {
+//! // Subscribe to events (returns a SubscriptionId)
+//! let sub_id = dispatcher.borrow_mut().subscribe("something_happened", |event| {
 //!     if let MyEvent::SomethingHappened { data } = event {
 //!         println!("Received: {}", data);
 //!     }
 //! });
+//!
+//! // Unsubscribe from events using the SubscriptionId
+//! dispatcher.borrow_mut().unsubscribe(sub_id);
 //!
 //! // Publish events
 //! let event = MyEvent::SomethingHappened { 
@@ -58,6 +61,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Trait that all events must implement to be used with EventDispatcher
 pub trait Event: Clone {
@@ -68,13 +72,27 @@ pub trait Event: Clone {
     fn description(&self) -> String;
 }
 
+/// Unique identifier for a subscription
+///
+/// Returned by [`EventDispatcher::subscribe`]. Use it with [`EventDispatcher::unsubscribe`] to remove a subscription.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SubscriptionId(u64);
+
+/// Internal subscription information
+struct Subscription<T> {
+    id: SubscriptionId,
+    callback: Box<dyn Fn(T)>,
+}
+
 /// Callback type for event subscribers (internal use only)
 type EventCallback<T> = Box<dyn Fn(T)>;
 
 /// Event dispatcher that manages event subscriptions and publishing
 pub struct EventDispatcher<T: Event> {
-    /// Map of event type to list of subscriber callbacks
-    subscribers: HashMap<&'static str, Vec<EventCallback<T>>>,
+    /// Map of event type to list of subscriptions
+    subscribers: HashMap<&'static str, Vec<Subscription<T>>>,
+    /// Counter for generating unique subscription IDs
+    next_subscription_id: AtomicU64,
 }
 
 impl<T: Event> EventDispatcher<T> {
@@ -82,6 +100,7 @@ impl<T: Event> EventDispatcher<T> {
     pub fn new() -> Self {
         Self {
             subscribers: HashMap::new(),
+            next_subscription_id: AtomicU64::new(1),
         }
     }
     
@@ -90,14 +109,25 @@ impl<T: Event> EventDispatcher<T> {
     /// # Arguments
     /// * `event_type` - The type of event to subscribe to (e.g., "device_list_changed")
     /// * `callback` - The callback function to call when the event is published
-    pub fn subscribe<F>(&mut self, event_type: &'static str, callback: F)
+    /// 
+    /// # Returns
+    /// A `SubscriptionId` that can be used to unsubscribe from this subscription
+    pub fn subscribe<F>(&mut self, event_type: &'static str, callback: F) -> SubscriptionId
     where
         F: Fn(T) + 'static,
     {
+        let id = SubscriptionId(self.next_subscription_id.fetch_add(1, Ordering::Relaxed));
+        let subscription = Subscription {
+            id,
+            callback: Box::new(callback),
+        };
+        
         self.subscribers
             .entry(event_type)
             .or_insert_with(Vec::new)
-            .push(Box::new(callback));
+            .push(subscription);
+            
+        id
     }
     
     /// Publish an event to all subscribers of its type
@@ -107,9 +137,9 @@ impl<T: Event> EventDispatcher<T> {
     pub fn publish(&self, event: &T) {
         let event_type = event.event_type();
         
-        if let Some(callbacks) = self.subscribers.get(event_type) {
-            for callback in callbacks {
-                callback(event.clone());
+        if let Some(subscriptions) = self.subscribers.get(event_type) {
+            for subscription in subscriptions {
+                (subscription.callback)(event.clone());
             }
         }
     }
@@ -119,11 +149,37 @@ impl<T: Event> EventDispatcher<T> {
     /// This method is intended for exclusive (non-shared) use of the dispatcher.
     pub fn publish_direct(&mut self, event: &T) {
         let event_type = event.event_type();
-        if let Some(callbacks) = self.subscribers.get(event_type) {
-            for callback in callbacks {
-                callback(event.clone());
+        if let Some(subscriptions) = self.subscribers.get(event_type) {
+            for subscription in subscriptions {
+                (subscription.callback)(event.clone());
             }
         }
+    }
+    
+    /// Unsubscribe from a specific subscription using its ID
+    ///
+    /// # Arguments
+    /// * `subscription_id` - The [`SubscriptionId`] returned from the [`subscribe`](Self::subscribe) method
+    ///
+    /// # Returns
+    /// `true` if the subscription was found and removed, `false` otherwise
+    ///
+    /// # Example
+    /// ```
+    /// # use event_dispatcher::{EventDispatcher, Event};
+    /// # #[derive(Clone)] struct E; impl Event for E { fn event_type(&self) -> &'static str { "e" } fn description(&self) -> String { String::new() } }
+    /// let mut dispatcher = EventDispatcher::new();
+    /// let sub_id = dispatcher.subscribe("e", |_| {});
+    /// assert!(dispatcher.unsubscribe(sub_id));
+    /// ```
+    pub fn unsubscribe(&mut self, subscription_id: SubscriptionId) -> bool {
+        for subscriptions in self.subscribers.values_mut() {
+            if let Some(index) = subscriptions.iter().position(|sub| sub.id == subscription_id) {
+                subscriptions.remove(index);
+                return true;
+            }
+        }
+        false
     }
     
     /// Get the number of subscribers for a specific event type
@@ -200,7 +256,7 @@ mod tests {
         let received_events_clone = Arc::clone(&received_events);
         
         // Subscribe to test_a events
-        dispatcher.subscribe("test_a", move |event| {
+        let _subscription_id = dispatcher.subscribe("test_a", move |event| {
             received_events_clone.lock().unwrap().push(event);
         });
         
@@ -236,7 +292,7 @@ mod tests {
         let received_events_clone = Arc::clone(&received_events);
         
         // Subscribe to test_a events
-        dispatcher.subscribe("test_a", move |event| {
+        let _subscription_id = dispatcher.subscribe("test_a", move |event| {
             received_events_clone.lock().unwrap().push(event);
         });
         
@@ -260,7 +316,7 @@ mod tests {
         // Add multiple subscribers
         for _i in 0..3 {
             let received_events_clone = Arc::clone(&received_events);
-            dispatcher.subscribe("test_a", move |event| {
+            let _sub_id = dispatcher.subscribe("test_a", move |event| {
                 received_events_clone.lock().unwrap().push(event);
             });
         }
@@ -292,11 +348,11 @@ mod tests {
         let received_b_clone = Arc::clone(&received_b_events);
         
         // Subscribe to both event types
-        dispatcher.subscribe("test_a", move |event| {
+        let _sub_id_a = dispatcher.subscribe("test_a", move |event| {
             received_a_clone.lock().unwrap().push(event);
         });
         
-        dispatcher.subscribe("test_b", move |event| {
+        let _sub_id_b = dispatcher.subscribe("test_b", move |event| {
             received_b_clone.lock().unwrap().push(event);
         });
         
@@ -329,7 +385,7 @@ mod tests {
         assert_eq!(shared_dispatcher.borrow().subscriber_count("test_a"), 0);
         
         // Test that we can add subscribers through the shared interface
-        shared_dispatcher.borrow_mut().subscribe("test_a", move |event| {
+        let _subscription_id = shared_dispatcher.borrow_mut().subscribe("test_a", move |event| {
             received_events_clone.lock().unwrap().push(event);
         });
         
@@ -343,5 +399,26 @@ mod tests {
         let events = received_events.lock().unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0], test_event);
+    }
+
+    #[test]
+    fn test_unsubscribe() {
+        use std::sync::{Arc, Mutex};
+        let mut dispatcher = EventDispatcher::new();
+        let received_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let received_events_clone = Arc::clone(&received_events);
+        // Subscribe and store the id
+        let sub_id = dispatcher.subscribe("test_a", move |event| {
+            received_events_clone.lock().unwrap().push(event);
+        });
+        // Unsubscribe
+        let unsubscribed = dispatcher.unsubscribe(sub_id);
+        assert!(unsubscribed);
+        // Publish event
+        let test_event = TestEvent::TestA { value: 99 };
+        dispatcher.publish(&test_event);
+        // Verify callback was NOT called
+        let events = received_events.lock().unwrap();
+        assert_eq!(events.len(), 0);
     }
 }
