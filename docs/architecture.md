@@ -147,6 +147,32 @@ Audio Processor
                             GPU Visualization
 ```
 
+## Crate Architecture
+
+### Multi-Crate Structure
+
+The application follows a modular multi-crate architecture to promote code reusability and maintain clear separation of concerns:
+
+#### 1. `pitch-toy` (Main Application Crate)
+- **Purpose**: Core application logic and domain-specific functionality
+- **Dependencies**: `dev-console`, standard audio/graphics crates
+- **Contains**: Audio processing, rendering, event system, and business logic
+- **Type**: `cdylib` + `rlib` for WebAssembly compilation and testing
+
+#### 2. `dev-console` (Development Tools Library)
+- **Purpose**: Reusable development console component
+- **Dependencies**: Minimal - only `yew`, `web-sys`, `serde` for core functionality
+- **Contains**: Generic console UI, command system, history management
+- **Type**: `rlib` library crate for reuse across projects
+- **Design**: Framework-agnostic with pluggable command registry system
+
+### Crate Benefits
+- **Modularity**: Clear separation between application logic and development tools
+- **Reusability**: `dev-console` can be used in other Rust/WebAssembly projects
+- **Dependency Isolation**: Development tools don't pull in application-specific dependencies
+- **Testing Independence**: Each crate can be tested in isolation
+- **Build Optimization**: Conditional compilation of development features
+
 ## Component Architecture
 
 ### Core Components
@@ -212,17 +238,19 @@ Audio Processor
 #### 4. Development Infrastructure
 
 ##### Debug Console (Yew) - HTML/CSS ALLOWED
-- **Location**: `src/debug/console`
+- **Location**: `dev-console` crate (extracted from main application)
 - **Purpose**: Reusable synchronous command input/output interface
-- **Architecture**: Generic, standalone component designed for future extraction
+- **Architecture**: Standalone library crate designed for reusability across projects
 - **Features**:
-  - Command execution system with extensible DevCommand trait
+  - Command execution system with extensible ConsoleCommand trait
   - Pure synchronous command I/O operations
-  - History management and command completion
-  - Framework-agnostic design for reusability
+  - History management with local storage persistence
+  - Framework-agnostic design for maximum reusability
+  - Command registry system for pluggable command implementations
 - **Service Integration**: Uses ConsoleAudioService interface for audio operations
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Availability**: Development builds only
+- **Crate Structure**: Independent library crate with minimal dependencies
 
 ##### Debug Live Panel (Yew) - HTML/CSS ALLOWED
 - **Location**: `src/debug/live_panel`
@@ -453,7 +481,10 @@ The platform validation system checks each required API during application start
 - **Bundle Analysis**: Load time measurement
 
 #### Testing Commands
-- **Current Phase**: `cargo test` for fast native feedback
+- **Per-Crate Testing**: 
+  - `cd dev-console && cargo test` for console library tests
+  - `cd pitch-toy && cargo test` for main application tests
+- **Current Phase**: `cargo test` for fast native feedback across all crates
 - **Future Phase**: `wasm-pack test --headless --firefox` for WebAssembly validation (when implemented)
 - **Later Phase**: Cypress/Playwright for end-to-end browser testing
 - **Full Suite**: Phased approach based on development maturity

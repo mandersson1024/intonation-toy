@@ -306,23 +306,23 @@ const DEBUG_INTERFACE_CSS: &str = r#"
 }
 
 .debug-interface .dev-console-message-info {
-    color: #d1d5db;
+    color: #e5e7eb;
 }
 
 .debug-interface .dev-console-message-success {
-    color: #10b981;
+    color: #22c55e;
 }
 
 .debug-interface .dev-console-message-warning {
-    color: #f59e0b;
+    color: #fbbf24;
 }
 
 .debug-interface .dev-console-message-error {
-    color: #ef4444;
+    color: #f87171;
 }
 
 .debug-interface .dev-console-message-command {
-    color: #3b82f6;
+    color: #60a5fa;
     font-weight: bold;
 }
 
