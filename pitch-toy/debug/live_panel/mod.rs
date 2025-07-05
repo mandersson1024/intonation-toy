@@ -9,7 +9,6 @@
 
 mod component;
 mod metrics_display;
-mod device_display;
 
 pub use component::LivePanel;
 pub use component::LivePanelProps;
