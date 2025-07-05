@@ -38,7 +38,6 @@
 //! ```
 
 pub mod audio_events;
-pub mod event_dispatcher;
 
 pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
 pub use event_dispatcher::{Event, EventDispatcher, EventCallback, SharedEventDispatcher, create_shared_dispatcher};

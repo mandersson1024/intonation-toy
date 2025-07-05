@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn test_feed_input_chunk_and_events() {
         use crate::audio::{BufferPool, VolumeDetector};
-        use crate::events::event_dispatcher::create_shared_dispatcher;
+        use event_dispatcher::create_shared_dispatcher;
         use std::rc::Rc;
         use std::cell::RefCell;
 
@@ -651,7 +651,7 @@ mod tests {
     #[test]
     fn test_volume_detection_integration() {
         use crate::audio::{BufferPool, VolumeDetector, VolumeDetectorConfig};
-        use crate::events::event_dispatcher::create_shared_dispatcher;
+        use event_dispatcher::create_shared_dispatcher;
         use std::rc::Rc;
         use std::cell::RefCell;
 

@@ -5,7 +5,7 @@
 //! the audio subsystem and other components like the console.
 
 use crate::audio::{AudioPermission, AudioDevices, AudioContextState, MusicalNote, VolumeLevel};
-use super::event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
+use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
@@ -281,7 +281,7 @@ mod tests {
     
     #[test]
     fn test_event_dispatcher_integration() {
-        use super::super::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         use std::rc::Rc;
         use std::cell::RefCell;
         
@@ -369,7 +369,7 @@ mod tests {
     
     #[test]
     fn test_audio_event_dispatcher_creation() {
-        use crate::events::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         
         let dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         assert_eq!(dispatcher.subscriber_count("test_event"), 0);
@@ -378,7 +378,7 @@ mod tests {
     
     #[test]
     fn test_audio_event_subscription() {
-        use crate::events::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
@@ -398,7 +398,7 @@ mod tests {
     
     #[test]
     fn test_audio_event_publishing() {
-        use crate::events::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         use crate::audio::AudioPermission;
         use std::rc::Rc;
         use std::cell::RefCell;
@@ -429,7 +429,7 @@ mod tests {
     
     #[test]
     fn test_audio_event_multiple_subscribers() {
-        use crate::events::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         use crate::audio::AudioPermission;
         use std::rc::Rc;
         use std::cell::RefCell;
@@ -460,7 +460,7 @@ mod tests {
     
     #[test]
     fn test_audio_event_clear_subscribers() {
-        use crate::events::event_dispatcher::EventDispatcher;
+        use event_dispatcher::EventDispatcher;
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
