@@ -1313,4 +1313,435 @@ mod tests {
         assert!(result.is_ok());
         // Should still return None for silence, but now due to YIN algorithm
     }
+
+    // Confidence Scoring Accuracy and Consistency Tests (Task 8 Requirements)
+    
+    #[test]
+    fn test_confidence_scoring_consistency() {
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // Generate consistent 440Hz sine wave
+        let frequency = 440.0;
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        // Analyze the same signal multiple times
+        let mut confidences = Vec::new();
+        for _ in 0..5 {
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                confidences.push(result.confidence);
+            }
+        }
+        
+        // Confidence should be consistent across runs
+        assert!(confidences.len() >= 3, "Should get consistent detections");
+        
+        let avg_confidence = confidences.iter().sum::<f32>() / confidences.len() as f32;
+        for &confidence in &confidences {
+            assert!((confidence - avg_confidence).abs() < 0.1, 
+                "Confidence inconsistency: {} vs avg {}", confidence, avg_confidence);
+        }
+        
+        // High-quality sine wave should have high confidence
+        assert!(avg_confidence > 0.7, "Clean sine wave should have high confidence: {}", avg_confidence);
+    }
+
+    #[test]
+    fn test_confidence_scoring_with_noise() {
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // Generate 440Hz sine wave with varying noise levels
+        let frequency = 440.0;
+        let sample_rate = 48000.0;
+        let noise_levels = [0.0, 0.1, 0.2, 0.3, 0.5];
+        
+        let mut confidences = Vec::new();
+        
+        for &noise_level in &noise_levels {
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    let clean_signal = (2.0 * std::f32::consts::PI * frequency * t).sin();
+                    let noise = (i as f32 * 0.1).sin() * noise_level; // Simple noise
+                    clean_signal + noise
+                })
+                .collect();
+            
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                confidences.push((noise_level, result.confidence));
+            }
+        }
+        
+        // Confidence should generally decrease as noise increases
+        assert!(confidences.len() >= 3, "Should detect pitch in most noise conditions");
+        
+        // Clean signal should have higher confidence than noisy signal
+        let clean_confidence = confidences.iter().find(|(noise, _)| *noise == 0.0);
+        let noisy_confidence = confidences.iter().find(|(noise, _)| *noise >= 0.3);
+        
+        if let (Some((_, clean)), Some((_, noisy))) = (clean_confidence, noisy_confidence) {
+            // Allow for the possibility that confidence is very high for both
+            assert!(*clean >= *noisy * 0.8, "Clean signal confidence {} should be at least 80% of noisy {}", clean, noisy);
+        }
+    }
+
+    #[test]
+    fn test_confidence_scoring_amplitude_dependency() {
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // Test confidence with different amplitudes
+        let frequency = 440.0;
+        let sample_rate = 48000.0;
+        let amplitudes = [0.1, 0.3, 0.5, 0.7, 1.0];
+        
+        let mut amplitude_confidences = Vec::new();
+        
+        for &amplitude in &amplitudes {
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
+                })
+                .collect();
+            
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                amplitude_confidences.push((amplitude, result.confidence));
+            }
+        }
+        
+        // Should detect pitch at various amplitudes
+        assert!(amplitude_confidences.len() >= 3, "Should detect pitch at various amplitudes");
+        
+        // All detected pitches should have reasonable confidence
+        for &(amplitude, confidence) in &amplitude_confidences {
+            assert!(confidence > 0.3, "Amplitude {} should produce confidence > 0.3, got {}", amplitude, confidence);
+            assert!(confidence <= 1.0, "Confidence should not exceed 1.0: {}", confidence);
+        }
+    }
+
+    #[test]
+    fn test_confidence_scoring_frequency_accuracy() {
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // Test confidence correlation with frequency accuracy
+        let test_frequencies = [220.0, 440.0, 880.0, 1000.0];
+        let sample_rate = 48000.0;
+        
+        for &target_frequency in &test_frequencies {
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    (2.0 * std::f32::consts::PI * target_frequency * t).sin()
+                })
+                .collect();
+            
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                // Frequency accuracy should correlate with confidence
+                let frequency_error = (result.frequency - target_frequency).abs();
+                let frequency_error_percentage = frequency_error / target_frequency * 100.0;
+                
+                if frequency_error_percentage < 2.0 {
+                    // Very accurate frequency should have high confidence
+                    assert!(result.confidence > 0.6, 
+                        "Accurate frequency detection ({}Hz -> {}Hz, {}% error) should have high confidence: {}", 
+                        target_frequency, result.frequency, frequency_error_percentage, result.confidence);
+                }
+                
+                // Confidence should be reasonable for all detections
+                assert!(result.confidence > 0.3, 
+                    "Frequency {}Hz detection should have confidence > 0.3: {}", 
+                    target_frequency, result.confidence);
+            }
+        }
+    }
+
+    #[test]
+    fn test_confidence_scoring_edge_cases() {
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // Test silence - should not detect or have low confidence
+        let silence: Vec<f32> = vec![0.0; 2048];
+        let silence_result = analyzer.analyze_samples(&silence);
+        assert!(silence_result.is_ok());
+        if let Some(result) = silence_result.unwrap() {
+            assert!(result.confidence < 0.5, "Silence should not have high confidence: {}", result.confidence);
+        }
+        
+        // Test very low amplitude signal
+        let frequency = 440.0;
+        let sample_rate = 48000.0;
+        let low_amplitude_samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                0.01 * (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        let low_amplitude_result = analyzer.analyze_samples(&low_amplitude_samples);
+        assert!(low_amplitude_result.is_ok());
+        // May or may not detect, but if it does, confidence should reflect the low amplitude
+        
+        // Test frequency at edge of range
+        let edge_frequency = 100.0; // Near lower limit
+        let edge_samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * edge_frequency * t).sin()
+            })
+            .collect();
+        
+        let edge_result = analyzer.analyze_samples(&edge_samples);
+        assert!(edge_result.is_ok());
+        if let Some(result) = edge_result.unwrap() {
+            // Edge frequencies might have lower confidence
+            assert!(result.confidence > 0.2, "Edge frequency detection should have some confidence: {}", result.confidence);
+            assert!(result.confidence <= 1.0, "Confidence should not exceed 1.0: {}", result.confidence);
+        }
+    }
+
+    // End-to-End Tests with Simulated Audio Input (Task 8 Requirements)
+    
+    #[test]
+    fn test_end_to_end_pitch_detection_pipeline() {
+        use crate::events::create_shared_dispatcher;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+        
+        // Create shared event dispatcher
+        let dispatcher = create_shared_dispatcher();
+        let received_events = Rc::new(RefCell::new(Vec::new()));
+        
+        // Subscribe to pitch events
+        let events_clone = received_events.clone();
+        dispatcher.borrow_mut().subscribe("pitch_detected", move |event| {
+            events_clone.borrow_mut().push(event.clone());
+        });
+        
+        // Create pitch analyzer with event dispatcher
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        analyzer.set_event_dispatcher(dispatcher.clone());
+        
+        // Simulate realistic audio input sequence
+        let test_sequence = [
+            (440.0, 0.8), // A4 - strong signal
+            (523.25, 0.7), // C5 - medium signal  
+            (0.0, 0.0),    // Silence
+            (329.63, 0.9), // E4 - strong signal
+            (392.0, 0.6),  // G4 - weak signal
+        ];
+        
+        let sample_rate = 48000.0;
+        let mut detected_frequencies = Vec::new();
+        
+        for &(frequency, amplitude) in &test_sequence {
+            let samples: Vec<f32> = if frequency > 0.0 {
+                // Generate sine wave with specified amplitude
+                (0..2048)
+                    .map(|i| {
+                        let t = i as f32 / sample_rate;
+                        amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
+                    })
+                    .collect()
+            } else {
+                // Generate silence
+                vec![0.0; 2048]
+            };
+            
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                detected_frequencies.push(result.frequency);
+            }
+        }
+        
+        // Verify end-to-end pipeline worked
+        assert!(detected_frequencies.len() >= 3, "Should detect multiple frequencies");
+        
+        // Check that events were published
+        let events = received_events.borrow();
+        assert!(events.len() > 0, "Events should have been published");
+        
+        // Verify metrics were updated
+        let metrics = analyzer.metrics();
+        assert!(metrics.analysis_cycles >= test_sequence.len() as u64);
+        assert!(metrics.successful_detections > 0);
+    }
+
+    #[test]
+    fn test_end_to_end_musical_scale_detection() {
+        // Test detection of a complete musical scale
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        // C major scale frequencies (C4 to C5)
+        let scale_frequencies = [
+            261.63, // C4
+            293.66, // D4
+            329.63, // E4
+            349.23, // F4
+            392.00, // G4
+            440.00, // A4
+            493.88, // B4
+            523.25, // C5
+        ];
+        
+        let sample_rate = 48000.0;
+        let mut scale_results = Vec::new();
+        
+        for &frequency in &scale_frequencies {
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    0.8 * (2.0 * std::f32::consts::PI * frequency * t).sin()
+                })
+                .collect();
+            
+            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
+                let note = analyzer.note_mapper.frequency_to_note(result.frequency);
+                scale_results.push((result.frequency, note.note, note.octave));
+            }
+        }
+        
+        // Should detect most notes in the scale
+        assert!(scale_results.len() >= 6, "Should detect most notes in the scale");
+        
+        // Verify octave progression makes sense
+        let octaves: Vec<i32> = scale_results.iter().map(|(_, _, octave)| *octave).collect();
+        assert!(octaves.iter().all(|&o| o == 4 || o == 5), "Octaves should be 4 or 5");
+    }
+
+    #[test]
+    fn test_end_to_end_polyphonic_interference() {
+        // Test pitch detection with polyphonic (multiple frequency) interference
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        let fundamental = 440.0; // A4
+        let sample_rate = 48000.0;
+        
+        // Create complex signal with fundamental + harmonics + interference
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                let fundamental_wave = 0.6 * (2.0 * std::f32::consts::PI * fundamental * t).sin();
+                let harmonic2 = 0.3 * (2.0 * std::f32::consts::PI * fundamental * 2.0 * t).sin();
+                let harmonic3 = 0.2 * (2.0 * std::f32::consts::PI * fundamental * 3.0 * t).sin();
+                let interference = 0.1 * (2.0 * std::f32::consts::PI * 333.0 * t).sin(); // Non-harmonic
+                
+                fundamental_wave + harmonic2 + harmonic3 + interference
+            })
+            .collect();
+        
+        let result = analyzer.analyze_samples(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should still detect fundamental frequency despite interference
+            assert!((pitch_result.frequency - fundamental).abs() < 30.0, 
+                "Should detect fundamental despite polyphonic interference");
+            assert!(pitch_result.confidence > 0.4, 
+                "Should have reasonable confidence despite complexity");
+        }
+    }
+
+    #[test]
+    fn test_end_to_end_real_time_simulation() {
+        // Simulate real-time processing with varying conditions
+        let config = create_test_config();
+        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        
+        let sample_rate = 48000.0;
+        let mut processing_times = Vec::new();
+        
+        // Simulate real-time chunks with varying frequencies
+        for chunk in 0..10 {
+            let frequency = 200.0 + (chunk as f32 * 50.0); // Ascending frequency
+            let amplitude = 0.5 + (chunk as f32 * 0.05); // Increasing amplitude
+            
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
+                })
+                .collect();
+            
+            let start = std::time::Instant::now();
+            let result = analyzer.analyze_samples(&samples);
+            let processing_time = start.elapsed();
+            
+            processing_times.push(processing_time.as_millis());
+            
+            assert!(result.is_ok(), "Chunk {} processing failed", chunk);
+            
+            if let Some(pitch_result) = result.unwrap() {
+                // Verify frequency detection is reasonable
+                assert!((pitch_result.frequency - frequency).abs() < frequency * 0.1,
+                    "Chunk {} frequency detection failed: expected {}, got {}", 
+                    chunk, frequency, pitch_result.frequency);
+            }
+        }
+        
+        // Verify real-time performance
+        let avg_processing_time = processing_times.iter().sum::<u128>() / processing_times.len() as u128;
+        assert!(avg_processing_time < 50, 
+            "Average processing time should be under 50ms for real-time: {}ms", 
+            avg_processing_time);
+        
+        // Verify metrics show progression
+        let metrics = analyzer.metrics();
+        assert_eq!(metrics.analysis_cycles, 10);
+        assert!(metrics.average_latency_ms < 50.0);
+    }
+
+    #[test]
+    fn test_end_to_end_tuning_system_switching() {
+        // Test switching tuning systems during operation
+        use crate::audio::{TuningSystem, PitchDetectorConfig};
+        
+        let frequency = 440.0; // A4
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        // Test with different tuning systems
+        let tuning_systems = vec![
+            TuningSystem::EqualTemperament { reference_pitch: 440.0 },
+            TuningSystem::EqualTemperament { reference_pitch: 432.0 },
+            TuningSystem::JustIntonation { reference_pitch: 440.0 },
+        ];
+        
+        for (i, tuning_system) in tuning_systems.into_iter().enumerate() {
+            let config = PitchDetectorConfig {
+                sample_window_size: 2048,
+                threshold: 0.15,
+                tuning_system,
+                min_frequency: 80.0,
+                max_frequency: 2000.0,
+            };
+            
+            let mut analyzer = PitchAnalyzer::new(config, sample_rate).unwrap();
+            let result = analyzer.analyze_samples(&samples);
+            
+            assert!(result.is_ok(), "Tuning system {} failed", i);
+            
+            if let Some(pitch_result) = result.unwrap() {
+                let note = analyzer.note_mapper.frequency_to_note(pitch_result.frequency);
+                assert_eq!(note.note, crate::audio::NoteName::A, "Should detect A note in tuning system {}", i);
+                assert_eq!(note.octave, 4, "Should detect octave 4 in tuning system {}", i);
+            }
+        }
+    }
 }

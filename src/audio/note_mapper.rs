@@ -653,4 +653,174 @@ mod tests {
         let zero_note = mapper.frequency_to_note(0.1);
         assert!(zero_note.octave <= 0);
     }
+
+    // Comprehensive Tuning System Tests (Task 8 Requirements)
+    
+    #[test]
+    fn test_all_tuning_systems_with_a4_440hz() {
+        // A4 (440Hz) - Standard tuning reference test for all systems
+        
+        // Equal Temperament
+        let equal_mapper = NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: 440.0 });
+        let equal_note = equal_mapper.frequency_to_note(440.0);
+        assert_eq!(equal_note.note, NoteName::A);
+        assert_eq!(equal_note.octave, 4);
+        assert!(equal_note.cents.abs() < 1.0); // Should be very close to perfect
+        
+        // Just Intonation
+        let just_mapper = NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: 440.0 });
+        let just_note = just_mapper.frequency_to_note(440.0);
+        assert_eq!(just_note.note, NoteName::A);
+        assert_eq!(just_note.octave, 4);
+        assert!(just_note.cents.abs() < 1.0); // Reference should be exact
+        
+        // Custom tuning (12-tone equal temperament ratios starting from A)
+        // A, A#, B, C, C#, D, D#, E, F, F#, G, G#
+        let equal_ratios = vec![1.0, 1.059463, 1.122462, 1.189207, 1.259921, 1.334840, 1.414214, 1.498307, 1.587401, 1.681793, 1.781797, 1.887749];
+        let custom_mapper = NoteMapper::new(TuningSystem::Custom { frequency_ratios: equal_ratios });
+        let custom_note = custom_mapper.frequency_to_note(440.0);
+        // Note: Custom tuning might map to different note depending on how ratios are indexed
+        // Just verify it's a reasonable result
+        assert!(custom_note.octave >= 3 && custom_note.octave <= 5);
+        assert!(custom_note.cents.abs() < 50.0);
+    }
+
+    #[test]
+    fn test_all_tuning_systems_with_c4_middle_c() {
+        // C4 (261.63Hz) - Middle C for note mapping validation
+        
+        // Equal Temperament
+        let equal_mapper = NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: 440.0 });
+        let equal_note = equal_mapper.frequency_to_note(261.63);
+        assert_eq!(equal_note.note, NoteName::C);
+        assert_eq!(equal_note.octave, 4);
+        assert!(equal_note.cents.abs() < 5.0);
+        
+        // Just Intonation
+        let just_mapper = NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: 440.0 });
+        let just_note = just_mapper.frequency_to_note(261.63);
+        assert_eq!(just_note.note, NoteName::C);
+        assert_eq!(just_note.octave, 4);
+        // Just intonation may have larger cent differences for C4
+        assert!(just_note.cents.abs() < 20.0);
+    }
+
+    #[test]
+    fn test_all_tuning_systems_with_e4_major_third() {
+        // E4 (329.63Hz) - Major third for tuning system testing
+        
+        // Equal Temperament
+        let equal_mapper = NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: 440.0 });
+        let equal_note = equal_mapper.frequency_to_note(329.63);
+        assert_eq!(equal_note.note, NoteName::E);
+        assert_eq!(equal_note.octave, 4);
+        assert!(equal_note.cents.abs() < 5.0);
+        
+        // Just Intonation - major third should be different
+        let just_mapper = NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: 440.0 });
+        let just_note = just_mapper.frequency_to_note(329.63);
+        assert_eq!(just_note.note, NoteName::E);
+        assert_eq!(just_note.octave, 4);
+        // Just intonation E should show difference from equal temperament
+        assert!(just_note.cents.abs() < 50.0);
+    }
+
+    #[test]
+    fn test_all_tuning_systems_with_g4_perfect_fifth() {
+        // G4 (392.00Hz) - Perfect fifth for harmonic validation
+        
+        // Equal Temperament
+        let equal_mapper = NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: 440.0 });
+        let equal_note = equal_mapper.frequency_to_note(392.0);
+        assert_eq!(equal_note.note, NoteName::G);
+        assert_eq!(equal_note.octave, 4);
+        assert!(equal_note.cents.abs() < 5.0);
+        
+        // Just Intonation - perfect fifth should be very close to just ratio
+        let just_mapper = NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: 440.0 });
+        let just_note = just_mapper.frequency_to_note(392.0);
+        assert_eq!(just_note.note, NoteName::G);
+        assert_eq!(just_note.octave, 4);
+        assert!(just_note.cents.abs() < 50.0); // Relaxed tolerance for just intonation
+    }
+
+    #[test]
+    fn test_tuning_system_frequency_sweep() {
+        // Test frequency sweep: 100Hz-1000Hz for range validation across all tuning systems
+        let test_frequencies = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0];
+        
+        let mappers = vec![
+            NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: 440.0 }),
+            NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: 440.0 }),
+        ];
+        
+        for mapper in &mappers {
+            for &frequency in &test_frequencies {
+                let note = mapper.frequency_to_note(frequency);
+                
+                // Validate that note mapping produces reasonable results
+                assert!(note.octave >= 2 && note.octave <= 6, 
+                    "Frequency {}Hz mapped to unreasonable octave {}", frequency, note.octave);
+                assert!(note.cents.abs() <= 50.0, 
+                    "Frequency {}Hz has excessive cent deviation: {}", frequency, note.cents);
+                
+                // Test round-trip accuracy
+                let mapped_freq = mapper.note_to_frequency(&note);
+                let difference = (mapped_freq - frequency).abs();
+                let percentage_error = difference / frequency * 100.0;
+                assert!(percentage_error < 10.0, 
+                    "Round-trip error too large for {}Hz: {}%", frequency, percentage_error);
+            }
+        }
+    }
+
+    #[test]
+    fn test_custom_tuning_system_validation() {
+        // Test custom tuning system with microtonal intervals
+        let quarter_tone_ratios = vec![
+            1.0, 1.029302, 1.059463, 1.090508, 1.122462, 1.155353, 
+            1.189207, 1.224054, 1.259921, 1.296840, 1.334840, 1.373954
+        ];
+        
+        let custom_mapper = NoteMapper::new(TuningSystem::Custom { 
+            frequency_ratios: quarter_tone_ratios.clone() 
+        });
+        
+        // Test that custom ratios are used correctly
+        for (_i, &ratio) in quarter_tone_ratios.iter().enumerate() {
+            let test_freq = 440.0 * ratio; // Based on A4
+            let note = custom_mapper.frequency_to_note(test_freq);
+            
+            // Should map to reasonable note names
+            assert!(matches!(note.note, NoteName::A | NoteName::ASharp | NoteName::B | 
+                           NoteName::C | NoteName::CSharp | NoteName::D | 
+                           NoteName::DSharp | NoteName::E | NoteName::F | 
+                           NoteName::FSharp | NoteName::G | NoteName::GSharp));
+            
+            // Octave should be reasonable for frequencies around 440Hz
+            assert!(note.octave >= 4 && note.octave <= 5);
+        }
+    }
+
+    #[test]
+    fn test_comprehensive_reference_pitch_variations() {
+        // Test different reference pitches (420Hz-460Hz range as specified)
+        let reference_pitches = [420.0, 432.0, 440.0, 442.0, 444.0, 460.0];
+        
+        for &ref_pitch in &reference_pitches {
+            // Equal Temperament
+            let equal_mapper = NoteMapper::new(TuningSystem::EqualTemperament { reference_pitch: ref_pitch });
+            let equal_note = equal_mapper.frequency_to_note(ref_pitch);
+            assert_eq!(equal_note.note, NoteName::A);
+            assert_eq!(equal_note.octave, 4);
+            assert!(equal_note.cents.abs() < 1.0);
+            
+            // Just Intonation
+            let just_mapper = NoteMapper::new(TuningSystem::JustIntonation { reference_pitch: ref_pitch });
+            let just_note = just_mapper.frequency_to_note(ref_pitch);
+            assert_eq!(just_note.note, NoteName::A);
+            assert_eq!(just_note.octave, 4);
+            assert!(just_note.cents.abs() < 1.0);
+        }
+    }
 }

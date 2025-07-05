@@ -899,4 +899,166 @@ mod tests {
         assert_eq!(detector.config().min_frequency, 80.0);
         assert_eq!(detector.config().max_frequency, 2000.0);
     }
+
+    // Comprehensive Test Signal Frequency Tests (Task 8 Requirements)
+    
+    #[test]
+    fn test_pitch_detector_a4_standard_tuning() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Generate A4 (440Hz) - Standard tuning reference
+        let frequency = 440.0;
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        let result = detector.analyze(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should detect very close to 440Hz for standard tuning reference
+            assert!((pitch_result.frequency - 440.0).abs() < 10.0);
+            assert!(pitch_result.confidence > 0.7);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_c4_middle_c() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Generate C4 (261.63Hz) - Middle C for note mapping validation
+        let frequency = 261.63;
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        let result = detector.analyze(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should detect close to C4 frequency
+            assert!((pitch_result.frequency - 261.63).abs() < 15.0);
+            assert!(pitch_result.confidence > 0.6);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_e4_major_third() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Generate E4 (329.63Hz) - Major third for tuning system testing
+        let frequency = 329.63;
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        let result = detector.analyze(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should detect close to E4 frequency
+            assert!((pitch_result.frequency - 329.63).abs() < 15.0);
+            assert!(pitch_result.confidence > 0.6);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_g4_perfect_fifth() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Generate G4 (392.00Hz) - Perfect fifth for harmonic validation
+        let frequency = 392.0;
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                (2.0 * std::f32::consts::PI * frequency * t).sin()
+            })
+            .collect();
+        
+        let result = detector.analyze(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should detect close to G4 frequency
+            assert!((pitch_result.frequency - 392.0).abs() < 15.0);
+            assert!(pitch_result.confidence > 0.6);
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_frequency_sweep() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Test frequency sweep: 100Hz-1000Hz for range validation
+        let test_frequencies = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0];
+        let sample_rate = 48000.0;
+        
+        for &frequency in &test_frequencies {
+            let samples: Vec<f32> = (0..2048)
+                .map(|i| {
+                    let t = i as f32 / sample_rate;
+                    (2.0 * std::f32::consts::PI * frequency * t).sin()
+                })
+                .collect();
+            
+            let result = detector.analyze(&samples);
+            assert!(result.is_ok(), "Failed to analyze frequency {}", frequency);
+            
+            if let Some(pitch_result) = result.unwrap() {
+                // Allow wider tolerance for frequency sweep test
+                let tolerance = frequency * 0.05; // 5% tolerance
+                assert!((pitch_result.frequency - frequency).abs() < tolerance, 
+                    "Frequency detection failed for {}Hz: detected {}Hz", 
+                    frequency, pitch_result.frequency);
+                assert!(pitch_result.confidence > 0.4, 
+                    "Low confidence for {}Hz: {}", frequency, pitch_result.confidence);
+            }
+        }
+    }
+
+    #[test]
+    fn test_pitch_detector_harmonic_content() {
+        let config = PitchDetectorConfig::default();
+        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        
+        // Generate complex signal with fundamental + harmonics for algorithm robustness
+        let fundamental = 220.0; // A3
+        let sample_rate = 48000.0;
+        let samples: Vec<f32> = (0..2048)
+            .map(|i| {
+                let t = i as f32 / sample_rate;
+                let fundamental_sin = (2.0 * std::f32::consts::PI * fundamental * t).sin();
+                let second_harmonic = 0.5 * (2.0 * std::f32::consts::PI * fundamental * 2.0 * t).sin();
+                let third_harmonic = 0.25 * (2.0 * std::f32::consts::PI * fundamental * 3.0 * t).sin();
+                fundamental_sin + second_harmonic + third_harmonic
+            })
+            .collect();
+        
+        let result = detector.analyze(&samples);
+        assert!(result.is_ok());
+        
+        if let Some(pitch_result) = result.unwrap() {
+            // Should detect fundamental frequency despite harmonics
+            assert!((pitch_result.frequency - fundamental).abs() < 20.0);
+            assert!(pitch_result.confidence > 0.5);
+        }
+    }
 }

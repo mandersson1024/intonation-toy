@@ -255,4 +255,78 @@ mod tests {
         assert!(warning.description().contains("2.0dB"));
         assert!(warning.description().contains("Input level too high"));
     }
+
+    // Event Publishing and Subscription Integration Tests (Task 8 Requirements)
+    
+    #[test]
+    fn test_event_dispatcher_integration() {
+        use super::super::event_dispatcher::EventDispatcher;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+        
+        let mut dispatcher = EventDispatcher::new();
+        let events_received = Rc::new(RefCell::new(Vec::new()));
+        
+        // Subscribe to pitch detected events
+        let events_clone = events_received.clone();
+        dispatcher.subscribe("pitch_detected", move |event| {
+            events_clone.borrow_mut().push(event.clone());
+        });
+        
+        // Create and publish a pitch event
+        let pitch_event = AudioEvent::PitchDetected {
+            frequency: 440.0,
+            confidence: 0.8,
+            note: crate::audio::MusicalNote::new(
+                crate::audio::NoteName::A,
+                4,
+                0.0,
+                440.0
+            ),
+            clarity: 0.7,
+            timestamp: 1000.0,
+        };
+        
+        // Publish event
+        dispatcher.publish(pitch_event.clone());
+        
+        // Verify event was received
+        let received = events_received.borrow();
+        assert_eq!(received.len(), 1);
+        assert!(matches!(received[0], AudioEvent::PitchDetected { .. }));
+        
+        // Verify subscriber count
+        assert_eq!(dispatcher.subscriber_count("pitch_detected"), 1);
+    }
+
+    #[test]  
+    fn test_event_types_integration() {
+        // Test that all event types work correctly
+        let pitch_detected = AudioEvent::PitchDetected {
+            frequency: 440.0,
+            confidence: 0.8,
+            note: crate::audio::MusicalNote::new(
+                crate::audio::NoteName::A,
+                4,
+                0.0,
+                440.0
+            ),
+            clarity: 0.7,
+            timestamp: 1000.0,
+        };
+        assert_eq!(pitch_detected.event_type(), "pitch_detected");
+        
+        let pitch_lost = AudioEvent::PitchLost {
+            last_frequency: 440.0,
+            timestamp: 2000.0,
+        };
+        assert_eq!(pitch_lost.event_type(), "pitch_lost");
+        
+        let confidence_changed = AudioEvent::ConfidenceChanged {
+            frequency: 440.0,
+            confidence: 0.6,
+            timestamp: 3000.0,
+        };
+        assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
+    }
 }
