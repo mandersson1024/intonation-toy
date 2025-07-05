@@ -193,12 +193,15 @@ mod tests {
 
     #[test]
     fn test_event_dispatcher_basic_functionality() {
+        use std::sync::{Arc, Mutex};
+        
         let mut dispatcher = EventDispatcher::new();
+        let received_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let received_events_clone = Arc::clone(&received_events);
         
         // Subscribe to test_a events
-        dispatcher.subscribe("test_a", |event| {
-            // In a real test, you'd use something like Arc<Mutex<Vec<_>>> to capture events
-            // For this basic test, we'll just verify the callback is called
+        dispatcher.subscribe("test_a", move |event| {
+            received_events_clone.lock().unwrap().push(event);
         });
         
         // Test subscription count
@@ -210,9 +213,14 @@ mod tests {
         assert!(event_types.contains(&"test_a"));
         assert!(!event_types.contains(&"test_b"));
         
-        // Test publishing (callback execution verified by lack of panic)
+        // Test publishing
         let test_event = TestEvent::TestA { value: 42 };
         dispatcher.publish(&test_event);
+        
+        // Verify callback was called with correct event
+        let events = received_events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0], test_event);
         
         // Test clearing subscribers
         dispatcher.clear_subscribers("test_a");
@@ -220,15 +228,109 @@ mod tests {
     }
 
     #[test]
+    fn test_publish_direct() {
+        use std::sync::{Arc, Mutex};
+        
+        let mut dispatcher = EventDispatcher::new();
+        let received_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let received_events_clone = Arc::clone(&received_events);
+        
+        // Subscribe to test_a events
+        dispatcher.subscribe("test_a", move |event| {
+            received_events_clone.lock().unwrap().push(event);
+        });
+        
+        // Test publishing with publish_direct
+        let test_event = TestEvent::TestA { value: 42 };
+        dispatcher.publish_direct(&test_event);
+        
+        // Verify callback was called with correct event
+        let events = received_events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0], test_event);
+    }
+
+    #[test]
+    fn test_multiple_subscribers() {
+        use std::sync::{Arc, Mutex};
+        
+        let mut dispatcher = EventDispatcher::new();
+        let received_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        
+        // Add multiple subscribers
+        for _i in 0..3 {
+            let received_events_clone = Arc::clone(&received_events);
+            dispatcher.subscribe("test_a", move |event| {
+                received_events_clone.lock().unwrap().push(event);
+            });
+        }
+        
+        // Test subscription count
+        assert_eq!(dispatcher.subscriber_count("test_a"), 3);
+        
+        // Publish event
+        let test_event = TestEvent::TestA { value: 42 };
+        dispatcher.publish(&test_event);
+        
+        // Verify all callbacks were called
+        let events = received_events.lock().unwrap();
+        assert_eq!(events.len(), 3);
+        for event in events.iter() {
+            assert_eq!(*event, test_event);
+        }
+    }
+
+    #[test]
+    fn test_different_event_types() {
+        use std::sync::{Arc, Mutex};
+        
+        let mut dispatcher = EventDispatcher::new();
+        let received_a_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let received_b_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        
+        let received_a_clone = Arc::clone(&received_a_events);
+        let received_b_clone = Arc::clone(&received_b_events);
+        
+        // Subscribe to both event types
+        dispatcher.subscribe("test_a", move |event| {
+            received_a_clone.lock().unwrap().push(event);
+        });
+        
+        dispatcher.subscribe("test_b", move |event| {
+            received_b_clone.lock().unwrap().push(event);
+        });
+        
+        // Publish different event types
+        let event_a = TestEvent::TestA { value: 42 };
+        let event_b = TestEvent::TestB { message: "hello".to_string() };
+        
+        dispatcher.publish(&event_a);
+        dispatcher.publish(&event_b);
+        
+        // Verify each subscriber only gets their respective events
+        let a_events = received_a_events.lock().unwrap();
+        let b_events = received_b_events.lock().unwrap();
+        
+        assert_eq!(a_events.len(), 1);
+        assert_eq!(b_events.len(), 1);
+        assert_eq!(a_events[0], event_a);
+        assert_eq!(b_events[0], event_b);
+    }
+
+    #[test]
     fn test_shared_event_dispatcher() {
+        use std::sync::{Arc, Mutex};
+        
         let shared_dispatcher = create_shared_dispatcher::<TestEvent>();
+        let received_events: Arc<Mutex<Vec<TestEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let received_events_clone = Arc::clone(&received_events);
         
         // Test that we can borrow and use the shared dispatcher
         assert_eq!(shared_dispatcher.borrow().subscriber_count("test_a"), 0);
         
         // Test that we can add subscribers through the shared interface
-        shared_dispatcher.borrow_mut().subscribe("test_a", |_event| {
-            // Test callback
+        shared_dispatcher.borrow_mut().subscribe("test_a", move |event| {
+            received_events_clone.lock().unwrap().push(event);
         });
         
         assert_eq!(shared_dispatcher.borrow().subscriber_count("test_a"), 1);
@@ -236,5 +338,10 @@ mod tests {
         // Test that we can publish through the shared interface
         let test_event = TestEvent::TestA { value: 123 };
         shared_dispatcher.borrow().publish(&test_event);
+        
+        // Verify callback was called
+        let events = received_events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0], test_event);
     }
 }
