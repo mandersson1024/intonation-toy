@@ -7,9 +7,9 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use super::{DebugConsole, LivePanel, PermissionButton};
+use crate::console::{DebugConsole, CommandRegistry, ConsoleCommandRegistry};
+use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
-use crate::console::ConsoleCommandRegistry;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
 use crate::events::SharedEventDispatcher;
 
@@ -143,7 +143,7 @@ impl DebugInterface {
 
     /// Render the debug console
     fn render_console(&self, ctx: &Context<Self>) -> Html {
-        let registry_trait: Rc<dyn super::console::CommandRegistry> = ctx.props().registry.clone();
+        let registry_trait: Rc<dyn CommandRegistry> = ctx.props().registry.clone();
         
         html! {
             <DebugConsole
