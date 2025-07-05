@@ -192,12 +192,6 @@ impl DebugInterface {
             <div class="debug-console-modal">
                 <div class="debug-console-header">
                     <h3 class="debug-console-title">{"Debug Console"}</h3>
-                    <button 
-                        class="debug-console-close"
-                        onclick={ctx.link().callback(|_| DebugInterfaceMsg::ToggleVisibility)}
-                    >
-                        {"×"}
-                    </button>
                 </div>
                 
                 <div class="debug-console-content">
