@@ -4,7 +4,7 @@
 //
 // Commands should not be unit tested
 
-use crate::console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
+use dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
 use crate::{platform::Platform, common::dev_log};
 

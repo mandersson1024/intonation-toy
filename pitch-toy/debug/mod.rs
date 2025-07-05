@@ -21,5 +21,5 @@ pub use integration::{DebugInterface, create_debug_interface};
 
 // Shared utilities for debug components
 pub mod shared {
-    pub use crate::console::{ConsoleHistory, ConsoleOutput, ConsoleOutputManager};
+    pub use dev_console::{ConsoleHistory, ConsoleOutput, ConsoleOutputManager};
 }

@@ -1,6 +1,8 @@
 // Console History Management
 // Maintains command history with navigation support for the development console
 
+use serde::{Serialize, Deserialize};
+
 /// Maximum number of commands to store in history to prevent memory issues
 const MAX_HISTORY_SIZE: usize = 100;
 
@@ -8,7 +10,7 @@ const MAX_HISTORY_SIZE: usize = 100;
 /// 
 /// Maintains a list of previously executed commands with navigation support.
 /// Provides up/down arrow navigation functionality and memory management.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsoleHistory {
     /// Storage for command history
     commands: Vec<String>,

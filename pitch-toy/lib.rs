@@ -2,7 +2,7 @@ use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 
 pub mod audio;
-pub mod console;
+// pub mod console;  // Moved to dev-console crate
 pub mod console_commands;
 pub mod common;
 pub mod platform;
@@ -19,7 +19,6 @@ use platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]
 use debug::DebugInterface;
-
 
 #[cfg(debug_assertions)]
 use std::rc::Rc;

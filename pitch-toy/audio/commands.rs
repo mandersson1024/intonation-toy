@@ -4,7 +4,7 @@
 //! These commands access audio information through the audio module's public API,
 //! maintaining proper separation of concerns.
 
-use crate::console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
+use dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 use super::{PitchAnalyzer, TuningSystem};
 // Volume-related imports will be needed when implementing actual volume detector access
@@ -1198,7 +1198,7 @@ mod tests {
 
     #[test]
     fn test_base_command_variant_display() {
-        use crate::console::ConsoleCommandRegistry;
+        use dev_console::ConsoleCommandRegistry;
         
         // Create a registry and register audio commands
         let mut registry = ConsoleCommandRegistry::new();
@@ -1207,7 +1207,7 @@ mod tests {
         // Test that calling "audio" without arguments shows subcommands
         let result = registry.execute("audio");
         match result {
-            crate::console::ConsoleCommandResult::Output(crate::console::ConsoleOutput::Info(text)) => {
+            dev_console::ConsoleCommandResult::Output(dev_console::ConsoleOutput::Info(text)) => {
                 assert!(text.contains("Available audio commands:"));
                 assert!(text.contains("  audio context - Show AudioContext status and configuration"));
                 assert!(text.contains("  audio devices - List available audio input and output devices"));

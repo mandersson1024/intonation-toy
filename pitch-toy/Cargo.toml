@@ -7,6 +7,7 @@ repository = "https://github.com/user/pitch-toy"
 license = "MIT"
 
 [dependencies]
+dev-console = { path = "../dev-console" }
 yew = { version = "0.21", features = ["csr"] }
 web-sys = { version = "0.3", features = [
   "console",

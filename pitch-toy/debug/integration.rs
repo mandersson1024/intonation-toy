@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use crate::console::{DebugConsole, CommandRegistry, ConsoleCommandRegistry};
+use dev_console::{DebugConsole, CommandRegistry, ConsoleCommandRegistry};
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
