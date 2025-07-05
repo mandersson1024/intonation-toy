@@ -102,7 +102,7 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 /// Create a ConsoleAudioService instance with event dispatcher
 /// Returns a configured console audio service with both audio context manager and event dispatcher
 pub fn create_console_audio_service_with_events(
-    event_dispatcher: crate::events::SharedEventDispatcher
+    event_dispatcher: crate::events::AudioEventDispatcher
 ) -> console_service::ConsoleAudioServiceImpl {
     let mut service = console_service::ConsoleAudioServiceImpl::new();
     

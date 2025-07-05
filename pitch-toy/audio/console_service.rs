@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use super::{AudioPermission, AudioDevices, AudioContextState, AudioContextManager, permission::PermissionManager};
 use crate::common::dev_log;
-use crate::events::{AudioEvent, SharedEventDispatcher};
+use crate::events::{AudioEvent, AudioEventDispatcher};
 
 /// Audio status information for console display
 #[derive(Debug, Clone)]
@@ -70,7 +70,7 @@ pub struct ConsoleAudioServiceImpl {
     /// Audio context manager for context operations
     audio_context_manager: Option<Rc<RefCell<AudioContextManager>>>,
     /// Event dispatcher for publishing and subscribing to events
-    event_dispatcher: Option<SharedEventDispatcher>,
+    event_dispatcher: Option<AudioEventDispatcher>,
 }
 
 impl ConsoleAudioServiceImpl {
@@ -93,7 +93,7 @@ impl ConsoleAudioServiceImpl {
     /// Create console audio service with both manager and event dispatcher
     pub fn with_dependencies(
         manager: Rc<RefCell<AudioContextManager>>, 
-        event_dispatcher: SharedEventDispatcher
+        event_dispatcher: AudioEventDispatcher
     ) -> Self {
         Self {
             audio_context_manager: Some(manager),
@@ -112,7 +112,7 @@ impl ConsoleAudioServiceImpl {
     }
     
     /// Set the event dispatcher
-    pub fn set_event_dispatcher(&mut self, dispatcher: SharedEventDispatcher) {
+    pub fn set_event_dispatcher(&mut self, dispatcher: AudioEventDispatcher) {
         self.event_dispatcher = Some(dispatcher);
         
         // Set up device change listener now that we have both manager and dispatcher

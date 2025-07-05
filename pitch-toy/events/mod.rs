@@ -13,10 +13,11 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use pitch_toy::events::{AudioEvent, EventDispatcher};
+//! use pitch_toy::events::{AudioEvent, EventDispatcher, create_shared_audio_dispatcher};
 //! use pitch_toy::audio::AudioPermission;
 //!
-//! let mut dispatcher = EventDispatcher::new();
+//! // Create a dispatcher for audio events
+//! let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
 //!
 //! // Subscribe to permission changes
 //! dispatcher.subscribe("permission_changed", |event| {
@@ -31,10 +32,13 @@
 //! // Publish a permission change event
 //! let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
 //! dispatcher.publish(event);
+//!
+//! // Or use the shared dispatcher for cross-component communication
+//! let shared_dispatcher = create_shared_audio_dispatcher();
 //! ```
 
 pub mod audio_events;
 pub mod event_dispatcher;
 
-pub use audio_events::AudioEvent;
-pub use event_dispatcher::{EventDispatcher, EventCallback, SharedEventDispatcher, create_shared_dispatcher};
+pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
+pub use event_dispatcher::{Event, EventDispatcher, EventCallback, SharedEventDispatcher, create_shared_dispatcher};

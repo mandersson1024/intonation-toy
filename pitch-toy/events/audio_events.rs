@@ -5,6 +5,7 @@
 //! the audio subsystem and other components like the console.
 
 use crate::audio::{AudioPermission, AudioDevices, AudioContextState, MusicalNote, VolumeLevel};
+use super::event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
@@ -130,6 +131,24 @@ impl AudioEvent {
             }
         }
     }
+}
+
+impl Event for AudioEvent {
+    fn event_type(&self) -> &'static str {
+        self.event_type()
+    }
+    
+    fn description(&self) -> String {
+        self.description()
+    }
+}
+
+/// Convenience type alias for audio event dispatcher
+pub type AudioEventDispatcher = SharedEventDispatcher<AudioEvent>;
+
+/// Create a new shared audio event dispatcher
+pub fn create_shared_audio_dispatcher() -> AudioEventDispatcher {
+    create_shared_dispatcher::<AudioEvent>()
 }
 
 #[cfg(test)]
@@ -264,7 +283,7 @@ mod tests {
         use std::rc::Rc;
         use std::cell::RefCell;
         
-        let mut dispatcher = EventDispatcher::new();
+        let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         let events_received = Rc::new(RefCell::new(Vec::new()));
         
         // Subscribe to pitch detected events
@@ -328,5 +347,132 @@ mod tests {
             timestamp: 3000.0,
         };
         assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
+    }
+
+    #[test]
+    fn test_shared_audio_dispatcher() {
+        let shared_dispatcher = create_shared_audio_dispatcher();
+        
+        // Subscribe through shared dispatcher
+        shared_dispatcher.borrow_mut().subscribe("permission_changed", |_| {});
+        
+        assert_eq!(shared_dispatcher.borrow().subscriber_count("permission_changed"), 1);
+        
+        // Publish through shared dispatcher
+        let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
+        shared_dispatcher.borrow().publish(event);
+    }
+
+    // Generic EventDispatcher tests with AudioEvent
+    
+    #[test]
+    fn test_audio_event_dispatcher_creation() {
+        use crate::events::event_dispatcher::EventDispatcher;
+        
+        let dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
+        assert_eq!(dispatcher.subscriber_count("test_event"), 0);
+        assert!(dispatcher.subscribed_event_types().is_empty());
+    }
+    
+    #[test]
+    fn test_audio_event_subscription() {
+        use crate::events::event_dispatcher::EventDispatcher;
+        
+        let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
+        
+        // Subscribe to permission changes
+        dispatcher.subscribe("permission_changed", |event| {
+            match event {
+                AudioEvent::PermissionChanged(_) => {
+                    // Test callback received the right event
+                }
+                _ => panic!("Wrong event type received"),
+            }
+        });
+        
+        assert_eq!(dispatcher.subscriber_count("permission_changed"), 1);
+        assert!(dispatcher.subscribed_event_types().contains(&"permission_changed".to_string()));
+    }
+    
+    #[test]
+    fn test_audio_event_publishing() {
+        use crate::events::event_dispatcher::EventDispatcher;
+        use crate::audio::AudioPermission;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+        
+        let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
+        let received_events = Rc::new(RefCell::new(Vec::new()));
+        
+        // Subscribe to permission changes
+        let received_events_clone = received_events.clone();
+        dispatcher.subscribe("permission_changed", move |event| {
+            received_events_clone.borrow_mut().push(event);
+        });
+        
+        // Publish an event
+        let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+        dispatcher.publish(event);
+        
+        // Verify the event was received
+        assert_eq!(received_events.borrow().len(), 1);
+        let events = received_events.borrow();
+        match &events[0] {
+            AudioEvent::PermissionChanged(permission) => {
+                assert_eq!(*permission, AudioPermission::Granted);
+            }
+            _ => panic!("Wrong event type received"),
+        }
+    }
+    
+    #[test]
+    fn test_audio_event_multiple_subscribers() {
+        use crate::events::event_dispatcher::EventDispatcher;
+        use crate::audio::AudioPermission;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+        
+        let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
+        let call_count = Rc::new(RefCell::new(0));
+        
+        // Subscribe multiple callbacks to the same event
+        let call_count_clone1 = call_count.clone();
+        dispatcher.subscribe("permission_changed", move |_| {
+            *call_count_clone1.borrow_mut() += 1;
+        });
+        
+        let call_count_clone2 = call_count.clone();
+        dispatcher.subscribe("permission_changed", move |_| {
+            *call_count_clone2.borrow_mut() += 1;
+        });
+        
+        assert_eq!(dispatcher.subscriber_count("permission_changed"), 2);
+        
+        // Publish an event
+        let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+        dispatcher.publish(event);
+        
+        // Both callbacks should have been called
+        assert_eq!(*call_count.borrow(), 2);
+    }
+    
+    #[test]
+    fn test_audio_event_clear_subscribers() {
+        use crate::events::event_dispatcher::EventDispatcher;
+        
+        let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
+        
+        dispatcher.subscribe("permission_changed", |_| {});
+        dispatcher.subscribe("device_list_changed", |_| {});
+        
+        assert_eq!(dispatcher.subscriber_count("permission_changed"), 1);
+        assert_eq!(dispatcher.subscriber_count("device_list_changed"), 1);
+        
+        dispatcher.clear_subscribers("permission_changed");
+        assert_eq!(dispatcher.subscriber_count("permission_changed"), 0);
+        assert_eq!(dispatcher.subscriber_count("device_list_changed"), 1);
+        
+        dispatcher.clear_all_subscribers();
+        assert_eq!(dispatcher.subscriber_count("device_list_changed"), 0);
     }
 }

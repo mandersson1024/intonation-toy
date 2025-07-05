@@ -11,7 +11,7 @@ use dev_console::{ConsoleCommandRegistry, DevConsole};
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
-use crate::events::SharedEventDispatcher;
+use crate::events::AudioEventDispatcher;
 
 /// Properties for the integrated debug interface
 #[derive(Properties)]
@@ -21,7 +21,7 @@ pub struct DebugInterfaceProps {
     /// Audio service for audio operations
     pub audio_service: Rc<ConsoleAudioServiceImpl>,
     /// Event dispatcher for real-time updates
-    pub event_dispatcher: Option<SharedEventDispatcher>,
+    pub event_dispatcher: Option<AudioEventDispatcher>,
 }
 
 impl PartialEq for DebugInterfaceProps {
@@ -196,7 +196,7 @@ impl DebugInterface {
 pub fn create_debug_interface(
     registry: Rc<ConsoleCommandRegistry>,
     audio_service: Rc<ConsoleAudioServiceImpl>,
-    event_dispatcher: Option<SharedEventDispatcher>,
+    event_dispatcher: Option<AudioEventDispatcher>,
 ) -> Html {
     html! {
         <DebugInterface

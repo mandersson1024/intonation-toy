@@ -128,7 +128,7 @@ pub struct AudioWorkletManager {
     state: AudioWorkletState,
     config: AudioWorkletConfig,
     buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
-    event_dispatcher: Option<crate::events::SharedEventDispatcher>,
+    event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
@@ -374,7 +374,7 @@ impl AudioWorkletManager {
     }
 
     /// Attach an event dispatcher for publishing BufferEvents
-    pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::SharedEventDispatcher) {
+    pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::AudioEventDispatcher) {
         self.event_dispatcher = Some(dispatcher);
     }
 

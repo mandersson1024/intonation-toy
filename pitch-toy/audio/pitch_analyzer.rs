@@ -3,7 +3,7 @@ use super::note_mapper::NoteMapper;
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::events::SharedEventDispatcher;
+use crate::events::AudioEventDispatcher;
 use crate::events::audio_events::AudioEvent;
 
 pub type PitchAnalysisError = String;
@@ -62,7 +62,7 @@ impl Default for PitchPerformanceMetrics {
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     note_mapper: NoteMapper,
-    event_dispatcher: Option<SharedEventDispatcher>,
+    event_dispatcher: Option<AudioEventDispatcher>,
     metrics: PitchPerformanceMetrics,
     last_detection: Option<PitchResult>,
     confidence_threshold_for_events: f32,
@@ -101,7 +101,7 @@ impl PitchAnalyzer {
     }
 
     /// Set the event dispatcher for publishing pitch events
-    pub fn set_event_dispatcher(&mut self, dispatcher: SharedEventDispatcher) {
+    pub fn set_event_dispatcher(&mut self, dispatcher: AudioEventDispatcher) {
         self.event_dispatcher = Some(dispatcher);
     }
 
@@ -1513,17 +1513,17 @@ mod tests {
     
     #[test]
     fn test_end_to_end_pitch_detection_pipeline() {
-        use crate::events::create_shared_dispatcher;
+        use crate::events::{create_shared_audio_dispatcher, AudioEvent};
         use std::rc::Rc;
         use std::cell::RefCell;
         
         // Create shared event dispatcher
-        let dispatcher = create_shared_dispatcher();
+        let dispatcher = create_shared_audio_dispatcher();
         let received_events = Rc::new(RefCell::new(Vec::new()));
         
         // Subscribe to pitch events
         let events_clone = received_events.clone();
-        dispatcher.borrow_mut().subscribe("pitch_detected", move |event| {
+        dispatcher.borrow_mut().subscribe("pitch_detected", move |event: AudioEvent| {
             events_clone.borrow_mut().push(event.clone());
         });
         

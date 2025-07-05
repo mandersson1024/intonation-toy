@@ -8,13 +8,13 @@ use web_sys::window;
 
 use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
-use crate::events::SharedEventDispatcher;
+use crate::events::AudioEventDispatcher;
 
 /// Properties for the LivePanel component
 #[derive(Properties)]
 pub struct LivePanelProps {
     /// Event dispatcher for receiving real-time updates
-    pub event_dispatcher: SharedEventDispatcher,
+    pub event_dispatcher: AudioEventDispatcher,
     /// Whether the panel is visible
     pub visible: bool,
     /// Current audio permission state
