@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use dev_console::ConsoleCommandRegistry;
+use dev_console::{ConsoleCommandRegistry, ConsoleHistory, ConsoleOutputManager};
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
@@ -39,8 +39,14 @@ pub struct DebugInterface {
     audio_permission: AudioPermission,
     /// Console input value
     console_input: String,
-    /// Console output messages
-    console_output: Vec<dev_console::ConsoleOutput>,
+    /// Command history for navigation
+    command_history: ConsoleHistory,
+    /// Output manager for displaying results
+    output_manager: ConsoleOutputManager,
+    /// Reference to the output container element for auto-scrolling
+    output_ref: NodeRef,
+    /// Reference to the input element
+    input_ref: NodeRef,
 }
 
 /// Messages for the debug interface
@@ -63,14 +69,26 @@ impl Component for DebugInterface {
     type Properties = DebugInterfaceProps;
 
     fn create(ctx: &Context<Self>) -> Self {
+        let mut output_manager = ConsoleOutputManager::new();
+        
+        // Add welcome message
+        output_manager.add_output(dev_console::ConsoleOutput::info("Debug console initialized"));
+        output_manager.add_output(dev_console::ConsoleOutput::info("Type 'help' for available commands"));
+        
+        // Load command history from local storage
+        let command_history = Self::load_history_from_storage();
+        if !command_history.is_empty() {
+            output_manager.add_output(dev_console::ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
+        }
+        
         let component = Self {
             visible: true,  // Start with debug interface visible on app start
             audio_permission: AudioPermission::Uninitialized,
             console_input: String::new(),
-            console_output: vec![
-                dev_console::ConsoleOutput::info("Debug console initialized"),
-                dev_console::ConsoleOutput::info("Type 'help' for available commands"),
-            ],
+            command_history,
+            output_manager,
+            output_ref: NodeRef::default(),
+            input_ref: NodeRef::default(),
         };
 
         // Check initial permission state from browser
@@ -107,28 +125,37 @@ impl Component for DebugInterface {
             DebugInterfaceMsg::ExecuteConsoleCommand => {
                 let command = self.console_input.trim();
                 if !command.is_empty() {
+                    // Add command to history
+                    self.command_history.add_command(command.to_string());
+                    
+                    // Save history to local storage
+                    self.save_history_to_storage();
+
                     // Echo the command
-                    self.console_output.push(dev_console::ConsoleOutput::echo(command));
+                    self.output_manager.add_output(dev_console::ConsoleOutput::echo(command));
                     
                     // Execute the command using the registry
                     let result = ctx.props().registry.execute(command);
                     match result {
                         dev_console::ConsoleCommandResult::Output(output) => {
-                            self.console_output.push(output);
+                            self.output_manager.add_output(output);
                         }
                         dev_console::ConsoleCommandResult::ClearAndOutput(output) => {
-                            self.console_output.clear();
-                            self.console_output.push(output);
+                            self.output_manager.clear();
+                            self.output_manager.add_output(output);
                         }
                         dev_console::ConsoleCommandResult::MultipleOutputs(outputs) => {
                             for output in outputs {
-                                self.console_output.push(output);
+                                self.output_manager.add_output(output);
                             }
                         }
                     }
                     
                     // Clear input
                     self.console_input.clear();
+                    
+                    // Reset history navigation
+                    self.command_history.reset_navigation();
                 }
                 true
             }
@@ -138,6 +165,22 @@ impl Component for DebugInterface {
                         event.prevent_default();
                         ctx.link().send_message(DebugInterfaceMsg::ExecuteConsoleCommand);
                         false
+                    }
+                    "ArrowUp" => {
+                        event.prevent_default();
+                        if let Some(command) = self.command_history.navigate_previous() {
+                            self.console_input = command.to_string();
+                            self.focus_input_end();
+                        }
+                        true
+                    }
+                    "ArrowDown" => {
+                        event.prevent_default();
+                        if let Some(command) = self.command_history.navigate_next() {
+                            self.console_input = command.to_string();
+                            self.focus_input_end();
+                        }
+                        true
                     }
                     _ => false
                 }
@@ -166,6 +209,11 @@ impl Component for DebugInterface {
         if _first_render {
             self.setup_global_keyboard_handler(ctx);
         }
+        
+        // Auto-scroll to bottom when new output is added
+        if let Some(output_element) = self.output_ref.cast::<web_sys::Element>() {
+            output_element.set_scroll_top(output_element.scroll_height());
+        }
     }
 }
 
@@ -192,6 +240,45 @@ impl DebugInterface {
         closure.forget();
     }
 
+    /// Load command history from local storage
+    fn load_history_from_storage() -> ConsoleHistory {
+        if let Some(storage) = Self::get_local_storage() {
+            if let Ok(Some(history_json)) = storage.get_item("dev_console_history") {
+                if let Ok(history) = serde_json::from_str(&history_json) {
+                    return history;
+                }
+            }
+        }
+        ConsoleHistory::new()
+    }
+
+    /// Save command history to local storage
+    fn save_history_to_storage(&self) {
+        if let Some(storage) = Self::get_local_storage() {
+            if let Ok(history_json) = serde_json::to_string(&self.command_history) {
+                let _ = storage.set_item("dev_console_history", &history_json);
+            }
+        }
+    }
+
+    /// Get local storage reference
+    fn get_local_storage() -> Option<web_sys::Storage> {
+        web_sys::window()
+            .and_then(|window| window.local_storage().ok())
+            .flatten()
+    }
+
+    /// Focus the input element and move cursor to end
+    fn focus_input_end(&self) {
+        if let Some(input_element) = self.input_ref.cast::<web_sys::HtmlInputElement>() {
+            input_element.focus().ok();
+            if let Ok(length) = input_element.value().len().try_into() {
+                input_element.set_selection_start(Some(length)).ok();
+                input_element.set_selection_end(Some(length)).ok();
+            }
+        }
+    }
+
 
     /// Render the debug components
     fn render_debug_components(&self, ctx: &Context<Self>) -> Html {
@@ -213,12 +300,12 @@ impl DebugInterface {
                 </div>
                 
                 <div class="debug-console-content">
-                    <div class="debug-console-output">
+                    <div class="debug-console-output" ref={self.output_ref.clone()}>
                         <div class="debug-console-messages">
-                            {for self.console_output.iter().map(|output| {
+                            {for self.output_manager.entries().iter().rev().map(|entry| {
                                 html! {
-                                    <div class={format!("debug-console-message debug-console-message-{}", output.output_type())}>
-                                        {output.to_string()}
+                                    <div class={format!("debug-console-message debug-console-message-{}", entry.output.output_type())}>
+                                        {entry.output.to_string()}
                                     </div>
                                 }
                             })}
@@ -228,6 +315,7 @@ impl DebugInterface {
                     <div class="debug-console-input-container">
                         <span class="debug-console-prompt">{">"}</span>
                         <input
+                            ref={self.input_ref.clone()}
                             type="text"
                             class="debug-console-input"
                             value={self.console_input.clone()}
