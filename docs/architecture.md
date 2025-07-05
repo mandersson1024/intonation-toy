@@ -38,13 +38,21 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 │  │                 Pitch Toy Application                   │   │
 │  │                                                         │   │
 │  │  ┌─────────────┐    ┌─────────────────┐               │   │
-│  │  │ Command Console │    │ Event Dispatcher│               │   │
+│  │  │Debug Console│    │ Event Dispatcher│               │   │
 │  │  │   (Yew)     │    │   (Core Event   │               │   │
 │  │  └─────────────┘    │     System)     │               │   │
 │  │         │            └─────────────────┘               │   │
 │  │         ▼                       ▲                      │   │
 │  │  ┌─────────────┐               │                      │   │
-│  │  │Debug Overlay│               │                      │   │
+│  │  │Debug Live   │               │                      │   │
+│  │  │   Panel     │               │                      │   │
+│  │  │   (Yew)     │               │                      │   │
+│  │  └─────────────┘               │                      │   │
+│  │         │                       │                      │   │
+│  │         ▼                       │                      │   │
+│  │  ┌─────────────┐               │                      │   │
+│  │  │Debug Permit │               │                      │   │
+│  │  │   Button    │               │                      │   │
 │  │  │   (Yew)     │               │                      │   │
 │  │  └─────────────┘               │                      │   │
 │  │                                │                      │   │
@@ -123,8 +131,8 @@ Audio Processor
                     ┌──────────────┼──────────────┐
                     │              │              │
                     ▼              ▼              ▼
-            Command Console    Presentation    Debug Overlay
-          (Service Interface)     Layer
+            Debug Console      Presentation    Debug Live Panel
+          (Service Interface)     Layer       & Permission Button
                                   │
                                   ▼
                             Render Commands
@@ -203,22 +211,42 @@ Audio Processor
 
 #### 4. Development Infrastructure
 
-##### Development Console (Yew) - HTML/CSS ALLOWED
-- **Purpose**: Interactive debugging and development interface
-- **Architecture**: Decoupled from audio system via service interface pattern
+##### Debug Console (Yew) - HTML/CSS ALLOWED
+- **Location**: `src/debug/console`
+- **Purpose**: Reusable synchronous command input/output interface
+- **Architecture**: Generic, standalone component designed for future extraction
 - **Features**:
   - Command execution system with extensible DevCommand trait
-  - Real-time system control and configuration
-  - Audio processing debugging and testing
+  - Pure synchronous command I/O operations
+  - History management and command completion
+  - Framework-agnostic design for reusability
 - **Service Integration**: Uses ConsoleAudioService interface for audio operations
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Availability**: Development builds only
 
-##### Debug Overlay (Yew) - HTML/CSS ALLOWED
-- **Purpose**: Non-intrusive performance monitoring
-- **Metrics**: FPS, audio latency, memory usage, CPU utilization
+##### Debug Live Panel (Yew) - HTML/CSS ALLOWED
+- **Location**: `src/debug/live_panel`
+- **Purpose**: Real-time monitoring and asynchronous data visualization
+- **Architecture**: Event-driven component for live data updates
+- **Features**:
+  - Device list monitoring and updates
+  - Microphone permission status display
+  - Performance metrics (FPS, audio latency, memory usage)
+  - Audio processing metrics (volume, pitch detection updates)
 - **Implementation**: HTML/CSS/Yew components (development tools exception)
 - **Integration**: Real-time metrics from all system components via event system
+
+##### Debug Permission Button (Yew) - HTML/CSS ALLOWED
+- **Location**: `src/debug/permission_button`
+- **Purpose**: Dedicated microphone permission request interface
+- **Architecture**: Isolated component for permission management
+- **Features**:
+  - Microphone permission request triggering
+  - Permission status indication
+  - Conflict-free operation with production permission systems
+  - Separate UI element placement
+- **Implementation**: HTML/CSS/Yew components (development tools exception)
+- **Integration**: Event-driven communication with audio system
 
 #### 5. Audio-Console Decoupling Architecture
 
