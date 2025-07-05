@@ -1,0 +1,15 @@
+[package]
+name = "event-dispatcher"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Generic type-safe event dispatcher for domain-specific event communication"
+license = "MIT"
+keywords = ["events", "dispatcher", "publish-subscribe", "rust", "wasm"]
+categories = ["web-programming", "wasm"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# No external dependencies - keep it minimal and reusable
