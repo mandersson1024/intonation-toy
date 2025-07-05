@@ -89,7 +89,13 @@ impl Component for DebugInterface {
                 true
             }
             DebugInterfaceMsg::PermissionChanged(permission) => {
-                self.audio_permission = permission;
+                self.audio_permission = permission.clone();
+                
+                // If permission was granted, refresh the device list
+                if permission == AudioPermission::Granted {
+                    ctx.props().audio_service.refresh_devices();
+                }
+                
                 true
             }
             DebugInterfaceMsg::UpdateConsoleInput(value) => {
