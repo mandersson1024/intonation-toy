@@ -89,10 +89,6 @@ impl Component for DebugInterface {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        if !self.visible {
-            return html! {};
-        }
-
         html! {
             <>
                 <style>
@@ -156,8 +152,7 @@ impl DebugInterface {
         html! {
             <DevConsole
                 registry={ctx.props().registry.clone()}
-                visible={true}
-                on_toggle={Callback::noop()}
+                visible={self.visible}
             />
         }
     }
@@ -168,7 +163,7 @@ impl DebugInterface {
             html! {
                 <LivePanel
                     event_dispatcher={event_dispatcher.clone()}
-                    visible={true}
+                    visible={self.visible}
                     audio_permission={self.audio_permission.clone()}
                     audio_service={ctx.props().audio_service.clone()}
                 />
@@ -180,6 +175,10 @@ impl DebugInterface {
 
     /// Render the permission button
     fn render_permission_button(&self, ctx: &Context<Self>) -> Html {
+        if !self.visible {
+            return html! {};
+        }
+        
         // Create adapter for the audio service
         let service_adapter: Rc<dyn AudioPermissionService> = Rc::new(AudioServiceAdapter::new(ctx.props().audio_service.clone()));
         

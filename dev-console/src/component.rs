@@ -21,14 +21,13 @@ pub struct DevConsoleProps {
     pub registry: Rc<ConsoleCommandRegistry>,
     /// Whether the console is visible
     pub visible: bool,
-    /// Callback for toggling visibility
-    pub on_toggle: Callback<()>,
 }
 
 impl PartialEq for DevConsoleProps {
     fn eq(&self, other: &Self) -> bool {
         // Compare by pointer equality since registries are immutable after creation
         Rc::ptr_eq(&self.registry, &other.registry) && self.visible == other.visible
+        // Note: Callbacks are not compared as they don't implement PartialEq
     }
 }
 
@@ -46,6 +45,10 @@ pub struct DevConsole {
     input_ref: NodeRef,
     /// Reference to the output container element for auto-scrolling
     output_ref: NodeRef,
+    /// Previous visibility state for change detection
+    previous_visible: bool,
+    /// Flag to indicate we should focus on next render
+    should_focus_on_render: bool,
 }
 
 /// Messages for the DevConsole component
@@ -57,8 +60,6 @@ pub enum DevConsoleMsg {
     UpdateInput(String),
     /// Handle keyboard events (history navigation, shortcuts)
     HandleKeyDown(KeyboardEvent),
-    /// Toggle console visibility
-    ToggleVisibility,
 }
 
 impl Component for DevConsole {
@@ -85,6 +86,8 @@ impl Component for DevConsole {
             input_value: String::new(),
             input_ref: NodeRef::default(),
             output_ref: NodeRef::default(),
+            previous_visible: ctx.props().visible,
+            should_focus_on_render: ctx.props().visible,
         }
     }
 
@@ -161,11 +164,22 @@ impl Component for DevConsole {
                 }
             }
             
-            DevConsoleMsg::ToggleVisibility => {
-                ctx.props().on_toggle.emit(());
-                false
+            
+        }
+    }
+
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
+        // Check for visibility changes
+        let current_visible = ctx.props().visible;
+        if self.previous_visible != current_visible {
+            self.previous_visible = current_visible;
+            
+            // Set flag to focus on next render when becoming visible
+            if current_visible {
+                self.should_focus_on_render = true;
             }
         }
+        true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -214,6 +228,12 @@ impl Component for DevConsole {
         // Auto-scroll to bottom when new output is added
         if let Some(output_element) = self.output_ref.cast::<web_sys::Element>() {
             output_element.set_scroll_top(output_element.scroll_height());
+        }
+        
+        // Auto-focus input if flagged to do so
+        if self.should_focus_on_render {
+            self.should_focus_on_render = false;
+            self.focus_input_end();
         }
     }
 }
@@ -377,7 +397,6 @@ mod tests {
         let props = DevConsoleProps {
             registry: Rc::new(registry),
             visible: true,
-            on_toggle: Callback::from(|_| {}),
         };
         
         assert!(props.visible);
