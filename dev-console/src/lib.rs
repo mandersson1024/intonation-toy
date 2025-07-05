@@ -11,4 +11,4 @@ mod component;
 pub use command::{ConsoleCommand, ConsoleCommandResult};
 pub use command_registry::ConsoleCommandRegistry;
 pub use output::{ConsoleOutput, ConsoleOutputManager};
-pub use history::ConsoleHistory; 
+pub use component::DevConsole; 

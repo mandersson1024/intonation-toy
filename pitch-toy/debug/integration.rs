@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use dev_console::{ConsoleCommandRegistry, ConsoleHistory, ConsoleOutputManager};
+use dev_console::{ConsoleCommandRegistry, DevConsole};
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
@@ -37,16 +37,6 @@ pub struct DebugInterface {
     visible: bool,
     /// Current audio permission state
     audio_permission: AudioPermission,
-    /// Console input value
-    console_input: String,
-    /// Command history for navigation
-    command_history: ConsoleHistory,
-    /// Output manager for displaying results
-    output_manager: ConsoleOutputManager,
-    /// Reference to the output container element for auto-scrolling
-    output_ref: NodeRef,
-    /// Reference to the input element
-    input_ref: NodeRef,
 }
 
 /// Messages for the debug interface
@@ -56,12 +46,6 @@ pub enum DebugInterfaceMsg {
     ToggleVisibility,
     /// Permission state changed
     PermissionChanged(AudioPermission),
-    /// Update console input
-    UpdateConsoleInput(String),
-    /// Execute console command
-    ExecuteConsoleCommand,
-    /// Handle keyboard events
-    HandleKeyDown(web_sys::KeyboardEvent),
 }
 
 impl Component for DebugInterface {
@@ -69,26 +53,9 @@ impl Component for DebugInterface {
     type Properties = DebugInterfaceProps;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let mut output_manager = ConsoleOutputManager::new();
-        
-        // Add welcome message
-        output_manager.add_output(dev_console::ConsoleOutput::info("Debug console initialized"));
-        output_manager.add_output(dev_console::ConsoleOutput::info("Type 'help' for available commands"));
-        
-        // Load command history from local storage
-        let command_history = Self::load_history_from_storage();
-        if !command_history.is_empty() {
-            output_manager.add_output(dev_console::ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
-        }
-        
         let component = Self {
             visible: true,  // Start with debug interface visible on app start
             audio_permission: AudioPermission::Uninitialized,
-            console_input: String::new(),
-            command_history,
-            output_manager,
-            output_ref: NodeRef::default(),
-            input_ref: NodeRef::default(),
         };
 
         // Check initial permission state from browser
@@ -118,73 +85,6 @@ impl Component for DebugInterface {
                 
                 true
             }
-            DebugInterfaceMsg::UpdateConsoleInput(value) => {
-                self.console_input = value;
-                true
-            }
-            DebugInterfaceMsg::ExecuteConsoleCommand => {
-                let command = self.console_input.trim();
-                if !command.is_empty() {
-                    // Add command to history
-                    self.command_history.add_command(command.to_string());
-                    
-                    // Save history to local storage
-                    self.save_history_to_storage();
-
-                    // Echo the command
-                    self.output_manager.add_output(dev_console::ConsoleOutput::echo(command));
-                    
-                    // Execute the command using the registry
-                    let result = ctx.props().registry.execute(command);
-                    match result {
-                        dev_console::ConsoleCommandResult::Output(output) => {
-                            self.output_manager.add_output(output);
-                        }
-                        dev_console::ConsoleCommandResult::ClearAndOutput(output) => {
-                            self.output_manager.clear();
-                            self.output_manager.add_output(output);
-                        }
-                        dev_console::ConsoleCommandResult::MultipleOutputs(outputs) => {
-                            for output in outputs {
-                                self.output_manager.add_output(output);
-                            }
-                        }
-                    }
-                    
-                    // Clear input
-                    self.console_input.clear();
-                    
-                    // Reset history navigation
-                    self.command_history.reset_navigation();
-                }
-                true
-            }
-            DebugInterfaceMsg::HandleKeyDown(event) => {
-                match event.key().as_str() {
-                    "Enter" => {
-                        event.prevent_default();
-                        ctx.link().send_message(DebugInterfaceMsg::ExecuteConsoleCommand);
-                        false
-                    }
-                    "ArrowUp" => {
-                        event.prevent_default();
-                        if let Some(command) = self.command_history.navigate_previous() {
-                            self.console_input = command.to_string();
-                            self.focus_input_end();
-                        }
-                        true
-                    }
-                    "ArrowDown" => {
-                        event.prevent_default();
-                        if let Some(command) = self.command_history.navigate_next() {
-                            self.console_input = command.to_string();
-                            self.focus_input_end();
-                        }
-                        true
-                    }
-                    _ => false
-                }
-            }
         }
     }
 
@@ -209,11 +109,6 @@ impl Component for DebugInterface {
         if _first_render {
             self.setup_global_keyboard_handler(ctx);
         }
-        
-        // Auto-scroll to bottom when new output is added
-        if let Some(output_element) = self.output_ref.cast::<web_sys::Element>() {
-            output_element.set_scroll_top(output_element.scroll_height());
-        }
     }
 }
 
@@ -222,9 +117,12 @@ impl DebugInterface {
     fn setup_global_keyboard_handler(&self, ctx: &Context<Self>) {
         let link = ctx.link().clone();
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::KeyboardEvent| {
-            if event.key() == "Escape" {
-                event.prevent_default();
-                link.send_message(DebugInterfaceMsg::ToggleVisibility);
+            match event.key().as_str() {
+                "Escape" => {
+                    event.prevent_default();
+                    link.send_message(DebugInterfaceMsg::ToggleVisibility);
+                }
+                _ => {}
             }
         }) as Box<dyn FnMut(_)>);
 
@@ -240,44 +138,6 @@ impl DebugInterface {
         closure.forget();
     }
 
-    /// Load command history from local storage
-    fn load_history_from_storage() -> ConsoleHistory {
-        if let Some(storage) = Self::get_local_storage() {
-            if let Ok(Some(history_json)) = storage.get_item("dev_console_history") {
-                if let Ok(history) = serde_json::from_str(&history_json) {
-                    return history;
-                }
-            }
-        }
-        ConsoleHistory::new()
-    }
-
-    /// Save command history to local storage
-    fn save_history_to_storage(&self) {
-        if let Some(storage) = Self::get_local_storage() {
-            if let Ok(history_json) = serde_json::to_string(&self.command_history) {
-                let _ = storage.set_item("dev_console_history", &history_json);
-            }
-        }
-    }
-
-    /// Get local storage reference
-    fn get_local_storage() -> Option<web_sys::Storage> {
-        web_sys::window()
-            .and_then(|window| window.local_storage().ok())
-            .flatten()
-    }
-
-    /// Focus the input element and move cursor to end
-    fn focus_input_end(&self) {
-        if let Some(input_element) = self.input_ref.cast::<web_sys::HtmlInputElement>() {
-            input_element.focus().ok();
-            if let Ok(length) = input_element.value().len().try_into() {
-                input_element.set_selection_start(Some(length)).ok();
-                input_element.set_selection_end(Some(length)).ok();
-            }
-        }
-    }
 
 
     /// Render the debug components
@@ -294,45 +154,11 @@ impl DebugInterface {
     /// Render the debug console
     fn render_console(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <div class="debug-console-modal">
-                <div class="debug-console-header">
-                    <h3 class="debug-console-title">{"Debug Console"}</h3>
-                </div>
-                
-                <div class="debug-console-content">
-                    <div class="debug-console-output" ref={self.output_ref.clone()}>
-                        <div class="debug-console-messages">
-                            {for self.output_manager.entries().iter().rev().map(|entry| {
-                                html! {
-                                    <div class={format!("debug-console-message debug-console-message-{}", entry.output.output_type())}>
-                                        {entry.output.to_string()}
-                                    </div>
-                                }
-                            })}
-                        </div>
-                    </div>
-                    
-                    <div class="debug-console-input-container">
-                        <span class="debug-console-prompt">{">"}</span>
-                        <input
-                            ref={self.input_ref.clone()}
-                            type="text"
-                            class="debug-console-input"
-                            value={self.console_input.clone()}
-                            placeholder="Enter command..."
-                            oninput={ctx.link().callback(|e: web_sys::InputEvent| {
-                                if let Some(input) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
-                                    DebugInterfaceMsg::UpdateConsoleInput(input.value())
-                                } else {
-                                    DebugInterfaceMsg::UpdateConsoleInput(String::new())
-                                }
-                            })}
-                            onkeydown={ctx.link().callback(DebugInterfaceMsg::HandleKeyDown)}
-
-                        />
-                    </div>
-                </div>
-            </div>
+            <DevConsole
+                registry={ctx.props().registry.clone()}
+                visible={true}
+                on_toggle={Callback::noop()}
+            />
         }
     }
 
@@ -413,13 +239,92 @@ impl AudioPermissionService for AudioServiceAdapter {
 /// CSS styles for the debug interface
 const DEBUG_INTERFACE_CSS: &str = r#"
 .debug-interface {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
     font-family: monospace;
     font-size: 12px;
 }
+
+/* Override dev-console fullscreen modal styles to fit in debug interface */
+.debug-interface .dev-console-modal {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    background: rgba(17, 24, 39, 0.95);
+    border: 1px solid #374151;
+    border-radius: 6px;
+    max-width: 400px;
+    height: 500px;
+    font-size: 12px;
+}
+
+.debug-interface .dev-console-header {
+    background: #1f2937;
+    padding: 8px 12px;
+    border-bottom: 1px solid #374151;
+}
+
+.debug-interface .dev-console-title {
+    font-size: 14px;
+    color: #f9fafb;
+}
+
+.debug-interface .dev-console-output-container {
+    height: 400px;
+    background: #111827;
+    padding: 8px;
+    font-size: 11px;
+}
+
+.debug-interface .dev-console-input-container {
+    background: #1f2937;
+    padding: 8px;
+    border-top: 1px solid #374151;
+}
+
+.debug-interface .dev-console-input {
+    background: #111827;
+    border: 1px solid #374151;
+    color: #f9fafb;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.debug-interface .dev-console-input:focus {
+    border-color: #3b82f6;
+}
+
+.debug-interface .dev-console-prompt {
+    color: #3b82f6;
+}
+
+.debug-interface .dev-console-message {
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.debug-interface .dev-console-message-info {
+    color: #d1d5db;
+}
+
+.debug-interface .dev-console-message-success {
+    color: #10b981;
+}
+
+.debug-interface .dev-console-message-warning {
+    color: #f59e0b;
+}
+
+.debug-interface .dev-console-message-error {
+    color: #ef4444;
+}
+
+.debug-interface .dev-console-message-command {
+    color: #3b82f6;
+    font-weight: bold;
+}"
 
 .debug-toolbar {
     display: flex;
@@ -462,130 +367,16 @@ const DEBUG_INTERFACE_CSS: &str = r#"
 }
 
 .debug-components {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
     display: flex;
     flex-direction: column;
     gap: 10px;
     max-width: 400px;
 }
 
-.debug-console-modal {
-    background: rgba(17, 24, 39, 0.95);
-    border: 1px solid #374151;
-    border-radius: 6px;
-    padding: 0;
-    max-height: 400px;
-    display: flex;
-    flex-direction: column;
-}
-
-.debug-console-header {
-    padding: 8px 12px;
-    background: #1f2937;
-    border-bottom: 1px solid #374151;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.debug-console-title {
-    margin: 0;
-    font-size: 14px;
-    color: #f9fafb;
-}
-
-.debug-console-close {
-    background: none;
-    border: none;
-    color: #9ca3af;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 0;
-    width: 20px;
-    height: 20px;
-}
-
-.debug-console-close:hover {
-    color: #f9fafb;
-}
-
-.debug-console-content {
-    display: flex;
-    flex-direction: column;
-    height: 300px;
-}
-
-.debug-console-output {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-    background: #111827;
-}
-
-.debug-console-messages {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.debug-console-message {
-    padding: 2px 4px;
-    border-radius: 2px;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-.debug-console-message-info {
-    color: #d1d5db;
-}
-
-.debug-console-message-success {
-    color: #10b981;
-}
-
-.debug-console-message-warning {
-    color: #f59e0b;
-}
-
-.debug-console-message-error {
-    color: #ef4444;
-}
-
-.debug-console-message-command {
-    color: #3b82f6;
-    font-weight: bold;
-}
-
-.debug-console-input-container {
-    padding: 8px;
-    background: #1f2937;
-    border-top: 1px solid #374151;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.debug-console-prompt {
-    color: #3b82f6;
-    font-weight: bold;
-}
-
-.debug-console-input {
-    flex: 1;
-    background: #111827;
-    border: 1px solid #374151;
-    color: #f9fafb;
-    padding: 4px 6px;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-}
-
-.debug-console-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-}
 
 .live-panel {
     background: rgba(17, 24, 39, 0.95);

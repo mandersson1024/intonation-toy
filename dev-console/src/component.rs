@@ -180,7 +180,7 @@ impl Component for DevConsole {
                 
                 <div class="dev-console-header">
                     <div class="dev-console-left">
-                        <span class="dev-console-title">{ "Development Console" }</span>
+                        <span class="dev-console-title">{ "Dev Console" }</span>
                     </div>
                 </div>
                 
@@ -224,7 +224,7 @@ impl DevConsole {
     fn render_output(&self) -> Html {
         html! {
             <div class="dev-console-messages">
-                {for self.output_manager.entries().iter().map(|entry| {
+                {for self.output_manager.entries().iter().rev().map(|entry| {
                     html! {
                         <div class={format!("dev-console-message dev-console-message-{}", entry.output.output_type())}>
                             {entry.output.to_string()}
