@@ -8,7 +8,8 @@ mod component;
 
 pub use component::DevConsole;
 pub use command_registry::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
-pub use output::ConsoleOutput;
+pub use output::{ConsoleOutput, ConsoleOutputManager};
+pub use history::ConsoleHistory;
 
 #[cfg(test)]
 mod tests {

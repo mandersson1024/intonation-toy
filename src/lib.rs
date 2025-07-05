@@ -7,6 +7,7 @@ pub mod console_commands;
 pub mod common;
 pub mod platform;
 pub mod events;
+pub mod debug;
 
 use common::dev_log;
 
@@ -17,7 +18,7 @@ use wasm_bindgen::prelude::*;
 use platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]
-use console::DevConsole;
+use debug::DebugInterface;
 
 
 #[cfg(debug_assertions)]
@@ -33,7 +34,13 @@ fn render_dev_console() -> Html {
         // Create audio service with event dispatcher
         let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
         let registry = Rc::new(crate::console_commands::create_console_registry_with_audio());
-        html! { <DevConsole registry={registry} audio_service={audio_service} event_dispatcher={Some(event_dispatcher)} /> }
+        html! { 
+            <DebugInterface
+                registry={registry}
+                audio_service={audio_service}
+                event_dispatcher={Some(event_dispatcher)}
+            />
+        }
     }
     
     #[cfg(not(debug_assertions))]
