@@ -9,7 +9,7 @@ use std::rc::Rc;
 use crate::command::{ConsoleCommandResult};
 use crate::command_registry::ConsoleCommandRegistry;
 use crate::history::ConsoleHistory;
-use crate::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
+use crate::output::{ConsoleOutput, ConsoleOutputManager};
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";
@@ -175,7 +175,6 @@ impl Component for DevConsole {
 
         html! {
             <div class="dev-console-modal">
-                <style>{ CONSOLE_OUTPUT_CSS }</style>
                 <style>{ CONSOLE_COMPONENT_CSS }</style>
                 
                 <div class="dev-console-header">

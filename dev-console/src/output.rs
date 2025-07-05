@@ -93,23 +93,13 @@ impl fmt::Display for ConsoleOutput {
 pub struct ConsoleEntry {
     /// The output message
     pub output: ConsoleOutput,
-    /// Unique identifier for this entry
-    pub id: u64,
 }
 
 impl ConsoleEntry {
     pub fn new(output: ConsoleOutput) -> Self {
         Self {
             output,
-            id: Self::generate_id(),
         }
-    }
-
-    /// Generate a unique ID for this entry
-    fn generate_id() -> u64 {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(1);
-        COUNTER.fetch_add(1, Ordering::Relaxed)
     }
 }
 
@@ -173,22 +163,6 @@ impl ConsoleOutputManager {
         self.entries.is_empty()
     }
 
-    /// Format output for display
-    pub fn format_entry(&self, entry: &ConsoleEntry) -> String {
-        match &entry.output {
-            ConsoleOutput::Info(_) => format!("[INFO] {}", entry.output.message()),
-            ConsoleOutput::Success(_) => format!("[SUCCESS] {}", entry.output.message()),
-            ConsoleOutput::Warning(_) => format!("[WARNING] {}", entry.output.message()),
-            ConsoleOutput::Error(_) => format!("[ERROR] {}", entry.output.message()),
-            ConsoleOutput::Echo(_) => format!("> {}", entry.output.message()),
-            ConsoleOutput::Empty => String::new(),
-        }
-    }
-
-    /// Generate CSS class for an entry
-    pub fn entry_css_class(&self, entry: &ConsoleEntry) -> String {
-        format!("console-output console-{}", entry.output.output_type())
-    }
 }
 
 impl Default for ConsoleOutputManager {
@@ -197,77 +171,6 @@ impl Default for ConsoleOutputManager {
     }
 }
 
-/// CSS styles for console output (embedded for development console)
-pub const CONSOLE_OUTPUT_CSS: &str = r#"
-.console-output {
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    margin: 2px 0;
-    padding: 2px 4px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-.console-info {
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.console-success {
-    color: #4ade80;
-    background-color: rgba(74, 222, 128, 0.1);
-}
-
-.console-warning {
-    color: #fbbf24;
-    background-color: rgba(251, 191, 36, 0.1);
-}
-
-.console-error {
-    color: #f87171;
-    background-color: rgba(248, 113, 113, 0.1);
-}
-
-
-.console-command {
-    color: #60a5fa;
-    background-color: rgba(96, 165, 250, 0.1);
-    font-weight: bold;
-}
-
-.console-empty {
-    height: 16.8px;
-}
-
-.console-output-container {
-    max-height: 300px;
-    overflow-y: auto;
-    background-color: #111827;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    padding: 8px;
-    scrollbar-width: thin;
-    scrollbar-color: #4b5563 #1f2937;
-}
-
-.console-output-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.console-output-container::-webkit-scrollbar-track {
-    background: #1f2937;
-}
-
-.console-output-container::-webkit-scrollbar-thumb {
-    background: #4b5563;
-    border-radius: 4px;
-}
-
-.console-output-container::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-}
-"#;
 
 #[cfg(test)]
 mod tests {
@@ -313,7 +216,6 @@ mod tests {
         let entry = ConsoleEntry::new(output.clone());
         
         assert_eq!(entry.output, output);
-        assert!(entry.id > 0);
     }
 
     #[test]
@@ -355,25 +257,4 @@ mod tests {
         assert!(manager.is_empty());
     }
 
-    #[test]
-    fn test_output_manager_formatting() {
-        let manager = ConsoleOutputManager::new();
-        let entry = ConsoleEntry::new(ConsoleOutput::info("Test"));
-        
-        // Test text formatting (no escaping)
-        let formatted = manager.format_entry(&entry);
-        assert_eq!(formatted, "[INFO] Test");
-        
-        let css_class = manager.entry_css_class(&entry);
-        assert_eq!(css_class, "console-output console-info");
-    }
-
-    #[test]
-    fn test_console_entry_unique_ids() {
-        let entry1 = ConsoleEntry::new(ConsoleOutput::info("First"));
-        let entry2 = ConsoleEntry::new(ConsoleOutput::info("Second"));
-        
-        assert_ne!(entry1.id, entry2.id);
-        assert!(entry2.id > entry1.id); // IDs should be increasing
-    }
 }
