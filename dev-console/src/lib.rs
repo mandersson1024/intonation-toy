@@ -6,10 +6,9 @@ mod command_registry;
 mod history;
 mod output;
 mod component;
-mod input_handler;
-mod output_renderer;
 
 // Only export what's actually used by other crates
-pub use command_registry::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
+pub use command::{ConsoleCommand, ConsoleCommandResult};
+pub use command_registry::ConsoleCommandRegistry;
 pub use output::ConsoleOutput;
 pub use component::DevConsole; 

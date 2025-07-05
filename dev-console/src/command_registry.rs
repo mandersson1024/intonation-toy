@@ -5,21 +5,6 @@ use std::collections::HashMap;
 use crate::output::ConsoleOutput;
 use crate::command::{ConsoleCommand, ConsoleCommandResult};
 
-// Result of command execution
-#[derive(Debug)]
-pub enum ConsoleCommandResult {
-    Output(ConsoleOutput),
-    ClearAndOutput(ConsoleOutput),
-    MultipleOutputs(Vec<ConsoleOutput>),
-}
-
-// Trait for extensible console commands
-pub trait ConsoleCommand: Send + Sync {
-    fn name(&self) -> &str;
-    fn description(&self) -> &str;
-    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult;
-}
-
 // Command registry for managing available commands
 pub struct ConsoleCommandRegistry {
     commands: HashMap<String, Box<dyn ConsoleCommand>>,

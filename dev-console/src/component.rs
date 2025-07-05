@@ -6,7 +6,8 @@ use yew::prelude::*;
 use web_sys::{HtmlInputElement, KeyboardEvent, Storage};
 use std::rc::Rc;
 
-use crate::command_registry::{ConsoleCommandResult, ConsoleCommandRegistry};
+use crate::command::{ConsoleCommandResult};
+use crate::command_registry::ConsoleCommandRegistry;
 use crate::history::ConsoleHistory;
 use crate::output::{ConsoleOutput, ConsoleOutputManager, CONSOLE_OUTPUT_CSS};
 
