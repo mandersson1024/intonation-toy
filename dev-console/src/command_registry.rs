@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use crate::output::ConsoleOutput;
+use crate::command::{ConsoleCommand, ConsoleCommandResult};
 
 // Result of command execution
 #[derive(Debug)]

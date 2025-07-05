@@ -1,6 +1,7 @@
 // Development Console Library
 // Provides reusable development and debugging tools
 
+mod command;
 mod command_registry;
 mod history;
 mod output;
