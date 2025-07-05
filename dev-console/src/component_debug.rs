@@ -8,7 +8,8 @@ use web_sys::{HtmlInputElement, KeyboardEvent};
 use wasm_bindgen::JsCast;
 use std::rc::Rc;
 
-use crate::{ConsoleCommandResult, ConsoleCommandRegistry, ConsoleHistory, ConsoleOutput, ConsoleOutputManager};
+use crate::{ConsoleCommandResult, ConsoleCommandRegistry, ConsoleOutput, ConsoleOutputManager};
+use crate::history::ConsoleHistory;
 
 /// Local storage key for console history persistence
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "pitch_toy_debug_console_history";

@@ -12,5 +12,4 @@ mod component_debug;
 // Only export what's actually used by other crates
 pub use command_registry::{ConsoleCommand, ConsoleCommandResult, ConsoleCommandRegistry};
 pub use output::{ConsoleOutput, ConsoleOutputManager};
-pub use history::ConsoleHistory;
 pub use component_debug::{DebugConsole, CommandRegistry}; 

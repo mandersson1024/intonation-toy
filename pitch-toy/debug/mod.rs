@@ -18,8 +18,3 @@ pub mod integration;
 pub use live_panel::LivePanel;
 pub use permission_button::PermissionButton;
 pub use integration::{DebugInterface, create_debug_interface};
-
-// Shared utilities for debug components
-pub mod shared {
-    pub use dev_console::{ConsoleHistory, ConsoleOutput, ConsoleOutputManager};
-}
