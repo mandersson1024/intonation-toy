@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use dev_console::{DebugConsole, CommandRegistry, ConsoleCommandRegistry};
+use dev_console::{DevConsole, ConsoleCommandRegistry};
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
@@ -143,11 +143,9 @@ impl DebugInterface {
 
     /// Render the debug console
     fn render_console(&self, ctx: &Context<Self>) -> Html {
-        let registry_trait: Rc<dyn CommandRegistry> = ctx.props().registry.clone();
-        
         html! {
-            <DebugConsole
-                registry={registry_trait}
+            <DevConsole
+                registry={ctx.props().registry.clone()}
                 visible={true}
                 on_toggle={ctx.link().callback(|_| DebugInterfaceMsg::ToggleVisibility)}
             />
