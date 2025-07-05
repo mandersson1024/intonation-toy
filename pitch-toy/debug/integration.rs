@@ -54,6 +54,8 @@ pub enum DebugInterfaceMsg {
     UpdateConsoleInput(String),
     /// Execute console command
     ExecuteConsoleCommand,
+    /// Handle keyboard events
+    HandleKeyDown(web_sys::KeyboardEvent),
 }
 
 impl Component for DebugInterface {
@@ -129,6 +131,16 @@ impl Component for DebugInterface {
                     self.console_input.clear();
                 }
                 true
+            }
+            DebugInterfaceMsg::HandleKeyDown(event) => {
+                match event.key().as_str() {
+                    "Enter" => {
+                        event.prevent_default();
+                        ctx.link().send_message(DebugInterfaceMsg::ExecuteConsoleCommand);
+                        false
+                    }
+                    _ => false
+                }
             }
         }
     }
@@ -227,14 +239,8 @@ impl DebugInterface {
                                     DebugInterfaceMsg::UpdateConsoleInput(String::new())
                                 }
                             })}
-                            onkeydown={ctx.link().callback(|event: web_sys::KeyboardEvent| {
-                                if event.key() == "Enter" {
-                                    event.prevent_default();
-                                    DebugInterfaceMsg::ExecuteConsoleCommand
-                                } else {
-                                    DebugInterfaceMsg::PermissionChanged(AudioPermission::Uninitialized)
-                                }
-                            })}
+                            onkeydown={ctx.link().callback(DebugInterfaceMsg::HandleKeyDown)}
+
                         />
                     </div>
                 </div>

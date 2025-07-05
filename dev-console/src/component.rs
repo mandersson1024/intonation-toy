@@ -156,11 +156,7 @@ impl Component for DevConsole {
                         }
                         true
                     }
-                    "Escape" => {
-                        event.prevent_default();
-                        ctx.props().on_toggle.emit(());
-                        false
-                    }
+
                     _ => false
                 }
             }
@@ -185,9 +181,6 @@ impl Component for DevConsole {
                 <div class="dev-console-header">
                     <div class="dev-console-left">
                         <span class="dev-console-title">{ "Development Console" }</span>
-                        <span class="dev-console-hint" title="Press ESC to toggle console">
-                            { "(ESC to toggle)" }
-                        </span>
                     </div>
                 </div>
                 
