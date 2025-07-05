@@ -334,7 +334,7 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 400px;
+    width: 400px;
 }
 
 
