@@ -324,46 +324,6 @@ const DEBUG_INTERFACE_CSS: &str = r#"
 .debug-interface .dev-console-message-command {
     color: #3b82f6;
     font-weight: bold;
-}"
-
-.debug-toolbar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-    padding: 8px;
-    background: rgba(17, 24, 39, 0.95);
-    border: 1px solid #374151;
-    border-radius: 6px;
-    align-items: center;
-}
-
-.debug-toggle {
-    padding: 4px 8px;
-    background: #374151;
-    color: #d1d5db;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-}
-
-.debug-toggle:hover {
-    background: #4b5563;
-}
-
-.debug-toggle.active {
-    background: #3b82f6;
-    color: white;
-}
-
-.debug-toolbar-title {
-    color: #f9fafb;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.debug-toolbar-spacer {
-    flex: 1;
 }
 
 .debug-components {
@@ -467,11 +427,6 @@ const DEBUG_INTERFACE_CSS: &str = r#"
 .device-name {
     color: #d1d5db;
     font-weight: bold;
-}
-
-.device-id {
-    color: #6b7280;
-    margin-left: 8px;
 }
 
 .metric-item {
