@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use dev_console::{DevConsole, ConsoleCommandRegistry};
+use dev_console::ConsoleCommandRegistry;
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
@@ -37,6 +37,10 @@ pub struct DebugInterface {
     visible: bool,
     /// Current audio permission state
     audio_permission: AudioPermission,
+    /// Console input value
+    console_input: String,
+    /// Console output messages
+    console_output: Vec<dev_console::ConsoleOutput>,
 }
 
 /// Messages for the debug interface
@@ -46,6 +50,10 @@ pub enum DebugInterfaceMsg {
     ToggleVisibility,
     /// Permission state changed
     PermissionChanged(AudioPermission),
+    /// Update console input
+    UpdateConsoleInput(String),
+    /// Execute console command
+    ExecuteConsoleCommand,
 }
 
 impl Component for DebugInterface {
@@ -56,6 +64,11 @@ impl Component for DebugInterface {
         let component = Self {
             visible: true,  // Start with debug interface visible on app start
             audio_permission: AudioPermission::Uninitialized,
+            console_input: String::new(),
+            console_output: vec![
+                dev_console::ConsoleOutput::info("Debug console initialized"),
+                dev_console::ConsoleOutput::info("Type 'help' for available commands"),
+            ],
         };
 
         // Check initial permission state from browser
@@ -69,7 +82,7 @@ impl Component for DebugInterface {
         component
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             DebugInterfaceMsg::ToggleVisibility => {
                 self.visible = !self.visible;
@@ -77,6 +90,38 @@ impl Component for DebugInterface {
             }
             DebugInterfaceMsg::PermissionChanged(permission) => {
                 self.audio_permission = permission;
+                true
+            }
+            DebugInterfaceMsg::UpdateConsoleInput(value) => {
+                self.console_input = value;
+                true
+            }
+            DebugInterfaceMsg::ExecuteConsoleCommand => {
+                let command = self.console_input.trim();
+                if !command.is_empty() {
+                    // Echo the command
+                    self.console_output.push(dev_console::ConsoleOutput::echo(command));
+                    
+                    // Execute the command using the registry
+                    let result = ctx.props().registry.execute(command);
+                    match result {
+                        dev_console::ConsoleCommandResult::Output(output) => {
+                            self.console_output.push(output);
+                        }
+                        dev_console::ConsoleCommandResult::ClearAndOutput(output) => {
+                            self.console_output.clear();
+                            self.console_output.push(output);
+                        }
+                        dev_console::ConsoleCommandResult::MultipleOutputs(outputs) => {
+                            for output in outputs {
+                                self.console_output.push(output);
+                            }
+                        }
+                    }
+                    
+                    // Clear input
+                    self.console_input.clear();
+                }
                 true
             }
         }
@@ -144,11 +189,56 @@ impl DebugInterface {
     /// Render the debug console
     fn render_console(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <DevConsole
-                registry={ctx.props().registry.clone()}
-                visible={true}
-                on_toggle={ctx.link().callback(|_| DebugInterfaceMsg::ToggleVisibility)}
-            />
+            <div class="debug-console-modal">
+                <div class="debug-console-header">
+                    <h3 class="debug-console-title">{"Debug Console"}</h3>
+                    <button 
+                        class="debug-console-close"
+                        onclick={ctx.link().callback(|_| DebugInterfaceMsg::ToggleVisibility)}
+                    >
+                        {"×"}
+                    </button>
+                </div>
+                
+                <div class="debug-console-content">
+                    <div class="debug-console-output">
+                        <div class="debug-console-messages">
+                            {for self.console_output.iter().map(|output| {
+                                html! {
+                                    <div class={format!("debug-console-message debug-console-message-{}", output.output_type())}>
+                                        {output.to_string()}
+                                    </div>
+                                }
+                            })}
+                        </div>
+                    </div>
+                    
+                    <div class="debug-console-input-container">
+                        <span class="debug-console-prompt">{">"}</span>
+                        <input
+                            type="text"
+                            class="debug-console-input"
+                            value={self.console_input.clone()}
+                            placeholder="Enter command..."
+                            oninput={ctx.link().callback(|e: web_sys::InputEvent| {
+                                if let Some(input) = e.target_dyn_into::<web_sys::HtmlInputElement>() {
+                                    DebugInterfaceMsg::UpdateConsoleInput(input.value())
+                                } else {
+                                    DebugInterfaceMsg::UpdateConsoleInput(String::new())
+                                }
+                            })}
+                            onkeydown={ctx.link().callback(|event: web_sys::KeyboardEvent| {
+                                if event.key() == "Enter" {
+                                    event.prevent_default();
+                                    DebugInterfaceMsg::ExecuteConsoleCommand
+                                } else {
+                                    DebugInterfaceMsg::PermissionChanged(AudioPermission::Uninitialized)
+                                }
+                            })}
+                        />
+                    </div>
+                </div>
+            </div>
         }
     }
 
@@ -348,6 +438,8 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     border-radius: 2px;
     font-family: 'Courier New', monospace;
     font-size: 11px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .debug-console-message-info {
