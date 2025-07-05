@@ -502,18 +502,6 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     background: rgba(245, 158, 11, 0.1);
 }
 
-.permission-button-content {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.permission-status {
-    margin-top: 4px;
-    font-size: 10px;
-    color: #9ca3af;
-}
-
 .permission-error {
     margin-top: 4px;
     font-size: 10px;

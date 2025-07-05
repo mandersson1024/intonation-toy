@@ -126,9 +126,15 @@ The application has **zero tolerance for missing critical APIs** and implements 
 
 ## Technical Assumptions
 
-### Repository Structure: Monorepo
+### Repository Structure: Multi-Crate Monorepo
 
-Single repository structure using Rust/WebAssembly with Trunk build system, organized into modular components as specified in the technical architecture.
+Single repository with multi-crate structure using Rust/WebAssembly and Trunk build system. Architecture organized into:
+
+- **`pitch-toy` (Main Application Crate)**: Core application logic, audio processing, rendering, and business functionality
+- **`dev-console` (Development Tools Library)**: Reusable development console component with minimal dependencies, designed for cross-project use
+- **Shared Dependencies**: Standard audio/graphics crates managed at workspace level
+
+This structure enables independent crate development, testing isolation, dependency optimization, and promotes reusability of development tools across projects.
 
 ### Service Architecture
 
@@ -136,10 +142,26 @@ Client-side only application with no backend dependencies. All processing occurs
 
 ### Testing Requirements
 
-- Unit tests for audio processing algorithms with deterministic signal inputs
-- Performance benchmarks for latency and frame rate consistency
-- Cross-browser compatibility testing with automated test runners
-- Real-time testing using test signal generation capabilities
+#### Multi-Crate Testing Strategy
+
+- **Per-Crate Unit Testing**: Independent test suites for each crate (`cd dev-console && cargo test`, `cd pitch-toy && cargo test`)
+- **Library Validation**: `dev-console` crate tested independently to ensure reusability across different host applications
+- **Integration Testing**: Cross-crate functionality validation including command registry integration and event system communication
+- **Mock Service Testing**: Console library tested with mock implementations to validate service interface patterns
+
+#### Application-Level Testing
+
+- **Audio Algorithm Testing**: Unit tests for pitch detection, FFT analysis, and volume detection with deterministic signal inputs
+- **Performance Benchmarks**: Latency and frame rate consistency validation across different browser environments
+- **Cross-Browser Compatibility**: Automated test runners for Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ with fail-fast API validation
+- **Real-Time Testing**: End-to-end testing using test signal generation capabilities
+- **WebAssembly Integration**: Module boundary testing and memory management validation using wasm-pack test framework
+
+#### Development Workflow Integration
+
+- **Continuous Integration**: Per-crate testing pipeline with dependency validation
+- **Regression Testing**: Performance regression detection across crate boundaries
+- **Library Compatibility**: Automated testing of `dev-console` integration patterns for future reuse scenarios
 
 ### Additional Technical Assumptions and Requests
 
@@ -178,20 +200,23 @@ so that I can begin building the pitch detection application with hot reload and
 - 5: Build system produces optimized WebAssembly for production
 - 6: Project structure follows modular architecture as specified
 
-### Story 1.2 - Development Console Component
+### Story 1.2 - Development Console Library Implementation
 
 As a developer,
-I want an interactive development console within the application,
-so that I can debug audio processing, test features, and monitor application state.
+I want a reusable development console library that can be integrated into any Rust/WebAssembly application,
+so that I can debug audio processing, test features, and monitor application state while providing a tool that benefits the broader Rust/WASM ecosystem.
 
 #### Acceptance Criteria
 
-- 1: DevConsole Yew component renders as toggleable overlay
-- 2: Command input field accepts and executes commands through DevCommand trait
-- 3: Command history maintained with navigation support
-- 4: Built-in help command displays available commands and usage
-- 5: Console output displays command results and error messages
-- 6: Console only available in development builds, hidden in production
+- 1: `dev-console` crate implements standalone library with minimal dependencies (yew, web-sys, serde)
+- 2: DevConsole Yew component renders as toggleable overlay with pluggable command registry system
+- 3: ConsoleCommand trait enables extensible command implementations without audio/graphics dependencies
+- 4: Command history with local storage persistence and navigation support (up/down arrows)
+- 5: ConsoleCommandRegistry supports runtime command registration and execution
+- 6: Built-in help command displays available commands and usage information
+- 7: Console output supports typed messages (info, success, warning, error) with clear formatting
+- 8: Library design enables integration into other projects through simple dependency inclusion
+- 9: Console availability controlled by parent application (development builds only in this project)
 
 ### Story 1.3 - Performance Metrics and Debug Overlay
 

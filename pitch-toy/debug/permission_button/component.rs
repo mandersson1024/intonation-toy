@@ -189,41 +189,6 @@ impl PermissionButton {
         }
     }
 
-    /// Render button content with icon
-    fn render_button_content(&self, text: &str) -> Html {
-        let icon = match self.permission_state {
-            AudioPermission::Uninitialized => "🎤",
-            AudioPermission::Requesting => "⏳",
-            AudioPermission::Granted => "✅",
-            AudioPermission::Denied => "❌",
-            AudioPermission::Unavailable => "⚠️",
-        };
-
-        html! {
-            <div class="permission-button-content">
-                <span class="permission-icon">{icon}</span>
-                <span class="permission-text">{text}</span>
-            </div>
-        }
-    }
-
-    /// Render permission status display
-    fn render_status_display(&self) -> Html {
-        let (status_text, status_class) = match self.permission_state {
-            AudioPermission::Uninitialized => ("Permission not requested", "status-uninitialized"),
-            AudioPermission::Requesting => ("Requesting permission...", "status-requesting"),
-            AudioPermission::Granted => ("Microphone access granted", "status-granted"),
-            AudioPermission::Denied => ("Microphone access denied", "status-denied"),
-            AudioPermission::Unavailable => ("Microphone unavailable", "status-unavailable"),
-        };
-
-        html! {
-            <div class={format!("permission-status {}", status_class)}>
-                {status_text}
-            </div>
-        }
-    }
-
     /// Render error message if present
     fn render_error_message(&self) -> Html {
         if let Some(error) = &self.error_message {
