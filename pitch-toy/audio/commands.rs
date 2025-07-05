@@ -60,32 +60,6 @@ impl ConsoleCommand for AudioContextCommand {
                 AudioContextState::Recreating => ConsoleOutput::warning(&system_status_text),
             };
             outputs.push(system_output);
-            
-            // Show device information in one consolidated message
-            let devices = manager.get_cached_devices();
-            let input_count = devices.input_devices.len();
-            let output_count = devices.output_devices.len();
-            
-            let mut device_lines = vec![format!("  Audio Devices: {} input, {} output", input_count, output_count)];
-            
-            // Add input devices
-            if !devices.input_devices.is_empty() {
-                device_lines.push("  Input Devices:".to_string());
-                for (device_id, label) in &devices.input_devices {
-                    device_lines.push(format!("    • {} ({})", label, device_id));
-                }
-            }
-            
-            // Add output devices
-            if !devices.output_devices.is_empty() {
-                device_lines.push("  Output Devices:".to_string());
-                for (device_id, label) in &devices.output_devices {
-                    device_lines.push(format!("    • {} ({})", label, device_id));
-                }
-            }
-            
-            let device_text = device_lines.join("\n");
-            outputs.push(ConsoleOutput::info(device_text));
         } else {
             outputs.push(ConsoleOutput::warning("  Audio Context State: Not Initialized"));
             outputs.push(ConsoleOutput::warning("  Audio system has not been initialized yet"));
@@ -95,95 +69,9 @@ impl ConsoleCommand for AudioContextCommand {
     }
 }
 
-/// Audio Device List Command - shows available audio devices
-pub struct AudioDeviceListCommand;
 
-impl ConsoleCommand for AudioDeviceListCommand {
-    fn name(&self) -> &str {
-        "audio-devices"
-    }
-    
-    fn description(&self) -> &str {
-        "List available audio input and output devices"
-    }
-    
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
-        outputs.push(ConsoleOutput::info("Audio Devices:"));
-        
-        // Get the global audio context manager
-        if let Some(manager_rc) = get_audio_context_manager() {
-            let manager = manager_rc.borrow();
-            let devices = manager.get_cached_devices();
-            
-            // Show input devices
-            if devices.input_devices.is_empty() {
-                outputs.push(ConsoleOutput::warning("No input devices found"));
-            } else {
-                outputs.push(ConsoleOutput::success(&format!("Input Devices ({}):", devices.input_devices.len())));
-                for (device_id, label) in &devices.input_devices {
-                    outputs.push(ConsoleOutput::info(&format!("  • {}", label)));
-                    outputs.push(ConsoleOutput::info(&format!("    ID: {}", device_id)));
-                }
-            }
-            
-            // Show output devices
-            if devices.output_devices.is_empty() {
-                outputs.push(ConsoleOutput::warning("No output devices found"));
-            } else {
-                outputs.push(ConsoleOutput::success(&format!("Output Devices ({}):", devices.output_devices.len())));
-                for (device_id, label) in &devices.output_devices {
-                    outputs.push(ConsoleOutput::info(&format!("  • {}", label)));
-                    outputs.push(ConsoleOutput::info(&format!("    ID: {}", device_id)));
-                }
-            }
-        } else {
-            outputs.push(ConsoleOutput::warning("Audio system not initialized"));
-            outputs.push(ConsoleOutput::info("Audio system must be initialized to list devices"));
-        }
-        
-        ConsoleCommandResult::MultipleOutputs(outputs)
-    }
-}
 
-/// Audio Refresh Command - refreshes audio device list
-pub struct AudioRefreshCommand;
 
-impl ConsoleCommand for AudioRefreshCommand {
-    fn name(&self) -> &str {
-        "audio-refresh"
-    }
-    
-    fn description(&self) -> &str {
-        "Refresh the audio device list"
-    }
-    
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        // Refresh devices through the audio context manager
-        if let Some(manager_rc) = get_audio_context_manager() {
-            // Use spawn_local to handle the async refresh
-            wasm_bindgen_futures::spawn_local(async move {
-                match manager_rc.try_borrow_mut() {
-                    Ok(mut manager) => {
-                        if let Err(e) = manager.refresh_audio_devices().await {
-                            web_sys::console::error_1(&format!("Device refresh failed: {:?}", e).into());
-                        } else {
-                            web_sys::console::log_1(&"Device refresh completed successfully".into());
-                        }
-                    }
-                    Err(_) => {
-                        web_sys::console::warn_1(&"AudioContextManager busy, skipping device refresh".into());
-                    }
-                }
-            });
-            
-            ConsoleCommandResult::Output(ConsoleOutput::success("Audio device refresh initiated"))
-        } else {
-            ConsoleCommandResult::Output(ConsoleOutput::error("Audio system not initialized"))
-        }
-    }
-}
 
 /// Buffer Status Command - show information for each buffer in the global pool
 pub struct BufferStatusCommand;
@@ -893,38 +781,14 @@ impl ConsoleCommand for VolumeTestCommand {
     }
 }
 
-/// Base Audio Command - handles "audio" with subcommands
+/// Base Audio Command - shows audio system status and configuration
 pub struct AudioCommand;
 
 impl ConsoleCommand for AudioCommand {
     fn name(&self) -> &str { "audio" }
-    fn description(&self) -> &str { "Audio system commands" }
-    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            // Show available audio subcommands
-            let variants = registry.get_command_variants("audio");
-            if !variants.is_empty() {
-                let mut help_lines = vec!["Available audio commands:".to_string()];
-                for variant in variants {
-                    let variant_name = variant.name().strip_prefix("audio-").unwrap_or(variant.name());
-                    help_lines.push(format!("  audio {} - {}", variant_name, variant.description()));
-                }
-                let help_text = help_lines.join("\n");
-                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
-            } else {
-                return ConsoleCommandResult::Output(ConsoleOutput::error("No audio subcommands available"));
-            }
-        }
-        
-        let subcommand = args[0];
-        let sub_args = args[1..].to_vec();
-        
-        match subcommand {
-            "context" => AudioContextCommand.execute(sub_args, registry),
-            "devices" => AudioDeviceListCommand.execute(sub_args, registry),
-            "refresh" => AudioRefreshCommand.execute(sub_args, registry),
-            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown audio subcommand: {}", subcommand))),
-        }
+    fn description(&self) -> &str { "Show AudioContext status and configuration" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        AudioContextCommand.execute(Vec::new(), _registry)
     }
 }
 
@@ -1052,8 +916,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     // Register compound commands for variant discovery and backward compatibility
     // These won't appear in help but will be found when parsing compound commands
     registry.register(Box::new(AudioContextCommand));
-    registry.register(Box::new(AudioDeviceListCommand));
-    registry.register(Box::new(AudioRefreshCommand));
     registry.register(Box::new(BufferStatusCommand));
     registry.register(Box::new(BufferMetricsCommand));
     registry.register(Box::new(BufferResetCommand));
@@ -1084,21 +946,9 @@ mod tests {
         assert_eq!(command.description(), "Show AudioContext status and configuration");
     }
     
-    #[test]
-    fn test_audio_device_list_command() {
-        let command = AudioDeviceListCommand;
-        
-        assert_eq!(command.name(), "audio-devices");
-        assert_eq!(command.description(), "List available audio input and output devices");
-    }
+
     
-    #[test]
-    fn test_audio_refresh_command() {
-        let command = AudioRefreshCommand;
-        
-        assert_eq!(command.name(), "audio-refresh");
-        assert_eq!(command.description(), "Refresh the audio device list");
-    }
+
     
     #[test]
     fn test_pitch_status_command() {
@@ -1197,23 +1047,24 @@ mod tests {
     }
 
     #[test]
-    fn test_base_command_variant_display() {
+    fn test_audio_command_execution() {
         use dev_console::ConsoleCommandRegistry;
         
         // Create a registry and register audio commands
         let mut registry = ConsoleCommandRegistry::new();
         register_audio_commands(&mut registry);
         
-        // Test that calling "audio" without arguments shows subcommands
+        // Test that calling "audio" directly executes the context command
         let result = registry.execute("audio");
+        // The result will depend on the audio system state, but it should not be an error about subcommands
         match result {
-            dev_console::ConsoleCommandResult::Output(dev_console::ConsoleOutput::Info(text)) => {
-                assert!(text.contains("Available audio commands:"));
-                assert!(text.contains("  audio context - Show AudioContext status and configuration"));
-                assert!(text.contains("  audio devices - List available audio input and output devices"));
-                assert!(text.contains("  audio refresh - Refresh the audio device list"));
+            dev_console::ConsoleCommandResult::Output(_) => {
+                // Success - command executed
             },
-            _ => panic!("Expected single Info output when showing audio subcommands"),
+            dev_console::ConsoleCommandResult::MultipleOutputs(_) => {
+                // Success - command executed with multiple outputs
+            },
+            _ => panic!("Expected audio command to execute successfully"),
         }
     }
 }
