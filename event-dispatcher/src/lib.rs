@@ -49,9 +49,10 @@
 //! });
 //!
 //! // Publish events
-//! dispatcher.borrow().publish(MyEvent::SomethingHappened { 
+//! let event = MyEvent::SomethingHappened { 
 //!     data: "Hello World".to_string() 
-//! });
+//! };
+//! dispatcher.borrow().publish(&event);
 //! ```
 
 use std::collections::HashMap;
@@ -67,13 +68,13 @@ pub trait Event: Clone {
     fn description(&self) -> String;
 }
 
-/// Callback type for event subscribers
-pub type EventCallback<T> = Box<dyn Fn(T)>;
+/// Callback type for event subscribers (internal use only)
+type EventCallback<T> = Box<dyn Fn(T)>;
 
 /// Event dispatcher that manages event subscriptions and publishing
 pub struct EventDispatcher<T: Event> {
     /// Map of event type to list of subscriber callbacks
-    subscribers: HashMap<String, Vec<EventCallback<T>>>,
+    subscribers: HashMap<&'static str, Vec<EventCallback<T>>>,
 }
 
 impl<T: Event> EventDispatcher<T> {
@@ -89,12 +90,12 @@ impl<T: Event> EventDispatcher<T> {
     /// # Arguments
     /// * `event_type` - The type of event to subscribe to (e.g., "device_list_changed")
     /// * `callback` - The callback function to call when the event is published
-    pub fn subscribe<F>(&mut self, event_type: &str, callback: F)
+    pub fn subscribe<F>(&mut self, event_type: &'static str, callback: F)
     where
         F: Fn(T) + 'static,
     {
         self.subscribers
-            .entry(event_type.to_string())
+            .entry(event_type)
             .or_insert_with(Vec::new)
             .push(Box::new(callback));
     }
@@ -103,7 +104,7 @@ impl<T: Event> EventDispatcher<T> {
     /// 
     /// # Arguments
     /// * `event` - The event to publish
-    pub fn publish(&self, event: T) {
+    pub fn publish(&self, event: &T) {
         let event_type = event.event_type();
         
         if let Some(callbacks) = self.subscribers.get(event_type) {
@@ -113,18 +114,30 @@ impl<T: Event> EventDispatcher<T> {
         }
     }
     
+    /// Directly publish an event to all subscribers of its type, bypassing RefCell overhead.
+    ///
+    /// This method is intended for exclusive (non-shared) use of the dispatcher.
+    pub fn publish_direct(&mut self, event: &T) {
+        let event_type = event.event_type();
+        if let Some(callbacks) = self.subscribers.get(event_type) {
+            for callback in callbacks {
+                callback(event.clone());
+            }
+        }
+    }
+    
     /// Get the number of subscribers for a specific event type
-    pub fn subscriber_count(&self, event_type: &str) -> usize {
+    pub fn subscriber_count(&self, event_type: &'static str) -> usize {
         self.subscribers.get(event_type).map(|v| v.len()).unwrap_or(0)
     }
     
     /// Get all event types that have subscribers
-    pub fn subscribed_event_types(&self) -> Vec<String> {
-        self.subscribers.keys().cloned().collect()
+    pub fn subscribed_event_types(&self) -> Vec<&'static str> {
+        self.subscribers.keys().copied().collect()
     }
     
     /// Clear all subscribers for a specific event type
-    pub fn clear_subscribers(&mut self, event_type: &str) {
+    pub fn clear_subscribers(&mut self, event_type: &'static str) {
         self.subscribers.remove(event_type);
     }
     
@@ -194,11 +207,12 @@ mod tests {
         
         // Test subscribed event types
         let event_types = dispatcher.subscribed_event_types();
-        assert!(event_types.contains(&"test_a".to_string()));
-        assert!(!event_types.contains(&"test_b".to_string()));
+        assert!(event_types.contains(&"test_a"));
+        assert!(!event_types.contains(&"test_b"));
         
         // Test publishing (callback execution verified by lack of panic)
-        dispatcher.publish(TestEvent::TestA { value: 42 });
+        let test_event = TestEvent::TestA { value: 42 };
+        dispatcher.publish(&test_event);
         
         // Test clearing subscribers
         dispatcher.clear_subscribers("test_a");
@@ -220,6 +234,7 @@ mod tests {
         assert_eq!(shared_dispatcher.borrow().subscriber_count("test_a"), 1);
         
         // Test that we can publish through the shared interface
-        shared_dispatcher.borrow().publish(TestEvent::TestA { value: 123 });
+        let test_event = TestEvent::TestA { value: 123 };
+        shared_dispatcher.borrow().publish(&test_event);
     }
 }

@@ -152,7 +152,7 @@ impl ConsoleAudioServiceImpl {
     /// Publish an audio event through the event dispatcher
     pub fn publish_event(&self, event: AudioEvent) {
         if let Some(ref dispatcher) = self.event_dispatcher {
-            dispatcher.borrow().publish(event);
+            dispatcher.borrow().publish(&event);
         } else {
             dev_log!("Warning: No event dispatcher available to publish event");
         }
@@ -189,7 +189,7 @@ impl ConsoleAudioServiceImpl {
                                 // Get updated devices and publish event
                                 let updated_devices = manager.get_cached_devices().clone();
                                 let event = AudioEvent::DeviceListChanged(updated_devices);
-                                event_dispatcher_async.borrow().publish(event);
+                                event_dispatcher_async.borrow().publish(&event);
                                 dev_log!("Published DeviceListChanged event from auto refresh");
                             }
                         }
@@ -308,7 +308,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
                             // Publish device change event if event dispatcher is available
                             if let Some(ref dispatcher) = event_dispatcher {
                                 let event = crate::events::AudioEvent::DeviceListChanged(updated_devices);
-                                dispatcher.borrow().publish(event);
+                                dispatcher.borrow().publish(&event);
                                 dev_log!("Published DeviceListChanged event");
                             } else {
                                 dev_log!("Warning: No event dispatcher available to publish device change event");

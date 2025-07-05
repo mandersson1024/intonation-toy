@@ -31,7 +31,7 @@
 //!
 //! // Publish a permission change event
 //! let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
-//! dispatcher.publish(event);
+//! dispatcher.publish(&event);
 //!
 //! // Or use the shared dispatcher for cross-component communication
 //! let shared_dispatcher = create_shared_audio_dispatcher();
@@ -40,4 +40,4 @@
 pub mod audio_events;
 
 pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
-pub use event_dispatcher::{Event, EventDispatcher, EventCallback, SharedEventDispatcher, create_shared_dispatcher};
+pub use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher};

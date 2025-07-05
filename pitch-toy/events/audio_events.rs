@@ -309,7 +309,7 @@ mod tests {
         };
         
         // Publish event
-        dispatcher.publish(pitch_event.clone());
+        dispatcher.publish(&pitch_event);
         
         // Verify event was received
         let received = events_received.borrow();
@@ -362,7 +362,7 @@ mod tests {
         
         // Publish through shared dispatcher
         let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
-        shared_dispatcher.borrow().publish(event);
+        shared_dispatcher.borrow().publish(&event);
     }
 
     // Generic EventDispatcher tests with AudioEvent
@@ -393,7 +393,7 @@ mod tests {
         });
         
         assert_eq!(dispatcher.subscriber_count("permission_changed"), 1);
-        assert!(dispatcher.subscribed_event_types().contains(&"permission_changed".to_string()));
+        assert!(dispatcher.subscribed_event_types().contains(&"permission_changed"));
     }
     
     #[test]
@@ -414,7 +414,7 @@ mod tests {
         
         // Publish an event
         let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
-        dispatcher.publish(event);
+        dispatcher.publish(&event);
         
         // Verify the event was received
         assert_eq!(received_events.borrow().len(), 1);
@@ -452,7 +452,7 @@ mod tests {
         
         // Publish an event
         let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
-        dispatcher.publish(event);
+        dispatcher.publish(&event);
         
         // Both callbacks should have been called
         assert_eq!(*call_count.borrow(), 2);

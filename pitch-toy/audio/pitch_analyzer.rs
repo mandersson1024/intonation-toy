@@ -592,7 +592,7 @@ impl PitchAnalyzer {
     fn publish_event(&self, event: AudioEvent) {
         if let Some(ref dispatcher) = self.event_dispatcher {
             // Publish the event through the Event Dispatcher
-            dispatcher.borrow().publish(event);
+            dispatcher.borrow().publish(&event);
         } else {
             // Fallback: log the event if no dispatcher is available
             #[cfg(target_arch = "wasm32")]

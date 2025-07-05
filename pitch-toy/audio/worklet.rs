@@ -434,12 +434,13 @@ impl AudioWorkletManager {
                 // Publish volume change event if significant change (>3dB)
                 if rms_change > 3.0 {
                     if let Some(dispatcher) = &self.event_dispatcher {
-                        dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeChanged {
+                        let volume_event = crate::events::audio_events::AudioEvent::VolumeChanged {
                             previous_rms_db: previous.rms_db,
                             current_rms_db: volume_analysis.rms_db,
                             change_db: volume_analysis.rms_db - previous.rms_db,
                             timestamp,
-                        });
+                        };
+                        dispatcher.borrow().publish(&volume_event);
                     }
                 }
 
@@ -457,12 +458,13 @@ impl AudioWorkletManager {
                             _ => "Volume level warning".to_string(),
                         };
                         
-                        dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeWarning {
+                        let warning_event = crate::events::audio_events::AudioEvent::VolumeWarning {
                             level: volume_analysis.level,
                             rms_db: volume_analysis.rms_db,
                             message,
                             timestamp,
-                        });
+                        };
+                        dispatcher.borrow().publish(&warning_event);
                     }
                 }
             }
@@ -471,7 +473,7 @@ impl AudioWorkletManager {
             self.chunk_counter += 1;
             if self.chunk_counter % 16 == 0 {
                 if let Some(dispatcher) = &self.event_dispatcher {
-                    dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::VolumeDetected {
+                    let detected_event = crate::events::audio_events::AudioEvent::VolumeDetected {
                         rms_db: volume_analysis.rms_db,
                         peak_db: volume_analysis.peak_db,
                         peak_fast_db: volume_analysis.peak_fast_db,
@@ -479,7 +481,8 @@ impl AudioWorkletManager {
                         level: volume_analysis.level,
                         confidence_weight: volume_analysis.confidence_weight,
                         timestamp,
-                    });
+                    };
+                    dispatcher.borrow().publish(&detected_event);
                 }
             }
 
@@ -497,26 +500,29 @@ impl AudioWorkletManager {
         // Publish buffer events if dispatcher present
         if let Some(dispatcher) = &self.event_dispatcher {
             if buffer.is_full() {
-                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferFilled {
+                let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
                     buffer_index: 0,
                     length: buffer.len(),
-                });
+                };
+                dispatcher.borrow().publish(&buffer_event);
             }
 
             if buffer.has_overflowed() {
-                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferOverflow {
+                let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
                     buffer_index: 0,
                     overflow_count: buffer.overflow_count(),
-                });
+                };
+                dispatcher.borrow().publish(&overflow_event);
             }
 
             // Periodically publish metrics (every 256 chunks for example) – simple heuristic here
             if buffer.len() % 256 == 0 {
-                dispatcher.borrow().publish(crate::events::audio_events::AudioEvent::BufferMetrics {
+                let metrics_event = crate::events::audio_events::AudioEvent::BufferMetrics {
                     total_buffers: pool.len(),
                     total_overflows: pool.total_overflows(),
                     memory_bytes: pool.memory_usage_bytes(),
-                });
+                };
+                dispatcher.borrow().publish(&metrics_event);
             }
         }
 
