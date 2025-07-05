@@ -146,7 +146,9 @@ impl Event for AudioEvent {
 /// Convenience type alias for audio event dispatcher
 pub type AudioEventDispatcher = SharedEventDispatcher<AudioEvent>;
 
-/// Create a new shared audio event dispatcher
+/// Creates a shared audio event dispatcher for audio subsystem communication.
+/// This creates an audio-specific dispatcher that should be distributed to all 
+/// components that need to publish or subscribe to audio events.
 pub fn create_shared_audio_dispatcher() -> AudioEventDispatcher {
     create_shared_dispatcher::<AudioEvent>()
 }

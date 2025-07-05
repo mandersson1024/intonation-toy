@@ -100,10 +100,14 @@ impl<T: Event> Default for EventDispatcher<T> {
     }
 }
 
-/// Shared event dispatcher that can be used across the application
+/// Shared event dispatcher for dependency injection across components.
+/// Each application context (main app, test) should create one instance and 
+/// distribute it to all components that need event communication.
 pub type SharedEventDispatcher<T> = Rc<RefCell<EventDispatcher<T>>>;
 
-/// Create a new shared event dispatcher
+/// Creates a shared event dispatcher for dependency injection across components.
+/// Each application context should create one instance and distribute it to all
+/// components that need event communication, rather than using a global singleton.
 pub fn create_shared_dispatcher<T: Event>() -> SharedEventDispatcher<T> {
     Rc::new(RefCell::new(EventDispatcher::new()))
 }

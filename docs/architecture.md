@@ -175,15 +175,73 @@ The application follows a modular multi-crate architecture to promote code reusa
 
 ## Component Architecture
 
+### Domain-Specific Event Dispatcher Architecture
+
+The application uses a **domain-specific event dispatcher pattern** rather than a single global event bus. This architecture provides significant performance and maintainability benefits for real-time audio and graphics processing.
+
+#### Architecture Pattern
+
+```rust
+// Generic foundation for type-safe dispatchers
+SharedEventDispatcher<T> = Rc<RefCell<EventDispatcher<T>>>
+
+// Domain-specific dispatchers
+AudioEventDispatcher = SharedEventDispatcher<AudioEvent>
+// Future: UIEventDispatcher = SharedEventDispatcher<UIEvent>
+// Future: GraphicsEventDispatcher = SharedEventDispatcher<GraphicsEvent>
+```
+
+#### Key Benefits for Real-Time Performance
+
+**1. Audio Pipeline Isolation**
+- Audio events (pitch detection, volume analysis, buffer management) are processed independently
+- UI events cannot block critical audio processing
+- Maintains ≤30ms audio latency requirement regardless of UI complexity
+
+**2. Graphics Pipeline Isolation**
+- Rendering events don't interfere with audio thread processing
+- Theme changes and visual updates isolated from audio subsystem
+- Maintains 60fps rendering without audio dropouts
+
+**3. Type Safety & Domain Boundaries**
+- Generic `EventDispatcher<T>` prevents mixing event types between domains
+- Compile-time prevention of cross-domain event contamination
+- Clear architectural boundaries between audio, graphics, UI, and debug systems
+
+**4. Memory and Performance Locality**
+- Domain-specific event processing reduces cache misses
+- Events processed in domain-appropriate contexts
+- Better memory access patterns for real-time processing
+
+**5. Testability and Modularity**
+- Each domain can be tested with isolated event dispatchers
+- Components only receive dispatchers for their specific domain
+- Simplified dependency injection and mocking
+
+#### Current Implementation
+
+- **AudioEventDispatcher**: Handles all audio-related events (device changes, pitch detection, volume analysis, buffer events)
+- **Distribution Pattern**: Created once per application context, dependency-injected to audio components
+- **Event Types**: 12 distinct AudioEvent variants covering complete audio pipeline lifecycle
+
+#### Future Expansion
+
+The architecture supports adding new domain-specific dispatchers as needed:
+- **UIEventDispatcher**: User interactions, theme changes, navigation
+- **GraphicsEventDispatcher**: Rendering commands, visual effects, animation
+- **DebugEventDispatcher**: Development tools, logging, performance metrics
+
 ### Core Components
 
-#### 1. Event Dispatcher (Central Nervous System)
-- **Purpose**: Type-safe event routing between all system components
+#### 1. Event Dispatcher (Domain-Specific Communication System)
+- **Purpose**: Type-safe event routing within domain-specific subsystems
+- **Architecture Pattern**: Domain-specific dispatchers (AudioEventDispatcher, future UIEventDispatcher, etc.)
 - **Key Features**:
-  - Event queuing and prioritization for performance-critical paths
+  - Type-safe event isolation between domains (audio, graphics, UI, debug)
+  - Performance isolation preventing cross-domain interference
   - Subscription management with automatic cleanup
   - Event logging and debugging support
-  - Zero-allocation event publishing for hot paths
+  - Real-time audio pipeline protection from UI event blocking
 
 #### 2. Audio Processing Pipeline
 
@@ -289,14 +347,21 @@ The application follows a modular multi-crate architecture to promote code reusa
 - **Implementation**: Trait-based interface with concrete implementation in audio module
 
 ##### Event System Architecture
-- **Purpose**: Provide an application-wide, event-driven communication layer that enables real-time updates **and** loose coupling between _all_ modules (audio, graphics, UI, theme, configuration, etc.).
+- **Purpose**: Provide domain-specific, event-driven communication layers that enable real-time updates **and** loose coupling between modules within each domain (audio, graphics, UI, theme, configuration, etc.).
+- **Architecture Pattern**: Multiple domain-specific dispatchers instead of single global event bus
 - **Components**:
-  - **Event Dispatcher**: Central event routing and subscription management used by every subsystem
-  - **Typed Events**: Domain-specific events such as _AudioEvents_, _GraphicsEvents_, _UIEvents_, _ThemeEvents_, _SystemEvents_, etc. Encourage strongly-typed definitions for decoupled communication
-  - **Subscription Model**: Callback-based event handling with automatic cleanup
-- **Performance**: Zero-allocation event publishing for hot paths
-- **Integration**: Seamless integration with existing Event Dispatcher system
-- **Guideline**: New modules SHOULD prefer communicating via events instead of direct references to maintain maximum decoupling and testability
+  - **Domain-Specific Dispatchers**: Separate event dispatchers for each domain (AudioEventDispatcher, future UIEventDispatcher, GraphicsEventDispatcher, etc.)
+  - **Typed Events**: Strongly-typed events within each domain (AudioEvents, GraphicsEvents, UIEvents, ThemeEvents, SystemEvents, etc.)
+  - **Type Safety**: Generic `EventDispatcher<T>` prevents mixing event types between domains
+  - **Subscription Model**: Callback-based event handling with automatic cleanup within each domain
+- **Performance Benefits for Real-Time Audio & Graphics**:
+  - **Audio Pipeline Isolation**: Audio events processed independently without UI event blocking
+  - **Graphics Pipeline Isolation**: Rendering events don't interfere with audio processing
+  - **Latency Protection**: Critical audio events (pitch detection, volume) never blocked by debug/UI events
+  - **Memory Locality**: Domain-specific event processing reduces cache misses
+  - **Thread Safety**: Each domain's events can be processed on appropriate threads
+- **Integration**: Each component receives only the domain-specific dispatcher(s) it needs
+- **Guideline**: New modules SHOULD use domain-appropriate event dispatchers and avoid cross-domain direct references
 
 ##### Benefits of Decoupling
 - **Separation of Concerns**: Console focuses on UI/UX, audio module handles audio processing
