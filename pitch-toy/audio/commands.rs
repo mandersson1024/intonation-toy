@@ -241,6 +241,29 @@ impl ConsoleCommand for TuningCommand {
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             let mut outputs = Vec::new();
+            
+            // Show current tuning system first
+            if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+                let analyzer = analyzer_rc.borrow();
+                let config = analyzer.config();
+                let current_tuning = match &config.tuning_system {
+                    TuningSystem::EqualTemperament { reference_pitch } => {
+                        format!("Equal Temperament (A4 = {:.1} Hz)", reference_pitch)
+                    }
+                    TuningSystem::JustIntonation { reference_pitch } => {
+                        format!("Just Intonation (A4 = {:.1} Hz)", reference_pitch)
+                    }
+                    TuningSystem::Custom { frequency_ratios } => {
+                        format!("Custom ({} frequency ratios)", frequency_ratios.len())
+                    }
+                };
+                outputs.push(ConsoleOutput::success(&format!("Current tuning system: {}", current_tuning)));
+                outputs.push(ConsoleOutput::info(""));
+            } else {
+                outputs.push(ConsoleOutput::warning("Pitch analyzer not initialized"));
+                outputs.push(ConsoleOutput::info(""));
+            }
+            
             outputs.push(ConsoleOutput::info("Usage: tuning <system> [reference_pitch]"));
             outputs.push(ConsoleOutput::info(""));
             outputs.push(ConsoleOutput::info("Available tuning systems:"));
@@ -306,7 +329,38 @@ impl ConsoleCommand for PitchRangeCommand {
     fn description(&self) -> &str { "Set frequency detection range (min max)" }
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.len() < 2 {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-range <min> <max>"));
+            let mut outputs = Vec::new();
+            
+            // Show current range first
+            if let Some(analyzer_rc) = get_global_pitch_analyzer() {
+                let analyzer = analyzer_rc.borrow();
+                let config = analyzer.config();
+                outputs.push(ConsoleOutput::success(&format!("Current frequency range: {:.1} - {:.1} Hz", config.min_frequency, config.max_frequency)));
+                outputs.push(ConsoleOutput::info(""));
+            } else {
+                outputs.push(ConsoleOutput::warning("Pitch analyzer not initialized"));
+                outputs.push(ConsoleOutput::info(""));
+            }
+            
+            outputs.push(ConsoleOutput::info("Usage: pitch-range <min> <max>"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Set the frequency detection range for pitch analysis."));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Parameters:"));
+            outputs.push(ConsoleOutput::info("  min    - Minimum frequency in Hz (must be positive)"));
+            outputs.push(ConsoleOutput::info("  max    - Maximum frequency in Hz (must be > min)"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Recommended ranges:"));
+            outputs.push(ConsoleOutput::info("  Guitar:        80 - 1000 Hz"));
+            outputs.push(ConsoleOutput::info("  Piano:         30 - 4000 Hz"));
+            outputs.push(ConsoleOutput::info("  Voice:         80 - 2000 Hz"));
+            outputs.push(ConsoleOutput::info("  General:       20 - 20000 Hz"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Examples:"));
+            outputs.push(ConsoleOutput::info("  pitch range 80 1000     - Guitar range"));
+            outputs.push(ConsoleOutput::info("  pitch range 30 4000     - Piano range"));
+            outputs.push(ConsoleOutput::info("  pitch range 80 2000     - Voice range"));
+            return ConsoleCommandResult::MultipleOutputs(outputs);
         }
         
         let min_freq: f32 = match args[0].parse() {
