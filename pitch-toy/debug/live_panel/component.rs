@@ -54,9 +54,23 @@ impl Default for PerformanceMetrics {
 
 /// Volume level data for display
 #[derive(Debug, Clone, PartialEq)]
-pub struct VolumeLevel {
-    pub level: f32,
-    pub peak: f32,
+pub struct VolumeLevelData {
+    pub rms_db: f32,
+    pub peak_db: f32,
+    pub peak_fast_db: f32,
+    pub peak_slow_db: f32,
+    pub level: crate::audio::VolumeLevel,
+    pub confidence_weight: f32,
+    pub timestamp: f64,
+}
+
+/// Pitch detection data for display
+#[derive(Debug, Clone, PartialEq)]
+pub struct PitchData {
+    pub frequency: f32,
+    pub confidence: f32,
+    pub note: crate::audio::MusicalNote,
+    pub clarity: f32,
     pub timestamp: f64,
 }
 
@@ -91,7 +105,9 @@ pub struct LivePanel {
     /// Performance metrics
     performance_metrics: PerformanceMetrics,
     /// Current volume level
-    volume_level: Option<VolumeLevel>,
+    volume_level: Option<VolumeLevelData>,
+    /// Current pitch data
+    pitch_data: Option<PitchData>,
     /// AudioWorklet status
     audioworklet_status: AudioWorkletStatus,
     /// Performance monitoring interval
@@ -108,7 +124,9 @@ pub enum LivePanelMsg {
     /// Update performance metrics
     UpdatePerformanceMetrics(PerformanceMetrics),
     /// Update volume level
-    UpdateVolumeLevel(VolumeLevel),
+    UpdateVolumeLevel(VolumeLevelData),
+    /// Update pitch data
+    UpdatePitchData(PitchData),
     /// Update AudioWorklet status
     UpdateAudioWorkletStatus(AudioWorkletStatus),
 }
@@ -123,6 +141,7 @@ impl Component for LivePanel {
             audio_permission: ctx.props().audio_permission.clone(),
             performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
+            pitch_data: None,
             audioworklet_status: AudioWorkletStatus::default(),
             _performance_interval: None,
         };
@@ -155,6 +174,10 @@ impl Component for LivePanel {
             }
             LivePanelMsg::UpdateVolumeLevel(level) => {
                 self.volume_level = Some(level);
+                true
+            }
+            LivePanelMsg::UpdatePitchData(pitch) => {
+                self.pitch_data = Some(pitch);
                 true
             }
             LivePanelMsg::UpdateAudioWorkletStatus(status) => {
@@ -209,6 +232,38 @@ impl LivePanel {
         ctx.props().event_dispatcher.borrow_mut().subscribe("audioworklet_status_changed", move |event| {
             if let crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status) = event {
                 link_clone.send_message(LivePanelMsg::UpdateAudioWorkletStatus(status));
+            }
+        });
+        
+        // Subscribe to pitch detection events
+        let link_clone2 = ctx.link().clone();
+        ctx.props().event_dispatcher.borrow_mut().subscribe("pitch_detected", move |event| {
+            if let crate::events::audio_events::AudioEvent::PitchDetected { frequency, confidence, note, clarity, timestamp } = event {
+                let pitch_data = PitchData {
+                    frequency,
+                    confidence,
+                    note,
+                    clarity,
+                    timestamp,
+                };
+                link_clone2.send_message(LivePanelMsg::UpdatePitchData(pitch_data));
+            }
+        });
+        
+        // Subscribe to volume detection events
+        let link_clone3 = ctx.link().clone();
+        ctx.props().event_dispatcher.borrow_mut().subscribe("volume_detected", move |event| {
+            if let crate::events::audio_events::AudioEvent::VolumeDetected { rms_db, peak_db, peak_fast_db, peak_slow_db, level, confidence_weight, timestamp } = event {
+                let volume_data = VolumeLevelData {
+                    rms_db,
+                    peak_db,
+                    peak_fast_db,
+                    peak_slow_db,
+                    level,
+                    confidence_weight,
+                    timestamp,
+                };
+                link_clone3.send_message(LivePanelMsg::UpdateVolumeLevel(volume_data));
             }
         });
     }
@@ -318,9 +373,34 @@ impl LivePanel {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"Pitch Detection"}</h4>
                 <div class="pitch-detection-data">
-                    <div class="pitch-placeholder">
-                        {"No pitch data available"}
-                    </div>
+                    {if let Some(pitch) = &self.pitch_data {
+                        html! {
+                            <div class="pitch-data">
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Frequency"}</span>
+                                    <span class="metric-value">{format!("{:.2} Hz", pitch.frequency)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Note"}</span>
+                                    <span class="metric-value">{format!("{}", pitch.note)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Confidence"}</span>
+                                    <span class="metric-value">{format!("{:.1}%", pitch.confidence * 100.0)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Clarity"}</span>
+                                    <span class="metric-value">{format!("{:.1}%", pitch.clarity * 100.0)}</span>
+                                </div>
+                            </div>
+                        }
+                    } else {
+                        html! {
+                            <div class="pitch-placeholder">
+                                {"No pitch data available"}
+                            </div>
+                        }
+                    }}
                 </div>
             </div>
         }
@@ -421,26 +501,30 @@ impl LivePanel {
                 <div class="volume-display">
                     {if let Some(volume) = &self.volume_level {
                         html! {
-                            <div class="volume-meters">
-                                <div class="volume-meter">
-                                    <div class="volume-label">{"Level"}</div>
-                                    <div class="volume-bar">
-                                        <div 
-                                            class="volume-fill"
-                                            style={format!("width: {}%", volume.level * 100.0)}
-                                        />
-                                    </div>
-                                    <div class="volume-value">{format!("{:.1}%", volume.level * 100.0)}</div>
+                            <div class="volume-display">
+                                <div class="metric-item">
+                                    <span class="metric-label">{"RMS Level"}</span>
+                                    <span class="metric-value">{format!("{:.1} dB", volume.rms_db)}</span>
                                 </div>
-                                <div class="volume-meter">
-                                    <div class="volume-label">{"Peak"}</div>
-                                    <div class="volume-bar">
-                                        <div 
-                                            class="volume-fill volume-peak"
-                                            style={format!("width: {}%", volume.peak * 100.0)}
-                                        />
-                                    </div>
-                                    <div class="volume-value">{format!("{:.1}%", volume.peak * 100.0)}</div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Peak Level"}</span>
+                                    <span class="metric-value">{format!("{:.1} dB", volume.peak_db)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Peak Fast"}</span>
+                                    <span class="metric-value">{format!("{:.1} dB", volume.peak_fast_db)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Peak Slow"}</span>
+                                    <span class="metric-value">{format!("{:.1} dB", volume.peak_slow_db)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Level Category"}</span>
+                                    <span class="metric-value">{format!("{}", volume.level)}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">{"Confidence Weight"}</span>
+                                    <span class="metric-value">{format!("{:.1}%", volume.confidence_weight * 100.0)}</span>
                                 </div>
                             </div>
                         }

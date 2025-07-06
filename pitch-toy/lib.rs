@@ -123,6 +123,10 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
     worklet_manager.set_buffer_pool(buffer_pool);
     worklet_manager.set_event_dispatcher(event_dispatcher.clone());
     
+    // Add volume detector for real-time volume analysis
+    let volume_detector = audio::VolumeDetector::new_default();
+    worklet_manager.set_volume_detector(volume_detector);
+    
     // Publish initial status
     publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Initializing, false, 0);
     
@@ -134,6 +138,25 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
             
             // Publish ready status
             publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
+            
+            // Note: We don't connect AudioWorklet to destination to avoid audio feedback
+            // The AudioWorklet will still process audio when microphone is connected to it
+            
+            // Start audio processing automatically
+            match worklet_manager.start_processing() {
+                Ok(_) => {
+                    dev_log!("✓ Audio processing started automatically");
+                    
+                    // Publish processing status
+                    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Processing, true, 0);
+                }
+                Err(e) => {
+                    dev_log!("✗ Failed to start audio processing: {:?}", e);
+                    
+                    // Still store the manager but in Ready state
+                    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
+                }
+            }
             
             // Store globally for microphone connection
             audio::set_global_audioworklet_manager(std::rc::Rc::new(std::cell::RefCell::new(worklet_manager)));
@@ -149,6 +172,104 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
             Err(format!("Failed to initialize AudioWorklet: {:?}", e))
         }
     }
+}
+
+/// Connect microphone stream to AudioWorklet for audio processing
+#[cfg(target_arch = "wasm32")]
+pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
+    use web_sys::AudioNode;
+    use crate::audio::permission::PermissionManager;
+    
+    dev_log!("Requesting microphone permission and connecting to AudioWorklet");
+    
+    // Request microphone permission and get stream
+    let media_stream = match PermissionManager::request_microphone_permission().await {
+        Ok(stream) => {
+            dev_log!("✓ Microphone permission granted, received MediaStream");
+            stream
+        }
+        Err(e) => {
+            dev_log!("✗ Microphone permission failed: {:?}", e);
+            return Err(format!("Failed to get microphone permission: {:?}", e));
+        }
+    };
+    
+    // Get audio context and AudioWorklet manager
+    let audio_context_manager = audio::get_audio_context_manager()
+        .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
+    
+    // Resume AudioContext if suspended (required for processing to start)
+    {
+        let mut manager = audio_context_manager.borrow_mut();
+        if let Err(e) = manager.resume().await {
+            dev_log!("⚠️ Failed to resume AudioContext: {:?}", e);
+        } else {
+            dev_log!("✓ AudioContext resumed for microphone processing");
+        }
+    }
+    
+    let audioworklet_manager = audio::get_global_audioworklet_manager()
+        .ok_or_else(|| "AudioWorklet manager not initialized".to_string())?;
+    
+    // Create audio source from MediaStream
+    let audio_context = {
+        let manager = audio_context_manager.borrow();
+        manager.get_context()
+            .ok_or_else(|| "AudioContext not available".to_string())?
+            .clone()
+    };
+    
+    let source = match audio_context.create_media_stream_source(&media_stream) {
+        Ok(source_node) => {
+            dev_log!("✓ Created MediaStreamAudioSourceNode from microphone");
+            source_node
+        }
+        Err(e) => {
+            dev_log!("✗ Failed to create audio source: {:?}", e);
+            return Err(format!("Failed to create audio source: {:?}", e));
+        }
+    };
+    
+    // Connect microphone source to AudioWorklet
+    let mut worklet_manager = audioworklet_manager.borrow_mut();
+    match worklet_manager.connect_microphone(source.as_ref()) {
+        Ok(_) => {
+            dev_log!("✓ Microphone successfully connected to AudioWorklet");
+            
+            // Note: No need to connect to destination - microphone → AudioWorklet is sufficient for processing
+            
+            // Ensure processing is active after connection
+            if !worklet_manager.is_processing() {
+                dev_log!("Starting AudioWorklet processing after microphone connection...");
+                match worklet_manager.start_processing() {
+                    Ok(_) => {
+                        dev_log!("✓ AudioWorklet processing started - audio pipeline active");
+                    }
+                    Err(e) => {
+                        dev_log!("⚠️ Failed to start processing after microphone connection: {:?}", e);
+                    }
+                }
+            } else {
+                dev_log!("✓ AudioWorklet already processing - audio pipeline active");
+            }
+            
+            // Publish success event
+            let event_dispatcher = crate::events::get_global_event_dispatcher();
+            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Processing, true, 0);
+            
+            Ok(())
+        }
+        Err(e) => {
+            dev_log!("✗ Failed to connect microphone to AudioWorklet: {:?}", e);
+            Err(format!("Failed to connect microphone: {:?}", e))
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
+    dev_log!("Microphone connection not available in non-WASM builds");
+    Ok(())
 }
 
 /// Publish AudioWorklet status update to Live Data Panel

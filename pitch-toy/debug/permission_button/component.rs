@@ -110,11 +110,30 @@ impl Component for PermissionButton {
 
             PermissionButtonMsg::PermissionGranted(permission) => {
                 self.requesting = false;
-                self.permission_state = permission;
+                self.permission_state = permission.clone();
                 self.error_message = None;
                 
                 // Notify parent component
                 ctx.props().on_permission_change.emit(self.permission_state.clone());
+                
+                // If permission was granted, automatically connect microphone to AudioWorklet
+                if permission == AudioPermission::Granted {
+                    let link = ctx.link().clone();
+                    spawn_local(async move {
+                        match crate::connect_microphone_to_audioworklet().await {
+                            Ok(_) => {
+                                crate::common::dev_log!("✓ Microphone connected to audio pipeline");
+                            }
+                            Err(e) => {
+                                crate::common::dev_log!("✗ Failed to connect microphone: {}", e);
+                                // Send error message to component
+                                link.send_message(PermissionButtonMsg::PermissionError(
+                                    format!("Failed to connect microphone: {}", e)
+                                ));
+                            }
+                        }
+                    });
+                }
                 
                 true
             }

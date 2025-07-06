@@ -97,6 +97,8 @@ pub struct AudioWorkletConfig {
 struct AudioWorkletSharedData {
     buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
     event_dispatcher: Option<crate::events::AudioEventDispatcher>,
+    volume_detector: Option<VolumeDetector>,
+    last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
 }
 
@@ -105,6 +107,8 @@ impl AudioWorkletSharedData {
         Self {
             buffer_pool: None,
             event_dispatcher: None,
+            volume_detector: None,
+            last_volume_analysis: None,
             chunks_processed: 0,
         }
     }
@@ -270,9 +274,14 @@ impl AudioWorkletManager {
         let options = AudioWorkletNodeOptions::new();
         options.set_number_of_inputs(1);
         options.set_number_of_outputs(1);
-        options.set_output_channel_count(&js_sys::Array::of1(&js_sys::Number::from(
-            self.config.output_channels
-        )));
+        
+        // Set channel counts for both input and output
+        let output_channels = js_sys::Array::of1(&js_sys::Number::from(self.config.output_channels));
+        
+        options.set_channel_count(self.config.input_channels);
+        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
+        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
+        options.set_output_channel_count(&output_channels);
         
         // Create the AudioWorkletNode with the registered processor
         match self.create_worklet_node(context, &options) {
@@ -315,6 +324,9 @@ impl AudioWorkletManager {
             }
             if let Some(dispatcher) = &self.event_dispatcher {
                 shared_data.borrow_mut().event_dispatcher = Some(dispatcher.clone());
+            }
+            if let Some(volume_detector) = &self.volume_detector {
+                shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
             }
             
             // Set up message handler with access to shared data
@@ -394,19 +406,34 @@ impl AudioWorkletManager {
                 let samples: Vec<f32> = samples_array.to_vec();
                 
                 // Get timestamp if available
-                let _timestamp = if let Ok(timestamp_val) = js_sys::Reflect::get(obj, &"timestamp".into()) {
+                let timestamp = if let Ok(timestamp_val) = js_sys::Reflect::get(obj, &"timestamp".into()) {
                     timestamp_val.as_f64()
                 } else {
                     None
                 };
                 
                 // Feed audio data to buffer pool if available
-                if let Some(pool) = &shared_data.borrow().buffer_pool {
-                    let mut pool_borrowed = pool.borrow_mut();
-                    if let Some(buffer) = pool_borrowed.get_mut(0) {
-                        buffer.write_chunk(&samples);
-                        
-                        // Update chunk counter and publish events
+                let buffer_pool = shared_data.borrow().buffer_pool.clone();
+                if let Some(pool) = buffer_pool {
+                    let (buffer_is_full, buffer_has_overflowed, buffer_len, buffer_overflow_count) = {
+                        let mut pool_borrowed = pool.borrow_mut();
+                        if let Some(buffer) = pool_borrowed.get_mut(0) {
+                            buffer.write_chunk(&samples);
+                            
+                            // Capture buffer state before dropping the borrow
+                            let is_full = buffer.is_full();
+                            let has_overflowed = buffer.has_overflowed();
+                            let len = buffer.len();
+                            let overflow_count = buffer.overflow_count();
+                            
+                            (is_full, has_overflowed, len, overflow_count)
+                        } else {
+                            (false, false, 0, 0)
+                        }
+                    };
+                    
+                    // Update chunk counter and publish events
+                    {
                         let mut data = shared_data.borrow_mut();
                         data.chunks_processed += 1;
                         
@@ -415,25 +442,77 @@ impl AudioWorkletManager {
                             drop(data); // Release borrow before calling publish
                             Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
                         }
+                    }
+                    
+                    // Publish buffer events if dispatcher present
+                    let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
+                    if let Some(dispatcher) = event_dispatcher {
+                        if buffer_is_full {
+                            let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
+                                buffer_index: 0,
+                                length: buffer_len,
+                            };
+                            dispatcher.borrow().publish(&buffer_event);
+                        }
                         
-                        // Publish buffer events if dispatcher present
-                        if let Some(dispatcher) = &shared_data.borrow().event_dispatcher {
-                            if buffer.is_full() {
-                                let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
-                                    buffer_index: 0,
-                                    length: buffer.len(),
+                        if buffer_has_overflowed {
+                            let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
+                                buffer_index: 0,
+                                overflow_count: buffer_overflow_count,
+                            };
+                            dispatcher.borrow().publish(&overflow_event);
+                        }
+                    }
+                }
+                
+                // Perform volume detection if available
+                let volume_detector = shared_data.borrow().volume_detector.clone();
+                if let Some(mut detector) = volume_detector {
+                    let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
+                    
+                    // Check for volume change events
+                    let previous_analysis = shared_data.borrow().last_volume_analysis.clone();
+                    if let Some(previous) = &previous_analysis {
+                        let rms_change = (volume_analysis.rms_db - previous.rms_db).abs();
+                        
+                        // Publish volume change event if significant change (>3dB)
+                        if rms_change > 3.0 {
+                            let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
+                            if let Some(dispatcher) = event_dispatcher {
+                                let volume_event = crate::events::audio_events::AudioEvent::VolumeChanged {
+                                    previous_rms_db: previous.rms_db,
+                                    current_rms_db: volume_analysis.rms_db,
+                                    change_db: volume_analysis.rms_db - previous.rms_db,
+                                    timestamp: timestamp.unwrap_or(0.0),
                                 };
-                                dispatcher.borrow().publish(&buffer_event);
-                            }
-                            
-                            if buffer.has_overflowed() {
-                                let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
-                                    buffer_index: 0,
-                                    overflow_count: buffer.overflow_count(),
-                                };
-                                dispatcher.borrow().publish(&overflow_event);
+                                dispatcher.borrow().publish(&volume_event);
                             }
                         }
+                    }
+                    
+                    // Always publish VolumeDetected event every 16 chunks (~34ms at 48kHz)
+                    let chunks_processed = shared_data.borrow().chunks_processed;
+                    if chunks_processed % 16 == 0 {
+                        let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
+                        if let Some(dispatcher) = event_dispatcher {
+                            let volume_event = crate::events::audio_events::AudioEvent::VolumeDetected {
+                                rms_db: volume_analysis.rms_db,
+                                peak_db: volume_analysis.peak_db,
+                                peak_fast_db: volume_analysis.peak_fast_db,
+                                peak_slow_db: volume_analysis.peak_slow_db,
+                                level: volume_analysis.level,
+                                confidence_weight: volume_analysis.confidence_weight,
+                                timestamp: timestamp.unwrap_or(0.0),
+                            };
+                            dispatcher.borrow().publish(&volume_event);
+                        }
+                    }
+                    
+                    // Update stored analysis (store the detector back and update analysis)
+                    {
+                        let mut data = shared_data.borrow_mut();
+                        data.volume_detector = Some(detector);
+                        data.last_volume_analysis = Some(volume_analysis);
                     }
                 }
             }

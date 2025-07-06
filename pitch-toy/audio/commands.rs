@@ -737,6 +737,145 @@ impl ConsoleCommand for PitchCommand {
     }
 }
 
+/// Pipeline Debug Command - shows full audio pipeline status
+pub struct PipelineDebugCommand;
+
+impl ConsoleCommand for PipelineDebugCommand {
+    fn name(&self) -> &str { "pipeline-debug" }
+    fn description(&self) -> &str { "Show detailed audio pipeline status for debugging" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let mut outputs = Vec::new();
+        
+        outputs.push(ConsoleOutput::info("=== Audio Pipeline Debug Status ==="));
+        
+        // Check AudioContext
+        if let Some(manager_rc) = get_audio_context_manager() {
+            let manager = manager_rc.borrow();
+            let state = manager.state();
+            outputs.push(ConsoleOutput::info(&format!("AudioContext: {}", state)));
+            
+            if let Some(context) = manager.get_context() {
+                outputs.push(ConsoleOutput::info(&format!("Sample Rate: {} Hz", context.sample_rate())));
+            }
+        } else {
+            outputs.push(ConsoleOutput::error("AudioContext: Not initialized"));
+        }
+        
+        // Check Buffer Pool
+        if let Some(pool_rc) = super::get_global_buffer_pool() {
+            let pool = pool_rc.borrow();
+            outputs.push(ConsoleOutput::info(&format!("Buffer Pool: {} buffers initialized", pool.len())));
+        } else {
+            outputs.push(ConsoleOutput::error("Buffer Pool: Not initialized"));
+        }
+        
+        // Check AudioWorklet
+        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+            let worklet = worklet_rc.borrow();
+            outputs.push(ConsoleOutput::info(&format!("AudioWorklet: {}", worklet.state())));
+            outputs.push(ConsoleOutput::info(&format!("Processing: {}", if worklet.is_processing() { "Yes" } else { "No" })));
+        } else {
+            outputs.push(ConsoleOutput::error("AudioWorklet: Not initialized"));
+        }
+        
+        // Check Pitch Analyzer
+        if let Some(analyzer_rc) = super::commands::get_global_pitch_analyzer() {
+            outputs.push(ConsoleOutput::info("Pitch Analyzer: Initialized"));
+        } else {
+            outputs.push(ConsoleOutput::error("Pitch Analyzer: Not initialized"));
+        }
+        
+        // Check Event Dispatcher
+        let event_dispatcher = crate::events::get_global_event_dispatcher();
+        let subscriber_count = event_dispatcher.borrow().subscriber_count("buffer_filled") + 
+                              event_dispatcher.borrow().subscriber_count("pitch_detected") + 
+                              event_dispatcher.borrow().subscriber_count("volume_detected");
+        outputs.push(ConsoleOutput::info(&format!("Event Subscriptions: {} total", subscriber_count)));
+        
+        outputs.push(ConsoleOutput::info("=== End Debug Status ==="));
+        
+        ConsoleCommandResult::MultipleOutputs(outputs)
+    }
+}
+
+/// Connect Microphone Command - manually trigger microphone connection
+pub struct ConnectMicrophoneCommand;
+
+impl ConsoleCommand for ConnectMicrophoneCommand {
+    fn name(&self) -> &str { "connect-microphone" }
+    fn description(&self) -> &str { "Manually connect microphone to AudioWorklet pipeline" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        #[cfg(target_arch = "wasm32")]
+        {
+            wasm_bindgen_futures::spawn_local(async move {
+                match crate::connect_microphone_to_audioworklet().await {
+                    Ok(_) => {
+                        crate::common::dev_log!("✓ Manual microphone connection successful");
+                    }
+                    Err(e) => {
+                        crate::common::dev_log!("✗ Manual microphone connection failed: {}", e);
+                    }
+                }
+            });
+            ConsoleCommandResult::Output(ConsoleOutput::info("Attempting to connect microphone... (check browser console for results)"))
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        ConsoleCommandResult::Output(ConsoleOutput::error("Microphone connection only available in browser"))
+    }
+}
+
+/// AudioWorklet Debug Command - shows AudioWorklet specific status
+pub struct AudioWorkletDebugCommand;
+
+impl ConsoleCommand for AudioWorkletDebugCommand {
+    fn name(&self) -> &str { "audioworklet-debug" }
+    fn description(&self) -> &str { "Show detailed AudioWorklet status and data flow" }
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        let mut outputs = Vec::new();
+        
+        outputs.push(ConsoleOutput::info("=== AudioWorklet Debug Status ==="));
+        
+        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+            let worklet = worklet_rc.borrow();
+            
+            outputs.push(ConsoleOutput::info(&format!("State: {}", worklet.state())));
+            outputs.push(ConsoleOutput::info(&format!("Processing: {}", if worklet.is_processing() { "✓ Yes" } else { "✗ No" })));
+            
+            // Check if worklet has processing node
+            if let Some(_node) = worklet.get_processing_node() {
+                outputs.push(ConsoleOutput::info("Processing Node: ✓ Connected"));
+            } else {
+                outputs.push(ConsoleOutput::error("Processing Node: ✗ Not connected"));
+            }
+            
+            // Check volume detector
+            if let Some(analysis) = worklet.last_volume_analysis() {
+                outputs.push(ConsoleOutput::info(&format!("Volume Analysis: Available (RMS: {:.1} dB)", analysis.rms_db)));
+            } else {
+                outputs.push(ConsoleOutput::warning("Volume Analysis: No data"));
+            }
+            
+            // Check buffer pool connection
+            if let Some(pool_rc) = super::get_global_buffer_pool() {
+                let pool = pool_rc.borrow();
+                if pool.len() > 0 {
+                    if let Some(buffer) = pool.get(0) {
+                        outputs.push(ConsoleOutput::info(&format!("Buffer 0: {}/{} samples ({:.1}% full)", 
+                            buffer.len(), buffer.capacity(), 
+                            (buffer.len() as f32 / buffer.capacity() as f32) * 100.0)));
+                    }
+                }
+            }
+        } else {
+            outputs.push(ConsoleOutput::error("AudioWorklet manager not initialized"));
+        }
+        
+        outputs.push(ConsoleOutput::info("=== End AudioWorklet Debug ==="));
+        ConsoleCommandResult::MultipleOutputs(outputs)
+    }
+}
+
 /// Base Volume Command - handles "volume" with subcommands
 pub struct VolumeCommand;
 
@@ -781,6 +920,11 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(PitchCommand));
     registry.register(Box::new(VolumeCommand));
     registry.register(Box::new(TuningCommand));
+    
+    // Register debugging commands
+    registry.register(Box::new(PipelineDebugCommand));
+    registry.register(Box::new(AudioWorkletDebugCommand));
+    registry.register(Box::new(ConnectMicrophoneCommand));
     
     // Register compound commands for variant discovery and backward compatibility
     // These won't appear in help but will be found when parsing compound commands

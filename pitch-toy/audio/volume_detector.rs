@@ -178,6 +178,7 @@ impl Default for VolumeDetectorConfig {
 }
 
 /// Real-time volume detector for audio processing
+#[derive(Clone)]
 pub struct VolumeDetector {
     config: VolumeDetectorConfig,
     peak_fast_state: f32,

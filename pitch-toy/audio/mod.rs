@@ -197,7 +197,28 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
             dev_log!("  Sample rate: {:.1} kHz", sample_rate / 1000.0);
             
             // Register globally for console commands access
-            commands::set_global_pitch_analyzer(analyzer_rc);
+            commands::set_global_pitch_analyzer(analyzer_rc.clone());
+            
+            // Subscribe to buffer events for automatic pitch detection
+            let event_dispatcher = crate::events::get_global_event_dispatcher();
+            let analyzer_for_events = analyzer_rc.clone();
+            event_dispatcher.borrow_mut().subscribe("buffer_filled", move |event| {
+                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, .. } = event {
+                    // Get buffer pool and extract data for pitch analysis
+                    if let Some(pool) = get_global_buffer_pool() {
+                        let pool_borrowed = pool.borrow();
+                        if let Some(_buffer) = pool_borrowed.get(buffer_index) {
+                            // Process the buffer filled event for pitch detection
+                            if let Ok(mut analyzer) = analyzer_for_events.try_borrow_mut() {
+                                // Use the event-based processing method
+                                let _ = analyzer.process_buffer_event(&event);
+                            }
+                        }
+                    }
+                }
+            });
+            
+            dev_log!("✓ Pitch analyzer subscribed to buffer events");
             
             Ok(())
         }

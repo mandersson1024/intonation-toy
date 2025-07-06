@@ -20,6 +20,9 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         
+        // Constructor logging kept for debugging
+        console.log('PitchDetectionProcessor: Constructor called - processor instance created');
+        
         // Fixed chunk size as per Web Audio API specification
         this.chunkSize = 128;
         
@@ -29,6 +32,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Setup message handling
         this.port.onmessage = (event) => {
+            // Message logging kept for debugging
+            console.log('PitchDetectionProcessor: Received message:', event.data);
             this.handleMessage(event.data);
         };
         
@@ -36,8 +41,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.port.postMessage({
             type: 'processorReady',
             chunkSize: this.chunkSize,
-            timestamp: currentTime
+            timestamp: this.currentTime || 0
         });
+        
+        console.log('PitchDetectionProcessor: Constructor complete, ready for processing');
     }
     
     /**
@@ -50,7 +57,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 this.isProcessing = true;
                 this.port.postMessage({
                     type: 'processingStarted',
-                    timestamp: currentTime
+                    timestamp: this.currentTime || 0
                 });
                 break;
                 
@@ -58,7 +65,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 this.isProcessing = false;
                 this.port.postMessage({
                     type: 'processingStopped',
-                    timestamp: currentTime
+                    timestamp: this.currentTime || 0
                 });
                 break;
                 
@@ -67,7 +74,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     type: 'status',
                     isProcessing: this.isProcessing,
                     chunkCounter: this.chunkCounter,
-                    timestamp: currentTime
+                    timestamp: this.currentTime || 0
                 });
                 break;
                 
@@ -86,18 +93,33 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      * @returns {boolean} - True to keep processor alive, false to terminate
      */
     process(inputs, outputs, parameters) {
+        // Debug logging disabled - verification complete
+        // if (this.chunkCounter < 5) {
+        //     console.log(`PitchDetectionProcessor: process() called - chunk ${this.chunkCounter}, inputs: ${inputs.length}, outputs: ${outputs.length}`);
+        // }
+        
         const input = inputs[0];
         const output = outputs[0];
+        
+        // Debug logging disabled - remove spam
+        // if (this.chunkCounter % 100 === 0) {
+        //     console.log(`AudioWorklet: Processing chunk ${this.chunkCounter}, input channels: ${input ? input.length : 0}, processing: ${this.isProcessing}`);
+        // }
         
         // Check if we have valid input
         if (!input || input.length === 0) {
             // No input available, pass through silence
+            // Debug logging disabled
+            // if (this.chunkCounter % 100 === 0) {
+            //     console.log(`AudioWorklet: No input available - inputs array length: ${inputs.length}`);
+            // }
             if (output && output.length > 0) {
                 const outputChannel = output[0];
                 if (outputChannel) {
                     outputChannel.fill(0);
                 }
             }
+            this.chunkCounter++;
             return true;
         }
         
@@ -106,11 +128,23 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         if (!inputChannel || inputChannel.length !== this.chunkSize) {
             // Invalid input chunk size, pass through silence
+            // Debug logging disabled
+            // if (this.chunkCounter % 100 === 0) {
+            //     console.log(`AudioWorklet: Invalid input - channel: ${!!inputChannel}, length: ${inputChannel ? inputChannel.length : 0}, expected: ${this.chunkSize}`);
+            // }
             if (output && output.length > 0 && output[0]) {
                 output[0].fill(0);
             }
+            this.chunkCounter++;
             return true;
         }
+        
+        // Debug logging disabled - signal detection confirmed working
+        // if (this.chunkCounter % 100 === 0) {
+        //     const hasSignal = inputChannel.some(sample => Math.abs(sample) > 0.001);
+        //     const maxLevel = Math.max(...inputChannel.map(Math.abs));
+        //     console.log(`AudioWorklet: Input signal - hasSignal: ${hasSignal}, maxLevel: ${maxLevel.toFixed(4)}`);
+        // }
         
         // Pass-through audio (copy input to output)
         if (output && output.length > 0 && output[0]) {
@@ -131,7 +165,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     samples: audioData,
                     chunkSize: this.chunkSize,
                     chunkCounter: this.chunkCounter,
-                    timestamp: currentTime
+                    timestamp: this.currentTime || 0
                 });
                 
                 this.chunkCounter++;
@@ -142,7 +176,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 this.port.postMessage({
                     type: 'processingError',
                     error: error.message,
-                    timestamp: currentTime
+                    timestamp: this.currentTime || 0
                 });
             }
         }
@@ -158,7 +192,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.isProcessing = false;
         this.port.postMessage({
             type: 'processorDestroyed',
-            timestamp: currentTime
+            timestamp: this.currentTime || 0
         });
     }
 }

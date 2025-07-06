@@ -76,11 +76,27 @@ impl Component for DebugInterface {
                 true
             }
             DebugInterfaceMsg::PermissionChanged(permission) => {
+                let was_granted_before = self.audio_permission == AudioPermission::Granted;
                 self.audio_permission = permission.clone();
                 
                 // If permission was granted, refresh the device list
                 if permission == AudioPermission::Granted {
                     ctx.props().audio_service.refresh_devices();
+                    
+                    // If this is a new grant (or we're not sure), try to connect microphone
+                    if !was_granted_before {
+                        let link = ctx.link().clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            match crate::connect_microphone_to_audioworklet().await {
+                                Ok(_) => {
+                                    crate::common::dev_log!("✓ Microphone connected to audio pipeline from debug interface");
+                                }
+                                Err(e) => {
+                                    crate::common::dev_log!("✗ Failed to connect microphone from debug interface: {}", e);
+                                }
+                            }
+                        });
+                    }
                 }
                 
                 true
