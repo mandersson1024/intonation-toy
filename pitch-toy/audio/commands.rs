@@ -513,24 +513,48 @@ impl ConsoleCommand for VolumeStatusCommand {
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         let mut outputs = Vec::new();
         
-        // TODO: Access AudioWorkletManager to get volume detector status
-        // This would require extending the audio module to provide access to volume detector state
-        outputs.push(ConsoleOutput::info("Volume Detection Status:"));
-        outputs.push(ConsoleOutput::info("  Status: Available"));
-        outputs.push(ConsoleOutput::warning("  Live data: Not yet implemented - requires AudioWorklet manager access"));
-        outputs.push(ConsoleOutput::info(""));
-        outputs.push(ConsoleOutput::info("Volume Detector Configuration:"));
-        outputs.push(ConsoleOutput::info("  Input Gain: 0.0 dB"));
-        outputs.push(ConsoleOutput::info("  Noise Floor: -60.0 dB"));
-        outputs.push(ConsoleOutput::info("  Peak Decay Fast: 100.0 ms"));
-        outputs.push(ConsoleOutput::info("  Peak Decay Slow: 1000.0 ms"));
-        outputs.push(ConsoleOutput::info(""));
-        outputs.push(ConsoleOutput::info("Volume Thresholds:"));
-        outputs.push(ConsoleOutput::info("  Silent: < -60.0 dB"));
-        outputs.push(ConsoleOutput::info("  Low: -60.0 to -30.0 dB"));
-        outputs.push(ConsoleOutput::info("  Optimal: -30.0 to -6.0 dB"));
-        outputs.push(ConsoleOutput::info("  High: -6.0 to 0.0 dB"));
-        outputs.push(ConsoleOutput::info("  Clipping: >= 0.0 dB"));
+        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+            let worklet = worklet_rc.borrow();
+            
+            outputs.push(ConsoleOutput::info("Volume Detection Status:"));
+            if worklet.has_volume_detector() {
+                outputs.push(ConsoleOutput::info("  Status: ✓ Available"));
+                
+                // Show live volume analysis if available
+                if let Some(analysis) = worklet.last_volume_analysis() {
+                    outputs.push(ConsoleOutput::info("  Live Data: ✓ Active"));
+                    outputs.push(ConsoleOutput::info(&format!("  Current RMS: {:.1} dB", analysis.rms_db)));
+                    outputs.push(ConsoleOutput::info(&format!("  Current Peak: {:.1} dB", analysis.peak_db)));
+                    outputs.push(ConsoleOutput::info(&format!("  Volume Level: {}", analysis.level)));
+                    outputs.push(ConsoleOutput::info(&format!("  Confidence Weight: {:.2}", analysis.confidence_weight)));
+                } else {
+                    outputs.push(ConsoleOutput::warning("  Live Data: No recent analysis"));
+                }
+            } else {
+                outputs.push(ConsoleOutput::error("  Status: ✗ Not attached"));
+            }
+            
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Volume Detector Configuration:"));
+            if let Some(config) = worklet.volume_config() {
+                outputs.push(ConsoleOutput::info(&format!("  Input Gain: {:.1} dB", config.input_gain_db)));
+                outputs.push(ConsoleOutput::info(&format!("  Noise Floor: {:.1} dB", config.noise_floor_db)));
+                outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {:.0} Hz", config.sample_rate)));
+            } else {
+                outputs.push(ConsoleOutput::warning("  Configuration: Not available"));
+            }
+            
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Volume Thresholds:"));
+            outputs.push(ConsoleOutput::info("  Silent: < -60.0 dB"));
+            outputs.push(ConsoleOutput::info("  Low: -60.0 to -30.0 dB"));
+            outputs.push(ConsoleOutput::info("  Optimal: -30.0 to -6.0 dB"));
+            outputs.push(ConsoleOutput::info("  High: -6.0 to 0.0 dB"));
+            outputs.push(ConsoleOutput::info("  Clipping: >= 0.0 dB"));
+            
+        } else {
+            outputs.push(ConsoleOutput::error("AudioWorklet manager not initialized"));
+        }
         
         ConsoleCommandResult::MultipleOutputs(outputs)
     }
@@ -541,8 +565,40 @@ pub struct VolumeConfigCommand;
 
 impl ConsoleCommand for VolumeConfigCommand {
     fn name(&self) -> &str { "volume-config" }
-    fn description(&self) -> &str { "Configure volume detector parameters: gain <db> | noise-floor <db> | decay-fast <ms> | decay-slow <ms>" }
+    fn description(&self) -> &str { "Configure volume detector parameters: gain <db> | noise-floor <db> | sample-rate <hz>" }
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            let mut outputs = Vec::new();
+            
+            // Show current configuration if available
+            if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+                let worklet = worklet_rc.borrow();
+                if let Some(config) = worklet.volume_config() {
+                    outputs.push(ConsoleOutput::success("Current Volume Configuration:"));
+                    outputs.push(ConsoleOutput::info(&format!("  Input Gain: {:.1} dB", config.input_gain_db)));
+                    outputs.push(ConsoleOutput::info(&format!("  Noise Floor: {:.1} dB", config.noise_floor_db)));
+                    outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {:.0} Hz", config.sample_rate)));
+                    outputs.push(ConsoleOutput::info(""));
+                }
+            }
+            
+            outputs.push(ConsoleOutput::info("Usage: volume-config <parameter> <value>"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Configure volume detector parameters for real-time audio analysis."));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Parameters:"));
+            outputs.push(ConsoleOutput::info("  gain <db>         - Input gain adjustment (-60 to +60 dB)"));
+            outputs.push(ConsoleOutput::info("  noise-floor <db>  - Noise floor threshold (-80 to -20 dB)"));
+            outputs.push(ConsoleOutput::info("  sample-rate <hz>  - Audio sample rate (1 to 192000 Hz)"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Examples:"));
+            outputs.push(ConsoleOutput::info("  volume-config gain 6.0        - Boost input by 6 dB"));
+            outputs.push(ConsoleOutput::info("  volume-config noise-floor -50 - Set noise floor to -50 dB"));
+            outputs.push(ConsoleOutput::info("  volume-config sample-rate 48000 - Set to 48 kHz sample rate"));
+            
+            return ConsoleCommandResult::MultipleOutputs(outputs);
+        }
+        
         if args.len() < 2 {
             return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-config <parameter> <value>"));
         }
@@ -555,36 +611,56 @@ impl ConsoleCommand for VolumeConfigCommand {
             Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid numeric value")),
         };
         
-        match parameter.as_str() {
-            "gain" => {
-                if value < -60.0 || value > 60.0 {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Input gain must be between -60 and 60 dB"));
-                }
-                // TODO: Update volume detector configuration
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Input gain set to {:.1} dB", value)))
-            },
-            "noise-floor" => {
-                if value < -80.0 || value > -20.0 {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Noise floor must be between -80 and -20 dB"));
-                }
-                // TODO: Update volume detector configuration
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Noise floor set to {:.1} dB", value)))
-            },
-            "decay-fast" => {
-                if value < 10.0 || value > 500.0 {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Fast decay time must be between 10 and 500 ms"));
-                }
-                // TODO: Update volume detector configuration
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Fast decay time set to {:.1} ms", value)))
-            },
-            "decay-slow" => {
-                if value < 100.0 || value > 5000.0 {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Slow decay time must be between 100 and 5000 ms"));
-                }
-                // TODO: Update volume detector configuration
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Slow decay time set to {:.1} ms", value)))
-            },
-            _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown parameter. Use: gain, noise-floor, decay-fast, decay-slow")),
+        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Get current configuration or create default
+            let current_config = worklet.volume_config().cloned().unwrap_or_else(|| super::VolumeDetectorConfig::default());
+            
+            match parameter.as_str() {
+                "gain" => {
+                    if value < -60.0 || value > 60.0 {
+                        return ConsoleCommandResult::Output(ConsoleOutput::error("Input gain must be between -60 and 60 dB"));
+                    }
+                    let new_config = super::VolumeDetectorConfig {
+                        input_gain_db: value,
+                        ..current_config
+                    };
+                    match worklet.update_volume_config(new_config) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Input gain set to {:.1} dB", value))),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update config: {}", e)))
+                    }
+                },
+                "noise-floor" => {
+                    if value < -80.0 || value > -20.0 {
+                        return ConsoleCommandResult::Output(ConsoleOutput::error("Noise floor must be between -80 and -20 dB"));
+                    }
+                    let new_config = super::VolumeDetectorConfig {
+                        noise_floor_db: value,
+                        ..current_config
+                    };
+                    match worklet.update_volume_config(new_config) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Noise floor set to {:.1} dB", value))),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update config: {}", e)))
+                    }
+                },
+                "sample-rate" => {
+                    if value <= 0.0 || value > 192000.0 {
+                        return ConsoleCommandResult::Output(ConsoleOutput::error("Sample rate must be between 1 and 192000 Hz"));
+                    }
+                    let new_config = super::VolumeDetectorConfig {
+                        sample_rate: value,
+                        ..current_config
+                    };
+                    match worklet.update_volume_config(new_config) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Sample rate set to {:.0} Hz", value))),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update config: {}", e)))
+                    }
+                },
+                _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown parameter. Use: gain, noise-floor, sample-rate")),
+            }
+        } else {
+            ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
         }
     }
 }
@@ -597,7 +673,28 @@ impl ConsoleCommand for VolumeTestCommand {
     fn description(&self) -> &str { "Test volume detection with generated signals: sine <freq> <amplitude> | silence | pink-noise <amplitude>" }
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume-test <signal-type> [parameters]"));
+            let mut outputs = Vec::new();
+            
+            outputs.push(ConsoleOutput::info("Usage: volume-test <signal-type> [parameters]"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Generate test signals for volume detection validation."));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Signal Types:"));
+            outputs.push(ConsoleOutput::info("  sine <freq> <amplitude>  - Generate sine wave test signal"));
+            outputs.push(ConsoleOutput::info("                             freq: 20-20000 Hz, amplitude: 0.0-1.0"));
+            outputs.push(ConsoleOutput::info("  silence                  - Generate silent signal for baseline test"));
+            outputs.push(ConsoleOutput::info("  pink-noise <amplitude>   - Generate pink noise test signal"));
+            outputs.push(ConsoleOutput::info("                             amplitude: 0.0-1.0"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Examples:"));
+            outputs.push(ConsoleOutput::info("  volume-test sine 440 0.5     - 440 Hz sine wave at 50% amplitude"));
+            outputs.push(ConsoleOutput::info("  volume-test silence          - Silent signal for noise floor test"));
+            outputs.push(ConsoleOutput::info("  volume-test pink-noise 0.3   - Pink noise at 30% amplitude"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Note: Test signals are fed directly to the volume detector."));
+            outputs.push(ConsoleOutput::info("      Use 'volume-status' to see analysis results."));
+            
+            return ConsoleCommandResult::MultipleOutputs(outputs);
         }
         
         let signal_type = args[0].to_lowercase();
@@ -626,12 +723,41 @@ impl ConsoleCommand for VolumeTestCommand {
                     return ConsoleCommandResult::Output(ConsoleOutput::error("Amplitude must be between 0.0 and 1.0"));
                 }
                 
-                // TODO: Generate sine wave test signal
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generating sine wave: {:.1} Hz at {:.3} amplitude", frequency, amplitude)))
+                // Generate sine wave test signal
+                if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    
+                    // Generate 1024 samples of sine wave at 48kHz
+                    let sample_rate = 48000.0;
+                    let samples: Vec<f32> = (0..1024)
+                        .map(|i| amplitude * (2.0 * std::f32::consts::PI * frequency * i as f32 / sample_rate).sin())
+                        .collect();
+                    
+                    // Feed test signal to volume detector
+                    match worklet.feed_input_chunk(&samples[..128]) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generated sine wave test: {:.1} Hz at {:.3} amplitude", frequency, amplitude))),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to process test signal: {}", e)))
+                    }
+                } else {
+                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
+                }
             },
             "silence" => {
-                // TODO: Generate silence for testing
-                ConsoleCommandResult::Output(ConsoleOutput::success("Generating silence for volume detection test"))
+                // Generate silence test signal
+                if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    
+                    // Generate 128 samples of silence
+                    let samples = vec![0.0f32; 128];
+                    
+                    // Feed silence to volume detector
+                    match worklet.feed_input_chunk(&samples) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success("Generated silence test signal")),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to process test signal: {}", e)))
+                    }
+                } else {
+                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
+                }
             },
             "pink-noise" => {
                 if args.len() < 2 {
@@ -647,8 +773,31 @@ impl ConsoleCommand for VolumeTestCommand {
                     return ConsoleCommandResult::Output(ConsoleOutput::error("Amplitude must be between 0.0 and 1.0"));
                 }
                 
-                // TODO: Generate pink noise test signal
-                ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generating pink noise at {:.3} amplitude", amplitude)))
+                // Generate pink noise test signal
+                if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    
+                    // Generate 128 samples of pink noise (simplified pseudo-random)
+                    let mut rng_state = 12345u32; // Simple LCG seed
+                    let samples: Vec<f32> = (0..128)
+                        .map(|_| {
+                            // Simple Linear Congruential Generator
+                            rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
+                            let random = (rng_state >> 16) as f32 / 32768.0 - 1.0;
+                            
+                            // Apply amplitude and simple pink noise filter approximation
+                            amplitude * random * 0.5 // Simplified pink noise
+                        })
+                        .collect();
+                    
+                    // Feed pink noise to volume detector
+                    match worklet.feed_input_chunk(&samples) {
+                        Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Generated pink noise test at {:.3} amplitude", amplitude))),
+                        Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to process test signal: {}", e)))
+                    }
+                } else {
+                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
+                }
             },
             _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown signal type. Use: sine, silence, pink-noise")),
         }
@@ -1005,7 +1154,7 @@ mod tests {
         let command = VolumeConfigCommand;
         
         assert_eq!(command.name(), "volume-config");
-        assert_eq!(command.description(), "Configure volume detector parameters: gain <db> | noise-floor <db> | decay-fast <ms> | decay-slow <ms>");
+        assert_eq!(command.description(), "Configure volume detector parameters: gain <db> | noise-floor <db> | sample-rate <hz>");
     }
     
     #[test]

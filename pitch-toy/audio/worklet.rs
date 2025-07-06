@@ -695,6 +695,21 @@ impl AudioWorkletManager {
         self.last_volume_analysis.as_ref()
     }
 
+    /// Get reference to volume detector if available
+    pub fn volume_detector(&self) -> Option<&VolumeDetector> {
+        self.volume_detector.as_ref()
+    }
+
+    /// Get current volume detector configuration
+    pub fn volume_config(&self) -> Option<&VolumeDetectorConfig> {
+        self.volume_detector.as_ref().map(|detector| detector.config())
+    }
+
+    /// Check if volume detector is attached
+    pub fn has_volume_detector(&self) -> bool {
+        self.volume_detector.is_some()
+    }
+
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
     /// This method is platform-agnostic and can be unit-tested natively.
     /// Also performs real-time volume analysis if VolumeDetector is attached.
