@@ -467,6 +467,87 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     font-size: 11px;
 }
 
+.volume-metric-item {
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.volume-metric-item .metric-label {
+    color: #9ca3af;
+    font-size: 10px;
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.volume-metric-item .metric-value {
+    color: #d1d5db;
+    font-weight: bold;
+    width: 60px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.volume-bar-container {
+    flex: 1;
+    margin-left: 8px;
+}
+
+.volume-bar-track {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: #374151;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.volume-bar-fill {
+    height: 100%;
+    transition: width 0.1s ease-out;
+    border-radius: 4px;
+}
+
+.volume-bar-cold {
+    background: linear-gradient(90deg, #1e40af, #3b82f6);
+}
+
+.volume-bar-cool {
+    background: linear-gradient(90deg, #059669, #10b981);
+}
+
+.volume-bar-warm {
+    background: linear-gradient(90deg, #d97706, #f59e0b);
+}
+
+.volume-bar-hot {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+    animation: volume-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes volume-pulse {
+    0% { opacity: 0.8; }
+    100% { opacity: 1.0; }
+}
+
+.volume-bar-markers {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.volume-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
 .pitch-placeholder {
     color: #6b7280;
     font-style: italic;

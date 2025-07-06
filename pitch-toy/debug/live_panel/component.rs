@@ -502,21 +502,25 @@ impl LivePanel {
                     {if let Some(volume) = &self.volume_level {
                         html! {
                             <div class="volume-display">
-                                <div class="metric-item">
+                                <div class="volume-metric-item">
                                     <span class="metric-label">{"RMS Level"}</span>
                                     <span class="metric-value">{format!("{:.1} dB", volume.rms_db)}</span>
+                                    {Self::render_volume_bar(volume.rms_db, "rms")}
                                 </div>
-                                <div class="metric-item">
+                                <div class="volume-metric-item">
                                     <span class="metric-label">{"Peak Level"}</span>
                                     <span class="metric-value">{format!("{:.1} dB", volume.peak_db)}</span>
+                                    {Self::render_volume_bar(volume.peak_db, "peak")}
                                 </div>
-                                <div class="metric-item">
+                                <div class="volume-metric-item">
                                     <span class="metric-label">{"Peak Fast"}</span>
                                     <span class="metric-value">{format!("{:.1} dB", volume.peak_fast_db)}</span>
+                                    {Self::render_volume_bar(volume.peak_fast_db, "peak-fast")}
                                 </div>
-                                <div class="metric-item">
+                                <div class="volume-metric-item">
                                     <span class="metric-label">{"Peak Slow"}</span>
                                     <span class="metric-value">{format!("{:.1} dB", volume.peak_slow_db)}</span>
+                                    {Self::render_volume_bar(volume.peak_slow_db, "peak-slow")}
                                 </div>
                                 <div class="metric-item">
                                     <span class="metric-label">{"Level Category"}</span>
@@ -535,6 +539,43 @@ impl LivePanel {
                             </div>
                         }
                     }}
+                </div>
+            </div>
+        }
+    }
+    
+    /// Render animated volume bar for a dB value
+    fn render_volume_bar(db_value: f32, bar_type: &str) -> Html {
+        // Convert dB to percentage (typical range: -60dB to 0dB)
+        let min_db = -60.0;
+        let max_db = 0.0;
+        let percentage = ((db_value - min_db) / (max_db - min_db) * 100.0).max(0.0).min(100.0);
+        
+        // Determine bar color based on level
+        let bar_class = if db_value > -6.0 {
+            "volume-bar-hot"  // Red: Hot/clipping
+        } else if db_value > -18.0 {
+            "volume-bar-warm" // Yellow: Warm/good
+        } else if db_value > -40.0 {
+            "volume-bar-cool" // Green: Cool/safe
+        } else {
+            "volume-bar-cold" // Blue: Cold/quiet
+        };
+        
+        html! {
+            <div class={format!("volume-bar-container volume-bar-{}", bar_type)}>
+                <div class="volume-bar-track">
+                    <div 
+                        class={format!("volume-bar-fill {}", bar_class)}
+                        style={format!("width: {}%", percentage)}
+                    >
+                    </div>
+                    // Add level markers
+                    <div class="volume-bar-markers">
+                        <div class="volume-marker volume-marker-cold" style="left: 33.3%"></div>   // -40dB
+                        <div class="volume-marker volume-marker-cool" style="left: 70%"></div>     // -18dB
+                        <div class="volume-marker volume-marker-warm" style="left: 90%"></div>     // -6dB
+                    </div>
                 </div>
             </div>
         }
