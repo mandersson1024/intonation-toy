@@ -232,15 +232,29 @@ impl ConsoleCommand for PitchStatusCommand {
 
 
 
-/// Pitch Tuning Command - switch tuning system
-pub struct PitchTuningCommand;
+/// Tuning Command - switch tuning system
+pub struct TuningCommand;
 
-impl ConsoleCommand for PitchTuningCommand {
-    fn name(&self) -> &str { "pitch-tuning" }
+impl ConsoleCommand for TuningCommand {
+    fn name(&self) -> &str { "tuning" }
     fn description(&self) -> &str { "Switch tuning system (equal/just/custom)" }
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-tuning <system> [reference_pitch]"));
+            let mut outputs = Vec::new();
+            outputs.push(ConsoleOutput::info("Usage: tuning <system> [reference_pitch]"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Available tuning systems:"));
+            outputs.push(ConsoleOutput::info("  equal [pitch]    - Equal temperament (default: 440.0 Hz)"));
+            outputs.push(ConsoleOutput::info("  just [pitch]     - Just intonation (default: 440.0 Hz)"));
+            outputs.push(ConsoleOutput::info("  custom           - Custom frequency ratios"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Reference pitch range: 420.0 - 460.0 Hz"));
+            outputs.push(ConsoleOutput::info(""));
+            outputs.push(ConsoleOutput::info("Examples:"));
+            outputs.push(ConsoleOutput::info("  tuning equal          - A4 = 440.0 Hz"));
+            outputs.push(ConsoleOutput::info("  tuning equal 432      - A4 = 432.0 Hz"));
+            outputs.push(ConsoleOutput::info("  tuning just 440       - Just intonation, A4 = 440.0 Hz"));
+            return ConsoleCommandResult::MultipleOutputs(outputs);
         }
         
         let system = args[0].to_lowercase();
@@ -737,7 +751,6 @@ impl ConsoleCommand for PitchCommand {
         
         match subcommand {
             "status" => PitchStatusCommand.execute(sub_args, registry),
-            "tuning" => PitchTuningCommand.execute(sub_args, registry),
             "range" => PitchRangeCommand.execute(sub_args, registry),
             "debug" => PitchDebugCommand.execute(sub_args, registry),
             "benchmarks" => PitchBenchmarksCommand.execute(sub_args, registry),
@@ -790,6 +803,7 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferCommand));
     registry.register(Box::new(PitchCommand));
     registry.register(Box::new(VolumeCommand));
+    registry.register(Box::new(TuningCommand));
     
     // Register compound commands for variant discovery and backward compatibility
     // These won't appear in help but will be found when parsing compound commands
@@ -799,7 +813,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferResetCommand));
     registry.register(Box::new(BufferDebugCommand));
     registry.register(Box::new(PitchStatusCommand));
-    registry.register(Box::new(PitchTuningCommand));
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
     registry.register(Box::new(PitchBenchmarksCommand));
@@ -836,10 +849,10 @@ mod tests {
     
     
     #[test]
-    fn test_pitch_tuning_command() {
-        let command = PitchTuningCommand;
+    fn test_tuning_command() {
+        let command = TuningCommand;
         
-        assert_eq!(command.name(), "pitch-tuning");
+        assert_eq!(command.name(), "tuning");
         assert_eq!(command.description(), "Switch tuning system (equal/just/custom)");
     }
     
