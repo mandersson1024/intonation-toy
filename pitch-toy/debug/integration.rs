@@ -252,7 +252,7 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     background: rgba(17, 24, 39, 0.95);
     border: 1px solid #374151;
     border-radius: 6px;
-    max-width: 400px;
+    width: 500px;
     height: 500px;
     font-size: 12px;
 }
@@ -333,7 +333,7 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: 400px;
+    width: 500px;
 }
 
 

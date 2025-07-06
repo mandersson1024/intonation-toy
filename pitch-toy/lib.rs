@@ -127,7 +127,19 @@ pub fn main() {
                         match audio::initialize_buffer_pool().await {
                             Ok(_) => {
                                 dev_log!("✓ Buffer pool initialized successfully");
-                                yew::Renderer::<App>::new().render();
+                                
+                                // Initialize pitch analyzer after buffer pool
+                                match audio::initialize_pitch_analyzer().await {
+                                    Ok(_) => {
+                                        dev_log!("✓ Pitch analyzer initialized successfully");
+                                        yew::Renderer::<App>::new().render();
+                                    }
+                                    Err(e) => {
+                                        dev_log!("✗ Pitch analyzer initialization failed: {}", e);
+                                        dev_log!("Application cannot continue without pitch analyzer");
+                                        // TODO: Add error screen rendering in future story when UI requirements are defined
+                                    }
+                                }
                             }
                             Err(e) => {
                                 dev_log!("✗ Buffer pool initialization failed: {}", e);

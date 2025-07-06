@@ -157,6 +157,45 @@ pub async fn initialize_buffer_pool() -> Result<(), String> {
     }
 }
 
+/// Initialize global pitch analyzer with default configuration
+pub async fn initialize_pitch_analyzer() -> Result<(), String> {
+    dev_log!("Initializing pitch analyzer");
+    
+    // Create default configuration optimized for real-time processing
+    let config = pitch_detector::PitchDetectorConfig {
+        sample_window_size: 2048, // Balance between accuracy and latency
+        threshold: 0.15,
+        tuning_system: pitch_detector::TuningSystem::EqualTemperament { reference_pitch: 440.0 },
+        min_frequency: 80.0,
+        max_frequency: 2000.0,
+    };
+    
+    // Standard sample rate for audio processing
+    let sample_rate = 48000.0;
+    
+    // Create pitch analyzer instance
+    match pitch_analyzer::PitchAnalyzer::new(config.clone(), sample_rate) {
+        Ok(analyzer) => {
+            let analyzer_rc = Rc::new(RefCell::new(analyzer));
+            
+            // Log configuration details
+            dev_log!("✓ Pitch analyzer created with configuration:");
+            dev_log!("  Window size: {} samples", config.sample_window_size);
+            dev_log!("  Threshold: {:.2}", config.threshold);
+            dev_log!("  Frequency range: {:.1} - {:.1} Hz", config.min_frequency, config.max_frequency);
+            dev_log!("  Sample rate: {:.1} kHz", sample_rate / 1000.0);
+            
+            // Register globally for console commands access
+            commands::set_global_pitch_analyzer(analyzer_rc);
+            
+            Ok(())
+        }
+        Err(e) => {
+            Err(format!("Failed to create pitch analyzer: {}", e))
+        }
+    }
+}
+
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError};
 pub use permission::AudioPermission;
