@@ -608,26 +608,27 @@ impl PitchAnalyzer {
     }
 
     fn publish_metrics_update(&mut self) {
-        // For now, we'll log metrics updates rather than create a new event type
-        // In the future, this could be extended to include performance metrics in AudioEvent
-        #[cfg(target_arch = "wasm32")]
-        {
-            web_sys::console::log_1(&format!(
-                "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                self.metrics.processing_latency_ms, 
-                self.metrics.analysis_cycles,
-                self.metrics.successful_detections
-            ).into());
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            println!(
-                "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                self.metrics.processing_latency_ms, 
-                self.metrics.analysis_cycles,
-                self.metrics.successful_detections
-            );
+        // Log metrics only occasionally to avoid spam (every 1000 cycles)
+        if self.metrics.analysis_cycles % 1000 == 0 {
+            #[cfg(target_arch = "wasm32")]
+            {
+                web_sys::console::log_1(&format!(
+                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
+                    self.metrics.processing_latency_ms, 
+                    self.metrics.analysis_cycles,
+                    self.metrics.successful_detections
+                ).into());
+            }
+            
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                println!(
+                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
+                    self.metrics.processing_latency_ms, 
+                    self.metrics.analysis_cycles,
+                    self.metrics.successful_detections
+                );
+            }
         }
     }
 

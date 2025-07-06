@@ -220,13 +220,16 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
                                         // Process all available audio data through pitch analyzer
                                         match analyzer.process_continuous_from_buffer(&mut buffer_analyzer) {
                                             Ok(pitch_results) => {
-                                                // Only log when we actually detect pitch (avoid spam for silence)
-                                                if !pitch_results.is_empty() {
+                                                // Only log occasionally when we detect pitch (avoid spam)
+                                                if !pitch_results.is_empty() && analyzer.metrics().analysis_cycles % 100 == 0 {
                                                     dev_log!("✓ Pitch detected: {} results from buffer {}", pitch_results.len(), buffer_index);
                                                 }
                                             }
                                             Err(e) => {
-                                                dev_log!("✗ Pitch detection error: {}", e);
+                                                // Log errors occasionally to avoid spam
+                                                if analyzer.metrics().analysis_cycles % 200 == 0 {
+                                                    dev_log!("✗ Pitch detection error: {}", e);
+                                                }
                                             }
                                         }
                                     }
