@@ -472,58 +472,6 @@ impl ConsoleCommand for PitchBenchmarksCommand {
     }
 }
 
-/// Pitch Optimize Accuracy Command - optimize configuration for maximum accuracy
-pub struct PitchOptimizeAccuracyCommand;
-
-impl ConsoleCommand for PitchOptimizeAccuracyCommand {
-    fn name(&self) -> &str { "pitch-optimize-accuracy" }
-    fn description(&self) -> &str { "Optimize configuration for maximum accuracy within 50ms latency" }
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
-            let mut outputs = Vec::new();
-            
-            // Get current configuration
-            let old_window_size = {
-                let analyzer = analyzer_rc.borrow();
-                analyzer.config().sample_window_size
-            };
-            
-            // Optimize for accuracy
-            let result = {
-                let mut analyzer = analyzer_rc.borrow_mut();
-                analyzer.optimize_for_accuracy()
-            };
-            
-            match result {
-                Ok(()) => {
-                    let analyzer = analyzer_rc.borrow();
-                    let new_window_size = analyzer.config().sample_window_size;
-                    let (estimated_latency, performance_grade) = analyzer.pitch_detector().get_performance_characteristics();
-                    let (frequency_resolution, accuracy_grade) = analyzer.pitch_detector().get_accuracy_characteristics();
-                    
-                    outputs.push(ConsoleOutput::success("Configuration optimized for accuracy"));
-                    outputs.push(ConsoleOutput::info(&format!("  Window size: {} → {} samples", old_window_size, new_window_size)));
-                    outputs.push(ConsoleOutput::info(&format!("  Estimated latency: {:.1} ms ({})", estimated_latency, performance_grade)));
-                    outputs.push(ConsoleOutput::info(&format!("  Frequency resolution: {:.1} Hz ({})", frequency_resolution, accuracy_grade)));
-                    outputs.push(ConsoleOutput::info(&format!("  Early exit optimization: disabled (for accuracy)")));
-                    
-                    if estimated_latency <= 50.0 {
-                        outputs.push(ConsoleOutput::success("✓ Meets 50ms real-time requirement"));
-                    } else {
-                        outputs.push(ConsoleOutput::warning(&format!("⚠ Exceeds 50ms requirement by {:.1}ms", estimated_latency - 50.0)));
-                    }
-                }
-                Err(e) => {
-                    outputs.push(ConsoleOutput::error(&format!("Failed to optimize: {}", e)));
-                }
-            }
-            
-            ConsoleCommandResult::MultipleOutputs(outputs)
-        } else {
-            ConsoleCommandResult::Output(ConsoleOutput::warning("Pitch analyzer not initialized"))
-        }
-    }
-}
 
 /// Volume Status Command - show current volume levels and configuration
 pub struct VolumeStatusCommand;
@@ -754,7 +702,6 @@ impl ConsoleCommand for PitchCommand {
             "range" => PitchRangeCommand.execute(sub_args, registry),
             "debug" => PitchDebugCommand.execute(sub_args, registry),
             "benchmarks" => PitchBenchmarksCommand.execute(sub_args, registry),
-            "optimize-accuracy" => PitchOptimizeAccuracyCommand.execute(sub_args, registry),
             _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown pitch subcommand: {}", subcommand))),
         }
     }
@@ -816,7 +763,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
     registry.register(Box::new(PitchBenchmarksCommand));
-    registry.register(Box::new(PitchOptimizeAccuracyCommand));
     registry.register(Box::new(VolumeStatusCommand));
     registry.register(Box::new(VolumeConfigCommand));
     registry.register(Box::new(VolumeTestCommand));
