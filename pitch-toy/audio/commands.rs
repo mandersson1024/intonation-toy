@@ -985,26 +985,11 @@ mod tests {
     }
     
     #[test]
-    fn test_pitch_debug_command() {
-        
-        assert_eq!(command.name(), "pitch-debug");
-        assert_eq!(command.description(), "Toggle pitch detection debug logging");
-    }
-    
-    #[test]
     fn test_pitch_benchmarks_command() {
         let command = PitchBenchmarksCommand;
         
         assert_eq!(command.name(), "pitch-benchmarks");
         assert_eq!(command.description(), "Run performance benchmarks for different window sizes");
-    }
-    
-    #[test]
-    fn test_pitch_optimize_accuracy_command() {
-        let command = PitchOptimizeAccuracyCommand;
-        
-        assert_eq!(command.name(), "pitch-optimize-accuracy");
-        assert_eq!(command.description(), "Optimize configuration for maximum accuracy within 50ms latency");
     }
     
     #[test]

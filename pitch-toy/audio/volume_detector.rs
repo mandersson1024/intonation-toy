@@ -109,11 +109,7 @@ pub struct VolumeDetectorConfig {
     pub input_gain_db: f32,
     /// Noise floor threshold in dB (-80 to -20)
     pub noise_floor_db: f32,
-    /// Fast decay time constant in milliseconds (10 to 500)
-    pub peak_decay_fast_ms: f32,
-    /// Slow decay time constant in milliseconds (100 to 5000)
-    pub peak_decay_slow_ms: f32,
-    /// Sample rate for time constant calculations
+    /// Sample rate for calculations
     pub sample_rate: f32,
 }
 
@@ -123,8 +119,6 @@ impl VolumeDetectorConfig {
         Self {
             input_gain_db: 0.0,
             noise_floor_db: -60.0,
-            peak_decay_fast_ms: 100.0,
-            peak_decay_slow_ms: 1000.0,
             sample_rate: 48000.0,
         }
     }
@@ -139,18 +133,6 @@ impl VolumeDetectorConfig {
             return Err(format!("Noise floor must be between -80 and -20 dB, got {}", self.noise_floor_db));
         }
         
-        if self.peak_decay_fast_ms < 10.0 || self.peak_decay_fast_ms > 500.0 {
-            return Err(format!("Fast decay time must be between 10 and 500 ms, got {}", self.peak_decay_fast_ms));
-        }
-        
-        if self.peak_decay_slow_ms < 100.0 || self.peak_decay_slow_ms > 5000.0 {
-            return Err(format!("Slow decay time must be between 100 and 5000 ms, got {}", self.peak_decay_slow_ms));
-        }
-        
-        if self.peak_decay_fast_ms >= self.peak_decay_slow_ms {
-            return Err("Fast decay time must be less than slow decay time".to_string());
-        }
-        
         if self.sample_rate <= 0.0 {
             return Err("Sample rate must be positive".to_string());
         }
@@ -158,17 +140,6 @@ impl VolumeDetectorConfig {
         Ok(())
     }
 
-    /// Calculate fast decay coefficient from time constant
-    fn calculate_fast_decay_coefficient(&self) -> f32 {
-        let time_const_samples = self.peak_decay_fast_ms * self.sample_rate / 1000.0;
-        (-1.0 / time_const_samples).exp()
-    }
-
-    /// Calculate slow decay coefficient from time constant
-    fn calculate_slow_decay_coefficient(&self) -> f32 {
-        let time_const_samples = self.peak_decay_slow_ms * self.sample_rate / 1000.0;
-        (-1.0 / time_const_samples).exp()
-    }
 }
 
 impl Default for VolumeDetectorConfig {
@@ -181,10 +152,6 @@ impl Default for VolumeDetectorConfig {
 #[derive(Clone)]
 pub struct VolumeDetector {
     config: VolumeDetectorConfig,
-    peak_fast_state: f32,
-    peak_slow_state: f32,
-    fast_decay_coeff: f32,
-    slow_decay_coeff: f32,
 }
 
 impl VolumeDetector {
@@ -192,15 +159,8 @@ impl VolumeDetector {
     pub fn new(config: VolumeDetectorConfig) -> Result<Self, String> {
         config.validate()?;
         
-        let fast_decay_coeff = config.calculate_fast_decay_coefficient();
-        let slow_decay_coeff = config.calculate_slow_decay_coefficient();
-        
         Ok(Self {
             config,
-            peak_fast_state: -f32::INFINITY,
-            peak_slow_state: -f32::INFINITY,
-            fast_decay_coeff,
-            slow_decay_coeff,
         })
     }
 
@@ -209,14 +169,10 @@ impl VolumeDetector {
         Self::new(VolumeDetectorConfig::default()).unwrap()
     }
 
-    /// Update configuration and recalculate coefficients
+    /// Update configuration
     pub fn update_config(&mut self, config: VolumeDetectorConfig) -> Result<(), String> {
         config.validate()?;
-        
-        self.fast_decay_coeff = config.calculate_fast_decay_coefficient();
-        self.slow_decay_coeff = config.calculate_slow_decay_coefficient();
         self.config = config;
-        
         Ok(())
     }
 
@@ -241,11 +197,7 @@ impl VolumeDetector {
         let rms_db = self.linear_to_db(rms_linear);
         let peak_db = self.linear_to_db(peak_linear);
         
-        // Update peak detectors with exponential decay
-        self.peak_fast_state = self.update_peak_detector(peak_db, self.peak_fast_state, self.fast_decay_coeff);
-        self.peak_slow_state = self.update_peak_detector(peak_db, self.peak_slow_state, self.slow_decay_coeff);
-        
-        VolumeAnalysis::new(rms_db, peak_db, self.peak_fast_state, self.peak_slow_state, timestamp)
+        VolumeAnalysis::new(rms_db, peak_db, peak_db, peak_db, timestamp)
     }
 
     /// Calculate RMS and peak values from audio samples with zero allocation
@@ -273,17 +225,6 @@ impl VolumeDetector {
         (rms, peak)
     }
 
-    /// Update peak detector with exponential decay
-    fn update_peak_detector(&self, current_peak_db: f32, previous_peak_db: f32, decay_coeff: f32) -> f32 {
-        if current_peak_db > previous_peak_db {
-            // Attack: immediate response to increasing peak
-            current_peak_db
-        } else {
-            // Decay: exponential decay for decreasing peak
-            previous_peak_db * decay_coeff + current_peak_db * (1.0 - decay_coeff)
-        }
-    }
-
     /// Convert linear amplitude to dB
     fn linear_to_db(&self, linear: f32) -> f32 {
         if linear <= 0.0 {
@@ -300,12 +241,6 @@ impl VolumeDetector {
         } else {
             10.0_f32.powf(db / 20.0)
         }
-    }
-
-    /// Reset peak detector state
-    pub fn reset(&mut self) {
-        self.peak_fast_state = -f32::INFINITY;
-        self.peak_slow_state = -f32::INFINITY;
     }
 }
 
@@ -363,18 +298,6 @@ mod tests {
         
         config.noise_floor_db = -10.0;
         assert!(config.validate().is_err());
-        
-        // Reset and test invalid decay times
-        config = VolumeDetectorConfig::new();
-        config.peak_decay_fast_ms = 5.0;
-        assert!(config.validate().is_err());
-        
-        config.peak_decay_fast_ms = 600.0;
-        assert!(config.validate().is_err());
-        
-        config.peak_decay_fast_ms = 100.0;
-        config.peak_decay_slow_ms = 50.0;
-        assert!(config.validate().is_err());
     }
 
     #[test]
@@ -386,8 +309,6 @@ mod tests {
         let config = VolumeDetectorConfig {
             input_gain_db: 6.0,
             noise_floor_db: -70.0,
-            peak_decay_fast_ms: 50.0,
-            peak_decay_slow_ms: 500.0,
             sample_rate: 44100.0,
         };
         
@@ -481,8 +402,6 @@ mod tests {
         let new_config = VolumeDetectorConfig {
             input_gain_db: 12.0,
             noise_floor_db: -50.0,
-            peak_decay_fast_ms: 200.0,
-            peak_decay_slow_ms: 2000.0,
             sample_rate: 44100.0,
         };
         
@@ -507,9 +426,6 @@ mod tests {
         // Process a signal to set peak states
         let samples: Vec<f32> = (0..1024).map(|i| 0.5 * (i as f32 * 0.01).sin()).collect();
         detector.process_buffer(&samples, 0.0);
-        
-        // Reset should clear peak states
-        detector.reset();
         
         // Next processing should start from clean state
         let analysis = detector.process_buffer(&samples, 1.0);

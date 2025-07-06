@@ -503,24 +503,9 @@ impl LivePanel {
                         html! {
                             <div class="volume-display">
                                 <div class="volume-metric-item">
-                                    <span class="metric-label">{"RMS Level"}</span>
-                                    <span class="metric-value">{format!("{:.1} dB", volume.rms_db)}</span>
-                                    {Self::render_volume_bar(volume.rms_db, "rms")}
-                                </div>
-                                <div class="volume-metric-item">
                                     <span class="metric-label">{"Peak Level"}</span>
                                     <span class="metric-value">{format!("{:.1} dB", volume.peak_db)}</span>
                                     {Self::render_volume_bar(volume.peak_db, "peak")}
-                                </div>
-                                <div class="volume-metric-item">
-                                    <span class="metric-label">{"Peak Fast"}</span>
-                                    <span class="metric-value">{format!("{:.1} dB", volume.peak_fast_db)}</span>
-                                    {Self::render_volume_bar(volume.peak_fast_db, "peak-fast")}
-                                </div>
-                                <div class="volume-metric-item">
-                                    <span class="metric-label">{"Peak Slow"}</span>
-                                    <span class="metric-value">{format!("{:.1} dB", volume.peak_slow_db)}</span>
-                                    {Self::render_volume_bar(volume.peak_slow_db, "peak-slow")}
                                 </div>
                                 <div class="metric-item">
                                     <span class="metric-label">{"Level Category"}</span>
