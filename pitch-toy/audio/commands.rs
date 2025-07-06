@@ -231,40 +231,6 @@ impl ConsoleCommand for PitchStatusCommand {
 }
 
 
-/// Pitch Threshold Command - set confidence threshold
-pub struct PitchThresholdCommand;
-
-impl ConsoleCommand for PitchThresholdCommand {
-    fn name(&self) -> &str { "pitch-threshold" }
-    fn description(&self) -> &str { "Set confidence threshold (0.0-1.0)" }
-    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-threshold <value>"));
-        }
-        
-        let threshold: f32 = match args[0].parse() {
-            Ok(thresh) => thresh,
-            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid threshold value")),
-        };
-        
-        if threshold < 0.0 || threshold > 1.0 {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Threshold must be between 0.0 and 1.0"));
-        }
-        
-        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
-            let mut analyzer = analyzer_rc.borrow_mut();
-            let mut config = analyzer.config().clone();
-            config.threshold = threshold;
-            
-            match analyzer.update_config(config) {
-                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Threshold set to {:.2}", threshold))),
-                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update threshold: {}", e))),
-            }
-        } else {
-            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
-        }
-    }
-}
 
 /// Pitch Tuning Command - switch tuning system
 pub struct PitchTuningCommand;
@@ -771,7 +737,6 @@ impl ConsoleCommand for PitchCommand {
         
         match subcommand {
             "status" => PitchStatusCommand.execute(sub_args, registry),
-            "threshold" => PitchThresholdCommand.execute(sub_args, registry),
             "tuning" => PitchTuningCommand.execute(sub_args, registry),
             "range" => PitchRangeCommand.execute(sub_args, registry),
             "debug" => PitchDebugCommand.execute(sub_args, registry),
@@ -834,7 +799,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferResetCommand));
     registry.register(Box::new(BufferDebugCommand));
     registry.register(Box::new(PitchStatusCommand));
-    registry.register(Box::new(PitchThresholdCommand));
     registry.register(Box::new(PitchTuningCommand));
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
@@ -870,13 +834,6 @@ mod tests {
     }
     
     
-    #[test]
-    fn test_pitch_threshold_command() {
-        let command = PitchThresholdCommand;
-        
-        assert_eq!(command.name(), "pitch-threshold");
-        assert_eq!(command.description(), "Set confidence threshold (0.0-1.0)");
-    }
     
     #[test]
     fn test_pitch_tuning_command() {

@@ -110,7 +110,7 @@ impl Default for PitchDetectorConfig {
     fn default() -> Self {
         Self {
             sample_window_size: 2048, // Larger window for better accuracy
-            threshold: 0.15,           // Balanced threshold for accuracy
+            threshold: 0.25,           // Optimized for strong harmonic instruments (guitar, piano, brass)
             tuning_system: TuningSystem::default(),
             min_frequency: 80.0,
             max_frequency: 2000.0,
