@@ -31,6 +31,8 @@ pub struct TestSignalGeneratorConfig {
     pub waveform: TestWaveform,
     /// Sample rate for generation
     pub sample_rate: f32,
+    /// Whether to output signal to audio speakers
+    pub output_to_speakers: bool,
 }
 
 impl Default for TestSignalGeneratorConfig {
@@ -42,6 +44,7 @@ impl Default for TestSignalGeneratorConfig {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         }
     }
 }
@@ -262,6 +265,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let mut generator = TestSignalGenerator::new(config);
@@ -284,6 +288,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let mut generator = TestSignalGenerator::new(config);
@@ -302,6 +307,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::WhiteNoise,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let mut generator = TestSignalGenerator::new(config);
@@ -330,6 +336,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let generator = TestSignalGenerator::new(config);
@@ -349,6 +356,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let generator = TestSignalGenerator::new(config);
@@ -398,6 +406,7 @@ mod tests {
             noise_level: 0.1,
             waveform: TestWaveform::Square,
             sample_rate: 44100.0,
+            output_to_speakers: false,
         };
         
         generator.update_config(new_config.clone());
@@ -415,6 +424,7 @@ mod tests {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+            output_to_speakers: false,
         };
         
         let mut generator = TestSignalGenerator::new(config);

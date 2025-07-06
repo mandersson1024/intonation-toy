@@ -269,7 +269,7 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     border: 1px solid #374151;
     border-radius: 6px;
     width: 500px;
-    height: 500px;
+    height: 200px;
     font-size: 12px;
 }
 
@@ -361,6 +361,9 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     font-family: monospace;
     font-size: 12px;
     min-width: 300px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .live-panel-header {
@@ -389,6 +392,34 @@ const DEBUG_INTERFACE_CSS: &str = r#"
 
 .live-panel-content {
     padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Custom scrollbar for live panel */
+.live-panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.live-panel-content::-webkit-scrollbar-track {
+    background: #1f2937;
+    border-radius: 4px;
+}
+
+.live-panel-content::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 4px;
+}
+
+.live-panel-content::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+}
+
+/* Firefox scrollbar styling */
+.live-panel-content {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 #1f2937;
 }
 
 .live-panel-content > div {

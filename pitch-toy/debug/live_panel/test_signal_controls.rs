@@ -72,6 +72,8 @@ pub struct TestSignalConfig {
     pub noise_floor: f32,
     /// Waveform type
     pub waveform: TestWaveform,
+    /// Whether to output signal to audio speakers
+    pub output_to_speakers: bool,
 }
 
 impl Default for TestSignalConfig {
@@ -82,6 +84,7 @@ impl Default for TestSignalConfig {
             volume: 0.3,
             noise_floor: 0.0,
             waveform: TestWaveform::Sine,
+            output_to_speakers: false,
         }
     }
 }
@@ -94,6 +97,7 @@ pub enum TestSignalMsg {
     SetVolume(f32),
     SetNoiseFloor(f32),
     SetWaveform(TestWaveform),
+    ToggleOutputToSpeakers(bool),
     UpdateSignal,
 }
 
@@ -145,6 +149,11 @@ impl Component for TestSignalControls {
             }
             TestSignalMsg::SetWaveform(waveform) => {
                 self.config.waveform = waveform;
+                ctx.props().on_config_change.emit(self.config.clone());
+                true
+            }
+            TestSignalMsg::ToggleOutputToSpeakers(output_to_speakers) => {
+                self.config.output_to_speakers = output_to_speakers;
                 ctx.props().on_config_change.emit(self.config.clone());
                 true
             }
@@ -274,6 +283,28 @@ impl Component for TestSignalControls {
                                 })}
                             />
                             <span class="control-value">{format!("{:.0}%", self.config.noise_floor * 100.0)}</span>
+                        </div>
+                    </div>
+
+                    // Audio Output Toggle
+                    <div class="control-item control-toggle">
+                        <label class="control-label">
+                            <input 
+                                type="checkbox" 
+                                checked={self.config.output_to_speakers}
+                                onchange={link.callback(|e: Event| {
+                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                    TestSignalMsg::ToggleOutputToSpeakers(input.checked())
+                                })}
+                                class="control-checkbox"
+                                disabled={!self.config.enabled}
+                            />
+                            <span class="control-text">{"Output to Speakers"}</span>
+                        </label>
+                        <div class={format!("status-indicator {}", 
+                            if self.config.output_to_speakers && self.config.enabled { "status-active" } else { "status-inactive" }
+                        )}>
+                            {if self.config.output_to_speakers && self.config.enabled { "🔊" } else { "🔇" }}
                         </div>
                     </div>
 

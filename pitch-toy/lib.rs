@@ -136,6 +136,7 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
         Ok(_) => {
             dev_log!("✓ AudioWorklet processor loaded and ready");
             
+            
             // Publish ready status
             publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
             
