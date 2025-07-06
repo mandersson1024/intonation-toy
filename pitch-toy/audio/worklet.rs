@@ -50,7 +50,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig};
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -154,6 +154,7 @@ pub struct AudioWorkletManager {
     event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
+    test_signal_generator: Option<TestSignalGenerator>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
 }
@@ -169,6 +170,7 @@ impl AudioWorkletManager {
             event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
+            test_signal_generator: None,
             chunk_counter: 0,
             _message_closure: None,
         }
@@ -184,6 +186,7 @@ impl AudioWorkletManager {
             event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
+            test_signal_generator: None,
             chunk_counter: 0,
             _message_closure: None,
         }
@@ -710,6 +713,47 @@ impl AudioWorkletManager {
         self.volume_detector.is_some()
     }
 
+    /// Set test signal generator for audio validation
+    pub fn set_test_signal_generator(&mut self, generator: TestSignalGenerator) {
+        self.test_signal_generator = Some(generator);
+    }
+
+    /// Update test signal generator configuration
+    pub fn update_test_signal_config(&mut self, config: TestSignalGeneratorConfig) {
+        if let Some(generator) = &mut self.test_signal_generator {
+            generator.update_config(config);
+        } else {
+            // Create new generator if none exists
+            self.test_signal_generator = Some(TestSignalGenerator::new(config));
+        }
+    }
+
+    /// Get current test signal generator configuration
+    pub fn test_signal_config(&self) -> Option<&TestSignalGeneratorConfig> {
+        self.test_signal_generator.as_ref().map(|g| g.config())
+    }
+
+    /// Check if test signal generator is enabled
+    pub fn is_test_signal_enabled(&self) -> bool {
+        self.test_signal_generator
+            .as_ref()
+            .map(|g| g.config().enabled)
+            .unwrap_or(false)
+    }
+
+    /// Generate test signal chunk
+    pub fn generate_test_signal_chunk(&mut self) -> Option<Vec<f32>> {
+        if let Some(generator) = &mut self.test_signal_generator {
+            if generator.config().enabled {
+                Some(generator.generate_chunk(self.config.chunk_size as usize))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
     /// This method is platform-agnostic and can be unit-tested natively.
     /// Also performs real-time volume analysis if VolumeDetector is attached.
@@ -721,6 +765,21 @@ impl AudioWorkletManager {
     pub fn feed_input_chunk_with_timestamp(&mut self, samples: &[f32], timestamp: Option<f64>) -> Result<(), String> {
         if samples.len() as u32 != self.config.chunk_size {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
+        }
+
+        // Mix input samples with test signal if enabled
+        let mut processed_samples = samples.to_vec();
+        if let Some(test_signal_chunk) = self.generate_test_signal_chunk() {
+            for (i, test_sample) in test_signal_chunk.iter().enumerate() {
+                if i < processed_samples.len() {
+                    // Mix test signal with input (if test signal is enabled, it typically replaces input)
+                    processed_samples[i] = if self.is_test_signal_enabled() {
+                        *test_sample // Replace input with test signal
+                    } else {
+                        processed_samples[i] + test_sample // Mix with input
+                    };
+                }
+            }
         }
 
         // Get timestamp for volume analysis
@@ -738,7 +797,7 @@ impl AudioWorkletManager {
 
         // Perform volume analysis if detector is available
         if let Some(detector) = &mut self.volume_detector {
-            let volume_analysis = detector.process_buffer(samples, timestamp);
+            let volume_analysis = detector.process_buffer(&processed_samples, timestamp);
             
             // Check for volume change events
             if let Some(previous) = &self.last_volume_analysis {
@@ -808,7 +867,7 @@ impl AudioWorkletManager {
         let mut pool = pool_rc.borrow_mut();
         let buffer = pool.get_mut(0).ok_or("BufferPool is empty")?;
 
-        buffer.write_chunk(samples);
+        buffer.write_chunk(&processed_samples);
 
         // Publish buffer events if dispatcher present
         if let Some(dispatcher) = &self.event_dispatcher {

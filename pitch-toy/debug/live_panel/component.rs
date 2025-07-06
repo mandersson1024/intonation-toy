@@ -10,6 +10,7 @@ use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
 use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
+use super::{TestSignalControls, TestSignalConfig};
 
 /// Properties for the LivePanel component
 #[derive(Properties)]
@@ -110,6 +111,8 @@ pub struct LivePanel {
     pitch_data: Option<PitchData>,
     /// AudioWorklet status
     audioworklet_status: AudioWorkletStatus,
+    /// Test signal configuration
+    test_signal_config: TestSignalConfig,
     /// Performance monitoring interval
     _performance_interval: Option<gloo_timers::callback::Interval>,
 }
@@ -129,6 +132,8 @@ pub enum LivePanelMsg {
     UpdatePitchData(PitchData),
     /// Update AudioWorklet status
     UpdateAudioWorkletStatus(AudioWorkletStatus),
+    /// Update test signal configuration
+    UpdateTestSignalConfig(TestSignalConfig),
 }
 
 impl Component for LivePanel {
@@ -143,6 +148,7 @@ impl Component for LivePanel {
             volume_level: None,
             pitch_data: None,
             audioworklet_status: AudioWorkletStatus::default(),
+            test_signal_config: TestSignalConfig::default(),
             _performance_interval: None,
         };
 
@@ -184,6 +190,35 @@ impl Component for LivePanel {
                 self.audioworklet_status = status;
                 true
             }
+            LivePanelMsg::UpdateTestSignalConfig(config) => {
+                self.test_signal_config = config.clone();
+                
+                // Apply test signal configuration to audio system
+                if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    
+                    // Convert UI config to audio system config
+                    let audio_config = crate::audio::TestSignalGeneratorConfig {
+                        enabled: config.enabled,
+                        frequency: config.frequency,
+                        amplitude: config.volume,
+                        noise_level: config.noise_floor,
+                        waveform: match config.waveform {
+                            super::TestWaveform::Sine => crate::audio::TestWaveform::Sine,
+                            super::TestWaveform::Square => crate::audio::TestWaveform::Square,
+                            super::TestWaveform::Sawtooth => crate::audio::TestWaveform::Sawtooth,
+                            super::TestWaveform::Triangle => crate::audio::TestWaveform::Triangle,
+                            super::TestWaveform::WhiteNoise => crate::audio::TestWaveform::WhiteNoise,
+                            super::TestWaveform::PinkNoise => crate::audio::TestWaveform::PinkNoise,
+                        },
+                        sample_rate: 48000.0, // Use standard sample rate
+                    };
+                    
+                    worklet.update_test_signal_config(audio_config);
+                }
+                
+                true
+            }
         }
     }
 
@@ -202,6 +237,7 @@ impl Component for LivePanel {
                     {self.render_permission_status(ctx)}
                     {self.render_device_list()}
                     {self.render_audioworklet_status()}
+                    {self.render_test_signal_controls(ctx)}
                     {self.render_performance_metrics()}
                     {self.render_volume_level()}
                     {self.render_pitch_detection()}
@@ -563,6 +599,19 @@ impl LivePanel {
                     </div>
                 </div>
             </div>
+        }
+    }
+
+    /// Render test signal controls
+    fn render_test_signal_controls(&self, ctx: &Context<Self>) -> Html {
+        let link = ctx.link();
+        let on_config_change = link.callback(LivePanelMsg::UpdateTestSignalConfig);
+        
+        html! {
+            <TestSignalControls
+                config={self.test_signal_config.clone()}
+                on_config_change={on_config_change}
+            />
         }
     }
 }

@@ -9,8 +9,10 @@
 
 mod component;
 mod metrics_display;
+mod test_signal_controls;
 
 pub use component::LivePanel;
 pub use component::LivePanelProps;
 pub use component::LivePanelMsg;
 pub use component::AudioWorkletStatus;
+pub use test_signal_controls::{TestSignalControls, TestSignalControlsProps, TestSignalConfig, TestWaveform};

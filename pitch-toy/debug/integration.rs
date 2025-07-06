@@ -652,4 +652,153 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     font-size: 10px;
     color: #ef4444;
 }
+
+/* Test Signal Controls */
+.test-signal-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.control-toggle {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #374151;
+}
+
+.control-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.control-checkbox {
+    margin: 0;
+}
+
+.control-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #f3f4f6;
+}
+
+.status-indicator {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.status-active {
+    color: #22c55e;
+}
+
+.status-inactive {
+    color: #6b7280;
+}
+
+.control-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.control-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-slider {
+    flex: 1;
+    height: 4px;
+    background: #374151;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.control-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid #1f2937;
+}
+
+.control-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid #1f2937;
+}
+
+.control-slider:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.control-value {
+    font-size: 12px;
+    color: #f3f4f6;
+    min-width: 50px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+.control-select {
+    padding: 4px 8px;
+    background: #374151;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    color: #f3f4f6;
+    font-size: 12px;
+    outline: none;
+}
+
+.control-select:focus {
+    border-color: #3b82f6;
+}
+
+.volume-bar-test {
+    background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.control-info {
+    background: #1f2937;
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 8px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+}
+
+.info-label {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.info-value {
+    font-size: 11px;
+    color: #f3f4f6;
+    font-family: 'Courier New', monospace;
+}
 "#;

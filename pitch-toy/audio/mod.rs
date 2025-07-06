@@ -15,6 +15,7 @@ pub mod pitch_detector;
 pub mod note_mapper;
 pub mod pitch_analyzer;
 pub mod volume_detector;
+pub mod test_signal_generator;
 
 use crate::common::dev_log;
 
@@ -265,6 +266,7 @@ pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
+pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform};
 
 #[cfg(test)]
 mod tests {
