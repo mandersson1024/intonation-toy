@@ -137,7 +137,6 @@ pub struct BufferDebugCommand;
 thread_local! { 
     static BUFFER_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false);
     static PITCH_ANALYZER_GLOBAL: RefCell<Option<Rc<RefCell<PitchAnalyzer>>>> = RefCell::new(None);
-    static PITCH_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false);
 }
 
 impl ConsoleCommand for BufferDebugCommand {
@@ -401,28 +400,6 @@ impl ConsoleCommand for PitchRangeCommand {
     }
 }
 
-/// Pitch Debug Command - toggle pitch detection debugging
-pub struct PitchDebugCommand;
-
-impl ConsoleCommand for PitchDebugCommand {
-    fn name(&self) -> &str { "pitch-debug" }
-    fn description(&self) -> &str { "Toggle pitch detection debug logging" }
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let enabled = PITCH_DEBUG_ENABLED.with(|c| { 
-            let val = !c.get(); 
-            c.set(val); 
-            val 
-        });
-        
-        let message = if enabled {
-            "Pitch detection debug logging enabled"
-        } else {
-            "Pitch detection debug logging disabled"
-        };
-        
-        ConsoleCommandResult::Output(ConsoleOutput::info(message))
-    }
-}
 
 /// Pitch Benchmarks Command - run performance benchmarks for different window sizes
 pub struct PitchBenchmarksCommand;
@@ -754,7 +731,6 @@ impl ConsoleCommand for PitchCommand {
         match subcommand {
             "status" => PitchStatusCommand.execute(sub_args, registry),
             "range" => PitchRangeCommand.execute(sub_args, registry),
-            "debug" => PitchDebugCommand.execute(sub_args, registry),
             "benchmarks" => PitchBenchmarksCommand.execute(sub_args, registry),
             _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown pitch subcommand: {}", subcommand))),
         }
@@ -815,7 +791,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferDebugCommand));
     registry.register(Box::new(PitchStatusCommand));
     registry.register(Box::new(PitchRangeCommand));
-    registry.register(Box::new(PitchDebugCommand));
     registry.register(Box::new(PitchBenchmarksCommand));
     registry.register(Box::new(VolumeStatusCommand));
     registry.register(Box::new(VolumeConfigCommand));
@@ -867,7 +842,6 @@ mod tests {
     
     #[test]
     fn test_pitch_debug_command() {
-        let command = PitchDebugCommand;
         
         assert_eq!(command.name(), "pitch-debug");
         assert_eq!(command.description(), "Toggle pitch detection debug logging");
