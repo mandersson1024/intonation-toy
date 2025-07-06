@@ -150,8 +150,8 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 pub async fn initialize_buffer_pool() -> Result<(), String> {
     dev_log!("Initializing buffer pool");
     
-    // Configure pool size - use same configuration for both development and production
-    let (pool_size, buffer_capacity) = (6, 1024);
+    // Configure pool size with sufficient capacity for pitch detection window (2048 samples)
+    let (pool_size, buffer_capacity) = (6, 4096); // Increased to accommodate pitch detection analysis
     
     // Create buffer pool
     match buffer_pool::BufferPool::<f32>::new(pool_size, buffer_capacity) {
@@ -186,7 +186,11 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
     
     // Create pitch analyzer instance
     match pitch_analyzer::PitchAnalyzer::new(config.clone(), sample_rate) {
-        Ok(analyzer) => {
+        Ok(mut analyzer) => {
+            // Set up event dispatcher for pitch events
+            let event_dispatcher = crate::events::get_global_event_dispatcher();
+            analyzer.set_event_dispatcher(event_dispatcher.clone());
+            
             let analyzer_rc = Rc::new(RefCell::new(analyzer));
             
             // Log configuration details
@@ -200,18 +204,35 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
             commands::set_global_pitch_analyzer(analyzer_rc.clone());
             
             // Subscribe to buffer events for automatic pitch detection
-            let event_dispatcher = crate::events::get_global_event_dispatcher();
             let analyzer_for_events = analyzer_rc.clone();
             event_dispatcher.borrow_mut().subscribe("buffer_filled", move |event| {
-                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, .. } = event {
+                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, length } = event {
                     // Get buffer pool and extract data for pitch analysis
                     if let Some(pool) = get_global_buffer_pool() {
-                        let pool_borrowed = pool.borrow();
-                        if let Some(_buffer) = pool_borrowed.get(buffer_index) {
-                            // Process the buffer filled event for pitch detection
+                        let mut pool_borrowed = pool.borrow_mut();
+                        if let Some(buffer) = pool_borrowed.get_mut(buffer_index) {
+                            // Extract audio data for pitch analysis
                             if let Ok(mut analyzer) = analyzer_for_events.try_borrow_mut() {
-                                // Use the event-based processing method
-                                let _ = analyzer.process_buffer_event(&event);
+                                // Use BufferAnalyzer to process data from the circular buffer
+                                match buffer_analyzer::BufferAnalyzer::new(buffer, config.sample_window_size, buffer_analyzer::WindowFunction::Hamming) {
+                                    Ok(mut buffer_analyzer) => {
+                                        // Process all available audio data through pitch analyzer
+                                        match analyzer.process_continuous_from_buffer(&mut buffer_analyzer) {
+                                            Ok(pitch_results) => {
+                                                // Only log when we actually detect pitch (avoid spam for silence)
+                                                if !pitch_results.is_empty() {
+                                                    dev_log!("✓ Pitch detected: {} results from buffer {}", pitch_results.len(), buffer_index);
+                                                }
+                                            }
+                                            Err(e) => {
+                                                dev_log!("✗ Pitch detection error: {}", e);
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        dev_log!("Failed to create BufferAnalyzer: {}", e);
+                                    }
+                                }
                             }
                         }
                     }

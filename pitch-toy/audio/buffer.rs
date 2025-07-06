@@ -4,10 +4,10 @@
 use std::collections::VecDeque;
 
 /// Buffer size constants as multiples of 128-sample AudioWorklet chunks
-pub const PRODUCTION_BUFFER_SIZE: usize = 1024;  // 8 chunks of 128 samples each
+pub const PRODUCTION_BUFFER_SIZE: usize = 4096;  // 32 chunks - sufficient for pitch detection
 pub const DEV_BUFFER_SIZE_MIN: usize = 256;      // 2 chunks of 128 samples each  
-pub const DEV_BUFFER_SIZE_MAX: usize = 2048;     // 16 chunks of 128 samples each
-pub const DEV_BUFFER_SIZE_DEFAULT: usize = 512;  // 4 chunks of 128 samples each
+pub const DEV_BUFFER_SIZE_MAX: usize = 4096;     // 32 chunks - accommodate pitch detection window
+pub const DEV_BUFFER_SIZE_DEFAULT: usize = 4096; // Default to max for pitch detection accuracy
 pub const AUDIO_CHUNK_SIZE: usize = 128;         // AudioWorklet fixed chunk size
 
 /// Determines the buffer size based on build configuration
