@@ -129,6 +129,34 @@ pub fn get_global_buffer_pool() -> Option<Rc<RefCell<buffer_pool::BufferPool<f32
     BUFFER_POOL_GLOBAL.with(|bp| bp.borrow().as_ref().cloned())
 }
 
+/// Initialize buffer pool with appropriate size for development/production
+pub async fn initialize_buffer_pool() -> Result<(), String> {
+    dev_log!("Initializing buffer pool");
+    
+    // Configure pool size - use same configuration for both development and production
+    let (pool_size, buffer_capacity) = (6, 1024);
+    
+    // Create buffer pool
+    match buffer_pool::BufferPool::<f32>::new(pool_size, buffer_capacity) {
+        Ok(pool) => {
+            let pool_rc = Rc::new(RefCell::new(pool));
+            
+            // Calculate memory usage for logging
+            let memory_usage = pool_rc.borrow().memory_usage_bytes();
+            dev_log!("✓ Buffer pool created: {} buffers × {} samples ({:.2} KB)", 
+                pool_size, buffer_capacity, memory_usage as f64 / 1024.0);
+            
+            // Store globally for application use
+            set_global_buffer_pool(pool_rc);
+            
+            Ok(())
+        }
+        Err(e) => {
+            Err(format!("Failed to create buffer pool: {}", e))
+        }
+    }
+}
+
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError};
 pub use permission::AudioPermission;
