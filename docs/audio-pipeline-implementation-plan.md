@@ -57,7 +57,7 @@ match initialize_buffer_pool().await {
 - Buffer pool memory usage displayed correctly
 - No more "No buffer pool initialized" warnings
 
-#### 1.2 Global Component Creation
+#### 1.2 Global Component Creation (Completed)
 - **Location**: `pitch-toy/audio/mod.rs`
 - **Effort**: 1 hour
 - **Implementation**:
