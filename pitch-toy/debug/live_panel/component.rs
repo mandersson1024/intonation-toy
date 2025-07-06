@@ -8,6 +8,7 @@ use web_sys::window;
 
 use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
+use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
 
 /// Properties for the LivePanel component
@@ -59,6 +60,28 @@ pub struct VolumeLevel {
     pub timestamp: f64,
 }
 
+/// AudioWorklet status for display
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioWorkletStatus {
+    pub state: AudioWorkletState,
+    pub processor_loaded: bool,
+    pub chunk_size: u32,
+    pub chunks_processed: u32,
+    pub last_update: f64,
+}
+
+impl Default for AudioWorkletStatus {
+    fn default() -> Self {
+        Self {
+            state: AudioWorkletState::Uninitialized,
+            processor_loaded: false,
+            chunk_size: 128,
+            chunks_processed: 0,
+            last_update: 0.0,
+        }
+    }
+}
+
 /// State for the LivePanel component
 pub struct LivePanel {
     /// Current audio devices
@@ -69,6 +92,8 @@ pub struct LivePanel {
     performance_metrics: PerformanceMetrics,
     /// Current volume level
     volume_level: Option<VolumeLevel>,
+    /// AudioWorklet status
+    audioworklet_status: AudioWorkletStatus,
     /// Performance monitoring interval
     _performance_interval: Option<gloo_timers::callback::Interval>,
 }
@@ -84,6 +109,8 @@ pub enum LivePanelMsg {
     UpdatePerformanceMetrics(PerformanceMetrics),
     /// Update volume level
     UpdateVolumeLevel(VolumeLevel),
+    /// Update AudioWorklet status
+    UpdateAudioWorkletStatus(AudioWorkletStatus),
 }
 
 impl Component for LivePanel {
@@ -96,6 +123,7 @@ impl Component for LivePanel {
             audio_permission: ctx.props().audio_permission.clone(),
             performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
+            audioworklet_status: AudioWorkletStatus::default(),
             _performance_interval: None,
         };
 
@@ -129,6 +157,10 @@ impl Component for LivePanel {
                 self.volume_level = Some(level);
                 true
             }
+            LivePanelMsg::UpdateAudioWorkletStatus(status) => {
+                self.audioworklet_status = status;
+                true
+            }
         }
     }
 
@@ -146,6 +178,7 @@ impl Component for LivePanel {
                 <div class="live-panel-content">
                     {self.render_permission_status(ctx)}
                     {self.render_device_list()}
+                    {self.render_audioworklet_status()}
                     {self.render_performance_metrics()}
                     {self.render_volume_level()}
                     {self.render_pitch_detection()}
@@ -224,6 +257,48 @@ impl LivePanel {
                 <h4 class="live-panel-section-title">{"Audio Permission"}</h4>
                 <div class={format!("permission-status {}", status_class)}>
                     {status_text}
+                </div>
+            </div>
+        }
+    }
+
+    /// Render AudioWorklet status section
+    fn render_audioworklet_status(&self) -> Html {
+        let (state_text, state_class) = match self.audioworklet_status.state {
+            AudioWorkletState::Uninitialized => ("Not Initialized", "worklet-uninitialized"),
+            AudioWorkletState::Initializing => ("Initializing", "worklet-initializing"),
+            AudioWorkletState::Ready => ("Ready", "worklet-ready"),
+            AudioWorkletState::Processing => ("Processing", "worklet-processing"),
+            AudioWorkletState::Stopped => ("Stopped", "worklet-stopped"),
+            AudioWorkletState::Failed => ("Failed", "worklet-failed"),
+        };
+
+        let processor_status = if self.audioworklet_status.processor_loaded {
+            "Loaded"
+        } else {
+            "Not Loaded"
+        };
+
+        html! {
+            <div class="live-panel-section">
+                <h4 class="live-panel-section-title">{"AudioWorklet Status"}</h4>
+                <div class="audioworklet-status">
+                    <div class="status-item">
+                        <span class="status-label">{"State:"}</span>
+                        <span class={format!("status-value {}", state_class)}>{state_text}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">{"Processor:"}</span>
+                        <span class="status-value">{processor_status}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">{"Chunk Size:"}</span>
+                        <span class="status-value">{format!("{} samples", self.audioworklet_status.chunk_size)}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">{"Chunks Processed:"}</span>
+                        <span class="status-value">{self.audioworklet_status.chunks_processed}</span>
+                    </div>
                 </div>
             </div>
         }

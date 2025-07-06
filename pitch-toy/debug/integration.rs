@@ -457,6 +457,55 @@ const DEBUG_INTERFACE_CSS: &str = r#"
     font-size: 11px;
 }
 
+.audioworklet-status {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+}
+
+.status-label {
+    color: #9ca3af;
+    font-size: 10px;
+    min-width: 100px;
+}
+
+.status-value {
+    color: #d1d5db;
+    font-weight: bold;
+    text-align: right;
+}
+
+.status-value.worklet-uninitialized {
+    color: #6b7280;
+}
+
+.status-value.worklet-initializing {
+    color: #f59e0b;
+}
+
+.status-value.worklet-ready {
+    color: #3b82f6;
+}
+
+.status-value.worklet-processing {
+    color: #10b981;
+}
+
+.status-value.worklet-stopped {
+    color: #f59e0b;
+}
+
+.status-value.worklet-failed {
+    color: #ef4444;
+}
+
 .permission-button-container {
     font-size: 11px;
 }
