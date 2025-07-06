@@ -273,18 +273,18 @@ impl LivePanel {
     /// Render AudioWorklet status section
     fn render_audioworklet_status(&self) -> Html {
         let (state_text, state_class) = match self.audioworklet_status.state {
-            AudioWorkletState::Uninitialized => ("Not Initialized", "worklet-uninitialized"),
-            AudioWorkletState::Initializing => ("Initializing", "worklet-initializing"),
-            AudioWorkletState::Ready => ("Ready", "worklet-ready"),
-            AudioWorkletState::Processing => ("Processing", "worklet-processing"),
-            AudioWorkletState::Stopped => ("Stopped", "worklet-stopped"),
-            AudioWorkletState::Failed => ("Failed", "worklet-failed"),
+            AudioWorkletState::Uninitialized => ("Not Initialized", "status-inactive"),
+            AudioWorkletState::Initializing => ("Initializing", "status-pending"),
+            AudioWorkletState::Ready => ("Ready", "status-neutral"),
+            AudioWorkletState::Processing => ("Processing", "status-success"),
+            AudioWorkletState::Stopped => ("Stopped", "status-warning"),
+            AudioWorkletState::Failed => ("Failed", "status-error"),
         };
 
-        let processor_status = if self.audioworklet_status.processor_loaded {
-            "Loaded"
+        let (processor_status, processor_class) = if self.audioworklet_status.processor_loaded {
+            ("Loaded", "status-success")
         } else {
-            "Not Loaded"
+            ("Not Loaded", "status-inactive")
         };
 
         html! {
@@ -297,7 +297,7 @@ impl LivePanel {
                     </div>
                     <div class="status-item">
                         <span class="status-label">{"Processor:"}</span>
-                        <span class="status-value">{processor_status}</span>
+                        <span class={format!("status-value {}", processor_class)}>{processor_status}</span>
                     </div>
                     <div class="status-item">
                         <span class="status-label">{"Chunk Size:"}</span>

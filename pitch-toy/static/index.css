@@ -30,3 +30,46 @@ main {
     border-radius: 4px;
     background-color: #000;
 }
+
+/* Status color classes for Live Data Panel */
+.status-value.status-success,
+span.status-success {
+    color: #22c55e !important; /* Green for processing/loaded/success states */
+    font-weight: 600;
+}
+
+.status-value.status-neutral,
+span.status-neutral {
+    color: #ffffff !important; /* White for ready/neutral states */
+    font-weight: 600;
+}
+
+.status-value.status-active,
+span.status-active {
+    color: #06b6d4 !important; /* Cyan for active/processing states */
+    font-weight: 600;
+}
+
+.status-value.status-pending,
+span.status-pending {
+    color: #f59e0b !important; /* Amber for initializing/pending states */
+    font-weight: 600;
+}
+
+.status-value.status-warning,
+span.status-warning {
+    color: #f97316 !important; /* Orange for stopped/warning states */
+    font-weight: 600;
+}
+
+.status-value.status-error,
+span.status-error {
+    color: #ef4444 !important; /* Red for failed/error states */
+    font-weight: 600;
+}
+
+.status-value.status-inactive,
+span.status-inactive {
+    color: #6b7280 !important; /* Gray for uninitialized/not loaded states */
+    font-weight: 400;
+}
