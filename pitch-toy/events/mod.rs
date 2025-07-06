@@ -41,3 +41,28 @@ pub mod audio_events;
 
 pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
 pub use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher};
+
+use std::cell::RefCell;
+
+// Global shared event dispatcher for cross-component communication
+thread_local! {
+    static GLOBAL_EVENT_DISPATCHER: RefCell<Option<AudioEventDispatcher>> = RefCell::new(None);
+}
+
+/// Get or create the global shared event dispatcher
+pub fn get_global_event_dispatcher() -> AudioEventDispatcher {
+    GLOBAL_EVENT_DISPATCHER.with(|dispatcher| {
+        // First check if we already have a dispatcher
+        {
+            let borrow = dispatcher.borrow();
+            if let Some(ref existing) = *borrow {
+                return existing.clone();
+            }
+        } // Release the borrow here
+        
+        // Create new dispatcher if none exists
+        let new_dispatcher = create_shared_dispatcher::<AudioEvent>();
+        *dispatcher.borrow_mut() = Some(new_dispatcher.clone());
+        new_dispatcher
+    })
+}

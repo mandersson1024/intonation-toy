@@ -31,6 +31,11 @@ thread_local! {
     static BUFFER_POOL_GLOBAL: RefCell<Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>>> = RefCell::new(None);
 }
 
+// Global AudioWorklet manager reference
+thread_local! {
+    static AUDIOWORKLET_MANAGER_GLOBAL: RefCell<Option<Rc<RefCell<worklet::AudioWorkletManager>>>> = RefCell::new(None);
+}
+
 /// Initialize audio system
 /// Returns Result to allow caller to handle initialization failures
 pub async fn initialize_audio_system() -> Result<(), String> {
@@ -127,6 +132,18 @@ pub fn set_global_buffer_pool(pool: Rc<RefCell<buffer_pool::BufferPool<f32>>>) {
 /// Get the global BufferPool instance
 pub fn get_global_buffer_pool() -> Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>> {
     BUFFER_POOL_GLOBAL.with(|bp| bp.borrow().as_ref().cloned())
+}
+
+/// Set the global AudioWorklet manager instance (called after creation)
+pub fn set_global_audioworklet_manager(manager: Rc<RefCell<worklet::AudioWorkletManager>>) {
+    AUDIOWORKLET_MANAGER_GLOBAL.with(|awm| {
+        *awm.borrow_mut() = Some(manager);
+    });
+}
+
+/// Get the global AudioWorklet manager instance
+pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWorkletManager>>> {
+    AUDIOWORKLET_MANAGER_GLOBAL.with(|awm| awm.borrow().as_ref().cloned())
 }
 
 /// Initialize buffer pool with appropriate size for development/production

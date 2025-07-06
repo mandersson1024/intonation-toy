@@ -1,6 +1,9 @@
 use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 
+#[cfg(target_arch = "wasm32")]
+use js_sys;
+
 pub mod audio;
 // pub mod console;  // Moved to dev-console crate
 pub mod console_commands;
@@ -27,8 +30,8 @@ use std::rc::Rc;
 fn render_dev_console() -> Html {
     #[cfg(debug_assertions)]
     {
-        // Create shared event dispatcher
-        let event_dispatcher = crate::events::create_shared_dispatcher();
+        // Get global shared event dispatcher
+        let event_dispatcher = crate::events::get_global_event_dispatcher();
         
         // Create audio service with event dispatcher
         let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
@@ -100,6 +103,80 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
     // This will be implemented when graphics module is added
 }
 
+/// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
+async fn initialize_audioworklet_manager() -> Result<(), String> {
+    dev_log!("Initializing AudioWorklet manager");
+    
+    // Get audio context manager
+    let audio_context_manager = audio::get_audio_context_manager()
+        .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
+    
+    // Create AudioWorklet manager
+    let mut worklet_manager = audio::AudioWorkletManager::new();
+    
+    // Get buffer pool and event dispatcher
+    let buffer_pool = audio::get_global_buffer_pool()
+        .ok_or_else(|| "Buffer pool not initialized".to_string())?;
+    let event_dispatcher = crate::events::get_global_event_dispatcher();
+    
+    // Configure AudioWorklet manager
+    worklet_manager.set_buffer_pool(buffer_pool);
+    worklet_manager.set_event_dispatcher(event_dispatcher.clone());
+    
+    // Publish initial status
+    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Initializing, false, 0);
+    
+    // Initialize AudioWorklet
+    let audio_context_ref = audio_context_manager.borrow();
+    match worklet_manager.initialize(&*audio_context_ref).await {
+        Ok(_) => {
+            dev_log!("✓ AudioWorklet processor loaded and ready");
+            
+            // Publish ready status
+            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
+            
+            // Store globally for microphone connection
+            audio::set_global_audioworklet_manager(std::rc::Rc::new(std::cell::RefCell::new(worklet_manager)));
+            
+            Ok(())
+        }
+        Err(e) => {
+            dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
+            
+            // Publish failed status
+            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Failed, false, 0);
+            
+            Err(format!("Failed to initialize AudioWorklet: {:?}", e))
+        }
+    }
+}
+
+/// Publish AudioWorklet status update to Live Data Panel
+fn publish_audioworklet_status(
+    event_dispatcher: &crate::events::AudioEventDispatcher,
+    state: audio::worklet::AudioWorkletState,
+    processor_loaded: bool,
+    chunks_processed: u32
+) {
+    #[cfg(target_arch = "wasm32")]
+    let timestamp = js_sys::Date::now();
+    #[cfg(not(target_arch = "wasm32"))]
+    let timestamp = 0.0;
+    
+    let status = crate::debug::live_panel::AudioWorkletStatus {
+        state: state.clone(),
+        processor_loaded,
+        chunk_size: 128, // Web Audio API standard
+        chunks_processed,
+        last_update: timestamp,
+    };
+    
+    let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
+    event_dispatcher.borrow().publish(&status_event);
+    
+    dev_log!("Published AudioWorklet status: {} (processor: {})", state, processor_loaded);
+}
+
 /// Application entry point
 #[cfg(not(test))]
 #[wasm_bindgen(start)]
@@ -128,16 +205,40 @@ pub fn main() {
                             Ok(_) => {
                                 dev_log!("✓ Buffer pool initialized successfully");
                                 
-                                // Initialize pitch analyzer after buffer pool
-                                match audio::initialize_pitch_analyzer().await {
+                                // Initialize AudioWorklet manager after buffer pool
+                                match initialize_audioworklet_manager().await {
                                     Ok(_) => {
-                                        dev_log!("✓ Pitch analyzer initialized successfully");
-                                        yew::Renderer::<App>::new().render();
+                                        dev_log!("✓ AudioWorklet manager initialized successfully");
+                                        
+                                        // Initialize pitch analyzer after AudioWorklet
+                                        match audio::initialize_pitch_analyzer().await {
+                                            Ok(_) => {
+                                                dev_log!("✓ Pitch analyzer initialized successfully");
+                                                yew::Renderer::<App>::new().render();
+                                            }
+                                            Err(e) => {
+                                                dev_log!("✗ Pitch analyzer initialization failed: {}", e);
+                                                dev_log!("Application cannot continue without pitch analyzer");
+                                                // TODO: Add error screen rendering in future story when UI requirements are defined
+                                            }
+                                        }
                                     }
                                     Err(e) => {
-                                        dev_log!("✗ Pitch analyzer initialization failed: {}", e);
-                                        dev_log!("Application cannot continue without pitch analyzer");
-                                        // TODO: Add error screen rendering in future story when UI requirements are defined
+                                        dev_log!("✗ AudioWorklet manager initialization failed: {}", e);
+                                        dev_log!("Application will continue without AudioWorklet support");
+                                        
+                                        // Continue with pitch analyzer initialization even without AudioWorklet
+                                        match audio::initialize_pitch_analyzer().await {
+                                            Ok(_) => {
+                                                dev_log!("✓ Pitch analyzer initialized successfully");
+                                                yew::Renderer::<App>::new().render();
+                                            }
+                                            Err(e) => {
+                                                dev_log!("✗ Pitch analyzer initialization failed: {}", e);
+                                                dev_log!("Application cannot continue without pitch analyzer");
+                                                // TODO: Add error screen rendering in future story when UI requirements are defined
+                                            }
+                                        }
                                     }
                                 }
                             }
