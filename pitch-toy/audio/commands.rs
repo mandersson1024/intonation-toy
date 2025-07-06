@@ -230,51 +230,6 @@ impl ConsoleCommand for PitchStatusCommand {
     }
 }
 
-/// Pitch Detect Command - test pitch detection with specific frequency
-pub struct PitchDetectCommand;
-
-impl ConsoleCommand for PitchDetectCommand {
-    fn name(&self) -> &str { "pitch-detect" }
-    fn description(&self) -> &str { "Test pitch detection with specific frequency (Hz)" }
-    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-detect <frequency>"));
-        }
-        
-        let frequency: f32 = match args[0].parse() {
-            Ok(freq) => freq,
-            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid frequency value")),
-        };
-        
-        if frequency < 20.0 || frequency > 20000.0 {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Frequency must be between 20 and 20000 Hz"));
-        }
-        
-        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
-            let analyzer = analyzer_rc.borrow();
-            let config = analyzer.config();
-            
-            // Generate test signal with the specified frequency
-            let sample_rate = 48000.0; // Standard sample rate
-            let duration_samples = config.sample_window_size;
-            let mut test_signal = vec![0.0; duration_samples];
-            
-            for (i, sample) in test_signal.iter_mut().enumerate() {
-                let t = i as f32 / sample_rate;
-                *sample = (2.0 * std::f32::consts::PI * frequency * t).sin();
-            }
-            
-            // Note: In a real implementation, we would call analyzer.analyze_samples(&test_signal)
-            // For now, we'll just report the test setup
-            ConsoleCommandResult::Output(ConsoleOutput::success(&format!(
-                "Test signal generated: {:.1} Hz ({} samples at {:.1} kHz)", 
-                frequency, duration_samples, sample_rate / 1000.0
-            )))
-        } else {
-            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
-        }
-    }
-}
 
 /// Pitch Threshold Command - set confidence threshold
 pub struct PitchThresholdCommand;
@@ -362,44 +317,6 @@ impl ConsoleCommand for PitchTuningCommand {
     }
 }
 
-/// Pitch Window Command - set analysis window size
-pub struct PitchWindowCommand;
-
-impl ConsoleCommand for PitchWindowCommand {
-    fn name(&self) -> &str { "pitch-window" }
-    fn description(&self) -> &str { "Set analysis window size (multiple of 128)" }
-    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: pitch-window <size>"));
-        }
-        
-        let window_size: usize = match args[0].parse() {
-            Ok(size) => size,
-            Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid window size")),
-        };
-        
-        if window_size < 128 || window_size % 128 != 0 {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Window size must be a multiple of 128"));
-        }
-        
-        if window_size > 8192 {
-            return ConsoleCommandResult::Output(ConsoleOutput::error("Window size must be ≤ 8192 samples"));
-        }
-        
-        if let Some(analyzer_rc) = get_global_pitch_analyzer() {
-            let mut analyzer = analyzer_rc.borrow_mut();
-            let mut config = analyzer.config().clone();
-            config.sample_window_size = window_size;
-            
-            match analyzer.update_config(config) {
-                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Window size set to {} samples", window_size))),
-                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update window size: {}", e))),
-            }
-        } else {
-            ConsoleCommandResult::Output(ConsoleOutput::error("Pitch analyzer not initialized"))
-        }
-    }
-}
 
 /// Pitch Range Command - set frequency detection range
 pub struct PitchRangeCommand;
@@ -854,10 +771,8 @@ impl ConsoleCommand for PitchCommand {
         
         match subcommand {
             "status" => PitchStatusCommand.execute(sub_args, registry),
-            "detect" => PitchDetectCommand.execute(sub_args, registry),
             "threshold" => PitchThresholdCommand.execute(sub_args, registry),
             "tuning" => PitchTuningCommand.execute(sub_args, registry),
-            "window" => PitchWindowCommand.execute(sub_args, registry),
             "range" => PitchRangeCommand.execute(sub_args, registry),
             "debug" => PitchDebugCommand.execute(sub_args, registry),
             "benchmarks" => PitchBenchmarksCommand.execute(sub_args, registry),
@@ -919,10 +834,8 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(BufferResetCommand));
     registry.register(Box::new(BufferDebugCommand));
     registry.register(Box::new(PitchStatusCommand));
-    registry.register(Box::new(PitchDetectCommand));
     registry.register(Box::new(PitchThresholdCommand));
     registry.register(Box::new(PitchTuningCommand));
-    registry.register(Box::new(PitchWindowCommand));
     registry.register(Box::new(PitchRangeCommand));
     registry.register(Box::new(PitchDebugCommand));
     registry.register(Box::new(PitchBenchmarksCommand));
@@ -956,13 +869,6 @@ mod tests {
         assert_eq!(command.description(), "Show current pitch detection configuration and state");
     }
     
-    #[test]
-    fn test_pitch_detect_command() {
-        let command = PitchDetectCommand;
-        
-        assert_eq!(command.name(), "pitch-detect");
-        assert_eq!(command.description(), "Test pitch detection with specific frequency (Hz)");
-    }
     
     #[test]
     fn test_pitch_threshold_command() {
@@ -980,13 +886,6 @@ mod tests {
         assert_eq!(command.description(), "Switch tuning system (equal/just/custom)");
     }
     
-    #[test]
-    fn test_pitch_window_command() {
-        let command = PitchWindowCommand;
-        
-        assert_eq!(command.name(), "pitch-window");
-        assert_eq!(command.description(), "Set analysis window size (multiple of 128)");
-    }
     
     #[test]
     fn test_pitch_range_command() {
