@@ -74,7 +74,7 @@ match initialize_buffer_pool().await {
 
 **Priority**: Critical Path - Longest development component
 
-#### 2.1 JavaScript AudioWorklet Processor
+#### 2.1 JavaScript AudioWorklet Processor (Completed)
 - **Location**: Create `pitch-toy/static/audio-processor.js`
 - **Effort**: 4-6 hours
 - **Implementation Requirements**:
@@ -203,7 +203,7 @@ registerProcessor('pitch-processor', PitchDetectionProcessor);
 #### 4.2 Console Command Validation
 - **Effort**: 1 hour
 - **Testing Scope**:
-  - Verify all 23 commands work with live data
+  - Verify all commands work with live data
   - Test command help text and parameter validation
   - Validate debug interface functionality
 

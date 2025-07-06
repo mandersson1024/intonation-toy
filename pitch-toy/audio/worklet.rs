@@ -43,10 +43,12 @@
 
 use web_sys::{
     AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
-    AudioNode
+    AudioNode, MessageEvent
 };
 use js_sys;
 use std::fmt;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
 
@@ -224,8 +226,25 @@ impl AudioWorkletManager {
     
     /// Initialize AudioWorklet processor
     async fn initialize_worklet(&mut self, context: &AudioContext) -> Result<(), AudioError> {
-        // TODO: In a real implementation, you would load the AudioWorklet processor script here
-        // For now, we'll create a simple pass-through processor
+        dev_log!("Loading AudioWorklet processor module...");
+        
+        // Load the AudioWorklet processor script
+        let worklet = context.audio_worklet()
+            .map_err(|e| AudioError::StreamInitFailed(
+                format!("Failed to get AudioWorklet: {:?}", e)
+            ))?;
+        let module_promise = worklet.add_module("./audio-processor.js")
+            .map_err(|e| AudioError::StreamInitFailed(
+                format!("Failed to load AudioWorklet module: {:?}", e)
+            ))?;
+        
+        // Wait for module to load
+        let module_future = wasm_bindgen_futures::JsFuture::from(module_promise);
+        module_future.await.map_err(|e| AudioError::StreamInitFailed(
+            format!("AudioWorklet module loading failed: {:?}", e)
+        ))?;
+        
+        dev_log!("✓ AudioWorklet processor module loaded successfully");
         
         // Create AudioWorklet node with options
         let options = AudioWorkletNodeOptions::new();
@@ -235,16 +254,16 @@ impl AudioWorkletManager {
             self.config.output_channels
         )));
         
-        // Note: In production, you would call addModule first to load the processor
-        // context.audio_worklet().add_module("/audio-processor.js").await?;
-        
-        // For now, we'll create a placeholder node structure
-        // This would be replaced with actual AudioWorkletNode creation after module loading
-        match self.create_worklet_node_placeholder(context) {
+        // Create the AudioWorkletNode with the registered processor
+        match self.create_worklet_node(context, &options) {
             Ok(node) => {
                 self.worklet_node = Some(node);
                 dev_log!("AudioWorklet node created with {} input channels, {} output channels", 
                         self.config.input_channels, self.config.output_channels);
+                
+                // Setup message handling
+                self.setup_message_handling()?;
+                
                 Ok(())
             }
             Err(e) => {
@@ -255,19 +274,85 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Create AudioWorklet node placeholder (TODO: Replace with actual implementation)
-    fn create_worklet_node_placeholder(&self, _context: &AudioContext) -> Result<AudioWorkletNode, js_sys::Error> {
-        // TODO: Replace this placeholder with actual AudioWorkletNode creation
-        // This is a stub implementation that would be replaced when the AudioWorklet
-        // processor script is implemented
+    /// Create AudioWorklet node with the registered processor
+    fn create_worklet_node(&self, context: &AudioContext, options: &AudioWorkletNodeOptions) -> Result<AudioWorkletNode, js_sys::Error> {
+        // Create AudioWorkletNode with the registered 'pitch-processor'
+        let node = AudioWorkletNode::new_with_options(context, "pitch-processor", options)?;
         
-        // For now, we'll attempt to create a basic node structure
-        // In production, this would be:
-        // AudioWorkletNode::new_with_options(context, "pitch-processor", &options)
-        
-        // Since we can't create a real AudioWorkletNode without a registered processor,
-        // we'll return an error for now
-        Err(js_sys::Error::new("AudioWorklet processor not yet implemented"))
+        dev_log!("✓ AudioWorklet node created successfully");
+        Ok(node)
+    }
+    
+    /// Setup message handling for the AudioWorklet processor
+    pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            // Set up a simple message handler for processor ready confirmation
+            let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
+                let data = event.data();
+                
+                // Parse message type from JavaScript
+                if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
+                    if let Ok(type_val) = js_sys::Reflect::get(&obj, &"type".into()) {
+                        if let Some(msg_type) = type_val.as_string() {
+                            match msg_type.as_str() {
+                                "processorReady" => {
+                                    dev_log!("✓ AudioWorklet processor ready");
+                                }
+                                "processingStarted" => {
+                                    dev_log!("✓ AudioWorklet processing started");
+                                }
+                                "processingStopped" => {
+                                    dev_log!("✓ AudioWorklet processing stopped");
+                                }
+                                "audioData" => {
+                                    // Audio data received - this will be handled by polling
+                                    // in the actual implementation
+                                }
+                                "processingError" => {
+                                    if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
+                                        if let Some(error_msg) = error_val.as_string() {
+                                            dev_log!("✗ AudioWorklet processing error: {}", error_msg);
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    dev_log!("Unknown AudioWorklet message type: {}", msg_type);
+                                }
+                            }
+                        }
+                    }
+                }
+            }) as Box<dyn FnMut(MessageEvent)>);
+            
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            port.set_onmessage(Some(closure.as_ref().unchecked_ref()));
+            closure.forget(); // Keep closure alive
+            
+            dev_log!("✓ AudioWorklet message handler setup complete");
+            Ok(())
+        } else {
+            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
+    }
+    
+    /// Send control message to AudioWorklet processor
+    pub fn send_control_message(&self, message_type: &str) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            let message = js_sys::Object::new();
+            js_sys::Reflect::set(&message, &"type".into(), &message_type.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to create message: {:?}", e)))?;
+            
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            port.post_message(&message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
+            
+            dev_log!("Sent control message to AudioWorklet: {}", message_type);
+            Ok(())
+        } else {
+            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
     }
     
     
@@ -322,6 +407,9 @@ impl AudioWorkletManager {
             ));
         }
         
+        // Send start message to AudioWorklet processor
+        self.send_control_message("startProcessing")?;
+        
         self.state = AudioWorkletState::Processing;
         dev_log!("✓ Audio processing started using AudioWorklet");
         Ok(())
@@ -334,6 +422,9 @@ impl AudioWorkletManager {
                 format!("Cannot stop processing in state: {}", self.state)
             ));
         }
+        
+        // Send stop message to AudioWorklet processor
+        self.send_control_message("stopProcessing")?;
         
         self.state = AudioWorkletState::Stopped;
         dev_log!("✓ Audio processing stopped");
