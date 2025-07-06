@@ -398,24 +398,32 @@ impl AudioContextManager {
                 let mut input_devices = Vec::new();
                 let mut output_devices = Vec::new();
 
+                // Check if we have permission to see device labels
+                let has_permission = if devices.length() > 0 {
+                    devices.get(0)
+                        .dyn_ref::<web_sys::MediaDeviceInfo>()
+                        .map(|d| !d.label().is_empty())
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+
+                // If no permission, return empty lists instead of fake device entries
+                if !has_permission {
+                    return Ok((input_devices, output_devices)); // Both are empty
+                }
+
                 for i in 0..devices.length() {
                     if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
                         let device_id = device_info.device_id();
                         let label = device_info.label();
-                        
-                        // Use fallback label if permission not granted
-                        let display_label = if label.is_empty() {
-                            format!("Device {} (permission required for label)", i + 1)
-                        } else {
-                            label
-                        };
 
                         match device_info.kind() {
                             web_sys::MediaDeviceKind::Audioinput => {
-                                input_devices.push((device_id, display_label));
+                                input_devices.push((device_id, label));
                             }
                             web_sys::MediaDeviceKind::Audiooutput => {
-                                output_devices.push((device_id, display_label));
+                                output_devices.push((device_id, label));
                             }
                             _ => {
                                 // Skip video devices

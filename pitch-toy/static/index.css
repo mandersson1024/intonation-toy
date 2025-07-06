@@ -73,3 +73,10 @@ span.status-inactive {
     color: #6b7280 !important; /* Gray for uninitialized/not loaded states */
     font-weight: 400;
 }
+
+/* Permission required styling */
+.permission-required {
+    color: #6b7280 !important; /* Gray color */
+    font-style: italic !important; /* Italic font */
+    font-weight: 400;
+}

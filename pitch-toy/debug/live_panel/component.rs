@@ -335,26 +335,50 @@ impl LivePanel {
                     <div class="device-section">
                         <h5>{"Input Devices"}</h5>
                         <div class="device-items">
-                            {for self.audio_devices.input_devices.iter().map(|device| {
+                            {if self.audio_devices.input_devices.is_empty() {
                                 html! {
                                     <div class="device-item">
-                                        <span class="device-name">{&device.1}</span>
+                                        <span class="device-name permission-required">{"permission required"}</span>
                                     </div>
                                 }
-                            })}
+                            } else {
+                                html! {
+                                    <>
+                                        {for self.audio_devices.input_devices.iter().map(|device| {
+                                            html! {
+                                                <div class="device-item">
+                                                    <span class="device-name">{&device.1}</span>
+                                                </div>
+                                            }
+                                        })}
+                                    </>
+                                }
+                            }}
                         </div>
                     </div>
                     
                     <div class="device-section">
                         <h5>{"Output Devices"}</h5>
                         <div class="device-items">
-                            {for self.audio_devices.output_devices.iter().map(|device| {
+                            {if self.audio_devices.output_devices.is_empty() {
                                 html! {
                                     <div class="device-item">
-                                        <span class="device-name">{&device.1}</span>
+                                        <span class="device-name permission-required">{"permission required"}</span>
                                     </div>
                                 }
-                            })}
+                            } else {
+                                html! {
+                                    <>
+                                        {for self.audio_devices.output_devices.iter().map(|device| {
+                                            html! {
+                                                <div class="device-item">
+                                                    <span class="device-name">{&device.1}</span>
+                                                </div>
+                                            }
+                                        })}
+                                    </>
+                                }
+                            }}
                         </div>
                     </div>
                 </div>
