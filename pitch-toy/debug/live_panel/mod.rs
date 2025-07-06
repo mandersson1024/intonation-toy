@@ -13,3 +13,4 @@ mod metrics_display;
 pub use component::LivePanel;
 pub use component::LivePanelProps;
 pub use component::LivePanelMsg;
+pub use component::AudioWorkletStatus;

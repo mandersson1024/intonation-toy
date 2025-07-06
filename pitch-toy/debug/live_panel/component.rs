@@ -203,6 +203,14 @@ impl LivePanel {
         audio_service.subscribe_device_changes(Box::new(move |devices| {
             link.send_message(LivePanelMsg::UpdateDevices(devices));
         }));
+        
+        // Subscribe to AudioWorklet status changes
+        let link_clone = ctx.link().clone();
+        ctx.props().event_dispatcher.borrow_mut().subscribe("audioworklet_status_changed", move |event| {
+            if let crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status) = event {
+                link_clone.send_message(LivePanelMsg::UpdateAudioWorkletStatus(status));
+            }
+        });
     }
 
     /// Start performance monitoring

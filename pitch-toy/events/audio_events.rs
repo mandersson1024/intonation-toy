@@ -16,6 +16,8 @@ pub enum AudioEvent {
     PermissionChanged(AudioPermission),
     /// Audio context state has changed
     ContextStateChanged(AudioContextState),
+    /// AudioWorklet status has changed (for Live Data Panel)
+    AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus),
     /// Circular buffer has been filled (ready for processing)
     BufferFilled { buffer_index: usize, length: usize },
     /// Circular buffer experienced overflow
@@ -74,6 +76,7 @@ impl AudioEvent {
             AudioEvent::DeviceListChanged(_) => "device_list_changed",
             AudioEvent::PermissionChanged(_) => "permission_changed",
             AudioEvent::ContextStateChanged(_) => "context_state_changed",
+            AudioEvent::AudioWorkletStatusChanged(_) => "audioworklet_status_changed",
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
             AudioEvent::BufferMetrics { .. } => "buffer_metrics",
@@ -99,6 +102,12 @@ impl AudioEvent {
             }
             AudioEvent::ContextStateChanged(state) => {
                 format!("Audio context state changed to: {}", state)
+            }
+            AudioEvent::AudioWorkletStatusChanged(status) => {
+                format!("AudioWorklet status: {} (processor: {}, chunks: {})", 
+                    status.state, 
+                    if status.processor_loaded { "loaded" } else { "not loaded" },
+                    status.chunks_processed)
             }
             AudioEvent::BufferFilled { buffer_index, length } => {
                 format!("Buffer {} filled ({} samples)", buffer_index, length)

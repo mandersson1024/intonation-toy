@@ -93,6 +93,23 @@ pub struct AudioWorkletConfig {
     pub output_channels: u32,
 }
 
+/// Shared data for AudioWorklet message handling
+struct AudioWorkletSharedData {
+    buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
+    event_dispatcher: Option<crate::events::AudioEventDispatcher>,
+    chunks_processed: u32,
+}
+
+impl AudioWorkletSharedData {
+    fn new() -> Self {
+        Self {
+            buffer_pool: None,
+            event_dispatcher: None,
+            chunks_processed: 0,
+        }
+    }
+}
+
 impl Default for AudioWorkletConfig {
     fn default() -> Self {
         Self {
@@ -134,6 +151,7 @@ pub struct AudioWorkletManager {
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
+    _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
 }
 
 impl AudioWorkletManager {
@@ -148,6 +166,7 @@ impl AudioWorkletManager {
             volume_detector: None,
             last_volume_analysis: None,
             chunk_counter: 0,
+            _message_closure: None,
         }
     }
     
@@ -162,6 +181,7 @@ impl AudioWorkletManager {
             volume_detector: None,
             last_volume_analysis: None,
             chunk_counter: 0,
+            _message_closure: None,
         }
     }
     
@@ -286,53 +306,161 @@ impl AudioWorkletManager {
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            // Set up a simple message handler for processor ready confirmation
+            // Create shared data for the message handler
+            let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
+            
+            // Store references to components that will be used in the handler
+            if let Some(pool) = &self.buffer_pool {
+                shared_data.borrow_mut().buffer_pool = Some(pool.clone());
+            }
+            if let Some(dispatcher) = &self.event_dispatcher {
+                shared_data.borrow_mut().event_dispatcher = Some(dispatcher.clone());
+            }
+            
+            // Set up message handler with access to shared data
+            let shared_data_clone = shared_data.clone();
             let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
-                let data = event.data();
-                
-                // Parse message type from JavaScript
-                if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
-                    if let Ok(type_val) = js_sys::Reflect::get(&obj, &"type".into()) {
-                        if let Some(msg_type) = type_val.as_string() {
-                            match msg_type.as_str() {
-                                "processorReady" => {
-                                    dev_log!("✓ AudioWorklet processor ready");
-                                }
-                                "processingStarted" => {
-                                    dev_log!("✓ AudioWorklet processing started");
-                                }
-                                "processingStopped" => {
-                                    dev_log!("✓ AudioWorklet processing stopped");
-                                }
-                                "audioData" => {
-                                    // Audio data received - this will be handled by polling
-                                    // in the actual implementation
-                                }
-                                "processingError" => {
-                                    if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
-                                        if let Some(error_msg) = error_val.as_string() {
-                                            dev_log!("✗ AudioWorklet processing error: {}", error_msg);
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    dev_log!("Unknown AudioWorklet message type: {}", msg_type);
-                                }
-                            }
-                        }
-                    }
-                }
+                Self::handle_worklet_message(event, shared_data_clone.clone());
             }) as Box<dyn FnMut(MessageEvent)>);
             
             let port = worklet.port()
                 .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
             port.set_onmessage(Some(closure.as_ref().unchecked_ref()));
-            closure.forget(); // Keep closure alive
+            
+            // Store the closure to prevent it from being dropped
+            self._message_closure = Some(closure);
             
             dev_log!("✓ AudioWorklet message handler setup complete");
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
+    }
+    
+    /// Handle messages from the AudioWorklet processor
+    fn handle_worklet_message(
+        event: MessageEvent, 
+        shared_data: std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        let data = event.data();
+        
+        // Parse message type from JavaScript
+        if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
+            if let Ok(type_val) = js_sys::Reflect::get(&obj, &"type".into()) {
+                if let Some(msg_type) = type_val.as_string() {
+                    match msg_type.as_str() {
+                        "processorReady" => {
+                            dev_log!("✓ AudioWorklet processor ready");
+                            Self::publish_status_update(&shared_data, AudioWorkletState::Ready, false);
+                        }
+                        "processingStarted" => {
+                            dev_log!("✓ AudioWorklet processing started");
+                            Self::publish_status_update(&shared_data, AudioWorkletState::Processing, true);
+                        }
+                        "processingStopped" => {
+                            dev_log!("✓ AudioWorklet processing stopped");
+                            Self::publish_status_update(&shared_data, AudioWorkletState::Stopped, false);
+                        }
+                        "audioData" => {
+                            // Process real audio data
+                            Self::handle_audio_data(&obj, &shared_data);
+                        }
+                        "processingError" => {
+                            if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
+                                if let Some(error_msg) = error_val.as_string() {
+                                    dev_log!("✗ AudioWorklet processing error: {}", error_msg);
+                                    Self::publish_status_update(&shared_data, AudioWorkletState::Failed, false);
+                                }
+                            }
+                        }
+                        _ => {
+                            dev_log!("Unknown AudioWorklet message type: {}", msg_type);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Handle audio data from the AudioWorklet processor
+    fn handle_audio_data(
+        obj: &js_sys::Object, 
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        // Extract audio samples from the message
+        if let Ok(samples_val) = js_sys::Reflect::get(obj, &"samples".into()) {
+            if let Ok(samples_array) = samples_val.dyn_into::<js_sys::Float32Array>() {
+                // Convert JS Float32Array to Rust Vec<f32>
+                let samples: Vec<f32> = samples_array.to_vec();
+                
+                // Get timestamp if available
+                let _timestamp = if let Ok(timestamp_val) = js_sys::Reflect::get(obj, &"timestamp".into()) {
+                    timestamp_val.as_f64()
+                } else {
+                    None
+                };
+                
+                // Feed audio data to buffer pool if available
+                if let Some(pool) = &shared_data.borrow().buffer_pool {
+                    let mut pool_borrowed = pool.borrow_mut();
+                    if let Some(buffer) = pool_borrowed.get_mut(0) {
+                        buffer.write_chunk(&samples);
+                        
+                        // Update chunk counter and publish events
+                        let mut data = shared_data.borrow_mut();
+                        data.chunks_processed += 1;
+                        
+                        // Publish status update every 16 chunks (~11.6ms at 48kHz)
+                        if data.chunks_processed % 16 == 0 {
+                            drop(data); // Release borrow before calling publish
+                            Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+                        }
+                        
+                        // Publish buffer events if dispatcher present
+                        if let Some(dispatcher) = &shared_data.borrow().event_dispatcher {
+                            if buffer.is_full() {
+                                let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
+                                    buffer_index: 0,
+                                    length: buffer.len(),
+                                };
+                                dispatcher.borrow().publish(&buffer_event);
+                            }
+                            
+                            if buffer.has_overflowed() {
+                                let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
+                                    buffer_index: 0,
+                                    overflow_count: buffer.overflow_count(),
+                                };
+                                dispatcher.borrow().publish(&overflow_event);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Publish AudioWorklet status update to Live Data Panel
+    fn publish_status_update(
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        state: AudioWorkletState,
+        _processing: bool
+    ) {
+        if let Some(dispatcher) = &shared_data.borrow().event_dispatcher {
+            let chunks_processed = shared_data.borrow().chunks_processed;
+            
+            // Create status update for Live Data Panel
+            let status = crate::debug::live_panel::AudioWorkletStatus {
+                state,
+                processor_loaded: true, // If we're getting messages, processor is loaded
+                chunk_size: 128, // Web Audio API standard
+                chunks_processed,
+                last_update: js_sys::Date::now(),
+            };
+            
+            // Publish AudioWorklet status event
+            let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
+            dispatcher.borrow().publish(&status_event);
         }
     }
     
