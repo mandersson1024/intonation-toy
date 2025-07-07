@@ -46,16 +46,6 @@ impl From<&str> for TestWaveform {
 }
 
 impl TestWaveform {
-    fn to_value(&self) -> &'static str {
-        match self {
-            TestWaveform::Sine => "sine",
-            TestWaveform::Square => "square",
-            TestWaveform::Sawtooth => "sawtooth",
-            TestWaveform::Triangle => "triangle",
-            TestWaveform::WhiteNoise => "white-noise",
-            TestWaveform::PinkNoise => "pink-noise",
-        }
-    }
 }
 
 /// Test signal configuration

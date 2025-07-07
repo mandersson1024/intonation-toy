@@ -85,7 +85,6 @@ impl Component for DebugInterface {
                     
                     // If this is a new grant (or we're not sure), try to connect microphone
                     if !was_granted_before {
-                        let link = ctx.link().clone();
                         wasm_bindgen_futures::spawn_local(async move {
                             match crate::connect_microphone_to_audioworklet().await {
                                 Ok(_) => {

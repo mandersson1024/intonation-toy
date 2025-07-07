@@ -104,6 +104,7 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 }
 
 /// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
+#[cfg(not(test))]
 async fn initialize_audioworklet_manager() -> Result<(), String> {
     dev_log!("Initializing AudioWorklet manager");
     
@@ -274,6 +275,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
 }
 
 /// Publish AudioWorklet status update to Live Data Panel
+#[cfg(not(test))]
 fn publish_audioworklet_status(
     event_dispatcher: &crate::events::AudioEventDispatcher,
     state: audio::worklet::AudioWorkletState,

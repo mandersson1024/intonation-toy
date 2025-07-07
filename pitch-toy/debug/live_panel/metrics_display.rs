@@ -7,8 +7,10 @@ use yew::prelude::*;
 use super::component::PerformanceMetrics;
 
 /// Metrics display utilities
+#[allow(dead_code)]
 pub struct MetricsDisplay;
 
+#[allow(dead_code)]
 impl MetricsDisplay {
     /// Render performance metrics grid
     pub fn render_metrics_grid(metrics: &PerformanceMetrics) -> Html {
@@ -80,12 +82,14 @@ impl MetricsDisplay {
 
 /// Status indicators for metrics
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum MetricStatus {
     Good,
     Warning,
     Critical,
 }
 
+#[allow(dead_code)]
 impl MetricStatus {
     /// Get CSS class for the status
     pub fn css_class(&self) -> &'static str {

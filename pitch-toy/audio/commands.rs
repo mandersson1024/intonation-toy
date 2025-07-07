@@ -928,7 +928,7 @@ impl ConsoleCommand for PipelineDebugCommand {
         }
         
         // Check Pitch Analyzer
-        if let Some(analyzer_rc) = super::commands::get_global_pitch_analyzer() {
+        if let Some(_) = super::commands::get_global_pitch_analyzer() {
             outputs.push(ConsoleOutput::info("Pitch Analyzer: Initialized"));
         } else {
             outputs.push(ConsoleOutput::error("Pitch Analyzer: Not initialized"));

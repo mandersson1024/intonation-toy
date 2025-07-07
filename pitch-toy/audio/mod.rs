@@ -207,7 +207,7 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
             // Subscribe to buffer events for automatic pitch detection
             let analyzer_for_events = analyzer_rc.clone();
             event_dispatcher.borrow_mut().subscribe("buffer_filled", move |event| {
-                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, length } = event {
+                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, length: _ } = event {
                     // Get buffer pool and extract data for pitch analysis
                     if let Some(pool) = get_global_buffer_pool() {
                         let mut pool_borrowed = pool.borrow_mut();
