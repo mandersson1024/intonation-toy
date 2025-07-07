@@ -595,8 +595,6 @@ impl AudioWorkletManager {
                 .map_err(|e| AudioError::Generic(format!("Failed to set frequency: {:?}", e)))?;
             js_sys::Reflect::set(&config_obj, &"amplitude".into(), &config.amplitude.into())
                 .map_err(|e| AudioError::Generic(format!("Failed to set amplitude: {:?}", e)))?;
-            js_sys::Reflect::set(&config_obj, &"noise_level".into(), &config.noise_level.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set noise_level: {:?}", e)))?;
             js_sys::Reflect::set(&config_obj, &"sample_rate".into(), &config.sample_rate.into())
                 .map_err(|e| AudioError::Generic(format!("Failed to set sample_rate: {:?}", e)))?;
             

@@ -213,7 +213,6 @@ impl Component for LivePanel {
                         enabled: config.enabled,
                         frequency: config.frequency,
                         amplitude: config.volume,
-                        noise_level: config.noise_floor,
                         waveform: match config.waveform {
                             super::TestWaveform::Sine => crate::audio::TestWaveform::Sine,
                             super::TestWaveform::Square => crate::audio::TestWaveform::Square,

@@ -25,8 +25,6 @@ pub struct TestSignalGeneratorConfig {
     pub frequency: f32,
     /// Signal amplitude (0.0 - 1.0)
     pub amplitude: f32,
-    /// Background noise level (0.0 - 0.5)
-    pub noise_level: f32,
     /// Waveform type
     pub waveform: TestWaveform,
     /// Sample rate for generation
@@ -50,7 +48,6 @@ impl Default for TestSignalGeneratorConfig {
             enabled: false,
             frequency: 440.0,
             amplitude: 0.3,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         }
@@ -116,12 +113,6 @@ impl TestSignalGenerator {
         
         for _ in 0..chunk_size {
             let mut sample = self.generate_waveform_sample();
-            
-            // Add background noise if configured
-            if self.config.noise_level > 0.0 {
-                let noise = self.generate_white_noise() * self.config.noise_level;
-                sample += noise;
-            }
             
             // Apply amplitude scaling
             sample *= self.config.amplitude;
@@ -216,7 +207,7 @@ impl TestSignalGenerator {
     /// Check if current configuration would produce audible output
     pub fn is_audible(&self) -> bool {
         self.config.enabled && 
-        (self.config.amplitude > 0.001 || self.config.noise_level > 0.001) &&
+        self.config.amplitude > 0.001 &&
         self.config.frequency >= 20.0 && self.config.frequency <= 20000.0
     }
 
@@ -280,7 +271,6 @@ mod tests {
             enabled: true,
             frequency: 440.0,
             amplitude: 1.0,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         };
@@ -302,7 +292,6 @@ mod tests {
             enabled: false,
             frequency: 440.0,
             amplitude: 1.0,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         };
@@ -320,7 +309,6 @@ mod tests {
             enabled: true,
             frequency: 440.0,
             amplitude: 0.5,
-            noise_level: 0.0,
             waveform: TestWaveform::WhiteNoise,
             sample_rate: 48000.0,
         };
@@ -348,7 +336,6 @@ mod tests {
             enabled: true,
             frequency: 1000.0,
             amplitude: 0.5,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         };
@@ -367,7 +354,6 @@ mod tests {
             enabled: true,
             frequency: 440.0,
             amplitude: 0.75,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         };
@@ -416,7 +402,6 @@ mod tests {
             enabled: true,
             frequency: 1000.0,
             amplitude: 0.8,
-            noise_level: 0.1,
             waveform: TestWaveform::Square,
             sample_rate: 44100.0,
         };
@@ -433,7 +418,6 @@ mod tests {
             enabled: true,
             frequency: 1000.0, // 1kHz for easy calculation
             amplitude: 1.0,
-            noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
         };

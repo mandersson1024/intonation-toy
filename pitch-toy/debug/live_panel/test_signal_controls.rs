@@ -68,8 +68,6 @@ pub struct TestSignalConfig {
     pub frequency: f32,
     /// Signal volume (0.0 - 1.0)
     pub volume: f32,
-    /// Noise floor level (0.0 - 0.5)
-    pub noise_floor: f32,
     /// Waveform type
     pub waveform: TestWaveform,
 }
@@ -80,7 +78,6 @@ impl Default for TestSignalConfig {
             enabled: false,
             frequency: 440.0,
             volume: 0.3,
-            noise_floor: 0.0,
             waveform: TestWaveform::Sine,
         }
     }
@@ -113,7 +110,6 @@ pub enum TestSignalMsg {
     ToggleEnabled(bool),
     SetFrequency(f32),
     SetVolume(f32),
-    SetNoiseFloor(f32),
     SetWaveform(TestWaveform),
     UpdateSignal,
 }
@@ -156,11 +152,6 @@ impl Component for TestSignalControls {
             }
             TestSignalMsg::SetVolume(volume) => {
                 self.config.volume = volume.clamp(0.0, 1.0);
-                ctx.props().on_config_change.emit(self.config.clone());
-                true
-            }
-            TestSignalMsg::SetNoiseFloor(noise_floor) => {
-                self.config.noise_floor = noise_floor.clamp(0.0, 0.5);
                 ctx.props().on_config_change.emit(self.config.clone());
                 true
             }
@@ -276,27 +267,6 @@ impl Component for TestSignalControls {
                         </div>
                     </div>
 
-                    // Noise Floor Slider
-                    <div class="control-item">
-                        <span class="control-label">{"Background Noise"}</span>
-                        <div class="control-slider-container">
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="50" 
-                                step="1"
-                                value={(self.config.noise_floor * 100.0).to_string()}
-                                class="control-slider"
-                                disabled={!self.config.enabled}
-                                oninput={link.callback(|e: InputEvent| {
-                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                    let noise = input.value().parse::<f32>().unwrap_or(0.0) / 100.0;
-                                    TestSignalMsg::SetNoiseFloor(noise)
-                                })}
-                            />
-                            <span class="control-value">{format!("{:.0}%", self.config.noise_floor * 100.0)}</span>
-                        </div>
-                    </div>
 
 
                     // Signal Info Display
@@ -316,12 +286,6 @@ impl Component for TestSignalControls {
                                 <span class="info-label">{"Amplitude:"}</span>
                                 <span class="info-value">{format!("{:.1}%", self.config.volume * 100.0)}</span>
                             </div>
-                            if self.config.noise_floor > 0.0 {
-                                <div class="info-item">
-                                    <span class="info-label">{"Noise Level:"}</span>
-                                    <span class="info-value">{format!("{:.1}%", self.config.noise_floor * 100.0)}</span>
-                                </div>
-                            }
                         </div>
                     }
                 </div>
