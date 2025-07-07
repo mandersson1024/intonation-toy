@@ -11,6 +11,7 @@ pub mod common;
 pub mod platform;
 pub mod events;
 pub mod debug;
+pub mod graphics;
 
 use common::dev_log;
 
@@ -86,9 +87,9 @@ fn App() -> Html {
 
 // Note: get_canvas_element() function removed as we now use canvas_ref directly
 
-/// Initialize canvas for wgpu rendering
+/// Initialize canvas for three-d graphics rendering
 fn initialize_canvas(canvas: &HtmlCanvasElement) {
-    dev_log!("Initializing canvas for wgpu rendering");
+    dev_log!("Initializing canvas for three-d graphics rendering");
     
     // Set canvas size to match display size
     let width = canvas.offset_width() as u32;
@@ -99,8 +100,67 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
     
     dev_log!("Canvas initialized: {}x{}", width, height);
     
-    // TODO: Initialize wgpu renderer (future story)
-    // This will be implemented when graphics module is added
+    // Initialize graphics context with fail-fast WebGL detection
+    #[cfg(not(test))]
+    wasm_bindgen_futures::spawn_local({
+        let canvas = canvas.clone();
+        async move {
+            match initialize_graphics_context(&canvas).await {
+                Ok(_) => {
+                    dev_log!("✓ Graphics context initialized successfully");
+                }
+                Err(e) => {
+                    dev_log!("✗ CRITICAL: Graphics context initialization failed: {}", e);
+                    dev_log!("✗ Application cannot continue without WebGL support");
+                    // TODO: Add error screen rendering in future story when UI requirements are defined
+                }
+            }
+        }
+    });
+}
+
+/// Initialize graphics context with fail-fast WebGL detection
+#[cfg(not(test))]
+async fn initialize_graphics_context(canvas: &HtmlCanvasElement) -> Result<(), String> {
+    dev_log!("Initializing graphics context with three-d");
+    
+    // Create context manager
+    let mut context_manager = graphics::ContextManager::new();
+    
+    // Initialize with fail-fast WebGL detection
+    match context_manager.initialize_context(canvas.clone()) {
+        Ok(_) => {
+            dev_log!("✓ WebGL context initialized successfully");
+            
+            // Get the graphics context
+            let graphics_context = context_manager.get_context()
+                .ok_or_else(|| "Graphics context not available after initialization".to_string())?;
+            
+            // Initialize graphics renderer
+            let mut renderer = graphics::GraphicsRenderer::new();
+            renderer.initialize(graphics_context)?;
+            
+            // Initialize uniform manager
+            let mut uniform_manager = graphics::UniformManager::new();
+            uniform_manager.initialize(graphics_context)?;
+            
+            // Initialize render loop
+            let mut render_loop = graphics::RenderLoop::new()
+                .map_err(|e| format!("Failed to create render loop: {:?}", e))?;
+            render_loop.initialize(graphics_context)?;
+            
+            // Render a single test frame
+            render_loop.render_single_frame(graphics_context)?;
+            
+            // TODO: Store graphics components globally for use in render loop
+            // This will be implemented when render loop integration is complete
+            
+            Ok(())
+        }
+        Err(e) => {
+            Err(format!("WebGL context initialization failed: {:?}", e))
+        }
+    }
 }
 
 /// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
