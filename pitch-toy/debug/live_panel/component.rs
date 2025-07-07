@@ -611,22 +611,32 @@ impl LivePanel {
         }
     }
     
-    /// Render animated volume bar for a dB value
-    fn render_volume_bar(db_value: f32, bar_type: &str) -> Html {
-        // Convert dB to percentage (typical range: -60dB to 0dB)
-        let min_db = -60.0;
-        let max_db = 0.0;
-        let percentage = ((db_value - min_db) / (max_db - min_db) * 100.0).max(0.0).min(100.0);
-        
-        // Determine bar color based on level
-        let bar_class = if db_value > -6.0 {
-            "volume-bar-hot"  // Red: Hot/clipping
-        } else if db_value > -18.0 {
-            "volume-bar-warm" // Yellow: Warm/good
-        } else if db_value > -40.0 {
-            "volume-bar-cool" // Green: Cool/safe
+    /// Convert dB to linear amplitude (0.0 - 1.0)
+    fn db_to_amplitude(db: f32) -> f32 {
+        if db == -f32::INFINITY {
+            0.0
         } else {
-            "volume-bar-cold" // Blue: Cold/quiet
+            10.0_f32.powf(db / 20.0)
+        }
+    }
+    
+    /// Render animated volume bar for an amplitude value
+    fn render_volume_bar(db_value: f32, bar_type: &str) -> Html {
+        // Convert dB to amplitude (0.0 - 1.0)
+        let amplitude = Self::db_to_amplitude(db_value);
+        
+        // Convert amplitude to percentage (0-100%)
+        let percentage = (amplitude * 100.0).max(0.0).min(100.0);
+        
+        // Determine bar color based on amplitude level
+        let bar_class = if amplitude > 0.5 {
+            "volume-bar-hot"  // Red: High amplitude (>50%)
+        } else if amplitude > 0.25 {
+            "volume-bar-warm" // Yellow: Medium amplitude (25-50%)
+        } else if amplitude > 0.1 {
+            "volume-bar-cool" // Green: Low amplitude (10-25%)
+        } else {
+            "volume-bar-cold" // Blue: Very low amplitude (<10%)
         };
         
         html! {
@@ -637,11 +647,11 @@ impl LivePanel {
                         style={format!("width: {}%", percentage)}
                     >
                     </div>
-                    // Add level markers
+                    // Add level markers for amplitude percentages
                     <div class="volume-bar-markers">
-                        <div class="volume-marker volume-marker-cold" style="left: 33.3%"></div>   // -40dB
-                        <div class="volume-marker volume-marker-cool" style="left: 70%"></div>     // -18dB
-                        <div class="volume-marker volume-marker-warm" style="left: 90%"></div>     // -6dB
+                        <div class="volume-marker volume-marker-cold" style="left: 10%"></div>   // 10% amplitude
+                        <div class="volume-marker volume-marker-cool" style="left: 25%"></div>    // 25% amplitude
+                        <div class="volume-marker volume-marker-warm" style="left: 50%"></div>    // 50% amplitude
                     </div>
                 </div>
             </div>
