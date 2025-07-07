@@ -13,13 +13,40 @@ Pitch Toy is a high-performance, browser-based real-time pitch detection and vis
 3. **Performance Isolation**: GPU rendering isolated from audio processing to prevent interference
 4. **Modular Development**: Each component can be developed and tested independently
 5. **Configuration-Driven**: Build profiles and feature flags control development vs. production behavior
-6. **YAGNI Compliance**: Follow "You Aren't Gonna Need It" principle - implement only what's needed now (see [Coding Standards](architecture/coding-standards.md#yagni-you-arent-gonna-need-it))
+6. **2D Graphics Constraint**: All visualizations and user interfaces use 2D graphics only - no 3D rendering, modeling, or spatial transformations
+7. **YAGNI Compliance**: Follow "You Aren't Gonna Need It" principle - implement only what's needed now (see [Coding Standards](architecture/coding-standards.md#yagni-you-arent-gonna-need-it))
 
 ### Key Performance Targets
 
 - **Audio Latency**: ≤30ms (production), ≤50ms (development)
 - **Graphics Performance**: Consistent 60fps rendering
 - **Memory Usage**: ≤50MB GPU memory, ≤100KB audio buffers
+
+## Graphics Architecture Constraints
+
+### 2D Graphics Only Policy
+
+**CRITICAL CONSTRAINT**: This application uses **2D graphics exclusively**. All visual elements, user interfaces, and data visualizations are implemented using 2D rendering techniques only.
+
+#### Prohibited 3D Elements
+- **3D Models**: No 3D geometric models, meshes, or polygonal structures
+- **3D Transformations**: No rotation, scaling, or translation in 3D space
+- **3D Lighting**: No 3D lighting models, shaders, or depth-based effects
+- **3D Spatial Navigation**: No camera controls, 3D scene navigation, or perspective views
+
+#### Permitted 2D Techniques
+- **Flat Visualizations**: 2D charts, graphs, waveforms, and frequency displays
+- **2D Animations**: Transitions, scaling, rotation, and movement in 2D plane
+- **2D UI Elements**: Buttons, sliders, panels, and interface components
+- **2D Effects**: Color gradients, transparency, and 2D visual filters
+
+#### Implementation Guidelines
+- **three-d Engine**: Use only 2D rendering capabilities of the three-d engine
+- **WebGL Context**: Leverage WebGL for 2D GPU acceleration, not 3D rendering
+- **Shader Programs**: Write GLSL shaders for 2D effects and transformations only
+- **Performance**: Optimize for 2D rendering performance, not 3D complexity
+
+This constraint ensures focused development on pitch detection and audio visualization without the complexity of 3D graphics programming.
 
 ## System Architecture
 
@@ -482,12 +509,14 @@ This architecture leverages the strengths of both JavaScript (real-time audio I/
 ##### Graphics Renderer (three-d) - PRIMARY USER INTERFACE
 - **Responsibilities**:
   - **ALL end-user interface rendering** - No HTML/CSS for production UI
-  - GPU-accelerated rendering pipeline for complete user experience
-  - Immersive full-screen visualizations
-  - Interactive GPU-rendered controls (buttons, sliders, theme selection)
+  - GPU-accelerated 2D rendering pipeline for complete user experience
+  - Full-screen 2D visualizations and interfaces
+  - Interactive 2D GPU-rendered controls (buttons, sliders, theme selection)
   - 60fps performance with adaptive resolution
-- **Capabilities**: WebGL-based graphics via three-d engine
-- **Critical Constraint**: HTML/CSS forbidden for end-user interface elements
+- **Capabilities**: WebGL-based 2D graphics via three-d engine (2D mode only)
+- **Critical Constraints**: 
+  - HTML/CSS forbidden for end-user interface elements
+  - **2D Graphics Only**: No 3D rendering, modeling, or spatial transformations
 
 #### 4. Development Infrastructure
 
@@ -666,9 +695,9 @@ The platform validation system checks each required API during application start
 - **rustfft 6.0**: Fast Fourier Transform library
 
 #### Graphics Rendering
-- **three-d 0.17**: High-level 3D graphics engine
-- **WebGL**: Cross-platform browser graphics API
-- **GLSL**: OpenGL Shading Language for GPU shaders
+- **three-d 0.17**: High-level graphics engine (2D mode only)
+- **WebGL**: Cross-platform browser graphics API (2D rendering only)
+- **GLSL**: OpenGL Shading Language for 2D GPU shaders
 
 #### Browser Integration
 - **web-sys 0.3**: Web API bindings for Rust
@@ -782,7 +811,7 @@ The platform validation system checks each required API during application start
 
 ### Planned Features
 - **Additional Tuning Systems**: Historical temperaments, microtonal scales
-- **Advanced Visualizations**: 3D spectrum analysis, harmonic visualization
+- **Advanced Visualizations**: Enhanced 2D spectrum analysis, harmonic visualization
 - **Audio Export**: Recording and analysis export capabilities
 - **MIDI Integration**: MIDI input support for instrument integration
 - **Plugin Architecture**: Extensible audio processing plugins

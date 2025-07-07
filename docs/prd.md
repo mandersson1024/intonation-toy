@@ -6,7 +6,7 @@
 
 - Deliver a high-performance, real-time pitch detection web application built with Rust/WebAssembly
 - Provide accurate pitch feedback with confidence scoring for audio enthusiasts
-- Create GPU-powered visualization experience with 60fps performance using three-d graphics engine
+- Create GPU-powered 2D visualization experience with 60fps performance using three-d graphics engine
 - Establish comprehensive development tools and debugging capabilities
 - Enable cross-platform browser compatibility with no installation requirements
 - Support extensible architecture for future audio processing enhancements
@@ -23,6 +23,7 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 | 2025-06-29 | 1.0 | Initial PRD creation | John (PM) |
 | 2025-07-01 | 1.1 | Added Platform Requirements & fail-fast policy for critical browser APIs | Sarah (PO) |
 | 2025-07-02 | 1.2 | Updated graphics stack from wgpu to three-d, changed WebGPU requirement to WebGL | Sarah (PO) |
+| 2025-07-07 | 1.3 | Updated PRD to specify 2D graphics only constraint across all sections | Sarah (PO) |
 
 ## Requirements
 
@@ -55,16 +56,16 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 
 ### Overall UX Vision
 
-Create a **fully immersive, GPU-rendered** real-time pitch detection interface that provides immediate visual feedback for audio input. **All end-user interactions must be rendered via GPU graphics using three-d** - HTML/CSS is strictly limited to development tools (console and debug overlay). The interface should prioritize performance and responsiveness while offering comprehensive development tools for debugging and configuration.
+Create a **fully immersive, GPU-rendered 2D** real-time pitch detection interface that provides immediate visual feedback for audio input. **All end-user interactions must be rendered via 2D GPU graphics using three-d** - HTML/CSS is strictly limited to development tools (console and debug overlay). The interface should prioritize performance and responsiveness while offering comprehensive development tools for debugging and configuration.
 
 ### Critical UI Architecture Constraint
 
-**GPU-Only End-User Interface**: All user-facing controls, visualizations, and interactions must be rendered through the three-d graphics pipeline. HTML/CSS usage is restricted to:
+**GPU-Only End-User Interface (2D Graphics Only)**: All user-facing controls, visualizations, and interactions must be rendered through the three-d graphics pipeline using 2D rendering techniques only. HTML/CSS usage is restricted to:
 - Development Console (Yew component for debugging)
 - Debug Overlay (Yew component for performance metrics)
 - Development-only tools and metering
 
-**No HTML/CSS for Production UI**: Theme switching, pitch visualization, volume controls, and all user interactions must be implemented as GPU-rendered elements, not DOM elements.
+**No HTML/CSS for Production UI**: Theme switching, pitch visualization, volume controls, and all user interactions must be implemented as 2D GPU-rendered elements, not DOM elements.
 
 ### Key Interaction Paradigms
 
@@ -75,10 +76,10 @@ Create a **fully immersive, GPU-rendered** real-time pitch detection interface t
 
 ### Core Screens and Views
 
-- **Main Pitch Visualization** (GPU-rendered): Immersive real-time pitch detection display with note identification and frequency information
+- **Main Pitch Visualization** (2D GPU-rendered): Immersive real-time 2D pitch detection display with note identification and frequency information
 - **Development Console** (HTML/Yew): Interactive command-line interface for debugging and configuration (development builds only)
 - **Performance Metrics Display** (HTML/Yew): Real-time monitoring of frame rate, latency, and resource usage (development builds only)
-- **Theme Selection Interface** (GPU-rendered): GPU-rendered controls for switching between available visual themes
+- **Theme Selection Interface** (2D GPU-rendered): 2D GPU-rendered controls for switching between available visual themes
 
 ### Accessibility: WCAG 2.1 AA
 
@@ -138,7 +139,7 @@ This structure enables independent crate development, testing isolation, depende
 
 ### Service Architecture
 
-Client-side only application with no backend dependencies. All processing occurs in the browser using WebAssembly modules for audio processing and three-d for GPU-accelerated graphics rendering.
+Client-side only application with no backend dependencies. All processing occurs in the browser using WebAssembly modules for audio processing and three-d for GPU-accelerated 2D graphics rendering.
 
 ### Testing Requirements
 
@@ -167,7 +168,7 @@ Client-side only application with no backend dependencies. All processing occurs
 
 - Build system uses Trunk for WebAssembly bundling with separate development and production configurations as specified
 - Audio processing leverages AudioWorklet for low-latency real-time processing
-- Graphics rendering uses three-d engine for WebGL-based GPU acceleration
+- Graphics rendering uses three-d engine for WebGL-based 2D GPU acceleration
 - Development environment includes comprehensive debugging tools and interactive console
 - No external dependencies or network requests required for core functionality
 - **Event-driven architecture with typed events through Event Dispatcher** ➜ **MANDATORY system-wide event-driven architecture using strongly-typed events and the central Event Dispatcher for ALL inter-module communication (audio, graphics, UI, configuration, etc.)**
@@ -328,19 +329,19 @@ so that I can provide visualization data.
 
 ## Epic 3 - Visual Presentation System
 
-Create the GPU-powered graphics rendering system using three-d and implement real-time pitch visualization. This epic establishes the visual presentation layer.
+Create the GPU-powered 2D graphics rendering system using three-d and implement real-time pitch visualization. This epic establishes the visual presentation layer.
 
-### Story 3.1 - three-d Graphics Pipeline Setup
+### Story 3.1 - three-d 2D Graphics Pipeline Setup
 
 As a developer,
-I want a GPU-accelerated rendering pipeline using three-d,
-so that I can create smooth 60fps visualizations that respond to real-time audio data.
+I want a GPU-accelerated 2D rendering pipeline using three-d,
+so that I can create smooth 60fps 2D visualizations that respond to real-time audio data.
 
 #### Acceptance Criteria
 
-- 1: three-d context and canvas initialized for WebGL rendering
-- 2: Basic render pipeline created using three-d objects and materials
-- 3: Uniform data management for passing audio data to GPU
+- 1: three-d context and canvas initialized for WebGL 2D rendering
+- 2: Basic 2D render pipeline created using three-d objects and materials
+- 3: Uniform data management for passing audio data to GPU for 2D visualization
 - 4: Frame timing ensures consistent 60fps rendering performance
 - 5: Canvas resizing handled properly for responsive design
 - 6: Error handling for WebGL context initialization and context loss
@@ -355,7 +356,7 @@ so that visualizations update efficiently based on audio data changes.
 
 - 1: Graphics renderer subscribes to PitchEvent and VolumeEvent types
 - 2: Event-driven rendering updates rather than continuous polling
-- 3: Render commands generated from audio events for GPU processing
+- 3: Render commands generated from audio events for 2D GPU processing
 - 4: Frame-rate independent animation with proper time-based interpolation
 - 5: Background rendering continues even when no audio events occur
 - 6: Memory management prevents texture and buffer leaks during operation
@@ -400,7 +401,7 @@ so that I can manage complex visualizations and maintain performance targets.
 
 - 1: Presentation layer component coordinates between audio events and graphics rendering
 - 2: State management for current pitch, volume, and visualization parameters
-- 3: Render command generation for GPU graphics pipeline
+- 3: Render command generation for 2D GPU graphics pipeline
 - 4: Animation coordination and timing management
 - 5: Interface with Theme Manager for visual customization
 - 6: Performance monitoring to maintain 60fps target
