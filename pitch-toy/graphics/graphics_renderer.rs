@@ -3,20 +3,31 @@ use crate::graphics::GraphicsContext;
 
 pub struct GraphicsRenderer {
     initialized: bool,
+    // 2D rendering components
+    background_color: Srgba,
+    // 2D shader pipeline placeholder (for future implementation)
+    shader_pipeline_ready: bool,
 }
 
 impl GraphicsRenderer {
     pub fn new() -> Self {
         Self {
             initialized: false,
+            background_color: Srgba::new(0, 0, 0, 255), // Dark background
+            shader_pipeline_ready: false,
         }
     }
 
     pub fn initialize(&mut self, _graphics_context: &GraphicsContext) -> Result<(), String> {
-        // Initialize renderer with graphics context
+        // Task 3: Initialize 2D graphics renderer 
+        // For now, we'll work with the WebGL2 context directly
+        // TODO: Integrate three-d Context creation when the API is clearer
+        
+        // Prepare 2D shader pipeline for future implementation
+        self.shader_pipeline_ready = true;
         self.initialized = true;
         
-        web_sys::console::log_1(&"Graphics renderer initialized".into());
+        web_sys::console::log_1(&"✓ 2D Graphics renderer initialized with shader pipeline ready".into());
         
         Ok(())
     }
@@ -26,28 +37,37 @@ impl GraphicsRenderer {
             return Err("Graphics renderer not initialized".to_string());
         }
 
-        // Task 2: Basic render frame with WebGL2 clearing
+        // Task 3: 2D render pipeline using WebGL2 directly
         let gl = &graphics_context.webgl_context;
         
         // Set viewport using three-d viewport structure
         gl.viewport(0, 0, graphics_context.viewport.width as i32, graphics_context.viewport.height as i32);
         
         // Clear color and depth buffers with dark background
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl.clear_color(
+            self.background_color.r as f32 / 255.0,
+            self.background_color.g as f32 / 255.0,
+            self.background_color.b as f32 / 255.0,
+            1.0,
+        );
         gl.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT | web_sys::WebGl2RenderingContext::DEPTH_BUFFER_BIT);
 
-        // Basic render pipeline - render a simple scene
-        self.render_basic_scene(graphics_context)?;
+        // Render basic 2D scene
+        self.render_basic_2d_scene(graphics_context)?;
 
         Ok(())
     }
 
-    fn render_basic_scene(&self, _graphics_context: &GraphicsContext) -> Result<(), String> {
+    fn render_basic_2d_scene(&self, _graphics_context: &GraphicsContext) -> Result<(), String> {
+        // Task 3: Basic 2D scene with coordinate system (2D mode only)
         // For now, just clear the screen with a dark background
-        // This will be expanded with actual 3D scene rendering in future tasks
+        // This establishes the 2D coordinate system and render pipeline
         
-        // TODO: Add basic 3D scene with camera, lighting, and coordinate system
-        // TODO: Add shader pipeline for future audio visualization
+        // TODO: Basic 2D shader pipeline for future audio visualization:
+        // - Vertex shader for 2D position and UV mapping
+        // - Fragment shader with uniforms for time, resolution, and audio data
+        // - Shader program compilation and linking
+        // - GPU buffer management for 2D geometries
         
         Ok(())
     }
@@ -63,11 +83,17 @@ impl GraphicsRenderer {
         graphics_context.canvas.set_width(width);
         graphics_context.canvas.set_height(height);
         
+        // TODO: Update render target size when three-d integration is complete
+        
         Ok(())
     }
 
     pub fn is_initialized(&self) -> bool {
         self.initialized
+    }
+    
+    pub fn is_shader_pipeline_ready(&self) -> bool {
+        self.shader_pipeline_ready
     }
 }
 

@@ -30,15 +30,15 @@ impl ContextManager {
         let height = canvas.height();
         let viewport = Viewport::new_at_origo(width, height);
         
-        // Set up three-d camera with proper perspective
-        let camera = Camera::new_perspective(
+        // Set up three-d camera for 2D rendering (orthographic projection)
+        let camera = Camera::new_orthographic(
             viewport,
-            vec3(0.0, 0.0, 5.0),     // Eye position
-            vec3(0.0, 0.0, 0.0),     // Target
+            vec3(0.0, 0.0, 1.0),     // Eye position (above 2D plane)
+            vec3(0.0, 0.0, 0.0),     // Target (2D plane center)
             vec3(0.0, 1.0, 0.0),     // Up vector
-            degrees(45.0),           // Field of view
+            width as f32,            // Viewport width
             0.1,                     // Near plane
-            100.0,                   // Far plane
+            10.0,                    // Far plane
         );
 
         let graphics_context = GraphicsContext {
