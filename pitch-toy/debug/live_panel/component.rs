@@ -212,7 +212,6 @@ impl Component for LivePanel {
                             super::TestWaveform::PinkNoise => crate::audio::TestWaveform::PinkNoise,
                         },
                         sample_rate: 48000.0, // Use standard sample rate
-                        output_to_speakers: config.output_to_speakers,
                     };
                     
                     worklet.update_test_signal_config(audio_config);

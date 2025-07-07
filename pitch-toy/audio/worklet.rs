@@ -159,6 +159,8 @@ pub struct AudioWorkletManager {
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     // Audio context for test signal output
     audio_context: Option<AudioContext>,
+    // Whether to output audio stream to speakers
+    output_to_speakers: bool,
 }
 
 impl AudioWorkletManager {
@@ -176,6 +178,7 @@ impl AudioWorkletManager {
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
+            output_to_speakers: false,
         }
     }
     
@@ -193,6 +196,7 @@ impl AudioWorkletManager {
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
+            output_to_speakers: false,
         }
     }
     
@@ -733,13 +737,6 @@ impl AudioWorkletManager {
             // Create new generator if none exists
             self.test_signal_generator = Some(TestSignalGenerator::new(config.clone()));
         }
-        
-        // Handle audio output to speakers
-        if config.output_to_speakers && config.enabled {
-            self.start_audio_output(config.frequency, config.amplitude);
-        } else {
-            self.stop_audio_output();
-        }
     }
 
     /// Get current test signal generator configuration
@@ -768,47 +765,54 @@ impl AudioWorkletManager {
         }
     }
 
-    /// Check if test signal should output to speakers
-    pub fn should_output_test_signal_to_speakers(&self) -> bool {
-        if let Some(generator) = &self.test_signal_generator {
-            let config = generator.config();
-            config.enabled && config.output_to_speakers
-        } else {
-            false
+    /// Set whether to output audio stream to speakers
+    pub fn set_output_to_speakers(&mut self, enabled: bool) {
+        if self.output_to_speakers != enabled {
+            self.output_to_speakers = enabled;
+            if enabled {
+                self.start_audio_output_stream();
+            } else {
+                self.stop_audio_output_stream();
+            }
         }
     }
 
-    /// Start audio output to speakers for test signal
-    fn start_audio_output(&mut self, frequency: f32, amplitude: f32) {
+    /// Check if output to speakers is enabled
+    pub fn is_output_to_speakers_enabled(&self) -> bool {
+        self.output_to_speakers
+    }
+
+
+    /// Start audio output stream to speakers
+    fn start_audio_output_stream(&mut self) {
         if let Some(ref _audio_context) = self.audio_context {
-            // Get waveform type from generator config
-            let waveform = if let Some(generator) = &self.test_signal_generator {
-                &generator.config().waveform
-            } else {
-                &TestWaveform::Sine
-            };
-            
             // For now, just log that we would start audio output
             // The actual Web Audio API oscillator implementation requires more complex handling
-            if !matches!(waveform, TestWaveform::WhiteNoise | TestWaveform::PinkNoise) {
-                dev_log!("✓ Test signal audio output configured: {:?} {:.1} Hz at {:.1}% volume", waveform, frequency, amplitude * 100.0);
-                dev_log!("Note: Full oscillator implementation requires additional Web Audio API bindings");
-            } else {
-                dev_log!("✓ Noise signals are generated internally and mixed with input audio");
-            }
+            dev_log!("✓ Audio output stream to speakers started");
+            dev_log!("Note: Full Web Audio API implementation requires additional audio routing");
         } else {
-            dev_log!("✗ No audio context available for test signal output");
+            dev_log!("✗ No audio context available for audio output");
         }
     }
 
-    /// Stop audio output to speakers
-    fn stop_audio_output(&mut self) {
-        dev_log!("✓ Test signal audio output stopped");
+    /// Stop audio output stream to speakers
+    fn stop_audio_output_stream(&mut self) {
+        dev_log!("✓ Audio output stream to speakers stopped");
     }
 
     /// Update audio output parameters (frequency and amplitude)
     fn update_audio_output(&mut self, frequency: f32, amplitude: f32) {
         dev_log!("✓ Test signal audio output updated: {:.1} Hz at {:.1}% volume", frequency, amplitude * 100.0);
+    }
+
+    /// Route audio samples to speakers
+    fn route_to_speakers(&self, samples: &[f32]) {
+        // For now, just log that we would route audio to speakers
+        // The actual Web Audio API implementation requires creating audio graph connections
+        if samples.len() > 0 {
+            let rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
+            dev_log!("🔊 Routing audio to speakers: RMS={:.3}", rms);
+        }
     }
 
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
@@ -824,20 +828,14 @@ impl AudioWorkletManager {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
         }
 
-        // Mix input samples with test signal if enabled
-        let mut processed_samples = samples.to_vec();
-        if let Some(test_signal_chunk) = self.generate_test_signal_chunk() {
-            for (i, test_sample) in test_signal_chunk.iter().enumerate() {
-                if i < processed_samples.len() {
-                    // Mix test signal with input (if test signal is enabled, it typically replaces input)
-                    processed_samples[i] = if self.is_test_signal_enabled() {
-                        *test_sample // Replace input with test signal
-                    } else {
-                        processed_samples[i] + test_sample // Mix with input
-                    };
-                }
-            }
-        }
+        // Select between test signal and mic input for the main audio stream
+        let processed_samples = if let Some(test_signal_chunk) = self.generate_test_signal_chunk() {
+            // Test signal is enabled - replace mic input with test signal
+            test_signal_chunk
+        } else {
+            // Use mic input
+            samples.to_vec()
+        };
 
         // Get timestamp for volume analysis
         let timestamp = timestamp.unwrap_or_else(|| {
@@ -953,6 +951,11 @@ impl AudioWorkletManager {
                 };
                 dispatcher.borrow().publish(&metrics_event);
             }
+        }
+
+        // Route audio to speakers if enabled
+        if self.output_to_speakers {
+            self.route_to_speakers(&processed_samples);
         }
 
         Ok(())
