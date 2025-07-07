@@ -224,7 +224,7 @@ impl Component for TestSignalControls {
                 <div class="test-signal-controls">
 
                     // Frequency Slider
-                    <div class="control-item">
+                    <div class="control-item control-range">
                         <span class="control-label">{"Frequency"}</span>
                         <div class="control-slider-container">
                             <input 
@@ -245,7 +245,7 @@ impl Component for TestSignalControls {
                     </div>
 
                     // Volume Slider
-                    <div class="control-item">
+                    <div class="control-item control-range">
                         <span class="control-label">{"Volume"}</span>
                         <div class="control-slider-container">
                             <input 

@@ -80,3 +80,26 @@ span.status-inactive {
     font-style: italic !important; /* Italic font */
     font-weight: 400;
 }
+
+/* Control range styling - label and slider on same row */
+.control-item.control-range {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    justify-content: space-between !important;
+}
+
+.control-item.control-range .control-label {
+    min-width: 120px !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.control-item.control-range .control-slider-container {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 0 !important;
+}
