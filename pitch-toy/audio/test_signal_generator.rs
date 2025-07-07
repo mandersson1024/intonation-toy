@@ -33,6 +33,17 @@ pub struct TestSignalGeneratorConfig {
     pub sample_rate: f32,
 }
 
+/// Configuration for background noise generation
+#[derive(Debug, Clone)]
+pub struct BackgroundNoiseConfig {
+    /// Whether background noise is enabled
+    pub enabled: bool,
+    /// Noise level (0.0 - 1.0)
+    pub level: f32,
+    /// Type of noise to generate
+    pub noise_type: TestWaveform, // Reuse TestWaveform for WhiteNoise, PinkNoise
+}
+
 impl Default for TestSignalGeneratorConfig {
     fn default() -> Self {
         Self {
@@ -42,6 +53,16 @@ impl Default for TestSignalGeneratorConfig {
             noise_level: 0.0,
             waveform: TestWaveform::Sine,
             sample_rate: 48000.0,
+        }
+    }
+}
+
+impl Default for BackgroundNoiseConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            level: 0.0,
+            noise_type: TestWaveform::WhiteNoise,
         }
     }
 }

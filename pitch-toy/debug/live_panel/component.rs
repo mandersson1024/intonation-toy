@@ -11,7 +11,7 @@ use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
 use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
-use super::{TestSignalControls, TestSignalConfig};
+use super::{TestSignalControls, TestSignalConfig, BackgroundNoiseConfig, TestWaveform};
 
 /// Properties for the LivePanel component
 #[derive(Properties)]
@@ -114,6 +114,8 @@ pub struct LivePanel {
     audioworklet_status: AudioWorkletStatus,
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
+    /// Background noise configuration
+    background_noise_config: BackgroundNoiseConfig,
     /// Whether output to speakers is enabled
     output_to_speakers: bool,
     /// Performance monitoring interval
@@ -137,6 +139,8 @@ pub enum LivePanelMsg {
     UpdateAudioWorkletStatus(AudioWorkletStatus),
     /// Update test signal configuration
     UpdateTestSignalConfig(TestSignalConfig),
+    /// Update background noise configuration
+    UpdateBackgroundNoiseConfig(BackgroundNoiseConfig),
     /// Toggle output to speakers
     ToggleOutputToSpeakers(bool),
 }
@@ -154,6 +158,7 @@ impl Component for LivePanel {
             pitch_data: None,
             audioworklet_status: AudioWorkletStatus::default(),
             test_signal_config: TestSignalConfig::default(),
+            background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
             _performance_interval: None,
         };
@@ -225,6 +230,29 @@ impl Component for LivePanel {
                 
                 true
             }
+            LivePanelMsg::UpdateBackgroundNoiseConfig(config) => {
+                self.background_noise_config = config.clone();
+                
+                // Apply background noise configuration to audio system
+                if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    
+                    // Convert UI config to audio system config
+                    let audio_config = crate::audio::BackgroundNoiseConfig {
+                        enabled: config.enabled,
+                        level: config.level,
+                        noise_type: match config.noise_type {
+                            super::TestWaveform::WhiteNoise => crate::audio::TestWaveform::WhiteNoise,
+                            super::TestWaveform::PinkNoise => crate::audio::TestWaveform::PinkNoise,
+                            _ => crate::audio::TestWaveform::WhiteNoise, // Default to white noise
+                        },
+                    };
+                    
+                    worklet.update_background_noise_config(audio_config.clone());
+                }
+                
+                true
+            }
             LivePanelMsg::ToggleOutputToSpeakers(enabled) => {
                 self.output_to_speakers = enabled;
                 
@@ -255,6 +283,7 @@ impl Component for LivePanel {
                     {self.render_device_list()}
                     {self.render_audioworklet_status()}
                     {self.render_test_signal_controls(ctx)}
+                    {self.render_background_noise_controls(ctx)}
                     {self.render_global_audio_controls(ctx)}
                     {self.render_performance_metrics()}
                     {self.render_volume_level()}
@@ -630,6 +659,102 @@ impl LivePanel {
                 config={self.test_signal_config.clone()}
                 on_config_change={on_config_change}
             />
+        }
+    }
+
+    /// Render background noise controls
+    fn render_background_noise_controls(&self, ctx: &Context<Self>) -> Html {
+        let link = ctx.link();
+        
+        html! {
+            <div class="live-panel-section">
+                <h4 class="live-panel-section-title">{"Background Noise"}</h4>
+                <div class="background-noise-controls">
+                    <div class="control-item control-toggle">
+                        <label class="control-label">
+                            <input 
+                                type="checkbox" 
+                                checked={self.background_noise_config.enabled}
+                                onchange={{
+                                    let current_config = self.background_noise_config.clone();
+                                    link.callback(move |e: Event| {
+                                        let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                        let mut config = current_config.clone();
+                                        config.enabled = input.checked();
+                                        if config.enabled && config.level == 0.0 {
+                                            config.level = 0.1; // Set default level when first enabled
+                                        }
+                                        LivePanelMsg::UpdateBackgroundNoiseConfig(config)
+                                    })
+                                }}
+                                class="control-checkbox"
+                            />
+                            <span class="control-text">{"Enable Background Noise"}</span>
+                        </label>
+                    </div>
+                    
+                    {if self.background_noise_config.enabled {
+                        html! {
+                            <>
+                                <div class="control-item control-range">
+                                    <label class="control-label" for="bg-noise-level">{"Noise Level"}</label>
+                                    <input 
+                                        type="range" 
+                                        id="bg-noise-level"
+                                        min="0.0" 
+                                        max="1.0" 
+                                        step="0.01"
+                                        value={self.background_noise_config.level.to_string()}
+                                        oninput={{
+                                            let current_config = self.background_noise_config.clone();
+                                            link.callback(move |e: InputEvent| {
+                                                let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                                let level = input.value().parse::<f32>().unwrap_or(0.0);
+                                                let mut config = current_config.clone();
+                                                config.level = level;
+                                                LivePanelMsg::UpdateBackgroundNoiseConfig(config)
+                                            })
+                                        }}
+                                        class="control-slider"
+                                    />
+                                    <span class="control-value">{format!("{:.2}", self.background_noise_config.level)}</span>
+                                </div>
+                                
+                                <div class="control-item control-select">
+                                    <label class="control-label" for="bg-noise-type">{"Noise Type"}</label>
+                                    <select 
+                                        id="bg-noise-type"
+                                        value={match self.background_noise_config.noise_type {
+                                            TestWaveform::WhiteNoise => "white-noise",
+                                            TestWaveform::PinkNoise => "pink-noise",
+                                            _ => "white-noise",
+                                        }}
+                                        onchange={{
+                                            let current_config = self.background_noise_config.clone();
+                                            link.callback(move |e: Event| {
+                                                let select: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                                let noise_type = match select.value().as_str() {
+                                                    "pink-noise" => TestWaveform::PinkNoise,
+                                                    _ => TestWaveform::WhiteNoise,
+                                                };
+                                                let mut config = current_config.clone();
+                                                config.noise_type = noise_type;
+                                                LivePanelMsg::UpdateBackgroundNoiseConfig(config)
+                                            })
+                                        }}
+                                        class="control-dropdown"
+                                    >
+                                        <option value="white-noise">{"White Noise"}</option>
+                                        <option value="pink-noise">{"Pink Noise"}</option>
+                                    </select>
+                                </div>
+                            </>
+                        }
+                    } else {
+                        html! {}
+                    }}
+                </div>
+            </div>
         }
     }
 

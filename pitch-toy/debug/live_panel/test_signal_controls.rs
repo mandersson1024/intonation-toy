@@ -86,6 +86,27 @@ impl Default for TestSignalConfig {
     }
 }
 
+/// Background noise configuration for UI
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundNoiseConfig {
+    /// Whether background noise is enabled
+    pub enabled: bool,
+    /// Noise level (0.0 - 1.0)
+    pub level: f32,
+    /// Type of noise
+    pub noise_type: TestWaveform, // Only WhiteNoise and PinkNoise are valid
+}
+
+impl Default for BackgroundNoiseConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            level: 0.0,
+            noise_type: TestWaveform::WhiteNoise,
+        }
+    }
+}
+
 /// Messages for test signal controls
 #[derive(Debug)]
 pub enum TestSignalMsg {

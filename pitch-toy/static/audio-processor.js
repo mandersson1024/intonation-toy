@@ -35,9 +35,15 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             enabled: false,
             frequency: 440.0,
             amplitude: 0.3,
-            noise_level: 0.0,
             waveform: 'sine',
             sample_rate: 48000.0
+        };
+        
+        // Background noise configuration (independent of test signal)
+        this.backgroundNoiseConfig = {
+            enabled: false,
+            level: 0.0,
+            type: 'white_noise'  // white_noise, pink_noise
         };
         
         // Test signal generation state
@@ -105,6 +111,18 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 }
                 break;
                 
+            case 'updateBackgroundNoiseConfig':
+                if (message.config) {
+                    this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...message.config };
+                    console.log('PitchDetectionProcessor: Background noise config updated:', this.backgroundNoiseConfig);
+                    this.port.postMessage({
+                        type: 'backgroundNoiseConfigUpdated',
+                        config: this.backgroundNoiseConfig,
+                        timestamp: this.currentTime || 0
+                    });
+                }
+                break;
+                
             default:
                 console.warn('PitchDetectionProcessor: Unknown message type:', message.type);
         }
@@ -154,12 +172,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     sample = Math.sin(this.testSignalPhase);
             }
             
-            // Add background noise if configured
-            if (config.noise_level > 0.0) {
-                const noise = (Math.random() * 2.0 - 1.0) * config.noise_level;
-                sample += noise;
-            }
-            
             // Apply amplitude scaling
             sample *= config.amplitude;
             
@@ -175,6 +187,47 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             if (this.testSignalPhase >= 2 * Math.PI) {
                 this.testSignalPhase -= 2 * Math.PI;
             }
+        }
+        
+        return samples;
+    }
+    
+    /**
+     * Generate background noise samples
+     * @param {number} numSamples - Number of samples to generate
+     * @returns {Float32Array} - Generated background noise samples
+     */
+    generateBackgroundNoise(numSamples) {
+        const samples = new Float32Array(numSamples);
+        const config = this.backgroundNoiseConfig;
+        
+        if (!config.enabled || config.level <= 0.0) {
+            return samples; // Return silence if disabled or level is 0
+        }
+        
+        for (let i = 0; i < numSamples; i++) {
+            let sample = 0.0;
+            
+            // Generate noise based on type
+            switch (config.type) {
+                case 'white_noise':
+                    sample = (Math.random() * 2.0 - 1.0);
+                    break;
+                case 'pink_noise':
+                    // Simplified pink noise approximation
+                    sample = (Math.random() * 2.0 - 1.0) * 0.5;
+                    break;
+                default:
+                    sample = (Math.random() * 2.0 - 1.0); // Default to white noise
+            }
+            
+            // Apply level scaling
+            sample *= config.level;
+            
+            // Clamp to valid range
+            sample = Math.max(-1.0, Math.min(1.0, sample));
+            
+            samples[i] = sample;
         }
         
         return samples;
@@ -244,6 +297,19 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         } else {
             // Use microphone input
             processedAudio = new Float32Array(inputChannel);
+        }
+        
+        // Generate and mix background noise (independent of test signal/mic)
+        if (this.backgroundNoiseConfig.enabled) {
+            const backgroundNoise = this.generateBackgroundNoise(this.chunkSize);
+            
+            // Mix background noise with the processed audio
+            for (let i = 0; i < this.chunkSize; i++) {
+                processedAudio[i] += backgroundNoise[i];
+                
+                // Clamp to valid range to prevent clipping
+                processedAudio[i] = Math.max(-1.0, Math.min(1.0, processedAudio[i]));
+            }
         }
         
         // Pass-through processed audio to output

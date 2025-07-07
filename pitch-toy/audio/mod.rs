@@ -269,7 +269,7 @@ pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
-pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform};
+pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
 
 #[cfg(test)]
 mod tests {

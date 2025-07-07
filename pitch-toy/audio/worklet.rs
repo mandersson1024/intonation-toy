@@ -50,7 +50,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -155,6 +155,7 @@ pub struct AudioWorkletManager {
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     test_signal_generator: Option<TestSignalGenerator>,
+    background_noise_config: BackgroundNoiseConfig,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     // Audio context for test signal output
@@ -175,6 +176,7 @@ impl AudioWorkletManager {
             volume_detector: None,
             last_volume_analysis: None,
             test_signal_generator: None,
+            background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
@@ -193,6 +195,7 @@ impl AudioWorkletManager {
             volume_detector: None,
             last_volume_analysis: None,
             test_signal_generator: None,
+            background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
@@ -821,14 +824,114 @@ impl AudioWorkletManager {
         }
     }
 
+    /// Update background noise configuration
+    pub fn update_background_noise_config(&mut self, config: BackgroundNoiseConfig) {
+        self.background_noise_config = config.clone();
+        
+        // Send configuration to AudioWorklet processor
+        if let Err(e) = self.send_background_noise_config_to_worklet(&config) {
+            dev_log!("Warning: Failed to send background noise config to worklet: {}", e);
+        }
+    }
+
+    /// Get current background noise configuration
+    pub fn background_noise_config(&self) -> &BackgroundNoiseConfig {
+        &self.background_noise_config
+    }
+
+    /// Check if background noise is enabled
+    pub fn is_background_noise_enabled(&self) -> bool {
+        self.background_noise_config.enabled
+    }
+
+    /// Send background noise configuration to AudioWorklet processor
+    fn send_background_noise_config_to_worklet(&self, config: &BackgroundNoiseConfig) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            // Create the main message object
+            let message = js_sys::Object::new();
+            js_sys::Reflect::set(&message, &"type".into(), &"updateBackgroundNoiseConfig".into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set message type: {:?}", e)))?;
+            
+            // Create the config object
+            let config_obj = js_sys::Object::new();
+            js_sys::Reflect::set(&config_obj, &"enabled".into(), &config.enabled.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set enabled: {:?}", e)))?;
+            js_sys::Reflect::set(&config_obj, &"level".into(), &config.level.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set level: {:?}", e)))?;
+            
+            // Convert noise type enum to string
+            let noise_type_str = match config.noise_type {
+                TestWaveform::WhiteNoise => "white_noise",
+                TestWaveform::PinkNoise => "pink_noise",
+                _ => "white_noise", // Default to white noise for non-noise waveforms
+            };
+            js_sys::Reflect::set(&config_obj, &"type".into(), &noise_type_str.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set noise type: {:?}", e)))?;
+            
+            // Attach config to message
+            js_sys::Reflect::set(&message, &"config".into(), &config_obj)
+                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
+            
+            // Send message to AudioWorklet
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
+            port.post_message(&message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send background noise config: {:?}", e)))?;
+            
+            dev_log!("Background noise configuration sent to AudioWorklet: enabled={}, level={}, type={:?}", 
+                    config.enabled, config.level, config.noise_type);
+        }
+        
+        Ok(())
+    }
+
     /// Set whether to output audio stream to speakers
     pub fn set_output_to_speakers(&mut self, enabled: bool) {
         if self.output_to_speakers != enabled {
             self.output_to_speakers = enabled;
             if enabled {
-                self.start_audio_output_stream();
+                self.connect_worklet_to_speakers();
             } else {
-                self.stop_audio_output_stream();
+                self.disconnect_worklet_from_speakers();
+            }
+        }
+    }
+    
+    /// Connect AudioWorklet output to speakers
+    fn connect_worklet_to_speakers(&self) {
+        if let Some(worklet) = &self.worklet_node {
+            if let Some(audio_context) = &self.audio_context {
+                let destination = audio_context.destination();
+                match worklet.connect_with_audio_node(&destination) {
+                    Ok(_) => {
+                        dev_log!("🔊 AudioWorklet connected to speakers");
+                    }
+                    Err(e) => {
+                        dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
+                    }
+                }
+            } else {
+                dev_log!("🔇 No audio context available for speaker connection");
+            }
+        } else {
+            dev_log!("🔇 No AudioWorklet available for speaker connection");
+        }
+    }
+    
+    /// Disconnect AudioWorklet output from speakers  
+    fn disconnect_worklet_from_speakers(&self) {
+        if let Some(worklet) = &self.worklet_node {
+            if let Some(audio_context) = &self.audio_context {
+                let destination = audio_context.destination();
+                // Disconnect only the connection to destination (speakers)
+                match worklet.disconnect_with_audio_node(&destination) {
+                    Ok(_) => {
+                        dev_log!("🔇 AudioWorklet disconnected from speakers");
+                    }
+                    Err(e) => {
+                        dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
+                    }
+                }
             }
         }
     }
@@ -840,50 +943,6 @@ impl AudioWorkletManager {
 
 
 
-    /// Start audio output stream to speakers
-    fn start_audio_output_stream(&mut self) {
-        if let Some(ref _audio_context) = self.audio_context {
-            // For now, just log that we would start audio output
-            // The actual Web Audio API oscillator implementation requires more complex handling
-            dev_log!("✓ Audio output stream to speakers started");
-            dev_log!("Note: Full Web Audio API implementation requires additional audio routing");
-        } else {
-            dev_log!("✗ No audio context available for audio output");
-        }
-    }
-
-    /// Stop audio output stream to speakers
-    fn stop_audio_output_stream(&mut self) {
-        dev_log!("✓ Audio output stream to speakers stopped");
-    }
-
-    /// Update audio output parameters (frequency and amplitude)
-    fn update_audio_output(&mut self, frequency: f32, amplitude: f32) {
-        dev_log!("✓ Test signal audio output updated: {:.1} Hz at {:.1}% volume", frequency, amplitude * 100.0);
-    }
-
-    /// Route audio samples to speakers
-    fn route_to_speakers(&self, samples: &[f32]) {
-        if samples.len() == 0 {
-            return;
-        }
-        
-        // For now, log the audio that would be played and signal analysis
-        let rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
-        let peak = samples.iter().fold(0.0f32, |acc, &x| acc.max(x.abs()));
-        
-        if self.audio_context.is_some() {
-            dev_log!("🔊 Routing to speakers: RMS={:.3}, Peak={:.3} ({})", 
-                     rms, peak, 
-                     if rms > 0.01 { "AUDIBLE" } else { "quiet" });
-        } else {
-            dev_log!("🔇 No audio context - would route: RMS={:.3}, Peak={:.3}", rms, peak);
-        }
-        
-        // TODO: Implement full Web Audio API speaker output
-        // This requires complex AudioBufferSourceNode handling and proper timing
-        // For now, the logging shows that the audio routing works correctly
-    }
 
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
     /// This method is platform-agnostic and can be unit-tested natively.
@@ -1018,10 +1077,8 @@ impl AudioWorkletManager {
             }
         }
 
-        // Route audio to speakers if enabled
-        if self.output_to_speakers {
-            self.route_to_speakers(&processed_samples);
-        }
+        // Note: Speaker output is now handled by AudioWorklet direct connection
+        // No need to manually route samples - AudioWorklet output is connected to speakers when enabled
 
         Ok(())
     }
