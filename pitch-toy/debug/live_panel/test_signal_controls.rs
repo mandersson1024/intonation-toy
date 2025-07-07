@@ -257,14 +257,6 @@ impl Component for TestSignalControls {
                             />
                             <span class="control-value">{format!("{:.0}%", self.config.volume * 100.0)}</span>
                         </div>
-                        <div class="volume-bar-container">
-                            <div class="volume-bar-track">
-                                <div 
-                                    class="volume-bar-fill volume-bar-test"
-                                    style={format!("width: {}%", self.config.volume * 100.0)}
-                                />
-                            </div>
-                        </div>
                     </div>
 
 
