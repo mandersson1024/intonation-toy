@@ -4,7 +4,8 @@
 // It displays audio devices, permission status, performance metrics, and volume levels.
 
 use yew::prelude::*;
-use web_sys::window;
+use web_sys::{window, HtmlInputElement};
+use wasm_bindgen::JsCast;
 
 use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
@@ -113,6 +114,8 @@ pub struct LivePanel {
     audioworklet_status: AudioWorkletStatus,
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
+    /// Whether output to speakers is enabled
+    output_to_speakers: bool,
     /// Performance monitoring interval
     _performance_interval: Option<gloo_timers::callback::Interval>,
 }
@@ -134,6 +137,8 @@ pub enum LivePanelMsg {
     UpdateAudioWorkletStatus(AudioWorkletStatus),
     /// Update test signal configuration
     UpdateTestSignalConfig(TestSignalConfig),
+    /// Toggle output to speakers
+    ToggleOutputToSpeakers(bool),
 }
 
 impl Component for LivePanel {
@@ -149,6 +154,7 @@ impl Component for LivePanel {
             pitch_data: None,
             audioworklet_status: AudioWorkletStatus::default(),
             test_signal_config: TestSignalConfig::default(),
+            output_to_speakers: false,
             _performance_interval: None,
         };
 
@@ -214,7 +220,18 @@ impl Component for LivePanel {
                         sample_rate: 48000.0, // Use standard sample rate
                     };
                     
-                    worklet.update_test_signal_config(audio_config);
+                    worklet.update_test_signal_config(audio_config.clone());
+                }
+                
+                true
+            }
+            LivePanelMsg::ToggleOutputToSpeakers(enabled) => {
+                self.output_to_speakers = enabled;
+                
+                // Apply output to speakers setting to audio system
+                if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+                    let mut worklet = worklet_rc.borrow_mut();
+                    worklet.set_output_to_speakers(enabled);
                 }
                 
                 true
@@ -238,6 +255,7 @@ impl Component for LivePanel {
                     {self.render_device_list()}
                     {self.render_audioworklet_status()}
                     {self.render_test_signal_controls(ctx)}
+                    {self.render_global_audio_controls(ctx)}
                     {self.render_performance_metrics()}
                     {self.render_volume_level()}
                     {self.render_pitch_detection()}
@@ -612,6 +630,37 @@ impl LivePanel {
                 config={self.test_signal_config.clone()}
                 on_config_change={on_config_change}
             />
+        }
+    }
+
+    fn render_global_audio_controls(&self, ctx: &Context<Self>) -> Html {
+        let link = ctx.link();
+        
+        html! {
+            <div class="live-panel-section">
+                <h4 class="live-panel-section-title">{"Global Audio Controls"}</h4>
+                <div class="global-audio-controls">
+                    <div class="control-item control-toggle">
+                        <label class="control-label">
+                            <input 
+                                type="checkbox" 
+                                checked={self.output_to_speakers}
+                                onchange={link.callback(|e: Event| {
+                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                    LivePanelMsg::ToggleOutputToSpeakers(input.checked())
+                                })}
+                                class="control-checkbox"
+                            />
+                            <span class="control-text">{"Output to Speakers"}</span>
+                        </label>
+                        <div class={format!("status-indicator {}", 
+                            if self.output_to_speakers { "status-active" } else { "status-inactive" }
+                        )}>
+                            {if self.output_to_speakers { "🔊" } else { "🔇" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
     }
 }

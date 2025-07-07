@@ -575,6 +575,57 @@ impl AudioWorkletManager {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
         }
     }
+
+    /// Send test signal configuration to AudioWorklet processor
+    fn send_test_signal_config_to_worklet(&self, config: &TestSignalGeneratorConfig) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            // Create the main message object
+            let message = js_sys::Object::new();
+            js_sys::Reflect::set(&message, &"type".into(), &"updateTestSignalConfig".into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set message type: {:?}", e)))?;
+            
+            // Create the config object
+            let config_obj = js_sys::Object::new();
+            js_sys::Reflect::set(&config_obj, &"enabled".into(), &config.enabled.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set enabled: {:?}", e)))?;
+            js_sys::Reflect::set(&config_obj, &"frequency".into(), &config.frequency.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set frequency: {:?}", e)))?;
+            js_sys::Reflect::set(&config_obj, &"amplitude".into(), &config.amplitude.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set amplitude: {:?}", e)))?;
+            js_sys::Reflect::set(&config_obj, &"noise_level".into(), &config.noise_level.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set noise_level: {:?}", e)))?;
+            js_sys::Reflect::set(&config_obj, &"sample_rate".into(), &config.sample_rate.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set sample_rate: {:?}", e)))?;
+            
+            // Convert waveform enum to string
+            let waveform_str = match config.waveform {
+                TestWaveform::Sine => "sine",
+                TestWaveform::Square => "square",
+                TestWaveform::Sawtooth => "sawtooth",
+                TestWaveform::Triangle => "triangle",
+                TestWaveform::WhiteNoise => "white_noise",
+                TestWaveform::PinkNoise => "pink_noise",
+            };
+            js_sys::Reflect::set(&config_obj, &"waveform".into(), &waveform_str.into())
+                .map_err(|e| AudioError::Generic(format!("Failed to set waveform: {:?}", e)))?;
+            
+            // Attach config to message
+            js_sys::Reflect::set(&message, &"config".into(), &config_obj)
+                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
+            
+            // Send message
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            port.post_message(&message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send test signal config: {:?}", e)))?;
+            
+            dev_log!("Sent test signal config to AudioWorklet: enabled={}, freq={:.1}Hz, amp={:.2}", 
+                     config.enabled, config.frequency, config.amplitude);
+            Ok(())
+        } else {
+            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
+    }
     
     
     /// Connect audio worklet to audio pipeline
@@ -737,6 +788,11 @@ impl AudioWorkletManager {
             // Create new generator if none exists
             self.test_signal_generator = Some(TestSignalGenerator::new(config.clone()));
         }
+        
+        // Send configuration to AudioWorklet processor
+        if let Err(e) = self.send_test_signal_config_to_worklet(&config) {
+            dev_log!("Warning: Failed to send test signal config to worklet: {}", e);
+        }
     }
 
     /// Get current test signal generator configuration
@@ -783,6 +839,7 @@ impl AudioWorkletManager {
     }
 
 
+
     /// Start audio output stream to speakers
     fn start_audio_output_stream(&mut self) {
         if let Some(ref _audio_context) = self.audio_context {
@@ -807,12 +864,25 @@ impl AudioWorkletManager {
 
     /// Route audio samples to speakers
     fn route_to_speakers(&self, samples: &[f32]) {
-        // For now, just log that we would route audio to speakers
-        // The actual Web Audio API implementation requires creating audio graph connections
-        if samples.len() > 0 {
-            let rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
-            dev_log!("🔊 Routing audio to speakers: RMS={:.3}", rms);
+        if samples.len() == 0 {
+            return;
         }
+        
+        // For now, log the audio that would be played and signal analysis
+        let rms = (samples.iter().map(|&x| x * x).sum::<f32>() / samples.len() as f32).sqrt();
+        let peak = samples.iter().fold(0.0f32, |acc, &x| acc.max(x.abs()));
+        
+        if self.audio_context.is_some() {
+            dev_log!("🔊 Routing to speakers: RMS={:.3}, Peak={:.3} ({})", 
+                     rms, peak, 
+                     if rms > 0.01 { "AUDIBLE" } else { "quiet" });
+        } else {
+            dev_log!("🔇 No audio context - would route: RMS={:.3}, Peak={:.3}", rms, peak);
+        }
+        
+        // TODO: Implement full Web Audio API speaker output
+        // This requires complex AudioBufferSourceNode handling and proper timing
+        // For now, the logging shows that the audio routing works correctly
     }
 
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
@@ -828,14 +898,9 @@ impl AudioWorkletManager {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
         }
 
-        // Select between test signal and mic input for the main audio stream
-        let processed_samples = if let Some(test_signal_chunk) = self.generate_test_signal_chunk() {
-            // Test signal is enabled - replace mic input with test signal
-            test_signal_chunk
-        } else {
-            // Use mic input
-            samples.to_vec()
-        };
+        // AudioWorklet processor now handles test signal generation and mixing
+        // The samples we receive here are already processed (test signal OR mic input)
+        let processed_samples = samples.to_vec();
 
         // Get timestamp for volume analysis
         let timestamp = timestamp.unwrap_or_else(|| {

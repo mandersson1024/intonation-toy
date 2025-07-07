@@ -30,6 +30,19 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.isProcessing = false;
         this.chunkCounter = 0;
         
+        // Test signal configuration
+        this.testSignalConfig = {
+            enabled: false,
+            frequency: 440.0,
+            amplitude: 0.3,
+            noise_level: 0.0,
+            waveform: 'sine',
+            sample_rate: 48000.0
+        };
+        
+        // Test signal generation state
+        this.testSignalPhase = 0.0;
+        
         // Setup message handling
         this.port.onmessage = (event) => {
             // Message logging kept for debugging
@@ -78,9 +91,93 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 });
                 break;
                 
+            case 'updateTestSignalConfig':
+                if (message.config) {
+                    this.testSignalConfig = { ...this.testSignalConfig, ...message.config };
+                    // Reset phase when configuration changes
+                    this.testSignalPhase = 0.0;
+                    console.log('PitchDetectionProcessor: Test signal config updated:', this.testSignalConfig);
+                    this.port.postMessage({
+                        type: 'testSignalConfigUpdated',
+                        config: this.testSignalConfig,
+                        timestamp: this.currentTime || 0
+                    });
+                }
+                break;
+                
             default:
                 console.warn('PitchDetectionProcessor: Unknown message type:', message.type);
         }
+    }
+    
+    /**
+     * Generate test signal samples
+     * @param {number} numSamples - Number of samples to generate
+     * @returns {Float32Array} - Generated test signal samples
+     */
+    generateTestSignal(numSamples) {
+        const samples = new Float32Array(numSamples);
+        const config = this.testSignalConfig;
+        
+        if (!config.enabled) {
+            return samples; // Return silence if disabled
+        }
+        
+        const phaseIncrement = (2 * Math.PI * config.frequency) / config.sample_rate;
+        
+        for (let i = 0; i < numSamples; i++) {
+            let sample = 0.0;
+            
+            // Generate waveform
+            switch (config.waveform) {
+                case 'sine':
+                    sample = Math.sin(this.testSignalPhase);
+                    break;
+                case 'square':
+                    sample = Math.sin(this.testSignalPhase) >= 0 ? 1.0 : -1.0;
+                    break;
+                case 'sawtooth':
+                    sample = 2.0 * (this.testSignalPhase / (2 * Math.PI) - Math.floor(this.testSignalPhase / (2 * Math.PI) + 0.5));
+                    break;
+                case 'triangle':
+                    const t = this.testSignalPhase / (2 * Math.PI) - Math.floor(this.testSignalPhase / (2 * Math.PI));
+                    sample = t < 0.5 ? 4.0 * t - 1.0 : 3.0 - 4.0 * t;
+                    break;
+                case 'white_noise':
+                    sample = (Math.random() * 2.0 - 1.0);
+                    break;
+                case 'pink_noise':
+                    // Simplified pink noise approximation
+                    sample = (Math.random() * 2.0 - 1.0) * 0.5;
+                    break;
+                default:
+                    sample = Math.sin(this.testSignalPhase);
+            }
+            
+            // Add background noise if configured
+            if (config.noise_level > 0.0) {
+                const noise = (Math.random() * 2.0 - 1.0) * config.noise_level;
+                sample += noise;
+            }
+            
+            // Apply amplitude scaling
+            sample *= config.amplitude;
+            
+            // Clamp to valid range
+            sample = Math.max(-1.0, Math.min(1.0, sample));
+            
+            samples[i] = sample;
+            
+            // Update phase for next sample
+            this.testSignalPhase += phaseIncrement;
+            
+            // Keep phase in [0, 2π] range to prevent precision issues
+            if (this.testSignalPhase >= 2 * Math.PI) {
+                this.testSignalPhase -= 2 * Math.PI;
+            }
+        }
+        
+        return samples;
     }
     
     /**
@@ -139,26 +236,29 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             return true;
         }
         
-        // Debug logging disabled - signal detection confirmed working
-        // if (this.chunkCounter % 100 === 0) {
-        //     const hasSignal = inputChannel.some(sample => Math.abs(sample) > 0.001);
-        //     const maxLevel = Math.max(...inputChannel.map(Math.abs));
-        //     console.log(`AudioWorklet: Input signal - hasSignal: ${hasSignal}, maxLevel: ${maxLevel.toFixed(4)}`);
-        // }
+        // Generate processed audio: test signal OR microphone input
+        let processedAudio;
+        if (this.testSignalConfig.enabled) {
+            // Test signal is enabled - replace mic input with test signal
+            processedAudio = this.generateTestSignal(this.chunkSize);
+        } else {
+            // Use microphone input
+            processedAudio = new Float32Array(inputChannel);
+        }
         
-        // Pass-through audio (copy input to output)
+        // Pass-through processed audio to output
         if (output && output.length > 0 && output[0]) {
             const outputChannel = output[0];
-            if (outputChannel && outputChannel.length === inputChannel.length) {
-                outputChannel.set(inputChannel);
+            if (outputChannel && outputChannel.length === processedAudio.length) {
+                outputChannel.set(processedAudio);
             }
         }
         
-        // Forward audio data to main thread for processing
+        // Forward processed audio data to main thread for analysis
         if (this.isProcessing) {
             try {
-                // Create a copy of the input data for thread-safe transfer
-                const audioData = new Float32Array(inputChannel);
+                // Send the processed audio (test signal or mic input) for analysis
+                const audioData = new Float32Array(processedAudio);
                 
                 this.port.postMessage({
                     type: 'audioData',
