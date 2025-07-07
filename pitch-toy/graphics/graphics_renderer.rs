@@ -1,12 +1,16 @@
 use three_d::*;
 use crate::graphics::GraphicsContext;
 
+#[cfg(debug_assertions)]
+use crate::graphics::TestScene;
+
 pub struct GraphicsRenderer {
     initialized: bool,
     // 2D rendering components
     background_color: Srgba,
-    // 2D shader pipeline placeholder (for future implementation)
-    shader_pipeline_ready: bool,
+    // Test scene for demonstrating 2D coordinate system (debug only)
+    #[cfg(debug_assertions)]
+    test_scene: Option<TestScene>,
 }
 
 impl GraphicsRenderer {
@@ -14,20 +18,30 @@ impl GraphicsRenderer {
         Self {
             initialized: false,
             background_color: Srgba::new(0, 0, 0, 255), // Dark background
-            shader_pipeline_ready: false,
+            #[cfg(debug_assertions)]
+            test_scene: None,
         }
     }
 
-    pub fn initialize(&mut self, _graphics_context: &GraphicsContext) -> Result<(), String> {
-        // Task 3: Initialize 2D graphics renderer 
-        // For now, we'll work with the WebGL2 context directly
-        // TODO: Integrate three-d Context creation when the API is clearer
+    pub fn initialize(&mut self, #[cfg_attr(not(debug_assertions), allow(unused_variables))] graphics_context: &GraphicsContext) -> Result<(), String> {
+        // Task 3: Initialize 2D graphics renderer
         
-        // Prepare 2D shader pipeline for future implementation
-        self.shader_pipeline_ready = true;
+        // Initialize test scene to demonstrate 2D coordinate system (debug only)
+        #[cfg(debug_assertions)]
+        {
+            let gl = &graphics_context.webgl_context;
+            let mut test_scene = TestScene::new();
+            test_scene.initialize(gl)?;
+            self.test_scene = Some(test_scene);
+            web_sys::console::log_1(&"✓ 2D Graphics renderer initialized with debug test scene".into());
+        }
+        
+        #[cfg(not(debug_assertions))]
+        {
+            web_sys::console::log_1(&"✓ 2D Graphics renderer initialized (production - no test scene)".into());
+        }
+        
         self.initialized = true;
-        
-        web_sys::console::log_1(&"✓ 2D Graphics renderer initialized with shader pipeline ready".into());
         
         Ok(())
     }
@@ -52,22 +66,22 @@ impl GraphicsRenderer {
         );
         gl.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT | web_sys::WebGl2RenderingContext::DEPTH_BUFFER_BIT);
 
-        // Render basic 2D scene
-        self.render_basic_2d_scene(graphics_context)?;
+        // Render test scene
+        #[cfg(debug_assertions)]
+        self.render_test_scene(gl)?;
 
         Ok(())
     }
 
-    fn render_basic_2d_scene(&self, _graphics_context: &GraphicsContext) -> Result<(), String> {
-        // Task 3: Basic 2D scene with coordinate system (2D mode only)
-        // For now, just clear the screen with a dark background
-        // This establishes the 2D coordinate system and render pipeline
+    #[cfg(debug_assertions)]
+    fn render_test_scene(&self, gl: &web_sys::WebGl2RenderingContext) -> Result<(), String> {
+        // Enable depth testing for proper 2D layering
+        gl.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
         
-        // TODO: Basic 2D shader pipeline for future audio visualization:
-        // - Vertex shader for 2D position and UV mapping
-        // - Fragment shader with uniforms for time, resolution, and audio data
-        // - Shader program compilation and linking
-        // - GPU buffer management for 2D geometries
+        // Render test scene if available (debug only)
+        if let Some(test_scene) = &self.test_scene {
+            test_scene.render(gl)?;
+        }
         
         Ok(())
     }
@@ -90,10 +104,6 @@ impl GraphicsRenderer {
 
     pub fn is_initialized(&self) -> bool {
         self.initialized
-    }
-    
-    pub fn is_shader_pipeline_ready(&self) -> bool {
-        self.shader_pipeline_ready
     }
 }
 
