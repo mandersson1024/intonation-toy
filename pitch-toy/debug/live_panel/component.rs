@@ -11,7 +11,7 @@ use crate::audio::{AudioPermission, AudioDevices};
 use crate::audio::console_service::ConsoleAudioService;
 use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
-use super::{TestSignalControls, TestSignalConfig, BackgroundNoiseConfig, TestWaveform};
+use super::{TestSignalControls, TestSignalConfig, BackgroundNoiseConfig};
 
 /// Properties for the LivePanel component
 #[derive(Properties)]
@@ -428,21 +428,13 @@ impl LivePanel {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"AudioWorklet Status"}</h4>
                 <div class="audioworklet-status">
-                    <div class="status-item">
-                        <span class="status-label">{"State:"}</span>
-                        <span class={format!("status-value {}", state_class)}>{state_text}</span>
+                    <div class="metric-item">
+                        <span class="metric-label">{"State"}</span>
+                        <span class={format!("metric-value {}", state_class)}>{state_text}</span>
                     </div>
-                    <div class="status-item">
-                        <span class="status-label">{"Processor:"}</span>
-                        <span class={format!("status-value {}", processor_class)}>{processor_status}</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">{"Chunk Size:"}</span>
-                        <span class="status-value">{format!("{} samples", self.audioworklet_status.chunk_size)}</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">{"Chunks Processed:"}</span>
-                        <span class="status-value">{self.audioworklet_status.chunks_processed}</span>
+                    <div class="metric-item">
+                        <span class="metric-label">{"Processor"}</span>
+                        <span class={format!("metric-value {}", processor_class)}>{processor_status}</span>
                     </div>
                 </div>
             </div>
@@ -464,7 +456,20 @@ impl LivePanel {
                                 </div>
                                 <div class="metric-item">
                                     <span class="metric-label">{"Note"}</span>
-                                    <span class="metric-value">{format!("{}", pitch.note)}</span>
+                                    <span class="metric-value note-with-cents">
+                                        <span class="note-name" style="display: inline-block; min-width: 3em; text-align: left;">{format!("{}", pitch.note)}</span>
+                                        <span class="cents-value">
+                                            {"("}
+                                            <span style="display: inline-block; min-width: 2.5em; text-align: right;">{
+                                                if pitch.note.cents >= 0.0 {
+                                                    format!("+{:.0}", pitch.note.cents)
+                                                } else {
+                                                    format!("{:.0}", pitch.note.cents)
+                                                }
+                                            }</span>
+                                            {" cents)"}
+                                        </span>
+                                    </span>
                                 </div>
                                 <div class="metric-item">
                                     <span class="metric-label">{"Confidence"}</span>
@@ -677,91 +682,31 @@ impl LivePanel {
         
         html! {
             <div class="live-panel-section">
-                <h4 class="live-panel-section-title">{"Background Noise"}</h4>
-                <div class="background-noise-controls">
-                    <div class="control-item control-toggle">
-                        <label class="control-label">
-                            <input 
-                                type="checkbox" 
-                                checked={self.background_noise_config.enabled}
-                                onchange={{
-                                    let current_config = self.background_noise_config.clone();
-                                    link.callback(move |e: Event| {
-                                        let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                        let mut config = current_config.clone();
-                                        config.enabled = input.checked();
-                                        if config.enabled && config.level == 0.0 {
-                                            config.level = 0.1; // Set default level when first enabled
-                                        }
-                                        LivePanelMsg::UpdateBackgroundNoiseConfig(config)
-                                    })
-                                }}
-                                class="control-checkbox"
-                            />
-                            <span class="control-text">{"Enable Background Noise"}</span>
-                        </label>
+                <div class="control-item control-range">
+                    <span class="control-label">{"Background noise"}</span>
+                    <div class="control-slider-container">
+                        <input 
+                            type="range" 
+                            id="bg-noise-level"
+                            min="0.0" 
+                            max="1.0" 
+                            step="0.01"
+                            value={self.background_noise_config.level.to_string()}
+                            oninput={{
+                                let current_config = self.background_noise_config.clone();
+                                link.callback(move |e: InputEvent| {
+                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
+                                    let level = input.value().parse::<f32>().unwrap_or(0.0);
+                                    let mut config = current_config.clone();
+                                    config.enabled = level > 0.0; // Auto-enable when level > 0
+                                    config.level = level;
+                                    LivePanelMsg::UpdateBackgroundNoiseConfig(config)
+                                })
+                            }}
+                            class="control-slider"
+                        />
+                        <span class="control-value">{format!("{:.0}%", self.background_noise_config.level * 100.0)}</span>
                     </div>
-                    
-                    {if self.background_noise_config.enabled {
-                        html! {
-                            <>
-                                <div class="control-item control-range">
-                                    <label class="control-label" for="bg-noise-level">{"Noise Level"}</label>
-                                    <input 
-                                        type="range" 
-                                        id="bg-noise-level"
-                                        min="0.0" 
-                                        max="1.0" 
-                                        step="0.01"
-                                        value={self.background_noise_config.level.to_string()}
-                                        oninput={{
-                                            let current_config = self.background_noise_config.clone();
-                                            link.callback(move |e: InputEvent| {
-                                                let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                                let level = input.value().parse::<f32>().unwrap_or(0.0);
-                                                let mut config = current_config.clone();
-                                                config.level = level;
-                                                LivePanelMsg::UpdateBackgroundNoiseConfig(config)
-                                            })
-                                        }}
-                                        class="control-slider"
-                                    />
-                                    <span class="control-value">{format!("{:.2}", self.background_noise_config.level)}</span>
-                                </div>
-                                
-                                <div class="control-item control-select">
-                                    <label class="control-label" for="bg-noise-type">{"Noise Type"}</label>
-                                    <select 
-                                        id="bg-noise-type"
-                                        value={match self.background_noise_config.noise_type {
-                                            TestWaveform::WhiteNoise => "white-noise",
-                                            TestWaveform::PinkNoise => "pink-noise",
-                                            _ => "white-noise",
-                                        }}
-                                        onchange={{
-                                            let current_config = self.background_noise_config.clone();
-                                            link.callback(move |e: Event| {
-                                                let select: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                                let noise_type = match select.value().as_str() {
-                                                    "pink-noise" => TestWaveform::PinkNoise,
-                                                    _ => TestWaveform::WhiteNoise,
-                                                };
-                                                let mut config = current_config.clone();
-                                                config.noise_type = noise_type;
-                                                LivePanelMsg::UpdateBackgroundNoiseConfig(config)
-                                            })
-                                        }}
-                                        class="control-dropdown"
-                                    >
-                                        <option value="white-noise">{"White Noise"}</option>
-                                        <option value="pink-noise">{"Pink Noise"}</option>
-                                    </select>
-                                </div>
-                            </>
-                        }
-                    } else {
-                        html! {}
-                    }}
                 </div>
             </div>
         }
@@ -772,26 +717,23 @@ impl LivePanel {
         
         html! {
             <div class="live-panel-section">
-                <h4 class="live-panel-section-title">{"Global Audio Controls"}</h4>
-                <div class="global-audio-controls">
-                    <div class="control-item control-toggle">
-                        <label class="control-label">
-                            <input 
-                                type="checkbox" 
-                                checked={self.output_to_speakers}
-                                onchange={link.callback(|e: Event| {
-                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                    LivePanelMsg::ToggleOutputToSpeakers(input.checked())
-                                })}
-                                class="control-checkbox"
-                            />
-                            <span class="control-text">{"Output to Speakers"}</span>
-                        </label>
-                        <div class={format!("status-indicator {}", 
-                            if self.output_to_speakers { "status-active" } else { "status-inactive" }
-                        )}>
-                            {if self.output_to_speakers { "🔊" } else { "🔇" }}
-                        </div>
+                <div class="control-item">
+                    <span class="control-label">{"Output to speakers"}</span>
+                    <div class="button-group-horizontal">
+                        <button 
+                            class={if !self.output_to_speakers { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| LivePanelMsg::ToggleOutputToSpeakers(false))}
+                            title="Don't Output to Speakers"
+                        >
+                            {"🔇"}
+                        </button>
+                        <button 
+                            class={if self.output_to_speakers { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| LivePanelMsg::ToggleOutputToSpeakers(true))}
+                            title="Output to Speakers"
+                        >
+                            {"🔊"}
+                        </button>
                     </div>
                 </div>
             </div>

@@ -6,7 +6,6 @@
 use yew::prelude::*;
 use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
-use js_sys;
 
 /// Test signal waveform types
 #[derive(Debug, Clone, PartialEq)]
@@ -157,6 +156,7 @@ impl Component for TestSignalControls {
             }
             TestSignalMsg::SetWaveform(waveform) => {
                 self.config.waveform = waveform;
+                self.config.enabled = true; // Automatically enable when selecting a waveform
                 ctx.props().on_config_change.emit(self.config.clone());
                 true
             }
@@ -172,49 +172,56 @@ impl Component for TestSignalControls {
         
         html! {
             <div class="live-panel-section">
-                <h4 class="live-panel-section-title">{"Test Signal Generator"}</h4>
-                <div class="test-signal-controls">
-                    
-                    // Enable/Disable Toggle
-                    <div class="control-item control-toggle">
-                        <label class="control-label">
-                            <input 
-                                type="checkbox" 
-                                checked={self.config.enabled}
-                                onchange={link.callback(|e: Event| {
-                                    let input: HtmlInputElement = e.target().unwrap().dyn_into().unwrap();
-                                    TestSignalMsg::ToggleEnabled(input.checked())
-                                })}
-                                class="control-checkbox"
-                            />
-                            <span class="control-text">{"Enable Test Signal"}</span>
-                        </label>
-                        <div class={format!("status-indicator {}", 
-                            if self.config.enabled { "status-active" } else { "status-inactive" }
-                        )}>
-                            {if self.config.enabled { "●" } else { "○" }}
-                        </div>
-                    </div>
-
-                    // Waveform Selector
-                    <div class="control-item">
-                        <span class="control-label">{"Waveform"}</span>
-                        <select 
-                            class="control-select"
-                            onchange={link.callback(|e: Event| {
-                                let target = e.target().unwrap();
-                                let value = js_sys::Reflect::get(&target, &"value".into()).unwrap().as_string().unwrap_or_default();
-                                TestSignalMsg::SetWaveform(TestWaveform::from(value.as_str()))
-                            })}
+                <div class="control-item">
+                    <span class="control-label">{"Test signal"}</span>
+                    <div class="button-group-horizontal">
+                        <button 
+                            class={if !self.config.enabled { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| TestSignalMsg::ToggleEnabled(false))}
+                            title="No Test Signal"
                         >
-                            <option value="sine" selected={self.config.waveform == TestWaveform::Sine}>{"Sine Wave"}</option>
-                            <option value="square" selected={self.config.waveform == TestWaveform::Square}>{"Square Wave"}</option>
-                            <option value="sawtooth" selected={self.config.waveform == TestWaveform::Sawtooth}>{"Sawtooth Wave"}</option>
-                            <option value="triangle" selected={self.config.waveform == TestWaveform::Triangle}>{"Triangle Wave"}</option>
-                            <option value="white-noise" selected={self.config.waveform == TestWaveform::WhiteNoise}>{"White Noise"}</option>
-                            <option value="pink-noise" selected={self.config.waveform == TestWaveform::PinkNoise}>{"Pink Noise"}</option>
-                        </select>
+                            {"🔇"}
+                        </button>
+                        <button 
+                            class={if self.config.enabled && self.config.waveform == TestWaveform::Sine { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| {
+                                TestSignalMsg::SetWaveform(TestWaveform::Sine)
+                            })}
+                            title="Test Signal Sine"
+                        >
+                            {"〰️"}
+                        </button>
+                        <button 
+                            class={if self.config.enabled && self.config.waveform == TestWaveform::Square { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| {
+                                TestSignalMsg::SetWaveform(TestWaveform::Square)
+                            })}
+                            title="Test Signal Square"
+                        >
+                            {"⬜"}
+                        </button>
+                        <button 
+                            class={if self.config.enabled && self.config.waveform == TestWaveform::Triangle { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| {
+                                TestSignalMsg::SetWaveform(TestWaveform::Triangle)
+                            })}
+                            title="Test Signal Triangle"
+                        >
+                            {"🔺"}
+                        </button>
+                        <button 
+                            class={if self.config.enabled && self.config.waveform == TestWaveform::Sawtooth { "button-option active" } else { "button-option" }}
+                            onclick={link.callback(|_| {
+                                TestSignalMsg::SetWaveform(TestWaveform::Sawtooth)
+                            })}
+                            title="Test Signal Sawtooth"
+                        >
+                            {"📈"}
+                        </button>
                     </div>
+                </div>
+                
+                <div class="test-signal-controls">
 
                     // Frequency Slider
                     <div class="control-item">
