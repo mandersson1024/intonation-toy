@@ -36,7 +36,7 @@
   - [x] Create module declarations in `lib.rs`
   - [x] Implement basic module structure with proper visibility
   - [x] Set up public API surface exports
-  - [ ] **MANUAL TEST**: Open lib.rs, confirm all modules are declared and properly exported, run `cargo build` and verify it compiles without errors, check that modules are accessible from external code
+  - [x] **MANUAL TEST**: Open lib.rs, confirm all modules are declared and properly exported, run `cargo build` and verify it compiles without errors, check that modules are accessible from external code
 
 - [ ] Task 4: Basic Error Handling (AC: 4)
   - [ ] Define `RendererError` enum with variants: WebGLContextFailed, ShaderCompilationFailed, TextureLoadingFailed, InvalidSpriteData
