@@ -1,6 +1,24 @@
 [package]
 name = "sprite-renderer"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["hit-testing", "depth-testing"]
+hit-testing = []
+depth-testing = []
 
 [dependencies]
+three-d = "0.18"
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

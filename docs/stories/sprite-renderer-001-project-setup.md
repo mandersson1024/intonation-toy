@@ -11,7 +11,7 @@
 ## Acceptance Criteria (ACs)
 
 1. **AC1: Crate Structure Creation** - Create properly organized Rust library crate with modular structure including renderer/, sprite/, shaders/, hit_testing/, depth/, and utils/ modules
-2. **AC2: Cargo.toml Configuration** - Configure crate with name "sprite-renderer", version "0.1.0", library types ["cdylib", "rlib"], and all required dependencies (three-d, wasm-bindgen, web-sys, js-sys, serde, thiserror, anyhow)
+2. **AC2: Cargo.toml Configuration** - Configure crate with name "sprite-renderer", version "0.1.0", library types ["cdylib", "rlib"], and all required dependencies (three-d=0.18, wasm-bindgen, web-sys, js-sys, serde, thiserror=2.0, anyhow)
 3. **AC3: Module Structure Implementation** - Implement module structure with proper mod.rs files, public API surface in lib.rs, and clear module interdependencies
 4. **AC4: Basic Error Handling** - Define RendererError enum with common error variants, proper Result<T, RendererError> propagation, and helpful error messages
 5. **AC5: Build System Verification** - Verify cargo build, cargo test, cargo doc, and wasm-pack build all execute successfully
@@ -26,11 +26,11 @@
   - [x] Set up initial `mod.rs` files in each module
   - [x] **MANUAL TEST**: Navigate to sprite-renderer directory, visually confirm all directories exist (renderer/, sprite/, shaders/, hit_testing/, depth/, utils/), verify each has a mod.rs file, confirm directory structure matches expected layout
 
-- [ ] Task 2: Configure Dependencies (AC: 2)
-  - [ ] Update `Cargo.toml` with required dependencies and versions
-  - [ ] Set up feature flags: default = ["hit-testing", "depth-testing"]
-  - [ ] Configure crate metadata and library types
-  - [ ] **MANUAL TEST**: Open Cargo.toml, verify all dependencies are listed with correct versions (three-d="0.17", wasm-bindgen="0.2", web-sys="0.3", js-sys="0.3", serde="1.0", thiserror="1.0", anyhow="1.0"), confirm feature flags are properly configured, verify library types include ["cdylib", "rlib"]
+- [x] Task 2: Configure Dependencies (AC: 2)
+  - [x] Update `Cargo.toml` with required dependencies and versions
+  - [x] Set up feature flags: default = ["hit-testing", "depth-testing"]
+  - [x] Configure crate metadata and library types
+  - [x] **MANUAL TEST**: Open Cargo.toml, verify all dependencies are listed with correct versions (three-d="0.18", wasm-bindgen="0.2", web-sys="0.3", js-sys="0.3", serde="1.0", thiserror="2.0", anyhow="1.0"), confirm feature flags are properly configured, verify library types include ["cdylib", "rlib"]
 
 - [ ] Task 3: Implement Module Structure (AC: 3)
   - [ ] Create module declarations in `lib.rs`
@@ -73,11 +73,11 @@
 - **Performance**: Build system must support GPU-accelerated rendering operations (TC3.1)
 
 ### Dependencies Rationale:
-- **three-d 0.17**: WebGL abstraction layer for GPU rendering
+- **three-d 0.18**: WebGL abstraction layer for GPU rendering (latest version)
 - **wasm-bindgen 0.2**: Rust-JavaScript interop for WebAssembly
 - **web-sys 0.3**: Browser API bindings
 - **serde 1.0**: Serialization for configuration and data structures
-- **thiserror 1.0**: Error handling with derive macros
+- **thiserror 2.0**: Error handling with derive macros (latest version)
 - **anyhow 1.0**: Flexible error handling for internal operations
 
 ### Module Architecture:
@@ -117,15 +117,16 @@ Expected Results: All build commands complete successfully, documentation genera
 | Task | File | Change | Reverted? |
 | :--- | :--- | :----- | :-------- |
 | Task 1 | N/A | Initial crate structure creation | N/A |
+| Task 2 | Cargo.toml | Added dependencies and feature flags, upgraded to latest versions | N/A |
 
 ### Completion Notes List
 
-No deviations from story requirements. Task 1 completed successfully - crate structure created as specified with all required module directories and mod.rs files.
+Task 1 and 2 completed successfully. Updated three-d from 0.17 to 0.18 and thiserror from 1.0 to 2.0 per user request for latest versions.
 
 ### File List
 
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/` - Created directory
-- `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/Cargo.toml` - Created by cargo init
+- `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/Cargo.toml` - Created by cargo init, updated with dependencies and features
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/src/lib.rs` - Created by cargo init
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/src/renderer/mod.rs` - Created module file
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/src/sprite/mod.rs` - Created module file
@@ -140,6 +141,8 @@ No deviations from story requirements. Task 1 completed successfully - crate str
 | Date | Version | Description | Author |
 | :--- | :------ | :---------- | :----- |
 | 2025-01-08 | 1.0 | Task 1 completed - crate structure created | Claude Sonnet 4 |
+| 2025-01-08 | 1.1 | Task 2 completed - dependencies and features configured | Claude Sonnet 4 |
+| 2025-01-08 | 1.2 | Updated dependencies to latest versions (three-d 0.18, thiserror 2.0) | Claude Sonnet 4 |
 
 ## QA Results
 
