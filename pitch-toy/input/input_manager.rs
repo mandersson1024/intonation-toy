@@ -105,12 +105,20 @@ impl InputManager {
             self.mouse_click_closure = Some(closure);
         }
         
-        // Create mouse move handler
+        // Create mouse move handler with throttling
         {
             let canvas_clone = canvas.clone();
             let coordinate_transformer = self.coordinate_transformer.clone();
+            let last_move_time = std::cell::Cell::new(0.0);
             
             let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                // Throttle mouse move events to every 16ms (60fps)
+                let current_time = Self::get_timestamp();
+                if current_time - last_move_time.get() < 16.0 {
+                    return;
+                }
+                last_move_time.set(current_time);
+                
                 let rect = canvas_clone.get_bounding_client_rect();
                 let screen_x = event.client_x() as f32 - rect.left() as f32;
                 let screen_y = event.client_y() as f32 - rect.top() as f32;
@@ -126,7 +134,7 @@ impl InputManager {
             self.mouse_move_closure = Some(closure);
         }
         
-        // Create touch event handlers
+        // Create touch start handler
         {
             let canvas_clone = canvas.clone();
             let coordinate_transformer = self.coordinate_transformer.clone();
@@ -170,6 +178,65 @@ impl InputManager {
             
             canvas.add_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref())?;
             self.touch_start_closure = Some(closure);
+        }
+        
+        // Create touch end handler
+        {
+            let canvas_clone = canvas.clone();
+            let coordinate_transformer = self.coordinate_transformer.clone();
+            
+            let closure = Closure::wrap(Box::new(move |event: TouchEvent| {
+                event.prevent_default();
+                
+                if let Some(touch) = event.changed_touches().get(0) {
+                    let rect = canvas_clone.get_bounding_client_rect();
+                    let screen_x = touch.client_x() as f32 - rect.left() as f32;
+                    let screen_y = touch.client_y() as f32 - rect.top() as f32;
+                    
+                    let transformer = coordinate_transformer.borrow();
+                    if transformer.is_within_canvas(screen_x, screen_y) {
+                        let (_graphics_x, _graphics_y) = transformer.screen_to_graphics(screen_x, screen_y);
+                        web_sys::console::log_1(&"Touch end detected".into());
+                        // TODO: Publish touch end event
+                    }
+                }
+            }) as Box<dyn Fn(TouchEvent)>);
+            
+            canvas.add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref())?;
+            self.touch_end_closure = Some(closure);
+        }
+        
+        // Create touch move handler with throttling
+        {
+            let canvas_clone = canvas.clone();
+            let coordinate_transformer = self.coordinate_transformer.clone();
+            let last_move_time = std::cell::Cell::new(0.0);
+            
+            let closure = Closure::wrap(Box::new(move |event: TouchEvent| {
+                event.prevent_default();
+                
+                // Throttle touch move events to every 16ms (60fps)
+                let current_time = Self::get_timestamp();
+                if current_time - last_move_time.get() < 16.0 {
+                    return;
+                }
+                last_move_time.set(current_time);
+                
+                if let Some(touch) = event.touches().get(0) {
+                    let rect = canvas_clone.get_bounding_client_rect();
+                    let screen_x = touch.client_x() as f32 - rect.left() as f32;
+                    let screen_y = touch.client_y() as f32 - rect.top() as f32;
+                    
+                    let transformer = coordinate_transformer.borrow();
+                    if transformer.is_within_canvas(screen_x, screen_y) {
+                        let (_graphics_x, _graphics_y) = transformer.screen_to_graphics(screen_x, screen_y);
+                        // TODO: Publish touch move event
+                    }
+                }
+            }) as Box<dyn Fn(TouchEvent)>);
+            
+            canvas.add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref())?;
+            self.touch_move_closure = Some(closure);
         }
         
         Ok(())
@@ -244,7 +311,12 @@ impl Drop for InputManager {
         if let Some(closure) = self.touch_start_closure.take() {
             let _ = self.canvas.remove_event_listener_with_callback("touchstart", closure.as_ref().unchecked_ref());
         }
-        // TODO: Clean up touch_end and touch_move when implemented
+        if let Some(closure) = self.touch_end_closure.take() {
+            let _ = self.canvas.remove_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref());
+        }
+        if let Some(closure) = self.touch_move_closure.take() {
+            let _ = self.canvas.remove_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref());
+        }
     }
 }
 
