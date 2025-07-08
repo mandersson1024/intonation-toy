@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Basic Sprite Renderer Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .demo-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #canvas {
+            border: 2px solid #333;
+            display: block;
+            margin: 0 auto;
+            background-color: #222;
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Basic Sprite Renderer Demo</h1>
+        
+        <div class="demo-container">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            
+            <div class="controls">
+                <button onclick="resizeCanvas(400, 300)">Small (400x300)</button>
+                <button onclick="resizeCanvas(800, 600)">Medium (800x600)</button>
+                <button onclick="resizeCanvas(1200, 800)">Large (1200x800)</button>
+            </div>
+            
+            <div class="info">
+                <h3>Current Demo Status:</h3>
+                <ul>
+                    <li>✅ WebAssembly module loading and initialization</li>
+                    <li>✅ Canvas setup and resizing functionality</li>
+                    <li>✅ Mouse interaction detection (check console)</li>
+                    <li>✅ Error handling and logging system</li>
+                    <li>⏳ Sprite rendering - <em>Coming in future stories</em></li>
+                </ul>
+                <p><strong>Note:</strong> This is a foundational demo. The canvas appears black because 
+                sprite rendering will be implemented in upcoming development phases.</p>
+            </div>
+            
+            <div class="status" id="status">
+                Loading WebAssembly module...
+            </div>
+        </div>
+    </div>
+
+    <!-- Trunk will inject the WASM module here -->
+    <link data-trunk rel="rust" data-wasm-opt="0" />
+    
+    <script>
+        // Wait for WASM to be automatically loaded by Trunk
+        function setupDemo() {
+            try {
+                console.log('Setting up demo interactions...');
+                
+                // Set up canvas event listeners
+                const canvas = document.getElementById('canvas');
+                canvas.addEventListener('click', (event) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = event.clientX - rect.left;
+                    const y = event.clientY - rect.top;
+                    console.log(`Canvas clicked at (${x}, ${y})`);
+                    
+                    // Call WASM function if available
+                    if (window.wasm_bindgen && window.wasm_bindgen.handle_click) {
+                        window.wasm_bindgen.handle_click(x, y);
+                    }
+                });
+                
+                // Global resize function
+                window.resizeCanvas = (width, height) => {
+                    canvas.width = width;
+                    canvas.height = height;
+                    console.log(`Canvas resized to ${width}x${height}`);
+                    
+                    // Call WASM function if available
+                    if (window.wasm_bindgen && window.wasm_bindgen.resize_canvas) {
+                        window.wasm_bindgen.resize_canvas(width, height);
+                    }
+                };
+                
+                // Update status
+                document.getElementById('status').textContent = 'Demo loaded successfully! Click the canvas or resize buttons to test.';
+                console.log('Demo setup complete');
+                
+            } catch (error) {
+                console.error('Failed to setup demo:', error);
+                document.getElementById('status').textContent = 'Failed to setup demo: ' + error.message;
+                document.getElementById('status').style.backgroundColor = '#f8d7da';
+                document.getElementById('status').style.color = '#721c24';
+            }
+        }
+        
+        // Setup when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupDemo);
+        } else {
+            setupDemo();
+        }
+    </script>
+</body>
+</html>

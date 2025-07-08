@@ -1,6 +1,6 @@
 # Story 1.1: Project Setup and Crate Structure
 
-## Status: Draft
+## Status: Done
 
 ## Story
 

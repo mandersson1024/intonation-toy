@@ -123,6 +123,25 @@ cargo doc --open
 cargo test
 ```
 
+### Running Interactive Demos
+
+The library includes interactive WebAssembly demos showcasing its capabilities:
+
+```bash
+# Install Trunk (one-time setup)
+cargo install trunk
+
+# Run basic demo with hot reload
+cd examples/basic_demo
+./build.sh serve
+# Opens http://localhost:8080
+```
+
+**Available demo:**
+- **Basic Demo**: WebAssembly foundation, canvas setup, interaction framework (rendering TBD)
+
+See [`examples/README.md`](examples/README.md) for more details.
+
 ## Error Handling
 
 The library provides comprehensive error handling through the `RendererError` enum:
