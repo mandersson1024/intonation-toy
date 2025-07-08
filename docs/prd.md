@@ -24,6 +24,7 @@ Pitch-Toy is a browser-based real-time pitch detection and visualization applica
 | 2025-07-01 | 1.1 | Added Platform Requirements & fail-fast policy for critical browser APIs | Sarah (PO) |
 | 2025-07-02 | 1.2 | Updated graphics stack from wgpu to three-d, changed WebGPU requirement to WebGL | Sarah (PO) |
 | 2025-07-07 | 1.3 | Updated PRD to specify 2D graphics only constraint across all sections | Sarah (PO) |
+| 2025-07-08 | 1.4 | Course correction: Added InputManager as Story 3.2, renumbered Event Dispatcher Integration to Story 3.3 | Sarah (PO) |
 
 ## Requirements
 
@@ -346,7 +347,22 @@ so that I can create smooth 60fps 2D visualizations that respond to real-time au
 - 5: Canvas resizing handled properly for responsive design
 - 6: Error handling for WebGL context initialization and context loss
 
-### Story 3.2 - Event Dispatcher Integration
+### Story 3.2 - InputManager Implementation
+
+As a developer,
+I want an InputManager system that handles mouse/touch interactions with GPU-rendered elements,
+so that I can enable interactive elements in the 2D graphics pipeline including click logging and microphone permission requests.
+
+#### Acceptance Criteria
+
+- 1: Create InputManager component that integrates with the three-d graphics pipeline
+- 2: Implement mouse/touch event handling for GPU-rendered elements (specifically green square in test_scene)
+- 3: Add console logging when clicking the green square in test_scene
+- 4: Implement microphone permission request functionality triggered by green square click
+- 5: Integrate InputManager with the event dispatcher system for event-driven interactions
+- 6: Ensure input handling works seamlessly with 2D graphics rendering pipeline
+
+### Story 3.3 - Event Dispatcher Integration
 
 As a developer,
 I want the graphics renderer to respond to audio events,
@@ -361,7 +377,7 @@ so that visualizations update efficiently based on audio data changes.
 - 5: Background rendering continues even when no audio events occur
 - 6: Memory management prevents texture and buffer leaks during operation
 
-### Story 3.3 - Basic Pitch Visualization
+### Story 3.4 - Basic Pitch Visualization
 
 As a user,
 I want to see a visual representation of my pitch,
@@ -376,7 +392,7 @@ so that I can understand my voice or instrument's fundamental frequency in real-
 - 5: Visual feedback updates within latency requirements (≤30ms)
 - 6: Clear indication when no pitch is detected (below confidence threshold)
 
-### Story 3.4 - Volume Visualization
+### Story 3.5 - Volume Visualization
 
 As a user,
 I want to see my audio input volume level visually,
@@ -391,7 +407,7 @@ so that I can monitor my input and ensure optimal signal levels.
 - 5: Integration with pitch visualization without performance impact
 - 6: Maintains 60fps rendering performance during volume changes
 
-### Story 3.5 - Presentation Layer Architecture
+### Story 3.6 - Presentation Layer Architecture
 
 As a developer,
 I want a structured presentation layer that coordinates visual responses,
