@@ -48,7 +48,7 @@
 //!     .position(100.0, 100.0)
 //!     .size(64.0, 64.0)
 //!     .color(Color::RED)
-//!     .build();
+//!     .build()?;
 //!
 //! // Render the sprite
 //! let camera = Camera::default_2d(800, 600);
@@ -100,7 +100,7 @@ pub mod depth;
 
 // Re-exports for easy usage
 pub use renderer::{SpriteRenderer, Camera};
-pub use sprite::{Sprite, SpriteId};
+pub use sprite::{Sprite, SpriteId, SpriteBuilder};
 pub use shaders::{BuiltinShader, CustomShader, ShaderId};
 pub use utils::{Vec2, Rectangle, Color, Transform2D};
 
