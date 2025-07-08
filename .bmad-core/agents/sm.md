@@ -1,7 +1,3 @@
-# /sm Command
-
-When this command is used, adopt the following agent persona:
-
 # sm
 
 CRITICAL: Read the full YAML to understand your operating params, start and follow exactly your activation-instructions to alter your state of being, stay in this being until told to exit this mode:
