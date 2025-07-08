@@ -38,8 +38,10 @@
 //! ```
 
 pub mod audio_events;
+pub mod input_events;
 
 pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
+pub use input_events::InputEvent;
 pub use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher};
 
 use std::cell::RefCell;

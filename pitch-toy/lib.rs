@@ -12,6 +12,7 @@ pub mod platform;
 pub mod events;
 pub mod debug;
 pub mod graphics;
+pub mod input;
 
 use common::dev_log;
 
@@ -139,6 +140,14 @@ async fn initialize_graphics_context(canvas: &HtmlCanvasElement) -> Result<(), S
             // Initialize graphics renderer
             let mut renderer = graphics::GraphicsRenderer::new();
             renderer.initialize(graphics_context)?;
+            
+            // Initialize InputManager
+            let mut input_manager = input::InputManager::new(canvas.clone())
+                .map_err(|e| format!("Failed to create InputManager: {:?}", e))?;
+            
+            // Register the green square as a clickable element
+            // Green square coordinates: -0.3 to 0.3 in graphics space (from test_scene.rs)
+            input_manager.register_hit_test_element("green_square", 0.0, 0.0, 0.6, 0.6);
             
             // Initialize uniform manager
             let mut uniform_manager = graphics::UniformManager::new();
