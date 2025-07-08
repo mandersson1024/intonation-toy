@@ -1,12 +1,12 @@
-# Story 1.1: Project Setup and Crate Structure
+# Story 1.1: Basic Sprite Rendering
 
-## Status: Done
+## Status: InProgress
 
 ## Story
 
 - As a developer
-- I want to set up the sprite-renderer crate with proper project structure and dependencies
-- so that I can begin implementing the core sprite rendering functionality with a solid foundation
+- I want to render sprites with solid colors using position, size, rotation, and color properties
+- so that I can display basic visual elements and establish the core rendering foundation
 
 ## Acceptance Criteria (ACs)
 
@@ -16,6 +16,11 @@
 4. **AC4: Basic Error Handling** - Define RendererError enum with common error variants, proper Result<T, RendererError> propagation, and helpful error messages
 5. **AC5: Build System Verification** - Verify cargo build, cargo test, cargo doc, and wasm-pack build all execute successfully
 6. **AC6: Documentation Foundation** - Create README.md, API documentation comments, examples directory structure, and module-level documentation
+7. **AC7: Sprite Data Structure** - Implement Sprite struct with position (x, y), size (width, height), rotation (radians), and color (RGBA) properties with proper validation
+8. **AC8: Core Rendering Pipeline** - Implement SpriteRenderer::render() method that takes sprite array and camera, performs WebGL rendering with proper state management
+9. **AC9: Camera Implementation** - Implement Camera with 2D projection matrix, viewport management, and coordinate transformation from screen to world space
+10. **AC10: WebGL Rendering** - Implement WebGL draw calls using three-d engine for sprite rendering with vertex buffers, shaders, and proper GPU state management
+11. **AC11: Performance Validation** - Achieve 60fps rendering performance with up to 1000 sprites, with frame time monitoring and performance metrics
 
 ## Tasks / Subtasks
 
@@ -38,7 +43,7 @@
   - [x] Set up public API surface exports
   - [x] **MANUAL TEST**: Open lib.rs, confirm all modules are declared and properly exported, run `cargo build` and verify it compiles without errors, check that modules are accessible from external code
 
-- [-] Task 4: Basic Error Handling (AC: 4)
+- [x] Task 4: Basic Error Handling (AC: 4)
   - [x] Define `RendererError` enum with variants: WebGLContextFailed, ShaderCompilationFailed, TextureLoadingFailed, InvalidSpriteData
   - [x] Implement error propagation using thiserror derive macros
   - [x] Add comprehensive error documentation
@@ -53,6 +58,57 @@
   - [x] Create README.md with project overview and usage instructions
   - [x] Add API documentation comments to lib.rs
   - [x] Set up examples directory with placeholder files
+
+- [ ] Task 7: Implement Sprite Data Structure (AC: 7)
+  - [ ] Create Sprite struct in `/src/sprite/sprite.rs` with position (Vec2), size (Vec2), rotation (f32), color (Color) fields
+  - [ ] Implement Sprite::builder() pattern for fluent sprite creation
+  - [ ] Add SpriteId type for unique sprite identification
+  - [ ] Implement sprite validation (positive dimensions, valid color ranges)
+  - [ ] Add sprite transformation methods (translate, rotate, scale)
+  - [ ] **MANUAL TEST**: Create sprites with various properties, verify builder pattern works, confirm validation catches invalid data, test transformation methods
+
+- [ ] Task 8: Implement Camera System (AC: 9)
+  - [ ] Create Camera struct in `/src/renderer/mod.rs` with viewport dimensions and projection matrix
+  - [ ] Implement Camera::default_2d() with orthographic projection for 2D rendering
+  - [ ] Add projection matrix calculation for screen-to-world coordinate transformation
+  - [ ] Implement viewport management and coordinate system handling
+  - [ ] Add camera update methods for dynamic viewport changes
+  - [ ] **MANUAL TEST**: Create cameras with different viewport sizes, verify projection matrices are correct, test coordinate transformations, confirm viewport updates work
+
+- [ ] Task 9: Implement Core Rendering Pipeline (AC: 8, 10)
+  - [ ] Implement SpriteRenderer::render() method in `/src/renderer/mod.rs` with full rendering pipeline
+  - [ ] Create vertex buffer management for sprite quad generation
+  - [ ] Implement WebGL state management (viewport, blending, depth testing)
+  - [ ] Add sprite-to-vertex data conversion with position, size, rotation, color
+  - [ ] Integrate with three-d engine for WebGL abstraction and rendering calls
+  - [ ] Implement proper error handling for WebGL operations
+  - [ ] **MANUAL TEST**: Render single sprites, test with multiple sprites, verify WebGL state is properly managed, confirm error handling works
+
+- [ ] Task 10: Shader Integration and WebGL Rendering (AC: 10)
+  - [ ] Implement basic solid color shader in `/src/shaders/solid_color.rs`
+  - [ ] Create shader program compilation and linking
+  - [ ] Add uniform parameter management (projection matrix, sprite transforms, colors)
+  - [ ] Implement vertex attribute setup for sprite rendering
+  - [ ] Add WebGL draw call execution with proper primitive types
+  - [ ] **MANUAL TEST**: Verify shaders compile correctly, test uniform parameters are set properly, confirm draw calls execute without errors, validate rendered output
+
+- [ ] Task 11: Performance Validation and Optimization (AC: 11)
+  - [ ] Implement performance monitoring with frame time measurement
+  - [ ] Add sprite count scaling tests (100, 500, 1000+ sprites)
+  - [ ] Optimize vertex buffer allocation and reuse
+  - [ ] Implement efficient sprite batching for similar render states
+  - [ ] Add performance metrics logging and monitoring
+  - [ ] Validate 60fps target with 1000 sprites across different devices
+  - [ ] **MANUAL TEST**: Run performance tests with increasing sprite counts, monitor frame rates and frame times, verify 60fps target is met, test on different browser/device combinations
+
+- [ ] Task 12: Integration Testing and Validation (All ACs)
+  - [ ] Create comprehensive integration tests for full rendering pipeline
+  - [ ] Test sprite rendering with various property combinations
+  - [ ] Validate camera projections and coordinate transformations
+  - [ ] Test error scenarios (invalid sprites, WebGL failures, shader errors)
+  - [ ] Verify browser compatibility across target platforms
+  - [ ] Create visual validation tests for rendered output correctness
+  - [ ] **MANUAL TEST**: Render complex scenes with multiple sprites, verify visual output matches expectations, test error recovery, confirm browser compatibility
 
 
 ## Dev Notes
@@ -79,25 +135,49 @@
 - **depth/**: Depth sorting and layer management (feature flag)
 - **utils/**: Common utilities and helper functions
 
+### Core Rendering Implementation Requirements:
+- **Sprite Properties**: Position (x, y), size (width, height), rotation (radians), color (RGBA) as specified in PRD Story 1.1 AC
+- **Performance Target**: 60fps with 1000+ sprites as specified in PRD NFR1.1 and NFR1.2
+- **WebGL Pipeline**: Use three-d engine abstraction for WebGL rendering calls and state management
+- **Coordinate System**: 2D orthographic projection with screen-to-world coordinate transformation
+- **Memory Management**: Pre-allocated vertex buffers and efficient sprite batching for performance
+
+### Implementation Architecture:
+- **Sprite Struct**: Core data structure with builder pattern for ease of use
+- **Camera System**: 2D projection matrices and viewport management
+- **Rendering Pipeline**: WebGL draw calls through three-d engine abstraction
+- **Shader Integration**: Basic solid color shader for initial rendering support
+- **Performance Monitoring**: Frame time measurement and sprite count validation
+
 ### Testing
 
 Dev Note: Story Requires the following tests:
 
 - [ ] Cargo Unit Tests: (nextToFile: true), coverage requirement: 80%
-- [ ] Cargo Integration Test (Test Location): location: `/tests/project_setup/`
-- [ ] Manual E2E: location: Manual verification as described in Task 7
+  - Sprite creation and validation tests
+  - Camera projection matrix tests  
+  - Rendering pipeline component tests
+- [ ] Cargo Integration Test (Test Location): location: `/tests/integration/`
+  - Full rendering pipeline integration tests
+  - Performance validation tests
+  - WebGL state management tests
+- [ ] WASM Integration Tests: location: `/tests/wasm/basic_rendering.rs`
+  - WebAssembly sprite rendering tests
+  - Browser WebGL compatibility tests
+- [ ] Manual E2E: location: Manual verification as described in Tasks 7-12
 
 Manual Test Steps:
 
-This story requires comprehensive manual testing to verify the development environment is properly set up:
+This story requires comprehensive manual testing to verify sprite rendering implementation:
 
-1. **Build System Verification**: Run all cargo commands (build, test, doc) and wasm-pack build to ensure compilation works
-2. **Feature Flag Testing**: Test each feature flag combination to verify proper configuration
-3. **Documentation Testing**: Generate and review documentation to ensure completeness
-4. **Integration Testing**: Create external test project to verify crate can be imported and used
-5. **Error Handling Testing**: Verify error types are properly exposed and functional
+1. **Sprite Creation Testing**: Create sprites with various properties, test builder pattern, validate error handling
+2. **Camera System Testing**: Test different viewport sizes, verify projection matrices, validate coordinate transformations  
+3. **Rendering Pipeline Testing**: Render single and multiple sprites, verify WebGL state management, test error scenarios
+4. **Shader Integration Testing**: Verify shader compilation, test uniform parameters, validate rendering output
+5. **Performance Testing**: Test with increasing sprite counts (100, 500, 1000+), monitor frame rates, validate 60fps target
+6. **Cross-Browser Testing**: Verify rendering works across Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+
 
-Expected Results: All build commands complete successfully, documentation generates properly, feature flags work correctly, crate can be imported externally, and error handling functions as expected.
+Expected Results: All sprites render correctly with proper colors, positions, sizes, and rotations. Performance target of 60fps with 1000 sprites is achieved. WebGL integration works smoothly across all target browsers.
 
 ## Dev Agent Record
 
