@@ -12,6 +12,25 @@
 //! - Texture atlas support for performance optimization
 //! - Zero-dependency library interface
 //!
+//! ## Architecture
+//!
+//! The library is organized into several modules:
+//!
+//! - [`renderer`]: Core rendering engine and WebGL context management
+//! - [`sprite`]: Sprite definitions, builders, and management
+//! - [`shaders`]: Shader compilation and management system
+//! - [`hit_testing`]: Spatial indexing and collision detection (optional)
+//! - [`depth`]: Depth sorting and layer management (optional)
+//! - [`utils`]: Common utilities and helper functions
+//!
+//! ## Performance Tips
+//!
+//! - Use batch rendering for multiple sprites with `SpriteRenderer::render()`
+//! - Group sprites by texture to minimize GPU state changes
+//! - Enable depth testing only when needed with the `depth-testing` feature
+//! - Reuse sprite objects and avoid frequent allocations
+//! - Use texture atlases to reduce texture switching overhead
+//!
 //! ## Example
 //!
 //! ```rust,no_run
@@ -38,15 +57,44 @@
 //! ```
 
 // Core modules
+
+/// Core rendering engine and WebGL context management
+/// 
+/// This module provides the main [`SpriteRenderer`] struct and [`Camera`] for
+/// managing the rendering pipeline and viewport.
 pub mod renderer;
+
+/// Sprite definitions, builders, and management
+/// 
+/// This module provides the [`Sprite`] struct and related types for creating
+/// and managing sprite instances.
 pub mod sprite;
+
+/// Shader compilation and management system
+/// 
+/// This module provides built-in shaders and support for custom shader programs.
 pub mod shaders;
+
+/// Common utilities and helper functions
+/// 
+/// This module provides mathematical types, color utilities, and other common
+/// functionality used throughout the library.
 pub mod utils;
 
 // Feature-gated modules
+
+/// Spatial indexing and collision detection (optional)
+/// 
+/// This module provides efficient hit testing and collision detection for sprites.
+/// Only available when the `hit-testing` feature is enabled.
 #[cfg(feature = "hit-testing")]
 pub mod hit_testing;
 
+/// Depth sorting and layer management (optional)
+/// 
+/// This module provides depth-based sprite sorting and layer management for
+/// proper rendering order and z-fighting prevention.
+/// Only available when the `depth-testing` feature is enabled.
 #[cfg(feature = "depth-testing")]
 pub mod depth;
 
