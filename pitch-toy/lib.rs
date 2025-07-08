@@ -149,6 +149,12 @@ async fn initialize_graphics_context(canvas: &HtmlCanvasElement) -> Result<(), S
             // Green square coordinates: -0.3 to 0.3 in graphics space (from test_scene.rs)
             input_manager.register_hit_test_element("green_square", 0.0, 0.0, 0.6, 0.6);
             
+            // Store InputManager globally so event listeners persist
+            input::set_global_input_manager(input_manager);
+            
+            // Debug: Verify InputManager is stored
+            input::debug_input_manager_status();
+            
             // Initialize uniform manager
             let mut uniform_manager = graphics::UniformManager::new();
             uniform_manager.initialize(graphics_context)?;
