@@ -25,7 +25,9 @@ impl Camera {
 
 /// Main sprite renderer
 pub struct SpriteRenderer {
+    #[allow(dead_code)]
     context: RenderContext,
+    #[allow(dead_code)]
     batch_renderer: BatchRenderer,
 }
 

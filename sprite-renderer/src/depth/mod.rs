@@ -17,6 +17,7 @@ pub struct DepthLayer {
 
 /// Depth management system
 pub struct DepthManager {
+    #[allow(dead_code)]
     layers: Vec<DepthLayer>,
 }
 

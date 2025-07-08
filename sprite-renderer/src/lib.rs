@@ -16,9 +16,12 @@
 //!
 //! ```rust,no_run
 //! use sprite_renderer::*;
+//! use wasm_bindgen::JsCast;
 //!
 //! // Initialize renderer with canvas element
-//! let canvas = get_canvas_element();
+//! let document = web_sys::window().unwrap().document().unwrap();
+//! let canvas = document.get_element_by_id("canvas").unwrap()
+//!     .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
 //! let mut renderer = SpriteRenderer::new(&canvas)?;
 //!
 //! // Create a sprite
