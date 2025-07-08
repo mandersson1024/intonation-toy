@@ -73,7 +73,6 @@
   - [ ] Add projection matrix calculation for screen-to-world coordinate transformation
   - [ ] Implement viewport management and coordinate system handling
   - [ ] Add camera update methods for dynamic viewport changes
-  - [ ] **MANUAL TEST**: Create cameras with different viewport sizes, verify projection matrices are correct, test coordinate transformations, confirm viewport updates work
 
 - [ ] Task 9: Implement Core Rendering Pipeline (AC: 8, 10)
   - [ ] Implement SpriteRenderer::render() method in `/src/renderer/mod.rs` with full rendering pipeline
@@ -82,7 +81,6 @@
   - [ ] Add sprite-to-vertex data conversion with position, size, rotation, color
   - [ ] Integrate with three-d engine for WebGL abstraction and rendering calls
   - [ ] Implement proper error handling for WebGL operations
-  - [ ] **MANUAL TEST**: Render single sprites, test with multiple sprites, verify WebGL state is properly managed, confirm error handling works
 
 - [ ] Task 10: Shader Integration and WebGL Rendering (AC: 10)
   - [ ] Implement basic solid color shader in `/src/shaders/solid_color.rs`
@@ -90,7 +88,6 @@
   - [ ] Add uniform parameter management (projection matrix, sprite transforms, colors)
   - [ ] Implement vertex attribute setup for sprite rendering
   - [ ] Add WebGL draw call execution with proper primitive types
-  - [ ] **MANUAL TEST**: Verify shaders compile correctly, test uniform parameters are set properly, confirm draw calls execute without errors, validate rendered output
 
 - [ ] Task 11: Performance Validation and Optimization (AC: 11)
   - [ ] Implement performance monitoring with frame time measurement
@@ -99,7 +96,6 @@
   - [ ] Implement efficient sprite batching for similar render states
   - [ ] Add performance metrics logging and monitoring
   - [ ] Validate 60fps target with 1000 sprites across different devices
-  - [ ] **MANUAL TEST**: Run performance tests with increasing sprite counts, monitor frame rates and frame times, verify 60fps target is met, test on different browser/device combinations
 
 - [ ] Task 12: Integration Testing and Validation (All ACs)
   - [ ] Create comprehensive integration tests for full rendering pipeline
@@ -108,7 +104,6 @@
   - [ ] Test error scenarios (invalid sprites, WebGL failures, shader errors)
   - [ ] Verify browser compatibility across target platforms
   - [ ] Create visual validation tests for rendered output correctness
-  - [ ] **MANUAL TEST**: Render complex scenes with multiple sprites, verify visual output matches expectations, test error recovery, confirm browser compatibility
 
 
 ## Dev Notes
