@@ -5,3 +5,7 @@
 
 pub mod math;
 pub mod color;
+
+// Re-export commonly used types
+pub use math::{Vec2, Rectangle, Transform2D};
+pub use color::Color;
