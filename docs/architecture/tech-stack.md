@@ -51,14 +51,33 @@
 
 ### Graphics Rendering Stack
 
-#### GPU Graphics
-- **wgpu 0.17**: Cross-platform GPU abstraction
+#### Primary Graphics Engine
+- **three-d 0.18**: High-level 3D graphics engine for 2D rendering
+  - **Core module**: Mid-level rendering with custom shader support
+  - **WebGL backend**: Cross-platform GPU acceleration
+  - **2D-focused usage**: Strictly 2D rendering, no 3D models or transformations
+  - **Performance optimized**: GPU-accelerated sprite rendering
+  - **Shader support**: Built-in and custom shader capabilities
+
+#### Sprite Rendering
+- **sprite-renderer crate**: Standalone 2D sprite rendering library
+  - **three-d core integration**: Uses three-d core module for WebGL abstraction
+  - **Feature flags**: hit-testing, depth-testing for modular functionality
+  - **GPU acceleration**: Hardware-accelerated 2D sprite rendering
+  - **Performance focused**: Batching, culling, and memory optimization
+
+#### GPU Graphics (Legacy/Reference)
+- **wgpu 0.17**: Cross-platform GPU abstraction (not currently used)
   - Vulkan/Metal/DirectX 12 backends
   - WebGPU browser API integration
   - High-performance graphics pipeline
 
 #### Shader Languages
-- **WGSL**: WebGPU Shading Language
+- **GLSL**: OpenGL Shading Language (via three-d/WebGL)
+  - Cross-platform shader compilation
+  - GPU-accelerated visual effects
+  - Real-time rendering optimizations
+- **WGSL**: WebGPU Shading Language (for future WebGPU migration)
   - Cross-platform shader compilation
   - GPU-accelerated visual effects
   - Real-time rendering optimizations
@@ -161,8 +180,9 @@ yew = { version = "0.21", features = ["csr"] }
 web-sys = "0.3"
 pitch-detection = "0.3"
 rustfft = "6.0"
-wgpu = "0.17"
+three-d = "0.18"
 wasm-bindgen = "0.2"
+# sprite-renderer = { path = "../sprite-renderer" }  # Internal crate
 ```
 
 **Optimizations:**

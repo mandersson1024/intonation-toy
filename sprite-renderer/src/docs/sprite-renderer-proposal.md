@@ -26,6 +26,31 @@ This proposal outlines the architecture for a **standalone, reusable sprite rend
 
 ## Technical Architecture
 
+### three-d Renderer Integration Strategy
+
+The sprite renderer is built as a **specialized layer on top of three-d's renderer module**, leveraging its high-level abstractions for maximum efficiency and minimal WebGL complexity:
+
+#### Core three-d Integration Points
+- **`three_d::renderer::Renderer`**: Main rendering engine - handles all WebGL operations
+- **`three_d::renderer::Geometry`**: Sprite quad geometries with efficient vertex layouts
+- **`three_d::renderer::Material`**: Texture and shader material management
+- **`three_d::renderer::Object`**: Individual sprite render objects
+- **`three_d::renderer::RenderTarget`**: Canvas and off-screen render targets
+- **`three_d::renderer::Camera2D`**: 2D camera transformations
+
+#### Architecture Philosophy
+Instead of reimplementing WebGL primitives, we **compose three-d renderer components** to create sprite-specific functionality:
+
+```rust
+// Rather than raw WebGL:
+// gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+// We use three-d renderer abstractions:
+let geometry = three_d::renderer::Geometry::new(&context, vertices, indices)?;
+let material = three_d::renderer::PhysicalMaterial::new(&context, &texture)?;
+let sprite_object = three_d::renderer::Object::new(&context, &geometry, &material)?;
+```
+
 ### Crate Structure
 
 ```
@@ -73,28 +98,59 @@ sprite-renderer/
 
 ### Core Components
 
-#### 1. SpriteRenderer - Main Entry Point
+#### 1. SpriteRenderer - Main Entry Point (three-d Integration)
 
 ```rust
 pub struct SpriteRenderer {
-    context: RenderContext,
-    batch_renderer: BatchRenderer,
-    shader_manager: ShaderManager,
-    texture_atlas: TextureAtlas,
+    // Core three-d components
+    renderer: three_d::renderer::Renderer,
+    camera: three_d::renderer::Camera2D,
+    render_target: three_d::renderer::RenderTarget,
+    
+    // Sprite-specific systems built on three-d
+    sprite_batch_system: SpriteBatchSystem,
+    material_cache: MaterialCache,
+    geometry_cache: GeometryCache,
     hit_tester: HitTester,
     depth_manager: DepthManager,
 }
 
 impl SpriteRenderer {
     pub fn new(canvas: &web_sys::HtmlCanvasElement) -> Result<Self, RendererError>;
-    pub fn render(&mut self, sprites: &[Sprite], camera: &Camera) -> Result<(), RendererError>;
+    pub fn render(&mut self, sprites: &[Sprite]) -> Result<(), RendererError>;
     pub fn hit_test(&self, position: Vec2, sprites: &[Sprite]) -> Vec<SpriteId>;
-    pub fn add_custom_shader(&mut self, shader: CustomShader) -> ShaderId;
+    pub fn add_custom_material(&mut self, material: CustomMaterial) -> MaterialId;
     pub fn create_texture_atlas(&mut self, textures: &[Texture]) -> AtlasId;
+    
+    // Direct three-d access for advanced usage
+    pub fn three_d_renderer(&self) -> &three_d::renderer::Renderer;
+    pub fn three_d_camera(&mut self) -> &mut three_d::renderer::Camera2D;
 }
 ```
 
-#### 2. Sprite - Core Sprite Definition
+#### 2. SpriteBatchSystem - three-d Optimized Batching
+
+```rust
+pub struct SpriteBatchSystem {
+    batches: Vec<SpriteBatch>,
+    quad_geometry: three_d::renderer::Geometry,
+    instance_buffer: three_d::renderer::InstanceBuffer,
+}
+
+pub struct SpriteBatch {
+    material: three_d::renderer::Material,
+    render_objects: Vec<three_d::renderer::Object>,
+    instances: Vec<SpriteInstance>,
+}
+
+impl SpriteBatchSystem {
+    pub fn batch_sprites(&mut self, sprites: &[Sprite]) -> Result<(), RendererError>;
+    pub fn render_batches(&self, renderer: &three_d::renderer::Renderer) -> Result<(), RendererError>;
+    pub fn clear_batches(&mut self);
+}
+```
+
+#### 3. Sprite - Core Sprite Definition
 
 ```rust
 #[derive(Clone, Debug)]
@@ -105,26 +161,45 @@ pub struct Sprite {
     pub rotation: f32,
     pub color: Color,
     pub texture: Option<TextureId>,
-    pub shader: ShaderId,
+    pub material: MaterialId,  // Changed from shader to material
     pub depth: f32,
     pub visible: bool,
     pub hit_box: Option<HitBox>,
 }
+
+#[derive(Clone, Debug)]
+pub struct SpriteInstance {
+    pub transform: three_d::renderer::Mat4,
+    pub color: three_d::renderer::Color,
+    pub uv_transform: three_d::renderer::Mat3,
+}
 ```
 
-#### 3. Built-in Shaders
+#### 4. Built-in Materials (three-d Integration)
 
 ```rust
-pub enum BuiltinShader {
+pub enum BuiltinMaterial {
     SolidColor,
     Textured,
     TexturedWithColor,
 }
 
-pub struct CustomShader {
+pub struct MaterialCache {
+    solid_color_material: three_d::renderer::ColorMaterial,
+    textured_material: three_d::renderer::PhysicalMaterial,
+    custom_materials: HashMap<MaterialId, Box<dyn three_d::renderer::Material>>,
+}
+
+pub struct CustomMaterial {
     pub vertex_source: String,
     pub fragment_source: String,
-    pub uniforms: HashMap<String, UniformValue>,
+    pub uniforms: HashMap<String, three_d::renderer::UniformValue>,
+}
+
+impl MaterialCache {
+    pub fn get_builtin_material(&self, material: BuiltinMaterial) -> &dyn three_d::renderer::Material;
+    pub fn add_custom_material(&mut self, material: CustomMaterial) -> MaterialId;
+    pub fn get_material(&self, id: MaterialId) -> Option<&dyn three_d::renderer::Material>;
 }
 ```
 
@@ -252,16 +327,16 @@ impl Default for RendererConfig {
 
 ### Usage Examples
 
-#### Basic Sprite Rendering
+#### Basic Sprite Rendering (three-d Integration)
 
 ```rust
 use sprite_renderer::*;
 
-// Initialize renderer
+// Initialize renderer - three-d handles WebGL context creation
 let canvas = get_canvas_element();
 let mut renderer = SpriteRenderer::new(&canvas)?;
 
-// Create sprites
+// Create sprites with three-d materials
 let sprites = vec![
     Sprite {
         id: SpriteId::new(),
@@ -270,16 +345,19 @@ let sprites = vec![
         rotation: 0.0,
         color: Color::RED,
         texture: None,
-        shader: BuiltinShader::SolidColor.into(),
+        material: BuiltinMaterial::SolidColor.into(),
         depth: 0.0,
         visible: true,
         hit_box: Some(HitBox::rectangle(Vec2::new(50.0, 50.0))),
     }
 ];
 
-// Render frame
-let camera = Camera::new(Vec2::new(400.0, 300.0), 1.0);
-renderer.render(&sprites, &camera)?;
+// Render frame - three-d handles all WebGL operations
+renderer.render(&sprites)?;
+
+// Optional: Access three-d camera for advanced transformations
+let camera = renderer.three_d_camera();
+camera.set_viewport(three_d::renderer::Viewport::new_at_origo(800, 600));
 ```
 
 #### Hit Testing
@@ -294,35 +372,84 @@ for sprite_id in hit_sprites {
 }
 ```
 
-#### Custom Shaders
+#### Custom Materials (three-d Integration)
 
 ```rust
-// Add custom shader
-let custom_shader = CustomShader {
+// Add custom material using three-d shader system
+let custom_material = CustomMaterial {
     vertex_source: include_str!("shaders/gradient.vert"),
     fragment_source: include_str!("shaders/gradient.frag"),
-    uniforms: HashMap::new(),
+    uniforms: HashMap::from([
+        ("time".to_string(), three_d::renderer::UniformValue::Float(0.0)),
+        ("resolution".to_string(), three_d::renderer::UniformValue::Vec2([800.0, 600.0])),
+    ]),
 };
 
-let shader_id = renderer.add_custom_shader(custom_shader)?;
+let material_id = renderer.add_custom_material(custom_material)?;
 
-// Use custom shader
-sprite.shader = shader_id;
+// Use custom material
+sprite.material = material_id;
+
+// Advanced: Direct three-d material access
+let three_d_renderer = renderer.three_d_renderer();
+let material = three_d::renderer::PhysicalMaterial::new(
+    three_d_renderer.context(),
+    &three_d::renderer::CpuMaterial {
+        albedo: three_d::renderer::Color::RED,
+        ..Default::default()
+    }
+)?;
 ```
 
 ## Performance Considerations
 
-### Memory Management
-- **Pre-allocated Buffers**: Vertex buffers allocated once, reused
-- **Object Pooling**: Sprite objects pooled to reduce allocations
-- **Texture Atlasing**: Multiple textures combined into single atlas
-- **Uniform Buffer Objects**: Efficient uniform data transfer
+### three-d Renderer Optimizations
 
-### Rendering Optimizations
-- **Instanced Rendering**: Similar sprites rendered in batches
-- **Frustum Culling**: Off-screen sprites culled before rendering
-- **Depth Pre-pass**: Early depth testing for overdraw reduction
-- **Sprite Sorting**: Depth-based sorting for optimal rendering order
+#### Memory Management (three-d Integration)
+- **three-d Geometry Caching**: Reuse `three_d::renderer::Geometry` objects for identical sprite quads
+- **Material Sharing**: Single `three_d::renderer::Material` instances shared across sprites
+- **Instance Buffer Optimization**: Use `three_d::renderer::InstanceBuffer` for efficient sprite batching
+- **Texture Atlas Integration**: Leverage `three_d::renderer::Texture2DArray` for atlas management
+
+#### Rendering Optimizations (three-d Powered)
+- **three-d Instanced Rendering**: Use `three_d::renderer::InstancedMesh` for sprite batches
+- **Automatic Frustum Culling**: Leverage three-d's built-in culling with `three_d::renderer::Camera2D`
+- **Depth Buffer Optimization**: Use three-d's depth testing with `three_d::renderer::RenderTarget`
+- **Material Sorting**: Group sprites by `three_d::renderer::Material` to minimize state changes
+- **Geometry Instancing**: Single quad geometry instanced for all sprites via three-d
+
+#### three-d Specific Optimizations
+```rust
+// Leverage three-d's built-in optimizations
+pub struct OptimizedSpriteRenderer {
+    // Pre-allocated three-d resources
+    quad_geometry: three_d::renderer::Geometry,
+    instance_buffer: three_d::renderer::InstanceBuffer,
+    material_cache: HashMap<MaterialId, three_d::renderer::Material>,
+    
+    // three-d render state optimization
+    render_states: three_d::renderer::RenderStates,
+}
+
+impl OptimizedSpriteRenderer {
+    pub fn render_optimized(&mut self, sprites: &[Sprite]) -> Result<(), RendererError> {
+        // Sort sprites by material to minimize state changes
+        let sorted_sprites = self.sort_by_material(sprites);
+        
+        // Use three-d's instanced rendering
+        for (material, sprite_batch) in sorted_sprites {
+            self.instance_buffer.update_instances(&sprite_batch);
+            self.renderer.render_instanced(
+                &self.quad_geometry,
+                &material,
+                &self.instance_buffer,
+                &self.render_states
+            )?;
+        }
+        Ok(())
+    }
+}
+```
 
 ### Hit Testing Optimizations
 - **Spatial Indexing**: Hierarchical spatial data structure
@@ -430,16 +557,24 @@ sprite-renderer-test-app/
 
 ## Dependencies
 
-### Core Dependencies
+### Core Dependencies (three-d Renderer Focus)
 ```toml
 [dependencies]
-three-d = "0.17"
+# Core three-d renderer - our primary rendering backend
+three-d = { version = "0.18", features = ["canvas", "renderer"] }
+
+# WebAssembly bindings for browser integration
 wasm-bindgen = "0.2"
-web-sys = "0.3"
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "WebGl2RenderingContext"] }
 js-sys = "0.3"
+
+# Serialization and error handling
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 anyhow = "1.0"
+
+# Math and utilities that complement three-d
+nalgebra = "0.32"  # Compatible with three-d's math types
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
