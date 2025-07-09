@@ -10,13 +10,14 @@
 
 ## Executive Summary
 
-The Sprite Renderer Module is a standalone, reusable Rust crate designed to provide high-performance 2D sprite rendering capabilities for modern web browsers. This module serves as an isolated, framework-agnostic library that can be integrated into any Rust/WebAssembly project while maintaining complete independence from application-specific code.
+The Sprite Renderer Module is a standalone, reusable Rust crate designed to provide high-performance 2D sprite rendering capabilities for modern web browsers. Built as a **specialized layer on top of three-d's renderer module**, this library leverages high-level rendering abstractions to eliminate WebGL complexity while maintaining complete independence from application-specific code.
 
 ### Key Value Propositions
+- **High-Level Abstraction**: Built on three-d renderer - no WebGL knowledge required
+- **Performance**: GPU-accelerated rendering with 60fps target via three-d optimizations
 - **Reusability**: Zero-dependency library crate usable across multiple projects
-- **Performance**: GPU-accelerated rendering with 60fps target performance
-- **Modern Architecture**: Built specifically for WebAssembly and modern browser APIs
-- **Developer Experience**: Clean API with comprehensive testing and documentation
+- **Modern Architecture**: Leverages three-d's proven rendering pipeline for WebAssembly
+- **Developer Experience**: Clean API that abstracts complex graphics concepts
 
 ## Business Context
 
@@ -29,9 +30,10 @@ Current web-based applications requiring 2D sprite rendering face several challe
 
 ### Solution Overview
 The Sprite Renderer Module addresses these challenges by providing:
-- A standalone, reusable rendering engine
-- GPU-accelerated performance through WebGL
-- Consistent API across different projects
+- A standalone, reusable rendering engine built on three-d's renderer module
+- GPU-accelerated performance through three-d's optimized WebGL abstraction
+- High-level rendering API that eliminates graphics programming complexity
+- Consistent API across different projects with three-d's proven architecture
 - Modern browser-focused architecture with fail-fast validation
 
 ### Target Users
@@ -101,35 +103,38 @@ The Sprite Renderer Module addresses these challenges by providing:
   - Caches hit test results for performance
   - Supports transformation-aware hit testing
 
-### Epic 3: Shader System
-**As a developer**, I want to customize sprite appearance so that I can create unique visual effects.
+### Epic 3: Material System (three-d Integration)
+**As a developer**, I want to customize sprite appearance so that I can create unique visual effects using three-d's material system.
 
-#### Story 3.1: Built-in Shaders
-- **As a developer**, I want to use pre-built shaders so that I can quickly implement common rendering effects
+#### Story 3.1: Built-in Materials
+- **As a developer**, I want to use pre-built materials so that I can quickly implement common rendering effects
 - **Acceptance Criteria**:
-  - Provides solid color shader
-  - Provides textured sprite shader
-  - Provides textured sprite with color modulation shader
-  - Handles shader compilation errors gracefully
+  - Provides solid color material using three-d::renderer::ColorMaterial
+  - Provides textured sprite material using three-d::renderer::PhysicalMaterial
+  - Provides textured sprite with color modulation material
+  - Handles material compilation errors gracefully via three-d
+  - Leverages three-d's material caching for performance
 
-#### Story 3.2: Custom Shader Support
-- **As a developer**, I want to create custom shaders so that I can implement unique visual effects
+#### Story 3.2: Custom Material Support
+- **As a developer**, I want to create custom materials so that I can implement unique visual effects
 - **Acceptance Criteria**:
-  - Can load custom vertex and fragment shaders
-  - Supports shader uniform parameters
-  - Validates shader compilation at runtime
-  - Provides error messages for shader compilation failures
+  - Can create custom materials using three-d's material system
+  - Supports material uniform parameters via three-d::renderer::UniformValue
+  - Validates material compilation at runtime through three-d
+  - Provides error messages for material compilation failures
+  - Enables direct access to three-d materials for advanced usage
 
 ### Epic 4: Performance Optimization
 **As a developer**, I want optimal rendering performance so that my applications run smoothly.
 
-#### Story 4.1: Batching System
+#### Story 4.1: three-d Optimized Batching System
 - **As a developer**, I want sprites to be rendered efficiently so that I can display many sprites without performance degradation
 - **Acceptance Criteria**:
-  - Implements sprite batching for similar sprites
-  - Uses instanced rendering where possible
-  - Performs frustum culling for off-screen sprites
-  - Maintains 60fps with 10,000+ sprites
+  - Implements sprite batching using three-d::renderer::InstanceBuffer
+  - Uses three-d's instanced rendering capabilities
+  - Leverages three-d's automatic frustum culling for off-screen sprites
+  - Groups sprites by three-d::renderer::Material for optimal rendering
+  - Maintains 60fps with 10,000+ sprites using three-d optimizations
 
 #### Story 4.2: Memory Management
 - **As a developer**, I want efficient memory usage so that my applications don't consume excessive resources
@@ -175,17 +180,19 @@ The Sprite Renderer Module addresses these challenges by providing:
 - **FR2.3**: Implement spatial indexing for performance
 - **FR2.4**: Return hit sprites in depth order
 
-#### FR3: Shader System
-- **FR3.1**: Provide built-in shaders for common use cases
-- **FR3.2**: Support custom vertex and fragment shaders
-- **FR3.3**: Handle shader compilation and error reporting
-- **FR3.4**: Support shader uniform parameters
+#### FR3: Material System (three-d Integration)
+- **FR3.1**: Provide built-in materials using three-d::renderer material types
+- **FR3.2**: Support custom materials via three-d's material system
+- **FR3.3**: Handle material compilation and error reporting through three-d
+- **FR3.4**: Support material uniform parameters via three-d::renderer::UniformValue
+- **FR3.5**: Enable direct access to three-d materials for advanced usage
 
-#### FR4: Performance Optimization
-- **FR4.1**: Implement sprite batching system
-- **FR4.2**: Perform frustum culling for off-screen sprites
-- **FR4.3**: Use GPU-accelerated rendering via WebGL
-- **FR4.4**: Optimize memory usage with pre-allocated buffers
+#### FR4: Performance Optimization (three-d Powered)
+- **FR4.1**: Implement sprite batching using three-d::renderer::InstanceBuffer
+- **FR4.2**: Leverage three-d's automatic frustum culling for off-screen sprites
+- **FR4.3**: Use GPU-accelerated rendering via three-d's WebGL abstraction
+- **FR4.4**: Optimize memory usage with three-d's geometry and buffer caching
+- **FR4.5**: Group sprites by three-d::renderer::Material for optimal rendering
 
 ### Non-Functional Requirements
 
@@ -218,20 +225,23 @@ The Sprite Renderer Module addresses these challenges by providing:
 #### TC1: Platform Constraints
 - **TC1.1**: Target modern browsers only (no legacy browser support)
 - **TC1.2**: Require WebAssembly and WebGL support
-- **TC1.3**: Use three-d engine for WebGL abstraction
-- **TC1.4**: Implement as standalone Rust library crate
+- **TC1.3**: Built exclusively on three-d's renderer module for WebGL abstraction
+- **TC1.4**: Implement as standalone Rust library crate layered on three-d
+- **TC1.5**: Leverage three-d's proven browser compatibility and context management
 
 #### TC2: Architecture Constraints
 - **TC2.1**: Maintain complete independence from application code
-- **TC2.2**: Provide zero-dependency library interface
+- **TC2.2**: Provide zero-dependency library interface (three-d as core dependency)
 - **TC2.3**: Support integration through adapter pattern
-- **TC2.4**: Use type-safe Rust APIs throughout
+- **TC2.4**: Use type-safe Rust APIs throughout with three-d integration
+- **TC2.5**: Compose three-d renderer components rather than reimplementing WebGL
 
 #### TC3: Performance Constraints
-- **TC3.1**: All rendering operations must be GPU-accelerated
-- **TC3.2**: Minimize CPU-GPU data transfer
+- **TC3.1**: All rendering operations must use three-d's GPU-accelerated pipeline
+- **TC3.2**: Leverage three-d's optimized CPU-GPU data transfer
 - **TC3.3**: Use efficient data structures for spatial queries
-- **TC3.4**: Implement zero-allocation rendering loops
+- **TC3.4**: Implement zero-allocation rendering loops via three-d abstractions
+- **TC3.5**: Maximize use of three-d's instanced rendering capabilities
 
 ## Success Metrics
 
@@ -256,14 +266,16 @@ The Sprite Renderer Module addresses these challenges by providing:
 ## Dependencies and Constraints
 
 ### Technical Dependencies
-- **three-d**: Version 0.17 for WebGL abstraction
+- **three-d**: Version 0.18 with renderer module - our core rendering engine
 - **wasm-bindgen**: Version 0.2 for Rust-JavaScript interop
-- **web-sys**: Version 0.3 for Web API bindings
-- **WebGL**: Browser support for GPU acceleration
+- **web-sys**: Version 0.3 for Web API bindings (HtmlCanvasElement, WebGl2RenderingContext)
+- **nalgebra**: Version 0.32 for math utilities compatible with three-d
+- **WebGL**: Browser support for GPU acceleration (handled by three-d)
 - **WebAssembly**: Browser support for compiled Rust code
 
 ### External Dependencies
-- **Browser APIs**: WebGL, Canvas, DOM manipulation
+- **three-d renderer module**: High-level rendering abstractions and WebGL management
+- **Browser APIs**: WebGL, Canvas, DOM manipulation (abstracted by three-d)
 - **Build Tools**: Cargo, wasm-pack, trunk for development workflow
 - **Testing**: wasm-bindgen-test for WebAssembly testing
 
@@ -276,17 +288,17 @@ The Sprite Renderer Module addresses these challenges by providing:
 ## Implementation Timeline
 
 ### Phase 1: Core Foundation (Weeks 1-3)
-- **Week 1**: Project setup, basic crate structure, WebGL context management
-- **Week 2**: Basic sprite rendering with solid colors, camera system
-- **Week 3**: Texture loading and rendering, basic performance optimization
+- **Week 1**: Project setup, three-d renderer integration, basic crate structure
+- **Week 2**: Basic sprite rendering with solid colors using three-d materials and camera
+- **Week 3**: Texture loading and rendering via three-d, basic performance optimization
 
 ### Phase 2: Advanced Features (Weeks 4-6)
 - **Week 4**: Hit testing system with spatial indexing
 - **Week 5**: Depth management and sorting system
-- **Week 6**: Built-in shader system and custom shader support
+- **Week 6**: Built-in material system and custom material support via three-d
 
 ### Phase 3: Optimization and Testing (Weeks 7-9)
-- **Week 7**: Performance optimization, batching system, memory management
+- **Week 7**: Performance optimization using three-d batching, instanced rendering
 - **Week 8**: Comprehensive testing suite, browser compatibility testing
 - **Week 9**: Documentation, examples, standalone test application
 
@@ -298,14 +310,14 @@ The Sprite Renderer Module addresses these challenges by providing:
 ## Risk Assessment
 
 ### High Risk
-- **WebGL Context Management**: Complex browser API with failure modes
-- **Performance Requirements**: Ambitious 60fps target with many sprites
-- **Browser Compatibility**: Varying WebGL support across browsers
+- **three-d Integration Complexity**: Ensuring optimal use of three-d renderer abstractions
+- **Performance Requirements**: Ambitious 60fps target with many sprites via three-d
+- **Browser Compatibility**: Varying WebGL support (mitigated by three-d's proven compatibility)
 
 ### Medium Risk
 - **Hit Testing Performance**: Spatial indexing complexity
-- **Memory Management**: WebAssembly memory constraints
-- **Custom Shader Support**: Shader compilation error handling
+- **Memory Management**: WebAssembly memory constraints (helped by three-d's optimization)
+- **Custom Material Support**: Material compilation error handling through three-d
 
 ### Low Risk
 - **Basic Sprite Rendering**: Well-understood rendering pipeline
