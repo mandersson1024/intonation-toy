@@ -67,12 +67,13 @@
   - [x] Add sprite transformation methods (translate, rotate, scale)
   - [x] **MANUAL TEST**: Create sprites with various properties, verify builder pattern works, confirm validation catches invalid data, test transformation methods
 
-- [ ] Task 8: Implement Camera System (AC: 9)
-  - [ ] Create Camera struct in `/src/renderer/mod.rs` with viewport dimensions and projection matrix
-  - [ ] Implement Camera::default_2d() with orthographic projection for 2D rendering
-  - [ ] Add projection matrix calculation for screen-to-world coordinate transformation
-  - [ ] Implement viewport management and coordinate system handling
-  - [ ] Add camera update methods for dynamic viewport changes
+- [x] Task 8: Implement Camera System (AC: 9)
+  - [x] Create Camera struct in `/src/renderer/mod.rs` with viewport dimensions and projection matrix
+  - [x] Implement Camera::default_2d() with orthographic projection for 2D rendering
+  - [x] Add projection matrix calculation for screen-to-world coordinate transformation
+  - [x] Implement viewport management and coordinate system handling
+  - [x] Add camera update methods for dynamic viewport changes
+  - [x] **MANUAL TEST**: Test different viewport sizes, verify projection matrices, validate coordinate transformations
 
 - [ ] Task 9: Implement Core Rendering Pipeline (AC: 8, 10)
   - [ ] Implement SpriteRenderer::render() method in `/src/renderer/mod.rs` with full rendering pipeline
@@ -189,6 +190,7 @@ Expected Results: All sprites render correctly with proper colors, positions, si
 | Task 5 | lib.rs, renderer/mod.rs, depth/mod.rs, Cargo.toml | Fixed compiler warnings with #[allow(dead_code)], added web-sys features, fixed doctest, verified build system | N/A |
 | Task 6 | README.md, lib.rs, examples/ | Created comprehensive README, enhanced API documentation, set up examples directory with placeholder files | N/A |
 | Task 7 | sprite/sprite.rs, sprite/mod.rs, lib.rs | Implemented complete Sprite data structure with builder pattern, validation, and transformation methods | N/A |
+| Task 8 | renderer/mod.rs, utils/math.rs, utils/mod.rs, lib.rs | Implemented complete Camera system with orthographic projection, viewport management, and coordinate transformations | N/A |
 
 ### Completion Notes List
 
@@ -201,6 +203,8 @@ Task 5 completed successfully. Build system setup verified - cargo build works w
 Task 6 completed successfully. Documentation foundation established with comprehensive README.md containing project overview, usage instructions, architecture details, and performance tips. Enhanced lib.rs with detailed module documentation, architecture descriptions, and performance guidelines. Created examples directory with placeholder files for basic rendering, batch rendering, custom shaders, and hit testing, including README explaining example structure and future implementation plans.
 
 Task 7 completed successfully. Implemented complete Sprite data structure with all required fields (position Vec2, size Vec2, rotation f32, color Color) in sprite/sprite.rs. Added comprehensive builder pattern with fluent API for sprite creation. Implemented SpriteId type with atomic counter for unique identification. Added robust validation for positive dimensions and color ranges [0.0, 1.0]. Implemented transformation methods (translate, rotate, scale) and setter methods. Added comprehensive unit tests covering creation, validation, and transformations. Created manual test example demonstrating all functionality. Updated lib.rs exports to include SpriteBuilder.
+
+Task 8 completed successfully. Implemented complete Camera system for 2D viewport management and coordinate transformations in renderer/mod.rs. Added Mat4 matrix type to utils/math.rs with orthographic projection, translation, and scale matrix operations. Camera supports viewport dimensions, position, zoom, and provides screen-to-world and world-to-screen coordinate transformations. Implemented projection matrix calculation for orthographic 2D rendering with proper near/far clipping planes. Added viewport management with dynamic resizing capabilities. Camera provides visible bounds calculation and view-projection matrix combination. Added comprehensive unit tests covering all camera functionality and coordinate transformations. Created manual test example demonstrating camera creation, movement, zoom, and coordinate conversions. Updated lib.rs exports to include Mat4.
 
 ### File List
 
@@ -237,6 +241,7 @@ Task 7 completed successfully. Implemented complete Sprite data structure with a
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/examples/README.md` - Created examples documentation
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/src/sprite/sprite.rs` - Implemented complete Sprite struct with builder pattern, validation, and transformations
 - `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/examples/task7_manual_test.rs` - Created comprehensive manual test for Task 7 sprite functionality
+- `/Users/mikael/Dev/GitHub/pitch-toy/sprite-renderer/examples/task8_camera_test.rs` - Created comprehensive manual test for Task 8 camera functionality
 
 ### Change Log
 
@@ -250,6 +255,7 @@ Task 7 completed successfully. Implemented complete Sprite data structure with a
 | 2025-01-08 | 1.5 | Task 5 completed - build system setup and verification | Claude Sonnet 4 |
 | 2025-01-08 | 1.6 | Task 6 completed - documentation foundation with README, API docs, and examples | Claude Sonnet 4 |
 | 2025-07-08 | 1.7 | Task 7 completed - Sprite data structure with builder pattern, validation, and transformations | Claude Sonnet 4 |
+| 2025-07-08 | 1.8 | Task 8 completed - Camera system with orthographic projection, viewport management, and coordinate transformations | Claude Sonnet 4 |
 
 ## QA Results
 

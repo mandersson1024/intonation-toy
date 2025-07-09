@@ -102,7 +102,7 @@ pub mod depth;
 pub use renderer::{SpriteRenderer, Camera};
 pub use sprite::{Sprite, SpriteId, SpriteBuilder};
 pub use shaders::{BuiltinShader, CustomShader, ShaderId};
-pub use utils::{Vec2, Rectangle, Color, Transform2D};
+pub use utils::{Vec2, Rectangle, Color, Transform2D, Mat4};
 
 #[cfg(feature = "hit-testing")]
 pub use hit_testing::{HitBox, HitTester};
