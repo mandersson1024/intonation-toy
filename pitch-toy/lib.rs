@@ -63,6 +63,9 @@ fn App() -> Html {
             if let Some(canvas_element) = canvas_ref.cast::<HtmlCanvasElement>() {
                 dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
                 initialize_canvas(&canvas_element);
+                wasm_bindgen_futures::spawn_local(async {
+                    run_three_d().await;
+                });
             } else {
                 dev_log!("Warning: Canvas element not found via ref");
             }
@@ -299,10 +302,101 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
     }
 }
 
+pub async fn run_three_d() {
+    let window = Window::new(WindowSettings {
+        title: "Sprites!".to_string(),
+        max_size: Some((1280, 720)),
+        ..Default::default()
+    })
+    .unwrap();
+    
+    let context = window.gl();
+
+    let mut camera = Camera::new_perspective(
+        window.viewport(),
+        vec3(0.0, 15.0, 15.0),
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 1.0, 0.0),
+        degrees(60.0),
+        0.1,
+        1000.0,
+    );
+
+    let axes = Axes::new(&context, 0.1, 1.0);
+
+    // For now, use solid color material since texture loading requires reqwest feature
+    // TODO: Implement web-compatible texture loading
+    let material = ColorMaterial {
+        color: Srgba::new(255, 100, 100, 255), // Red color so we can see the sprites
+        ..Default::default()
+    };
+
+    let billboards = Sprites::new(
+        &context,
+        &[
+            vec3(-20.0, 0.0, -5.0),
+            vec3(-15.0, 0.0, -10.0),
+            vec3(-10.0, 0.0, -5.0),
+        ],
+        None,
+    );
+
+    let sprites_up = Sprites::new(
+        &context,
+        &[
+            vec3(5.0, 0.0, -5.0),
+            vec3(0.0, 0.0, -10.0),
+            vec3(-5.0, 0.0, -5.0),
+        ],
+        Some(vec3(0.0, 1.0, 0.0)),
+    );
+
+    let sprites = Sprites::new(
+        &context,
+        &[
+            vec3(20.0, 0.0, -5.0),
+            vec3(15.0, 0.0, -10.0),
+            vec3(10.0, 0.0, -5.0),
+        ],
+        Some(vec3(1.0, 1.0, 0.0).normalize()),
+    );
+
+    let ambient = AmbientLight::new(&context, 1.0, Srgba::WHITE);
+
+    dev_log!("Starting three-d render loop");
+    
+    window.render_loop(move |mut frame_input| {
+        camera.set_viewport(frame_input.viewport);
+
+        frame_input
+            .screen()
+            .clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0))
+            .render(
+                &camera,
+                axes.into_iter()
+                    .chain(&Gm {
+                        geometry: &billboards,
+                        material: &material,
+                    })
+                    .chain(&Gm {
+                        geometry: &sprites_up,
+                        material: &material,
+                    })
+                    .chain(&Gm {
+                        geometry: &sprites,
+                        material: &material,
+                    }),
+                &[&ambient],
+            );
+
+        FrameOutput::default()
+    });
+}
+
 /// Application entry point
 #[cfg(not(test))]
 #[wasm_bindgen(start)]
-pub fn main() {
+pub async fn start() {
     // Initialize console logging for development
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
@@ -353,7 +447,7 @@ pub fn main() {
                                         match audio::initialize_pitch_analyzer().await {
                                             Ok(_) => {
                                                 dev_log!("✓ Pitch analyzer initialized successfully");
-                                                yew::Renderer::<App>::new().render();
+                                                //yew::Renderer::<App>::new().render();
                                             }
                                             Err(e) => {
                                                 dev_log!("✗ Pitch analyzer initialization failed: {}", e);
