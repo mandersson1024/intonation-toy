@@ -407,16 +407,19 @@ pub async fn start() {
 
     dev_log!("✓ Platform validation passed - initializing application");
     
-    // Initialize audio system asynchronously
+    // Initialize audio systems first
+    if let Err(e) = initialize_audio_systems().await {
+        dev_log!("✗ Audio system initialization failed: {}", e);
+        dev_log!("Application cannot continue without audio system");
+        // TODO: Add error screen rendering in future story when UI requirements are defined
+        return;
+    }
+    
+    // Start three-d application (will take over main thread)
+    run_three_d().await;
+    
+    // Optional: Start Yew in background for dev console (can be removed later)
     wasm_bindgen_futures::spawn_local(async {
-        if let Err(e) = initialize_audio_systems().await {
-            dev_log!("✗ Audio system initialization failed: {}", e);
-            dev_log!("Application cannot continue without audio system");
-            // TODO: Add error screen rendering in future story when UI requirements are defined
-            return;
-        }
-        
-        // Start the Yew application
         yew::Renderer::<App>::new().render();
     });
 }
