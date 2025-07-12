@@ -2,12 +2,7 @@ use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 use three_d::*;
 
-
-#[cfg(target_arch = "wasm32")]
-use js_sys;
-
 pub mod audio;
-// pub mod console;  // Moved to dev-console crate
 pub mod console_commands;
 pub mod common;
 pub mod platform;
@@ -16,10 +11,8 @@ pub mod debug;
 
 use common::dev_log;
 
-#[cfg(not(test))]
 use wasm_bindgen::prelude::*;
 
-#[cfg(not(test))]
 use platform::{Platform, PlatformValidationResult};
 
 #[cfg(debug_assertions)]
@@ -81,8 +74,8 @@ fn App() -> Html {
             <canvas 
                 ref={canvas_ref}
                 id="wgpu-canvas"
-                width="800" 
-                height="600"
+                width="1280" 
+                height="720"
                 style="display: block; margin: 0 auto; border: 1px solid #333;"
             />
         </div>
@@ -230,7 +223,6 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 }
 
 /// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
-#[cfg(not(test))]
 async fn initialize_audioworklet_manager() -> Result<(), String> {
     dev_log!("Initializing AudioWorklet manager");
     
@@ -394,7 +386,6 @@ pub async fn run_three_d() {
 }
 
 /// Application entry point
-#[cfg(not(test))]
 #[wasm_bindgen(start)]
 pub async fn start() {
     // Initialize console logging for development
@@ -406,80 +397,53 @@ pub async fn start() {
     dev_log!("{}", Platform::get_platform_info());
     
     // Validate critical platform APIs before proceeding
-    match Platform::check_feature_support() {
-        PlatformValidationResult::AllSupported => {
-            dev_log!("✓ Platform validation passed - initializing application");
-            
-            // Initialize audio system asynchronously
-            wasm_bindgen_futures::spawn_local(async {
-                match audio::initialize_audio_system().await {
-                    Ok(_) => {
-                        dev_log!("✓ Audio system initialized successfully");
-                        
-                        // Initialize buffer pool after audio system
-                        match audio::initialize_buffer_pool().await {
-                            Ok(_) => {
-                                dev_log!("✓ Buffer pool initialized successfully");
-                                
-                                // Initialize AudioWorklet manager after buffer pool
-                                match initialize_audioworklet_manager().await {
-                                    Ok(_) => {
-                                        dev_log!("✓ AudioWorklet manager initialized successfully");
-                                        
-                                        // Initialize pitch analyzer after AudioWorklet
-                                        match audio::initialize_pitch_analyzer().await {
-                                            Ok(_) => {
-                                                dev_log!("✓ Pitch analyzer initialized successfully");
-                                                yew::Renderer::<App>::new().render();
-                                            }
-                                            Err(e) => {
-                                                dev_log!("✗ Pitch analyzer initialization failed: {}", e);
-                                                dev_log!("Application cannot continue without pitch analyzer");
-                                                // TODO: Add error screen rendering in future story when UI requirements are defined
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        dev_log!("✗ AudioWorklet manager initialization failed: {}", e);
-                                        dev_log!("Application will continue without AudioWorklet support");
-                                        
-                                        // Continue with pitch analyzer initialization even without AudioWorklet
-                                        match audio::initialize_pitch_analyzer().await {
-                                            Ok(_) => {
-                                                dev_log!("✓ Pitch analyzer initialized successfully");
-                                                //yew::Renderer::<App>::new().render();
-                                            }
-                                            Err(e) => {
-                                                dev_log!("✗ Pitch analyzer initialization failed: {}", e);
-                                                dev_log!("Application cannot continue without pitch analyzer");
-                                                // TODO: Add error screen rendering in future story when UI requirements are defined
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                dev_log!("✗ Buffer pool initialization failed: {}", e);
-                                dev_log!("Application cannot continue without buffer pool");
-                                // TODO: Add error screen rendering in future story when UI requirements are defined
-                            }
-                        }
-                    }
-                    Err(_e) => {
-                        dev_log!("✗ Audio system initialization failed: {}", _e);
-                        dev_log!("Application cannot continue without audio system");
-                        // TODO: Add error screen rendering in future story when UI requirements are defined
-                    }
-                }
-            });
-        }
-        PlatformValidationResult::MissingCriticalApis(_missing_apis) => {
-            let _api_list: Vec<String> = _missing_apis.iter().map(|api| api.to_string()).collect();
-            dev_log!("✗ CRITICAL: Missing required browser APIs: {}", _api_list.join(", "));
-            dev_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
-            // TODO: Add error screen rendering in future story when UI requirements are defined
-        }
+    if let PlatformValidationResult::MissingCriticalApis(missing_apis) = Platform::check_feature_support() {
+        let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
+        dev_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
+        dev_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
+        // TODO: Add error screen rendering in future story when UI requirements are defined
+        return;
     }
+
+    dev_log!("✓ Platform validation passed - initializing application");
+    
+    // Initialize audio system asynchronously
+    wasm_bindgen_futures::spawn_local(async {
+        if let Err(e) = initialize_audio_systems().await {
+            dev_log!("✗ Audio system initialization failed: {}", e);
+            dev_log!("Application cannot continue without audio system");
+            // TODO: Add error screen rendering in future story when UI requirements are defined
+            return;
+        }
+        
+        // Start the Yew application
+        yew::Renderer::<App>::new().render();
+    });
+}
+
+/// Initialize all audio systems in sequence with proper error handling
+async fn initialize_audio_systems() -> Result<(), String> {
+    // Initialize audio system
+    audio::initialize_audio_system().await
+        .map_err(|e| format!("Audio system initialization failed: {}", e))?;
+    dev_log!("✓ Audio system initialized successfully");
+    
+    // Initialize buffer pool
+    audio::initialize_buffer_pool().await
+        .map_err(|e| format!("Buffer pool initialization failed: {}", e))?;
+    dev_log!("✓ Buffer pool initialized successfully");
+    
+    // Initialize AudioWorklet manager (required)
+    initialize_audioworklet_manager().await
+        .map_err(|e| format!("AudioWorklet manager initialization failed: {}", e))?;
+    dev_log!("✓ AudioWorklet manager initialized successfully");
+    
+    // Initialize pitch analyzer (required)
+    audio::initialize_pitch_analyzer().await
+        .map_err(|e| format!("Pitch analyzer initialization failed: {}", e))?;
+    dev_log!("✓ Pitch analyzer initialized successfully");
+    
+    Ok(())
 }
 
 
