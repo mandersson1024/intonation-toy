@@ -295,6 +295,8 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
 }
 
 pub async fn run_three_d() {
+    dev_log!("Starting three-d with red sprites");
+    
     let window = Window::new(WindowSettings {
         title: "Sprites!".to_string(),
         max_size: Some((1280, 720)),
@@ -316,10 +318,8 @@ pub async fn run_three_d() {
 
     let axes = Axes::new(&context, 0.1, 1.0);
 
-    // For now, use solid color material since texture loading requires reqwest feature
-    // TODO: Implement web-compatible texture loading
     let material = ColorMaterial {
-        color: Srgba::new(255, 100, 100, 255), // Red color so we can see the sprites
+        color: Srgba::new(255, 100, 100, 255), // Red color
         ..Default::default()
     };
 
@@ -355,11 +355,15 @@ pub async fn run_three_d() {
 
     let ambient = AmbientLight::new(&context, 1.0, Srgba::WHITE);
 
-    dev_log!("Starting three-d render loop");
+    // Create egui GUI
+    let mut gui = three_d::GUI::new(&context);
+
+    dev_log!("Starting three-d + egui render loop");
     
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
 
+        // Render 3D scene first
         frame_input
             .screen()
             .clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0))
@@ -380,6 +384,26 @@ pub async fn run_three_d() {
                     }),
                 &[&ambient],
             );
+
+        // Render egui overlay
+        gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
+            use three_d::egui::*;
+            
+            Window::new("Hello egui!")
+                .default_size([300.0, 200.0])
+                .show(gui_context, |ui| {
+                    ui.heading("Welcome to three-d + egui!");
+                    ui.separator();
+                    ui.label("This is a minimal hello-world example.");
+                    ui.label("You can see both 3D sprites and this GUI overlay.");
+                    
+                    if ui.button("Click me!").clicked() {
+                        web_sys::console::log_1(&"Button clicked in egui!".into());
+                    }
+                });
+        });
+        
+        let _ = gui.render();
 
         FrameOutput::default()
     });
@@ -415,13 +439,8 @@ pub async fn start() {
         return;
     }
     
-    // Start three-d application (will take over main thread)
-    run_three_d().await;
-    
-    // Optional: Start Yew in background for dev console (can be removed later)
-    wasm_bindgen_futures::spawn_local(async {
-        yew::Renderer::<App>::new().render();
-    });
+    // Start Yew application
+    yew::Renderer::<App>::new().render();
 }
 
 /// Initialize all audio systems in sequence with proper error handling
