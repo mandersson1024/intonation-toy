@@ -84,7 +84,6 @@ fn App() -> Html {
 
 
 /// Connect microphone stream to AudioWorklet for audio processing
-#[cfg(target_arch = "wasm32")]
 pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     use web_sys::AudioNode;
     use crate::audio::permission::PermissionManager;
@@ -173,12 +172,6 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
             Err(format!("Failed to connect microphone: {:?}", e))
         }
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
-    dev_log!("Microphone connection not available in non-WASM builds");
-    Ok(())
 }
 
 /// Publish AudioWorklet status update to Live Data Panel
@@ -466,22 +459,4 @@ async fn initialize_audio_systems() -> Result<(), String> {
     dev_log!("✓ Pitch analyzer initialized successfully");
     
     Ok(())
-}
-
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_build_configuration() {
-        // Test that build configuration detection works
-        let config = if cfg!(debug_assertions) { "Development" } else { "Production" };
-        assert!(config == "Development" || config == "Production");
-    }
-
-    // TODO: Add meaningful tests when we have testable functionality:
-    // - test_canvas_initialization() when wgpu renderer is implemented
-    // - test_audio_processing() when audio modules are added
-    // - test_event_system() when event dispatcher is implemented
-    // - test_theme_switching() when theme manager is added
 }
