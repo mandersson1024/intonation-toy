@@ -3,18 +3,23 @@
 //! This crate provides traits and implementations for observable data with clear
 //! ownership semantics. The owner holds a `DataSource` and can modify values,
 //! while observers get `ObservableData` handles that can only read and observe.
+//! For thread-safe modifications, use `DataSetter` instances that can be shared
+//! across threads.
 //!
 //! # Example
 //!
 //! ```rust
-//! use observable_data::{ObservableData, DataSource};
+//! use observable_data::{ObservableData, DataSource, DataSetter};
 //!
 //! // Owner creates and holds the data source
-//! let mut data_source: DataSource<i32> = DataSource::new(42);
+//! let data_source: DataSource<i32> = DataSource::new(42);
 //!
 //! // Create observer handles to distribute (read-only access)
 //! let observer1: ObservableData<i32> = data_source.observer();
 //! let observer2: ObservableData<i32> = data_source.observer();
+//!
+//! // Create setter handle for modifications
+//! let setter = data_source.setter();
 //!
 //! println!("Current observer1 value: {}", observer1.get());
 //! println!("Current observer2 value: {}", observer2.get());
@@ -28,11 +33,17 @@
 //!     println!("Observer 2 saw: {}", value);
 //! }));
 //!
-//! // Only the owner can modify (triggers all listeners)
-//! data_source.set(100);
+//! // Use the setter to modify values (triggers all listeners)
+//! setter.set(100);
 //! ```
 
 use std::sync::{Arc, RwLock, Mutex};
+
+/// Trait for setting data values in a thread-safe manner.
+/// This provides a way to update data without requiring mutable access to the DataSource.
+pub trait DataSetter<T>: Send + Sync {
+    fn set(&self, value: T);
+}
 
 type Callback<T> = Box<dyn Fn(&T) + Send + Sync>;
 
@@ -80,17 +91,14 @@ pub struct DataSource<T> {
     data: Arc<SharedData<T>>,
 }
 
-impl<T: 'static + Clone + Send + Sync> DataSource<T> {
-    pub fn new(data: T) -> Self {
-        Self {
-            data: Arc::new(SharedData {
-                value: RwLock::new(data),
-                listeners: Mutex::new(Vec::new()),
-            }),
-        }
-    }
+/// Thread-safe wrapper for DataSource that implements DataSetter
+#[derive(Clone)]
+pub struct DataSourceSetter<T> {
+    data: Arc<SharedData<T>>,
+}
 
-    pub fn set(&mut self, data: T) {
+impl<T: Clone + Send + Sync> DataSetter<T> for DataSourceSetter<T> {
+    fn set(&self, data: T) {
         // Update the value
         {
             let mut value = self.data.value.write().unwrap();
@@ -104,10 +112,28 @@ impl<T: 'static + Clone + Send + Sync> DataSource<T> {
             callback(&*value);
         }
     }
+}
+
+impl<T: 'static + Clone + Send + Sync> DataSource<T> {
+    pub fn new(data: T) -> Self {
+        Self {
+            data: Arc::new(SharedData {
+                value: RwLock::new(data),
+                listeners: Mutex::new(Vec::new()),
+            }),
+        }
+    }
 
     pub fn observer(&self) -> ObservableData<T> {
         ObservableData {
             inner: self.data.clone(),
+        }
+    }
+
+    /// Create a thread-safe setter that can be shared across threads
+    pub fn setter(&self) -> DataSourceSetter<T> {
+        DataSourceSetter {
+            data: self.data.clone(),
         }
     }
 }
@@ -137,34 +163,37 @@ mod tests {
 
     #[test]
     fn test_data_source_set_updates_value() {
-        let mut data_source = DataSource::new(10);
+        let data_source = DataSource::new(10);
         let observer: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
-        data_source.set(20);
+        setter.set(20);
         assert_eq!(observer.get(), 20);
         
-        data_source.set(30);
+        setter.set(30);
         assert_eq!(observer.get(), 30);
     }
 
     #[test]
     fn test_multiple_observers_see_same_value() {
-        let mut data_source = DataSource::new(100);
+        let data_source = DataSource::new(100);
         let observer1: ObservableData<i32> = data_source.observer();
         let observer2: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
         assert_eq!(observer1.get(), 100);
         assert_eq!(observer2.get(), 100);
         
-        data_source.set(200);
+        setter.set(200);
         assert_eq!(observer1.get(), 200);
         assert_eq!(observer2.get(), 200);
     }
 
     #[test]
     fn test_listener_called_on_set() {
-        let mut data_source = DataSource::new(1);
+        let data_source = DataSource::new(1);
         let observer: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
         // Track if callback was called
         let called = Arc::new(Mutex::new(false));
@@ -175,7 +204,7 @@ mod tests {
         }));
         
         // Trigger update
-        data_source.set(2);
+        setter.set(2);
         
         // Verify listener was called
         assert!(*called.lock().unwrap());
@@ -183,8 +212,9 @@ mod tests {
 
     #[test]
     fn test_multiple_listeners_all_called() {
-        let mut data_source = DataSource::new(0);
+        let data_source = DataSource::new(0);
         let observer: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
         let called1 = Arc::new(Mutex::new(false));
         let called2 = Arc::new(Mutex::new(false));
@@ -200,7 +230,7 @@ mod tests {
             *called2_clone.lock().unwrap() = true;
         }));
         
-        data_source.set(5);
+        setter.set(5);
         
         assert!(*called1.lock().unwrap());
         assert!(*called2.lock().unwrap());
@@ -208,9 +238,10 @@ mod tests {
 
     #[test]
     fn test_listeners_from_different_observers() {
-        let mut data_source = DataSource::new(0);
+        let data_source = DataSource::new(0);
         let observer1: ObservableData<i32> = data_source.observer();
         let observer2: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
         let called1 = Arc::new(Mutex::new(false));
         let called2 = Arc::new(Mutex::new(false));
@@ -226,7 +257,7 @@ mod tests {
             *called2_clone.lock().unwrap() = true;
         }));
         
-        data_source.set(7);
+        setter.set(7);
         
         assert!(*called1.lock().unwrap());
         assert!(*called2.lock().unwrap());
@@ -234,8 +265,9 @@ mod tests {
 
     #[test]
     fn test_string_data_type() {
-        let mut data_source = DataSource::new("hello".to_string());
+        let data_source = DataSource::new("hello".to_string());
         let observer: ObservableData<String> = data_source.observer();
+        let setter = data_source.setter();
         
         let called = Arc::new(Mutex::new(false));
         let called_clone = called.clone();
@@ -246,15 +278,16 @@ mod tests {
         
         assert_eq!(observer.get(), "hello");
         
-        data_source.set("world".to_string());
+        setter.set("world".to_string());
         assert_eq!(observer.get(), "world");
         assert!(*called.lock().unwrap());
     }
 
     #[test]
     fn test_thread_safety() {
-        let mut data_source = DataSource::new(0);
+        let data_source = DataSource::new(0);
         let observer= data_source.observer();
+        let setter = data_source.setter();
         
         // Just verify we can clone observers across threads
         let observer_clone = observer.clone();
@@ -266,14 +299,15 @@ mod tests {
         handle.join().unwrap();
         
         // Verify main thread can still use original observer
-        data_source.set(42);
+        setter.set(42);
         assert_eq!(observer.get(), 42);
     }
 
     #[test]
     fn test_observe_now() {
-        let mut data_source = DataSource::new(10);
+        let data_source = DataSource::new(10);
         let observer: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
         
         let immediate_called = Arc::new(Mutex::new(false));
         let future_called = Arc::new(Mutex::new(false));
@@ -295,9 +329,52 @@ mod tests {
         assert!(!*future_called.lock().unwrap());
         
         // Trigger update for future listener
-        data_source.set(20);
+        setter.set(20);
         
         // Should now have been called for future value too
         assert!(*future_called.lock().unwrap());
+    }
+
+    #[test]
+    fn test_data_setter() {
+        let data_source = DataSource::new(42);
+        let observer: ObservableData<i32> = data_source.observer();
+        let setter = data_source.setter();
+        
+        // Test initial value
+        assert_eq!(observer.get(), 42);
+        
+        // Test setting via setter
+        setter.set(100);
+        assert_eq!(observer.get(), 100);
+        
+        // Test that listeners are called
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
+        
+        observer.observe(Box::new(move |_| {
+            *called_clone.lock().unwrap() = true;
+        }));
+        
+        setter.set(200);
+        assert_eq!(observer.get(), 200);
+        assert!(*called.lock().unwrap());
+    }
+
+    #[test]
+    fn test_data_setter_thread_safety() {
+        let data_source = DataSource::new(0);
+        let observer = data_source.observer();
+        let setter = data_source.setter();
+        
+        // Verify setter can be moved to another thread
+        let handle = thread::spawn(move || {
+            setter.set(42);
+        });
+        
+        handle.join().unwrap();
+        
+        // Value should have been updated by the other thread
+        assert_eq!(observer.get(), 42);
     }
 }

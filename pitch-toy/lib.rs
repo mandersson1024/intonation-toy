@@ -26,18 +26,15 @@ fn convert_permission_to_egui(permission: &audio::AudioPermission) -> egui_dev_c
 
 /// Request microphone permission and publish the result via events
 /// This function is called synchronously from the user click callback
-fn request_microphone_permission_and_publish_result(permission_source: std::sync::Arc<std::sync::Mutex<observable_data::DataSource<audio::AudioPermission>>>) {
+fn request_microphone_permission_and_publish_result(setter: impl observable_data::DataSetter<audio::AudioPermission> + 'static) {
     use crate::events::{get_global_event_dispatcher, audio_events::AudioEvent};
     
     let event_dispatcher = get_global_event_dispatcher();
     
     // Set state to requesting immediately (synchronously)
-    permission_source.lock().unwrap().set(crate::audio::AudioPermission::Requesting);
+    setter.set(crate::audio::AudioPermission::Requesting);
     let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Requesting);
     event_dispatcher.borrow().publish(&event);
-    
-    // Clone permission source reference for async block
-    let permission_source_clone = permission_source.clone();
     
     // Start the async permission request (this should maintain the user gesture context)
     wasm_bindgen_futures::spawn_local(async move {
@@ -45,7 +42,7 @@ fn request_microphone_permission_and_publish_result(permission_source: std::sync
             Ok(_) => {
                 web_sys::console::log_1(&"✓ Microphone connected successfully".into());
                 // Update permission state and publish event
-                permission_source_clone.lock().unwrap().set(crate::audio::AudioPermission::Granted);
+                setter.set(crate::audio::AudioPermission::Granted);
                 let event_dispatcher = get_global_event_dispatcher();
                 let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
                 event_dispatcher.borrow().publish(&event);
@@ -63,7 +60,7 @@ fn request_microphone_permission_and_publish_result(permission_source: std::sync
                 };
                 
                 // Update permission state and publish event
-                permission_source_clone.lock().unwrap().set(permission_state.clone());
+                setter.set(permission_state.clone());
                 let event_dispatcher = get_global_event_dispatcher();
                 let event = AudioEvent::PermissionChanged(permission_state);
                 event_dispatcher.borrow().publish(&event);
@@ -353,12 +350,12 @@ pub async fn run_three_d() {
     // Create application data with observable permission state
     use crate::app_data::LiveData;
     use observable_data::DataSource;
-    let permission_source = std::sync::Arc::new(std::sync::Mutex::new(
-        DataSource::new(audio::AudioPermission::Uninitialized)
-    ));
+    
+    let permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
     let live_data = LiveData {
-        microphone_permission: permission_source.lock().unwrap().observer(),
+        microphone_permission: permission_source.observer(),
     };
+    let permission_setter = permission_source.setter();
     
     let window = Window::new(WindowSettings {
         title: "Sprites!".to_string(),
@@ -428,10 +425,10 @@ pub async fn run_three_d() {
     
     // Set up microphone button click callback
     dev_console.set_microphone_click_callback({
-        let permission_source = permission_source.clone();
+        let setter = permission_setter.clone();
         move || {
             // This function will be called directly by the user click
-            request_microphone_permission_and_publish_result(permission_source.clone());
+            request_microphone_permission_and_publish_result(setter.clone());
         }
     });
 
@@ -439,7 +436,6 @@ pub async fn run_three_d() {
     
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
-
 
         // Render 3D scene first
         frame_input
