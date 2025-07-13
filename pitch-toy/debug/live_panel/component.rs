@@ -1,13 +1,12 @@
 // Live Panel Component - Real-time data visualization and monitoring
 //
 // This component provides real-time monitoring and visualization of audio system state.
-// It displays audio devices, permission status, performance metrics, and volume levels.
 
 use yew::prelude::*;
 use web_sys::{window, HtmlInputElement};
 use wasm_bindgen::JsCast;
 
-use crate::audio::{AudioPermission, AudioDevices};
+use crate::audio::AudioDevices;
 use crate::audio::console_service::ConsoleAudioService;
 use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
@@ -20,8 +19,6 @@ pub struct LivePanelProps {
     pub event_dispatcher: AudioEventDispatcher,
     /// Whether the panel is visible
     pub visible: bool,
-    /// Current audio permission state
-    pub audio_permission: AudioPermission,
     /// Audio service for device operations
     pub audio_service: std::rc::Rc<crate::audio::ConsoleAudioServiceImpl>,
 }
@@ -29,7 +26,6 @@ pub struct LivePanelProps {
 impl PartialEq for LivePanelProps {
     fn eq(&self, other: &Self) -> bool {
         self.visible == other.visible && 
-        self.audio_permission == other.audio_permission &&
         std::rc::Rc::ptr_eq(&self.audio_service, &other.audio_service)
     }
 }
@@ -102,8 +98,6 @@ impl Default for AudioWorkletStatus {
 pub struct LivePanel {
     /// Current audio devices
     audio_devices: AudioDevices,
-    /// Current audio permission
-    audio_permission: AudioPermission,
     /// Performance metrics
     performance_metrics: PerformanceMetrics,
     /// Current volume level
@@ -127,8 +121,6 @@ pub struct LivePanel {
 pub enum LivePanelMsg {
     /// Update audio devices
     UpdateDevices(AudioDevices),
-    /// Update audio permission
-    UpdatePermission(AudioPermission),
     /// Update performance metrics
     UpdatePerformanceMetrics(PerformanceMetrics),
     /// Update volume level
@@ -152,7 +144,6 @@ impl Component for LivePanel {
     fn create(ctx: &Context<Self>) -> Self {
         let mut component = Self {
             audio_devices: AudioDevices::new(),
-            audio_permission: ctx.props().audio_permission.clone(),
             performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
             pitch_data: None,
@@ -179,10 +170,6 @@ impl Component for LivePanel {
         match msg {
             LivePanelMsg::UpdateDevices(devices) => {
                 self.audio_devices = devices;
-                true
-            }
-            LivePanelMsg::UpdatePermission(permission) => {
-                self.audio_permission = permission;
                 true
             }
             LivePanelMsg::UpdatePerformanceMetrics(metrics) => {
@@ -278,7 +265,6 @@ impl Component for LivePanel {
                 </div>
                 
                 <div class="live-panel-content">
-                    {self.render_permission_status(ctx)}
                     {self.render_device_list()}
                     {self.render_audioworklet_status()}
                     {self.render_test_signal_controls(ctx)}
@@ -384,26 +370,6 @@ impl LivePanel {
             memory_usage,
             audio_latency,
             cpu_usage,
-        }
-    }
-
-    /// Render permission status section
-    fn render_permission_status(&self, ctx: &Context<Self>) -> Html {
-        let (status_text, status_class) = match ctx.props().audio_permission {
-            AudioPermission::Granted => ("Granted", "permission-granted"),
-            AudioPermission::Denied => ("Denied", "permission-denied"),
-            AudioPermission::Requesting => ("Requesting", "permission-requesting"),
-            AudioPermission::Uninitialized => ("Not Requested", "permission-unknown"),
-            AudioPermission::Unavailable => ("Unavailable", "permission-unavailable"),
-        };
-
-        html! {
-            <div class="live-panel-section">
-                <h4 class="live-panel-section-title">{"Audio Permission"}</h4>
-                <div class={format!("permission-status {}", status_class)}>
-                    {status_text}
-                </div>
-            </div>
         }
     }
 

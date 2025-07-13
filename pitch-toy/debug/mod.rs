@@ -10,11 +10,9 @@
 
 // pub mod console;
 pub mod live_panel;
-pub mod permission_button;
 pub mod integration;
 
 // Re-export main component types
 // pub use console::DebugConsole;
 pub use live_panel::LivePanel;
-pub use permission_button::PermissionButton;
 pub use integration::{DebugInterface, create_debug_interface};
