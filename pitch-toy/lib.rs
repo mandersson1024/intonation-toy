@@ -350,22 +350,15 @@ pub async fn run_three_d() {
     // Create egui GUI
     let mut gui = three_d::GUI::new(&context);
     
-    // Create egui dev console
-    let mut dev_console = egui_dev_console::EguiDevConsole::new();
+    // Create egui dev console with the same registry as the Yew console
+    let registry = crate::console_commands::create_console_registry_with_audio();
+    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
 
     dev_log!("Starting three-d + egui render loop");
     
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
 
-        // Handle console toggle (C key)
-        for event in &frame_input.events {
-            if let three_d::Event::KeyPress { kind, .. } = event {
-                if *kind == three_d::Key::C {
-                    dev_console.toggle_visibility();
-                }
-            }
-        }
 
         // Render 3D scene first
         frame_input
@@ -400,7 +393,7 @@ pub async fn run_three_d() {
                     ui.separator();
                     ui.label("This is a minimal hello-world example.");
                     ui.label("You can see both 3D sprites and this GUI overlay.");
-                    ui.label("Press 'C' to toggle the development console.");
+                    ui.label("Development console is always visible.");
                     
                     if ui.button("Click me!").clicked() {
                         web_sys::console::log_1(&"Button clicked in egui!".into());

@@ -1,14 +1,12 @@
 // egui-dev-console - EGUI-based development console
-// Clone of dev-console crate adapted for EGUI integration with three-d
+// Uses dev-console infrastructure with EGUI integration for three-d
 
-pub mod command;
-pub mod output;
-pub mod history;
-pub mod command_registry;
 pub mod egui_console;
+pub mod history;
+pub mod output;
 
-pub use command::{ConsoleCommand, ConsoleCommandResult};
-pub use output::{ConsoleOutput, ConsoleEntry, ConsoleOutputManager};
+// Re-export dev-console types
+pub use dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 pub use history::ConsoleHistory;
-pub use command_registry::ConsoleCommandRegistry;
+pub use output::{ConsoleEntry, ConsoleOutputManager};
 pub use egui_console::EguiDevConsole;

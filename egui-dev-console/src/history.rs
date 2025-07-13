@@ -101,16 +101,6 @@ impl ConsoleHistory {
     pub fn reset_navigation(&mut self) {
         self.current_position = None;
     }
-
-    /// Get number of commands in history
-    pub fn len(&self) -> usize {
-        self.commands.len()
-    }
-
-    /// Check if history is empty
-    pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
-    }
 }
 
 impl Default for ConsoleHistory {

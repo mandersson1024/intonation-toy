@@ -1,7 +1,8 @@
 // EGUI Development Console Component
 // Provides the main EGUI-based console interface
 
-use crate::{ConsoleCommandRegistry, ConsoleHistory, ConsoleOutputManager, ConsoleOutput, ConsoleCommandResult};
+use dev_console::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult};
+use crate::{ConsoleHistory, ConsoleOutputManager};
 
 pub struct EguiDevConsole {
     command_registry: ConsoleCommandRegistry,
@@ -15,6 +16,16 @@ impl EguiDevConsole {
     pub fn new() -> Self {
         Self {
             command_registry: ConsoleCommandRegistry::new(),
+            output_manager: ConsoleOutputManager::new(),
+            history: ConsoleHistory::new(),
+            input_text: String::new(),
+            is_visible: true,
+        }
+    }
+
+    pub fn new_with_registry(registry: ConsoleCommandRegistry) -> Self {
+        Self {
+            command_registry: registry,
             output_manager: ConsoleOutputManager::new(),
             history: ConsoleHistory::new(),
             input_text: String::new(),
@@ -146,7 +157,7 @@ impl EguiDevConsole {
         self.input_text.clear();
     }
 
-    pub fn register_command(&mut self, command: Box<dyn crate::ConsoleCommand>) {
+    pub fn register_command(&mut self, command: Box<dyn dev_console::ConsoleCommand>) {
         self.command_registry.register(command);
     }
 }
