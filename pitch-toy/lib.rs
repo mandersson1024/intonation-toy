@@ -9,12 +9,14 @@ pub mod platform;
 pub mod events;
 pub mod debug;
 pub mod app_data;
+pub mod graphics;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
 
 use platform::{Platform, PlatformValidationResult};
 use debug::egui::EguiMicrophoneButton;
+use graphics::SpriteScene;
 
 #[cfg(debug_assertions)]
 use debug::DebugInterface;
@@ -122,54 +124,8 @@ pub async fn run_three_d() {
     
     let context = window.gl();
 
-    let mut camera = Camera::new_perspective(
-        window.viewport(),
-        vec3(0.0, 15.0, 15.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        degrees(60.0),
-        0.1,
-        1000.0,
-    );
-
-    let axes = Axes::new(&context, 0.1, 1.0);
-
-    let material = ColorMaterial {
-        color: Srgba::new(255, 100, 100, 255), // Red color
-        ..Default::default()
-    };
-
-    let billboards = Sprites::new(
-        &context,
-        &[
-            vec3(-20.0, 0.0, -5.0),
-            vec3(-15.0, 0.0, -10.0),
-            vec3(-10.0, 0.0, -5.0),
-        ],
-        None,
-    );
-
-    let sprites_up = Sprites::new(
-        &context,
-        &[
-            vec3(5.0, 0.0, -5.0),
-            vec3(0.0, 0.0, -10.0),
-            vec3(-5.0, 0.0, -5.0),
-        ],
-        Some(vec3(0.0, 1.0, 0.0)),
-    );
-
-    let sprites = Sprites::new(
-        &context,
-        &[
-            vec3(20.0, 0.0, -5.0),
-            vec3(15.0, 0.0, -10.0),
-            vec3(10.0, 0.0, -5.0),
-        ],
-        Some(vec3(1.0, 1.0, 0.0).normalize()),
-    );
-
-    let ambient = AmbientLight::new(&context, 1.0, Srgba::WHITE);
+    // Create sprite scene
+    let mut sprite_scene = SpriteScene::new(&context, window.viewport());
 
     // Create egui GUI
     let mut gui = three_d::GUI::new(&context);
@@ -184,29 +140,10 @@ pub async fn run_three_d() {
     dev_log!("Starting three-d + egui render loop");
     
     window.render_loop(move |mut frame_input| {
-        camera.set_viewport(frame_input.viewport);
+        sprite_scene.update_viewport(frame_input.viewport);
 
         // Render 3D scene first
-        frame_input
-            .screen()
-            .clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0))
-            .render(
-                &camera,
-                axes.into_iter()
-                    .chain(&Gm {
-                        geometry: &billboards,
-                        material: &material,
-                    })
-                    .chain(&Gm {
-                        geometry: &sprites_up,
-                        material: &material,
-                    })
-                    .chain(&Gm {
-                        geometry: &sprites,
-                        material: &material,
-                    }),
-                &[&ambient],
-            );
+        sprite_scene.render(frame_input.screen());
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
