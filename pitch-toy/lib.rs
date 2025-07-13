@@ -85,7 +85,6 @@ fn App() -> Html {
 
 /// Connect microphone stream to AudioWorklet for audio processing
 pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
-    use web_sys::AudioNode;
     use crate::audio::permission::PermissionManager;
     
     dev_log!("Requesting microphone permission and connecting to AudioWorklet");
@@ -350,11 +349,23 @@ pub async fn run_three_d() {
 
     // Create egui GUI
     let mut gui = three_d::GUI::new(&context);
+    
+    // Create egui dev console
+    let mut dev_console = egui_dev_console::EguiDevConsole::new();
 
     dev_log!("Starting three-d + egui render loop");
     
     window.render_loop(move |mut frame_input| {
         camera.set_viewport(frame_input.viewport);
+
+        // Handle console toggle (C key)
+        for event in &frame_input.events {
+            if let three_d::Event::KeyPress { kind, .. } = event {
+                if *kind == three_d::Key::C {
+                    dev_console.toggle_visibility();
+                }
+            }
+        }
 
         // Render 3D scene first
         frame_input
@@ -389,11 +400,15 @@ pub async fn run_three_d() {
                     ui.separator();
                     ui.label("This is a minimal hello-world example.");
                     ui.label("You can see both 3D sprites and this GUI overlay.");
+                    ui.label("Press 'C' to toggle the development console.");
                     
                     if ui.button("Click me!").clicked() {
                         web_sys::console::log_1(&"Button clicked in egui!".into());
                     }
                 });
+            
+            // Render development console
+            dev_console.show(gui_context);
         });
         
         let _ = gui.render();

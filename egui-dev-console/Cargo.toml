@@ -1,16 +1,12 @@
 [package]
-name = "pitch-toy"
+name = "egui-dev-console"
 version = "0.1.0"
 edition = "2021"
-description = "Real-time pitch detection with Rust/WASM and Web Audio API"
-repository = "https://github.com/user/pitch-toy"
+description = "Development console library using egui for debugging and development tools"
 license = "MIT"
 
 [dependencies]
-dev-console = { path = "../dev-console" }
-egui-dev-console = { path = "../egui-dev-console" }
-event-dispatcher = { path = "../event-dispatcher" }
-yew = { version = "0.21", features = ["csr"] }
+three-d = { version = "0.18.2", features = ["egui-gui"] }
 web-sys = { version = "0.3", features = [
   "console",
   "Performance",
@@ -18,7 +14,6 @@ web-sys = { version = "0.3", features = [
   "Document",
   "Element",
   "HtmlCanvasElement",
-  "CanvasRenderingContext2d",
   "Event",
   "EventTarget",
   "KeyboardEvent",
@@ -34,10 +29,6 @@ web-sys = { version = "0.3", features = [
   "MediaDeviceKind",
   "WebGlRenderingContext",
   "WebGl2RenderingContext",
-  "WebGlProgram",
-  "WebGlShader",
-  "WebGlBuffer",
-  "WebGlVertexArrayObject",
   "AudioContext",
   "AudioContextOptions",
   "AudioContextState",
@@ -51,33 +42,15 @@ web-sys = { version = "0.3", features = [
   "ScriptProcessorNode",
   "AudioProcessingEvent",
   "AudioBuffer",
-  "MessageEvent",
-  "MessagePort",
-  "MediaStreamAudioSourceNode",
-  "ChannelCountMode",
-  "ChannelInterpretation",
-  "MouseEvent",
-  "TouchEvent",
-  "Touch",
-  "TouchList",
-  "DomRect",
 ] }
 js-sys = "0.3"
-pitch-detection = "0.3"
-rustfft = "6.0"
-three-d = { version = "0.18.2", features = ["egui-gui"] }
-three-d-asset = "0.9"
 wasm-bindgen = "0.2.100"
-wasm-bindgen-futures = "0.4.42"
-console_error_panic_hook = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-gloo-timers = "0.3"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
 
 [lib]
-name = "pitch_toy"
-path = "lib.rs"
-crate-type = ["cdylib", "rlib"] 
+name = "egui_dev_console"
+crate-type = ["rlib"]
