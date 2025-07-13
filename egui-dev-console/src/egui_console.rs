@@ -69,7 +69,7 @@ impl EguiDevConsole {
         self.is_visible
     }
 
-    pub fn show(&mut self, ctx: &three_d::egui::Context) {
+    pub fn render(&mut self, ctx: &three_d::egui::Context) {
         // Only render console if visible
         if !self.is_visible {
             return;

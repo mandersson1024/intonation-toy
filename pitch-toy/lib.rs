@@ -127,9 +127,8 @@ pub async fn run_three_d() {
     
     // Create egui dev console with the same registry as the Yew console
     let registry = crate::console_commands::create_console_registry_with_audio();
+
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
-    
-    // Create EGUI microphone button
     let mut microphone_button = EguiMicrophoneButton::new(&permission_source);
 
     dev_log!("Starting three-d + egui render loop");
@@ -142,7 +141,7 @@ pub async fn run_three_d() {
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            dev_console.show(gui_context);
+            dev_console.render(gui_context);
             microphone_button.render(gui_context);
         });
 
