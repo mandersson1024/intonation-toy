@@ -119,11 +119,11 @@ pub async fn run_three_d() {
     let mut scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
-    let mut commandRegistry = ConsoleCommandRegistry::new();
-    crate::platform::commands::register_platform_commands(&mut commandRegistry);
-    crate::audio::register_audio_commands(&mut commandRegistry);
+    let mut command_registry = ConsoleCommandRegistry::new();
+    crate::platform::commands::register_platform_commands(&mut command_registry);
+    crate::audio::register_audio_commands(&mut command_registry);
 
-    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(commandRegistry);
+    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(command_registry);
     let mut microphone_button = EguiMicrophoneButton::new(
         microphone_permission_source.observer(),
         microphone_permission_source.setter(),
