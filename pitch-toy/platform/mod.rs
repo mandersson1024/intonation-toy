@@ -1,6 +1,8 @@
 // Platform detection and feature support module
 // Centralizes browser API availability checks and platform-specific logic
 
+pub mod commands;
+
 use crate::common::dev_log;
 
 #[cfg(target_arch = "wasm32")]

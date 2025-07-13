@@ -13,16 +13,25 @@ pub mod graphics;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
+use egui_dev_console::ConsoleCommandRegistry;
 
 use platform::{Platform, PlatformValidationResult};
 use debug::egui::EguiMicrophoneButton;
-use graphics::SpriteScene;
 
 #[cfg(debug_assertions)]
 use debug::DebugInterface;
 
 #[cfg(debug_assertions)]
 use std::rc::Rc;
+use graphics::SpriteScene;
+
+
+/// Create console registry with all commands registered
+fn create_console_registry_with_commands() -> ConsoleCommandRegistry {
+    let mut registry = crate::console_commands::create_console_registry();
+    crate::audio::register_audio_commands(&mut registry);
+    registry
+}
 
 /// Render development console if in debug mode
 fn render_dev_console() -> Html {
@@ -33,7 +42,9 @@ fn render_dev_console() -> Html {
         
         // Create audio service with event dispatcher
         let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
-        let registry = Rc::new(crate::console_commands::create_console_registry_with_audio());
+        
+        // Create shared console registry
+        let registry = Rc::new(create_console_registry_with_commands());
         html! { 
             <DebugInterface
                 registry={registry}
@@ -46,6 +57,7 @@ fn render_dev_console() -> Html {
     #[cfg(not(debug_assertions))]
     html! {}
 }
+
 
 /// Main application component for Pitch Toy
 #[function_component]
@@ -125,9 +137,8 @@ pub async fn run_three_d() {
     let mut sprite_scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
-    // Create egui dev console with the same registry as the Yew console
-    let registry = crate::console_commands::create_console_registry_with_audio();
-
+    // Create egui dev console with console registry
+    let registry = create_console_registry_with_commands();
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
     let mut microphone_button = EguiMicrophoneButton::new(&permission_source);
 
