@@ -12,6 +12,7 @@
 pub mod live_panel;
 pub mod integration;
 pub mod microphone_button;
+pub mod egui;
 
 use super::audio::AudioPermission;
 pub use live_panel::LivePanel;

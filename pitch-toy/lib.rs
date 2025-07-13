@@ -14,7 +14,7 @@ use common::dev_log;
 use wasm_bindgen::prelude::*;
 
 use platform::{Platform, PlatformValidationResult};
-use debug::microphone_button::MicrophoneButton;
+use debug::egui::EguiMicrophoneButton;
 
 #[cfg(debug_assertions)]
 use debug::DebugInterface;
@@ -177,13 +177,9 @@ pub async fn run_three_d() {
     // Create egui dev console with the same registry as the Yew console
     let registry = crate::console_commands::create_console_registry_with_audio();
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
-    let mut microphone_button = MicrophoneButton::new(permission_source.observer());
     
-    // Set up microphone button click callback to trigger permission request
-    let permission_setter = permission_source.setter();
-    microphone_button.set_click_callback(move || {
-        audio::permission::connect_microphone(permission_setter.clone());
-    });
+    // Create EGUI microphone button
+    let mut microphone_button = EguiMicrophoneButton::new(&permission_source);
 
     dev_log!("Starting three-d + egui render loop");
     
@@ -215,7 +211,7 @@ pub async fn run_three_d() {
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
             dev_console.show(gui_context);
-            microphone_button.render_center_button(gui_context);
+            microphone_button.render(gui_context);
         });
 
         let _ = gui.render();
