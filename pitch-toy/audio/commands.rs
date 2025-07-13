@@ -4,7 +4,7 @@
 //! These commands access audio information through the audio module's public API,
 //! maintaining proper separation of concerns.
 
-use dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
+use egui_dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 use super::{PitchAnalyzer, TuningSystem};
 use std::cell::RefCell;
@@ -1167,7 +1167,7 @@ mod tests {
 
     #[test]
     fn test_audio_command_execution() {
-        use dev_console::ConsoleCommandRegistry;
+        use egui_dev_console::ConsoleCommandRegistry;
         
         // Create a registry and register audio commands
         let mut registry = ConsoleCommandRegistry::new();
@@ -1178,10 +1178,10 @@ mod tests {
         let result = registry.execute("buffer status");
         // The result should be a warning about no buffer pool, not an error about unknown command
         match result {
-            dev_console::ConsoleCommandResult::Output(dev_console::ConsoleOutput::Warning(_)) => {
+            egui_dev_console::ConsoleCommandResult::Output(egui_dev_console::ConsoleOutput::Warning(_)) => {
                 // Success - command was found and executed (returned warning about no buffer pool)
             },
-            dev_console::ConsoleCommandResult::Output(dev_console::ConsoleOutput::Error(text)) => {
+            egui_dev_console::ConsoleCommandResult::Output(egui_dev_console::ConsoleOutput::Error(text)) => {
                 // If it's an error about unknown command, that means registration failed
                 if text.contains("Unknown command") {
                     panic!("Audio commands were not properly registered");

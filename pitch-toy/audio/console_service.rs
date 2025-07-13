@@ -160,7 +160,7 @@ impl ConsoleAudioServiceImpl {
     
     /// Set up device change listener for automatic device refresh on hardware changes
     fn setup_device_change_listener(&self) {
-        if let (Some(ref manager_rc), Some(ref event_dispatcher)) = 
+        if let (Some(manager_rc), Some(event_dispatcher)) = 
             (&self.audio_context_manager, &self.event_dispatcher) {
             
             dev_log!("Setting up device change listener");

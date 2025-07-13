@@ -7,7 +7,7 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use dev_console::{ConsoleCommandRegistry, DevConsole};
+use egui_dev_console::ConsoleCommandRegistry;
 use super::{LivePanel, PermissionButton};
 use super::permission_button::AudioPermissionService;
 use crate::audio::{AudioPermission, ConsoleAudioServiceImpl, ConsoleAudioService};
@@ -163,12 +163,13 @@ impl DebugInterface {
     }
 
     /// Render the debug console
-    fn render_console(&self, ctx: &Context<Self>) -> Html {
+    /// Note: Console functionality is now provided by the egui-based EguiDevConsole
+    /// which is rendered in the three-d context, not here
+    fn render_console(&self, _ctx: &Context<Self>) -> Html {
         html! {
-            <DevConsole
-                registry={ctx.props().registry.clone()}
-                visible={self.visible}
-            />
+            <div class="console-placeholder">
+                {"Console available via F12 or ` key (egui-based)"}
+            </div>
         }
     }
 

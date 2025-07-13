@@ -1,7 +1,6 @@
 use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 use three_d::*;
-use observable_data;
 
 pub mod audio;
 pub mod console_commands;

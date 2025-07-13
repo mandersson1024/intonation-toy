@@ -4,7 +4,7 @@
 //
 // Commands should not be unit tested
 
-use dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
+use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 
 use crate::{platform::Platform, common::dev_log};
 

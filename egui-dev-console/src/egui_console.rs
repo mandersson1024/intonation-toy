@@ -1,8 +1,7 @@
 // EGUI Development Console Component
 // Provides the main EGUI-based console interface
 
-use dev_console::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult};
-use crate::{ConsoleHistory, ConsoleOutputManager};
+use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand};
 use web_sys::Storage;
 
 /// Local storage key for console history persistence (same as original dev-console)
@@ -191,7 +190,7 @@ impl EguiDevConsole {
         self.history.reset_navigation();
     }
 
-    pub fn register_command(&mut self, command: Box<dyn dev_console::ConsoleCommand>) {
+    pub fn register_command(&mut self, command: Box<dyn ConsoleCommand>) {
         self.command_registry.register(command);
     }
 

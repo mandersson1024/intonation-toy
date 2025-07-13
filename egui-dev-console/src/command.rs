@@ -14,4 +14,4 @@ pub trait ConsoleCommand: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn execute(&self, args: Vec<&str>, registry: &crate::command_registry::ConsoleCommandRegistry) -> ConsoleCommandResult;
-} 
+}
