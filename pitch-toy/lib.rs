@@ -8,6 +8,7 @@ pub mod common;
 pub mod platform;
 pub mod events;
 pub mod debug;
+pub mod app_data;
 
 use common::dev_log;
 
