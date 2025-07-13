@@ -14,4 +14,4 @@ pub use command_registry::ConsoleCommandRegistry;
 pub use output::{ConsoleOutput, ConsoleEntry, ConsoleOutputManager};
 pub use history::ConsoleHistory;
 pub use egui_console::EguiDevConsole;
-pub use microphone_button::{MicrophoneButton, AudioPermission};
+pub use microphone_button::{MicrophoneButton, AudioPermissionState};

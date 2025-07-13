@@ -11,20 +11,6 @@ pub mod debug;
 pub mod app_data;
 
 use common::dev_log;
-
-/// Convert main crate AudioPermission to egui console AudioPermission
-fn convert_permission_to_egui(permission: &audio::AudioPermission) -> egui_dev_console::AudioPermission {
-    match permission {
-        audio::AudioPermission::Uninitialized => egui_dev_console::AudioPermission::Uninitialized,
-        audio::AudioPermission::Requesting => egui_dev_console::AudioPermission::Requesting,
-        audio::AudioPermission::Granted => egui_dev_console::AudioPermission::Granted,
-        audio::AudioPermission::Denied => egui_dev_console::AudioPermission::Denied,
-        audio::AudioPermission::Unavailable => egui_dev_console::AudioPermission::Unavailable,
-    }
-}
-
-
-
 use wasm_bindgen::prelude::*;
 
 use platform::{Platform, PlatformValidationResult};
@@ -189,7 +175,7 @@ pub async fn run_three_d() {
     
     // Create egui dev console with the same registry as the Yew console
     let registry = crate::console_commands::create_console_registry_with_audio();
-    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
+    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry, live_data.microphone_permission.clone());
 
     
     // Set up microphone button click callback
@@ -230,15 +216,6 @@ pub async fn run_three_d() {
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            // Sync permission state from LiveData to console
-            let current_permission = live_data.microphone_permission.get();
-            let console_permission = convert_permission_to_egui(&current_permission);
-            
-            // Update console permission if it's different
-            if dev_console.microphone_permission() != &console_permission {
-                dev_console.update_microphone_permission(console_permission);
-            }
-            
             // Render development console
             dev_console.show(gui_context);
         });

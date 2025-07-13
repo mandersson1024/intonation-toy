@@ -32,6 +32,29 @@ impl fmt::Display for AudioPermission {
     }
 }
 
+/// Implement the egui console trait for our AudioPermission
+impl egui_dev_console::microphone_button::AudioPermissionState for AudioPermission {
+    fn is_uninitialized(&self) -> bool {
+        matches!(self, AudioPermission::Uninitialized)
+    }
+    
+    fn is_requesting(&self) -> bool {
+        matches!(self, AudioPermission::Requesting)
+    }
+    
+    fn is_granted(&self) -> bool {
+        matches!(self, AudioPermission::Granted)
+    }
+    
+    fn is_denied(&self) -> bool {
+        matches!(self, AudioPermission::Denied)
+    }
+    
+    fn is_unavailable(&self) -> bool {
+        matches!(self, AudioPermission::Unavailable)
+    }
+}
+
 /// Permission manager for getUserMedia API
 pub struct PermissionManager;
 

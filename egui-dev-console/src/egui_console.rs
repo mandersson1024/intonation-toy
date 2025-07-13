@@ -2,22 +2,23 @@
 // Provides the main EGUI-based console interface
 
 use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand, MicrophoneButton};
+use observable_data::ObservableData;
 use web_sys::Storage;
 
 /// Local storage key for console history persistence (same as original dev-console)
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";
 
-pub struct EguiDevConsole {
+pub struct EguiDevConsole<T: crate::microphone_button::AudioPermissionState> {
     command_registry: ConsoleCommandRegistry,
     output_manager: ConsoleOutputManager,
     history: ConsoleHistory,
     input_text: String,
     is_visible: bool,
-    microphone_button: MicrophoneButton,
+    microphone_button: MicrophoneButton<T>,
 }
 
-impl EguiDevConsole {
-    pub fn new() -> Self {
+impl<T: crate::microphone_button::AudioPermissionState> EguiDevConsole<T> {
+    pub fn new(microphone_permission: ObservableData<T>) -> Self {
         let mut output_manager = ConsoleOutputManager::new();
         
         // Add welcome message
@@ -36,11 +37,11 @@ impl EguiDevConsole {
             history: command_history,
             input_text: String::new(),
             is_visible: true,
-            microphone_button: MicrophoneButton::new(),
+            microphone_button: MicrophoneButton::new(microphone_permission),
         }
     }
 
-    pub fn new_with_registry(registry: ConsoleCommandRegistry) -> Self {
+    pub fn new_with_registry(registry: ConsoleCommandRegistry, microphone_permission: ObservableData<T>) -> Self {
         let mut output_manager = ConsoleOutputManager::new();
         
         // Add welcome message
@@ -59,7 +60,7 @@ impl EguiDevConsole {
             history: command_history,
             input_text: String::new(),
             is_visible: true,
-            microphone_button: MicrophoneButton::new(),
+            microphone_button: MicrophoneButton::new(microphone_permission),
         }
     }
 
@@ -206,20 +207,12 @@ impl EguiDevConsole {
         self.microphone_button.set_click_callback(callback);
     }
 
-    /// Update microphone permission state (called from main crate)
-    pub fn update_microphone_permission(&mut self, permission: crate::microphone_button::AudioPermission) {
-        self.microphone_button.update_permission_state(permission);
-    }
 
     /// Set microphone error message
     pub fn set_microphone_error(&mut self, error: Option<String>) {
         self.microphone_button.set_error(error);
     }
 
-    /// Get current microphone permission state
-    pub fn microphone_permission(&self) -> &crate::microphone_button::AudioPermission {
-        self.microphone_button.permission_state()
-    }
 
 
     /// Load command history from local storage
@@ -251,8 +244,3 @@ impl EguiDevConsole {
     }
 }
 
-impl Default for EguiDevConsole {
-    fn default() -> Self {
-        Self::new()
-    }
-}
