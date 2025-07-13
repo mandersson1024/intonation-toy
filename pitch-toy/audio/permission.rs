@@ -211,6 +211,51 @@ impl PermissionManager {
     }
 }
 
+/// Request microphone permission and publish the result via events and setter
+/// This function is called synchronously from the user click callback
+pub fn request_microphone_permission_and_publish_result(setter: impl observable_data::DataSetter<AudioPermission> + 'static) {
+    use crate::events::{get_global_event_dispatcher, audio_events::AudioEvent};
+    
+    let event_dispatcher = get_global_event_dispatcher();
+    
+    // Set state to requesting immediately (synchronously)
+    setter.set(AudioPermission::Requesting);
+    let event = AudioEvent::PermissionChanged(AudioPermission::Requesting);
+    event_dispatcher.borrow().publish(&event);
+    
+    // Start the async permission request (this should maintain the user gesture context)
+    wasm_bindgen_futures::spawn_local(async move {
+        match crate::connect_microphone_to_audioworklet().await {
+            Ok(_) => {
+                web_sys::console::log_1(&"✓ Microphone connected successfully".into());
+                // Update permission state and publish event
+                setter.set(AudioPermission::Granted);
+                let event_dispatcher = get_global_event_dispatcher();
+                let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+                event_dispatcher.borrow().publish(&event);
+            }
+            Err(e) => {
+                web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
+                
+                // Map error to permission state
+                let permission_state = if e.contains("denied") || e.contains("NotAllowedError") {
+                    AudioPermission::Denied
+                } else if e.contains("NotFoundError") || e.contains("unavailable") {
+                    AudioPermission::Unavailable
+                } else {
+                    AudioPermission::Unavailable
+                };
+                
+                // Update permission state and publish event
+                setter.set(permission_state.clone());
+                let event_dispatcher = get_global_event_dispatcher();
+                let event = AudioEvent::PermissionChanged(permission_state);
+                event_dispatcher.borrow().publish(&event);
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -24,50 +24,6 @@ fn convert_permission_to_egui(permission: &audio::AudioPermission) -> egui_dev_c
 }
 
 
-/// Request microphone permission and publish the result via events
-/// This function is called synchronously from the user click callback
-fn request_microphone_permission_and_publish_result(setter: impl observable_data::DataSetter<audio::AudioPermission> + 'static) {
-    use crate::events::{get_global_event_dispatcher, audio_events::AudioEvent};
-    
-    let event_dispatcher = get_global_event_dispatcher();
-    
-    // Set state to requesting immediately (synchronously)
-    setter.set(crate::audio::AudioPermission::Requesting);
-    let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Requesting);
-    event_dispatcher.borrow().publish(&event);
-    
-    // Start the async permission request (this should maintain the user gesture context)
-    wasm_bindgen_futures::spawn_local(async move {
-        match connect_microphone_to_audioworklet().await {
-            Ok(_) => {
-                web_sys::console::log_1(&"✓ Microphone connected successfully".into());
-                // Update permission state and publish event
-                setter.set(crate::audio::AudioPermission::Granted);
-                let event_dispatcher = get_global_event_dispatcher();
-                let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
-                event_dispatcher.borrow().publish(&event);
-            }
-            Err(e) => {
-                web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
-                
-                // Map error to permission state
-                let permission_state = if e.contains("denied") || e.contains("NotAllowedError") {
-                    crate::audio::AudioPermission::Denied
-                } else if e.contains("NotFoundError") || e.contains("unavailable") {
-                    crate::audio::AudioPermission::Unavailable
-                } else {
-                    crate::audio::AudioPermission::Unavailable
-                };
-                
-                // Update permission state and publish event
-                setter.set(permission_state.clone());
-                let event_dispatcher = get_global_event_dispatcher();
-                let event = AudioEvent::PermissionChanged(permission_state);
-                event_dispatcher.borrow().publish(&event);
-            }
-        }
-    });
-}
 
 use wasm_bindgen::prelude::*;
 
@@ -220,7 +176,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
             
             // Publish success event
             let event_dispatcher = crate::events::get_global_event_dispatcher();
-            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Processing, true, 0);
+            audio::worklet::publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Processing, true, 0);
             
             Ok(())
         }
@@ -231,32 +187,6 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     }
 }
 
-/// Publish AudioWorklet status update to Live Data Panel
-#[cfg(not(test))]
-fn publish_audioworklet_status(
-    event_dispatcher: &crate::events::AudioEventDispatcher,
-    state: audio::worklet::AudioWorkletState,
-    processor_loaded: bool,
-    chunks_processed: u32
-) {
-    #[cfg(target_arch = "wasm32")]
-    let timestamp = js_sys::Date::now();
-    #[cfg(not(target_arch = "wasm32"))]
-    let timestamp = 0.0;
-    
-    let status = crate::debug::live_panel::AudioWorkletStatus {
-        state: state.clone(),
-        processor_loaded,
-        chunk_size: 128, // Web Audio API standard
-        chunks_processed,
-        last_update: timestamp,
-    };
-    
-    let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
-    event_dispatcher.borrow().publish(&status_event);
-    
-    dev_log!("Published AudioWorklet status: {} (processor: {})", state, processor_loaded);
-}
 
 /// Initialize canvas for three-d graphics rendering
 fn initialize_canvas(canvas: &HtmlCanvasElement) {
@@ -272,77 +202,6 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
     dev_log!("Canvas initialized: {}x{}", width, height);
 }
 
-/// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
-async fn initialize_audioworklet_manager() -> Result<(), String> {
-    dev_log!("Initializing AudioWorklet manager");
-    
-    // Get audio context manager
-    let audio_context_manager = audio::get_audio_context_manager()
-        .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
-    
-    // Create AudioWorklet manager
-    let mut worklet_manager = audio::AudioWorkletManager::new();
-    
-    // Get buffer pool and event dispatcher
-    let buffer_pool = audio::get_global_buffer_pool()
-        .ok_or_else(|| "Buffer pool not initialized".to_string())?;
-    let event_dispatcher = crate::events::get_global_event_dispatcher();
-    
-    // Configure AudioWorklet manager
-    worklet_manager.set_buffer_pool(buffer_pool);
-    worklet_manager.set_event_dispatcher(event_dispatcher.clone());
-    
-    // Add volume detector for real-time volume analysis
-    let volume_detector = audio::VolumeDetector::new_default();
-    worklet_manager.set_volume_detector(volume_detector);
-    
-    // Publish initial status
-    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Initializing, false, 0);
-    
-    // Initialize AudioWorklet
-    let audio_context_ref = audio_context_manager.borrow();
-    match worklet_manager.initialize(&*audio_context_ref).await {
-        Ok(_) => {
-            dev_log!("✓ AudioWorklet processor loaded and ready");
-            
-            
-            // Publish ready status
-            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
-            
-            // Note: We don't connect AudioWorklet to destination to avoid audio feedback
-            // The AudioWorklet will still process audio when microphone is connected to it
-            
-            // Start audio processing automatically
-            match worklet_manager.start_processing() {
-                Ok(_) => {
-                    dev_log!("✓ Audio processing started automatically");
-                    
-                    // Publish processing status
-                    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Processing, true, 0);
-                }
-                Err(e) => {
-                    dev_log!("✗ Failed to start audio processing: {:?}", e);
-                    
-                    // Still store the manager but in Ready state
-                    publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Ready, true, 0);
-                }
-            }
-            
-            // Store globally for microphone connection
-            audio::set_global_audioworklet_manager(std::rc::Rc::new(std::cell::RefCell::new(worklet_manager)));
-            
-            Ok(())
-        }
-        Err(e) => {
-            dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
-            
-            // Publish failed status
-            publish_audioworklet_status(&event_dispatcher, audio::worklet::AudioWorkletState::Failed, false, 0);
-            
-            Err(format!("Failed to initialize AudioWorklet: {:?}", e))
-        }
-    }
-}
 
 pub async fn run_three_d() {
     dev_log!("Starting three-d with red sprites");
@@ -428,7 +287,7 @@ pub async fn run_three_d() {
         let setter = permission_setter.clone();
         move || {
             // This function will be called directly by the user click
-            request_microphone_permission_and_publish_result(setter.clone());
+            audio::permission::request_microphone_permission_and_publish_result(setter.clone());
         }
     });
 
@@ -527,7 +386,7 @@ async fn initialize_audio_systems() -> Result<(), String> {
     dev_log!("✓ Buffer pool initialized successfully");
     
     // Initialize AudioWorklet manager (required)
-    initialize_audioworklet_manager().await
+    audio::worklet::initialize_audioworklet_manager().await
         .map_err(|e| format!("AudioWorklet manager initialization failed: {}", e))?;
     dev_log!("✓ AudioWorklet manager initialized successfully");
     

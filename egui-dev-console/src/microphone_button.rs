@@ -85,12 +85,9 @@ impl MicrophoneButton {
     }
 
     /// Render the microphone button in the center of the screen
-    /// Returns true if clicked, but only renders if permission is not granted
+    /// Returns true if clicked
     pub fn render_center_button(&mut self, ctx: &egui::Context) -> bool {
-        // Only show the button if permission is not granted
-        if matches!(self.permission_state, AudioPermission::Granted) {
-            return false;
-        }
+        // Show button for all states - users can see success/failure feedback
         
         let mut clicked = false;
         
