@@ -115,11 +115,9 @@ impl ConsoleCommand for HelpCommand {
         let mut commands = registry.get_commands();
         commands.sort_by(|a, b| a.name().cmp(b.name()));
         
-        // Filter out compound commands (those containing hyphens) to show only base commands
+        // Show all registered commands
         for command in commands {
-            if !command.name().contains('-') {
-                help_lines.push(format!("  {} - {}", command.name(), command.description()));
-            }
+            help_lines.push(format!("  {} - {}", command.name(), command.description()));
         }
         
         let help_text = help_lines.join("\n");
@@ -357,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_help_filters_compound_commands() {
+    fn test_help_shows_all_commands() {
         // Create a test registry with both base and compound commands
         struct BaseTestCommand;
         impl ConsoleCommand for BaseTestCommand {
@@ -381,12 +379,12 @@ mod tests {
         registry.register(Box::new(BaseTestCommand));
         registry.register(Box::new(CompoundTestCommand));
 
-        // Test that help only shows base commands, not compound ones
+        // Test that help shows all registered commands
         let result = registry.execute("help");
         match result {
             ConsoleCommandResult::Output(ConsoleOutput::Info(text)) => {
                 assert!(text.contains("base - Base command"));
-                assert!(!text.contains("base-sub - Compound command")); // Should NOT show compound commands
+                assert!(text.contains("base-sub - Compound command")); // Should show all commands
             },
             _ => panic!("Expected Info output from help command"),
         }
