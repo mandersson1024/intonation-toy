@@ -16,7 +16,7 @@ pub struct SpriteScene {
 impl SpriteScene {
     /// Create new sprite scene
     pub fn new(context: &Context, viewport: Viewport) -> Self {
-        let mut camera = Camera::new_perspective(
+        let camera = Camera::new_perspective(
             viewport,
             vec3(0.0, 15.0, 15.0),
             vec3(0.0, 0.0, 0.0),
@@ -82,7 +82,7 @@ impl SpriteScene {
     }
 
     /// Render the scene
-    pub fn render(&self, screen: &Screen) {
+    pub fn render(&self, screen: &mut RenderTarget) {
         screen
             .clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0))
             .render(

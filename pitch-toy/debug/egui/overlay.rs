@@ -1,6 +1,7 @@
 // EGUI Microphone Button
 // Manages microphone button rendering in three-d + egui context
 
+use three_d::egui;
 use super::super::microphone_button::MicrophoneButton;
 use observable_data::DataSource;
 use crate::audio::AudioPermission;

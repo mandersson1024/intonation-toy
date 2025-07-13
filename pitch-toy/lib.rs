@@ -110,10 +110,9 @@ pub async fn run_three_d() {
     use observable_data::DataSource;
     
     let permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
-    let live_data = LiveData {
+    let _live_data = LiveData {
         microphone_permission: permission_source.observer(),
     };
-    let permission_setter = permission_source.setter();
 
     let window = Window::new(WindowSettings {
         title: "Sprites!".to_string(),
@@ -123,11 +122,7 @@ pub async fn run_three_d() {
     .unwrap();
     
     let context = window.gl();
-
-    // Create sprite scene
     let mut sprite_scene = SpriteScene::new(&context, window.viewport());
-
-    // Create egui GUI
     let mut gui = three_d::GUI::new(&context);
     
     // Create egui dev console with the same registry as the Yew console
@@ -143,7 +138,7 @@ pub async fn run_three_d() {
         sprite_scene.update_viewport(frame_input.viewport);
 
         // Render 3D scene first
-        sprite_scene.render(frame_input.screen());
+        sprite_scene.render(&mut frame_input.screen());
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
