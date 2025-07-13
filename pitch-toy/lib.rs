@@ -182,7 +182,7 @@ pub async fn run_three_d() {
     // Set up microphone button click callback to trigger permission request
     let permission_setter = permission_source.setter();
     microphone_button.set_click_callback(move || {
-        audio::permission::request_microphone_permission_and_publish_result(permission_setter.clone());
+        audio::permission::connect_microphone(permission_setter.clone());
     });
 
     dev_log!("Starting three-d + egui render loop");
