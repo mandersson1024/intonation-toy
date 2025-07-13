@@ -384,22 +384,6 @@ pub async fn run_three_d() {
 
         // Render egui overlay
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            use three_d::egui::*;
-            
-            Window::new("Hello egui!")
-                .default_size([300.0, 200.0])
-                .show(gui_context, |ui| {
-                    ui.heading("Welcome to three-d + egui!");
-                    ui.separator();
-                    ui.label("This is a minimal hello-world example.");
-                    ui.label("You can see both 3D sprites and this GUI overlay.");
-                    ui.label("Development console is always visible.");
-                    
-                    if ui.button("Click me!").clicked() {
-                        web_sys::console::log_1(&"Button clicked in egui!".into());
-                    }
-                });
-            
             // Render development console
             dev_console.show(gui_context);
         });
