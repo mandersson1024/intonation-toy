@@ -3,6 +3,10 @@
 
 use dev_console::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult};
 use crate::{ConsoleHistory, ConsoleOutputManager};
+use web_sys::Storage;
+
+/// Local storage key for console history persistence (same as original dev-console)
+const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";
 
 pub struct EguiDevConsole {
     command_registry: ConsoleCommandRegistry,
@@ -14,20 +18,44 @@ pub struct EguiDevConsole {
 
 impl EguiDevConsole {
     pub fn new() -> Self {
+        let mut output_manager = ConsoleOutputManager::new();
+        
+        // Add welcome message
+        output_manager.add_output(ConsoleOutput::info("EGUI Dev Console initialized"));
+        output_manager.add_output(ConsoleOutput::info("Type 'help' for available commands"));
+        
+        // Load command history from local storage
+        let command_history = Self::load_history_from_storage();
+        if !command_history.is_empty() {
+            output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
+        }
+        
         Self {
             command_registry: ConsoleCommandRegistry::new(),
-            output_manager: ConsoleOutputManager::new(),
-            history: ConsoleHistory::new(),
+            output_manager,
+            history: command_history,
             input_text: String::new(),
             is_visible: true,
         }
     }
 
     pub fn new_with_registry(registry: ConsoleCommandRegistry) -> Self {
+        let mut output_manager = ConsoleOutputManager::new();
+        
+        // Add welcome message
+        output_manager.add_output(ConsoleOutput::info("EGUI Dev Console initialized"));
+        output_manager.add_output(ConsoleOutput::info("Type 'help' for available commands"));
+        
+        // Load command history from local storage
+        let command_history = Self::load_history_from_storage();
+        if !command_history.is_empty() {
+            output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
+        }
+        
         Self {
             command_registry: registry,
-            output_manager: ConsoleOutputManager::new(),
-            history: ConsoleHistory::new(),
+            output_manager,
+            history: command_history,
             input_text: String::new(),
             is_visible: true,
         }
@@ -131,6 +159,9 @@ impl EguiDevConsole {
         // Add command to history
         self.history.add_command(command.clone());
 
+        // Save history to local storage
+        self.save_history_to_storage();
+
         // Echo the command
         self.output_manager.add_output(ConsoleOutput::echo(&command));
 
@@ -155,10 +186,41 @@ impl EguiDevConsole {
 
         // Clear input
         self.input_text.clear();
+
+        // Reset history navigation
+        self.history.reset_navigation();
     }
 
     pub fn register_command(&mut self, command: Box<dyn dev_console::ConsoleCommand>) {
         self.command_registry.register(command);
+    }
+
+    /// Load command history from local storage
+    fn load_history_from_storage() -> ConsoleHistory {
+        if let Some(storage) = Self::get_local_storage() {
+            if let Ok(Some(history_json)) = storage.get_item(CONSOLE_HISTORY_STORAGE_KEY) {
+                if let Ok(history) = serde_json::from_str(&history_json) {
+                    return history;
+                }
+            }
+        }
+        ConsoleHistory::new()
+    }
+
+    /// Save command history to local storage
+    fn save_history_to_storage(&self) {
+        if let Some(storage) = Self::get_local_storage() {
+            if let Ok(history_json) = serde_json::to_string(&self.history) {
+                let _ = storage.set_item(CONSOLE_HISTORY_STORAGE_KEY, &history_json);
+            }
+        }
+    }
+
+    /// Get local storage reference
+    fn get_local_storage() -> Option<Storage> {
+        web_sys::window()
+            .and_then(|window| window.local_storage().ok())
+            .flatten()
     }
 }
 
