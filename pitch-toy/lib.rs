@@ -102,45 +102,44 @@ pub async fn run_three_d() {
     use crate::app_data::LiveData;
     use observable_data::DataSource;
     
-    let permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
+    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
+    
     let _live_data = LiveData {
-        microphone_permission: permission_source.observer(),
+        microphone_permission: microphone_permission_source.observer(),
     };
 
     let window = Window::new(WindowSettings {
-        title: "Sprites!".to_string(),
+        title: "pitch-toy".to_string(),
         max_size: Some((1280, 720)),
         ..Default::default()
     })
     .unwrap();
     
     let context = window.gl();
-    let mut sprite_scene = SpriteScene::new(&context, window.viewport());
+    let mut scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
-    let mut registry = ConsoleCommandRegistry::new();
-    crate::platform::commands::register_platform_commands(&mut registry);
-    crate::audio::register_audio_commands(&mut registry);
+    let mut commandRegistry = ConsoleCommandRegistry::new();
+    crate::platform::commands::register_platform_commands(&mut commandRegistry);
+    crate::audio::register_audio_commands(&mut commandRegistry);
 
-    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
-    let mut microphone_button = EguiMicrophoneButton::new(&permission_source);
+    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(commandRegistry);
+    let mut microphone_button = EguiMicrophoneButton::new(&microphone_permission_source);
 
     dev_log!("Starting three-d + egui render loop");
     
     window.render_loop(move |mut frame_input| {
-        sprite_scene.update_viewport(frame_input.viewport);
+        scene.update_viewport(frame_input.viewport);
+        scene.render(&mut frame_input.screen());
 
-        // Render 3D scene first
-        sprite_scene.render(&mut frame_input.screen());
-
-        // Render egui overlay  
-        gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            dev_console.render(gui_context);
-            microphone_button.render(gui_context);
-        });
-
+        gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio,
+            |gui_context| {
+                dev_console.render(gui_context);
+                microphone_button.render(gui_context);
+            }
+        );
+        
         let _ = gui.render();
-
         FrameOutput::default()
     });
 }
