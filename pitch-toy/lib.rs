@@ -3,7 +3,6 @@ use web_sys::HtmlCanvasElement;
 use three_d::*;
 
 pub mod audio;
-pub mod console_commands;
 pub mod common;
 pub mod platform;
 pub mod events;
@@ -28,7 +27,8 @@ use graphics::SpriteScene;
 
 /// Create console registry with all commands registered
 fn create_console_registry_with_commands() -> ConsoleCommandRegistry {
-    let mut registry = crate::console_commands::create_console_registry();
+    let mut registry = ConsoleCommandRegistry::new();
+    crate::platform::commands::register_platform_commands(&mut registry);
     crate::audio::register_audio_commands(&mut registry);
     registry
 }
