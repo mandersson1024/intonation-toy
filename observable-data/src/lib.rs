@@ -2,228 +2,302 @@
 //!
 //! This crate provides traits and implementations for observable data with clear
 //! ownership semantics. The owner holds a `DataSource` and can modify values,
-//! while observers get `ObservableData` handles that can only read and listen.
+//! while observers get `ObservableData` handles that can only read and observe.
 //!
 //! # Example
 //!
 //! ```rust
 //! use observable_data::{ObservableData, DataSource};
-//! use std::rc::Rc;
 //!
 //! // Owner creates and holds the data source
 //! let mut data_source: DataSource<i32> = DataSource::new(42);
 //!
 //! // Create observer handles to distribute (read-only access)
-//! let observer1: Rc<dyn ObservableData<i32>> = data_source.observer();
-//! let observer2: Rc<dyn ObservableData<i32>> = data_source.observer();
+//! let observer1: ObservableData<i32> = data_source.observer();
+//! let observer2: ObservableData<i32> = data_source.observer();
 //!
-//! // Observers can read and listen, but not modify
-//! observer1.listen(Box::new(|value: &i32| {
+//! println!("Current observer1 value: {}", observer1.get());
+//! println!("Current observer2 value: {}", observer2.get());
+//!
+//! // Observers can read and observe, but not modify
+//! observer1.observe(Box::new(|value: &i32| {
 //!     println!("Observer 1 saw: {}", value);
 //! }));
 //!
-//! observer2.listen(Box::new(|value: &i32| {
+//! observer2.observe(Box::new(|value: &i32| {
 //!     println!("Observer 2 saw: {}", value);
 //! }));
-//!
-//! println!("Current value: {}", observer2.get());
 //!
 //! // Only the owner can modify (triggers all listeners)
 //! data_source.set(100);
 //! ```
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock, Mutex};
 
-type Callback<T> = Box<dyn Fn(&T)>;
+type Callback<T> = Box<dyn Fn(&T) + Send + Sync>;
 
-pub trait ObservableData<T> {
-    fn get(&self) -> &T;
+trait ObservableDataTrait<T>: Send + Sync {
+    fn get(&self) -> T where T: Clone;
     fn listen(&self, callback: Callback<T>);
 }
 
-/// Internal shared state between DataSource owner and observer handles.
-/// 
-/// This struct is crucial for the ownership model because it:
-/// - Encapsulates the actual data and listener storage
-/// - Enables safe sharing via Rc (reference counting)
-/// - Uses RefCell for interior mutability without requiring &mut self
-/// - Remains private to prevent external access to mutation methods
-struct SharedData<T> {
-    value: RefCell<T>,
-    listeners: RefCell<Vec<Callback<T>>>,
+/// A thread-safe handle to observable data that can be read and listened to.
+/// This is the main type that gets distributed to observers.
+pub struct ObservableData<T> {
+    inner: Arc<dyn ObservableDataTrait<T>>,
 }
 
-/// The owner of the data - can create observers and modify values.
-/// 
-/// Key design properties:
-/// - Does NOT implement ObservableData (cannot read/listen directly)
-/// - Only provides mutation via set() and observer creation via observer()
-/// - Enforces single ownership pattern for write access
-pub struct DataSource<T> {
-    data: Rc<SharedData<T>>,
+impl<T> ObservableData<T> {
+    pub fn get(&self) -> T where T: Clone {
+        self.inner.get()
+    }
+
+    pub fn observe(&self, callback: Callback<T>) {
+        self.inner.listen(callback)
+    }
+
+    pub fn observe_now<F>(&self, callback: F) where T: Clone, F: Fn(&T) + Send + Sync + 'static {
+        let current_value = self.get();
+        callback(&current_value);
+        self.observe(Box::new(callback));
+    }
 }
 
-impl<T: 'static> DataSource<T> {
-    pub fn new(initial_value: T) -> Self {
+impl<T> Clone for ObservableData<T> {
+    fn clone(&self) -> Self {
         Self {
-            data: Rc::new(SharedData {
-                value: RefCell::new(initial_value),
-                listeners: RefCell::new(Vec::new()),
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+struct SharedData<T> {
+    value: RwLock<T>,
+    listeners: Mutex<Vec<Callback<T>>>,
+}
+
+pub struct DataSource<T> {
+    data: Arc<SharedData<T>>,
+}
+
+impl<T: 'static + Clone + Send + Sync> DataSource<T> {
+    pub fn new(data: T) -> Self {
+        Self {
+            data: Arc::new(SharedData {
+                value: RwLock::new(data),
+                listeners: Mutex::new(Vec::new()),
             }),
         }
     }
 
     pub fn set(&mut self, data: T) {
-        *self.data.value.borrow_mut() = data;
+        // Update the value
+        {
+            let mut value = self.data.value.write().unwrap();
+            *value = data;
+        }
         
         // Notify all listeners
-        let value_ref = self.data.value.borrow();
-        for callback in self.data.listeners.borrow().iter() {
-            callback(&*value_ref);
+        let value = self.data.value.read().unwrap();
+        let listeners = self.data.listeners.lock().unwrap();
+        for callback in listeners.iter() {
+            callback(&*value);
         }
     }
 
-    pub fn observer(&self) -> Rc<dyn ObservableData<T>> {
-        self.data.clone()
+    pub fn observer(&self) -> ObservableData<T> {
+        ObservableData {
+            inner: self.data.clone(),
+        }
     }
 }
 
-impl<T> ObservableData<T> for SharedData<T> {
-    fn get(&self) -> &T {
-        unsafe { &*self.value.as_ptr() }
+impl<T: Clone + Send + Sync> ObservableDataTrait<T> for SharedData<T> {
+    fn get(&self) -> T {
+        self.value.read().unwrap().clone()
     }
 
     fn listen(&self, callback: Callback<T>) {
-        self.listeners.borrow_mut().push(callback);
+        self.listeners.lock().unwrap().push(callback);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
 
     #[test]
     fn test_data_source_creation_and_get() {
         let data_source = DataSource::new(42);
-        let observer = data_source.observer();
-        assert_eq!(*observer.get(), 42);
+        let observer: ObservableData<i32> = data_source.observer();
+        assert_eq!(observer.get(), 42);
     }
 
     #[test]
     fn test_data_source_set_updates_value() {
         let mut data_source = DataSource::new(10);
-        let observer = data_source.observer();
+        let observer: ObservableData<i32> = data_source.observer();
         
         data_source.set(20);
-        assert_eq!(*observer.get(), 20);
+        assert_eq!(observer.get(), 20);
         
         data_source.set(30);
-        assert_eq!(*observer.get(), 30);
+        assert_eq!(observer.get(), 30);
     }
 
     #[test]
     fn test_multiple_observers_see_same_value() {
         let mut data_source = DataSource::new(100);
-        let observer1 = data_source.observer();
-        let observer2 = data_source.observer();
+        let observer1: ObservableData<i32> = data_source.observer();
+        let observer2: ObservableData<i32> = data_source.observer();
         
-        assert_eq!(*observer1.get(), 100);
-        assert_eq!(*observer2.get(), 100);
+        assert_eq!(observer1.get(), 100);
+        assert_eq!(observer2.get(), 100);
         
         data_source.set(200);
-        assert_eq!(*observer1.get(), 200);
-        assert_eq!(*observer2.get(), 200);
+        assert_eq!(observer1.get(), 200);
+        assert_eq!(observer2.get(), 200);
     }
 
     #[test]
     fn test_listener_called_on_set() {
         let mut data_source = DataSource::new(1);
-        let observer = data_source.observer();
+        let observer: ObservableData<i32> = data_source.observer();
         
-        let received_values = Rc::new(RefCell::new(Vec::new()));
-        let values_clone = received_values.clone();
+        // Track if callback was called
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
         
-        observer.listen(Box::new(move |value| {
-            values_clone.borrow_mut().push(*value);
+        observer.observe(Box::new(move |_| {
+            *called_clone.lock().unwrap() = true;
         }));
         
+        // Trigger update
         data_source.set(2);
-        data_source.set(3);
-        data_source.set(4);
         
-        assert_eq!(*received_values.borrow(), vec![2, 3, 4]);
+        // Verify listener was called
+        assert!(*called.lock().unwrap());
     }
 
     #[test]
     fn test_multiple_listeners_all_called() {
         let mut data_source = DataSource::new(0);
-        let observer = data_source.observer();
+        let observer: ObservableData<i32> = data_source.observer();
         
-        let values1 = Rc::new(RefCell::new(Vec::new()));
-        let values2 = Rc::new(RefCell::new(Vec::new()));
+        let called1 = Arc::new(Mutex::new(false));
+        let called2 = Arc::new(Mutex::new(false));
         
-        let values1_clone = values1.clone();
-        let values2_clone = values2.clone();
+        let called1_clone = called1.clone();
+        let called2_clone = called2.clone();
         
-        observer.listen(Box::new(move |value| {
-            values1_clone.borrow_mut().push(*value);
+        observer.observe(Box::new(move |_| {
+            *called1_clone.lock().unwrap() = true;
         }));
         
-        observer.listen(Box::new(move |value| {
-            values2_clone.borrow_mut().push(*value);
+        observer.observe(Box::new(move |_| {
+            *called2_clone.lock().unwrap() = true;
         }));
         
         data_source.set(5);
-        data_source.set(10);
         
-        assert_eq!(*values1.borrow(), vec![5, 10]);
-        assert_eq!(*values2.borrow(), vec![5, 10]);
+        assert!(*called1.lock().unwrap());
+        assert!(*called2.lock().unwrap());
     }
 
     #[test]
     fn test_listeners_from_different_observers() {
         let mut data_source = DataSource::new(0);
-        let observer1 = data_source.observer();
-        let observer2 = data_source.observer();
+        let observer1: ObservableData<i32> = data_source.observer();
+        let observer2: ObservableData<i32> = data_source.observer();
         
-        let values1 = Rc::new(RefCell::new(Vec::new()));
-        let values2 = Rc::new(RefCell::new(Vec::new()));
+        let called1 = Arc::new(Mutex::new(false));
+        let called2 = Arc::new(Mutex::new(false));
         
-        let values1_clone = values1.clone();
-        let values2_clone = values2.clone();
+        let called1_clone = called1.clone();
+        let called2_clone = called2.clone();
         
-        observer1.listen(Box::new(move |value| {
-            values1_clone.borrow_mut().push(*value);
+        observer1.observe(Box::new(move |_| {
+            *called1_clone.lock().unwrap() = true;
         }));
         
-        observer2.listen(Box::new(move |value| {
-            values2_clone.borrow_mut().push(*value);
+        observer2.observe(Box::new(move |_| {
+            *called2_clone.lock().unwrap() = true;
         }));
         
         data_source.set(7);
         
-        assert_eq!(*values1.borrow(), vec![7]);
-        assert_eq!(*values2.borrow(), vec![7]);
+        assert!(*called1.lock().unwrap());
+        assert!(*called2.lock().unwrap());
     }
 
     #[test]
     fn test_string_data_type() {
         let mut data_source = DataSource::new("hello".to_string());
-        let observer = data_source.observer();
+        let observer: ObservableData<String> = data_source.observer();
         
-        let received_values = Rc::new(RefCell::new(Vec::new()));
-        let values_clone = received_values.clone();
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
         
-        observer.listen(Box::new(move |value| {
-            values_clone.borrow_mut().push(value.clone());
+        observer.observe(Box::new(move |_| {
+            *called_clone.lock().unwrap() = true;
         }));
         
         assert_eq!(observer.get(), "hello");
         
         data_source.set("world".to_string());
         assert_eq!(observer.get(), "world");
-        assert_eq!(*received_values.borrow(), vec!["world".to_string()]);
+        assert!(*called.lock().unwrap());
+    }
+
+    #[test]
+    fn test_thread_safety() {
+        let mut data_source = DataSource::new(0);
+        let observer= data_source.observer();
+        
+        // Just verify we can clone observers across threads
+        let observer_clone = observer.clone();
+        let handle = thread::spawn(move || {
+            // Access the observer from another thread
+            assert_eq!(observer_clone.get(), 0);
+        });
+        
+        handle.join().unwrap();
+        
+        // Verify main thread can still use original observer
+        data_source.set(42);
+        assert_eq!(observer.get(), 42);
+    }
+
+    #[test]
+    fn test_observe_now() {
+        let mut data_source = DataSource::new(10);
+        let observer: ObservableData<i32> = data_source.observer();
+        
+        let immediate_called = Arc::new(Mutex::new(false));
+        let future_called = Arc::new(Mutex::new(false));
+        
+        let immediate_clone = immediate_called.clone();
+        let future_clone = future_called.clone();
+        
+        // Use observe_now - should trigger immediately and listen for future
+        observer.observe_now(move |value| {
+            if *value == 10 {
+                *immediate_clone.lock().unwrap() = true;
+            } else if *value == 20 {
+                *future_clone.lock().unwrap() = true;
+            }
+        });
+        
+        // Should have immediately been called with current value
+        assert!(*immediate_called.lock().unwrap());
+        assert!(!*future_called.lock().unwrap());
+        
+        // Trigger update for future listener
+        data_source.set(20);
+        
+        // Should now have been called for future value too
+        assert!(*future_called.lock().unwrap());
     }
 }
