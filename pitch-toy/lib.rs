@@ -14,6 +14,7 @@ use common::dev_log;
 use wasm_bindgen::prelude::*;
 
 use platform::{Platform, PlatformValidationResult};
+use debug::microphone_button::MicrophoneButton;
 
 #[cfg(debug_assertions)]
 use debug::DebugInterface;
@@ -111,7 +112,7 @@ pub async fn run_three_d() {
         microphone_permission: permission_source.observer(),
     };
     let permission_setter = permission_source.setter();
-    
+
     let window = Window::new(WindowSettings {
         title: "Sprites!".to_string(),
         max_size: Some((1280, 720)),
@@ -175,17 +176,8 @@ pub async fn run_three_d() {
     
     // Create egui dev console with the same registry as the Yew console
     let registry = crate::console_commands::create_console_registry_with_audio();
-    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry, live_data.microphone_permission.clone());
-
-    
-    // Set up microphone button click callback
-    dev_console.set_microphone_click_callback({
-        let setter = permission_setter.clone();
-        move || {
-            // This function will be called directly by the user click
-            audio::permission::request_microphone_permission_and_publish_result(setter.clone());
-        }
-    });
+    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
+    let mut microphone_button = MicrophoneButton::new(permission_source.observer());
 
     dev_log!("Starting three-d + egui render loop");
     
@@ -216,10 +208,10 @@ pub async fn run_three_d() {
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            // Render development console
             dev_console.show(gui_context);
+            microphone_button.render_center_button(gui_context);
         });
-        
+
         let _ = gui.render();
 
         FrameOutput::default()

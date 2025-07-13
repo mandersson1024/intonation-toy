@@ -4,6 +4,8 @@
 use std::sync::Arc;
 use three_d::egui;
 use observable_data::ObservableData;
+use super::AudioPermission;
+
 
 /// Audio permission states trait - implementors can define their own permission types
 pub trait AudioPermissionState: Clone + Send + Sync + 'static {
@@ -13,32 +15,40 @@ pub trait AudioPermissionState: Clone + Send + Sync + 'static {
     fn is_denied(&self) -> bool;
     fn is_unavailable(&self) -> bool;
     
-    fn get_icon_text(&self) -> &'static str {
-        if self.is_granted() { "🎤 ✓" }
-        else if self.is_denied() { "🎤 ✗" }
-        else if self.is_requesting() { "🎤 ..." }
-        else if self.is_unavailable() { "🎤 ⚠" }
-        else { "🎤" }
-    }
-    
-    fn get_status_text(&self) -> &'static str {
-        if self.is_uninitialized() { "Click to enable microphone" }
-        else if self.is_requesting() { "Requesting permission..." }
-        else if self.is_granted() { "Microphone enabled" }
-        else if self.is_denied() { "Permission denied" }
-        else { "Microphone unavailable" }
-    }
-    
     fn get_button_text(&self) -> &'static str {
-        if self.is_uninitialized() { "Enable Microphone" }
+        if self.is_uninitialized() { "Request Permission" }
         else if self.is_requesting() { "Requesting..." }
-        else if self.is_granted() { "Microphone Ready" }
-        else if self.is_denied() { "Try Again" }
-        else { "Check Device" }
+        else if self.is_granted() { "Granted" }
+        else if self.is_denied() { "Denied" }
+        else { "Unknown Error" }
     }
     
     fn is_button_enabled(&self) -> bool {
         self.is_uninitialized() || self.is_denied() || self.is_unavailable()
+    }
+}
+
+
+/// Implement the egui console trait for our AudioPermission
+impl AudioPermissionState for AudioPermission {
+    fn is_uninitialized(&self) -> bool {
+        matches!(self, AudioPermission::Uninitialized)
+    }
+    
+    fn is_requesting(&self) -> bool {
+        matches!(self, AudioPermission::Requesting)
+    }
+    
+    fn is_granted(&self) -> bool {
+        matches!(self, AudioPermission::Granted)
+    }
+    
+    fn is_denied(&self) -> bool {
+        matches!(self, AudioPermission::Denied)
+    }
+    
+    fn is_unavailable(&self) -> bool {
+        matches!(self, AudioPermission::Unavailable)
     }
 }
 
@@ -110,24 +120,7 @@ impl<T: AudioPermissionState> MicrophoneButton<T> {
             .fixed_size([200.0, 120.0])
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.add_space(10.0);
-                    
-                    // Get current permission state from observable
                     let permission_state = self.microphone_permission.get();
-                    
-                    // Microphone icon (using text for now)
-                    let mic_text = permission_state.get_icon_text();
-                    
-                    ui.heading(mic_text);
-                    ui.add_space(5.0);
-                    
-                    // Status text
-                    let status_text = permission_state.get_status_text();
-                    
-                    ui.label(status_text);
-                    ui.add_space(5.0);
-                    
-                    // Button
                     let button_text = permission_state.get_button_text();
                     let button_enabled = permission_state.is_button_enabled();
                     

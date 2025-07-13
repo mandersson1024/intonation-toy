@@ -11,8 +11,8 @@
 // pub mod console;
 pub mod live_panel;
 pub mod integration;
+pub mod microphone_button;
 
-// Re-export main component types
-// pub use console::DebugConsole;
+use super::audio::AudioPermission;
 pub use live_panel::LivePanel;
 pub use integration::{DebugInterface, create_debug_interface};
