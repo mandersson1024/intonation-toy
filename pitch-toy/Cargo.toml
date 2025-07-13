@@ -10,6 +10,7 @@ license = "MIT"
 dev-console = { path = "../dev-console" }
 egui-dev-console = { path = "../egui-dev-console" }
 event-dispatcher = { path = "../event-dispatcher" }
+observable-data = { path = "../observable-data" }
 yew = { version = "0.21", features = ["csr"] }
 web-sys = { version = "0.3", features = [
   "console",
