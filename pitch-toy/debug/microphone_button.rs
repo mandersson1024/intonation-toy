@@ -52,9 +52,6 @@ impl AudioPermissionState for AudioPermission {
     }
 }
 
-/// Callback type for permission state changes
-pub type PermissionCallback<T> = Arc<dyn Fn(T) + Send + Sync>;
-
 /// Callback type for microphone button clicks (must be synchronous for getUserMedia)
 pub type ClickCallback = Arc<dyn Fn() + Send + Sync>;
 
@@ -62,7 +59,6 @@ pub type ClickCallback = Arc<dyn Fn() + Send + Sync>;
 pub struct MicrophoneButton<T: AudioPermissionState> {
     microphone_permission: ObservableData<T>,
     error_message: Option<String>,
-    permission_callback: Option<PermissionCallback<T>>,
     click_callback: Option<ClickCallback>,
 }
 
@@ -71,17 +67,8 @@ impl<T: AudioPermissionState> MicrophoneButton<T> {
         Self {
             microphone_permission,
             error_message: None,
-            permission_callback: None,
             click_callback: None,
         }
-    }
-
-    /// Set callback for permission state changes
-    pub fn set_permission_callback<F>(&mut self, callback: F)
-    where
-        F: Fn(T) + Send + Sync + 'static,
-    {
-        self.permission_callback = Some(Arc::new(callback));
     }
 
     /// Set callback for button clicks (called synchronously)

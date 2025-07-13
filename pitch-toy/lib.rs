@@ -178,6 +178,12 @@ pub async fn run_three_d() {
     let registry = crate::console_commands::create_console_registry_with_audio();
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
     let mut microphone_button = MicrophoneButton::new(permission_source.observer());
+    
+    // Set up microphone button click callback to trigger permission request
+    let permission_setter = permission_source.setter();
+    microphone_button.set_click_callback(move || {
+        audio::permission::request_microphone_permission_and_publish_result(permission_setter.clone());
+    });
 
     dev_log!("Starting three-d + egui render loop");
     
