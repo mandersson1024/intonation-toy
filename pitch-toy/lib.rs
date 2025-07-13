@@ -23,40 +23,29 @@ fn convert_permission_to_egui(permission: &audio::AudioPermission) -> egui_dev_c
     }
 }
 
-// Global microphone permission state shared between event system and UI
-thread_local! {
-    static MICROPHONE_PERMISSION: std::cell::RefCell<audio::AudioPermission> = 
-        std::cell::RefCell::new(audio::AudioPermission::Uninitialized);
-}
-
-/// Update global microphone permission state
-fn update_global_microphone_permission(permission: audio::AudioPermission) {
-    MICROPHONE_PERMISSION.with(|p| *p.borrow_mut() = permission);
-}
-
-/// Get current global microphone permission state
-fn get_global_microphone_permission() -> audio::AudioPermission {
-    MICROPHONE_PERMISSION.with(|p| p.borrow().clone())
-}
 
 /// Request microphone permission and publish the result via events
 /// This function is called synchronously from the user click callback
-fn request_microphone_permission_and_publish_result() {
+fn request_microphone_permission_and_publish_result(permission_source: std::sync::Arc<std::sync::Mutex<observable_data::DataSource<audio::AudioPermission>>>) {
     use crate::events::{get_global_event_dispatcher, audio_events::AudioEvent};
     
     let event_dispatcher = get_global_event_dispatcher();
     
     // Set state to requesting immediately (synchronously)
-    update_global_microphone_permission(crate::audio::AudioPermission::Requesting);
+    permission_source.lock().unwrap().set(crate::audio::AudioPermission::Requesting);
     let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Requesting);
     event_dispatcher.borrow().publish(&event);
+    
+    // Clone permission source reference for async block
+    let permission_source_clone = permission_source.clone();
     
     // Start the async permission request (this should maintain the user gesture context)
     wasm_bindgen_futures::spawn_local(async move {
         match connect_microphone_to_audioworklet().await {
             Ok(_) => {
                 web_sys::console::log_1(&"✓ Microphone connected successfully".into());
-                // Publish permission granted event
+                // Update permission state and publish event
+                permission_source_clone.lock().unwrap().set(crate::audio::AudioPermission::Granted);
                 let event_dispatcher = get_global_event_dispatcher();
                 let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
                 event_dispatcher.borrow().publish(&event);
@@ -64,7 +53,7 @@ fn request_microphone_permission_and_publish_result() {
             Err(e) => {
                 web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
                 
-                // Map error to permission state and publish event
+                // Map error to permission state
                 let permission_state = if e.contains("denied") || e.contains("NotAllowedError") {
                     crate::audio::AudioPermission::Denied
                 } else if e.contains("NotFoundError") || e.contains("unavailable") {
@@ -73,6 +62,8 @@ fn request_microphone_permission_and_publish_result() {
                     crate::audio::AudioPermission::Unavailable
                 };
                 
+                // Update permission state and publish event
+                permission_source_clone.lock().unwrap().set(permission_state.clone());
                 let event_dispatcher = get_global_event_dispatcher();
                 let event = AudioEvent::PermissionChanged(permission_state);
                 event_dispatcher.borrow().publish(&event);
@@ -359,6 +350,16 @@ async fn initialize_audioworklet_manager() -> Result<(), String> {
 pub async fn run_three_d() {
     dev_log!("Starting three-d with red sprites");
     
+    // Create application data with observable permission state
+    use crate::app_data::LiveData;
+    use observable_data::DataSource;
+    let permission_source = std::sync::Arc::new(std::sync::Mutex::new(
+        DataSource::new(audio::AudioPermission::Uninitialized)
+    ));
+    let live_data = LiveData {
+        microphone_permission: permission_source.lock().unwrap().observer(),
+    };
+    
     let window = Window::new(WindowSettings {
         title: "Sprites!".to_string(),
         max_size: Some((1280, 720)),
@@ -424,22 +425,14 @@ pub async fn run_three_d() {
     let registry = crate::console_commands::create_console_registry_with_audio();
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
 
-    // Set up event subscription for microphone permission changes
-    {
-        use crate::events::{get_global_event_dispatcher, audio_events::AudioEvent};
-        let event_dispatcher = get_global_event_dispatcher();
-        
-        event_dispatcher.borrow_mut().subscribe("permission_changed", Box::new(|event| {
-            if let AudioEvent::PermissionChanged(permission) = event {
-                update_global_microphone_permission(permission.clone());
-            }
-        }));
-    }
     
     // Set up microphone button click callback
-    dev_console.set_microphone_click_callback(|| {
-        // This function will be called directly by the user click
-        request_microphone_permission_and_publish_result();
+    dev_console.set_microphone_click_callback({
+        let permission_source = permission_source.clone();
+        move || {
+            // This function will be called directly by the user click
+            request_microphone_permission_and_publish_result(permission_source.clone());
+        }
     });
 
     dev_log!("Starting three-d + egui render loop");
@@ -472,8 +465,8 @@ pub async fn run_three_d() {
 
         // Render egui overlay  
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio, |gui_context| {
-            // Sync permission state from global state to console
-            let current_permission = get_global_microphone_permission();
+            // Sync permission state from LiveData to console
+            let current_permission = live_data.microphone_permission.get();
             let console_permission = convert_permission_to_egui(&current_permission);
             
             // Update console permission if it's different
