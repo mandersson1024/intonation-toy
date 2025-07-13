@@ -81,10 +81,9 @@ impl EguiDevConsole {
             return;
         }
 
-        three_d::egui::Window::new("Development Console")
+        three_d::egui::Window::new("Dev Console")
             .default_width(600.0)
             .default_height(400.0)
-            .default_pos([ctx.screen_rect().width() - 620.0, 20.0])
             .resizable(true)
             .show(ctx, |ui| {
                 self.render_console(ui);
@@ -95,7 +94,7 @@ impl EguiDevConsole {
         ui.vertical(|ui| {
             // Output area
             three_d::egui::ScrollArea::vertical()
-                .max_height(300.0)
+                .max_height(600.0)
                 .stick_to_bottom(true)
                 .show(ui, |ui| {
                     self.render_output(ui);
@@ -127,10 +126,6 @@ impl EguiDevConsole {
                             self.input_text = cmd.to_string();
                         }
                     }
-                }
-
-                if ui.button("Execute").clicked() {
-                    self.execute_command();
                 }
             });
         });
