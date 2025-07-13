@@ -25,38 +25,7 @@ use std::rc::Rc;
 use graphics::SpriteScene;
 
 
-/// Create console registry with all commands registered
-fn create_console_registry_with_commands() -> ConsoleCommandRegistry {
-    let mut registry = ConsoleCommandRegistry::new();
-    crate::platform::commands::register_platform_commands(&mut registry);
-    crate::audio::register_audio_commands(&mut registry);
-    registry
-}
 
-/// Render development console if in debug mode
-fn render_dev_console() -> Html {
-    #[cfg(debug_assertions)]
-    {
-        // Get global shared event dispatcher
-        let event_dispatcher = crate::events::get_global_event_dispatcher();
-        
-        // Create audio service with event dispatcher
-        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
-        
-        // Create shared console registry
-        let registry = Rc::new(create_console_registry_with_commands());
-        html! { 
-            <DebugInterface
-                registry={registry}
-                audio_service={audio_service}
-                event_dispatcher={Some(event_dispatcher)}
-            />
-        }
-    }
-    
-    #[cfg(not(debug_assertions))]
-    html! {}
-}
 
 
 /// Main application component for Pitch Toy
@@ -82,8 +51,27 @@ fn App() -> Html {
 
     html! {
         <div>
-            // Development console (debug builds only)
-            { render_dev_console() }
+            // Debug interface (LivePanel) for debug builds only
+            {
+                cfg_if::cfg_if! {
+                    if #[cfg(debug_assertions)] {
+                        // Get global shared event dispatcher
+                        let event_dispatcher = crate::events::get_global_event_dispatcher();
+                        
+                        // Create audio service with event dispatcher
+                        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
+                        
+                        html! { 
+                            <DebugInterface
+                                audio_service={audio_service}
+                                event_dispatcher={Some(event_dispatcher)}
+                            />
+                        }
+                    } else {
+                        html! {}
+                    }
+                }
+            }
             
             // Canvas for wgpu GPU rendering
             <canvas 
@@ -137,8 +125,10 @@ pub async fn run_three_d() {
     let mut sprite_scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
-    // Create egui dev console with console registry
-    let registry = create_console_registry_with_commands();
+    let mut registry = ConsoleCommandRegistry::new();
+    crate::platform::commands::register_platform_commands(&mut registry);
+    crate::audio::register_audio_commands(&mut registry);
+
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(registry);
     let mut microphone_button = EguiMicrophoneButton::new(&permission_source);
 

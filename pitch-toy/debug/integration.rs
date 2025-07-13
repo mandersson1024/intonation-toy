@@ -7,7 +7,6 @@ use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-use egui_dev_console::ConsoleCommandRegistry;
 use super::LivePanel;
 use crate::audio::{ConsoleAudioServiceImpl, ConsoleAudioService};
 use crate::events::AudioEventDispatcher;
@@ -15,8 +14,6 @@ use crate::events::AudioEventDispatcher;
 /// Properties for the integrated debug interface
 #[derive(Properties)]
 pub struct DebugInterfaceProps {
-    /// Command registry for the console
-    pub registry: Rc<ConsoleCommandRegistry>,
     /// Audio service for audio operations
     pub audio_service: Rc<ConsoleAudioServiceImpl>,
     /// Event dispatcher for real-time updates
@@ -25,7 +22,6 @@ pub struct DebugInterfaceProps {
 
 impl PartialEq for DebugInterfaceProps {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.registry, &other.registry) && 
         Rc::ptr_eq(&self.audio_service, &other.audio_service)
     }
 }
