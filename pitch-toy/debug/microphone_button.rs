@@ -7,66 +7,20 @@ use observable_data::ObservableData;
 use super::AudioPermission;
 
 
-/// Audio permission states trait - implementors can define their own permission types
-pub trait AudioPermissionState: Clone + Send + Sync + 'static {
-    fn is_uninitialized(&self) -> bool;
-    fn is_requesting(&self) -> bool;
-    fn is_granted(&self) -> bool;
-    fn is_denied(&self) -> bool;
-    fn is_unavailable(&self) -> bool;
-    
-    fn get_button_text(&self) -> &'static str {
-        if self.is_uninitialized() { "Request Permission" }
-        else if self.is_requesting() { "Requesting..." }
-        else if self.is_granted() { "Granted" }
-        else if self.is_denied() { "Denied" }
-        else { "Unknown Error" }
-    }
-    
-    fn is_button_enabled(&self) -> bool {
-        self.is_uninitialized() || self.is_denied() || self.is_unavailable()
-    }
-}
-
-
-/// Implement the egui console trait for our AudioPermission
-impl AudioPermissionState for AudioPermission {
-    fn is_uninitialized(&self) -> bool {
-        matches!(self, AudioPermission::Uninitialized)
-    }
-    
-    fn is_requesting(&self) -> bool {
-        matches!(self, AudioPermission::Requesting)
-    }
-    
-    fn is_granted(&self) -> bool {
-        matches!(self, AudioPermission::Granted)
-    }
-    
-    fn is_denied(&self) -> bool {
-        matches!(self, AudioPermission::Denied)
-    }
-    
-    fn is_unavailable(&self) -> bool {
-        matches!(self, AudioPermission::Unavailable)
-    }
-}
 
 /// Callback type for microphone button clicks (must be synchronous for getUserMedia)
-pub type ClickCallback = Arc<dyn Fn() + Send + Sync>;
+type ClickCallback = Arc<dyn Fn() + Send + Sync>;
 
 /// Microphone button state and behavior
-pub struct MicrophoneButton<T: AudioPermissionState> {
-    microphone_permission: ObservableData<T>,
-    error_message: Option<String>,
+pub struct MicrophoneButton {
+    microphone_permission: ObservableData<AudioPermission>,
     click_callback: Option<ClickCallback>,
 }
 
-impl<T: AudioPermissionState> MicrophoneButton<T> {
-    pub fn new(microphone_permission: ObservableData<T>) -> Self {
+impl MicrophoneButton {
+    pub fn new(microphone_permission: ObservableData<AudioPermission>) -> Self {
         Self {
             microphone_permission,
-            error_message: None,
             click_callback: None,
         }
     }
@@ -80,18 +34,9 @@ impl<T: AudioPermissionState> MicrophoneButton<T> {
     }
 
 
-    /// Set error message
-    pub fn set_error(&mut self, error: Option<String>) {
-        self.error_message = error;
-    }
-
-
     /// Render the microphone button in the center of the screen
-    /// Returns true if clicked
-    pub fn render_center_button(&mut self, ctx: &egui::Context) -> bool {
+    pub fn render_center_button(&mut self, ctx: &egui::Context) {
         // Show button for all states - users can see success/failure feedback
-        
-        let mut clicked = false;
         
         // Get screen dimensions
         let screen_rect = ctx.screen_rect();
@@ -108,28 +53,27 @@ impl<T: AudioPermissionState> MicrophoneButton<T> {
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
                     let permission_state = self.microphone_permission.get();
-                    let button_text = permission_state.get_button_text();
-                    let button_enabled = permission_state.is_button_enabled();
+                    let button_text = match permission_state {
+                        AudioPermission::Uninitialized => "Request Permission",
+                        AudioPermission::Requesting => "Requesting...",
+                        AudioPermission::Granted => "Granted",
+                        AudioPermission::Denied => "Denied",
+                        AudioPermission::Unavailable => "Unknown Error",
+                    };
+                    let button_enabled = matches!(permission_state, 
+                        AudioPermission::Uninitialized | AudioPermission::Denied | AudioPermission::Unavailable
+                    );
                     
                     ui.add_enabled_ui(button_enabled, |ui| {
                         if ui.button(button_text).clicked() {
-                            clicked = true;
                             // Call the click callback immediately (synchronous with user gesture)
                             if let Some(callback) = &self.click_callback {
                                 callback();
                             }
                         }
                     });
-                    
-                    // Error message
-                    if let Some(error) = &self.error_message {
-                        ui.add_space(5.0);
-                        ui.colored_label(egui::Color32::RED, error);
-                    }
                 });
             });
-        
-        clicked
     }
 }
 
