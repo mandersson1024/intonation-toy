@@ -185,18 +185,15 @@ impl ConsoleCommand for BufferCommand {
     fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available buffer subcommands
-            let variants = registry.get_command_variants("buffer");
-            if !variants.is_empty() {
-                let mut help_lines = vec!["Available buffer commands:".to_string()];
-                for variant in variants {
-                    let variant_name = variant.name().strip_prefix("buffer-").unwrap_or(variant.name());
-                    help_lines.push(format!("  buffer {} - {}", variant_name, variant.description()));
-                }
-                let help_text = help_lines.join("\n");
-                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
-            } else {
-                return ConsoleCommandResult::Output(ConsoleOutput::error("No buffer subcommands available"));
-            }
+            let help_lines = vec![
+                "Available buffer commands:".to_string(),
+                "  buffer status - Show buffer pool status and individual buffer details".to_string(),
+                "  buffer metrics - Show brief buffer pool metrics".to_string(),
+                "  buffer reset - Clear and reset all buffers in the pool".to_string(),
+                "  buffer debug - Toggle buffer debug logging on/off".to_string(),
+            ];
+            let help_text = help_lines.join("\n");
+            return ConsoleCommandResult::Output(ConsoleOutput::info(&help_text));
         }
         
         let subcommand = args[0];
@@ -261,18 +258,14 @@ impl ConsoleCommand for PitchCommand {
     fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available pitch subcommands
-            let variants = registry.get_command_variants("pitch");
-            if !variants.is_empty() {
-                let mut help_lines = vec!["Available pitch commands:".to_string()];
-                for variant in variants {
-                    let variant_name = variant.name().strip_prefix("pitch-").unwrap_or(variant.name());
-                    help_lines.push(format!("  pitch {} - {}", variant_name, variant.description()));
-                }
-                let help_text = help_lines.join("\n");
-                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
-            } else {
-                return ConsoleCommandResult::Output(ConsoleOutput::error("No pitch subcommands available"));
-            }
+            let help_lines = vec![
+                "Available pitch commands:".to_string(),
+                "  pitch status - Show current pitch detection configuration and state".to_string(),
+                "  pitch range <min> <max> - Set frequency detection range".to_string(),
+                "  pitch benchmarks - Run performance benchmarks for different window sizes".to_string(),
+            ];
+            let help_text = help_lines.join("\n");
+            return ConsoleCommandResult::Output(ConsoleOutput::info(&help_text));
         }
         
         let subcommand = args[0];
@@ -600,18 +593,14 @@ impl ConsoleCommand for VolumeCommand {
     fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available volume subcommands
-            let variants = registry.get_command_variants("volume");
-            if !variants.is_empty() {
-                let mut help_lines = vec!["Available volume commands:".to_string()];
-                for variant in variants {
-                    let variant_name = variant.name().strip_prefix("volume-").unwrap_or(variant.name());
-                    help_lines.push(format!("  volume {} - {}", variant_name, variant.description()));
-                }
-                let help_text = help_lines.join("\n");
-                return ConsoleCommandResult::Output(ConsoleOutput::info(help_text));
-            } else {
-                return ConsoleCommandResult::Output(ConsoleOutput::error("No volume subcommands available"));
-            }
+            let help_lines = vec![
+                "Available volume commands:".to_string(),
+                "  volume status - Show current volume levels and detector configuration".to_string(),
+                "  volume config <parameter> <value> - Configure volume detector parameters".to_string(),
+                "  volume test <signal-type> [parameters] - Test volume detection with generated signals".to_string(),
+            ];
+            let help_text = help_lines.join("\n");
+            return ConsoleCommandResult::Output(ConsoleOutput::info(&help_text));
         }
         
         let subcommand = args[0];
@@ -733,30 +722,12 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(AudioWorkletDebugCommand));
     registry.register(Box::new(ConnectMicrophoneCommand));
     
-    // Register compound commands for variant discovery and backward compatibility
-    // These won't appear in help but will be found when parsing compound commands
-    registry.register(Box::new(AudioContextCommand));
-    registry.register(Box::new(BufferStatusCommand));
-    registry.register(Box::new(BufferMetricsCommand));
-    registry.register(Box::new(BufferResetCommand));
-    registry.register(Box::new(BufferDebugCommand));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     
-    #[test]
-    fn test_audio_context_command() {
-        let command = AudioContextCommand;
-        
-        assert_eq!(command.name(), "audio-context");
-        assert_eq!(command.description(), "Show AudioContext status and configuration");
-    }
-    
-
-    
-
     
     #[test]
     fn test_tuning_command() {
