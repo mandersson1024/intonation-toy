@@ -506,32 +506,6 @@ impl ConsoleCommand for PipelineDebugCommand {
     }
 }
 
-/// Connect Microphone Command - manually trigger microphone connection
-pub struct ConnectMicrophoneCommand;
-
-impl ConsoleCommand for ConnectMicrophoneCommand {
-    fn name(&self) -> &str { "connect-microphone" }
-    fn description(&self) -> &str { "Manually connect microphone to AudioWorklet pipeline" }
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        #[cfg(target_arch = "wasm32")]
-        {
-            wasm_bindgen_futures::spawn_local(async move {
-                match crate::connect_microphone_to_audioworklet().await {
-                    Ok(_) => {
-                        crate::common::dev_log!("✓ Manual microphone connection successful");
-                    }
-                    Err(e) => {
-                        crate::common::dev_log!("✗ Manual microphone connection failed: {}", e);
-                    }
-                }
-            });
-            ConsoleCommandResult::Output(ConsoleOutput::info("Attempting to connect microphone... (check browser console for results)"))
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        ConsoleCommandResult::Output(ConsoleOutput::error("Microphone connection only available in browser"))
-    }
-}
 
 /// AudioWorklet Debug Command - shows AudioWorklet specific status
 pub struct AudioWorkletDebugCommand;
@@ -720,7 +694,6 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     // Register debugging commands
     registry.register(Box::new(PipelineDebugCommand));
     registry.register(Box::new(AudioWorkletDebugCommand));
-    registry.register(Box::new(ConnectMicrophoneCommand));
     
 }
 

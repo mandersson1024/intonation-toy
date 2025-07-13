@@ -120,7 +120,7 @@ impl Component for PermissionButton {
                 if permission == AudioPermission::Granted {
                     let link = ctx.link().clone();
                     spawn_local(async move {
-                        match crate::connect_microphone_to_audioworklet().await {
+                        match crate::audio::connect_microphone_to_audioworklet().await {
                             Ok(_) => {
                                 crate::common::dev_log!("✓ Microphone connected to audio pipeline");
                             }

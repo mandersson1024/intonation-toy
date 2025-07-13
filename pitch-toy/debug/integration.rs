@@ -86,7 +86,7 @@ impl Component for DebugInterface {
                     // If this is a new grant (or we're not sure), try to connect microphone
                     if !was_granted_before {
                         wasm_bindgen_futures::spawn_local(async move {
-                            match crate::connect_microphone_to_audioworklet().await {
+                            match crate::audio::connect_microphone_to_audioworklet().await {
                                 Ok(_) => {
                                     crate::common::dev_log!("✓ Microphone connected to audio pipeline from debug interface");
                                 }

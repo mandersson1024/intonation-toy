@@ -225,7 +225,7 @@ pub fn request_microphone_permission_and_publish_result(setter: impl observable_
     
     // Start the async permission request (this should maintain the user gesture context)
     wasm_bindgen_futures::spawn_local(async move {
-        match crate::connect_microphone_to_audioworklet().await {
+        match crate::audio::connect_microphone_to_audioworklet().await {
             Ok(_) => {
                 web_sys::console::log_1(&"✓ Microphone connected successfully".into());
                 // Update permission state and publish event
