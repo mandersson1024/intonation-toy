@@ -1,7 +1,7 @@
 // EGUI Development Console Component
 // Provides the main EGUI-based console interface
 
-use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand};
+use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand, MicrophoneButton};
 use web_sys::Storage;
 
 /// Local storage key for console history persistence (same as original dev-console)
@@ -13,6 +13,7 @@ pub struct EguiDevConsole {
     history: ConsoleHistory,
     input_text: String,
     is_visible: bool,
+    microphone_button: MicrophoneButton,
 }
 
 impl EguiDevConsole {
@@ -35,6 +36,7 @@ impl EguiDevConsole {
             history: command_history,
             input_text: String::new(),
             is_visible: true,
+            microphone_button: MicrophoneButton::new(),
         }
     }
 
@@ -57,6 +59,7 @@ impl EguiDevConsole {
             history: command_history,
             input_text: String::new(),
             is_visible: true,
+            microphone_button: MicrophoneButton::new(),
         }
     }
 
@@ -69,6 +72,11 @@ impl EguiDevConsole {
     }
 
     pub fn show(&mut self, ctx: &three_d::egui::Context) {
+        // Always render the microphone button (for permission requests)
+        // The click callback is handled internally by the button
+        self.microphone_button.render_center_button(ctx);
+
+        // Only render console if visible
         if !self.is_visible {
             return;
         }
@@ -76,6 +84,7 @@ impl EguiDevConsole {
         three_d::egui::Window::new("Development Console")
             .default_width(600.0)
             .default_height(400.0)
+            .default_pos([ctx.screen_rect().width() - 620.0, 20.0])
             .resizable(true)
             .show(ctx, |ui| {
                 self.render_console(ui);
@@ -193,6 +202,30 @@ impl EguiDevConsole {
     pub fn register_command(&mut self, command: Box<dyn ConsoleCommand>) {
         self.command_registry.register(command);
     }
+
+    /// Set the microphone button click callback
+    pub fn set_microphone_click_callback<F>(&mut self, callback: F)
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.microphone_button.set_click_callback(callback);
+    }
+
+    /// Update microphone permission state (called from main crate)
+    pub fn update_microphone_permission(&mut self, permission: crate::microphone_button::AudioPermission) {
+        self.microphone_button.update_permission_state(permission);
+    }
+
+    /// Set microphone error message
+    pub fn set_microphone_error(&mut self, error: Option<String>) {
+        self.microphone_button.set_error(error);
+    }
+
+    /// Get current microphone permission state
+    pub fn microphone_permission(&self) -> &crate::microphone_button::AudioPermission {
+        self.microphone_button.permission_state()
+    }
+
 
     /// Load command history from local storage
     fn load_history_from_storage() -> ConsoleHistory {
