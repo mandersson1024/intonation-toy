@@ -8,7 +8,7 @@ use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 use super::LivePanel;
-use crate::audio::{ConsoleAudioServiceImpl, ConsoleAudioService};
+use crate::audio::ConsoleAudioServiceImpl;
 use crate::events::AudioEventDispatcher;
 
 /// Properties for the integrated debug interface
@@ -147,13 +147,11 @@ impl DebugInterface {
 
 /// Create the integrated debug interface
 pub fn create_debug_interface(
-    registry: Rc<ConsoleCommandRegistry>,
     audio_service: Rc<ConsoleAudioServiceImpl>,
     event_dispatcher: Option<AudioEventDispatcher>,
 ) -> Html {
     html! {
         <DebugInterface
-            registry={registry}
             audio_service={audio_service}
             event_dispatcher={event_dispatcher}
         />

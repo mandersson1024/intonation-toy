@@ -17,11 +17,6 @@ use egui_dev_console::ConsoleCommandRegistry;
 use platform::{Platform, PlatformValidationResult};
 use debug::egui::EguiMicrophoneButton;
 
-#[cfg(debug_assertions)]
-use debug::DebugInterface;
-
-#[cfg(debug_assertions)]
-use std::rc::Rc;
 use graphics::SpriteScene;
 
 
@@ -53,23 +48,21 @@ fn App() -> Html {
         <div>
             // Debug interface (LivePanel) for debug builds only
             {
-                cfg_if::cfg_if! {
-                    if #[cfg(debug_assertions)] {
-                        // Get global shared event dispatcher
-                        let event_dispatcher = crate::events::get_global_event_dispatcher();
-                        
-                        // Create audio service with event dispatcher
-                        let audio_service = Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
-                        
-                        html! { 
-                            <DebugInterface
-                                audio_service={audio_service}
-                                event_dispatcher={Some(event_dispatcher)}
-                            />
-                        }
-                    } else {
-                        html! {}
+                if cfg!(debug_assertions) {
+                    // Get global shared event dispatcher
+                    let event_dispatcher = crate::events::get_global_event_dispatcher();
+                    
+                    // Create audio service with event dispatcher
+                    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_events(event_dispatcher.clone()));
+                    
+                    html! { 
+                        <debug::DebugInterface
+                            audio_service={audio_service}
+                            event_dispatcher={Some(event_dispatcher)}
+                        />
                     }
+                } else {
+                    html! {}
                 }
             }
             
