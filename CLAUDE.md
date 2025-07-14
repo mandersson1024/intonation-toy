@@ -18,6 +18,9 @@ This file is manually edited.
 - Sometimes the developer will play devil's advocate and ask tricky questions in attempts to verify the solidity of your reasoning. Do not take this as sarcastic remarks to make you change the implementation, but take it as a challenge to think harder and find out the truth of the matter.
 - Always explicitly distinguish between working functionality and placeholders. Never claim a task is "complete" or "fully functional" if it contains placeholders. Use clear ✅/❌ status indicators for each component to show what works vs what needs implementation.
 
+## Testing
+This project uses `wasm-pack test --headless --chrome` for all testing. We do NOT use cargo test or any other testing approach. Run `./scripts/test-all.sh` to test all packages. See TESTING.md for details.
+
 ## Project Information (obsolete, to be updated)
 Refer to:
 - docs/architecture.md
