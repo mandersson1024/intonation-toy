@@ -239,9 +239,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
                 dev_log!("✓ AudioWorklet already processing - audio pipeline active");
             }
             
-            // Publish success event
-            let event_dispatcher = crate::events::get_global_event_dispatcher();
-            super::worklet::publish_audioworklet_status(&event_dispatcher, super::worklet::AudioWorkletState::Processing, true, 0);
+            // Status is published automatically by the AudioWorklet manager
             
             Ok(())
         }

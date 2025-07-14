@@ -145,6 +145,32 @@ pub fn create_console_audio_service_with_setter(
     service
 }
 
+/// Create a ConsoleAudioService instance with event dispatcher and both setters
+/// Returns a configured console audio service that directly updates data via setters
+pub fn create_console_audio_service_with_audioworklet_setter(
+    event_dispatcher: crate::events::AudioEventDispatcher,
+    audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static,
+    audioworklet_status_setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + Clone + 'static
+) -> console_service::ConsoleAudioServiceImpl {
+    let mut service = console_service::ConsoleAudioServiceImpl::new();
+    
+    // Set audio context manager if available
+    if let Some(manager) = get_audio_context_manager() {
+        service.set_audio_context_manager(manager);
+    }
+    
+    // Set event dispatcher
+    service.set_event_dispatcher(event_dispatcher);
+    
+    // Set audio devices setter
+    service.set_audio_devices_setter(audio_devices_setter);
+    
+    // Set audioworklet status setter
+    service.set_audio_worklet_status_setter(audioworklet_status_setter);
+    
+    service
+}
+
 /// Set the global BufferPool instance (called after creation)
 pub fn set_global_buffer_pool(pool: Rc<RefCell<buffer_pool::BufferPool<f32>>>) {
     BUFFER_POOL_GLOBAL.with(|bp| {
@@ -167,6 +193,23 @@ pub fn set_global_audioworklet_manager(manager: Rc<RefCell<worklet::AudioWorklet
 /// Get the global AudioWorklet manager instance
 pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWorkletManager>>> {
     AUDIOWORKLET_MANAGER_GLOBAL.with(|awm| awm.borrow().as_ref().cloned())
+}
+
+/// Set the AudioWorklet status setter on the global AudioWorkletManager
+pub fn set_audioworklet_status_setter(
+    setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>
+) {
+    if let Some(manager_rc) = get_global_audioworklet_manager() {
+        {
+            let mut manager = manager_rc.borrow_mut();
+            manager.set_audioworklet_status_setter(setter);
+        }
+        // Immediately publish current status after setting the setter
+        manager_rc.borrow().publish_audioworklet_status();
+        dev_log!("AudioWorklet status setter configured on global manager and status published");
+    } else {
+        dev_log!("Warning: Cannot set AudioWorklet status setter - manager not initialized");
+    }
 }
 
 /// Initialize buffer pool with appropriate size for development/production

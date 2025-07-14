@@ -10,8 +10,6 @@ use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
 pub enum AudioEvent {
-    /// AudioWorklet status has changed (for Live Data Panel)
-    AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus),
     /// Circular buffer has been filled (ready for processing)
     BufferFilled { buffer_index: usize, length: usize },
     /// Circular buffer experienced overflow
@@ -67,7 +65,6 @@ impl AudioEvent {
     /// Get the event type as a string for subscription matching
     pub fn event_type(&self) -> &'static str {
         match self {
-            AudioEvent::AudioWorkletStatusChanged(_) => "audioworklet_status_changed",
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
             AudioEvent::BufferMetrics { .. } => "buffer_metrics",
@@ -83,12 +80,6 @@ impl AudioEvent {
     /// Get a human-readable description of the event
     pub fn description(&self) -> String {
         match self {
-            AudioEvent::AudioWorkletStatusChanged(status) => {
-                format!("AudioWorklet status: {} (processor: {}, chunks: {})", 
-                    status.state, 
-                    if status.processor_loaded { "loaded" } else { "not loaded" },
-                    status.chunks_processed)
-            }
             AudioEvent::BufferFilled { buffer_index, length } => {
                 format!("Buffer {} filled ({} samples)", buffer_index, length)
             }
@@ -152,8 +143,8 @@ mod tests {
     fn test_audio_event_types() {
         
         
-        let worklet_event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
-        assert_eq!(worklet_event.event_type(), "audioworklet_status_changed");
+        let buffer_event = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
+        assert_eq!(buffer_event.event_type(), "buffer_filled");
     }
     
     #[allow(dead_code)]
@@ -161,8 +152,8 @@ mod tests {
     fn test_audio_event_descriptions() {
         
         
-        let worklet_event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
-        assert!(worklet_event.description().contains("AudioWorklet status"));
+        let buffer_event = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
+        assert!(buffer_event.description().contains("Buffer 0 filled"));
     }
 
     #[allow(dead_code)]
@@ -343,12 +334,12 @@ mod tests {
         let shared_dispatcher = create_shared_audio_dispatcher();
         
         // Subscribe through shared dispatcher
-        shared_dispatcher.borrow_mut().subscribe("audioworklet_status_changed", |_| {});
+        shared_dispatcher.borrow_mut().subscribe("buffer_filled", |_| {});
         
-        assert_eq!(shared_dispatcher.borrow().subscriber_count("audioworklet_status_changed"), 1);
+        assert_eq!(shared_dispatcher.borrow().subscriber_count("buffer_filled"), 1);
         
         // Publish through shared dispatcher
-        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
+        let event = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
         shared_dispatcher.borrow().publish(&event);
     }
 
@@ -371,18 +362,18 @@ mod tests {
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
-        // Subscribe to audioworklet status changes
-        dispatcher.subscribe("audioworklet_status_changed", |event| {
+        // Subscribe to buffer filled events
+        dispatcher.subscribe("buffer_filled", |event| {
             match event {
-                AudioEvent::AudioWorkletStatusChanged(_) => {
+                AudioEvent::BufferFilled { .. } => {
                     // Test callback received the right event
                 }
                 _ => panic!("Wrong event type received"),
             }
         });
         
-        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 1);
-        assert!(dispatcher.subscribed_event_types().contains(&"audioworklet_status_changed"));
+        assert_eq!(dispatcher.subscriber_count("buffer_filled"), 1);
+        assert!(dispatcher.subscribed_event_types().contains(&"buffer_filled"));
     }
     
     #[allow(dead_code)]
@@ -395,21 +386,21 @@ mod tests {
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         let received_events = Rc::new(RefCell::new(Vec::new()));
         
-        // Subscribe to audioworklet status changes
+        // Subscribe to buffer filled events
         let received_events_clone = received_events.clone();
-        dispatcher.subscribe("audioworklet_status_changed", move |event| {
+        dispatcher.subscribe("buffer_filled", move |event| {
             received_events_clone.borrow_mut().push(event);
         });
         
         // Publish an event
-        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
+        let event = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
         dispatcher.publish(&event);
         
         // Verify the event was received
         assert_eq!(received_events.borrow().len(), 1);
         let events = received_events.borrow();
         match &events[0] {
-            AudioEvent::AudioWorkletStatusChanged(_) => {
+            AudioEvent::BufferFilled { .. } => {
                 // Test passed
             }
             _ => panic!("Wrong event type received"),
@@ -428,19 +419,19 @@ mod tests {
         
         // Subscribe multiple callbacks to the same event
         let call_count_clone1 = call_count.clone();
-        dispatcher.subscribe("audioworklet_status_changed", move |_| {
+        dispatcher.subscribe("buffer_filled", move |_| {
             *call_count_clone1.borrow_mut() += 1;
         });
         
         let call_count_clone2 = call_count.clone();
-        dispatcher.subscribe("audioworklet_status_changed", move |_| {
+        dispatcher.subscribe("buffer_filled", move |_| {
             *call_count_clone2.borrow_mut() += 1;
         });
         
-        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 2);
+        assert_eq!(dispatcher.subscriber_count("buffer_filled"), 2);
         
         // Publish an event
-        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
+        let event = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
         dispatcher.publish(&event);
         
         // Both callbacks should have been called

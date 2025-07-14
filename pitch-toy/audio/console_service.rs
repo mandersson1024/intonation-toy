@@ -73,6 +73,8 @@ pub struct ConsoleAudioServiceImpl {
     event_dispatcher: Option<AudioEventDispatcher>,
     /// Setter for audio devices data (optional)
     audio_devices_setter: Option<Rc<dyn observable_data::DataSetter<AudioDevices>>>,
+    /// Setter for audio worklet status data (optional)
+    audio_worklet_status_setter: Option<Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
 }
 
 impl ConsoleAudioServiceImpl {
@@ -82,6 +84,7 @@ impl ConsoleAudioServiceImpl {
             audio_context_manager: None,
             event_dispatcher: None,
             audio_devices_setter: None,
+            audio_worklet_status_setter: None,
         }
     }
     
@@ -91,6 +94,7 @@ impl ConsoleAudioServiceImpl {
             audio_context_manager: Some(manager),
             event_dispatcher: None,
             audio_devices_setter: None,
+            audio_worklet_status_setter: None,
         }
     }
     
@@ -103,6 +107,7 @@ impl ConsoleAudioServiceImpl {
             audio_context_manager: Some(manager),
             event_dispatcher: Some(event_dispatcher),
             audio_devices_setter: None,
+            audio_worklet_status_setter: None,
         }
     }
     
@@ -128,6 +133,15 @@ impl ConsoleAudioServiceImpl {
     /// Set the audio devices setter for direct data updates
     pub fn set_audio_devices_setter(&mut self, setter: impl observable_data::DataSetter<AudioDevices> + 'static) {
         self.audio_devices_setter = Some(Rc::new(setter));
+    }
+    
+    /// Set the audio worklet status setter for direct data updates
+    pub fn set_audio_worklet_status_setter(&mut self, setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + 'static) {
+        let setter_rc = Rc::new(setter);
+        self.audio_worklet_status_setter = Some(setter_rc.clone());
+        
+        // Also set it on the global AudioWorkletManager if available
+        super::set_audioworklet_status_setter(setter_rc);
     }
     
     

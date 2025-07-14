@@ -82,33 +82,7 @@ impl fmt::Display for AudioWorkletState {
     }
 }
 
-/// Publish AudioWorklet status update to Live Data Panel
-pub fn publish_audioworklet_status(
-    event_dispatcher: &crate::events::AudioEventDispatcher,
-    state: AudioWorkletState,
-    processor_loaded: bool,
-    chunks_processed: u32
-) {
-    use crate::common::dev_log;
-    
-    #[cfg(target_arch = "wasm32")]
-    let timestamp = js_sys::Date::now();
-    #[cfg(not(target_arch = "wasm32"))]
-    let timestamp = 0.0;
-    
-    let status = crate::debug::live_panel::AudioWorkletStatus {
-        state: state.clone(),
-        processor_loaded,
-        chunk_size: 128, // Web Audio API standard
-        chunks_processed,
-        last_update: timestamp,
-    };
-    
-    let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
-    event_dispatcher.borrow().publish(&status_event);
-    
-    dev_log!("Published AudioWorklet status: {} (processor: {})", state, processor_loaded);
-}
+// Note: publish_audioworklet_status is now a method on AudioWorkletManager
 
 /// AudioWorklet configuration
 #[derive(Debug, Clone)]
@@ -190,6 +164,8 @@ pub struct AudioWorkletManager {
     audio_context: Option<AudioContext>,
     // Whether to output audio stream to speakers
     output_to_speakers: bool,
+    // Setter for updating AudioWorklet status in live data
+    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
 }
 
 impl AudioWorkletManager {
@@ -209,6 +185,7 @@ impl AudioWorkletManager {
             _message_closure: None,
             audio_context: None,
             output_to_speakers: false,
+            audioworklet_status_setter: None,
         }
     }
     
@@ -228,6 +205,7 @@ impl AudioWorkletManager {
             _message_closure: None,
             audio_context: None,
             output_to_speakers: false,
+            audioworklet_status_setter: None,
         }
     }
     
@@ -239,6 +217,27 @@ impl AudioWorkletManager {
     /// Get current configuration
     pub fn config(&self) -> &AudioWorkletConfig {
         &self.config
+    }
+    
+    /// Publish AudioWorklet status update to Live Data Panel
+    pub fn publish_audioworklet_status(&self) {
+        if let Some(setter) = &self.audioworklet_status_setter {
+            #[cfg(target_arch = "wasm32")]
+            let timestamp = js_sys::Date::now();
+            #[cfg(not(target_arch = "wasm32"))]
+            let timestamp = 0.0;
+            
+            let status = crate::debug::egui::live_data_panel::AudioWorkletStatus {
+                state: self.state.clone(),
+                processor_loaded: self.worklet_node.is_some(),
+                chunk_size: self.config.chunk_size,
+                chunks_processed: self.chunk_counter,
+                last_update: timestamp,
+            };
+            
+            setter.set(status);
+            dev_log!("AudioWorklet status updated: {} (processor: {})", self.state, self.worklet_node.is_some());
+        }
     }
     
     
@@ -268,6 +267,7 @@ impl AudioWorkletManager {
         self.audio_context = Some(audio_context.clone());
         
         self.state = AudioWorkletState::Initializing;
+        self.publish_audioworklet_status();
         dev_log!("Initializing AudioWorklet processor");
         
         // Try AudioWorklet first
@@ -276,11 +276,13 @@ impl AudioWorkletManager {
                 Ok(()) => {
                     dev_log!("✓ AudioWorklet initialized successfully");
                     self.state = AudioWorkletState::Ready;
+                    self.publish_audioworklet_status();
                     return Ok(());
                 }
                 Err(e) => {
                     dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
                     self.state = AudioWorkletState::Failed;
+                    self.publish_audioworklet_status();
                     return Err(e);
                 }
             }
@@ -288,6 +290,7 @@ impl AudioWorkletManager {
         
         // AudioWorklet required
         self.state = AudioWorkletState::Failed;
+        self.publish_audioworklet_status();
         Err(AudioError::NotSupported(
             "AudioWorklet not supported".to_string()
         ))
@@ -570,7 +573,7 @@ impl AudioWorkletManager {
         state: AudioWorkletState,
         _processing: bool
     ) {
-        if let Some(dispatcher) = &shared_data.borrow().event_dispatcher {
+        if let Some(_dispatcher) = &shared_data.borrow().event_dispatcher {
             let chunks_processed = shared_data.borrow().chunks_processed;
             
             // Create status update for Live Data Panel
@@ -579,7 +582,7 @@ impl AudioWorkletManager {
             #[cfg(not(target_arch = "wasm32"))]
             let timestamp = 0.0;
             
-            let status = crate::debug::live_panel::AudioWorkletStatus {
+            let _status = crate::debug::live_panel::AudioWorkletStatus {
                 state,
                 processor_loaded: true, // If we're getting messages, processor is loaded
                 chunk_size: 128, // Web Audio API standard
@@ -587,9 +590,7 @@ impl AudioWorkletManager {
                 last_update: timestamp,
             };
             
-            // Publish AudioWorklet status event
-            let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
-            dispatcher.borrow().publish(&status_event);
+            // TODO: Update AudioWorklet status via setter instead of events
         }
     }
     
@@ -717,6 +718,7 @@ impl AudioWorkletManager {
         self.send_control_message("startProcessing")?;
         
         self.state = AudioWorkletState::Processing;
+        self.publish_audioworklet_status();
         dev_log!("✓ Audio processing started using AudioWorklet");
         Ok(())
     }
@@ -733,6 +735,7 @@ impl AudioWorkletManager {
         self.send_control_message("stopProcessing")?;
         
         self.state = AudioWorkletState::Stopped;
+        self.publish_audioworklet_status();
         dev_log!("✓ Audio processing stopped");
         Ok(())
     }
@@ -746,6 +749,7 @@ impl AudioWorkletManager {
         
         self.worklet_node = None;
         self.state = AudioWorkletState::Uninitialized;
+        self.publish_audioworklet_status();
         
         Ok(())
     }
@@ -773,6 +777,11 @@ impl AudioWorkletManager {
     /// Attach an event dispatcher for publishing BufferEvents
     pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::AudioEventDispatcher) {
         self.event_dispatcher = Some(dispatcher);
+    }
+    
+    /// Set the AudioWorklet status setter for live data updates
+    pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>) {
+        self.audioworklet_status_setter = Some(setter);
     }
 
     /// Set volume detector for real-time volume analysis
@@ -1054,6 +1063,8 @@ impl AudioWorkletManager {
             // Publish volume detected event every 16 chunks (~11.6ms at 48kHz)
             self.chunk_counter += 1;
             if self.chunk_counter % 16 == 0 {
+                // Also update AudioWorklet status periodically
+                self.publish_audioworklet_status();
                 if let Some(dispatcher) = &self.event_dispatcher {
                     let detected_event = crate::events::audio_events::AudioEvent::VolumeDetected {
                         rms_db: volume_analysis.rms_db,
@@ -1309,48 +1320,48 @@ pub async fn initialize_audioworklet_manager() -> Result<(), String> {
     let volume_detector = super::VolumeDetector::new_default();
     worklet_manager.set_volume_detector(volume_detector);
     
-    // Publish initial status
-    publish_audioworklet_status(&event_dispatcher, AudioWorkletState::Initializing, false, 0);
+    // Note: Initial status will be published automatically by the manager
+    
+    // Store globally before initialization for setter access
+    let worklet_manager_rc = std::rc::Rc::new(std::cell::RefCell::new(worklet_manager));
+    super::set_global_audioworklet_manager(worklet_manager_rc.clone());
     
     // Initialize AudioWorklet
     let audio_context_ref = audio_context_manager.borrow();
-    match worklet_manager.initialize(&*audio_context_ref).await {
+    let init_result = worklet_manager_rc.borrow_mut().initialize(&*audio_context_ref).await;
+    
+    match init_result {
         Ok(_) => {
             dev_log!("✓ AudioWorklet processor loaded and ready");
             
             
-            // Publish ready status
-            publish_audioworklet_status(&event_dispatcher, AudioWorkletState::Ready, true, 0);
+            // Note: Status is published automatically by the manager
             
             // Note: We don't connect AudioWorklet to destination to avoid audio feedback
             // The AudioWorklet will still process audio when microphone is connected to it
             
             // Start audio processing automatically
-            match worklet_manager.start_processing() {
+            match worklet_manager_rc.borrow_mut().start_processing() {
                 Ok(_) => {
                     dev_log!("✓ Audio processing started automatically");
                     
-                    // Publish processing status
-                    publish_audioworklet_status(&event_dispatcher, AudioWorkletState::Processing, true, 0);
+                    // Note: Status is published automatically by the manager
                 }
                 Err(e) => {
                     dev_log!("✗ Failed to start audio processing: {:?}", e);
                     
-                    // Still store the manager but in Ready state
-                    publish_audioworklet_status(&event_dispatcher, AudioWorkletState::Ready, true, 0);
+                    // Manager is already stored globally
                 }
             }
             
-            // Store globally for microphone connection
-            super::set_global_audioworklet_manager(std::rc::Rc::new(std::cell::RefCell::new(worklet_manager)));
+            // Manager already stored globally
             
             Ok(())
         }
         Err(e) => {
             dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
             
-            // Publish failed status
-            publish_audioworklet_status(&event_dispatcher, AudioWorkletState::Failed, false, 0);
+            // Note: Failed status is published automatically by the manager
             
             Err(format!("Failed to initialize AudioWorklet: {:?}", e))
         }

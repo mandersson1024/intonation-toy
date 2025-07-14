@@ -50,12 +50,13 @@ fn App() -> Html {
             audioworklet_status: audioworklet_status_source.observer(),
         };
         
-        (live_data, microphone_permission_source.setter(), audio_devices_source.setter())
+        (live_data, microphone_permission_source.setter(), audio_devices_source.setter(), audioworklet_status_source.setter())
     });
     
     let live_data = &memo_result.0;
     let microphone_permission_setter = &memo_result.1;
     let audio_devices_setter = &memo_result.2;
+    let audioworklet_status_setter = &memo_result.3;
     
     
     // Initialize wgpu canvas after component is rendered
@@ -85,10 +86,11 @@ fn App() -> Html {
                     // Get global shared event dispatcher
                     let event_dispatcher = crate::events::get_global_event_dispatcher();
                     
-                    // Create audio service with event dispatcher and setter
-                    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_setter(
+                    // Create audio service with event dispatcher and setters
+                    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
                         event_dispatcher.clone(),
-                        audio_devices_setter.clone()
+                        audio_devices_setter.clone(),
+                        audioworklet_status_setter.clone()
                     ));
                     
                     html! { 

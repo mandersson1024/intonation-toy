@@ -104,8 +104,6 @@ pub struct LivePanel {
     volume_level: Option<VolumeLevelData>,
     /// Current pitch data
     pitch_data: Option<PitchData>,
-    /// AudioWorklet status
-    audioworklet_status: AudioWorkletStatus,
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
     /// Background noise configuration
@@ -125,8 +123,6 @@ pub enum LivePanelMsg {
     UpdateVolumeLevel(VolumeLevelData),
     /// Update pitch data
     UpdatePitchData(PitchData),
-    /// Update AudioWorklet status
-    UpdateAudioWorkletStatus(AudioWorkletStatus),
     /// Update test signal configuration
     UpdateTestSignalConfig(TestSignalConfig),
     /// Update background noise configuration
@@ -144,7 +140,6 @@ impl Component for LivePanel {
             performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
             pitch_data: None,
-            audioworklet_status: AudioWorkletStatus::default(),
             test_signal_config: TestSignalConfig::default(),
             background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
@@ -175,10 +170,6 @@ impl Component for LivePanel {
             }
             LivePanelMsg::UpdatePitchData(pitch) => {
                 self.pitch_data = Some(pitch);
-                true
-            }
-            LivePanelMsg::UpdateAudioWorkletStatus(status) => {
-                self.audioworklet_status = status;
                 true
             }
             LivePanelMsg::UpdateTestSignalConfig(config) => {
@@ -259,7 +250,7 @@ impl Component for LivePanel {
                 
                 <div class="live-panel-content">
                     {self.render_device_list(ctx)}
-                    {self.render_audioworklet_status()}
+                    {self.render_audioworklet_status(ctx)}
                     {self.render_test_signal_controls(ctx)}
                     {self.render_background_noise_controls(ctx)}
                     {self.render_global_audio_controls(ctx)}
@@ -282,13 +273,7 @@ impl LivePanel {
     fn setup_event_subscriptions(&mut self, ctx: &Context<Self>) {
         // Note: Audio devices now come from shared live_data, no subscription needed
         
-        // Subscribe to AudioWorklet status changes
-        let link_clone = ctx.link().clone();
-        ctx.props().event_dispatcher.borrow_mut().subscribe("audioworklet_status_changed", move |event| {
-            if let crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status) = event {
-                link_clone.send_message(LivePanelMsg::UpdateAudioWorkletStatus(status));
-            }
-        });
+        // Note: AudioWorklet status now comes from shared live_data, no subscription needed
         
         // Subscribe to pitch detection events
         let link_clone2 = ctx.link().clone();
@@ -361,8 +346,9 @@ impl LivePanel {
     }
 
     /// Render AudioWorklet status section
-    fn render_audioworklet_status(&self) -> Html {
-        let (state_text, state_class) = match self.audioworklet_status.state {
+    fn render_audioworklet_status(&self, ctx: &Context<Self>) -> Html {
+        let audioworklet_status = ctx.props().live_data.audioworklet_status.get();
+        let (state_text, state_class) = match audioworklet_status.state {
             AudioWorkletState::Uninitialized => ("Not Initialized", "status-inactive"),
             AudioWorkletState::Initializing => ("Initializing", "status-pending"),
             AudioWorkletState::Ready => ("Ready", "status-neutral"),
@@ -371,7 +357,7 @@ impl LivePanel {
             AudioWorkletState::Failed => ("Failed", "status-error"),
         };
 
-        let (processor_status, processor_class) = if self.audioworklet_status.processor_loaded {
+        let (processor_status, processor_class) = if audioworklet_status.processor_loaded {
             ("Loaded", "status-success")
         } else {
             ("Not Loaded", "status-inactive")
