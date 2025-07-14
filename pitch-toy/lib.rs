@@ -1,6 +1,7 @@
 use yew::prelude::*;
 use web_sys::HtmlCanvasElement;
 use three_d::*;
+use observable_data::DataSetter;
 
 pub mod audio;
 pub mod common;
@@ -52,11 +53,30 @@ fn App() -> Html {
             audioworklet_status: audioworklet_status_source.observer(),
         };
         
-        (live_data, microphone_permission_source.setter())
+        (live_data, microphone_permission_source.setter(), audio_devices_source.setter())
     });
     
     let live_data = &memo_result.0;
     let microphone_permission_setter = &memo_result.1;
+    let audio_devices_setter = &memo_result.2;
+    
+    // Set up audio device change subscription (once)
+    use_effect_with((), {
+        let audio_devices_setter_clone = audio_devices_setter.clone();
+        move |_| {
+            // Get global shared event dispatcher
+            let event_dispatcher = crate::events::get_global_event_dispatcher();
+            
+            // Subscribe to audio device changes to update shared live_data
+            event_dispatcher.borrow_mut().subscribe("device_list_changed", move |event| {
+                if let crate::events::AudioEvent::DeviceListChanged(devices) = event {
+                    audio_devices_setter_clone.set(devices.clone());
+                }
+            });
+            
+            || {} // cleanup function (empty)
+        }
+    });
     
     // Initialize wgpu canvas after component is rendered
     use_effect_with(canvas_ref.clone(), {

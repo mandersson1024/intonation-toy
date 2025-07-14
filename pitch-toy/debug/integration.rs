@@ -130,6 +130,7 @@ impl DebugInterface {
                     event_dispatcher={event_dispatcher.clone()}
                     visible={self.visible}
                     audio_service={ctx.props().audio_service.clone()}
+                    live_data={ctx.props().live_data.clone()}
                 />
             }
         } else {

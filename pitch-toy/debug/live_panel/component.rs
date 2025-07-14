@@ -6,10 +6,10 @@ use yew::prelude::*;
 use web_sys::{window, HtmlInputElement};
 use wasm_bindgen::JsCast;
 
-use crate::audio::AudioDevices;
 use crate::audio::console_service::ConsoleAudioService;
 use crate::audio::worklet::AudioWorkletState;
 use crate::events::AudioEventDispatcher;
+use crate::live_data::LiveData;
 use super::{TestSignalControls, TestSignalConfig, BackgroundNoiseConfig};
 
 /// Properties for the LivePanel component
@@ -21,6 +21,8 @@ pub struct LivePanelProps {
     pub visible: bool,
     /// Audio service for device operations
     pub audio_service: std::rc::Rc<crate::audio::ConsoleAudioServiceImpl>,
+    /// Live data observers for real-time data sharing
+    pub live_data: LiveData,
 }
 
 impl PartialEq for LivePanelProps {
@@ -96,8 +98,6 @@ impl Default for AudioWorkletStatus {
 
 /// State for the LivePanel component
 pub struct LivePanel {
-    /// Current audio devices
-    audio_devices: AudioDevices,
     /// Performance metrics
     performance_metrics: PerformanceMetrics,
     /// Current volume level
@@ -119,8 +119,6 @@ pub struct LivePanel {
 /// Messages for the LivePanel component
 #[derive(Debug)]
 pub enum LivePanelMsg {
-    /// Update audio devices
-    UpdateDevices(AudioDevices),
     /// Update performance metrics
     UpdatePerformanceMetrics(PerformanceMetrics),
     /// Update volume level
@@ -143,7 +141,6 @@ impl Component for LivePanel {
 
     fn create(ctx: &Context<Self>) -> Self {
         let mut component = Self {
-            audio_devices: AudioDevices::new(),
             performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
             pitch_data: None,
@@ -168,10 +165,6 @@ impl Component for LivePanel {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            LivePanelMsg::UpdateDevices(devices) => {
-                self.audio_devices = devices;
-                true
-            }
             LivePanelMsg::UpdatePerformanceMetrics(metrics) => {
                 self.performance_metrics = metrics;
                 true
@@ -265,7 +258,7 @@ impl Component for LivePanel {
                 </div>
                 
                 <div class="live-panel-content">
-                    {self.render_device_list()}
+                    {self.render_device_list(ctx)}
                     {self.render_audioworklet_status()}
                     {self.render_test_signal_controls(ctx)}
                     {self.render_background_noise_controls(ctx)}
@@ -287,13 +280,7 @@ impl Component for LivePanel {
 impl LivePanel {
     /// Set up event subscriptions for real-time updates
     fn setup_event_subscriptions(&mut self, ctx: &Context<Self>) {
-        let link = ctx.link().clone();
-        let audio_service = ctx.props().audio_service.clone();
-        
-        // Subscribe to device changes
-        audio_service.subscribe_device_changes(Box::new(move |devices| {
-            link.send_message(LivePanelMsg::UpdateDevices(devices));
-        }));
+        // Note: Audio devices now come from shared live_data, no subscription needed
         
         // Subscribe to AudioWorklet status changes
         let link_clone = ctx.link().clone();
@@ -460,7 +447,9 @@ impl LivePanel {
     }
 
     /// Render device list section
-    fn render_device_list(&self) -> Html {
+    fn render_device_list(&self, ctx: &Context<Self>) -> Html {
+        let audio_devices = ctx.props().live_data.audio_devices.get();
+        
         html! {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"Audio Devices"}</h4>
@@ -468,7 +457,7 @@ impl LivePanel {
                     <div class="device-section">
                         <h5>{"Input Devices"}</h5>
                         <div class="device-items">
-                            {if self.audio_devices.input_devices.is_empty() {
+                            {if audio_devices.input_devices.is_empty() {
                                 html! {
                                     <div class="device-item">
                                         <span class="device-name permission-required">{"permission required"}</span>
@@ -477,7 +466,7 @@ impl LivePanel {
                             } else {
                                 html! {
                                     <>
-                                        {for self.audio_devices.input_devices.iter().map(|device| {
+                                        {for audio_devices.input_devices.iter().map(|device| {
                                             html! {
                                                 <div class="device-item">
                                                     <span class="device-name">{&device.1}</span>
@@ -493,7 +482,7 @@ impl LivePanel {
                     <div class="device-section">
                         <h5>{"Output Devices"}</h5>
                         <div class="device-items">
-                            {if self.audio_devices.output_devices.is_empty() {
+                            {if audio_devices.output_devices.is_empty() {
                                 html! {
                                     <div class="device-item">
                                         <span class="device-name permission-required">{"permission required"}</span>
@@ -502,7 +491,7 @@ impl LivePanel {
                             } else {
                                 html! {
                                     <>
-                                        {for self.audio_devices.output_devices.iter().map(|device| {
+                                        {for audio_devices.output_devices.iter().map(|device| {
                                             html! {
                                                 <div class="device-item">
                                                     <span class="device-name">{&device.1}</span>
