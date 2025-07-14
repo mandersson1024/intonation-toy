@@ -191,14 +191,14 @@ impl EguiLiveDataPanel {
         ui.label(format!("Input Devices: {}", devices.input_devices.len()));
         for device in &devices.input_devices {
             ui.indent("input_device", |ui| {
-                ui.label(format!("• {} ({})", device.1, device.0));
+                ui.label(format!("• {}", device.1));
             });
         }
         
         ui.label(format!("Output Devices: {}", devices.output_devices.len()));
         for device in &devices.output_devices {
             ui.indent("output_device", |ui| {
-                ui.label(format!("• {} ({})", device.1, device.0));
+                ui.label(format!("• {}", device.1));
             });
         }
     }
