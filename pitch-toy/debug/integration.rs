@@ -43,7 +43,7 @@ impl Component for DebugInterface {
     type Message = DebugInterfaceMsg;
     type Properties = DebugInterfaceProps;
 
-    fn create(ctx: &Context<Self>) -> Self {
+    fn create(_: &Context<Self>) -> Self {
         let component = Self {
             visible: true,  // Start with debug interface visible on app start
         };
@@ -112,19 +112,7 @@ impl DebugInterface {
     fn render_debug_components(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="debug-components">
-                {self.render_console(ctx)}
                 {self.render_live_panel(ctx)}
-            </div>
-        }
-    }
-
-    /// Render the debug console
-    /// Note: Console functionality is now provided by the egui-based EguiDevConsole
-    /// which is rendered in the three-d context, not here
-    fn render_console(&self, _ctx: &Context<Self>) -> Html {
-        html! {
-            <div class="console-placeholder">
-                {"Console available via F12 or ` key (egui-based)"}
             </div>
         }
     }
