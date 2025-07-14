@@ -19,7 +19,7 @@ This file is manually edited.
 - Always explicitly distinguish between working functionality and placeholders. Never claim a task is "complete" or "fully functional" if it contains placeholders. Use clear ✅/❌ status indicators for each component to show what works vs what needs implementation.
 
 ## Testing
-This project uses `wasm-pack test --headless --chrome` for all testing. We do NOT use cargo test or any other testing approach. Run `./scripts/test-all.sh` to test all packages. See TESTING.md for details.
+This project uses `wasm-pack test --node` for all testing. We do NOT use cargo test or any other testing approach. We do NOT test browser-specific functionality. Run `./scripts/test-all.sh` to test all packages. See TESTING.md for details.
 
 ## Project Information (obsolete, to be updated)
 Refer to:

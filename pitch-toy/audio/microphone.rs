@@ -255,8 +255,9 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_microphone_state_display() {
         assert_eq!(AudioPermission::Uninitialized.to_string(), "Uninitialized");
         assert_eq!(AudioPermission::Requesting.to_string(), "Requesting");
@@ -265,7 +266,7 @@ mod tests {
         assert_eq!(AudioPermission::Unavailable.to_string(), "Unavailable");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
         assert_eq!(info.sample_rate, 48000.0);
@@ -274,7 +275,7 @@ mod tests {
         assert!(info.device_label.is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_error_display() {
         let error = AudioError::PermissionDenied("test".to_string());
         assert_eq!(error.to_string(), "Permission denied: test");
@@ -286,7 +287,7 @@ mod tests {
         assert_eq!(error.to_string(), "Not supported: test");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_microphone_manager_new() {
         let manager = MicrophoneManager::new();
         assert_eq!(*manager.state(), AudioPermission::Uninitialized);
@@ -294,7 +295,7 @@ mod tests {
         assert!(manager.get_stream().is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_microphone_manager_stream_info() {
         let manager = MicrophoneManager::new();
         let info = manager.stream_info();

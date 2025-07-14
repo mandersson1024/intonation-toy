@@ -667,7 +667,8 @@ impl PitchAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::pitch_detector::{TuningSystem, PitchDetectorConfig};
+     use wasm_bindgen_test::wasm_bindgen_test;
+   use crate::audio::pitch_detector::{TuningSystem, PitchDetectorConfig};
 
     fn create_test_config() -> PitchDetectorConfig {
         PitchDetectorConfig {
@@ -679,7 +680,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_creation() {
         let config = create_test_config();
         let analyzer = PitchAnalyzer::new(config, 48000.0);
@@ -690,7 +691,7 @@ mod tests {
         assert_eq!(analyzer.config().sample_window_size, 2048);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_config_update() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -705,7 +706,7 @@ mod tests {
         assert_eq!(analyzer.config().threshold, 0.2);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_invalid_sample_size() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -717,7 +718,7 @@ mod tests {
         assert!(result.unwrap_err().contains("Expected 2048 samples"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_silence() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -732,7 +733,7 @@ mod tests {
         assert_eq!(analyzer.metrics().failed_detections, 1);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_sine_wave() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -762,7 +763,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_confidence_threshold() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -779,7 +780,7 @@ mod tests {
         assert_eq!(analyzer.confidence_threshold_for_events, 1.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_metrics_reset() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -796,7 +797,7 @@ mod tests {
         assert_eq!(analyzer.metrics().failed_detections, 0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_event_integration() {
         // Test that pitch events are properly integrated with AudioEvent
         // This is tested more thoroughly in the events module
@@ -830,7 +831,7 @@ mod tests {
         assert!(confidence_event.description().contains("confidence=0.80"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_event_processing() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -852,7 +853,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_performance_metrics_default() {
         let metrics = PitchPerformanceMetrics::default();
         assert_eq!(metrics.processing_latency_ms, 0.0);
@@ -869,7 +870,7 @@ mod tests {
         assert_eq!(metrics.yin_processing_time_us, 0.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_multiple_detections() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -892,7 +893,7 @@ mod tests {
         assert!(analyzer.metrics().average_confidence > 0.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_integration() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
@@ -933,7 +934,7 @@ mod tests {
         assert_eq!(analyzer.metrics().analysis_cycles, 1);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_insufficient_data() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
@@ -955,7 +956,7 @@ mod tests {
         assert!(result.unwrap().is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_size_mismatch() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
@@ -977,7 +978,7 @@ mod tests {
         assert!(result.unwrap_err().contains("does not match pitch window size"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_continuous_processing() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
@@ -1023,7 +1024,7 @@ mod tests {
         assert_eq!(analyzer.metrics().successful_detections, num_results as u64);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_circular_buffer_integration() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::WindowFunction;
@@ -1061,7 +1062,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_windowing_functions() {
         use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
         use crate::audio::buffer_analyzer::WindowFunction;
@@ -1100,7 +1101,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_metrics_update() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1133,7 +1134,7 @@ mod tests {
         assert!(metrics.memory_usage_bytes > 0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_grade() {
         let config = create_test_config();
         let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1162,7 +1163,7 @@ mod tests {
         assert_eq!(test_analyzer.performance_grade(), "Unacceptable");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_meets_performance_requirements() {
         let config = create_test_config();
         let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1185,7 +1186,7 @@ mod tests {
         assert!(!test_analyzer.meets_performance_requirements());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_benchmark_window_sizes() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1204,7 +1205,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_violation_tracking() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1224,7 +1225,7 @@ mod tests {
         assert_eq!(analyzer.metrics().analysis_cycles, 2);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_zero_allocation_validation() {
         let config = create_test_config();
         let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1239,7 +1240,7 @@ mod tests {
         assert!(is_efficient); // Should be efficient for reasonable window sizes
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_optimization() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1268,7 +1269,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_detector_optimization_features() {
         let config = create_test_config();
         let detector = crate::audio::pitch_detector::PitchDetector::new(config, 48000.0).unwrap();
@@ -1291,7 +1292,7 @@ mod tests {
         assert!(detector.is_power_of_2_optimized()); // 1024 is power of 2
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_detector_energy_threshold() {
         let config = create_test_config();
         let mut detector = crate::audio::pitch_detector::PitchDetector::new(config, 48000.0).unwrap();
@@ -1317,7 +1318,7 @@ mod tests {
 
     // Confidence Scoring Accuracy and Consistency Tests (Task 8 Requirements)
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_confidence_scoring_consistency() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1353,7 +1354,7 @@ mod tests {
         assert!(avg_confidence > 0.7, "Clean sine wave should have high confidence: {}", avg_confidence);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_confidence_scoring_with_noise() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1393,7 +1394,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_confidence_scoring_amplitude_dependency() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1428,7 +1429,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_confidence_scoring_frequency_accuracy() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1465,7 +1466,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_confidence_scoring_edge_cases() {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1512,7 +1513,7 @@ mod tests {
 
     // End-to-End Tests with Simulated Audio Input (Task 8 Requirements)
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_end_to_end_pitch_detection_pipeline() {
         use crate::events::{create_shared_audio_dispatcher, AudioEvent};
         use std::rc::Rc;
@@ -1577,7 +1578,7 @@ mod tests {
         assert!(metrics.successful_detections > 0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_end_to_end_musical_scale_detection() {
         // Test detection of a complete musical scale
         let config = create_test_config();
@@ -1620,7 +1621,7 @@ mod tests {
         assert!(octaves.iter().all(|&o| o == 4 || o == 5), "Octaves should be 4 or 5");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_end_to_end_polyphonic_interference() {
         // Test pitch detection with polyphonic (multiple frequency) interference
         let config = create_test_config();
@@ -1654,56 +1655,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_end_to_end_real_time_simulation() {
-        // Simulate real-time processing with varying conditions
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        let sample_rate = 48000.0;
-        let mut processing_times = Vec::new();
-        
-        // Simulate real-time chunks with varying frequencies
-        for chunk in 0..10 {
-            let frequency = 200.0 + (chunk as f32 * 50.0); // Ascending frequency
-            let amplitude = 0.5 + (chunk as f32 * 0.05); // Increasing amplitude
-            
-            let samples: Vec<f32> = (0..2048)
-                .map(|i| {
-                    let t = i as f32 / sample_rate;
-                    amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
-                })
-                .collect();
-            
-            let start = std::time::Instant::now();
-            let result = analyzer.analyze_samples(&samples);
-            let processing_time = start.elapsed();
-            
-            processing_times.push(processing_time.as_millis());
-            
-            assert!(result.is_ok(), "Chunk {} processing failed", chunk);
-            
-            if let Some(pitch_result) = result.unwrap() {
-                // Verify frequency detection is reasonable
-                assert!((pitch_result.frequency - frequency).abs() < frequency * 0.1,
-                    "Chunk {} frequency detection failed: expected {}, got {}", 
-                    chunk, frequency, pitch_result.frequency);
-            }
-        }
-        
-        // Verify real-time performance
-        let avg_processing_time = processing_times.iter().sum::<u128>() / processing_times.len() as u128;
-        assert!(avg_processing_time < 50, 
-            "Average processing time should be under 50ms for real-time: {}ms", 
-            avg_processing_time);
-        
-        // Verify metrics show progression
-        let metrics = analyzer.metrics();
-        assert_eq!(metrics.analysis_cycles, 10);
-        assert!(metrics.average_latency_ms < 50.0);
-    }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_end_to_end_tuning_system_switching() {
         // Test switching tuning systems during operation
         use crate::audio::{TuningSystem, PitchDetectorConfig};

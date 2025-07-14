@@ -1,6 +1,6 @@
 # Testing Guide
 
-This project uses `wasm-pack test --headless --chrome` for all testing. We do NOT use any other form of testing.
+This project uses `wasm-pack test --node` for all testing. We do NOT use any other form of testing.
 
 ## Running Tests
 
@@ -13,30 +13,40 @@ This project uses `wasm-pack test --headless --chrome` for all testing. We do NO
 ### Individual Packages
 ```bash
 # Core application
-wasm-pack test --headless --chrome pitch-toy
+wasm-pack test --node pitch-toy
 
 # Observable data library
-wasm-pack test --headless --chrome observable-data
+wasm-pack test --node observable-data
 
 # Event dispatcher
-wasm-pack test --headless --chrome event-dispatcher
+wasm-pack test --node event-dispatcher
 
 # Egui dev console
-wasm-pack test --headless --chrome egui-dev-console
+wasm-pack test --node egui-dev-console
 ```
 
-## Why wasm-pack test --headless --chrome?
+## Why wasm-pack test --node?
 
-- ✅ Tests in actual browser environment with real Web APIs
-- ✅ Supports WebAssembly + JavaScript interop testing
-- ✅ Official recommended approach for browser-targeted WebAssembly
-- ✅ Automated browser and WebDriver management
-- ✅ CI/CD compatible with headless testing
+- ✅ Tests WebAssembly compilation and basic functionality
+- ✅ Fast execution in Node.js environment
+- ✅ No browser dependencies or WebDriver setup needed
+- ✅ CI/CD compatible and reliable
+- ✅ Official recommended approach for unit testing WebAssembly
 - ✅ No manual test runner configuration needed
+
+## Testing Policy
+
+**We do NOT write tests for functionality that requires a real browser environment**, including:
+- DOM manipulation
+- Web Audio API
+- Browser-specific APIs
+- JavaScript interop that requires browser context
+
+Unit tests focus on pure logic, data structures, and WebAssembly-compatible functionality only.
 
 ## Test Configuration
 
-All tests use `wasm-bindgen-test` with Chrome browser:
+All tests use `wasm-bindgen-test` with Node.js environment:
 
 ```rust
 #[cfg(test)]
@@ -44,7 +54,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::*;
 
-    wasm_bindgen_test_configure!(run_in_browser);
+    // No wasm_bindgen_test_configure! needed for Node.js
 
     #[wasm_bindgen_test]
     fn test_basic_functionality() {
@@ -72,35 +82,20 @@ mod tests {
         }
     }
 
-    #[wasm_bindgen_test]
-    async fn test_async_function() {
-        // Test async functions (common for browser APIs)
-        let result = async_operation().await;
-        assert!(result.is_ok());
-    }
-
-    #[wasm_bindgen_test]
-    fn test_with_browser_apis() {
-        // Test code that uses browser APIs
-        use web_sys::console;
-        
-        // This will work because we're running in a real browser
-        console::log_1(&"Test message".into());
-        
-        // Test Web Audio API, DOM manipulation, etc.
-        let window = web_sys::window().unwrap();
-        assert!(window.location().href().is_ok());
-    }
+    // DO NOT test browser APIs - they won't work in Node.js
+    // DO NOT test Web Audio API
+    // DO NOT test DOM manipulation
+    // DO NOT test window/document objects
 }
 ```
 
 ### Key Differences from Standard Rust Tests
 
 - Use `#[wasm_bindgen_test]` instead of `#[test]`
-- Include `wasm_bindgen_test_configure!(run_in_browser);`
 - Import `wasm_bindgen_test::*`
-- Can test browser APIs and JavaScript interop
-- Support for async tests with real browser environment
+- No `wasm_bindgen_test_configure!` needed for Node.js
+- Test only pure logic and data structures
+- Cannot test browser APIs or JavaScript interop
 
 ## Prerequisites
 

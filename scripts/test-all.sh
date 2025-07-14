@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "🧪 Running all tests with wasm-pack test --headless --chrome..."
+echo "🧪 Running all tests with wasm-pack test --node..."
 
 # Test all packages in the workspace
 packages=("pitch-toy" "observable-data" "event-dispatcher" "egui-dev-console")
 
 for package in "${packages[@]}"; do
     echo "🔍 Testing $package..."
-    wasm-pack test --headless --chrome "$package"
+    wasm-pack test --node "$package"
     echo "✅ $package tests passed"
     echo ""
 done

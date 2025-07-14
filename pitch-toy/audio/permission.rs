@@ -247,8 +247,9 @@ pub fn connect_microphone(setter: impl observable_data::DataSetter<AudioPermissi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_error_to_permission_mapping() {
         let error = AudioError::PermissionDenied("test".to_string());
         assert_eq!(PermissionManager::error_to_permission(&error), AudioPermission::Denied);
@@ -266,7 +267,7 @@ mod tests {
         assert_eq!(PermissionManager::error_to_permission(&error), AudioPermission::Unavailable);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_error_to_state_mapping() {
         let error = AudioError::PermissionDenied("test".to_string());
         assert_eq!(PermissionManager::error_to_state(&error), AudioPermission::Denied);
@@ -279,7 +280,7 @@ mod tests {
     }
 
     #[cfg(target_arch = "wasm32")]
-    #[test]
+    #[wasm_bindgen_test]
     fn test_is_supported() {
         // Test that is_supported doesn't panic
         let _supported = PermissionManager::is_supported();
@@ -287,7 +288,7 @@ mod tests {
         assert!(true);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_permission_check_structure() {
         // Test that the check function has the correct return type structure
         // We can't actually test the async function in a unit test environment

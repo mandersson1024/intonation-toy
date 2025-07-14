@@ -368,9 +368,10 @@ impl<'a> BufferProcessor for SlidingWindowProcessor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
     use crate::audio::buffer::CircularBuffer;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_generate_window_sizes() {
         let hamming = generate_window(4, WindowFunction::Hamming);
         assert_eq!(hamming.len(), 4);
@@ -378,7 +379,7 @@ mod tests {
         assert_eq!(blackman.len(), 8);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_analyzer_sequential_blocks_no_overlap() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         // Fill buffer with 256 samples (0.0 .. 255.0)
@@ -401,7 +402,7 @@ mod tests {
         assert!(analyzer.next_block().is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_windowing_application() {
         let mut circ = CircularBuffer::<f32>::new(256).unwrap();
         // Fill buffer with 128 samples of value 1.0
@@ -416,7 +417,7 @@ mod tests {
         assert_eq!(block, coeffs);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_zero_allocation_next_block_into() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         // Fill with 256 samples of value 1.0
@@ -439,7 +440,7 @@ mod tests {
         assert!(!analyzer.next_block_into(&mut output));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_buffer_processor_trait_for_sequential() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         for i in 0..256 {
@@ -470,7 +471,7 @@ mod tests {
         assert_eq!(output[127], 255.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_sliding_window_processor_creation() {
         let circ = CircularBuffer::<f32>::new(512).unwrap();
         
@@ -489,7 +490,7 @@ mod tests {
         assert!(SlidingWindowProcessor::new(&circ, 1000, 0.5, WindowFunction::None).is_err());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_sliding_window_processor_overlapping_windows() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         // Fill with sequential values
@@ -529,7 +530,7 @@ mod tests {
         assert_eq!(processor.process_next(), ProcessingResult::InsufficientData);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_sliding_window_processor_zero_allocation() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         for i in 0..300 {
@@ -550,7 +551,7 @@ mod tests {
         assert_eq!(output[127], 191.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_sliding_window_processor_reset() {
         let mut circ = CircularBuffer::<f32>::new(512).unwrap();
         for i in 0..200 {
@@ -578,7 +579,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audioworklet_compatibility() {
         let circ = CircularBuffer::<f32>::new(512).unwrap();
         

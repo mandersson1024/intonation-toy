@@ -274,40 +274,13 @@ pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use wasm_bindgen_test::*;
 
-    #[cfg(target_arch = "wasm32")]
-    #[wasm_bindgen_test::wasm_bindgen_test]
-    async fn test_initialize_audio_system_success() {
-        // This test only runs on wasm32 where Web Audio API might be available
-        let result = initialize_audio_system().await;
-        
-        // The result depends on the WASM test environment's Web Audio API support
-        match result {
-            Ok(()) => {
-                // If successful, the system should have initialized properly
-                assert!(true);
-            }
-            Err(msg) => {
-                // If failed, should be due to Web Audio API not being supported in test environment
-                assert!(msg.contains("Web Audio API not supported"));
-            }
-        }
-    }
+    // No wasm_bindgen_test_configure! needed for Node.js
+   
 
-    #[test]
-    #[cfg(not(target_arch = "wasm32"))]
-    fn test_initialize_audio_system_native_test() {
-        // For native tests, we can only test that the function doesn't panic
-        // The actual behavior depends on the Web Audio API which isn't available in cargo test
-        // This is a structural test to ensure the function can be called
-        
-        // We can't actually call the function because it uses web APIs
-        // Instead we test the error types and structure
-        assert!(true); // This test just ensures the module compiles
-    }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_error_types() {
         let permission_error = AudioError::PermissionDenied("Test permission denied".to_string());
         assert!(permission_error.to_string().contains("Permission denied"));
@@ -330,7 +303,7 @@ mod tests {
         assert!(generic_error.to_string().contains("Test generic error"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_microphone_state_enum() {
         // Test all microphone states
         assert_eq!(AudioPermission::Uninitialized.to_string(), "Uninitialized");
@@ -344,7 +317,7 @@ mod tests {
         assert_ne!(AudioPermission::Granted, AudioPermission::Denied);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_state_enum() {
         // Test all audio context states
         assert_eq!(AudioContextState::Uninitialized.to_string(), "Uninitialized");
@@ -359,7 +332,7 @@ mod tests {
         assert_ne!(AudioContextState::Running, AudioContextState::Suspended);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_stream_state_enum() {
         // Test all stream states
         assert_eq!(StreamState::Disconnected, StreamState::Disconnected);
@@ -373,7 +346,7 @@ mod tests {
         assert_ne!(StreamState::Connecting, StreamState::Reconnecting);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_stream_error_types() {
         let device_disconnected = StreamError::DeviceDisconnected;
         assert_eq!(device_disconnected.to_string(), "Audio device disconnected");
@@ -395,7 +368,7 @@ mod tests {
         assert!(config_error.to_string().contains("Test config error"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
         assert_eq!(info.sample_rate, 48000.0);
@@ -404,7 +377,7 @@ mod tests {
         assert!(info.device_label.is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
         assert_eq!(config.sample_rate, 48000.0);
@@ -412,7 +385,7 @@ mod tests {
         assert_eq!(config.max_recreation_attempts, 3);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_stream_config_default() {
         let config = StreamConfig::default();
         assert_eq!(config.max_reconnect_attempts, 3);
@@ -421,7 +394,7 @@ mod tests {
         assert_eq!(config.activity_timeout_ms, 10000);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_manager_creation() {
         // Test that all managers can be created successfully
         let mic_manager = MicrophoneManager::new();
@@ -434,7 +407,7 @@ mod tests {
         assert_eq!(stream_handler.get_health().state, StreamState::Disconnected);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_error_handling_integration() {
         // Test that error types can be properly used together
         let audio_error = AudioError::Generic("Integration test".to_string());

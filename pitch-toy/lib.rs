@@ -7,7 +7,6 @@ pub mod common;
 pub mod platform;
 pub mod events;
 pub mod debug;
-pub mod app_data;
 pub mod graphics;
 
 use common::dev_log;
@@ -98,13 +97,10 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 pub async fn run_three_d() {
     dev_log!("Starting three-d with red sprites");
     
-    // Create application data with observable permission state
-    use crate::app_data::LiveData;
     use observable_data::DataSource;
     
     let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
     
-    // Create data sources for LiveDataPanel
     let audio_devices_source = DataSource::new(audio::AudioDevices {
         input_devices: vec![],
         output_devices: vec![],
@@ -115,10 +111,6 @@ pub async fn run_three_d() {
     let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
     
-    let _live_data = LiveData {
-        microphone_permission: microphone_permission_source.observer(),
-    };
-
     let window = Window::new(WindowSettings {
         title: "pitch-toy".to_string(),
         max_size: Some((1280, 720)),

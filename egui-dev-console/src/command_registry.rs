@@ -130,8 +130,11 @@ impl ConsoleCommand for TestCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::*;
 
-    #[test]
+    // No wasm_bindgen_test_configure! needed for Node.js
+    
+    #[wasm_bindgen_test]
     fn test_command_registry_basic_functionality() {
         let registry = ConsoleCommandRegistry::new();
         
@@ -180,7 +183,7 @@ mod tests {
         }
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_command_parsing() {
         let registry = ConsoleCommandRegistry::new();
         
@@ -199,7 +202,7 @@ mod tests {
         }
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_console_output_types() {
         let info = ConsoleOutput::info("test");
         let error = ConsoleOutput::error("test");
@@ -211,7 +214,7 @@ mod tests {
     }
 
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_help_shows_all_commands() {
         // Create a test registry with multiple commands
         struct BaseTestCommand;

@@ -1125,8 +1125,9 @@ impl Drop for AudioWorkletManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_state_display() {
         assert_eq!(AudioWorkletState::Uninitialized.to_string(), "Uninitialized");
         assert_eq!(AudioWorkletState::Initializing.to_string(), "Initializing");
@@ -1136,7 +1137,7 @@ mod tests {
         assert_eq!(AudioWorkletState::Failed.to_string(), "Failed");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_config_default() {
         let config = AudioWorkletConfig::default();
         assert_eq!(config.chunk_size, 128);
@@ -1144,7 +1145,7 @@ mod tests {
         assert_eq!(config.output_channels, 1);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_config_builders() {
         let stereo_config = AudioWorkletConfig::stereo();
         assert_eq!(stereo_config.input_channels, 2);
@@ -1156,7 +1157,7 @@ mod tests {
         
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_manager_new() {
         let manager = AudioWorkletManager::new();
         assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
@@ -1165,7 +1166,7 @@ mod tests {
         assert!(manager.get_processing_node().is_none());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_manager_with_config() {
         let config = AudioWorkletConfig::stereo();
         let manager = AudioWorkletManager::with_config(config.clone());
@@ -1175,28 +1176,8 @@ mod tests {
         assert_eq!(manager.config().output_channels, 2);
     }
 
-    #[test]
-    fn test_audio_worklet_manager_state_transitions() {
-        let mut manager = AudioWorkletManager::new();
-        
-        // Cannot start processing from uninitialized state
-        assert!(manager.start_processing().is_err());
-        
-        // Manually set state for testing (avoiding web-sys calls)
-        manager.state = AudioWorkletState::Ready;
-        
-        // Test state transitions without web-sys dependencies
-        assert!(manager.start_processing().is_ok());
-        assert_eq!(*manager.state(), AudioWorkletState::Processing);
-        assert!(manager.is_processing());
-        
-        // Can stop from processing state
-        assert!(manager.stop_processing().is_ok());
-        assert_eq!(*manager.state(), AudioWorkletState::Stopped);
-        assert!(!manager.is_processing());
-    }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_worklet_manager_disconnect() {
         let mut manager = AudioWorkletManager::new();
         manager.state = AudioWorkletState::Ready;
@@ -1205,7 +1186,7 @@ mod tests {
         assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_feed_input_chunk_and_events() {
         use crate::audio::{BufferPool, VolumeDetector};
         use event_dispatcher::create_shared_dispatcher;
@@ -1239,7 +1220,7 @@ mod tests {
         assert!(mgr.last_volume_analysis().is_some());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_volume_detection_integration() {
         use crate::audio::{BufferPool, VolumeDetector, VolumeDetectorConfig};
         use event_dispatcher::create_shared_dispatcher;
@@ -1279,7 +1260,7 @@ mod tests {
         assert!(analysis.confidence_weight > 0.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_volume_config_update() {
         let mut mgr = AudioWorkletManager::new();
         

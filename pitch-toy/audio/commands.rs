@@ -700,9 +700,9 @@ pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
 #[cfg(test)]
 mod tests {
     use super::*;
+     use wasm_bindgen_test::wasm_bindgen_test;   
     
-    
-    #[test]
+    #[wasm_bindgen_test]
     fn test_tuning_command() {
         let command = TuningCommand;
         
@@ -710,7 +710,7 @@ mod tests {
         assert_eq!(command.description(), "Switch tuning system (equal/just/custom)");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_command_execution() {
         use egui_dev_console::ConsoleCommandRegistry;
         

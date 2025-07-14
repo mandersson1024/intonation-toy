@@ -165,9 +165,10 @@ pub fn create_shared_audio_dispatcher() -> AudioEventDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::AudioDevices;
+     use wasm_bindgen_test::wasm_bindgen_test;
+   use crate::audio::AudioDevices;
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_types() {
         let devices = AudioDevices::new();
         let device_event = AudioEvent::DeviceListChanged(devices);
@@ -180,7 +181,7 @@ mod tests {
         assert_eq!(context_event.event_type(), "context_state_changed");
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_descriptions() {
         let devices = AudioDevices::new();
         let device_event = AudioEvent::DeviceListChanged(devices);
@@ -193,7 +194,7 @@ mod tests {
         assert!(context_event.description().contains("Audio context state changed"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_buffer_event_types_and_descriptions() {
         let filled = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
         assert_eq!(filled.event_type(), "buffer_filled");
@@ -208,7 +209,7 @@ mod tests {
         assert!(metrics.description().contains("8 buffers"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_pitch_event_types_and_descriptions() {
         use crate::audio::{NoteName, MusicalNote};
 
@@ -242,7 +243,7 @@ mod tests {
         assert!(confidence_changed.description().contains("confidence=0.70"));
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_volume_event_types_and_descriptions() {
         use crate::audio::VolumeLevel;
 
@@ -288,7 +289,7 @@ mod tests {
 
     // Event Publishing and Subscription Integration Tests (Task 8 Requirements)
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_event_dispatcher_integration() {
         use event_dispatcher::EventDispatcher;
         use std::rc::Rc;
@@ -329,7 +330,7 @@ mod tests {
         assert_eq!(dispatcher.subscriber_count("pitch_detected"), 1);
     }
 
-    #[test]  
+    #[wasm_bindgen_test]  
     fn test_event_types_integration() {
         // Test that all event types work correctly
         let pitch_detected = AudioEvent::PitchDetected {
@@ -360,7 +361,7 @@ mod tests {
         assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_shared_audio_dispatcher() {
         let shared_dispatcher = create_shared_audio_dispatcher();
         
@@ -376,7 +377,7 @@ mod tests {
 
     // Generic EventDispatcher tests with AudioEvent
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_dispatcher_creation() {
         use event_dispatcher::EventDispatcher;
         
@@ -385,7 +386,7 @@ mod tests {
         assert!(dispatcher.subscribed_event_types().is_empty());
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_subscription() {
         use event_dispatcher::EventDispatcher;
         
@@ -405,7 +406,7 @@ mod tests {
         assert!(dispatcher.subscribed_event_types().contains(&"permission_changed"));
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_publishing() {
         use event_dispatcher::EventDispatcher;
         use crate::audio::AudioPermission;
@@ -436,7 +437,7 @@ mod tests {
         }
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_multiple_subscribers() {
         use event_dispatcher::EventDispatcher;
         use crate::audio::AudioPermission;
@@ -467,7 +468,7 @@ mod tests {
         assert_eq!(*call_count.borrow(), 2);
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_event_clear_subscribers() {
         use event_dispatcher::EventDispatcher;
         

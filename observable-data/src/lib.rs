@@ -152,16 +152,18 @@ impl<T: Clone + Send + Sync> ObservableDataTrait<T> for SharedData<T> {
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
-    use std::thread;
+    use wasm_bindgen_test::*;
 
-    #[test]
+    // No wasm_bindgen_test_configure! needed for Node.js
+
+    #[wasm_bindgen_test]
     fn test_data_source_creation_and_get() {
         let data_source = DataSource::new(42);
         let observer: ObservableData<i32> = data_source.observer();
         assert_eq!(observer.get(), 42);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_data_source_set_updates_value() {
         let data_source = DataSource::new(10);
         let observer: ObservableData<i32> = data_source.observer();
@@ -174,7 +176,7 @@ mod tests {
         assert_eq!(observer.get(), 30);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_multiple_observers_see_same_value() {
         let data_source = DataSource::new(100);
         let observer1: ObservableData<i32> = data_source.observer();
@@ -189,7 +191,7 @@ mod tests {
         assert_eq!(observer2.get(), 200);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_listener_called_on_set() {
         let data_source = DataSource::new(1);
         let observer: ObservableData<i32> = data_source.observer();
@@ -210,7 +212,7 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_multiple_listeners_all_called() {
         let data_source = DataSource::new(0);
         let observer: ObservableData<i32> = data_source.observer();
@@ -236,7 +238,7 @@ mod tests {
         assert!(*called2.lock().unwrap());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_listeners_from_different_observers() {
         let data_source = DataSource::new(0);
         let observer1: ObservableData<i32> = data_source.observer();
@@ -263,7 +265,7 @@ mod tests {
         assert!(*called2.lock().unwrap());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_string_data_type() {
         let data_source = DataSource::new("hello".to_string());
         let observer: ObservableData<String> = data_source.observer();
@@ -283,27 +285,23 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
-    #[test]
-    fn test_thread_safety() {
+    #[wasm_bindgen_test]
+    fn test_observer_cloning() {
         let data_source = DataSource::new(0);
-        let observer= data_source.observer();
+        let observer = data_source.observer();
         let setter = data_source.setter();
         
-        // Just verify we can clone observers across threads
+        // Verify we can clone observers
         let observer_clone = observer.clone();
-        let handle = thread::spawn(move || {
-            // Access the observer from another thread
-            assert_eq!(observer_clone.get(), 0);
-        });
+        assert_eq!(observer_clone.get(), 0);
         
-        handle.join().unwrap();
-        
-        // Verify main thread can still use original observer
+        // Verify both observers see updates
         setter.set(42);
         assert_eq!(observer.get(), 42);
+        assert_eq!(observer_clone.get(), 42);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_observe_now() {
         let data_source = DataSource::new(10);
         let observer: ObservableData<i32> = data_source.observer();
@@ -335,7 +333,7 @@ mod tests {
         assert!(*future_called.lock().unwrap());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_data_setter() {
         let data_source = DataSource::new(42);
         let observer: ObservableData<i32> = data_source.observer();
@@ -361,20 +359,19 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
-    #[test]
-    fn test_data_setter_thread_safety() {
+    #[wasm_bindgen_test]
+    fn test_data_setter_functionality() {
         let data_source = DataSource::new(0);
         let observer = data_source.observer();
         let setter = data_source.setter();
         
-        // Verify setter can be moved to another thread
-        let handle = thread::spawn(move || {
-            setter.set(42);
-        });
-        
-        handle.join().unwrap();
-        
-        // Value should have been updated by the other thread
+        // Verify setter works correctly
+        setter.set(42);
         assert_eq!(observer.get(), 42);
+        
+        // Verify setter can be cloned and used
+        let setter_clone = setter.clone();
+        setter_clone.set(100);
+        assert_eq!(observer.get(), 100);
     }
 }

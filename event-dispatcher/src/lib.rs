@@ -224,6 +224,9 @@ pub fn create_shared_dispatcher<T: Event>() -> SharedEventDispatcher<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::*;
+
+    // No wasm_bindgen_test_configure! needed for Node.js
 
     #[derive(Clone, Debug, PartialEq)]
     enum TestEvent {
@@ -247,7 +250,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_event_dispatcher_basic_functionality() {
         use std::sync::{Arc, Mutex};
         
@@ -283,7 +286,7 @@ mod tests {
         assert_eq!(dispatcher.subscriber_count("test_a"), 0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_publish_direct() {
         use std::sync::{Arc, Mutex};
         
@@ -306,7 +309,7 @@ mod tests {
         assert_eq!(events[0], test_event);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_multiple_subscribers() {
         use std::sync::{Arc, Mutex};
         
@@ -336,7 +339,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_different_event_types() {
         use std::sync::{Arc, Mutex};
         
@@ -373,7 +376,7 @@ mod tests {
         assert_eq!(b_events[0], event_b);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_shared_event_dispatcher() {
         use std::sync::{Arc, Mutex};
         
@@ -401,7 +404,7 @@ mod tests {
         assert_eq!(events[0], test_event);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_unsubscribe() {
         use std::sync::{Arc, Mutex};
         let mut dispatcher = EventDispatcher::new();

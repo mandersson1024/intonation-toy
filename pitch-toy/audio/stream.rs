@@ -455,8 +455,9 @@ impl Default for StreamReconnectionHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_stream_config_defaults() {
         let config = StreamConfig::default();
         assert_eq!(config.max_reconnect_attempts, 3);
@@ -465,7 +466,7 @@ mod tests {
         assert_eq!(config.activity_timeout_ms, 10000);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     #[cfg(target_arch = "wasm32")]
     fn test_stream_handler_creation() {
         let handler = StreamReconnectionHandler::new(StreamConfig::default());
@@ -473,7 +474,7 @@ mod tests {
         assert!(!handler.is_connected());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     #[cfg(not(target_arch = "wasm32"))]
     fn test_stream_handler_creation_native() {
         // For native testing, just test configuration
@@ -488,7 +489,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_stream_error_display() {
         let error = StreamError::DeviceDisconnected;
         assert_eq!(error.to_string(), "Audio device disconnected");

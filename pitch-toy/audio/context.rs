@@ -544,8 +544,9 @@ impl Drop for AudioContextManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_state_display() {
         assert_eq!(AudioContextState::Uninitialized.to_string(), "Uninitialized");
         assert_eq!(AudioContextState::Initializing.to_string(), "Initializing");
@@ -555,7 +556,7 @@ mod tests {
         assert_eq!(AudioContextState::Recreating.to_string(), "Recreating");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
         assert_eq!(config.sample_rate, 48000.0);
@@ -563,7 +564,7 @@ mod tests {
         assert_eq!(config.max_recreation_attempts, 3);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_config_builders() {
         let config_44_1 = AudioContextConfig::with_44_1khz();
         assert_eq!(config_44_1.sample_rate, 44100.0);
@@ -578,7 +579,7 @@ mod tests {
         assert_eq!(config_buffer.buffer_size, 2048);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_manager_new() {
         let manager = AudioContextManager::new();
         assert_eq!(*manager.state(), AudioContextState::Uninitialized);
@@ -588,7 +589,7 @@ mod tests {
         assert!(!manager.has_device_change_listener());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_manager_with_config() {
         let config = AudioContextConfig::with_44_1khz().with_buffer_size(512);
         let manager = AudioContextManager::with_config(config.clone());
@@ -598,7 +599,7 @@ mod tests {
         assert_eq!(manager.config().buffer_size, 512);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_manager_update_config() {
         let mut manager = AudioContextManager::new();
         let new_config = AudioContextConfig::with_44_1khz();
@@ -608,7 +609,7 @@ mod tests {
         assert_eq!(manager.config().sample_rate, 44100.0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_context_manager_recreation_attempts() {
         let mut manager = AudioContextManager::new();
         
@@ -621,7 +622,7 @@ mod tests {
         assert_eq!(manager.recreation_attempts(), 0);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_refresh_audio_devices_structure() {
         let _manager = AudioContextManager::new();
         
@@ -634,7 +635,7 @@ mod tests {
         assert!(true);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_devices_struct() {
         let devices = AudioDevices::new();
         assert!(devices.input_devices.is_empty());
@@ -648,7 +649,7 @@ mod tests {
         assert_eq!(devices_with_data.output_devices.len(), 1);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_cached_devices_functionality() {
         let manager = AudioContextManager::new();
         
@@ -658,7 +659,7 @@ mod tests {
         assert!(cached.output_devices.is_empty());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_device_change_listener_state() {
         let manager = AudioContextManager::new();
         

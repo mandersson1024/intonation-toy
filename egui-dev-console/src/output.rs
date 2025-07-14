@@ -175,8 +175,11 @@ impl Default for ConsoleOutputManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasm_bindgen_test::*;
 
-    #[test]
+    // No wasm_bindgen_test_configure! needed for Node.js
+
+    #[wasm_bindgen_test]
     fn test_console_output_creation() {
         let info = ConsoleOutput::info("Test info");
         assert_eq!(info.message(), "Test info");
@@ -192,7 +195,7 @@ mod tests {
 
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_console_output_display() {
         let info = ConsoleOutput::info("Hello");
         assert_eq!(info.to_string(), "[INFO] Hello");
@@ -210,7 +213,7 @@ mod tests {
         assert_eq!(empty.to_string(), "");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_console_entry() {
         let output = ConsoleOutput::info("Test message");
         let entry = ConsoleEntry::new(output.clone());
@@ -218,7 +221,7 @@ mod tests {
         assert_eq!(entry.output, output);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_console_output_manager() {
         let mut manager = ConsoleOutputManager::new();
         assert!(manager.is_empty());
@@ -233,7 +236,7 @@ mod tests {
         assert_eq!(visible.len(), 2);
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_output_manager_size_limit() {
         let mut manager = ConsoleOutputManager::with_settings(2);
         
@@ -247,7 +250,7 @@ mod tests {
         assert_eq!(entries[1].output.message(), "Second");
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn test_output_manager_clear() {
         let mut manager = ConsoleOutputManager::new();
         manager.add_output(ConsoleOutput::info("Test"));

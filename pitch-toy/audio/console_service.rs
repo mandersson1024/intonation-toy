@@ -346,8 +346,9 @@ impl Default for ConsoleAudioServiceImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    #[test]
+     use wasm_bindgen_test::wasm_bindgen_test;
+   
+    #[wasm_bindgen_test]
     fn test_console_audio_service_creation() {
         let service = ConsoleAudioServiceImpl::new();
         
@@ -355,7 +356,7 @@ mod tests {
         assert!(service.audio_context_manager.is_none());
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_audio_status_structure() {
         let status = AudioStatus {
             permission: AudioPermission::Uninitialized,
@@ -369,7 +370,7 @@ mod tests {
         assert!(!status.is_initialized);
     }
     
-    #[test]
+    #[wasm_bindgen_test]
     fn test_service_interface_methods() {
         let service = ConsoleAudioServiceImpl::new();
         
