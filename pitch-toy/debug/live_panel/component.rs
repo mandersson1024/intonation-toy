@@ -3,7 +3,7 @@
 // This component provides real-time monitoring and visualization of audio system state.
 
 use yew::prelude::*;
-use web_sys::{window, HtmlInputElement};
+use web_sys::HtmlInputElement;
 use wasm_bindgen::JsCast;
 
 use crate::audio::console_service::ConsoleAudioService;
@@ -98,8 +98,6 @@ impl Default for AudioWorkletStatus {
 
 /// State for the LivePanel component
 pub struct LivePanel {
-    /// Performance metrics
-    performance_metrics: PerformanceMetrics,
     /// Current volume level
     volume_level: Option<VolumeLevelData>,
     /// Current pitch data
@@ -110,15 +108,11 @@ pub struct LivePanel {
     background_noise_config: BackgroundNoiseConfig,
     /// Whether output to speakers is enabled
     output_to_speakers: bool,
-    /// Performance monitoring interval
-    _performance_interval: Option<gloo_timers::callback::Interval>,
 }
 
 /// Messages for the LivePanel component
 #[derive(Debug)]
 pub enum LivePanelMsg {
-    /// Update performance metrics
-    UpdatePerformanceMetrics(PerformanceMetrics),
     /// Update volume level
     UpdateVolumeLevel(VolumeLevelData),
     /// Update pitch data
@@ -137,20 +131,16 @@ impl Component for LivePanel {
 
     fn create(ctx: &Context<Self>) -> Self {
         let mut component = Self {
-            performance_metrics: PerformanceMetrics::default(),
             volume_level: None,
             pitch_data: None,
             test_signal_config: TestSignalConfig::default(),
             background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
-            _performance_interval: None,
         };
 
         // Set up event subscriptions
         component.setup_event_subscriptions(ctx);
         
-        // Start performance monitoring
-        component.start_performance_monitoring(ctx);
 
         // Trigger initial device refresh
         ctx.props().audio_service.refresh_devices();
@@ -160,10 +150,6 @@ impl Component for LivePanel {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            LivePanelMsg::UpdatePerformanceMetrics(metrics) => {
-                self.performance_metrics = metrics;
-                true
-            }
             LivePanelMsg::UpdateVolumeLevel(level) => {
                 self.volume_level = Some(level);
                 true
@@ -254,7 +240,7 @@ impl Component for LivePanel {
                     {self.render_test_signal_controls(ctx)}
                     {self.render_background_noise_controls(ctx)}
                     {self.render_global_audio_controls(ctx)}
-                    {self.render_performance_metrics()}
+                    {self.render_performance_metrics(ctx)}
                     {self.render_volume_level()}
                     {self.render_pitch_detection()}
                 </div>
@@ -263,8 +249,7 @@ impl Component for LivePanel {
     }
 
     fn destroy(&mut self, _ctx: &Context<Self>) {
-        // Clean up performance monitoring
-        self._performance_interval = None;
+        // No cleanup needed
     }
 }
 
@@ -308,42 +293,6 @@ impl LivePanel {
         });
     }
 
-    /// Start performance monitoring
-    fn start_performance_monitoring(&mut self, ctx: &Context<Self>) {
-        let link = ctx.link().clone();
-        
-        let interval = gloo_timers::callback::Interval::new(1000, move || {
-            let metrics = Self::collect_performance_metrics();
-            link.send_message(LivePanelMsg::UpdatePerformanceMetrics(metrics));
-        });
-        
-        self._performance_interval = Some(interval);
-    }
-
-    /// Collect current performance metrics
-    fn collect_performance_metrics() -> PerformanceMetrics {
-        let window = window().unwrap();
-        let _performance = window.performance().unwrap();
-        
-        // Calculate FPS (placeholder implementation)
-        let fps = 60.0; // TODO: Implement actual FPS calculation
-        
-        // Get memory usage (placeholder implementation)
-        let memory_usage = 0.0; // TODO: Implement memory usage when Performance.memory is available
-        
-        // Audio latency (placeholder)
-        let audio_latency = 0.0; // TODO: Implement actual audio latency measurement
-        
-        // CPU usage (placeholder)
-        let cpu_usage = 0.0; // TODO: Implement CPU usage estimation
-        
-        PerformanceMetrics {
-            fps,
-            memory_usage,
-            audio_latency,
-            cpu_usage,
-        }
-    }
 
     /// Render AudioWorklet status section
     fn render_audioworklet_status(&self, ctx: &Context<Self>) -> Html {
@@ -495,26 +444,27 @@ impl LivePanel {
     }
 
     /// Render performance metrics section
-    fn render_performance_metrics(&self) -> Html {
+    fn render_performance_metrics(&self, ctx: &Context<Self>) -> Html {
+        let performance_metrics = ctx.props().live_data.performance_metrics.get();
         html! {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"Performance Metrics"}</h4>
                 <div class="metrics-grid">
                     <div class="metric-item">
                         <span class="metric-label">{"FPS"}</span>
-                        <span class="metric-value">{format!("{:.1}", self.performance_metrics.fps)}</span>
+                        <span class="metric-value">{format!("{:.1}", performance_metrics.fps)}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">{"Memory"}</span>
-                        <span class="metric-value">{format!("{:.1} MB", self.performance_metrics.memory_usage)}</span>
+                        <span class="metric-value">{format!("{:.1} MB", performance_metrics.memory_usage)}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">{"Audio Latency"}</span>
-                        <span class="metric-value">{format!("{:.1} ms", self.performance_metrics.audio_latency)}</span>
+                        <span class="metric-value">{format!("{:.1} ms", performance_metrics.audio_latency)}</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">{"CPU Usage"}</span>
-                        <span class="metric-value">{format!("{:.1}%", self.performance_metrics.cpu_usage)}</span>
+                        <span class="metric-value">{format!("{:.1}%", performance_metrics.cpu_usage)}</span>
                     </div>
                 </div>
             </div>

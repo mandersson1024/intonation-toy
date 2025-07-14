@@ -50,13 +50,20 @@ fn App() -> Html {
             audioworklet_status: audioworklet_status_source.observer(),
         };
         
-        (live_data, microphone_permission_source.setter(), audio_devices_source.setter(), audioworklet_status_source.setter())
+        (
+            live_data, 
+            microphone_permission_source.setter(), 
+            audio_devices_source.setter(), 
+            audioworklet_status_source.setter(),
+            performance_metrics_source.setter()
+        )
     });
     
     let live_data = &memo_result.0;
     let microphone_permission_setter = &memo_result.1;
     let audio_devices_setter = &memo_result.2;
     let audioworklet_status_setter = &memo_result.3;
+    let performance_metrics_setter = &memo_result.4;
     
     
     // Initialize wgpu canvas after component is rendered
@@ -64,13 +71,14 @@ fn App() -> Html {
         let canvas_ref = canvas_ref.clone();
         let live_data_clone = live_data.clone();
         let mic_perm_setter = microphone_permission_setter.clone();
+        let perf_metrics_setter = performance_metrics_setter.clone();
         
         move |_| {
             if let Some(canvas_element) = canvas_ref.cast::<HtmlCanvasElement>() {
                 dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
                 initialize_canvas(&canvas_element);
                 wasm_bindgen_futures::spawn_local(async move {
-                    run_three_d(live_data_clone, mic_perm_setter).await;
+                    run_three_d(live_data_clone, mic_perm_setter, perf_metrics_setter).await;
                 });
             } else {
                 dev_log!("Warning: Canvas element not found via ref");
@@ -134,7 +142,11 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 }
 
 
-pub async fn run_three_d(live_data: LiveData, microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static) {
+pub async fn run_three_d(
+    live_data: LiveData, 
+    microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
+    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static
+) {
     dev_log!("Starting three-d with red sprites");
     
     
@@ -167,7 +179,31 @@ pub async fn run_three_d(live_data: LiveData, microphone_permission_setter: impl
 
     dev_log!("Starting three-d + egui render loop");
     
+    // Performance tracking
+    let mut frame_count = 0u32;
+    let mut last_fps_update = 0.0;
+    let mut fps = 0.0;
+    
     window.render_loop(move |mut frame_input| {
+        // Update FPS counter
+        frame_count += 1;
+        let current_time = frame_input.accumulated_time as f64;
+        
+        // Update FPS every second
+        if current_time - last_fps_update >= 1000.0 {
+            fps = (frame_count as f64) / ((current_time - last_fps_update) / 1000.0);
+            frame_count = 0;
+            last_fps_update = current_time;
+            
+            // Update performance metrics
+            let metrics = debug::egui::live_data_panel::PerformanceMetrics {
+                fps,
+                memory_usage: 0.0, // TODO: Implement when Performance.memory is available
+                audio_latency: 0.0, // TODO: Get from audio system
+                cpu_usage: 0.0, // TODO: Estimate from frame time
+            };
+            performance_metrics_setter.set(metrics);
+        }
         scene.update_viewport(frame_input.viewport);
         scene.render(&mut frame_input.screen());
 
