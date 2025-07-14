@@ -123,6 +123,28 @@ pub fn create_console_audio_service_with_events(
     service
 }
 
+/// Create a ConsoleAudioService instance with event dispatcher and audio devices setter
+/// Returns a configured console audio service that directly updates audio devices via setter
+pub fn create_console_audio_service_with_setter(
+    event_dispatcher: crate::events::AudioEventDispatcher,
+    audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static
+) -> console_service::ConsoleAudioServiceImpl {
+    let mut service = console_service::ConsoleAudioServiceImpl::new();
+    
+    // Set audio context manager if available
+    if let Some(manager) = get_audio_context_manager() {
+        service.set_audio_context_manager(manager);
+    }
+    
+    // Set event dispatcher
+    service.set_event_dispatcher(event_dispatcher);
+    
+    // Set audio devices setter
+    service.set_audio_devices_setter(audio_devices_setter);
+    
+    service
+}
+
 /// Set the global BufferPool instance (called after creation)
 pub fn set_global_buffer_pool(pool: Rc<RefCell<buffer_pool::BufferPool<f32>>>) {
     BUFFER_POOL_GLOBAL.with(|bp| {

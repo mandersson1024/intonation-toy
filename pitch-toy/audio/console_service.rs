@@ -71,6 +71,8 @@ pub struct ConsoleAudioServiceImpl {
     audio_context_manager: Option<Rc<RefCell<AudioContextManager>>>,
     /// Event dispatcher for publishing and subscribing to events
     event_dispatcher: Option<AudioEventDispatcher>,
+    /// Setter for audio devices data (optional)
+    audio_devices_setter: Option<Rc<dyn observable_data::DataSetter<AudioDevices>>>,
 }
 
 impl ConsoleAudioServiceImpl {
@@ -79,6 +81,7 @@ impl ConsoleAudioServiceImpl {
         Self {
             audio_context_manager: None,
             event_dispatcher: None,
+            audio_devices_setter: None,
         }
     }
     
@@ -87,6 +90,7 @@ impl ConsoleAudioServiceImpl {
         Self {
             audio_context_manager: Some(manager),
             event_dispatcher: None,
+            audio_devices_setter: None,
         }
     }
     
@@ -98,6 +102,7 @@ impl ConsoleAudioServiceImpl {
         Self {
             audio_context_manager: Some(manager),
             event_dispatcher: Some(event_dispatcher),
+            audio_devices_setter: None,
         }
     }
     
@@ -117,6 +122,11 @@ impl ConsoleAudioServiceImpl {
         
         // Set up device change listener now that we have both manager and dispatcher
         self.setup_device_change_listener();
+    }
+    
+    /// Set the audio devices setter for direct data updates
+    pub fn set_audio_devices_setter(&mut self, setter: impl observable_data::DataSetter<AudioDevices> + 'static) {
+        self.audio_devices_setter = Some(Rc::new(setter));
     }
     
     /// Get current audio devices from context manager
@@ -175,7 +185,7 @@ impl ConsoleAudioServiceImpl {
                 
                 // Clone references for the async closure
                 let manager_rc_async = manager_rc_clone.clone();
-                let event_dispatcher_async = event_dispatcher_clone.clone();
+                let _event_dispatcher_async = event_dispatcher_clone.clone();
                 
                 // Spawn async task to refresh devices
                 wasm_bindgen_futures::spawn_local(async move {
@@ -186,11 +196,8 @@ impl ConsoleAudioServiceImpl {
                             } else {
                                 dev_log!("Auto device refresh completed successfully");
                                 
-                                // Get updated devices and publish event
-                                let updated_devices = manager.get_cached_devices().clone();
-                                let event = AudioEvent::DeviceListChanged(updated_devices);
-                                event_dispatcher_async.borrow().publish(&event);
-                                dev_log!("Published DeviceListChanged event from auto refresh");
+                                // Note: Devices will be updated via setter in refresh_devices method
+                                dev_log!("Auto device refresh completed, devices will be updated via setter");
                             }
                         }
                         Err(_) => {
@@ -235,14 +242,13 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         Ok(())
     }
     
-    fn subscribe_device_changes(&self, callback: DeviceChangeCallback) {
+    fn subscribe_device_changes(&self, _callback: DeviceChangeCallback) {
         dev_log!("ConsoleAudioService: Subscribing to device changes");
         
         if let Some(ref dispatcher) = self.event_dispatcher {
-            dispatcher.borrow_mut().subscribe("device_list_changed", move |event| {
-                if let AudioEvent::DeviceListChanged(devices) = event {
-                    callback(devices);
-                }
+            dispatcher.borrow_mut().subscribe("device_list_changed", move |_event| {
+                // DeviceListChanged events are no longer published - using setter instead
+                // This code path will never execute
             });
             dev_log!("Device change subscription registered with event dispatcher");
         } else {
@@ -289,8 +295,10 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
             // Clone the Rc so we can move it into the async closure
             let manager_rc_clone = manager_rc.clone();
             
-            // Clone the event dispatcher reference for the async closure
-            let event_dispatcher = self.event_dispatcher.clone();
+            // Event dispatcher is no longer used for device updates
+            
+            // Clone the setter if available
+            let audio_devices_setter = self.audio_devices_setter.clone();
             
             // Trigger device refresh in background
             // This is a non-blocking operation
@@ -302,16 +310,15 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
                         } else {
                             dev_log!("Device refresh completed successfully");
                             
-                            // Get the updated device list and publish event
+                            // Get the updated device list
                             let updated_devices = manager.get_cached_devices().clone();
                             
-                            // Publish device change event if event dispatcher is available
-                            if let Some(ref dispatcher) = event_dispatcher {
-                                let event = crate::events::AudioEvent::DeviceListChanged(updated_devices);
-                                dispatcher.borrow().publish(&event);
-                                dev_log!("Published DeviceListChanged event");
+                            // Update via setter if available
+                            if let Some(ref setter) = audio_devices_setter {
+                                setter.set(updated_devices);
+                                dev_log!("Updated audio devices via setter");
                             } else {
-                                dev_log!("Warning: No event dispatcher available to publish device change event");
+                                dev_log!("Warning: No audio devices setter available for device change");
                             }
                         }
                     }
