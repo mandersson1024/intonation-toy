@@ -15,10 +15,16 @@ Please create an implementation plan for: $ARGUMENTS
 
 Research the codebase first, then create a detailed plan with:
 1. Current state analysis
-2. Implementation steps broken down into specific tasks
+2. Implementation broken down into major tasks with subtasks
 3. Dependencies and order of operations
-4. Testing considerations
+4. Testing considerations for each task
 5. Potential challenges and solutions
 
-Save the plan as a markdown file with a TODO checklist format in the docs/ directory.
+Structure the plan with:
+- Main tasks (numbered: Task 1, Task 2, etc.)
+- Subtasks under each main task (lettered: 1a, 1b, 1c, etc.)
+- Each subtask should be independently implementable
+- Use TODO checklist format with `- [ ]` for all tasks and subtasks
+
+Save the plan as a markdown file in the docs/ directory.
 Use filename format: docs/implement_[feature-name].md
