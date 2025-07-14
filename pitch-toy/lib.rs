@@ -27,40 +27,49 @@ use live_data::LiveData;
 fn App() -> Html {
     let canvas_ref = use_node_ref();
     
+    // Create data sources and LiveData in one memo (run once)  
+    let memo_result = use_memo((), |_| {
+        use observable_data::DataSource;
+        
+        let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
+        let audio_devices_source = DataSource::new(audio::AudioDevices {
+            input_devices: vec![],
+            output_devices: vec![],
+        });
+        let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
+        let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
+        let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
+        let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
+        let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+        
+        let live_data = live_data::LiveData {
+            microphone_permission: microphone_permission_source.observer(),
+            audio_devices: audio_devices_source.observer(),
+            audio_context_state: audio_context_state_source.observer(),
+            performance_metrics: performance_metrics_source.observer(),
+            volume_level: volume_level_source.observer(),
+            pitch_data: pitch_data_source.observer(),
+            audioworklet_status: audioworklet_status_source.observer(),
+        };
+        
+        (live_data, microphone_permission_source.setter())
+    });
+    
+    let live_data = &memo_result.0;
+    let microphone_permission_setter = &memo_result.1;
+    
     // Initialize wgpu canvas after component is rendered
     use_effect_with(canvas_ref.clone(), {
         let canvas_ref = canvas_ref.clone();
+        let live_data_clone = live_data.clone();
+        let mic_perm_setter = microphone_permission_setter.clone();
+        
         move |_| {
             if let Some(canvas_element) = canvas_ref.cast::<HtmlCanvasElement>() {
                 dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
                 initialize_canvas(&canvas_element);
-                wasm_bindgen_futures::spawn_local(async {
-                    // Create data sources for LiveData
-                    use observable_data::DataSource;
-                    
-                    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
-                    let audio_devices_source = DataSource::new(audio::AudioDevices {
-                        input_devices: vec![],
-                        output_devices: vec![],
-                    });
-                    let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
-                    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
-                    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
-                    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
-                    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
-                    
-                    // Create LiveData instance
-                    let live_data = live_data::LiveData {
-                        microphone_permission: microphone_permission_source.observer(),
-                        audio_devices: audio_devices_source.observer(),
-                        audio_context_state: audio_context_state_source.observer(),
-                        performance_metrics: performance_metrics_source.observer(),
-                        volume_level: volume_level_source.observer(),
-                        pitch_data: pitch_data_source.observer(),
-                        audioworklet_status: audioworklet_status_source.observer(),
-                    };
-                    
-                    run_three_d(live_data, microphone_permission_source.setter()).await;
+                wasm_bindgen_futures::spawn_local(async move {
+                    run_three_d(live_data_clone, mic_perm_setter).await;
                 });
             } else {
                 dev_log!("Warning: Canvas element not found via ref");
@@ -83,6 +92,7 @@ fn App() -> Html {
                         <debug::DebugInterface
                             audio_service={audio_service}
                             event_dispatcher={Some(event_dispatcher)}
+                            live_data={live_data.clone()}
                         />
                     }
                 } else {

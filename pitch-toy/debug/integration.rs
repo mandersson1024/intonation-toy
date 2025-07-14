@@ -10,6 +10,7 @@ use wasm_bindgen::JsCast;
 use super::LivePanel;
 use crate::audio::ConsoleAudioServiceImpl;
 use crate::events::AudioEventDispatcher;
+use crate::live_data::LiveData;
 
 /// Properties for the integrated debug interface
 #[derive(Properties)]
@@ -18,11 +19,15 @@ pub struct DebugInterfaceProps {
     pub audio_service: Rc<ConsoleAudioServiceImpl>,
     /// Event dispatcher for real-time updates
     pub event_dispatcher: Option<AudioEventDispatcher>,
+    /// Live data observers for real-time data sharing
+    pub live_data: LiveData,
 }
 
 impl PartialEq for DebugInterfaceProps {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.audio_service, &other.audio_service)
+        // Note: live_data comparison is complex due to DataObserver internals
+        // For now, we'll consider props equal if audio_service is the same
     }
 }
 
@@ -137,11 +142,13 @@ impl DebugInterface {
 pub fn create_debug_interface(
     audio_service: Rc<ConsoleAudioServiceImpl>,
     event_dispatcher: Option<AudioEventDispatcher>,
+    live_data: LiveData,
 ) -> Html {
     html! {
         <DebugInterface
             audio_service={audio_service}
             event_dispatcher={event_dispatcher}
+            live_data={live_data}
         />
     }
 }

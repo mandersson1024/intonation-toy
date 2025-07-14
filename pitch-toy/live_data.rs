@@ -6,6 +6,7 @@ use crate::audio::{
 };
 use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 
+#[derive(Clone)]
 pub struct LiveData {
     pub microphone_permission: DataObserver<AudioPermission>,
     pub audio_devices: DataObserver<AudioDevices>,
