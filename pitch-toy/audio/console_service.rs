@@ -114,6 +114,7 @@ impl ConsoleAudioServiceImpl {
         if self.event_dispatcher.is_some() {
             self.setup_device_change_listener();
         }
+        
     }
     
     /// Set the event dispatcher
@@ -128,6 +129,7 @@ impl ConsoleAudioServiceImpl {
     pub fn set_audio_devices_setter(&mut self, setter: impl observable_data::DataSetter<AudioDevices> + 'static) {
         self.audio_devices_setter = Some(Rc::new(setter));
     }
+    
     
     /// Get current audio devices from context manager
     fn get_current_devices(&self) -> AudioDevices {
@@ -319,6 +321,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
                             } else {
                                 dev_log!("Warning: No audio devices setter available for device change");
                             }
+                            
                         }
                     }
                     Err(_) => {
@@ -342,6 +345,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         PermissionManager::request_permission_with_callback(callback)
     }
 }
+
 
 impl Default for ConsoleAudioServiceImpl {
     fn default() -> Self {

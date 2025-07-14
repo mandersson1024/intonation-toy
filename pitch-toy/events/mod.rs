@@ -14,23 +14,23 @@
 //!
 //! ```rust,no_run
 //! use pitch_toy::events::{AudioEvent, EventDispatcher, create_shared_audio_dispatcher};
-//! use pitch_toy::audio::AudioContextState;
+//! use pitch_toy::debug::live_panel::AudioWorkletStatus;
 //!
 //! // Create a dispatcher for audio events
 //! let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
 //!
-//! // Subscribe to context state changes
-//! dispatcher.subscribe("context_state_changed", |event| {
+//! // Subscribe to audioworklet status changes
+//! dispatcher.subscribe("audioworklet_status_changed", |event| {
 //!     match event {
-//!         AudioEvent::ContextStateChanged(state) => {
-//!             println!("Context state changed to: {}", state);
+//!         AudioEvent::AudioWorkletStatusChanged(status) => {
+//!             println!("AudioWorklet status changed: {}", status.state);
 //!         }
 //!         _ => {}
 //!     }
 //! });
 //!
-//! // Publish a context state change event
-//! let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
+//! // Publish an audioworklet status change event
+//! let event = AudioEvent::AudioWorkletStatusChanged(AudioWorkletStatus::default());
 //! dispatcher.publish(&event);
 //!
 //! // Or use the shared dispatcher for cross-component communication

@@ -4,14 +4,12 @@
 //! by various components of the application. These events enable loose coupling between
 //! the audio subsystem and other components like the console.
 
-use crate::audio::{AudioContextState, MusicalNote, VolumeLevel};
+use crate::audio::{MusicalNote, VolumeLevel};
 use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
 pub enum AudioEvent {
-    /// Audio context state has changed
-    ContextStateChanged(AudioContextState),
     /// AudioWorklet status has changed (for Live Data Panel)
     AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus),
     /// Circular buffer has been filled (ready for processing)
@@ -69,7 +67,6 @@ impl AudioEvent {
     /// Get the event type as a string for subscription matching
     pub fn event_type(&self) -> &'static str {
         match self {
-            AudioEvent::ContextStateChanged(_) => "context_state_changed",
             AudioEvent::AudioWorkletStatusChanged(_) => "audioworklet_status_changed",
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
@@ -86,9 +83,6 @@ impl AudioEvent {
     /// Get a human-readable description of the event
     pub fn description(&self) -> String {
         match self {
-            AudioEvent::ContextStateChanged(state) => {
-                format!("Audio context state changed to: {}", state)
-            }
             AudioEvent::AudioWorkletStatusChanged(status) => {
                 format!("AudioWorklet status: {} (processor: {}, chunks: {})", 
                     status.state, 
@@ -158,8 +152,8 @@ mod tests {
     fn test_audio_event_types() {
         
         
-        let context_event = AudioEvent::ContextStateChanged(AudioContextState::Running);
-        assert_eq!(context_event.event_type(), "context_state_changed");
+        let worklet_event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
+        assert_eq!(worklet_event.event_type(), "audioworklet_status_changed");
     }
     
     #[allow(dead_code)]
@@ -167,8 +161,8 @@ mod tests {
     fn test_audio_event_descriptions() {
         
         
-        let context_event = AudioEvent::ContextStateChanged(AudioContextState::Running);
-        assert!(context_event.description().contains("Audio context state changed"));
+        let worklet_event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
+        assert!(worklet_event.description().contains("AudioWorklet status"));
     }
 
     #[allow(dead_code)]
@@ -349,12 +343,12 @@ mod tests {
         let shared_dispatcher = create_shared_audio_dispatcher();
         
         // Subscribe through shared dispatcher
-        shared_dispatcher.borrow_mut().subscribe("context_state_changed", |_| {});
+        shared_dispatcher.borrow_mut().subscribe("audioworklet_status_changed", |_| {});
         
-        assert_eq!(shared_dispatcher.borrow().subscriber_count("context_state_changed"), 1);
+        assert_eq!(shared_dispatcher.borrow().subscriber_count("audioworklet_status_changed"), 1);
         
         // Publish through shared dispatcher
-        let event = AudioEvent::ContextStateChanged(crate::audio::AudioContextState::Running);
+        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
         shared_dispatcher.borrow().publish(&event);
     }
 
@@ -377,18 +371,18 @@ mod tests {
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
-        // Subscribe to context state changes
-        dispatcher.subscribe("context_state_changed", |event| {
+        // Subscribe to audioworklet status changes
+        dispatcher.subscribe("audioworklet_status_changed", |event| {
             match event {
-                AudioEvent::ContextStateChanged(_) => {
+                AudioEvent::AudioWorkletStatusChanged(_) => {
                     // Test callback received the right event
                 }
                 _ => panic!("Wrong event type received"),
             }
         });
         
-        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
-        assert!(dispatcher.subscribed_event_types().contains(&"context_state_changed"));
+        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 1);
+        assert!(dispatcher.subscribed_event_types().contains(&"audioworklet_status_changed"));
     }
     
     #[allow(dead_code)]
@@ -401,22 +395,22 @@ mod tests {
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         let received_events = Rc::new(RefCell::new(Vec::new()));
         
-        // Subscribe to context state changes
+        // Subscribe to audioworklet status changes
         let received_events_clone = received_events.clone();
-        dispatcher.subscribe("context_state_changed", move |event| {
+        dispatcher.subscribe("audioworklet_status_changed", move |event| {
             received_events_clone.borrow_mut().push(event);
         });
         
         // Publish an event
-        let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
+        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
         dispatcher.publish(&event);
         
         // Verify the event was received
         assert_eq!(received_events.borrow().len(), 1);
         let events = received_events.borrow();
         match &events[0] {
-            AudioEvent::ContextStateChanged(state) => {
-                assert_eq!(*state, AudioContextState::Running);
+            AudioEvent::AudioWorkletStatusChanged(_) => {
+                // Test passed
             }
             _ => panic!("Wrong event type received"),
         }
@@ -434,19 +428,19 @@ mod tests {
         
         // Subscribe multiple callbacks to the same event
         let call_count_clone1 = call_count.clone();
-        dispatcher.subscribe("context_state_changed", move |_| {
+        dispatcher.subscribe("audioworklet_status_changed", move |_| {
             *call_count_clone1.borrow_mut() += 1;
         });
         
         let call_count_clone2 = call_count.clone();
-        dispatcher.subscribe("context_state_changed", move |_| {
+        dispatcher.subscribe("audioworklet_status_changed", move |_| {
             *call_count_clone2.borrow_mut() += 1;
         });
         
-        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 2);
+        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 2);
         
         // Publish an event
-        let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
+        let event = AudioEvent::AudioWorkletStatusChanged(crate::debug::live_panel::AudioWorkletStatus::default());
         dispatcher.publish(&event);
         
         // Both callbacks should have been called
@@ -461,16 +455,16 @@ mod tests {
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
         dispatcher.subscribe("buffer_filled", |_| {});
-        dispatcher.subscribe("context_state_changed", |_| {});
+        dispatcher.subscribe("audioworklet_status_changed", |_| {});
         
         assert_eq!(dispatcher.subscriber_count("buffer_filled"), 1);
-        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
+        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 1);
         
         dispatcher.clear_subscribers("buffer_filled");
         assert_eq!(dispatcher.subscriber_count("buffer_filled"), 0);
-        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
+        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 1);
         
         dispatcher.clear_all_subscribers();
-        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 0);
+        assert_eq!(dispatcher.subscriber_count("audioworklet_status_changed"), 0);
     }
 }

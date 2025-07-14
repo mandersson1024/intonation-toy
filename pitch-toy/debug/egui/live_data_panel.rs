@@ -5,7 +5,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
 use crate::audio::{
-    AudioPermission, AudioContextState, MusicalNote, VolumeLevel,
+    AudioPermission, MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
     BackgroundNoiseConfig,
 };
@@ -405,18 +405,5 @@ impl EguiLiveDataPanel {
             ui.checkbox(&mut self.output_to_speakers, "Output to Speakers");
         });
         
-        let context_state = self.live_data.audio_context_state.get();
-        ui.horizontal(|ui| {
-            ui.label("Audio Context:");
-            let (color, text) = match context_state {
-                AudioContextState::Uninitialized => (Color32::GRAY, "Uninitialized"),
-                AudioContextState::Initializing => (Color32::YELLOW, "Initializing"),
-                AudioContextState::Running => (Color32::GREEN, "Running"),
-                AudioContextState::Suspended => (Color32::YELLOW, "Suspended"),
-                AudioContextState::Closed => (Color32::RED, "Closed"),
-                AudioContextState::Recreating => (Color32::YELLOW, "Recreating"),
-            };
-            ui.colored_label(color, text);
-        });
     }
 }

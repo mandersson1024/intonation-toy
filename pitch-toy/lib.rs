@@ -36,7 +36,6 @@ fn App() -> Html {
             input_devices: vec![],
             output_devices: vec![],
         });
-        let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
         let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
         let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
         let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
@@ -45,7 +44,6 @@ fn App() -> Html {
         let live_data = live_data::LiveData {
             microphone_permission: microphone_permission_source.observer(),
             audio_devices: audio_devices_source.observer(),
-            audio_context_state: audio_context_state_source.observer(),
             performance_metrics: performance_metrics_source.observer(),
             volume_level: volume_level_source.observer(),
             pitch_data: pitch_data_source.observer(),

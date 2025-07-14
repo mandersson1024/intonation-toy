@@ -855,10 +855,10 @@ mod tests {
         assert!(result.is_ok());
 
         // Test processing other events (should be ignored)
-        let context_event = AudioEvent::ContextStateChanged(
-            crate::audio::AudioContextState::Running
+        let worklet_event = AudioEvent::AudioWorkletStatusChanged(
+            crate::debug::live_panel::AudioWorkletStatus::default()
         );
-        let result = analyzer.process_buffer_event(&context_event);
+        let result = analyzer.process_buffer_event(&worklet_event);
         assert!(result.is_ok());
     }
 
