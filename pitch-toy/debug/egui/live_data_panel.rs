@@ -9,7 +9,7 @@ use crate::audio::{
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
     BackgroundNoiseConfig,
 };
-use crate::debug::egui::live_data::LiveData;
+use crate::live_data::LiveData;
 
 /// Performance metrics for display
 #[derive(Debug, Clone, PartialEq)]

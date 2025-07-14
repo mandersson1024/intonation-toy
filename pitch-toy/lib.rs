@@ -8,6 +8,7 @@ pub mod platform;
 pub mod events;
 pub mod debug;
 pub mod graphics;
+pub mod live_data;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
@@ -19,7 +20,7 @@ use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
 use graphics::SpriteScene;
 
 // Import LiveData type
-use debug::egui::LiveData;
+use live_data::LiveData;
 
 /// Main application component for Pitch Toy
 #[function_component]
@@ -49,7 +50,7 @@ fn App() -> Html {
                     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
                     
                     // Create LiveData instance
-                    let live_data = debug::egui::LiveData {
+                    let live_data = live_data::LiveData {
                         microphone_permission: microphone_permission_source.observer(),
                         audio_devices: audio_devices_source.observer(),
                         audio_context_state: audio_context_state_source.observer(),

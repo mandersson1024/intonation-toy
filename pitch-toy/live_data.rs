@@ -4,7 +4,7 @@ use crate::audio::{
     AudioDevices,
     AudioContextState,
 };
-use super::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
+use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 
 pub struct LiveData {
     pub microphone_permission: DataObserver<AudioPermission>,
