@@ -47,18 +47,18 @@ pub trait DataSetter<T>: Send + Sync {
 
 type Callback<T> = Box<dyn Fn(&T) + Send + Sync>;
 
-trait ObservableDataTrait<T>: Send + Sync {
+trait DataObserverTrait<T>: Send + Sync {
     fn get(&self) -> T where T: Clone;
     fn listen(&self, callback: Callback<T>);
 }
 
 /// A thread-safe handle to observable data that can be read and listened to.
 /// This is the main type that gets distributed to observers.
-pub struct ObservableData<T> {
-    inner: Arc<dyn ObservableDataTrait<T>>,
+pub struct DataObserver<T> {
+    inner: Arc<dyn DataObserverTrait<T>>,
 }
 
-impl<T> ObservableData<T> {
+impl<T> DataObserver<T> {
     pub fn get(&self) -> T where T: Clone {
         self.inner.get()
     }
@@ -74,7 +74,7 @@ impl<T> ObservableData<T> {
     }
 }
 
-impl<T> Clone for ObservableData<T> {
+impl<T> Clone for DataObserver<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -124,8 +124,8 @@ impl<T: 'static + Clone + Send + Sync> DataSource<T> {
         }
     }
 
-    pub fn observer(&self) -> ObservableData<T> {
-        ObservableData {
+    pub fn observer(&self) -> DataObserver<T> {
+        DataObserver {
             inner: self.data.clone(),
         }
     }
@@ -138,7 +138,7 @@ impl<T: 'static + Clone + Send + Sync> DataSource<T> {
     }
 }
 
-impl<T: Clone + Send + Sync> ObservableDataTrait<T> for SharedData<T> {
+impl<T: Clone + Send + Sync> DataObserverTrait<T> for SharedData<T> {
     fn get(&self) -> T {
         self.value.read().unwrap().clone()
     }
@@ -160,7 +160,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_data_source_creation_and_get() {
         let data_source = DataSource::new(42);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         assert_eq!(observer.get(), 42);
     }
 
@@ -168,7 +168,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_data_source_set_updates_value() {
         let data_source = DataSource::new(10);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         setter.set(20);
@@ -182,8 +182,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_multiple_observers_see_same_value() {
         let data_source = DataSource::new(100);
-        let observer1: ObservableData<i32> = data_source.observer();
-        let observer2: ObservableData<i32> = data_source.observer();
+        let observer1: DataObserver<i32> = data_source.observer();
+        let observer2: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         assert_eq!(observer1.get(), 100);
@@ -198,7 +198,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_listener_called_on_set() {
         let data_source = DataSource::new(1);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         // Track if callback was called
@@ -220,7 +220,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_multiple_listeners_all_called() {
         let data_source = DataSource::new(0);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         let called1 = Arc::new(Mutex::new(false));
@@ -247,8 +247,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_listeners_from_different_observers() {
         let data_source = DataSource::new(0);
-        let observer1: ObservableData<i32> = data_source.observer();
-        let observer2: ObservableData<i32> = data_source.observer();
+        let observer1: DataObserver<i32> = data_source.observer();
+        let observer2: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         let called1 = Arc::new(Mutex::new(false));
@@ -275,7 +275,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_string_data_type() {
         let data_source = DataSource::new("hello".to_string());
-        let observer: ObservableData<String> = data_source.observer();
+        let observer: DataObserver<String> = data_source.observer();
         let setter = data_source.setter();
         
         let called = Arc::new(Mutex::new(false));
@@ -313,7 +313,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_observe_now() {
         let data_source = DataSource::new(10);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         let immediate_called = Arc::new(Mutex::new(false));
@@ -346,7 +346,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_data_setter() {
         let data_source = DataSource::new(42);
-        let observer: ObservableData<i32> = data_source.observer();
+        let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
         // Test initial value

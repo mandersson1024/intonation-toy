@@ -3,7 +3,7 @@
 
 use three_d::egui;
 use super::super::microphone_button::MicrophoneButton;
-use observable_data::{ObservableData, DataSetter};
+use observable_data::{DataObserver, DataSetter};
 use crate::audio::AudioPermission;
 
 /// EGUI microphone button wrapper for three-d + egui rendering
@@ -14,7 +14,7 @@ pub struct EguiMicrophoneButton {
 impl EguiMicrophoneButton {
     /// Create new EGUI microphone button with permission observer and setter
     pub fn new(
-        permission_observer: ObservableData<AudioPermission>,
+        permission_observer: DataObserver<AudioPermission>,
         permission_setter: impl DataSetter<AudioPermission> + Clone + 'static,
     ) -> Self {
         let mut microphone_button = MicrophoneButton::new(permission_observer);

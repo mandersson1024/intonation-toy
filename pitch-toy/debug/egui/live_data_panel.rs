@@ -4,7 +4,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
-use observable_data::ObservableData;
+use observable_data::DataObserver;
 use crate::audio::{
     AudioDevices, AudioPermission, AudioContextState, MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
@@ -101,13 +101,13 @@ pub struct EguiLiveDataPanel {
     audio_service: Rc<ConsoleAudioServiceImpl>,
     
     /// Observable data sources
-    microphone_permission: ObservableData<AudioPermission>,
-    audio_devices: ObservableData<AudioDevices>,
-    audio_context_state: ObservableData<AudioContextState>,
-    performance_metrics: ObservableData<PerformanceMetrics>,
-    volume_level: ObservableData<Option<VolumeLevelData>>,
-    pitch_data: ObservableData<Option<PitchData>>,
-    audioworklet_status: ObservableData<AudioWorkletStatus>,
+    microphone_permission: DataObserver<AudioPermission>,
+    audio_devices: DataObserver<AudioDevices>,
+    audio_context_state: DataObserver<AudioContextState>,
+    performance_metrics: DataObserver<PerformanceMetrics>,
+    volume_level: DataObserver<Option<VolumeLevelData>>,
+    pitch_data: DataObserver<Option<PitchData>>,
+    audioworklet_status: DataObserver<AudioWorkletStatus>,
     
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
@@ -122,13 +122,13 @@ impl EguiLiveDataPanel {
     /// Create new EGUI Live Data Panel
     pub fn new(
         audio_service: Rc<ConsoleAudioServiceImpl>,
-        microphone_permission: ObservableData<AudioPermission>,
-        audio_devices: ObservableData<AudioDevices>,
-        audio_context_state: ObservableData<AudioContextState>,
-        performance_metrics: ObservableData<PerformanceMetrics>,
-        volume_level: ObservableData<Option<VolumeLevelData>>,
-        pitch_data: ObservableData<Option<PitchData>>,
-        audioworklet_status: ObservableData<AudioWorkletStatus>,
+        microphone_permission: DataObserver<AudioPermission>,
+        audio_devices: DataObserver<AudioDevices>,
+        audio_context_state: DataObserver<AudioContextState>,
+        performance_metrics: DataObserver<PerformanceMetrics>,
+        volume_level: DataObserver<Option<VolumeLevelData>>,
+        pitch_data: DataObserver<Option<PitchData>>,
+        audioworklet_status: DataObserver<AudioWorkletStatus>,
     ) -> Self {
         Self {
             audio_service,

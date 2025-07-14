@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 use three_d::egui;
-use observable_data::ObservableData;
+use observable_data::DataObserver;
 use super::AudioPermission;
 
 
@@ -13,12 +13,12 @@ type ClickCallback = Arc<dyn Fn() + Send + Sync>;
 
 /// Microphone button state and behavior
 pub struct MicrophoneButton {
-    microphone_permission: ObservableData<AudioPermission>,
+    microphone_permission: DataObserver<AudioPermission>,
     click_callback: Option<ClickCallback>,
 }
 
 impl MicrophoneButton {
-    pub fn new(microphone_permission: ObservableData<AudioPermission>) -> Self {
+    pub fn new(microphone_permission: DataObserver<AudioPermission>) -> Self {
         Self {
             microphone_permission,
             click_callback: None,
