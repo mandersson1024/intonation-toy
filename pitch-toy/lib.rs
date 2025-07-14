@@ -18,9 +18,8 @@ use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
 
 use graphics::SpriteScene;
 
-
-
-
+// Import LiveData type
+use debug::egui::LiveData;
 
 /// Main application component for Pitch Toy
 #[function_component]
@@ -35,7 +34,32 @@ fn App() -> Html {
                 dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
                 initialize_canvas(&canvas_element);
                 wasm_bindgen_futures::spawn_local(async {
-                    run_three_d().await;
+                    // Create data sources for LiveData
+                    use observable_data::DataSource;
+                    
+                    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
+                    let audio_devices_source = DataSource::new(audio::AudioDevices {
+                        input_devices: vec![],
+                        output_devices: vec![],
+                    });
+                    let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
+                    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
+                    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
+                    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
+                    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+                    
+                    // Create LiveData instance
+                    let live_data = debug::egui::LiveData {
+                        microphone_permission: microphone_permission_source.observer(),
+                        audio_devices: audio_devices_source.observer(),
+                        audio_context_state: audio_context_state_source.observer(),
+                        performance_metrics: performance_metrics_source.observer(),
+                        volume_level: volume_level_source.observer(),
+                        pitch_data: pitch_data_source.observer(),
+                        audioworklet_status: audioworklet_status_source.observer(),
+                    };
+                    
+                    run_three_d(live_data, microphone_permission_source.setter()).await;
                 });
             } else {
                 dev_log!("Warning: Canvas element not found via ref");
@@ -94,22 +118,9 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 }
 
 
-pub async fn run_three_d() {
+pub async fn run_three_d(live_data: LiveData, microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static) {
     dev_log!("Starting three-d with red sprites");
     
-    use observable_data::DataSource;
-    
-    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
-    
-    let audio_devices_source = DataSource::new(audio::AudioDevices {
-        input_devices: vec![],
-        output_devices: vec![],
-    });
-    let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
-    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
-    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
-    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
-    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
     
     let window = Window::new(WindowSettings {
         title: "pitch-toy".to_string(),
@@ -128,24 +139,15 @@ pub async fn run_three_d() {
 
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(command_registry);
     let mut microphone_button = EguiMicrophoneButton::new(
-        microphone_permission_source.observer(),
-        microphone_permission_source.setter(),
+        live_data.microphone_permission.clone(),
+        microphone_permission_setter,
     );
     
     // Create audio service for LiveDataPanel
     let audio_service = std::rc::Rc::new(audio::create_console_audio_service());
     
     // Create LiveDataPanel
-    let mut live_data_panel = EguiLiveDataPanel::new(
-        audio_service.clone(),
-        microphone_permission_source.observer(),
-        audio_devices_source.observer(),
-        audio_context_state_source.observer(),
-        performance_metrics_source.observer(),
-        volume_level_source.observer(),
-        pitch_data_source.observer(),
-        audioworklet_status_source.observer(),
-    );
+    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data);
 
     dev_log!("Starting three-d + egui render loop");
     

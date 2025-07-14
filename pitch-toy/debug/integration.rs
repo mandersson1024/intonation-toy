@@ -51,7 +51,7 @@ impl Component for DebugInterface {
         component
     }
 
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             DebugInterfaceMsg::ToggleVisibility => {
                 self.visible = !self.visible;

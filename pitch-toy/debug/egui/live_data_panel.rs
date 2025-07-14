@@ -4,12 +4,12 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
-use observable_data::DataObserver;
 use crate::audio::{
-    AudioDevices, AudioPermission, AudioContextState, MusicalNote, VolumeLevel,
+    AudioPermission, AudioContextState, MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
     BackgroundNoiseConfig,
 };
+use crate::debug::egui::live_data::LiveData;
 
 /// Performance metrics for display
 #[derive(Debug, Clone, PartialEq)]
@@ -100,14 +100,7 @@ pub struct EguiLiveDataPanel {
     /// Audio service for device operations
     audio_service: Rc<ConsoleAudioServiceImpl>,
     
-    /// Observable data sources
-    microphone_permission: DataObserver<AudioPermission>,
-    audio_devices: DataObserver<AudioDevices>,
-    audio_context_state: DataObserver<AudioContextState>,
-    performance_metrics: DataObserver<PerformanceMetrics>,
-    volume_level: DataObserver<Option<VolumeLevelData>>,
-    pitch_data: DataObserver<Option<PitchData>>,
-    audioworklet_status: DataObserver<AudioWorkletStatus>,
+    live_data: LiveData,
     
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
@@ -122,23 +115,11 @@ impl EguiLiveDataPanel {
     /// Create new EGUI Live Data Panel
     pub fn new(
         audio_service: Rc<ConsoleAudioServiceImpl>,
-        microphone_permission: DataObserver<AudioPermission>,
-        audio_devices: DataObserver<AudioDevices>,
-        audio_context_state: DataObserver<AudioContextState>,
-        performance_metrics: DataObserver<PerformanceMetrics>,
-        volume_level: DataObserver<Option<VolumeLevelData>>,
-        pitch_data: DataObserver<Option<PitchData>>,
-        audioworklet_status: DataObserver<AudioWorkletStatus>,
+        live_data: LiveData,
     ) -> Self {
         Self {
             audio_service,
-            microphone_permission,
-            audio_devices,
-            audio_context_state,
-            performance_metrics,
-            volume_level,
-            pitch_data,
-            audioworklet_status,
+            live_data,
             test_signal_config: TestSignalConfig::default(),
             background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
@@ -192,8 +173,8 @@ impl EguiLiveDataPanel {
     fn render_audio_devices_section(&self, ui: &mut Ui) {
         ui.heading("Audio Devices");
         
-        let permission = self.microphone_permission.get();
-        let devices = self.audio_devices.get();
+        let permission = self.live_data.microphone_permission.get();
+        let devices = self.live_data.audio_devices.get();
         
         ui.horizontal(|ui| {
             ui.label("Microphone Permission:");
@@ -226,7 +207,7 @@ impl EguiLiveDataPanel {
     fn render_audioworklet_status_section(&self, ui: &mut Ui) {
         ui.heading("AudioWorklet Status");
         
-        let status = self.audioworklet_status.get();
+        let status = self.live_data.audioworklet_status.get();
         
         ui.horizontal(|ui| {
             ui.label("State:");
@@ -261,7 +242,7 @@ impl EguiLiveDataPanel {
     fn render_performance_metrics_section(&mut self, ui: &mut Ui) {
         ui.heading("Performance Metrics");
         
-        let metrics = self.performance_metrics.get();
+        let metrics = self.live_data.performance_metrics.get();
         
         // Update metrics periodically
         let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
@@ -307,7 +288,7 @@ impl EguiLiveDataPanel {
     fn render_volume_level_section(&self, ui: &mut Ui) {
         ui.heading("Volume Level");
         
-        if let Some(volume) = self.volume_level.get() {
+        if let Some(volume) = self.live_data.volume_level.get() {
             ui.horizontal(|ui| {
                 ui.label("Level:");
                 let (color, text) = match volume.level {
@@ -356,7 +337,7 @@ impl EguiLiveDataPanel {
     fn render_pitch_detection_section(&self, ui: &mut Ui) {
         ui.heading("Pitch Detection");
         
-        if let Some(pitch) = self.pitch_data.get() {
+        if let Some(pitch) = self.live_data.pitch_data.get() {
             ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
             ui.label(format!("Note: {} ({})", pitch.note.note, pitch.note.octave));
             ui.label(format!("Cents: {:+.1}", pitch.note.cents));
@@ -424,7 +405,7 @@ impl EguiLiveDataPanel {
             ui.checkbox(&mut self.output_to_speakers, "Output to Speakers");
         });
         
-        let context_state = self.audio_context_state.get();
+        let context_state = self.live_data.audio_context_state.get();
         ui.horizontal(|ui| {
             ui.label("Audio Context:");
             let (color, text) = match context_state {
