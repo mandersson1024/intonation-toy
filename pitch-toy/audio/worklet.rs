@@ -82,6 +82,34 @@ impl fmt::Display for AudioWorkletState {
     }
 }
 
+/// Publish AudioWorklet status update to Live Data Panel
+pub fn publish_audioworklet_status(
+    event_dispatcher: &crate::events::AudioEventDispatcher,
+    state: AudioWorkletState,
+    processor_loaded: bool,
+    chunks_processed: u32
+) {
+    use crate::common::dev_log;
+    
+    #[cfg(target_arch = "wasm32")]
+    let timestamp = js_sys::Date::now();
+    #[cfg(not(target_arch = "wasm32"))]
+    let timestamp = 0.0;
+    
+    let status = crate::debug::live_panel::AudioWorkletStatus {
+        state: state.clone(),
+        processor_loaded,
+        chunk_size: 128, // Web Audio API standard
+        chunks_processed,
+        last_update: timestamp,
+    };
+    
+    let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
+    event_dispatcher.borrow().publish(&status_event);
+    
+    dev_log!("Published AudioWorklet status: {} (processor: {})", state, processor_loaded);
+}
+
 /// AudioWorklet configuration
 #[derive(Debug, Clone)]
 pub struct AudioWorkletConfig {
@@ -546,12 +574,17 @@ impl AudioWorkletManager {
             let chunks_processed = shared_data.borrow().chunks_processed;
             
             // Create status update for Live Data Panel
+            #[cfg(target_arch = "wasm32")]
+            let timestamp = js_sys::Date::now();
+            #[cfg(not(target_arch = "wasm32"))]
+            let timestamp = 0.0;
+            
             let status = crate::debug::live_panel::AudioWorkletStatus {
                 state,
                 processor_loaded: true, // If we're getting messages, processor is loaded
                 chunk_size: 128, // Web Audio API standard
                 chunks_processed,
-                last_update: js_sys::Date::now(),
+                last_update: timestamp,
             };
             
             // Publish AudioWorklet status event
@@ -1258,35 +1291,6 @@ mod tests {
         mgr.set_volume_detector(VolumeDetector::new_default());
         assert!(mgr.update_volume_config(config).is_ok());
     }
-}
-
-/// Publish AudioWorklet status update to Live Data Panel
-#[cfg(not(test))]
-pub fn publish_audioworklet_status(
-    event_dispatcher: &crate::events::AudioEventDispatcher,
-    state: AudioWorkletState,
-    processor_loaded: bool,
-    chunks_processed: u32
-) {
-    use crate::common::dev_log;
-    
-    #[cfg(target_arch = "wasm32")]
-    let timestamp = js_sys::Date::now();
-    #[cfg(not(target_arch = "wasm32"))]
-    let timestamp = 0.0;
-    
-    let status = crate::debug::live_panel::AudioWorkletStatus {
-        state: state.clone(),
-        processor_loaded,
-        chunk_size: 128, // Web Audio API standard
-        chunks_processed,
-        last_update: timestamp,
-    };
-    
-    let status_event = crate::events::audio_events::AudioEvent::AudioWorkletStatusChanged(status);
-    event_dispatcher.borrow().publish(&status_event);
-    
-    dev_log!("Published AudioWorklet status: {} (processor: {})", state, processor_loaded);
 }
 
 /// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
