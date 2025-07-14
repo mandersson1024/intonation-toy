@@ -16,9 +16,11 @@ This command will:
 Please implement the plan for: $ARGUMENTS
 
 Steps:
-1. Find and load the relevant plan file
+1. Find and load the relevant plan file from docs/implement_[feature-name].md
 2. Convert plan items to TodoWrite format for tracking
 3. Implement each task systematically
-4. Mark tasks as completed in both TodoWrite and the plan file
-5. Run tests after each significant change
-6. Ensure all linting passes before declaring completion
+4. Update header comments with usage examples to all modules that have been touched
+5. Mark tasks as completed in both TodoWrite and update the plan file with ✅ checkmarks
+6. Run tests after each significant change using `wasm-pack test --node`
+7. Ensure all linting passes before declaring completion
+8. Save final status to the plan file in docs/

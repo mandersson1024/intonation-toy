@@ -20,4 +20,5 @@ Research the codebase first, then create a detailed plan with:
 4. Testing considerations
 5. Potential challenges and solutions
 
-Save the plan as a markdown file with a TODO checklist format.
+Save the plan as a markdown file with a TODO checklist format in the docs/ directory.
+Use filename format: docs/implement_[feature-name].md
