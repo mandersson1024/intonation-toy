@@ -15,7 +15,7 @@ use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
 use platform::{Platform, PlatformValidationResult};
-use debug::egui::EguiMicrophoneButton;
+use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
 
 use graphics::SpriteScene;
 
@@ -104,6 +104,17 @@ pub async fn run_three_d() {
     
     let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
     
+    // Create data sources for LiveDataPanel
+    let audio_devices_source = DataSource::new(audio::AudioDevices {
+        input_devices: vec![],
+        output_devices: vec![],
+    });
+    let audio_context_state_source = DataSource::new(audio::AudioContextState::Uninitialized);
+    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
+    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
+    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
+    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+    
     let _live_data = LiveData {
         microphone_permission: microphone_permission_source.observer(),
     };
@@ -128,6 +139,21 @@ pub async fn run_three_d() {
         microphone_permission_source.observer(),
         microphone_permission_source.setter(),
     );
+    
+    // Create audio service for LiveDataPanel
+    let audio_service = std::rc::Rc::new(audio::create_console_audio_service());
+    
+    // Create LiveDataPanel
+    let mut live_data_panel = EguiLiveDataPanel::new(
+        audio_service.clone(),
+        microphone_permission_source.observer(),
+        audio_devices_source.observer(),
+        audio_context_state_source.observer(),
+        performance_metrics_source.observer(),
+        volume_level_source.observer(),
+        pitch_data_source.observer(),
+        audioworklet_status_source.observer(),
+    );
 
     dev_log!("Starting three-d + egui render loop");
     
@@ -139,6 +165,7 @@ pub async fn run_three_d() {
             |gui_context| {
                 dev_console.render(gui_context);
                 microphone_button.render(gui_context);
+                live_data_panel.render(gui_context);
             }
         );
         
