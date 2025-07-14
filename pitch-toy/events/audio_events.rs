@@ -169,6 +169,9 @@ mod tests {
    use crate::audio::AudioDevices;
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_audio_event_types() {
         let devices = AudioDevices::new();
         let device_event = AudioEvent::DeviceListChanged(devices);
@@ -182,6 +185,9 @@ mod tests {
     }
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_audio_event_descriptions() {
         let devices = AudioDevices::new();
         let device_event = AudioEvent::DeviceListChanged(devices);
@@ -194,6 +200,9 @@ mod tests {
         assert!(context_event.description().contains("Audio context state changed"));
     }
 
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_event_types_and_descriptions() {
         let filled = AudioEvent::BufferFilled { buffer_index: 0, length: 1024 };
@@ -209,6 +218,9 @@ mod tests {
         assert!(metrics.description().contains("8 buffers"));
     }
 
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_event_types_and_descriptions() {
         use crate::audio::{NoteName, MusicalNote};
@@ -243,6 +255,9 @@ mod tests {
         assert!(confidence_changed.description().contains("confidence=0.70"));
     }
 
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_event_types_and_descriptions() {
         use crate::audio::VolumeLevel;
@@ -290,6 +305,9 @@ mod tests {
     // Event Publishing and Subscription Integration Tests (Task 8 Requirements)
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_event_dispatcher_integration() {
         use event_dispatcher::EventDispatcher;
         use std::rc::Rc;
@@ -330,6 +348,8 @@ mod tests {
         assert_eq!(dispatcher.subscriber_count("pitch_detected"), 1);
     }
 
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]  
     fn test_event_types_integration() {
         // Test that all event types work correctly
@@ -362,6 +382,9 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_shared_audio_dispatcher() {
         let shared_dispatcher = create_shared_audio_dispatcher();
         
@@ -378,6 +401,9 @@ mod tests {
     // Generic EventDispatcher tests with AudioEvent
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_audio_event_dispatcher_creation() {
         use event_dispatcher::EventDispatcher;
         
@@ -386,6 +412,9 @@ mod tests {
         assert!(dispatcher.subscribed_event_types().is_empty());
     }
     
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_event_subscription() {
         use event_dispatcher::EventDispatcher;
@@ -406,6 +435,9 @@ mod tests {
         assert!(dispatcher.subscribed_event_types().contains(&"permission_changed"));
     }
     
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_event_publishing() {
         use event_dispatcher::EventDispatcher;
@@ -438,6 +470,9 @@ mod tests {
     }
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_audio_event_multiple_subscribers() {
         use event_dispatcher::EventDispatcher;
         use crate::audio::AudioPermission;
@@ -468,6 +503,9 @@ mod tests {
         assert_eq!(*call_count.borrow(), 2);
     }
     
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_event_clear_subscribers() {
         use event_dispatcher::EventDispatcher;

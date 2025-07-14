@@ -250,6 +250,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_event_dispatcher_basic_functionality() {
         use std::sync::{Arc, Mutex};
@@ -286,6 +287,7 @@ mod tests {
         assert_eq!(dispatcher.subscriber_count("test_a"), 0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_publish_direct() {
         use std::sync::{Arc, Mutex};
@@ -309,6 +311,7 @@ mod tests {
         assert_eq!(events[0], test_event);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_multiple_subscribers() {
         use std::sync::{Arc, Mutex};
@@ -339,6 +342,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_different_event_types() {
         use std::sync::{Arc, Mutex};
@@ -376,6 +380,7 @@ mod tests {
         assert_eq!(b_events[0], event_b);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_shared_event_dispatcher() {
         use std::sync::{Arc, Mutex};
@@ -404,6 +409,7 @@ mod tests {
         assert_eq!(events[0], test_event);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_unsubscribe() {
         use std::sync::{Arc, Mutex};

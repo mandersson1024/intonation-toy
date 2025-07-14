@@ -122,6 +122,9 @@ mod tests {
      use wasm_bindgen_test::wasm_bindgen_test;
    
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_input_event_types() {
         let mouse_click = InputEvent::MouseClick {
             position: (100.0, 200.0),
@@ -154,6 +157,9 @@ mod tests {
     }
     
     #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[wasm_bindgen_test]
     fn test_input_event_descriptions() {
         let mouse_click = InputEvent::MouseClick {
             position: (100.0, 200.0),
@@ -182,6 +188,9 @@ mod tests {
         assert!(hit_test.description().contains("(150.0, 250.0)"));
     }
     
+    #[wasm_bindgen_test]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_input_event_no_target() {
         let mouse_click = InputEvent::MouseClick {

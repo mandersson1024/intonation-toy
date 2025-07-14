@@ -121,6 +121,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_pool_creation_and_metrics() {
         let pool = BufferPool::<f32>::new(4, 256).unwrap();
@@ -131,6 +132,7 @@ mod tests {
         assert_eq!(pool.memory_usage_bytes(), 4 * 256 * 4);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_pool_overflow_tracking() {
         let mut pool = BufferPool::<f32>::new(2, 256).unwrap();
@@ -143,6 +145,7 @@ mod tests {
         assert!(pool.total_overflows() > 0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_pool_memory_limit_enforcement() {
         // This should fail: 1000 buffers * 2048 samples * 4 bytes ≈ 7.8 MB (< 50MB) so pass

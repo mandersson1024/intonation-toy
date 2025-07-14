@@ -355,6 +355,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_size_constants() {
         assert_eq!(PRODUCTION_BUFFER_SIZE, 4096);
@@ -364,6 +365,7 @@ mod tests {
         assert_eq!(AUDIO_CHUNK_SIZE, 128);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_size_validation() {
         // Valid sizes (multiples of 128)
@@ -377,6 +379,7 @@ mod tests {
         assert!(validate_buffer_size(1000).is_err());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_size_validation_for_creation() {
         // Valid sizes for creation in debug mode
@@ -396,6 +399,7 @@ mod tests {
         assert!(validate_buffer_size_for_creation(1000).is_err());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_get_buffer_size() {
         let size = get_buffer_size();
@@ -408,6 +412,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_buffer_state_display() {
         assert_eq!(BufferState::Empty.to_string(), "Empty");
@@ -417,6 +422,7 @@ mod tests {
         assert_eq!(BufferState::Processing.to_string(), "Processing");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_creation() {
         let buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -427,6 +433,7 @@ mod tests {
         assert_eq!(buffer.state(), BufferState::Empty);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_invalid_size() {
         let result = CircularBuffer::<f32>::new(100);
@@ -434,6 +441,7 @@ mod tests {
         assert!(result.unwrap_err().contains("must be a multiple of 128"));
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_write_read() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -456,6 +464,7 @@ mod tests {
         assert_eq!(buffer.state(), BufferState::Empty);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_overflow() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -478,6 +487,7 @@ mod tests {
         assert_eq!(buffer.read(), Some(1.0)); // First sample (0.0) was evicted
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_chunk_operations() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -496,6 +506,7 @@ mod tests {
         assert_eq!(buffer.len(), 2);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -515,6 +526,7 @@ mod tests {
         assert_eq!(peeked, vec![1.0, 2.0, 3.0]);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_sequential_block() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -533,6 +545,7 @@ mod tests {
         assert_eq!(block, None);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_clear() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -553,6 +566,7 @@ mod tests {
         assert!(!buffer.has_overflowed());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_default() {
         let buffer = CircularBuffer::<f32>::default();
@@ -561,6 +575,7 @@ mod tests {
         assert_eq!(buffer.state(), BufferState::Empty);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_overflow_count_and_reset() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -582,6 +597,7 @@ mod tests {
         assert_eq!(buffer.overflow_count(), 0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek_chunk() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -610,6 +626,7 @@ mod tests {
         assert_eq!(read, 0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek_chunk_vec() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -633,6 +650,7 @@ mod tests {
         assert_eq!(peeked, Vec::<f32>::new());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_circular_buffer_can_read_window() {
         let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
@@ -653,6 +671,7 @@ mod tests {
         assert!(!buffer.can_read_window(10, 1));
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_sliding_window_simulation() {
         let mut buffer = CircularBuffer::<f32>::new(1024).unwrap();

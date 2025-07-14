@@ -1127,6 +1127,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_state_display() {
         assert_eq!(AudioWorkletState::Uninitialized.to_string(), "Uninitialized");
@@ -1137,6 +1138,7 @@ mod tests {
         assert_eq!(AudioWorkletState::Failed.to_string(), "Failed");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_config_default() {
         let config = AudioWorkletConfig::default();
@@ -1145,6 +1147,7 @@ mod tests {
         assert_eq!(config.output_channels, 1);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_config_builders() {
         let stereo_config = AudioWorkletConfig::stereo();
@@ -1157,6 +1160,7 @@ mod tests {
         
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_manager_new() {
         let manager = AudioWorkletManager::new();
@@ -1166,6 +1170,7 @@ mod tests {
         assert!(manager.get_processing_node().is_none());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_manager_with_config() {
         let config = AudioWorkletConfig::stereo();
@@ -1177,6 +1182,7 @@ mod tests {
     }
 
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_manager_disconnect() {
         let mut manager = AudioWorkletManager::new();
@@ -1186,6 +1192,7 @@ mod tests {
         assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_feed_input_chunk_and_events() {
         use crate::audio::{BufferPool, VolumeDetector};
@@ -1220,6 +1227,7 @@ mod tests {
         assert!(mgr.last_volume_analysis().is_some());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_detection_integration() {
         use crate::audio::{BufferPool, VolumeDetector, VolumeDetectorConfig};
@@ -1260,6 +1268,7 @@ mod tests {
         assert!(analysis.confidence_weight > 0.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_config_update() {
         let mut mgr = AudioWorkletManager::new();

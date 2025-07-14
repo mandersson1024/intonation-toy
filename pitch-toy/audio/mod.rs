@@ -280,6 +280,7 @@ mod tests {
    
 
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_error_types() {
         let permission_error = AudioError::PermissionDenied("Test permission denied".to_string());
@@ -303,6 +304,7 @@ mod tests {
         assert!(generic_error.to_string().contains("Test generic error"));
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_microphone_state_enum() {
         // Test all microphone states
@@ -317,6 +319,7 @@ mod tests {
         assert_ne!(AudioPermission::Granted, AudioPermission::Denied);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_state_enum() {
         // Test all audio context states
@@ -332,6 +335,7 @@ mod tests {
         assert_ne!(AudioContextState::Running, AudioContextState::Suspended);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_stream_state_enum() {
         // Test all stream states
@@ -346,6 +350,7 @@ mod tests {
         assert_ne!(StreamState::Connecting, StreamState::Reconnecting);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_stream_error_types() {
         let device_disconnected = StreamError::DeviceDisconnected;
@@ -368,6 +373,7 @@ mod tests {
         assert!(config_error.to_string().contains("Test config error"));
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
@@ -377,6 +383,7 @@ mod tests {
         assert!(info.device_label.is_none());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
@@ -385,6 +392,7 @@ mod tests {
         assert_eq!(config.max_recreation_attempts, 3);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_stream_config_default() {
         let config = StreamConfig::default();
@@ -394,6 +402,7 @@ mod tests {
         assert_eq!(config.activity_timeout_ms, 10000);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_manager_creation() {
         // Test that all managers can be created successfully
@@ -407,6 +416,7 @@ mod tests {
         assert_eq!(stream_handler.get_health().state, StreamState::Disconnected);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_error_handling_integration() {
         // Test that error types can be properly used together

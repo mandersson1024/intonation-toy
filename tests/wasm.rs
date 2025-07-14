@@ -14,6 +14,8 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_build_configuration() {
     // Test that WASM compilation works and can detect build configuration
     let config = if cfg!(debug_assertions) { "Development" } else { "Production" };
@@ -21,6 +23,8 @@ fn test_wasm_build_configuration() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_audio_data_structures() {
     // Test that audio data structures work correctly in WASM
@@ -48,6 +52,8 @@ fn test_wasm_audio_data_structures() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_manager_creation() {
     // Test that audio managers can be created in WASM environment
     let mic_manager = MicrophoneManager::new();
@@ -62,6 +68,8 @@ fn test_wasm_manager_creation() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_api_support_detection() {
     // Test Web Audio API support detection in browser environment
     let mic_supported = MicrophoneManager::is_supported();
@@ -74,6 +82,8 @@ fn test_wasm_api_support_detection() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_audio_context_configuration() {
     // Test AudioContext configuration builders work in WASM
@@ -91,6 +101,8 @@ fn test_wasm_audio_context_configuration() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_stream_health_monitoring() {
     // Test stream health structures work correctly in WASM
@@ -114,6 +126,8 @@ fn test_wasm_stream_health_monitoring() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_pitch_detector_creation() {
     // Test that pitch detector can be created in WASM environment
     let config = PitchDetectorConfig::default();
@@ -127,6 +141,8 @@ fn test_wasm_pitch_detector_creation() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_pitch_analyzer_creation() {
     // Test that pitch analyzer can be created in WASM environment
     let config = PitchDetectorConfig::default();
@@ -138,6 +154,8 @@ fn test_wasm_pitch_analyzer_creation() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_note_mapper_tuning_systems() {
     // Test that all tuning systems work in WASM
@@ -157,6 +175,8 @@ fn test_wasm_note_mapper_tuning_systems() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_pitch_detection_sine_wave() {
     // Test pitch detection with generated sine wave in WASM
@@ -185,6 +205,8 @@ fn test_wasm_pitch_detection_sine_wave() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
+#[allow(dead_code)]
+#[wasm_bindgen_test]
 fn test_wasm_pitch_detection_memory_efficiency() {
     // Test memory efficiency in WASM environment
     let config = PitchDetectorConfig::default();
@@ -197,6 +219,8 @@ fn test_wasm_pitch_detection_memory_efficiency() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_performance_characteristics() {
     // Test performance characteristic calculation in WASM
@@ -216,6 +240,8 @@ fn test_wasm_performance_characteristics() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+#[allow(dead_code)]
 #[wasm_bindgen_test]
 fn test_wasm_pitch_analyzer_with_buffer() {
     // Test pitch analyzer with pre-allocated buffer for zero-allocation processing
@@ -241,6 +267,7 @@ fn test_wasm_pitch_analyzer_with_buffer() {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
 #[wasm_bindgen_test] 
 fn test_wasm_pitch_detection_frequency_range() {
     // Test frequency range detection in WASM

@@ -702,6 +702,7 @@ mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;   
     
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_command() {
         let command = TuningCommand;
@@ -710,6 +711,7 @@ mod tests {
         assert_eq!(command.description(), "Switch tuning system (equal/just/custom)");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_command_execution() {
         use egui_dev_console::ConsoleCommandRegistry;

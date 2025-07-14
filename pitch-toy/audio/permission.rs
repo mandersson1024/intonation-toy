@@ -249,6 +249,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_error_to_permission_mapping() {
         let error = AudioError::PermissionDenied("test".to_string());
@@ -267,6 +268,7 @@ mod tests {
         assert_eq!(PermissionManager::error_to_permission(&error), AudioPermission::Unavailable);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_error_to_state_mapping() {
         let error = AudioError::PermissionDenied("test".to_string());
@@ -280,6 +282,7 @@ mod tests {
     }
 
     #[cfg(target_arch = "wasm32")]
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_is_supported() {
         // Test that is_supported doesn't panic
@@ -288,6 +291,7 @@ mod tests {
         assert!(true);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_permission_check_structure() {
         // Test that the check function has the correct return type structure

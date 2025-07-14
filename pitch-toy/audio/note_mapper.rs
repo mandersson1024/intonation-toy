@@ -245,6 +245,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_mapper_creation() {
         let tuning = TuningSystem::EqualTemperament {
@@ -260,6 +261,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_mapper_default() {
         let mapper = NoteMapper::default();
@@ -272,6 +274,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_equal_temperament_a4() {
         let mapper = NoteMapper::default();
@@ -283,6 +286,7 @@ mod tests {
         assert_eq!(note.frequency, 440.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_equal_temperament_c4() {
         let mapper = NoteMapper::default();
@@ -294,6 +298,7 @@ mod tests {
         assert_eq!(note.frequency, 261.63);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_equal_temperament_octaves() {
         let mapper = NoteMapper::default();
@@ -315,6 +320,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_equal_temperament_chromatic() {
         let mapper = NoteMapper::default();
@@ -343,6 +349,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_to_frequency_equal_temperament() {
         let mapper = NoteMapper::default();
@@ -356,6 +363,7 @@ mod tests {
         assert!((frequency - 261.63).abs() < 0.01);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_just_intonation() {
         let tuning = TuningSystem::JustIntonation {
@@ -370,6 +378,7 @@ mod tests {
         assert!(note.cents.abs() < 10.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_just_intonation_perfect_fifth() {
         let tuning = TuningSystem::JustIntonation {
@@ -384,6 +393,7 @@ mod tests {
         assert_eq!(note.octave, 4);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_custom_tuning() {
         let custom_ratios = vec![1.0, 1.125, 1.25, 1.333, 1.5, 1.667, 1.875, 2.0];
@@ -404,6 +414,7 @@ mod tests {
         assert!(cents_diff < 50.0); // Should be reasonably close
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_to_note_custom_tuning_empty() {
         let tuning = TuningSystem::Custom {
@@ -417,6 +428,7 @@ mod tests {
         assert_eq!(note.octave, 4);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_to_frequency_just_intonation() {
         let tuning = TuningSystem::JustIntonation {
@@ -431,6 +443,7 @@ mod tests {
         assert!((frequency - 440.0).abs() < 10.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_to_frequency_custom_tuning() {
         let custom_ratios = vec![1.0, 1.125, 1.25, 1.333, 1.5, 1.667, 1.875, 2.0];
@@ -446,6 +459,7 @@ mod tests {
         assert!((frequency - 440.0).abs() < 0.01);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_calculate_cents() {
         let mapper = NoteMapper::default();
@@ -463,6 +477,7 @@ mod tests {
         assert!((actual_cents - expected_cents).abs() < 0.01);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_calculate_cents_invalid_input() {
         let mapper = NoteMapper::default();
@@ -477,6 +492,7 @@ mod tests {
         assert_eq!(mapper.calculate_cents(440.0, -440.0), 0.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_set_tuning_system() {
         let mut mapper = NoteMapper::default();
@@ -503,6 +519,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_midi_note_to_name() {
         let mapper = NoteMapper::default();
@@ -530,6 +547,7 @@ mod tests {
         assert_eq!(mapper.midi_note_to_name(-2), NoteName::ASharp);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_name_to_index() {
         let mapper = NoteMapper::default();
@@ -548,6 +566,7 @@ mod tests {
         assert_eq!(mapper.note_name_to_index(&NoteName::B), 11);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_to_midi_number() {
         let mapper = NoteMapper::default();
@@ -565,6 +584,7 @@ mod tests {
         assert_eq!(mapper.note_to_midi_number(&note), 12.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_reference_pitch_variations() {
         // Test different reference pitches
@@ -588,6 +608,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_just_intonation_ratios() {
         let tuning = TuningSystem::JustIntonation {
@@ -609,6 +630,7 @@ mod tests {
         assert_eq!(note.octave, 5);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_frequency_accuracy() {
         let mapper = NoteMapper::default();
@@ -638,6 +660,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_edge_cases() {
         let mapper = NoteMapper::default();
@@ -657,6 +680,7 @@ mod tests {
 
     // Comprehensive Tuning System Tests (Task 8 Requirements)
     
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_all_tuning_systems_with_a4_440hz() {
         // A4 (440Hz) - Standard tuning reference test for all systems
@@ -686,6 +710,7 @@ mod tests {
         assert!(custom_note.cents.abs() < 50.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_all_tuning_systems_with_c4_middle_c() {
         // C4 (261.63Hz) - Middle C for note mapping validation
@@ -706,6 +731,7 @@ mod tests {
         assert!(just_note.cents.abs() < 20.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_all_tuning_systems_with_e4_major_third() {
         // E4 (329.63Hz) - Major third for tuning system testing
@@ -726,6 +752,7 @@ mod tests {
         assert!(just_note.cents.abs() < 50.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_all_tuning_systems_with_g4_perfect_fifth() {
         // G4 (392.00Hz) - Perfect fifth for harmonic validation
@@ -745,6 +772,7 @@ mod tests {
         assert!(just_note.cents.abs() < 50.0); // Relaxed tolerance for just intonation
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_system_frequency_sweep() {
         // Test frequency sweep: 100Hz-1000Hz for range validation across all tuning systems
@@ -775,6 +803,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_custom_tuning_system_validation() {
         // Test custom tuning system with microtonal intervals
@@ -803,6 +832,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_comprehensive_reference_pitch_variations() {
         // Test different reference pitches (420Hz-460Hz range as specified)

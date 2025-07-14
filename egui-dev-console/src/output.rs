@@ -179,6 +179,7 @@ mod tests {
 
     // No wasm_bindgen_test_configure! needed for Node.js
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_output_creation() {
         let info = ConsoleOutput::info("Test info");
@@ -195,6 +196,7 @@ mod tests {
 
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_output_display() {
         let info = ConsoleOutput::info("Hello");
@@ -213,6 +215,7 @@ mod tests {
         assert_eq!(empty.to_string(), "");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_entry() {
         let output = ConsoleOutput::info("Test message");
@@ -221,6 +224,7 @@ mod tests {
         assert_eq!(entry.output, output);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_output_manager() {
         let mut manager = ConsoleOutputManager::new();
@@ -236,6 +240,7 @@ mod tests {
         assert_eq!(visible.len(), 2);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_output_manager_size_limit() {
         let mut manager = ConsoleOutputManager::with_settings(2);
@@ -250,6 +255,7 @@ mod tests {
         assert_eq!(entries[1].output.message(), "Second");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_output_manager_clear() {
         let mut manager = ConsoleOutputManager::new();

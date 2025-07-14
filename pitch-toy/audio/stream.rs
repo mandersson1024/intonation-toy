@@ -457,6 +457,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_stream_config_defaults() {
         let config = StreamConfig::default();
@@ -466,6 +467,7 @@ mod tests {
         assert_eq!(config.activity_timeout_ms, 10000);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     #[cfg(target_arch = "wasm32")]
     fn test_stream_handler_creation() {
@@ -474,6 +476,7 @@ mod tests {
         assert!(!handler.is_connected());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     #[cfg(not(target_arch = "wasm32"))]
     fn test_stream_handler_creation_native() {
@@ -489,6 +492,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_stream_error_display() {
         let error = StreamError::DeviceDisconnected;

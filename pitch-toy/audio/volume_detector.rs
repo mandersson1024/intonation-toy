@@ -249,6 +249,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_level_classification() {
         assert_eq!(VolumeAnalysis::classify_volume_level(5.0), VolumeLevel::Clipping);
@@ -259,6 +260,7 @@ mod tests {
         assert_eq!(VolumeAnalysis::classify_volume_level(-65.0), VolumeLevel::Silent);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_weight_calculation() {
         // Test confidence weights for different volume levels
@@ -280,6 +282,7 @@ mod tests {
         assert_eq!(VolumeAnalysis::calculate_confidence_weight(0.0, &VolumeLevel::Clipping), 0.1);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_detector_config_validation() {
         let mut config = VolumeDetectorConfig::new();
@@ -301,6 +304,7 @@ mod tests {
         assert!(config.validate().is_err());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_detector_creation() {
         let detector = VolumeDetector::new_default();
@@ -317,6 +321,7 @@ mod tests {
         assert!(detector.is_ok());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_db_linear_conversions() {
         let detector = VolumeDetector::new_default();
@@ -331,6 +336,7 @@ mod tests {
         assert_eq!(detector.db_to_linear(-f32::INFINITY), 0.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_processing() {
         let mut detector = VolumeDetector::new_default();
@@ -356,6 +362,7 @@ mod tests {
         assert!(analysis.confidence_weight > 0.3);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_peak_detector_behavior() {
         let mut detector = VolumeDetector::new_default();
@@ -374,6 +381,7 @@ mod tests {
         // Note: Fast peak might not always be less than slow peak depending on timing
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_empty_buffer_handling() {
         let mut detector = VolumeDetector::new_default();
@@ -383,6 +391,7 @@ mod tests {
         assert_eq!(analysis.level, VolumeLevel::Silent);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_nan_and_infinity_handling() {
         let mut detector = VolumeDetector::new_default();
@@ -396,6 +405,7 @@ mod tests {
         assert!(analysis.peak_db.is_finite());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_config_update() {
         let mut detector = VolumeDetector::new_default();
@@ -411,6 +421,7 @@ mod tests {
         assert_eq!(detector.config().noise_floor_db, -50.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_level_display() {
         assert_eq!(VolumeLevel::Silent.to_string(), "Silent");
@@ -420,6 +431,7 @@ mod tests {
         assert_eq!(VolumeLevel::Clipping.to_string(), "Clipping");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_reset_functionality() {
         let mut detector = VolumeDetector::new_default();

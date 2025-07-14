@@ -484,6 +484,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_result_creation() {
         let result = PitchResult::new(440.0, 0.9, 1000.0, 0.8);
@@ -493,6 +494,7 @@ mod tests {
         assert_eq!(result.clarity, 0.8);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_musical_note_creation() {
         let note = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
@@ -502,6 +504,7 @@ mod tests {
         assert_eq!(note.frequency, 440.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_musical_note_display() {
         let note = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
@@ -511,6 +514,7 @@ mod tests {
         assert_eq!(format!("{}", sharp_note), "C#5");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_name_display() {
         assert_eq!(format!("{}", NoteName::C), "C");
@@ -527,6 +531,7 @@ mod tests {
         assert_eq!(format!("{}", NoteName::B), "B");
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_system_equal_temperament() {
         let tuning = TuningSystem::EqualTemperament {
@@ -540,6 +545,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_system_just_intonation() {
         let tuning = TuningSystem::JustIntonation {
@@ -553,6 +559,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_system_custom() {
         let ratios = vec![1.0, 1.125, 1.25, 1.333, 1.5, 1.667, 1.875, 2.0];
@@ -567,6 +574,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_tuning_system_default() {
         let tuning = TuningSystem::default();
@@ -578,6 +586,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_config_default() {
         let config = PitchDetectorConfig::default();
@@ -594,6 +603,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_config_custom() {
         let custom_tuning = TuningSystem::JustIntonation {
@@ -620,6 +630,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_note_name_equality() {
         assert_eq!(NoteName::A, NoteName::A);
@@ -627,6 +638,7 @@ mod tests {
         assert_ne!(NoteName::A, NoteName::ASharp);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_musical_note_equality() {
         let note1 = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
@@ -637,6 +649,7 @@ mod tests {
         assert_ne!(note1, note3);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_creation() {
         let config = PitchDetectorConfig::default();
@@ -649,6 +662,7 @@ mod tests {
         assert_eq!(detector.config().threshold, 0.25);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_invalid_window_size() {
         let mut config = PitchDetectorConfig::default();
@@ -662,6 +676,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_zero_window_size() {
         let mut config = PitchDetectorConfig::default();
@@ -675,6 +690,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_invalid_sample_rate() {
         let config = PitchDetectorConfig::default();
@@ -694,6 +710,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_invalid_threshold() {
         let mut config = PitchDetectorConfig::default();
@@ -715,6 +732,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_invalid_frequency_range() {
         let mut config = PitchDetectorConfig::default();
@@ -737,6 +755,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_wrong_size() {
         let config = PitchDetectorConfig::default();
@@ -748,6 +767,7 @@ mod tests {
         assert!(result.unwrap_err().contains("Expected 2048 samples, got 512"));
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_silence() {
         let config = PitchDetectorConfig::default();
@@ -759,6 +779,7 @@ mod tests {
         assert!(result.unwrap().is_none()); // No pitch detected in silence
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_sine_wave() {
         let config = PitchDetectorConfig::default();
@@ -786,6 +807,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_frequency_range_filtering() {
         let mut config = PitchDetectorConfig::default();
@@ -809,6 +831,7 @@ mod tests {
         assert!(result.unwrap().is_none()); // Should be filtered out
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_update_config() {
         let config = PitchDetectorConfig::default();
@@ -826,6 +849,7 @@ mod tests {
         assert_eq!(detector.config().max_frequency, 1000.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_update_config_invalid() {
         let config = PitchDetectorConfig::default();
@@ -845,6 +869,7 @@ mod tests {
         assert_eq!(detector.config().sample_window_size, 2048);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_normalization() {
         let config = PitchDetectorConfig::default();
@@ -860,6 +885,7 @@ mod tests {
         assert_eq!(detector.normalize_confidence(2.0), 0.0);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_window_sizes() {
         let sample_rates = [44100.0, 48000.0];
@@ -882,6 +908,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_performance_optimized_config() {
         // Test accuracy-optimized configuration
@@ -903,6 +930,7 @@ mod tests {
 
     // Comprehensive Test Signal Frequency Tests (Task 8 Requirements)
     
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_a4_standard_tuning() {
         let config = PitchDetectorConfig::default();
@@ -928,6 +956,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_c4_middle_c() {
         let config = PitchDetectorConfig::default();
@@ -953,6 +982,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_e4_major_third() {
         let config = PitchDetectorConfig::default();
@@ -978,6 +1008,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_g4_perfect_fifth() {
         let config = PitchDetectorConfig::default();
@@ -1003,6 +1034,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_frequency_sweep() {
         let config = PitchDetectorConfig::default();
@@ -1035,6 +1067,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_harmonic_content() {
         let config = PitchDetectorConfig::default();

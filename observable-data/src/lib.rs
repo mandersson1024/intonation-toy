@@ -156,6 +156,7 @@ mod tests {
 
     // No wasm_bindgen_test_configure! needed for Node.js
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_data_source_creation_and_get() {
         let data_source = DataSource::new(42);
@@ -163,6 +164,7 @@ mod tests {
         assert_eq!(observer.get(), 42);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_data_source_set_updates_value() {
         let data_source = DataSource::new(10);
@@ -176,6 +178,7 @@ mod tests {
         assert_eq!(observer.get(), 30);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_multiple_observers_see_same_value() {
         let data_source = DataSource::new(100);
@@ -191,6 +194,7 @@ mod tests {
         assert_eq!(observer2.get(), 200);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_listener_called_on_set() {
         let data_source = DataSource::new(1);
@@ -212,6 +216,7 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_multiple_listeners_all_called() {
         let data_source = DataSource::new(0);
@@ -238,6 +243,7 @@ mod tests {
         assert!(*called2.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_listeners_from_different_observers() {
         let data_source = DataSource::new(0);
@@ -265,6 +271,7 @@ mod tests {
         assert!(*called2.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_string_data_type() {
         let data_source = DataSource::new("hello".to_string());
@@ -285,6 +292,7 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_observer_cloning() {
         let data_source = DataSource::new(0);
@@ -301,6 +309,7 @@ mod tests {
         assert_eq!(observer_clone.get(), 42);
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_observe_now() {
         let data_source = DataSource::new(10);
@@ -333,6 +342,7 @@ mod tests {
         assert!(*future_called.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_data_setter() {
         let data_source = DataSource::new(42);
@@ -359,6 +369,7 @@ mod tests {
         assert!(*called.lock().unwrap());
     }
 
+    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_data_setter_functionality() {
         let data_source = DataSource::new(0);
