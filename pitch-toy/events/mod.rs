@@ -14,23 +14,23 @@
 //!
 //! ```rust,no_run
 //! use pitch_toy::events::{AudioEvent, EventDispatcher, create_shared_audio_dispatcher};
-//! use pitch_toy::audio::AudioPermission;
+//! use pitch_toy::audio::AudioContextState;
 //!
 //! // Create a dispatcher for audio events
 //! let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
 //!
-//! // Subscribe to permission changes
-//! dispatcher.subscribe("permission_changed", |event| {
+//! // Subscribe to context state changes
+//! dispatcher.subscribe("context_state_changed", |event| {
 //!     match event {
-//!         AudioEvent::PermissionChanged(permission) => {
-//!             println!("Permission changed to: {}", permission);
+//!         AudioEvent::ContextStateChanged(state) => {
+//!             println!("Context state changed to: {}", state);
 //!         }
 //!         _ => {}
 //!     }
 //! });
 //!
-//! // Publish a permission change event
-//! let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+//! // Publish a context state change event
+//! let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
 //! dispatcher.publish(&event);
 //!
 //! // Or use the shared dispatcher for cross-component communication
@@ -38,10 +38,8 @@
 //! ```
 
 pub mod audio_events;
-pub mod input_events;
 
 pub use audio_events::{AudioEvent, AudioEventDispatcher, create_shared_audio_dispatcher};
-pub use input_events::InputEvent;
 pub use event_dispatcher::{Event, EventDispatcher, SharedEventDispatcher, create_shared_dispatcher};
 
 use std::cell::RefCell;

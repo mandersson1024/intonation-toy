@@ -855,10 +855,10 @@ mod tests {
         assert!(result.is_ok());
 
         // Test processing other events (should be ignored)
-        let permission_event = AudioEvent::PermissionChanged(
-            crate::audio::AudioPermission::Granted
+        let context_event = AudioEvent::ContextStateChanged(
+            crate::audio::AudioContextState::Running
         );
-        let result = analyzer.process_buffer_event(&permission_event);
+        let result = analyzer.process_buffer_event(&context_event);
         assert!(result.is_ok());
     }
 

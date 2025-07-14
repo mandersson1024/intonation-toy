@@ -256,14 +256,13 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         }
     }
     
-    fn subscribe_permission_changes(&self, callback: PermissionChangeCallback) {
+    fn subscribe_permission_changes(&self, _callback: PermissionChangeCallback) {
         dev_log!("ConsoleAudioService: Subscribing to permission changes");
         
         if let Some(ref dispatcher) = self.event_dispatcher {
-            dispatcher.borrow_mut().subscribe("permission_changed", move |event| {
-                if let AudioEvent::PermissionChanged(permission) = event {
-                    callback(permission);
-                }
+            // Note: PermissionChanged events are no longer published - using direct permission manager calls instead
+            dispatcher.borrow_mut().subscribe("permission_changed_deprecated", move |_event| {
+                // This callback will never be called as PermissionChanged events are no longer published
             });
             dev_log!("Permission change subscription registered with event dispatcher");
         } else {

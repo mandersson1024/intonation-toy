@@ -4,14 +4,12 @@
 //! by various components of the application. These events enable loose coupling between
 //! the audio subsystem and other components like the console.
 
-use crate::audio::{AudioPermission, AudioContextState, MusicalNote, VolumeLevel};
+use crate::audio::{AudioContextState, MusicalNote, VolumeLevel};
 use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
 #[derive(Debug, Clone)]
 pub enum AudioEvent {
-    /// Audio permission state has changed
-    PermissionChanged(AudioPermission),
     /// Audio context state has changed
     ContextStateChanged(AudioContextState),
     /// AudioWorklet status has changed (for Live Data Panel)
@@ -71,7 +69,6 @@ impl AudioEvent {
     /// Get the event type as a string for subscription matching
     pub fn event_type(&self) -> &'static str {
         match self {
-            AudioEvent::PermissionChanged(_) => "permission_changed",
             AudioEvent::ContextStateChanged(_) => "context_state_changed",
             AudioEvent::AudioWorkletStatusChanged(_) => "audioworklet_status_changed",
             AudioEvent::BufferFilled { .. } => "buffer_filled",
@@ -89,9 +86,6 @@ impl AudioEvent {
     /// Get a human-readable description of the event
     pub fn description(&self) -> String {
         match self {
-            AudioEvent::PermissionChanged(permission) => {
-                format!("Audio permission changed to: {}", permission)
-            }
             AudioEvent::ContextStateChanged(state) => {
                 format!("Audio context state changed to: {}", state)
             }
@@ -163,8 +157,6 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_event_types() {
         
-        let permission_event = AudioEvent::PermissionChanged(AudioPermission::Granted);
-        assert_eq!(permission_event.event_type(), "permission_changed");
         
         let context_event = AudioEvent::ContextStateChanged(AudioContextState::Running);
         assert_eq!(context_event.event_type(), "context_state_changed");
@@ -174,8 +166,6 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_event_descriptions() {
         
-        let permission_event = AudioEvent::PermissionChanged(AudioPermission::Granted);
-        assert!(permission_event.description().contains("Audio permission changed"));
         
         let context_event = AudioEvent::ContextStateChanged(AudioContextState::Running);
         assert!(context_event.description().contains("Audio context state changed"));
@@ -359,12 +349,12 @@ mod tests {
         let shared_dispatcher = create_shared_audio_dispatcher();
         
         // Subscribe through shared dispatcher
-        shared_dispatcher.borrow_mut().subscribe("permission_changed", |_| {});
+        shared_dispatcher.borrow_mut().subscribe("context_state_changed", |_| {});
         
-        assert_eq!(shared_dispatcher.borrow().subscriber_count("permission_changed"), 1);
+        assert_eq!(shared_dispatcher.borrow().subscriber_count("context_state_changed"), 1);
         
         // Publish through shared dispatcher
-        let event = AudioEvent::PermissionChanged(crate::audio::AudioPermission::Granted);
+        let event = AudioEvent::ContextStateChanged(crate::audio::AudioContextState::Running);
         shared_dispatcher.borrow().publish(&event);
     }
 
@@ -387,47 +377,46 @@ mod tests {
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
-        // Subscribe to permission changes
-        dispatcher.subscribe("permission_changed", |event| {
+        // Subscribe to context state changes
+        dispatcher.subscribe("context_state_changed", |event| {
             match event {
-                AudioEvent::PermissionChanged(_) => {
+                AudioEvent::ContextStateChanged(_) => {
                     // Test callback received the right event
                 }
                 _ => panic!("Wrong event type received"),
             }
         });
         
-        assert_eq!(dispatcher.subscriber_count("permission_changed"), 1);
-        assert!(dispatcher.subscribed_event_types().contains(&"permission_changed"));
+        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
+        assert!(dispatcher.subscribed_event_types().contains(&"context_state_changed"));
     }
     
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_event_publishing() {
         use event_dispatcher::EventDispatcher;
-        use crate::audio::AudioPermission;
-        use std::rc::Rc;
+                use std::rc::Rc;
         use std::cell::RefCell;
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         let received_events = Rc::new(RefCell::new(Vec::new()));
         
-        // Subscribe to permission changes
+        // Subscribe to context state changes
         let received_events_clone = received_events.clone();
-        dispatcher.subscribe("permission_changed", move |event| {
+        dispatcher.subscribe("context_state_changed", move |event| {
             received_events_clone.borrow_mut().push(event);
         });
         
         // Publish an event
-        let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+        let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
         dispatcher.publish(&event);
         
         // Verify the event was received
         assert_eq!(received_events.borrow().len(), 1);
         let events = received_events.borrow();
         match &events[0] {
-            AudioEvent::PermissionChanged(permission) => {
-                assert_eq!(*permission, AudioPermission::Granted);
+            AudioEvent::ContextStateChanged(state) => {
+                assert_eq!(*state, AudioContextState::Running);
             }
             _ => panic!("Wrong event type received"),
         }
@@ -437,8 +426,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_event_multiple_subscribers() {
         use event_dispatcher::EventDispatcher;
-        use crate::audio::AudioPermission;
-        use std::rc::Rc;
+                use std::rc::Rc;
         use std::cell::RefCell;
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
@@ -446,19 +434,19 @@ mod tests {
         
         // Subscribe multiple callbacks to the same event
         let call_count_clone1 = call_count.clone();
-        dispatcher.subscribe("permission_changed", move |_| {
+        dispatcher.subscribe("context_state_changed", move |_| {
             *call_count_clone1.borrow_mut() += 1;
         });
         
         let call_count_clone2 = call_count.clone();
-        dispatcher.subscribe("permission_changed", move |_| {
+        dispatcher.subscribe("context_state_changed", move |_| {
             *call_count_clone2.borrow_mut() += 1;
         });
         
-        assert_eq!(dispatcher.subscriber_count("permission_changed"), 2);
+        assert_eq!(dispatcher.subscriber_count("context_state_changed"), 2);
         
         // Publish an event
-        let event = AudioEvent::PermissionChanged(AudioPermission::Granted);
+        let event = AudioEvent::ContextStateChanged(AudioContextState::Running);
         dispatcher.publish(&event);
         
         // Both callbacks should have been called
@@ -472,14 +460,14 @@ mod tests {
         
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         
-        dispatcher.subscribe("permission_changed", |_| {});
+        dispatcher.subscribe("buffer_filled", |_| {});
         dispatcher.subscribe("context_state_changed", |_| {});
         
-        assert_eq!(dispatcher.subscriber_count("permission_changed"), 1);
+        assert_eq!(dispatcher.subscriber_count("buffer_filled"), 1);
         assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
         
-        dispatcher.clear_subscribers("permission_changed");
-        assert_eq!(dispatcher.subscriber_count("permission_changed"), 0);
+        dispatcher.clear_subscribers("buffer_filled");
+        assert_eq!(dispatcher.subscriber_count("buffer_filled"), 0);
         assert_eq!(dispatcher.subscriber_count("context_state_changed"), 1);
         
         dispatcher.clear_all_subscribers();
