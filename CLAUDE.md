@@ -18,7 +18,7 @@ This file is manually edited.
 - Sometimes the developer will play devil's advocate and ask tricky questions in attempts to verify the solidity of your reasoning. Do not take this as sarcastic remarks to make you change the implementation, but take it as a challenge to think harder and find out the truth of the matter.
 - Always explicitly distinguish between working functionality and placeholders. Never claim a task is "complete" or "fully functional" if it contains placeholders. Use clear ✅/❌ status indicators for each component to show what works vs what needs implementation.
 
-## Project Information
+## Project Information (obsolete, to be updated)
 Refer to:
 - docs/architecture.md
 - docs/architecture/coding standards.md
