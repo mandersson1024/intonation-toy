@@ -39,44 +39,8 @@ impl ConsoleCommandRegistry {
         let command_name = parts[0];
         let args = parts[1..].to_vec();
         
-        // First, try to find the command directly
         if let Some(command) = self.commands.get(command_name) {
             return command.execute(args, self);
-        }
-        
-        // If not found, check if it's a compound command (aaa-bbb format)
-        if command_name.contains('-') {
-            let compound_parts: Vec<&str> = command_name.split('-').collect();
-            if compound_parts.len() >= 2 {
-                let base_command = compound_parts[0];
-                let sub_command = compound_parts[1..].join("-");
-                
-                // Try to find the base command
-                if let Some(command) = self.commands.get(base_command) {
-                    // Convert compound command to base command with arguments
-                    let mut new_args = vec![sub_command.as_str()];
-                    new_args.extend(args);
-                    return command.execute(new_args, self);
-                }
-            }
-        }
-        
-        // If still not found, check if it's a base command without arguments
-        // and show documentation for its variants
-        if args.is_empty() {
-            let variants = self.get_command_variants(command_name);
-            if !variants.is_empty() {
-                let mut outputs = vec![
-                    ConsoleOutput::info(&format!("Available {} commands:", command_name)),
-                    ConsoleOutput::empty(),
-                ];
-                
-                for variant in variants {
-                    outputs.push(ConsoleOutput::info(&format!("  {} - {}", variant.name(), variant.description())));
-                }
-                
-                return ConsoleCommandResult::MultipleOutputs(outputs);
-            }
         }
         
         ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown command: {}", command_name)))
@@ -84,16 +48,6 @@ impl ConsoleCommandRegistry {
     
     pub fn get_commands(&self) -> Vec<&dyn ConsoleCommand> {
         self.commands.values().map(|cmd| cmd.as_ref()).collect()
-    }
-    
-    /// Get all command variants for a given base command name
-    /// Returns commands that start with the base name followed by a hyphen
-    pub fn get_command_variants(&self, base_name: &str) -> Vec<&dyn ConsoleCommand> {
-        let prefix = format!("{}-", base_name);
-        self.commands.values()
-            .filter(|cmd| cmd.name().starts_with(&prefix))
-            .map(|cmd| cmd.as_ref())
-            .collect()
     }
 }
 
@@ -192,8 +146,6 @@ mod tests {
                 // Module commands should NOT be present in built-ins only registry
                 assert!(!text.contains("api-status - Show application and API status"));
                 assert!(!text.contains("mic-status"));
-                // Compound commands should NOT appear in help output
-                assert!(!text.contains("audio-context"));
             },
             _ => panic!("Expected Info output from help command"),
         }
@@ -258,105 +210,10 @@ mod tests {
         assert_ne!(command, info);
     }
 
-    #[test]
-    fn test_compound_command_parsing() {
-        // Create a test command that handles subcommands
-        struct MyBaseCommand;
-        impl ConsoleCommand for MyBaseCommand {
-            fn name(&self) -> &str { "mybase" }
-            fn description(&self) -> &str { "Test base command" }
-            fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-                if args.is_empty() {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: mybase <subcommand>"));
-                }
-                ConsoleCommandResult::Output(ConsoleOutput::info(&format!("Executed with args: {:?}", args)))
-            }
-        }
-
-        let mut registry = ConsoleCommandRegistry::new();
-        registry.register(Box::new(MyBaseCommand));
-
-        // Test compound command parsing (mybase-sub -> mybase sub)
-        let result = registry.execute("mybase-sub");
-        match result {
-            ConsoleCommandResult::Output(ConsoleOutput::Info(text)) => {
-                assert!(text.contains("Executed with args: [\"sub\"]"));
-            },
-            ConsoleCommandResult::Output(ConsoleOutput::Error(text)) => {
-                panic!("Got error instead of expected output: {}", text);
-            },
-            _ => panic!("Expected Info output from compound command, got: {:?}", result),
-        }
-
-        // Test compound command with multiple parts and args (mybase-sub-part arg1 -> mybase sub-part arg1)
-        let result = registry.execute("mybase-sub-part arg1");
-        match result {
-            ConsoleCommandResult::Output(ConsoleOutput::Info(text)) => {
-                assert!(text.contains("Executed with args: [\"sub-part\", \"arg1\"]"));
-            },
-            _ => panic!("Expected Info output from compound command with args"),
-        }
-    }
-
-    #[test]
-    fn test_command_variants_discovery() {
-        // Create test commands with a common prefix
-        struct MyCommand1;
-        impl ConsoleCommand for MyCommand1 {
-            fn name(&self) -> &str { "myprefix-cmd1" }
-            fn description(&self) -> &str { "Test command 1" }
-            fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-                ConsoleCommandResult::Output(ConsoleOutput::info("cmd1"))
-            }
-        }
-
-        struct MyCommand2;
-        impl ConsoleCommand for MyCommand2 {
-            fn name(&self) -> &str { "myprefix-cmd2" }
-            fn description(&self) -> &str { "Test command 2" }
-            fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-                ConsoleCommandResult::Output(ConsoleOutput::info("cmd2"))
-            }
-        }
-
-        struct OtherCommand;
-        impl ConsoleCommand for OtherCommand {
-            fn name(&self) -> &str { "other-cmd" }
-            fn description(&self) -> &str { "Other command" }
-            fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-                ConsoleCommandResult::Output(ConsoleOutput::info("other"))
-            }
-        }
-
-        let mut registry = ConsoleCommandRegistry::new();
-        registry.register(Box::new(MyCommand1));
-        registry.register(Box::new(MyCommand2));
-        registry.register(Box::new(OtherCommand));
-
-        // Test that entering just the base command without arguments shows variants
-        let result = registry.execute("myprefix");
-        match result {
-            ConsoleCommandResult::MultipleOutputs(outputs) => {
-                let output_text = outputs.iter()
-                    .map(|o| match o {
-                        ConsoleOutput::Info(text) => text.clone(),
-                        ConsoleOutput::Empty => String::new(),
-                        _ => String::new(),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                assert!(output_text.contains("Available myprefix commands:"));
-                assert!(output_text.contains("myprefix-cmd1 - Test command 1"));
-                assert!(output_text.contains("myprefix-cmd2 - Test command 2"));
-                assert!(!output_text.contains("other-cmd")); // Should not include non-matching commands
-            },
-            _ => panic!("Expected MultipleOutputs when showing command variants"),
-        }
-    }
 
     #[test]
     fn test_help_shows_all_commands() {
-        // Create a test registry with both base and compound commands
+        // Create a test registry with multiple commands
         struct BaseTestCommand;
         impl ConsoleCommand for BaseTestCommand {
             fn name(&self) -> &str { "base" }
@@ -366,10 +223,10 @@ mod tests {
             }
         }
 
-        struct CompoundTestCommand;
-        impl ConsoleCommand for CompoundTestCommand {
+        struct SubTestCommand;
+        impl ConsoleCommand for SubTestCommand {
             fn name(&self) -> &str { "base-sub" }
-            fn description(&self) -> &str { "Compound command" }
+            fn description(&self) -> &str { "Sub command" }
             fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
                 ConsoleCommandResult::Output(ConsoleOutput::info("compound"))
             }
@@ -377,14 +234,14 @@ mod tests {
 
         let mut registry = ConsoleCommandRegistry::new();
         registry.register(Box::new(BaseTestCommand));
-        registry.register(Box::new(CompoundTestCommand));
+        registry.register(Box::new(SubTestCommand));
 
         // Test that help shows all registered commands
         let result = registry.execute("help");
         match result {
             ConsoleCommandResult::Output(ConsoleOutput::Info(text)) => {
                 assert!(text.contains("base - Base command"));
-                assert!(text.contains("base-sub - Compound command")); // Should show all commands
+                assert!(text.contains("base-sub - Sub command")); // Should show all commands
             },
             _ => panic!("Expected Info output from help command"),
         }
