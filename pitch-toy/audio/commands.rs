@@ -39,7 +39,7 @@ pub struct TuningCommand;
 impl ConsoleCommand for TuningCommand {
     fn name(&self) -> &str { "tuning" }
     fn description(&self) -> &str { "Switch tuning system (equal/just/custom)" }
-    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+    fn execute(&self, args: Vec<&str>, _: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             let mut outputs = Vec::new();
             
@@ -182,7 +182,7 @@ pub struct BufferCommand;
 impl ConsoleCommand for BufferCommand {
     fn name(&self) -> &str { "buffer" }
     fn description(&self) -> &str { "Buffer management commands" }
-    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available buffer subcommands
             let help_lines = vec![
@@ -197,7 +197,6 @@ impl ConsoleCommand for BufferCommand {
         }
         
         let subcommand = args[0];
-        let sub_args = args[1..].to_vec();
         
         match subcommand {
             "status" => {
@@ -255,7 +254,7 @@ pub struct PitchCommand;
 impl ConsoleCommand for PitchCommand {
     fn name(&self) -> &str { "pitch" }
     fn description(&self) -> &str { "Pitch detection commands" }
-    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+    fn execute(&self, args: Vec<&str>, _: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available pitch subcommands
             let help_lines = vec![
@@ -564,7 +563,7 @@ pub struct VolumeCommand;
 impl ConsoleCommand for VolumeCommand {
     fn name(&self) -> &str { "volume" }
     fn description(&self) -> &str { "Volume detection commands" }
-    fn execute(&self, args: Vec<&str>, registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+    fn execute(&self, args: Vec<&str>, _: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show available volume subcommands
             let help_lines = vec![

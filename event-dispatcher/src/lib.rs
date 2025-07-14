@@ -84,9 +84,6 @@ struct Subscription<T> {
     callback: Box<dyn Fn(T)>,
 }
 
-/// Callback type for event subscribers (internal use only)
-type EventCallback<T> = Box<dyn Fn(T)>;
-
 /// Event dispatcher that manages event subscriptions and publishing
 pub struct EventDispatcher<T: Event> {
     /// Map of event type to list of subscriptions

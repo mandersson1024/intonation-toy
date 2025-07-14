@@ -21,6 +21,8 @@ This file is manually edited.
 ## Testing
 This project uses `wasm-pack test --node` for all testing. We do NOT use cargo test or any other testing approach. We do NOT test browser-specific functionality. Run `./scripts/test-all.sh` to test all packages. See TESTING.md for details.
 
+**CRITICAL**: The test script `./scripts/test-all.sh` MUST be run and ALL tests MUST pass before any implementation task can be declared as done or complete. No implementation is finished until it passes all tests.
+
 ## Project Information (obsolete, to be updated)
 Refer to:
 - docs/architecture.md

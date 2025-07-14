@@ -121,8 +121,6 @@ mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
    
-    #[wasm_bindgen_test]
-    #[allow(dead_code)]
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_input_event_types() {
@@ -156,8 +154,6 @@ mod tests {
         assert_eq!(mic_request.event_type(), "microphone_permission_request");
     }
     
-    #[wasm_bindgen_test]
-    #[allow(dead_code)]
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_input_event_descriptions() {
@@ -188,8 +184,6 @@ mod tests {
         assert!(hit_test.description().contains("(150.0, 250.0)"));
     }
     
-    #[wasm_bindgen_test]
-    #[allow(dead_code)]
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_input_event_no_target() {

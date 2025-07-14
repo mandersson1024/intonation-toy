@@ -2,7 +2,6 @@
 // Provides the main EGUI-based console interface
 
 use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand};
-use observable_data::ObservableData;
 use web_sys::Storage;
 
 /// Local storage key for console history persistence (same as original dev-console)
