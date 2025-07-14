@@ -13,9 +13,7 @@ Real-time pitch detection and visualization tool with musical interval analysis 
 
 ```bash
 # Testing
-cargo test                      # Run native tests (fast feedback)
-wasm-pack test --node           # Run WASM tests in Node.js environment
-cargo test && wasm-pack test --node # Run full test suite
+./scripts/test-all.sh           # Run all tests (see TESTING.md)
 
 # Building
 trunk build                     # Development build
@@ -32,6 +30,10 @@ cargo doc --no-deps --document-private-items # Module documentation
 cargo clean                     # Clean Rust build artifacts
 rm -rf dist/                    # Clean Trunk build output
 ```
+
+### Testing
+
+This project uses `wasm-pack test --node` for all testing. See [TESTING.md](TESTING.md) for complete testing guidelines and configuration.
 
 ### Browser Compatibility
 
