@@ -104,6 +104,7 @@ struct AudioWorkletSharedData {
     chunks_processed: u32,
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
 }
 
 impl AudioWorkletSharedData {
@@ -116,6 +117,7 @@ impl AudioWorkletSharedData {
             chunks_processed: 0,
             volume_level_setter: None,
             pitch_analyzer: None,
+            pitch_data_setter: None,
         }
     }
 }
@@ -174,6 +176,8 @@ pub struct AudioWorkletManager {
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
     // Pitch analyzer for direct audio processing
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
+    // Setter for updating pitch data in live data
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
 }
 
 impl AudioWorkletManager {
@@ -196,6 +200,7 @@ impl AudioWorkletManager {
             audioworklet_status_setter: None,
             volume_level_setter: None,
             pitch_analyzer: None,
+            pitch_data_setter: None,
         }
     }
     
@@ -218,6 +223,7 @@ impl AudioWorkletManager {
             audioworklet_status_setter: None,
             volume_level_setter: None,
             pitch_analyzer: None,
+            pitch_data_setter: None,
         }
     }
     
@@ -394,11 +400,17 @@ impl AudioWorkletManager {
             } else {
                 dev_log!("Warning: No volume level setter available during AudioWorklet initialization");
             }
+            if let Some(pitch_data_setter) = &self.pitch_data_setter {
+                shared_data.borrow_mut().pitch_data_setter = Some(pitch_data_setter.clone());
+                dev_log!("✓ Pitch data setter passed to AudioWorklet shared data");
+            } else {
+                dev_log!("✗ Warning: No pitch data setter available during AudioWorklet initialization");
+            }
             if let Some(pitch_analyzer) = &self.pitch_analyzer {
                 shared_data.borrow_mut().pitch_analyzer = Some(pitch_analyzer.clone());
-                dev_log!("Pitch analyzer passed to AudioWorklet shared data");
+                dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
             } else {
-                dev_log!("Warning: No pitch analyzer available during AudioWorklet initialization");
+                dev_log!("✗ Warning: No pitch analyzer available during AudioWorklet initialization");
             }
             
             // Set up message handler with access to shared data
@@ -434,10 +446,7 @@ impl AudioWorkletManager {
             dev_log!("DEBUG: Received AudioWorklet message #{}", chunks_processed);
         }
         
-        // Add debug log every few messages to track message flow
-        if chunks_processed % 64 == 0 {
-            dev_log!("DEBUG: AudioWorklet message flow active - chunk #{}", chunks_processed);
-        }
+        // Removed noisy debug logging
         
         // Parse message type from JavaScript
         if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
@@ -485,6 +494,9 @@ impl AudioWorkletManager {
                                 dev_log!("DEBUG: Processing audioDataBatch message #{}", chunks_processed);
                             }
                             Self::handle_audio_data_batch(&obj, &shared_data);
+                            if chunks_processed <= 5 {
+                                dev_log!("DEBUG: Finished processing audioDataBatch message #{}", chunks_processed);
+                            }
                         }
                         "processingError" => {
                             if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
@@ -620,9 +632,20 @@ impl AudioWorkletManager {
         obj: &js_sys::Object, 
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
     ) {
+        let chunks_processed = shared_data.borrow().chunks_processed;
+        if chunks_processed <= 5 {
+            dev_log!("DEBUG: Starting handle_audio_data_batch for chunk #{}", chunks_processed);
+        }
+        
         // Extract the transferred ArrayBuffer
         if let Ok(buffer_val) = js_sys::Reflect::get(obj, &"buffer".into()) {
+            if chunks_processed <= 5 {
+                dev_log!("DEBUG: Buffer value extracted for chunk #{}", chunks_processed);
+            }
             if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
+                if chunks_processed <= 5 {
+                    dev_log!("DEBUG: ArrayBuffer cast successful for chunk #{}", chunks_processed);
+                }
                 // Extract metadata
                 let sample_count = js_sys::Reflect::get(obj, &"sampleCount".into())
                     .ok()
@@ -646,6 +669,10 @@ impl AudioWorkletManager {
                 // Convert to Vec<f32> for processing
                 let samples: Vec<f32> = valid_samples.to_vec();
                 
+                if chunks_processed <= 5 {
+                    dev_log!("DEBUG: Converted to {} samples for processing", samples.len());
+                }
+                
                 // Note: The ArrayBuffer is already detached after transfer, so no explicit
                 // recycling is needed on the main thread. The AudioWorklet manages its own
                 // buffer pool and creates new buffers as needed.
@@ -655,6 +682,10 @@ impl AudioWorkletManager {
                 {
                     let mut data = shared_data.borrow_mut();
                     data.chunks_processed += chunk_count as u32;
+                }
+                
+                if chunks_processed <= 5 {
+                    dev_log!("DEBUG: Updated chunks_processed to {}", chunk_count);
                 }
                 
                 // Process volume detection on the batch
@@ -677,16 +708,7 @@ impl AudioWorkletManager {
                                 timestamp: timestamp.unwrap_or(0.0),
                             };
                             setter.set(Some(volume_data));
-                            // Log volume level setter activity occasionally
-                            if chunks_processed % 256 == 0 {
-                                dev_log!("✓ Volume level setter called: RMS={:.1}dB, Peak={:.1}dB", 
-                                    volume_analysis.rms_db, volume_analysis.peak_db);
-                            }
-                            // Add debug log on first few calls to verify setter is working
-                            if chunks_processed <= 32 {
-                                dev_log!("DEBUG: Volume level setter called #{}: RMS={:.1}dB", 
-                                    chunks_processed, volume_analysis.rms_db);
-                            }
+                            // Removed noisy volume level debug logging
                         } else {
                             // Log missing setter occasionally
                             if chunks_processed % 256 == 0 {
@@ -703,14 +725,40 @@ impl AudioWorkletManager {
                 
                 // Direct pitch analysis on batched data (Task 4)
                 let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
+                
                 if let Some(analyzer) = pitch_analyzer {
                     if let Ok(mut analyzer_mut) = analyzer.try_borrow_mut() {
                         match analyzer_mut.analyze_batch_direct(&samples) {
                             Ok(pitch_results) => {
-                                // Log pitch detection results occasionally
-                                let current_chunks_processed = shared_data.borrow().chunks_processed;
-                                if !pitch_results.is_empty() && current_chunks_processed % 64 == 0 {
-                                    dev_log!("✓ Pitch detected from batch: {} results", pitch_results.len());
+                                
+                                // Log pitch detection results (always log when pitch is found)
+                                if !pitch_results.is_empty() {
+                                    dev_log!("✓ PITCH DETECTED: {} results", pitch_results.len());
+                                    for (i, result) in pitch_results.iter().enumerate() {
+                                        dev_log!("  Pitch {}: freq={:.1}Hz, confidence={:.2}", 
+                                            i, result.frequency, result.confidence);
+                                    }
+                                }
+                                
+                                // Update pitch data in UI if setter is available
+                                let pitch_data_setter = shared_data.borrow().pitch_data_setter.clone();
+                                if let Some(setter) = pitch_data_setter {
+                                    if let Some(best_result) = pitch_results.first() {
+                                        // Convert frequency to musical note using the analyzer's note mapper
+                                        let note = analyzer_mut.frequency_to_note(best_result.frequency);
+                                        let pitch_data = crate::debug::egui::live_data_panel::PitchData {
+                                            frequency: best_result.frequency,
+                                            confidence: best_result.confidence,
+                                            note: note.clone(),
+                                            clarity: best_result.clarity,
+                                            timestamp: best_result.timestamp,
+                                        };
+                                        setter.set(Some(pitch_data));
+                                        dev_log!("✓ Pitch data sent to UI: {:.1}Hz {}", best_result.frequency, note);
+                                    } else {
+                                        // No pitch detected, clear the data
+                                        setter.set(None);
+                                    }
                                 }
                                 
                                 // Update volume confidence weighting if available
@@ -721,8 +769,8 @@ impl AudioWorkletManager {
                             Err(e) => {
                                 // Log errors occasionally to avoid spam
                                 let current_chunks_processed = shared_data.borrow().chunks_processed;
-                                if current_chunks_processed % 256 == 0 {
-                                    dev_log!("✗ Pitch detection error: {}", e);
+                                if current_chunks_processed <= 24 {
+                                    dev_log!("Pitch detection error #{}: {}", current_chunks_processed, e);
                                 }
                             }
                         }
@@ -735,17 +783,20 @@ impl AudioWorkletManager {
                     }
                 }
                 
-                // Log batch processing occasionally
-                let chunks_processed = shared_data.borrow().chunks_processed;
-                if chunks_processed % 256 == 0 {
-                    dev_log!("✓ Processed audio batch: {} samples, {} chunks total", 
-                        samples.len(), chunks_processed);
+                // Removed noisy batch processing debug logging
+                // Keep only essential debug logging for pitch detection
+                let final_chunks_processed = shared_data.borrow().chunks_processed;
+                if final_chunks_processed <= 40 {  // Increased limit since chunks_processed is higher now
+                    dev_log!("DEBUG: Audio batch #{}: {} samples", final_chunks_processed, samples.len());
                 }
-                // Add debug log for first few batches
-                if chunks_processed <= 10 {
-                    dev_log!("DEBUG: handle_audio_data_batch called #{}: {} samples", 
-                        chunks_processed, samples.len());
+            } else {
+                if chunks_processed <= 5 {
+                    dev_log!("DEBUG: ArrayBuffer cast failed for chunk #{}", chunks_processed);
                 }
+            }
+        } else {
+            if chunks_processed <= 5 {
+                dev_log!("DEBUG: Buffer field extraction failed for chunk #{}", chunks_processed);
             }
         }
     }
@@ -1015,6 +1066,24 @@ impl AudioWorkletManager {
             match self.setup_message_handling() {
                 Ok(_) => {
                     dev_log!("Message handler updated with new volume level setter");
+                }
+                Err(e) => {
+                    dev_log!("Failed to update message handler: {:?}", e);
+                }
+            }
+        }
+    }
+    
+    /// Set the pitch data setter for live data updates
+    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>) {
+        self.pitch_data_setter = Some(setter);
+        dev_log!("Pitch data setter updated on AudioWorkletManager");
+        
+        // If AudioWorklet is already initialized, update the message handler to include the new setter
+        if self.worklet_node.is_some() {
+            match self.setup_message_handling() {
+                Ok(_) => {
+                    dev_log!("Message handler updated with new pitch data setter");
                 }
                 Err(e) => {
                     dev_log!("Failed to update message handler: {:?}", e);

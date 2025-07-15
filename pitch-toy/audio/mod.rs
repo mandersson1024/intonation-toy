@@ -246,10 +246,19 @@ pub fn set_pitch_data_setter(
 ) {
     if let Some(analyzer_rc) = commands::get_global_pitch_analyzer() {
         let mut analyzer = analyzer_rc.borrow_mut();
-        analyzer.set_pitch_data_setter(setter);
+        analyzer.set_pitch_data_setter(setter.clone());
         dev_log!("Pitch data setter configured on global pitch analyzer");
     } else {
         dev_log!("Warning: Cannot set pitch data setter - pitch analyzer not initialized");
+    }
+    
+    // Also set it on the AudioWorkletManager for direct processing
+    if let Some(manager_rc) = get_global_audioworklet_manager() {
+        let mut manager = manager_rc.borrow_mut();
+        manager.set_pitch_data_setter(setter);
+        dev_log!("Pitch data setter configured on AudioWorkletManager");
+    } else {
+        dev_log!("Warning: Cannot set pitch data setter - AudioWorkletManager not initialized");
     }
 }
 
@@ -263,6 +272,24 @@ pub fn set_volume_level_setter(
         dev_log!("Volume level setter configured on global AudioWorklet manager");
     } else {
         dev_log!("Warning: Cannot set volume level setter - AudioWorklet manager not initialized");
+    }
+}
+
+/// Enable test signal generator with a 440Hz sine wave for testing pitch detection
+pub fn enable_test_signal_440hz() {
+    if let Some(worklet_rc) = get_global_audioworklet_manager() {
+        let mut worklet = worklet_rc.borrow_mut();
+        let config = TestSignalGeneratorConfig {
+            enabled: true,
+            frequency: 440.0,
+            amplitude: 0.5, // 50% volume
+            waveform: TestWaveform::Sine,
+            sample_rate: 48000.0,
+        };
+        worklet.update_test_signal_config(config);
+        dev_log!("✓ Test signal enabled: 440Hz sine wave at 50% amplitude");
+    } else {
+        dev_log!("✗ Failed to enable test signal: AudioWorklet manager not available");
     }
 }
 

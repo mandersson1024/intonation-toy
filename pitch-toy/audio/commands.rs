@@ -560,6 +560,9 @@ impl ConsoleCommand for AudioWorkletDebugCommand {
 /// Base Volume Command - handles "volume" with subcommands
 pub struct VolumeCommand;
 
+/// Test Signal Command - enable test signal for pitch detection testing
+pub struct TestSignalCommand;
+
 impl ConsoleCommand for VolumeCommand {
     fn name(&self) -> &str { "volume" }
     fn description(&self) -> &str { "Volume detection commands" }

@@ -109,8 +109,8 @@ pub struct PitchDetectorConfig {
 impl Default for PitchDetectorConfig {
     fn default() -> Self {
         Self {
-            sample_window_size: 2048, // Larger window for better accuracy
-            threshold: 0.25,           // Optimized for strong harmonic instruments (guitar, piano, brass)
+            sample_window_size: 1024, // Optimized for 1024-sample AudioWorklet batches
+            threshold: 0.1,            // Lowered threshold for better test signal detection
             tuning_system: TuningSystem::default(),
             min_frequency: 80.0,
             max_frequency: 2000.0,
@@ -216,6 +216,7 @@ impl PitchDetector {
             // Standard analysis for non-power-of-2 sizes
             self.yin_detector.get_pitch(samples, self.sample_rate as usize, 0.0, self.config.threshold)
         };
+        
 
         match result {
             Some(pitch_info) => {

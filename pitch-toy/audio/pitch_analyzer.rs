@@ -718,6 +718,11 @@ impl PitchAnalyzer {
                 .as_millis() as f64
         }
     }
+
+    /// Convert frequency to musical note using the internal note mapper
+    pub fn frequency_to_note(&self, frequency: f32) -> crate::audio::MusicalNote {
+        self.note_mapper.frequency_to_note(frequency)
+    }
 }
 
 #[cfg(test)]
