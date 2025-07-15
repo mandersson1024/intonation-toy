@@ -4,7 +4,7 @@
 // It handles formatting and visualization of FPS, memory usage, latency, and CPU data.
 
 use yew::prelude::*;
-use super::component::PerformanceMetrics;
+use crate::debug::egui::live_data_panel::PerformanceMetrics;
 
 /// Metrics display utilities
 #[allow(dead_code)]

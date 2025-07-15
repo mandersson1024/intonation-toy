@@ -581,7 +581,7 @@ impl AudioWorkletManager {
             #[cfg(not(target_arch = "wasm32"))]
             let timestamp = 0.0;
             
-            let _status = crate::debug::live_panel::AudioWorkletStatus {
+            let _status = crate::debug::egui::live_data_panel::AudioWorkletStatus {
                 state,
                 processor_loaded: true, // If we're getting messages, processor is loaded
                 chunk_size: 128, // Web Audio API standard
