@@ -189,6 +189,9 @@ pub fn create_console_audio_service_with_audioworklet_setter(
         } else {
             dev_log!("Volume level setter configured on AudioWorklet manager");
         }
+        
+        // Add debug info about the setter
+        dev_log!("DEBUG: Volume level setter type configured successfully");
     } else {
         dev_log!("Warning: AudioWorklet manager not yet initialized when setting volume level setter");
     }

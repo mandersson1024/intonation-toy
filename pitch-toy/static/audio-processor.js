@@ -189,7 +189,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         if (this.currentBuffer) {
             this.currentBufferArray = new Float32Array(this.currentBuffer);
             this.writePosition = 0;
-            this.lastBufferStartTime = this.currentTime || performance.now();
+            this.lastBufferStartTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
         } else {
             console.error('PitchDetectionProcessor: Failed to acquire buffer from pool');
             this.currentBufferArray = null;
@@ -577,7 +577,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 this.writePosition += samplesToWrite;
                 
                 // Check if buffer is full or timeout has elapsed
-                const currentTime = this.currentTime || performance.now();
+                const currentTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
                 const timeElapsed = currentTime - this.lastBufferStartTime;
                 const shouldSendDueToTimeout = this.writePosition > 0 && timeElapsed >= this.bufferTimeout;
                 

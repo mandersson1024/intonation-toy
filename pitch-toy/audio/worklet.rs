@@ -428,6 +428,17 @@ impl AudioWorkletManager {
     ) {
         let data = event.data();
         
+        // Add debug log for the first few messages
+        let chunks_processed = shared_data.borrow().chunks_processed;
+        if chunks_processed <= 5 {
+            dev_log!("DEBUG: Received AudioWorklet message #{}", chunks_processed);
+        }
+        
+        // Add debug log every few messages to track message flow
+        if chunks_processed % 64 == 0 {
+            dev_log!("DEBUG: AudioWorklet message flow active - chunk #{}", chunks_processed);
+        }
+        
         // Parse message type from JavaScript
         if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
             if let Ok(type_val) = js_sys::Reflect::get(&obj, &"type".into()) {
@@ -470,6 +481,9 @@ impl AudioWorkletManager {
                         }
                         "audioDataBatch" => {
                             // Process batched audio data with transferable buffer
+                            if chunks_processed <= 5 {
+                                dev_log!("DEBUG: Processing audioDataBatch message #{}", chunks_processed);
+                            }
                             Self::handle_audio_data_batch(&obj, &shared_data);
                         }
                         "processingError" => {
@@ -663,6 +677,21 @@ impl AudioWorkletManager {
                                 timestamp: timestamp.unwrap_or(0.0),
                             };
                             setter.set(Some(volume_data));
+                            // Log volume level setter activity occasionally
+                            if chunks_processed % 256 == 0 {
+                                dev_log!("✓ Volume level setter called: RMS={:.1}dB, Peak={:.1}dB", 
+                                    volume_analysis.rms_db, volume_analysis.peak_db);
+                            }
+                            // Add debug log on first few calls to verify setter is working
+                            if chunks_processed <= 32 {
+                                dev_log!("DEBUG: Volume level setter called #{}: RMS={:.1}dB", 
+                                    chunks_processed, volume_analysis.rms_db);
+                            }
+                        } else {
+                            // Log missing setter occasionally
+                            if chunks_processed % 256 == 0 {
+                                dev_log!("Warning: No volume level setter available in batched processing");
+                            }
                         }
                     }
                     
@@ -711,6 +740,11 @@ impl AudioWorkletManager {
                 if chunks_processed % 256 == 0 {
                     dev_log!("✓ Processed audio batch: {} samples, {} chunks total", 
                         samples.len(), chunks_processed);
+                }
+                // Add debug log for first few batches
+                if chunks_processed <= 10 {
+                    dev_log!("DEBUG: handle_audio_data_batch called #{}: {} samples", 
+                        chunks_processed, samples.len());
                 }
             }
         }

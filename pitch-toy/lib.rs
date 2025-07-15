@@ -162,17 +162,17 @@ pub async fn start() {
         return;
     }
     
-    // Create audio service with event dispatcher and setters for debug builds only
-    #[cfg(debug_assertions)]
-    {
-        let event_dispatcher = crate::events::get_global_event_dispatcher();
-        let _audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
-            event_dispatcher.clone(),
-            audio_devices_setter.clone(),
-            audioworklet_status_setter.clone(),
-            volume_level_setter.clone()
-        ));
-    }
+    // Create audio service with event dispatcher and setters AFTER AudioWorklet initialization
+    // This ensures the volume level setter is properly configured on the initialized AudioWorklet manager
+    let event_dispatcher = crate::events::get_global_event_dispatcher();
+    let _audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
+        event_dispatcher.clone(),
+        audio_devices_setter.clone(),
+        audioworklet_status_setter.clone(),
+        volume_level_setter.clone()
+    ));
+    
+    // Note: Audio console service is needed for volume level updates in both debug and release builds
     
     // Start three-d application directly
     run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter).await;

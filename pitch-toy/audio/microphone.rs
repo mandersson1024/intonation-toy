@@ -166,12 +166,22 @@ impl Drop for MicrophoneManager {
 pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     use crate::common::dev_log;
     
+    dev_log!("DEBUG: Starting connect_microphone_to_audioworklet");
     dev_log!("Requesting microphone permission and connecting to AudioWorklet");
     
     // Request microphone permission and get stream
     let media_stream = match PermissionManager::request_microphone_permission().await {
         Ok(stream) => {
             dev_log!("✓ Microphone permission granted, received MediaStream");
+            // Check if stream has active tracks
+            let tracks = stream.get_tracks();
+            dev_log!("DEBUG: MediaStream has {} tracks", tracks.length());
+            for i in 0..tracks.length() {
+                if let Some(track) = tracks.get(i).dyn_ref::<web_sys::MediaStreamTrack>() {
+                    dev_log!("DEBUG: Track {}: kind={}, enabled={}, ready_state={:?}", 
+                        i, track.kind(), track.enabled(), track.ready_state());
+                }
+            }
             stream
         }
         Err(e) => {
@@ -181,12 +191,14 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     };
     
     // Get audio context and AudioWorklet manager
+    dev_log!("DEBUG: Getting AudioContext manager");
     let audio_context_manager = super::get_audio_context_manager()
         .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
     
     // Resume AudioContext if suspended (required for processing to start)
     {
         let mut manager = audio_context_manager.borrow_mut();
+        dev_log!("DEBUG: Resuming AudioContext");
         if let Err(e) = manager.resume().await {
             dev_log!("⚠️ Failed to resume AudioContext: {:?}", e);
         } else {
@@ -194,10 +206,12 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
         }
     }
     
+    dev_log!("DEBUG: Getting AudioWorklet manager");
     let audioworklet_manager = super::get_global_audioworklet_manager()
         .ok_or_else(|| "AudioWorklet manager not initialized".to_string())?;
     
     // Create audio source from MediaStream
+    dev_log!("DEBUG: Creating MediaStreamAudioSourceNode");
     let audio_context = {
         let manager = audio_context_manager.borrow();
         manager.get_context()
@@ -217,6 +231,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     };
     
     // Connect microphone source to AudioWorklet
+    dev_log!("DEBUG: Connecting microphone source to AudioWorklet");
     let mut worklet_manager = audioworklet_manager.borrow_mut();
     match worklet_manager.connect_microphone(source.as_ref()) {
         Ok(_) => {
@@ -226,7 +241,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
             
             // Ensure processing is active after connection
             if !worklet_manager.is_processing() {
-                dev_log!("Starting AudioWorklet processing after microphone connection...");
+                dev_log!("DEBUG: Starting AudioWorklet processing after microphone connection...");
                 match worklet_manager.start_processing() {
                     Ok(_) => {
                         dev_log!("✓ AudioWorklet processing started - audio pipeline active");
