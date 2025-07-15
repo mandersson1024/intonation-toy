@@ -139,33 +139,35 @@ impl EguiLiveDataPanel {
     
     /// Render panel content
     fn render_content(&mut self, ui: &mut Ui) {
-        ui.vertical(|ui| {
-            // Audio Devices Section
-            self.render_audio_devices_section(ui);
-            ui.separator();
-            
-            // AudioWorklet Status Section
-            self.render_audioworklet_status_section(ui);
-            ui.separator();
-            
-            // Performance Metrics Section
-            self.render_performance_metrics_section(ui);
-            ui.separator();
-            
-            // Volume Level Section
-            self.render_volume_level_section(ui);
-            ui.separator();
-            
-            // Pitch Detection Section
-            self.render_pitch_detection_section(ui);
-            ui.separator();
-            
-            // Test Signal Controls Section
-            self.render_test_signal_controls_section(ui);
-            ui.separator();
-            
-            // Global Audio Controls Section
-            self.render_global_audio_controls_section(ui);
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.vertical(|ui| {
+                // Audio Devices Section
+                self.render_audio_devices_section(ui);
+                ui.separator();
+                
+                // AudioWorklet Status Section
+                self.render_audioworklet_status_section(ui);
+                ui.separator();
+                
+                // Performance Metrics Section
+                self.render_performance_metrics_section(ui);
+                ui.separator();
+                
+                // Volume Level Section
+                self.render_volume_level_section(ui);
+                ui.separator();
+                
+                // Pitch Detection Section
+                self.render_pitch_detection_section(ui);
+                ui.separator();
+                
+                // Test Signal Controls Section
+                self.render_test_signal_controls_section(ui);
+                ui.separator();
+                
+                // Global Audio Controls Section
+                self.render_global_audio_controls_section(ui);
+            });
         });
     }
     
