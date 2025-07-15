@@ -102,6 +102,7 @@ struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
 }
 
 impl AudioWorkletSharedData {
@@ -112,6 +113,7 @@ impl AudioWorkletSharedData {
             volume_detector: None,
             last_volume_analysis: None,
             chunks_processed: 0,
+            volume_level_setter: None,
         }
     }
 }
@@ -166,6 +168,8 @@ pub struct AudioWorkletManager {
     output_to_speakers: bool,
     // Setter for updating AudioWorklet status in live data
     audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
+    // Setter for updating volume level in live data
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
 }
 
 impl AudioWorkletManager {
@@ -186,6 +190,7 @@ impl AudioWorkletManager {
             audio_context: None,
             output_to_speakers: false,
             audioworklet_status_setter: None,
+            volume_level_setter: None,
         }
     }
     
@@ -206,6 +211,7 @@ impl AudioWorkletManager {
             audio_context: None,
             output_to_speakers: false,
             audioworklet_status_setter: None,
+            volume_level_setter: None,
         }
     }
     
@@ -376,6 +382,12 @@ impl AudioWorkletManager {
             if let Some(volume_detector) = &self.volume_detector {
                 shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
             }
+            if let Some(volume_level_setter) = &self.volume_level_setter {
+                shared_data.borrow_mut().volume_level_setter = Some(volume_level_setter.clone());
+                dev_log!("Volume level setter passed to AudioWorklet shared data");
+            } else {
+                dev_log!("Warning: No volume level setter available during AudioWorklet initialization");
+            }
             
             // Set up message handler with access to shared data
             let shared_data_clone = shared_data.clone();
@@ -518,32 +530,13 @@ impl AudioWorkletManager {
                 if let Some(mut detector) = volume_detector {
                     let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
                     
-                    // Check for volume change events
-                    let previous_analysis = shared_data.borrow().last_volume_analysis.clone();
-                    if let Some(previous) = &previous_analysis {
-                        let rms_change = (volume_analysis.rms_db - previous.rms_db).abs();
-                        
-                        // Publish volume change event if significant change (>3dB)
-                        if rms_change > 3.0 {
-                            let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
-                            if let Some(dispatcher) = event_dispatcher {
-                                let volume_event = crate::events::audio_events::AudioEvent::VolumeChanged {
-                                    previous_rms_db: previous.rms_db,
-                                    current_rms_db: volume_analysis.rms_db,
-                                    change_db: volume_analysis.rms_db - previous.rms_db,
-                                    timestamp: timestamp.unwrap_or(0.0),
-                                };
-                                dispatcher.borrow().publish(&volume_event);
-                            }
-                        }
-                    }
                     
-                    // Always publish VolumeDetected event every 16 chunks (~34ms at 48kHz)
+                    // Update volume level data every 16 chunks (~34ms at 48kHz)
                     let chunks_processed = shared_data.borrow().chunks_processed;
                     if chunks_processed % 16 == 0 {
-                        let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
-                        if let Some(dispatcher) = event_dispatcher {
-                            let volume_event = crate::events::audio_events::AudioEvent::VolumeDetected {
+                        let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
+                        if let Some(setter) = volume_level_setter {
+                            let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
                                 rms_db: volume_analysis.rms_db,
                                 peak_db: volume_analysis.peak_db,
                                 peak_fast_db: volume_analysis.peak_fast_db,
@@ -552,7 +545,13 @@ impl AudioWorkletManager {
                                 confidence_weight: volume_analysis.confidence_weight,
                                 timestamp: timestamp.unwrap_or(0.0),
                             };
-                            dispatcher.borrow().publish(&volume_event);
+                            setter.set(Some(volume_data));
+                            // Log occasionally to avoid spam
+                            if chunks_processed % 256 == 0 {
+                                dev_log!("Volume data updated via setter: {:.1}dB", volume_analysis.peak_db);
+                            }
+                        } else if chunks_processed % 256 == 0 {
+                            dev_log!("Warning: No volume level setter available in message handler");
                         }
                     }
                     
@@ -782,6 +781,24 @@ impl AudioWorkletManager {
     /// Set the AudioWorklet status setter for live data updates
     pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>) {
         self.audioworklet_status_setter = Some(setter);
+    }
+    
+    /// Set the volume level setter for live data updates
+    pub fn set_volume_level_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>) {
+        self.volume_level_setter = Some(setter);
+        dev_log!("Volume level setter updated on AudioWorkletManager");
+        
+        // If AudioWorklet is already initialized, update the message handler to include the new setter
+        if self.worklet_node.is_some() {
+            match self.setup_message_handling() {
+                Ok(_) => {
+                    dev_log!("Message handler updated with new volume level setter");
+                }
+                Err(e) => {
+                    dev_log!("Failed to update message handler: {:?}", e);
+                }
+            }
+        }
     }
 
     /// Set volume detector for real-time volume analysis
@@ -1018,55 +1035,21 @@ impl AudioWorkletManager {
         if let Some(detector) = &mut self.volume_detector {
             let volume_analysis = detector.process_buffer(&processed_samples, timestamp);
             
-            // Check for volume change events
-            if let Some(previous) = &self.last_volume_analysis {
-                let rms_change = (volume_analysis.rms_db - previous.rms_db).abs();
-                
-                // Publish volume change event if significant change (>3dB)
-                if rms_change > 3.0 {
-                    if let Some(dispatcher) = &self.event_dispatcher {
-                        let volume_event = crate::events::audio_events::AudioEvent::VolumeChanged {
-                            previous_rms_db: previous.rms_db,
-                            current_rms_db: volume_analysis.rms_db,
-                            change_db: volume_analysis.rms_db - previous.rms_db,
-                            timestamp,
-                        };
-                        dispatcher.borrow().publish(&volume_event);
-                    }
-                }
-
-                // Check for volume warnings (problematic levels)
-                let current_problematic = matches!(volume_analysis.level, 
-                    super::VolumeLevel::Silent | super::VolumeLevel::Clipping);
-                let previous_problematic = matches!(previous.level, 
-                    super::VolumeLevel::Silent | super::VolumeLevel::Clipping);
-                
-                if current_problematic && !previous_problematic {
-                    if let Some(dispatcher) = &self.event_dispatcher {
-                        let message = match volume_analysis.level {
-                            super::VolumeLevel::Silent => "Input level too low".to_string(),
-                            super::VolumeLevel::Clipping => "Input level clipping".to_string(),
-                            _ => "Volume level warning".to_string(),
-                        };
-                        
-                        let warning_event = crate::events::audio_events::AudioEvent::VolumeWarning {
-                            level: volume_analysis.level,
-                            rms_db: volume_analysis.rms_db,
-                            message,
-                            timestamp,
-                        };
-                        dispatcher.borrow().publish(&warning_event);
-                    }
-                }
+            // Debug log first time we detect volume
+            if self.last_volume_analysis.is_none() {
+                dev_log!("First volume analysis: {:.1}dB", volume_analysis.peak_db);
             }
+            
 
-            // Publish volume detected event every 16 chunks (~11.6ms at 48kHz)
+            // Update volume level data every 16 chunks (~11.6ms at 48kHz)
             self.chunk_counter += 1;
             if self.chunk_counter % 16 == 0 {
                 // Also update AudioWorklet status periodically
                 self.publish_audioworklet_status();
-                if let Some(dispatcher) = &self.event_dispatcher {
-                    let detected_event = crate::events::audio_events::AudioEvent::VolumeDetected {
+                
+                // Update volume level using setter
+                if let Some(ref setter) = self.volume_level_setter {
+                    let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
                         rms_db: volume_analysis.rms_db,
                         peak_db: volume_analysis.peak_db,
                         peak_fast_db: volume_analysis.peak_fast_db,
@@ -1075,7 +1058,13 @@ impl AudioWorkletManager {
                         confidence_weight: volume_analysis.confidence_weight,
                         timestamp,
                     };
-                    dispatcher.borrow().publish(&detected_event);
+                    setter.set(Some(volume_data));
+                    // Log occasionally to avoid spam
+                    if self.chunk_counter % 256 == 0 {
+                        dev_log!("Volume data updated via process_audio: {:.1}dB", volume_analysis.peak_db);
+                    }
+                } else if self.chunk_counter % 256 == 0 {
+                    dev_log!("Warning: No volume level setter available in process_audio");
                 }
             }
 

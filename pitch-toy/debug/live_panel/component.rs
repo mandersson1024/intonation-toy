@@ -98,8 +98,6 @@ impl Default for AudioWorkletStatus {
 
 /// State for the LivePanel component
 pub struct LivePanel {
-    /// Current volume level
-    volume_level: Option<VolumeLevelData>,
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
     /// Background noise configuration
@@ -111,8 +109,6 @@ pub struct LivePanel {
 /// Messages for the LivePanel component
 #[derive(Debug)]
 pub enum LivePanelMsg {
-    /// Update volume level
-    UpdateVolumeLevel(VolumeLevelData),
     /// Update test signal configuration
     UpdateTestSignalConfig(TestSignalConfig),
     /// Update background noise configuration
@@ -127,7 +123,6 @@ impl Component for LivePanel {
 
     fn create(ctx: &Context<Self>) -> Self {
         let mut component = Self {
-            volume_level: None,
             test_signal_config: TestSignalConfig::default(),
             background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
@@ -145,10 +140,6 @@ impl Component for LivePanel {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            LivePanelMsg::UpdateVolumeLevel(level) => {
-                self.volume_level = Some(level);
-                true
-            }
             LivePanelMsg::UpdateTestSignalConfig(config) => {
                 self.test_signal_config = config.clone();
                 
@@ -232,7 +223,7 @@ impl Component for LivePanel {
                     {self.render_background_noise_controls(ctx)}
                     {self.render_global_audio_controls(ctx)}
                     {self.render_performance_metrics(ctx)}
-                    {self.render_volume_level()}
+                    {self.render_volume_level(ctx)}
                     {self.render_pitch_detection(ctx)}
                 </div>
             </div>
@@ -253,22 +244,7 @@ impl LivePanel {
         
         // Note: Pitch data now comes from shared live_data, no subscription needed
         
-        // Subscribe to volume detection events
-        let link_clone3 = ctx.link().clone();
-        ctx.props().event_dispatcher.borrow_mut().subscribe("volume_detected", move |event| {
-            if let crate::events::audio_events::AudioEvent::VolumeDetected { rms_db, peak_db, peak_fast_db, peak_slow_db, level, confidence_weight, timestamp } = event {
-                let volume_data = VolumeLevelData {
-                    rms_db,
-                    peak_db,
-                    peak_fast_db,
-                    peak_slow_db,
-                    level,
-                    confidence_weight,
-                    timestamp,
-                };
-                link_clone3.send_message(LivePanelMsg::UpdateVolumeLevel(volume_data));
-            }
-        });
+        // Note: Volume data now comes from shared live_data, no subscription needed
     }
 
 
@@ -451,12 +427,12 @@ impl LivePanel {
     }
 
     /// Render volume level section
-    fn render_volume_level(&self) -> Html {
+    fn render_volume_level(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"Volume Level"}</h4>
                 <div class="volume-display">
-                    {if let Some(volume) = &self.volume_level {
+                    {if let Some(volume) = ctx.props().live_data.volume_level.get() {
                         html! {
                             <div class="volume-display">
                                 <div class="volume-metric-item">

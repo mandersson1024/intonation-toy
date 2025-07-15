@@ -56,7 +56,8 @@ fn App() -> Html {
             audio_devices_source.setter(), 
             audioworklet_status_source.setter(),
             performance_metrics_source.setter(),
-            pitch_data_source.setter()
+            pitch_data_source.setter(),
+            volume_level_source.setter()
         )
     });
     
@@ -66,6 +67,7 @@ fn App() -> Html {
     let audioworklet_status_setter = &memo_result.3;
     let performance_metrics_setter = &memo_result.4;
     let pitch_data_setter = &memo_result.5;
+    let volume_level_setter = &memo_result.6;
     
     
     // Initialize wgpu canvas after component is rendered
@@ -101,7 +103,8 @@ fn App() -> Html {
                     let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
                         event_dispatcher.clone(),
                         audio_devices_setter.clone(),
-                        audioworklet_status_setter.clone()
+                        audioworklet_status_setter.clone(),
+                        volume_level_setter.clone()
                     ));
                     
                     html! { 

@@ -4,7 +4,6 @@
 //! by various components of the application. These events enable loose coupling between
 //! the audio subsystem and other components like the console.
 
-use crate::audio::VolumeLevel;
 use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
@@ -16,30 +15,6 @@ pub enum AudioEvent {
     BufferOverflow { buffer_index: usize, overflow_count: usize },
     /// Buffer pool metrics update (periodic)
     BufferMetrics { total_buffers: usize, total_overflows: usize, memory_bytes: usize },
-    /// Volume level detected from audio input
-    VolumeDetected {
-        rms_db: f32,
-        peak_db: f32,
-        peak_fast_db: f32,
-        peak_slow_db: f32,
-        level: VolumeLevel,
-        confidence_weight: f32,
-        timestamp: f64,
-    },
-    /// Volume level changed significantly
-    VolumeChanged {
-        previous_rms_db: f32,
-        current_rms_db: f32,
-        change_db: f32,
-        timestamp: f64,
-    },
-    /// Volume warning for problematic levels
-    VolumeWarning {
-        level: VolumeLevel,
-        rms_db: f32,
-        message: String,
-        timestamp: f64,
-    },
 }
 
 impl AudioEvent {
@@ -49,9 +24,6 @@ impl AudioEvent {
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
             AudioEvent::BufferMetrics { .. } => "buffer_metrics",
-            AudioEvent::VolumeDetected { .. } => "volume_detected",
-            AudioEvent::VolumeChanged { .. } => "volume_changed",
-            AudioEvent::VolumeWarning { .. } => "volume_warning",
         }
     }
     
@@ -66,17 +38,6 @@ impl AudioEvent {
             }
             AudioEvent::BufferMetrics { total_buffers, total_overflows, memory_bytes } => {
                 format!("Buffer metrics: {} buffers, {} overflows, {:.2} MB", total_buffers, total_overflows, *memory_bytes as f64 / 1_048_576.0)
-            }
-            AudioEvent::VolumeDetected { rms_db, peak_db, level, confidence_weight, .. } => {
-                format!("Volume detected: RMS={:.1}dB, Peak={:.1}dB, Level={}, Confidence={:.2}", 
-                    rms_db, peak_db, level, confidence_weight)
-            }
-            AudioEvent::VolumeChanged { previous_rms_db, current_rms_db, change_db, .. } => {
-                format!("Volume changed: {:.1}dB → {:.1}dB (Δ{:.1}dB)", 
-                    previous_rms_db, current_rms_db, change_db)
-            }
-            AudioEvent::VolumeWarning { level, rms_db, message, .. } => {
-                format!("Volume warning: {} ({:.1}dB) - {}", level, rms_db, message)
             }
         }
     }
@@ -142,50 +103,6 @@ mod tests {
     }
 
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_volume_event_types_and_descriptions() {
-        use crate::audio::VolumeLevel;
-
-        let detected = AudioEvent::VolumeDetected {
-            rms_db: -12.0,
-            peak_db: -6.0,
-            peak_fast_db: -8.0,
-            peak_slow_db: -10.0,
-            level: VolumeLevel::Optimal,
-            confidence_weight: 0.8,
-            timestamp: 1000.0,
-        };
-        assert_eq!(detected.event_type(), "volume_detected");
-        assert!(detected.description().contains("Volume detected"));
-        assert!(detected.description().contains("RMS=-12.0dB"));
-        assert!(detected.description().contains("Peak=-6.0dB"));
-        assert!(detected.description().contains("Level=Optimal"));
-        assert!(detected.description().contains("Confidence=0.80"));
-
-        let changed = AudioEvent::VolumeChanged {
-            previous_rms_db: -15.0,
-            current_rms_db: -12.0,
-            change_db: 3.0,
-            timestamp: 1000.0,
-        };
-        assert_eq!(changed.event_type(), "volume_changed");
-        assert!(changed.description().contains("Volume changed"));
-        assert!(changed.description().contains("-15.0dB → -12.0dB"));
-        assert!(changed.description().contains("Δ3.0dB"));
-
-        let warning = AudioEvent::VolumeWarning {
-            level: VolumeLevel::Clipping,
-            rms_db: 2.0,
-            message: "Input level too high".to_string(),
-            timestamp: 1000.0,
-        };
-        assert_eq!(warning.event_type(), "volume_warning");
-        assert!(warning.description().contains("Volume warning"));
-        assert!(warning.description().contains("Clipping"));
-        assert!(warning.description().contains("2.0dB"));
-        assert!(warning.description().contains("Input level too high"));
-    }
 
     // Event Publishing and Subscription Integration Tests (Task 8 Requirements)
     
@@ -239,16 +156,12 @@ mod tests {
         };
         assert_eq!(buffer_overflow.event_type(), "buffer_overflow");
         
-        let volume_detected = AudioEvent::VolumeDetected {
-            rms_db: -12.0,
-            peak_db: -6.0,
-            peak_fast_db: -8.0,
-            peak_slow_db: -10.0,
-            level: crate::audio::VolumeLevel::Optimal,
-            confidence_weight: 0.8,
-            timestamp: 1000.0,
+        let buffer_metrics = AudioEvent::BufferMetrics {
+            total_buffers: 8,
+            total_overflows: 2,
+            memory_bytes: 65536,
         };
-        assert_eq!(volume_detected.event_type(), "volume_detected");
+        assert_eq!(buffer_metrics.event_type(), "buffer_metrics");
     }
 
     #[allow(dead_code)]

@@ -150,7 +150,8 @@ pub fn create_console_audio_service_with_setter(
 pub fn create_console_audio_service_with_audioworklet_setter(
     event_dispatcher: crate::events::AudioEventDispatcher,
     audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static,
-    audioworklet_status_setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + Clone + 'static
+    audioworklet_status_setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + Clone + 'static,
+    volume_level_setter: impl observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>> + Clone + 'static
 ) -> console_service::ConsoleAudioServiceImpl {
     let mut service = console_service::ConsoleAudioServiceImpl::new();
     
@@ -167,6 +168,33 @@ pub fn create_console_audio_service_with_audioworklet_setter(
     
     // Set audioworklet status setter
     service.set_audio_worklet_status_setter(audioworklet_status_setter);
+    
+    // Set the volume level setter on the global AudioWorklet manager if it exists
+    // Need to clone the Rc to avoid holding the borrow while we check if it's processing
+    if let Some(manager_rc) = get_global_audioworklet_manager() {
+        let setter_rc = std::rc::Rc::new(volume_level_setter);
+        
+        // Set the setter on the manager
+        {
+            let mut manager = manager_rc.borrow_mut();
+            manager.set_volume_level_setter(setter_rc.clone());
+        }
+        
+        // If the AudioWorklet is already initialized, we need to update the shared data
+        // This handles the case where the AudioWorklet was initialized before the setter was available
+        let is_processing = {
+            let manager = manager_rc.borrow();
+            matches!(manager.state(), worklet::AudioWorkletState::Processing)
+        };
+        
+        if is_processing {
+            dev_log!("AudioWorklet already processing - volume setter configured post-initialization");
+        } else {
+            dev_log!("Volume level setter configured on AudioWorklet manager");
+        }
+    } else {
+        dev_log!("Warning: AudioWorklet manager not yet initialized when setting volume level setter");
+    }
     
     service
 }
@@ -222,6 +250,19 @@ pub fn set_pitch_data_setter(
         dev_log!("Pitch data setter configured on global pitch analyzer");
     } else {
         dev_log!("Warning: Cannot set pitch data setter - pitch analyzer not initialized");
+    }
+}
+
+/// Set the volume level setter on the global AudioWorkletManager
+pub fn set_volume_level_setter(
+    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>
+) {
+    if let Some(manager_rc) = get_global_audioworklet_manager() {
+        let mut manager = manager_rc.borrow_mut();
+        manager.set_volume_level_setter(setter);
+        dev_log!("Volume level setter configured on global AudioWorklet manager");
+    } else {
+        dev_log!("Warning: Cannot set volume level setter - AudioWorklet manager not initialized");
     }
 }
 
