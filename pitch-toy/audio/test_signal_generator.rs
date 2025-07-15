@@ -32,7 +32,7 @@ pub struct TestSignalGeneratorConfig {
 }
 
 /// Configuration for background noise generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundNoiseConfig {
     /// Whether background noise is enabled
     pub enabled: bool,

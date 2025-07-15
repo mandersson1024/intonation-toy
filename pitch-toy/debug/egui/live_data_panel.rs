@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::audio::{
     AudioPermission, MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
-    BackgroundNoiseConfig,
+    BackgroundNoiseConfig, TestSignalGeneratorConfig,
 };
 use crate::live_data::LiveData;
 
@@ -109,6 +109,11 @@ pub struct EguiLiveDataPanel {
     
     /// UI state
     last_metrics_update: f64,
+    
+    /// Previous values to detect changes
+    prev_test_signal_config: TestSignalConfig,
+    prev_background_noise_config: BackgroundNoiseConfig,
+    prev_output_to_speakers: bool,
 }
 
 impl EguiLiveDataPanel {
@@ -117,13 +122,83 @@ impl EguiLiveDataPanel {
         audio_service: Rc<ConsoleAudioServiceImpl>,
         live_data: LiveData,
     ) -> Self {
+        let test_signal_config = TestSignalConfig::default();
+        let background_noise_config = BackgroundNoiseConfig::default();
+        let output_to_speakers = false;
+        
         Self {
             audio_service,
             live_data,
-            test_signal_config: TestSignalConfig::default(),
-            background_noise_config: BackgroundNoiseConfig::default(),
-            output_to_speakers: false,
+            test_signal_config: test_signal_config.clone(),
+            background_noise_config: background_noise_config.clone(),
+            output_to_speakers,
             last_metrics_update: 0.0,
+            prev_test_signal_config: test_signal_config,
+            prev_background_noise_config: background_noise_config,
+            prev_output_to_speakers: output_to_speakers,
+        }
+    }
+    
+    /// Apply test signal configuration to audio system
+    fn apply_test_signal_config(&self, config: &TestSignalConfig) {
+        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI config to audio system config
+            let audio_config = TestSignalGeneratorConfig {
+                enabled: config.enabled,
+                frequency: config.frequency,
+                amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
+                waveform: config.waveform.clone(),
+                sample_rate: 48000.0, // Use standard sample rate
+            };
+            
+            worklet.update_test_signal_config(audio_config);
+        }
+    }
+    
+    /// Apply background noise configuration to audio system
+    fn apply_background_noise_config(&self, config: &BackgroundNoiseConfig) {
+        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI config to audio system config
+            let audio_config = BackgroundNoiseConfig {
+                enabled: config.enabled,
+                level: config.level,
+                noise_type: config.noise_type.clone(),
+            };
+            
+            worklet.update_background_noise_config(audio_config);
+        }
+    }
+    
+    /// Apply output to speakers setting to audio system
+    fn apply_output_to_speakers(&self, enabled: bool) {
+        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            worklet.set_output_to_speakers(enabled);
+        }
+    }
+    
+    /// Check for configuration changes and apply them
+    fn check_and_apply_changes(&mut self) {
+        // Check test signal config changes
+        if self.test_signal_config != self.prev_test_signal_config {
+            self.apply_test_signal_config(&self.test_signal_config);
+            self.prev_test_signal_config = self.test_signal_config.clone();
+        }
+        
+        // Check background noise config changes
+        if self.background_noise_config != self.prev_background_noise_config {
+            self.apply_background_noise_config(&self.background_noise_config);
+            self.prev_background_noise_config = self.background_noise_config.clone();
+        }
+        
+        // Check output to speakers changes
+        if self.output_to_speakers != self.prev_output_to_speakers {
+            self.apply_output_to_speakers(self.output_to_speakers);
+            self.prev_output_to_speakers = self.output_to_speakers;
         }
     }
     
@@ -134,6 +209,9 @@ impl EguiLiveDataPanel {
             .resizable(true)
             .show(gui_context, |ui| {
                 self.render_content(ui);
+                
+                // Check for changes and apply them after rendering
+                self.check_and_apply_changes();
             });
     }
     
@@ -394,8 +472,12 @@ impl EguiLiveDataPanel {
         
         ui.horizontal(|ui| {
             ui.label("Background Noise:");
-            ui.add(egui::Slider::new(&mut self.background_noise_config.level, 0.0..=100.0)
-                .suffix("%"));
+            let mut level = self.background_noise_config.level * 100.0; // Convert to percentage
+            if ui.add(egui::Slider::new(&mut level, 0.0..=100.0)
+                .suffix("%")).changed() {
+                self.background_noise_config.level = level / 100.0; // Convert back to 0-1 range
+                self.background_noise_config.enabled = level > 0.0; // Auto-enable when level > 0
+            }
         });
     }
     
