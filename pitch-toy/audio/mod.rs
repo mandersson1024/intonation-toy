@@ -319,46 +319,17 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
             // Register globally for console commands access
             commands::set_global_pitch_analyzer(analyzer_rc.clone());
             
-            // Subscribe to buffer events for automatic pitch detection
-            let analyzer_for_events = analyzer_rc.clone();
-            event_dispatcher.borrow_mut().subscribe("buffer_filled", move |event| {
-                if let crate::events::audio_events::AudioEvent::BufferFilled { buffer_index, length: _ } = event {
-                    // Get buffer pool and extract data for pitch analysis
-                    if let Some(pool) = get_global_buffer_pool() {
-                        let mut pool_borrowed = pool.borrow_mut();
-                        if let Some(buffer) = pool_borrowed.get_mut(buffer_index) {
-                            // Extract audio data for pitch analysis
-                            if let Ok(mut analyzer) = analyzer_for_events.try_borrow_mut() {
-                                // Use BufferAnalyzer to process data from the circular buffer
-                                match buffer_analyzer::BufferAnalyzer::new(buffer, config.sample_window_size, buffer_analyzer::WindowFunction::Hamming) {
-                                    Ok(mut buffer_analyzer) => {
-                                        // Process all available audio data through pitch analyzer
-                                        match analyzer.process_continuous_from_buffer(&mut buffer_analyzer) {
-                                            Ok(pitch_results) => {
-                                                // Only log occasionally when we detect pitch (avoid spam)
-                                                if !pitch_results.is_empty() && analyzer.metrics().analysis_cycles % 100 == 0 {
-                                                    dev_log!("✓ Pitch detected: {} results from buffer {}", pitch_results.len(), buffer_index);
-                                                }
-                                            }
-                                            Err(e) => {
-                                                // Log errors occasionally to avoid spam
-                                                if analyzer.metrics().analysis_cycles % 200 == 0 {
-                                                    dev_log!("✗ Pitch detection error: {}", e);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        dev_log!("Failed to create BufferAnalyzer: {}", e);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            // Configure the pitch analyzer for direct processing via AudioWorklet
+            if let Some(manager) = get_global_audioworklet_manager() {
+                let mut manager_borrowed = manager.borrow_mut();
+                manager_borrowed.set_pitch_analyzer(analyzer_rc.clone());
+                dev_log!("✓ Pitch analyzer configured for direct processing via AudioWorklet");
+            } else {
+                dev_log!("Warning: No AudioWorklet manager available for pitch analyzer setup");
+            }
             
-            dev_log!("✓ Pitch analyzer subscribed to buffer events");
+            // Note: Event-based processing is replaced with direct processing from AudioWorklet messages
+            // The pitch analyzer is now called directly from handle_audio_data_batch() in the worklet manager
             
             Ok(())
         }

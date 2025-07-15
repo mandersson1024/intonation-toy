@@ -103,6 +103,7 @@ struct AudioWorkletSharedData {
     last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
+    pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
 }
 
 impl AudioWorkletSharedData {
@@ -114,6 +115,7 @@ impl AudioWorkletSharedData {
             last_volume_analysis: None,
             chunks_processed: 0,
             volume_level_setter: None,
+            pitch_analyzer: None,
         }
     }
 }
@@ -170,6 +172,8 @@ pub struct AudioWorkletManager {
     audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
     // Setter for updating volume level in live data
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
+    // Pitch analyzer for direct audio processing
+    pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
 }
 
 impl AudioWorkletManager {
@@ -191,6 +195,7 @@ impl AudioWorkletManager {
             output_to_speakers: false,
             audioworklet_status_setter: None,
             volume_level_setter: None,
+            pitch_analyzer: None,
         }
     }
     
@@ -212,6 +217,7 @@ impl AudioWorkletManager {
             output_to_speakers: false,
             audioworklet_status_setter: None,
             volume_level_setter: None,
+            pitch_analyzer: None,
         }
     }
     
@@ -387,6 +393,12 @@ impl AudioWorkletManager {
                 dev_log!("Volume level setter passed to AudioWorklet shared data");
             } else {
                 dev_log!("Warning: No volume level setter available during AudioWorklet initialization");
+            }
+            if let Some(pitch_analyzer) = &self.pitch_analyzer {
+                shared_data.borrow_mut().pitch_analyzer = Some(pitch_analyzer.clone());
+                dev_log!("Pitch analyzer passed to AudioWorklet shared data");
+            } else {
+                dev_log!("Warning: No pitch analyzer available during AudioWorklet initialization");
             }
             
             // Set up message handler with access to shared data
@@ -660,8 +672,39 @@ impl AudioWorkletManager {
                     data.last_volume_analysis = Some(volume_analysis);
                 }
                 
-                // TODO: Direct pitch analysis on batched data (Task 4)
-                // For now, we skip the circular buffer entirely
+                // Direct pitch analysis on batched data (Task 4)
+                let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
+                if let Some(analyzer) = pitch_analyzer {
+                    if let Ok(mut analyzer_mut) = analyzer.try_borrow_mut() {
+                        match analyzer_mut.analyze_batch_direct(&samples) {
+                            Ok(pitch_results) => {
+                                // Log pitch detection results occasionally
+                                let current_chunks_processed = shared_data.borrow().chunks_processed;
+                                if !pitch_results.is_empty() && current_chunks_processed % 64 == 0 {
+                                    dev_log!("✓ Pitch detected from batch: {} results", pitch_results.len());
+                                }
+                                
+                                // Update volume confidence weighting if available
+                                if let Some(volume_analysis) = shared_data.borrow().last_volume_analysis.as_ref() {
+                                    analyzer_mut.update_volume_analysis(volume_analysis.clone());
+                                }
+                            }
+                            Err(e) => {
+                                // Log errors occasionally to avoid spam
+                                let current_chunks_processed = shared_data.borrow().chunks_processed;
+                                if current_chunks_processed % 256 == 0 {
+                                    dev_log!("✗ Pitch detection error: {}", e);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Log warning occasionally if pitch analyzer is not available
+                    let current_chunks_processed = shared_data.borrow().chunks_processed;
+                    if current_chunks_processed % 256 == 0 {
+                        dev_log!("Warning: No pitch analyzer available for batched processing");
+                    }
+                }
                 
                 // Log batch processing occasionally
                 let chunks_processed = shared_data.borrow().chunks_processed;
@@ -1258,6 +1301,24 @@ impl AudioWorkletManager {
 
         Ok(())
     }
+
+    /// Set pitch analyzer for direct audio processing
+    pub fn set_pitch_analyzer(&mut self, analyzer: std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>) {
+        self.pitch_analyzer = Some(analyzer);
+        dev_log!("Pitch analyzer configured for direct processing");
+        
+        // If AudioWorklet is already initialized, update the message handler to include the pitch analyzer
+        if self.worklet_node.is_some() {
+            match self.setup_message_handling() {
+                Ok(_) => {
+                    dev_log!("Message handler updated with new pitch analyzer");
+                }
+                Err(e) => {
+                    dev_log!("Failed to update message handler: {:?}", e);
+                }
+            }
+        }
+    }
 }
 
 impl Drop for AudioWorkletManager {
@@ -1459,6 +1520,14 @@ pub async fn initialize_audioworklet_manager() -> Result<(), String> {
     // Store globally before initialization for setter access
     let worklet_manager_rc = std::rc::Rc::new(std::cell::RefCell::new(worklet_manager));
     super::set_global_audioworklet_manager(worklet_manager_rc.clone());
+    
+    // Setup pitch analyzer for direct processing if available
+    if let Some(pitch_analyzer) = super::get_global_pitch_analyzer() {
+        worklet_manager_rc.borrow_mut().set_pitch_analyzer(pitch_analyzer);
+        dev_log!("✓ Pitch analyzer connected to AudioWorklet manager");
+    } else {
+        dev_log!("Note: No pitch analyzer available during AudioWorklet initialization");
+    }
     
     // Initialize AudioWorklet
     let audio_context_ref = audio_context_manager.borrow();
