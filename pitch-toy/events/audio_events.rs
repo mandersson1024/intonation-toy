@@ -4,7 +4,7 @@
 //! by various components of the application. These events enable loose coupling between
 //! the audio subsystem and other components like the console.
 
-use crate::audio::{MusicalNote, VolumeLevel};
+use crate::audio::VolumeLevel;
 use event_dispatcher::{Event, SharedEventDispatcher, create_shared_dispatcher};
 
 /// Audio-related events that can be published throughout the application
@@ -16,25 +16,6 @@ pub enum AudioEvent {
     BufferOverflow { buffer_index: usize, overflow_count: usize },
     /// Buffer pool metrics update (periodic)
     BufferMetrics { total_buffers: usize, total_overflows: usize, memory_bytes: usize },
-    /// Pitch successfully detected
-    PitchDetected {
-        frequency: f32,
-        confidence: f32,
-        note: MusicalNote,
-        clarity: f32,
-        timestamp: f64,
-    },
-    /// Pitch detection lost (below threshold)
-    PitchLost {
-        last_frequency: f32,
-        timestamp: f64,
-    },
-    /// Confidence level changed significantly
-    ConfidenceChanged {
-        frequency: f32,
-        confidence: f32,
-        timestamp: f64,
-    },
     /// Volume level detected from audio input
     VolumeDetected {
         rms_db: f32,
@@ -68,9 +49,6 @@ impl AudioEvent {
             AudioEvent::BufferFilled { .. } => "buffer_filled",
             AudioEvent::BufferOverflow { .. } => "buffer_overflow",
             AudioEvent::BufferMetrics { .. } => "buffer_metrics",
-            AudioEvent::PitchDetected { .. } => "pitch_detected",
-            AudioEvent::PitchLost { .. } => "pitch_lost",
-            AudioEvent::ConfidenceChanged { .. } => "pitch_confidence_changed",
             AudioEvent::VolumeDetected { .. } => "volume_detected",
             AudioEvent::VolumeChanged { .. } => "volume_changed",
             AudioEvent::VolumeWarning { .. } => "volume_warning",
@@ -88,15 +66,6 @@ impl AudioEvent {
             }
             AudioEvent::BufferMetrics { total_buffers, total_overflows, memory_bytes } => {
                 format!("Buffer metrics: {} buffers, {} overflows, {:.2} MB", total_buffers, total_overflows, *memory_bytes as f64 / 1_048_576.0)
-            }
-            AudioEvent::PitchDetected { frequency, confidence, note, .. } => {
-                format!("Pitch detected: {:.2}Hz ({}) confidence={:.2}", frequency, note, confidence)
-            }
-            AudioEvent::PitchLost { last_frequency, .. } => {
-                format!("Pitch lost (was {:.2}Hz)", last_frequency)
-            }
-            AudioEvent::ConfidenceChanged { frequency, confidence, .. } => {
-                format!("Confidence changed: {:.2}Hz confidence={:.2}", frequency, confidence)
             }
             AudioEvent::VolumeDetected { rms_db, peak_db, level, confidence_weight, .. } => {
                 format!("Volume detected: RMS={:.1}dB, Peak={:.1}dB, Level={}, Confidence={:.2}", 
@@ -172,40 +141,6 @@ mod tests {
         assert!(metrics.description().contains("8 buffers"));
     }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_pitch_event_types_and_descriptions() {
-        use crate::audio::{NoteName, MusicalNote};
-
-        let note = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
-        let detected = AudioEvent::PitchDetected {
-            frequency: 440.0,
-            confidence: 0.9,
-            note,
-            clarity: 0.8,
-            timestamp: 1000.0,
-        };
-        assert_eq!(detected.event_type(), "pitch_detected");
-        assert!(detected.description().contains("440.00Hz"));
-        assert!(detected.description().contains("A4"));
-        assert!(detected.description().contains("confidence=0.90"));
-
-        let lost = AudioEvent::PitchLost {
-            last_frequency: 440.0,
-            timestamp: 1000.0,
-        };
-        assert_eq!(lost.event_type(), "pitch_lost");
-        assert!(lost.description().contains("was 440.00Hz"));
-
-        let confidence_changed = AudioEvent::ConfidenceChanged {
-            frequency: 440.0,
-            confidence: 0.7,
-            timestamp: 1000.0,
-        };
-        assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
-        assert!(confidence_changed.description().contains("440.00Hz"));
-        assert!(confidence_changed.description().contains("confidence=0.70"));
-    }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
@@ -264,68 +199,56 @@ mod tests {
         let mut dispatcher: EventDispatcher<AudioEvent> = EventDispatcher::new();
         let events_received = Rc::new(RefCell::new(Vec::new()));
         
-        // Subscribe to pitch detected events
+        // Subscribe to buffer filled events
         let events_clone = events_received.clone();
-        dispatcher.subscribe("pitch_detected", move |event| {
+        dispatcher.subscribe("buffer_filled", move |event| {
             events_clone.borrow_mut().push(event.clone());
         });
         
-        // Create and publish a pitch event
-        let pitch_event = AudioEvent::PitchDetected {
-            frequency: 440.0,
-            confidence: 0.8,
-            note: crate::audio::MusicalNote::new(
-                crate::audio::NoteName::A,
-                4,
-                0.0,
-                440.0
-            ),
-            clarity: 0.7,
-            timestamp: 1000.0,
+        // Create and publish a buffer event
+        let buffer_event = AudioEvent::BufferFilled {
+            buffer_index: 0,
+            length: 1024,
         };
         
         // Publish event
-        dispatcher.publish(&pitch_event);
+        dispatcher.publish(&buffer_event);
         
         // Verify event was received
         let received = events_received.borrow();
         assert_eq!(received.len(), 1);
-        assert!(matches!(received[0], AudioEvent::PitchDetected { .. }));
+        assert!(matches!(received[0], AudioEvent::BufferFilled { .. }));
         
         // Verify subscriber count
-        assert_eq!(dispatcher.subscriber_count("pitch_detected"), 1);
+        assert_eq!(dispatcher.subscriber_count("buffer_filled"), 1);
     }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]  
     fn test_event_types_integration() {
         // Test that all event types work correctly
-        let pitch_detected = AudioEvent::PitchDetected {
-            frequency: 440.0,
-            confidence: 0.8,
-            note: crate::audio::MusicalNote::new(
-                crate::audio::NoteName::A,
-                4,
-                0.0,
-                440.0
-            ),
-            clarity: 0.7,
+        let buffer_filled = AudioEvent::BufferFilled {
+            buffer_index: 0,
+            length: 1024,
+        };
+        assert_eq!(buffer_filled.event_type(), "buffer_filled");
+        
+        let buffer_overflow = AudioEvent::BufferOverflow {
+            buffer_index: 0,
+            overflow_count: 5,
+        };
+        assert_eq!(buffer_overflow.event_type(), "buffer_overflow");
+        
+        let volume_detected = AudioEvent::VolumeDetected {
+            rms_db: -12.0,
+            peak_db: -6.0,
+            peak_fast_db: -8.0,
+            peak_slow_db: -10.0,
+            level: crate::audio::VolumeLevel::Optimal,
+            confidence_weight: 0.8,
             timestamp: 1000.0,
         };
-        assert_eq!(pitch_detected.event_type(), "pitch_detected");
-        
-        let pitch_lost = AudioEvent::PitchLost {
-            last_frequency: 440.0,
-            timestamp: 2000.0,
-        };
-        assert_eq!(pitch_lost.event_type(), "pitch_lost");
-        
-        let confidence_changed = AudioEvent::ConfidenceChanged {
-            frequency: 440.0,
-            confidence: 0.6,
-            timestamp: 3000.0,
-        };
-        assert_eq!(confidence_changed.event_type(), "pitch_confidence_changed");
+        assert_eq!(volume_detected.event_type(), "volume_detected");
     }
 
     #[allow(dead_code)]

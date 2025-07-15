@@ -55,7 +55,8 @@ fn App() -> Html {
             microphone_permission_source.setter(), 
             audio_devices_source.setter(), 
             audioworklet_status_source.setter(),
-            performance_metrics_source.setter()
+            performance_metrics_source.setter(),
+            pitch_data_source.setter()
         )
     });
     
@@ -64,6 +65,7 @@ fn App() -> Html {
     let audio_devices_setter = &memo_result.2;
     let audioworklet_status_setter = &memo_result.3;
     let performance_metrics_setter = &memo_result.4;
+    let pitch_data_setter = &memo_result.5;
     
     
     // Initialize wgpu canvas after component is rendered
@@ -72,13 +74,14 @@ fn App() -> Html {
         let live_data_clone = live_data.clone();
         let mic_perm_setter = microphone_permission_setter.clone();
         let perf_metrics_setter = performance_metrics_setter.clone();
+        let pitch_setter = pitch_data_setter.clone();
         
         move |_| {
             if let Some(canvas_element) = canvas_ref.cast::<HtmlCanvasElement>() {
                 dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
                 initialize_canvas(&canvas_element);
                 wasm_bindgen_futures::spawn_local(async move {
-                    run_three_d(live_data_clone, mic_perm_setter, perf_metrics_setter).await;
+                    run_three_d(live_data_clone, mic_perm_setter, perf_metrics_setter, pitch_setter).await;
                 });
             } else {
                 dev_log!("Warning: Canvas element not found via ref");
@@ -145,7 +148,8 @@ fn initialize_canvas(canvas: &HtmlCanvasElement) {
 pub async fn run_three_d(
     live_data: LiveData, 
     microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
-    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static
+    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
+    pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static
 ) {
     dev_log!("Starting three-d with red sprites");
     
@@ -173,6 +177,9 @@ pub async fn run_three_d(
     
     // Create audio service for LiveDataPanel
     let audio_service = std::rc::Rc::new(audio::create_console_audio_service());
+    
+    // Set the pitch data setter on the global pitch analyzer (it should be initialized by now)
+    audio::set_pitch_data_setter(std::rc::Rc::new(pitch_data_setter.clone()));
     
     // Create LiveDataPanel
     let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data);
@@ -243,7 +250,7 @@ pub async fn start() {
     dev_log!("✓ Platform validation passed - initializing application");
     
     // Initialize audio systems first
-    if let Err(e) = initialize_audio_systems().await {
+    if let Err(e) = initialize_audio_systems(None).await {
         dev_log!("✗ Audio system initialization failed: {}", e);
         dev_log!("Application cannot continue without audio system");
         // TODO: Add error screen rendering in future story when UI requirements are defined
@@ -255,7 +262,9 @@ pub async fn start() {
 }
 
 /// Initialize all audio systems in sequence with proper error handling
-async fn initialize_audio_systems() -> Result<(), String> {
+async fn initialize_audio_systems(
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>
+) -> Result<(), String> {
     // Initialize audio system
     audio::initialize_audio_system().await
         .map_err(|e| format!("Audio system initialization failed: {}", e))?;
@@ -275,6 +284,12 @@ async fn initialize_audio_systems() -> Result<(), String> {
     audio::initialize_pitch_analyzer().await
         .map_err(|e| format!("Pitch analyzer initialization failed: {}", e))?;
     dev_log!("✓ Pitch analyzer initialized successfully");
+    
+    // Set the pitch data setter if provided
+    if let Some(setter) = pitch_data_setter {
+        audio::set_pitch_data_setter(setter);
+        dev_log!("✓ Pitch data setter configured");
+    }
     
     Ok(())
 }

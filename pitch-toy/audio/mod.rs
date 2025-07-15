@@ -212,6 +212,19 @@ pub fn set_audioworklet_status_setter(
     }
 }
 
+/// Set the pitch data setter on the global PitchAnalyzer
+pub fn set_pitch_data_setter(
+    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>
+) {
+    if let Some(analyzer_rc) = commands::get_global_pitch_analyzer() {
+        let mut analyzer = analyzer_rc.borrow_mut();
+        analyzer.set_pitch_data_setter(setter);
+        dev_log!("Pitch data setter configured on global pitch analyzer");
+    } else {
+        dev_log!("Warning: Cannot set pitch data setter - pitch analyzer not initialized");
+    }
+}
+
 /// Initialize buffer pool with appropriate size for development/production
 pub async fn initialize_buffer_pool() -> Result<(), String> {
     dev_log!("Initializing buffer pool");
@@ -252,12 +265,11 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
     
     // Create pitch analyzer instance
     match pitch_analyzer::PitchAnalyzer::new(config.clone(), sample_rate) {
-        Ok(mut analyzer) => {
-            // Set up event dispatcher for pitch events
-            let event_dispatcher = crate::events::get_global_event_dispatcher();
-            analyzer.set_event_dispatcher(event_dispatcher.clone());
-            
+        Ok(analyzer) => {
             let analyzer_rc = Rc::new(RefCell::new(analyzer));
+            
+            // Get event dispatcher for buffer events
+            let event_dispatcher = crate::events::get_global_event_dispatcher();
             
             // Log configuration details
             dev_log!("✓ Pitch analyzer created with configuration:");

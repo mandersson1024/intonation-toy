@@ -100,8 +100,6 @@ impl Default for AudioWorkletStatus {
 pub struct LivePanel {
     /// Current volume level
     volume_level: Option<VolumeLevelData>,
-    /// Current pitch data
-    pitch_data: Option<PitchData>,
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
     /// Background noise configuration
@@ -115,8 +113,6 @@ pub struct LivePanel {
 pub enum LivePanelMsg {
     /// Update volume level
     UpdateVolumeLevel(VolumeLevelData),
-    /// Update pitch data
-    UpdatePitchData(PitchData),
     /// Update test signal configuration
     UpdateTestSignalConfig(TestSignalConfig),
     /// Update background noise configuration
@@ -132,7 +128,6 @@ impl Component for LivePanel {
     fn create(ctx: &Context<Self>) -> Self {
         let mut component = Self {
             volume_level: None,
-            pitch_data: None,
             test_signal_config: TestSignalConfig::default(),
             background_noise_config: BackgroundNoiseConfig::default(),
             output_to_speakers: false,
@@ -152,10 +147,6 @@ impl Component for LivePanel {
         match msg {
             LivePanelMsg::UpdateVolumeLevel(level) => {
                 self.volume_level = Some(level);
-                true
-            }
-            LivePanelMsg::UpdatePitchData(pitch) => {
-                self.pitch_data = Some(pitch);
                 true
             }
             LivePanelMsg::UpdateTestSignalConfig(config) => {
@@ -242,7 +233,7 @@ impl Component for LivePanel {
                     {self.render_global_audio_controls(ctx)}
                     {self.render_performance_metrics(ctx)}
                     {self.render_volume_level()}
-                    {self.render_pitch_detection()}
+                    {self.render_pitch_detection(ctx)}
                 </div>
             </div>
         }
@@ -260,20 +251,7 @@ impl LivePanel {
         
         // Note: AudioWorklet status now comes from shared live_data, no subscription needed
         
-        // Subscribe to pitch detection events
-        let link_clone2 = ctx.link().clone();
-        ctx.props().event_dispatcher.borrow_mut().subscribe("pitch_detected", move |event| {
-            if let crate::events::audio_events::AudioEvent::PitchDetected { frequency, confidence, note, clarity, timestamp } = event {
-                let pitch_data = PitchData {
-                    frequency,
-                    confidence,
-                    note,
-                    clarity,
-                    timestamp,
-                };
-                link_clone2.send_message(LivePanelMsg::UpdatePitchData(pitch_data));
-            }
-        });
+        // Note: Pitch data now comes from shared live_data, no subscription needed
         
         // Subscribe to volume detection events
         let link_clone3 = ctx.link().clone();
@@ -330,12 +308,13 @@ impl LivePanel {
     }
 
     /// Render pitch detection section
-    fn render_pitch_detection(&self) -> Html {
+    fn render_pitch_detection(&self, ctx: &Context<Self>) -> Html {
+        let pitch_data = ctx.props().live_data.pitch_data.get();
         html! {
             <div class="live-panel-section">
                 <h4 class="live-panel-section-title">{"Pitch Detection"}</h4>
                 <div class="pitch-detection-data">
-                    {if let Some(pitch) = &self.pitch_data {
+                    {if let Some(pitch) = pitch_data {
                         html! {
                             <div class="pitch-data">
                                 <div class="metric-item">

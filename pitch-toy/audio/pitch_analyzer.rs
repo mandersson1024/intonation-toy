@@ -3,7 +3,6 @@ use super::note_mapper::NoteMapper;
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::events::AudioEventDispatcher;
 use crate::events::audio_events::AudioEvent;
 
 pub type PitchAnalysisError = String;
@@ -58,11 +57,10 @@ impl Default for PitchPerformanceMetrics {
 
 
 /// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
-/// and publishes PitchEvents through the Event Dispatcher
+/// and updates pitch data through observable_data pattern
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     note_mapper: NoteMapper,
-    event_dispatcher: Option<AudioEventDispatcher>,
     metrics: PitchPerformanceMetrics,
     last_detection: Option<PitchResult>,
     confidence_threshold_for_events: f32,
@@ -71,6 +69,8 @@ pub struct PitchAnalyzer {
     // Volume-based confidence weighting
     last_volume_analysis: Option<VolumeAnalysis>,
     volume_confidence_enabled: bool,
+    // Pitch data setter for observable_data pattern
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
 }
 
 impl PitchAnalyzer {
@@ -90,19 +90,19 @@ impl PitchAnalyzer {
         Ok(Self {
             pitch_detector,
             note_mapper,
-            event_dispatcher: None,
             metrics: PitchPerformanceMetrics::default(),
             last_detection: None,
             confidence_threshold_for_events: 0.1, // Threshold for confidence change events
             analysis_buffer,
             last_volume_analysis: None,
             volume_confidence_enabled: true,
+            pitch_data_setter: None,
         })
     }
 
-    /// Set the event dispatcher for publishing pitch events
-    pub fn set_event_dispatcher(&mut self, dispatcher: AudioEventDispatcher) {
-        self.event_dispatcher = Some(dispatcher);
+    /// Set the pitch data setter for observable_data pattern
+    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>) {
+        self.pitch_data_setter = Some(setter);
     }
 
     /// Set the confidence threshold for confidence change events
@@ -544,32 +544,17 @@ impl PitchAnalyzer {
         let volume_weight = self.get_volume_confidence_weight();
         let weighted_confidence = result.confidence * volume_weight;
 
-        // Check if this is a significant confidence change (using weighted confidence)
-        let confidence_changed = if let Some(ref last) = self.last_detection {
-            let last_weighted = last.confidence * self.get_volume_confidence_weight();
-            (weighted_confidence - last_weighted).abs() > self.confidence_threshold_for_events
-        } else {
-            true // First detection is always a change
-        };
 
-        // Publish pitch detected event with volume-weighted confidence
-        let pitch_event = AudioEvent::PitchDetected {
-            frequency: result.frequency,
-            confidence: weighted_confidence,
-            note,
-            clarity: result.clarity,
-            timestamp: result.timestamp,
-        };
-        self.publish_event(pitch_event);
-
-        // Publish confidence change event if significant
-        if confidence_changed {
-            let confidence_event = AudioEvent::ConfidenceChanged {
+        // Update pitch data using setter
+        if let Some(ref setter) = self.pitch_data_setter {
+            let pitch_data = crate::debug::egui::live_data_panel::PitchData {
                 frequency: result.frequency,
                 confidence: weighted_confidence,
+                note: note.clone(),
+                clarity: result.clarity,
                 timestamp: result.timestamp,
             };
-            self.publish_event(confidence_event);
+            setter.set(Some(pitch_data));
         }
 
         // Update average confidence using weighted value
@@ -579,33 +564,13 @@ impl PitchAnalyzer {
     }
 
     fn handle_pitch_lost(&mut self) -> Result<(), PitchAnalysisError> {
-        if let Some(ref last) = self.last_detection {
-            let pitch_lost_event = AudioEvent::PitchLost {
-                last_frequency: last.frequency,
-                timestamp: self.get_high_resolution_time(),
-            };
-            self.publish_event(pitch_lost_event);
+        // Clear pitch data using setter
+        if let Some(ref setter) = self.pitch_data_setter {
+            setter.set(None);
         }
         Ok(())
     }
 
-    fn publish_event(&self, event: AudioEvent) {
-        if let Some(ref dispatcher) = self.event_dispatcher {
-            // Publish the event through the Event Dispatcher
-            dispatcher.borrow().publish(&event);
-        } else {
-            // Fallback: log the event if no dispatcher is available
-            #[cfg(target_arch = "wasm32")]
-            {
-                web_sys::console::log_1(&format!("PitchEvent: {}", event.description()).into());
-            }
-            
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                println!("PitchEvent: {}", event.description());
-            }
-        }
-    }
 
     fn publish_metrics_update(&mut self) {
         // Log metrics only occasionally to avoid spam (every 1000 cycles)
@@ -804,40 +769,6 @@ mod tests {
         assert_eq!(analyzer.metrics().failed_detections, 0);
     }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_pitch_event_integration() {
-        // Test that pitch events are properly integrated with AudioEvent
-        // This is tested more thoroughly in the events module
-        use crate::events::audio_events::AudioEvent;
-        use crate::audio::pitch_detector::{NoteName, MusicalNote};
-
-        let note = MusicalNote::new(NoteName::A, 4, 0.0, 440.0);
-        let detected_event = AudioEvent::PitchDetected {
-            frequency: 440.0,
-            confidence: 0.9,
-            note,
-            clarity: 0.8,
-            timestamp: 1000.0,
-        };
-        assert_eq!(detected_event.event_type(), "pitch_detected");
-        assert!(detected_event.description().contains("440.00Hz"));
-
-        let lost_event = AudioEvent::PitchLost {
-            last_frequency: 440.0,
-            timestamp: 1000.0,
-        };
-        assert_eq!(lost_event.event_type(), "pitch_lost");
-        assert!(lost_event.description().contains("440.00Hz"));
-
-        let confidence_event = AudioEvent::ConfidenceChanged {
-            frequency: 440.0,
-            confidence: 0.8,
-            timestamp: 1000.0,
-        };
-        assert_eq!(confidence_event.event_type(), "pitch_confidence_changed");
-        assert!(confidence_event.description().contains("confidence=0.80"));
-    }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
@@ -1553,24 +1484,9 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_end_to_end_pitch_detection_pipeline() {
-        use crate::events::{create_shared_audio_dispatcher, AudioEvent};
-        use std::rc::Rc;
-        use std::cell::RefCell;
-        
-        // Create shared event dispatcher
-        let dispatcher = create_shared_audio_dispatcher();
-        let received_events = Rc::new(RefCell::new(Vec::new()));
-        
-        // Subscribe to pitch events
-        let events_clone = received_events.clone();
-        dispatcher.borrow_mut().subscribe("pitch_detected", move |event: AudioEvent| {
-            events_clone.borrow_mut().push(event.clone());
-        });
-        
-        // Create pitch analyzer with event dispatcher
+        // Create pitch analyzer
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        analyzer.set_event_dispatcher(dispatcher.clone());
         
         // Simulate realistic audio input sequence
         let test_sequence = [
@@ -1606,9 +1522,7 @@ mod tests {
         // Verify end-to-end pipeline worked
         assert!(detected_frequencies.len() >= 3, "Should detect multiple frequencies");
         
-        // Check that events were published
-        let events = received_events.borrow();
-        assert!(events.len() > 0, "Events should have been published");
+        // Note: Events are no longer published - we use observable_data pattern instead
         
         // Verify metrics were updated
         let metrics = analyzer.metrics();
