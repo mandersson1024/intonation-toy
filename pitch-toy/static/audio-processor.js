@@ -10,11 +10,94 @@
  * - Real-time audio data forwarding via MessagePort
  * - Low-latency processing with minimal overhead
  * - Error handling and processor lifecycle management
+ * - Transferable buffer pool for zero-copy data transfer
  * 
  * Communication:
  * - Receives: Configuration and control messages from main thread
  * - Sends: Audio data chunks and processing status to main thread
  */
+
+/**
+ * Transferable Buffer Pool for AudioWorklet
+ * Manages a pool of reusable ArrayBuffers for efficient audio data transfer
+ */
+class TransferableBufferPool {
+    constructor(poolSize = 4, bufferCapacity = 1024) {
+        this.poolSize = poolSize;
+        this.bufferCapacity = bufferCapacity;
+        this.buffers = [];
+        this.availableIndices = [];
+        this.inUseBuffers = new Map();
+        
+        // Initialize pool with pre-allocated buffers
+        for (let i = 0; i < poolSize; i++) {
+            this.buffers.push(new ArrayBuffer(bufferCapacity * 4)); // 4 bytes per float32
+            this.availableIndices.push(i);
+        }
+        
+        this.stats = {
+            acquireCount: 0,
+            transferCount: 0,
+            poolExhaustedCount: 0
+        };
+    }
+    
+    acquire() {
+        this.stats.acquireCount++;
+        
+        if (this.availableIndices.length === 0) {
+            this.stats.poolExhaustedCount++;
+            console.warn('TransferableBufferPool: Pool exhausted');
+            return null;
+        }
+        
+        const index = this.availableIndices.pop();
+        const buffer = this.buffers[index];
+        this.inUseBuffers.set(buffer, index);
+        return buffer;
+    }
+    
+    markTransferred(buffer) {
+        this.stats.transferCount++;
+        
+        const index = this.inUseBuffers.get(buffer);
+        if (index === undefined) {
+            console.error('TransferableBufferPool: Unknown buffer');
+            return;
+        }
+        
+        this.inUseBuffers.delete(buffer);
+        
+        // Create replacement buffer
+        const newBuffer = new ArrayBuffer(this.bufferCapacity * 4);
+        this.buffers[index] = newBuffer;
+        this.availableIndices.push(index);
+    }
+    
+    release(buffer) {
+        const index = this.inUseBuffers.get(buffer);
+        if (index === undefined) {
+            console.error('TransferableBufferPool: Unknown buffer');
+            return;
+        }
+        
+        this.inUseBuffers.delete(buffer);
+        this.availableIndices.push(index);
+    }
+    
+    isDetached(buffer) {
+        return buffer.byteLength === 0;
+    }
+    
+    getStats() {
+        return {
+            ...this.stats,
+            availableBuffers: this.availableIndices.length,
+            inUseBuffers: this.inUseBuffers.size,
+            totalBuffers: this.poolSize
+        };
+    }
+}
 
 class PitchDetectionProcessor extends AudioWorkletProcessor {
     constructor() {
@@ -25,6 +108,18 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Fixed chunk size as per Web Audio API specification
         this.chunkSize = 128;
+        
+        // Batch configuration for transferable buffers
+        this.batchSize = 1024; // 8 chunks of 128 samples
+        this.chunksPerBatch = this.batchSize / this.chunkSize;
+        
+        // Initialize transferable buffer pool
+        this.bufferPool = new TransferableBufferPool(4, this.batchSize);
+        
+        // Current batch buffer tracking
+        this.currentBuffer = null;
+        this.currentBufferArray = null;
+        this.writePosition = 0;
         
         // Processing state
         this.isProcessing = false;
@@ -60,10 +155,77 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.port.postMessage({
             type: 'processorReady',
             chunkSize: this.chunkSize,
+            batchSize: this.batchSize,
+            bufferPoolSize: this.bufferPool.poolSize,
             timestamp: this.currentTime || 0
         });
         
         console.log('PitchDetectionProcessor: Constructor complete, ready for processing');
+    }
+    
+    /**
+     * Acquire a new buffer from the pool for batching
+     */
+    acquireNewBuffer() {
+        this.currentBuffer = this.bufferPool.acquire();
+        if (this.currentBuffer) {
+            this.currentBufferArray = new Float32Array(this.currentBuffer);
+            this.writePosition = 0;
+        } else {
+            console.error('PitchDetectionProcessor: Failed to acquire buffer from pool');
+            this.currentBufferArray = null;
+        }
+    }
+    
+    /**
+     * Send the current buffer to main thread using transferable
+     */
+    sendCurrentBuffer() {
+        if (!this.currentBuffer || !this.currentBufferArray) {
+            return;
+        }
+        
+        // Check if buffer is already detached (safety check)
+        if (this.bufferPool.isDetached(this.currentBuffer)) {
+            console.error('PitchDetectionProcessor: Attempting to send already detached buffer');
+            this.currentBuffer = null;
+            this.currentBufferArray = null;
+            this.writePosition = 0;
+            return;
+        }
+        
+        // Only send if we have data in the buffer
+        if (this.writePosition > 0) {
+            try {
+                // Send buffer with transferable
+                this.port.postMessage({
+                    type: 'audioDataBatch',
+                    buffer: this.currentBuffer,
+                    sampleCount: this.writePosition,
+                    batchSize: this.batchSize,
+                    timestamp: this.currentTime || 0,
+                    chunkCounter: this.chunkCounter
+                }, [this.currentBuffer]);
+                
+                // Mark buffer as transferred
+                this.bufferPool.markTransferred(this.currentBuffer);
+                
+                // Clear references to transferred buffer immediately
+                this.currentBuffer = null;
+                this.currentBufferArray = null;
+                this.writePosition = 0;
+                
+            } catch (error) {
+                console.error('PitchDetectionProcessor: Error sending buffer:', error);
+                // Release buffer back to pool on error
+                if (this.currentBuffer && !this.bufferPool.isDetached(this.currentBuffer)) {
+                    this.bufferPool.release(this.currentBuffer);
+                }
+                this.currentBuffer = null;
+                this.currentBufferArray = null;
+                this.writePosition = 0;
+            }
+        }
     }
     
     /**
@@ -93,6 +255,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     type: 'status',
                     isProcessing: this.isProcessing,
                     chunkCounter: this.chunkCounter,
+                    bufferPoolStats: this.bufferPool.getStats(),
                     timestamp: this.currentTime || 0
                 });
                 break;
