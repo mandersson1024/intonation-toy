@@ -422,7 +422,26 @@ impl AudioWorkletManager {
                 if let Some(msg_type) = type_val.as_string() {
                     match msg_type.as_str() {
                         "processorReady" => {
-                            dev_log!("✓ AudioWorklet processor ready");
+                            // Extract batch configuration if available
+                            let batch_size = js_sys::Reflect::get(&obj, &"batchSize".into())
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .map(|v| v as usize);
+                            
+                            let sample_rate = js_sys::Reflect::get(&obj, &"sampleRate".into())
+                                .ok()
+                                .and_then(|v| v.as_f64());
+                            
+                            if let Some(size) = batch_size {
+                                dev_log!("✓ AudioWorklet processor ready with batch size: {} samples", size);
+                            } else {
+                                dev_log!("✓ AudioWorklet processor ready");
+                            }
+                            
+                            if let Some(rate) = sample_rate {
+                                dev_log!("  Sample rate: {} Hz", rate);
+                            }
+                            
                             Self::publish_status_update(&shared_data, AudioWorkletState::Ready, false);
                         }
                         "processingStarted" => {
@@ -434,8 +453,12 @@ impl AudioWorkletManager {
                             Self::publish_status_update(&shared_data, AudioWorkletState::Stopped, false);
                         }
                         "audioData" => {
-                            // Process real audio data
+                            // Process real audio data (legacy single chunk)
                             Self::handle_audio_data(&obj, &shared_data);
+                        }
+                        "audioDataBatch" => {
+                            // Process batched audio data with transferable buffer
+                            Self::handle_audio_data_batch(&obj, &shared_data);
                         }
                         "processingError" => {
                             if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
@@ -566,6 +589,90 @@ impl AudioWorkletManager {
         }
     }
     
+    /// Handle batched audio data from the AudioWorklet processor
+    fn handle_audio_data_batch(
+        obj: &js_sys::Object, 
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        // Extract the transferred ArrayBuffer
+        if let Ok(buffer_val) = js_sys::Reflect::get(obj, &"buffer".into()) {
+            if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
+                // Extract metadata
+                let sample_count = js_sys::Reflect::get(obj, &"sampleCount".into())
+                    .ok()
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as usize;
+                
+                let timestamp = js_sys::Reflect::get(obj, &"timestamp".into())
+                    .ok()
+                    .and_then(|v| v.as_f64());
+                
+                // Create Float32Array view of the buffer
+                let samples_array = js_sys::Float32Array::new(&array_buffer);
+                
+                // Only process the actual samples written (not the full buffer size)
+                let valid_samples = if sample_count > 0 && sample_count <= samples_array.length() as usize {
+                    samples_array.slice(0, sample_count as u32)
+                } else {
+                    samples_array
+                };
+                
+                // Convert to Vec<f32> for processing
+                let samples: Vec<f32> = valid_samples.to_vec();
+                
+                // Note: The ArrayBuffer is already detached after transfer, so no explicit
+                // recycling is needed on the main thread. The AudioWorklet manages its own
+                // buffer pool and creates new buffers as needed.
+                
+                // Update chunks processed count (batched)
+                let chunk_count = (samples.len() + 127) / 128; // Round up to nearest chunk
+                {
+                    let mut data = shared_data.borrow_mut();
+                    data.chunks_processed += chunk_count as u32;
+                }
+                
+                // Process volume detection on the batch
+                let volume_detector = shared_data.borrow().volume_detector.clone();
+                if let Some(mut detector) = volume_detector {
+                    let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
+                    
+                    // Update volume level data
+                    let chunks_processed = shared_data.borrow().chunks_processed;
+                    if chunks_processed % 16 == 0 { // Update less frequently for batches
+                        let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
+                        if let Some(setter) = volume_level_setter {
+                            let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
+                                rms_db: volume_analysis.rms_db,
+                                peak_db: volume_analysis.peak_db,
+                                peak_fast_db: volume_analysis.peak_fast_db,
+                                peak_slow_db: volume_analysis.peak_slow_db,
+                                level: volume_analysis.level,
+                                confidence_weight: volume_analysis.confidence_weight,
+                                timestamp: timestamp.unwrap_or(0.0),
+                            };
+                            setter.set(Some(volume_data));
+                        }
+                    }
+                    
+                    // Store back the detector and analysis
+                    let mut data = shared_data.borrow_mut();
+                    data.volume_detector = Some(detector);
+                    data.last_volume_analysis = Some(volume_analysis);
+                }
+                
+                // TODO: Direct pitch analysis on batched data (Task 4)
+                // For now, we skip the circular buffer entirely
+                
+                // Log batch processing occasionally
+                let chunks_processed = shared_data.borrow().chunks_processed;
+                if chunks_processed % 256 == 0 {
+                    dev_log!("✓ Processed audio batch: {} samples, {} chunks total", 
+                        samples.len(), chunks_processed);
+                }
+            }
+        }
+    }
+    
     /// Publish AudioWorklet status update to Live Data Panel
     fn publish_status_update(
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
@@ -661,6 +768,44 @@ impl AudioWorkletManager {
         }
     }
     
+    
+    /// Update batch configuration
+    pub fn update_batch_config(&self, batch_size: Option<usize>, buffer_timeout: Option<f64>) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            let message = js_sys::Object::new();
+            js_sys::Reflect::set(&message, &"type".into(), &"updateBatchConfig".into())
+                .map_err(|e| AudioError::Generic(format!("Failed to create message: {:?}", e)))?;
+            
+            // Create config object
+            let config = js_sys::Object::new();
+            
+            if let Some(size) = batch_size {
+                js_sys::Reflect::set(&config, &"batchSize".into(), &JsValue::from(size as f64))
+                    .map_err(|e| AudioError::Generic(format!("Failed to set batchSize: {:?}", e)))?;
+            }
+            
+            if let Some(timeout) = buffer_timeout {
+                js_sys::Reflect::set(&config, &"bufferTimeout".into(), &JsValue::from(timeout))
+                    .map_err(|e| AudioError::Generic(format!("Failed to set bufferTimeout: {:?}", e)))?;
+            }
+            
+            // Attach config to message
+            js_sys::Reflect::set(&message, &"config".into(), &config)
+                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
+            
+            // Send message
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            port.post_message(&message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send batch config: {:?}", e)))?;
+            
+            dev_log!("Sent batch config to AudioWorklet: batch_size={:?}, timeout={:?}ms", 
+                     batch_size, buffer_timeout);
+            Ok(())
+        } else {
+            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
+    }
     
     /// Connect audio worklet to audio pipeline
     pub fn connect_to_destination(&self, context: &AudioContextManager) -> Result<(), AudioError> {
