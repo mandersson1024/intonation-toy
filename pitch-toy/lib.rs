@@ -11,6 +11,7 @@ pub mod live_data;
 use common::dev_log;
 use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
+use crate::audio::console_service::ConsoleAudioService;
 
 use platform::{Platform, PlatformValidationResult};
 use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
@@ -165,12 +166,15 @@ pub async fn start() {
     // Create audio service with event dispatcher and setters AFTER AudioWorklet initialization
     // This ensures the volume level setter is properly configured on the initialized AudioWorklet manager
     let event_dispatcher = crate::events::get_global_event_dispatcher();
-    let _audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
+    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
         event_dispatcher.clone(),
         audio_devices_setter.clone(),
         audioworklet_status_setter.clone(),
         volume_level_setter.clone()
     ));
+    
+    // Trigger initial device enumeration
+    audio_service.refresh_devices();
     
     // Note: Audio console service is needed for volume level updates in both debug and release builds
     
