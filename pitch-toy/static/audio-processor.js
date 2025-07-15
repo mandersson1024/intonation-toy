@@ -3,18 +3,31 @@
  * 
  * This processor handles real-time audio processing in the dedicated audio thread.
  * It processes audio in fixed 128-sample chunks as required by the Web Audio API
- * and forwards audio data to the main thread for pitch detection processing.
+ * and batches them before sending to the main thread for efficient data transfer.
  * 
  * Key Features:
  * - Fixed 128-sample chunk processing (Web Audio API standard)
- * - Real-time audio data forwarding via MessagePort
- * - Low-latency processing with minimal overhead
+ * - Batched audio data transfer (default: 1024 samples / 8 chunks)
+ * - Transferable ArrayBuffers for zero-copy message passing
+ * - Configurable batch size and timeout for low-latency scenarios
+ * - Automatic buffer pool management to avoid allocations
  * - Error handling and processor lifecycle management
- * - Transferable buffer pool for zero-copy data transfer
  * 
  * Communication:
- * - Receives: Configuration and control messages from main thread
- * - Sends: Audio data chunks and processing status to main thread
+ * - Receives: Configuration messages (startProcessing, stopProcessing, updateBatchConfig)
+ * - Sends: Batched audio data via audioDataBatch messages with transferables
+ * 
+ * Usage:
+ * ```js
+ * // Configure batching
+ * processor.port.postMessage({
+ *     type: 'updateBatchConfig',
+ *     config: {
+ *         batchSize: 2048,      // samples per batch
+ *         bufferTimeout: 30     // ms before sending partial buffer
+ *     }
+ * });
+ * ```
  */
 
 /**
@@ -121,6 +134,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.currentBufferArray = null;
         this.writePosition = 0;
         
+        // Timeout configuration for low-latency sending
+        this.bufferTimeout = 50; // 50ms timeout for partial buffers
+        this.lastBufferStartTime = 0;
+        
         // Processing state
         this.isProcessing = false;
         this.chunkCounter = 0;
@@ -131,7 +148,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             frequency: 440.0,
             amplitude: 0.3,
             waveform: 'sine',
-            sample_rate: 48000.0
+            sample_rate: sampleRate // Use the actual sample rate from AudioWorklet
         };
         
         // Background noise configuration (independent of test signal)
@@ -157,6 +174,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             chunkSize: this.chunkSize,
             batchSize: this.batchSize,
             bufferPoolSize: this.bufferPool.poolSize,
+            sampleRate: sampleRate,
             timestamp: this.currentTime || 0
         });
         
@@ -171,6 +189,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         if (this.currentBuffer) {
             this.currentBufferArray = new Float32Array(this.currentBuffer);
             this.writePosition = 0;
+            this.lastBufferStartTime = this.currentTime || performance.now();
         } else {
             console.error('PitchDetectionProcessor: Failed to acquire buffer from pool');
             this.currentBufferArray = null;
@@ -244,6 +263,12 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
             case 'stopProcessing':
                 this.isProcessing = false;
+                
+                // Send any remaining buffered data before stopping
+                if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
+                    this.sendCurrentBuffer();
+                }
+                
                 this.port.postMessage({
                     type: 'processingStopped',
                     timestamp: this.currentTime || 0
@@ -281,6 +306,51 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     this.port.postMessage({
                         type: 'backgroundNoiseConfigUpdated',
                         config: this.backgroundNoiseConfig,
+                        timestamp: this.currentTime || 0
+                    });
+                }
+                break;
+                
+            case 'updateBatchConfig':
+                if (message.config) {
+                    // Update batch size if provided
+                    if (message.config.batchSize && message.config.batchSize > 0) {
+                        // Ensure batch size is a multiple of chunk size
+                        const newBatchSize = Math.ceil(message.config.batchSize / this.chunkSize) * this.chunkSize;
+                        
+                        // Send any pending data before changing batch size
+                        if (this.currentBuffer && this.writePosition > 0) {
+                            this.sendCurrentBuffer();
+                        }
+                        
+                        // Update configuration
+                        this.batchSize = newBatchSize;
+                        this.chunksPerBatch = this.batchSize / this.chunkSize;
+                        
+                        // Recreate buffer pool with new size
+                        this.bufferPool = new TransferableBufferPool(4, this.batchSize);
+                        this.currentBuffer = null;
+                        this.currentBufferArray = null;
+                        this.writePosition = 0;
+                    }
+                    
+                    // Update timeout if provided
+                    if (message.config.bufferTimeout !== undefined) {
+                        this.bufferTimeout = Math.max(0, message.config.bufferTimeout);
+                    }
+                    
+                    console.log('PitchDetectionProcessor: Batch config updated:', {
+                        batchSize: this.batchSize,
+                        bufferTimeout: this.bufferTimeout
+                    });
+                    
+                    this.port.postMessage({
+                        type: 'batchConfigUpdated',
+                        config: {
+                            batchSize: this.batchSize,
+                            chunksPerBatch: this.chunksPerBatch,
+                            bufferTimeout: this.bufferTimeout
+                        },
                         timestamp: this.currentTime || 0
                     });
                 }
@@ -483,23 +553,55 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             }
         }
         
-        // Forward processed audio data to main thread for analysis
+        // Accumulate processed audio data for batching
         if (this.isProcessing) {
             try {
-                // Send the processed audio (test signal or mic input) for analysis
-                const audioData = new Float32Array(processedAudio);
+                // Ensure we have a buffer to write to
+                if (!this.currentBuffer || !this.currentBufferArray) {
+                    this.acquireNewBuffer();
+                }
                 
-                this.port.postMessage({
-                    type: 'audioData',
-                    samples: audioData,
-                    chunkSize: this.chunkSize,
-                    chunkCounter: this.chunkCounter,
-                    timestamp: this.currentTime || 0
-                });
+                // If we still don't have a buffer (pool exhausted), skip this chunk
+                if (!this.currentBufferArray) {
+                    console.warn('PitchDetectionProcessor: No buffer available, skipping chunk');
+                    this.chunkCounter++;
+                    return true;
+                }
+                
+                // Copy the processed audio into the accumulation buffer
+                const remainingSpace = this.batchSize - this.writePosition;
+                const samplesToWrite = Math.min(this.chunkSize, remainingSpace);
+                
+                // Write samples to the current position
+                this.currentBufferArray.set(processedAudio.subarray(0, samplesToWrite), this.writePosition);
+                this.writePosition += samplesToWrite;
+                
+                // Check if buffer is full or timeout has elapsed
+                const currentTime = this.currentTime || performance.now();
+                const timeElapsed = currentTime - this.lastBufferStartTime;
+                const shouldSendDueToTimeout = this.writePosition > 0 && timeElapsed >= this.bufferTimeout;
+                
+                if (this.writePosition >= this.batchSize || shouldSendDueToTimeout) {
+                    // Send the batch (full or partial due to timeout)
+                    this.sendCurrentBuffer();
+                    
+                    // Handle any remaining samples if chunk was partially written
+                    if (samplesToWrite < this.chunkSize) {
+                        this.acquireNewBuffer();
+                        if (this.currentBufferArray) {
+                            const remainingSamples = this.chunkSize - samplesToWrite;
+                            this.currentBufferArray.set(
+                                processedAudio.subarray(samplesToWrite),
+                                0
+                            );
+                            this.writePosition = remainingSamples;
+                        }
+                    }
+                }
                 
                 this.chunkCounter++;
             } catch (error) {
-                console.error('PitchDetectionProcessor: Error sending audio data:', error);
+                console.error('PitchDetectionProcessor: Error accumulating audio data:', error);
                 
                 // Send error notification to main thread
                 this.port.postMessage({
@@ -508,6 +610,9 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     timestamp: this.currentTime || 0
                 });
             }
+        } else {
+            // Not processing, but still increment chunk counter
+            this.chunkCounter++;
         }
         
         // Keep processor alive
@@ -519,6 +624,12 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      */
     destroy() {
         this.isProcessing = false;
+        
+        // Send any remaining buffered data before destroying
+        if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
+            this.sendCurrentBuffer();
+        }
+        
         this.port.postMessage({
             type: 'processorDestroyed',
             timestamp: this.currentTime || 0
