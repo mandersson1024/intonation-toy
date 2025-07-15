@@ -10,7 +10,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use super::{AudioPermission, AudioDevices, AudioContextState, AudioContextManager, permission::PermissionManager};
 use crate::common::dev_log;
-use crate::events::{AudioEvent, AudioEventDispatcher};
+
+
 
 /// Audio status information for console display
 #[derive(Debug, Clone)]
@@ -25,11 +26,7 @@ pub struct AudioStatus {
     pub is_initialized: bool,
 }
 
-/// Callback type for device change notifications
-pub type DeviceChangeCallback = Box<dyn Fn(AudioDevices)>;
 
-/// Callback type for permission change notifications
-pub type PermissionChangeCallback = Box<dyn Fn(AudioPermission)>;
 
 /// Service interface for console audio operations
 /// 
@@ -40,13 +37,7 @@ pub trait ConsoleAudioService {
     /// Must be called from a user gesture context (button click, etc.)
     fn request_permissions(&self) -> Result<(), String>;
     
-    /// Subscribe to audio device changes
-    /// The callback will be called whenever audio devices are added/removed
-    fn subscribe_device_changes(&self, callback: DeviceChangeCallback);
-    
-    /// Subscribe to permission state changes
-    /// The callback will be called whenever permission state changes
-    fn subscribe_permission_changes(&self, callback: PermissionChangeCallback);
+
     
     /// Get current audio system status
     fn get_current_status(&self) -> AudioStatus;
@@ -69,8 +60,6 @@ pub trait ConsoleAudioService {
 pub struct ConsoleAudioServiceImpl {
     /// Audio context manager for context operations
     audio_context_manager: Option<Rc<RefCell<AudioContextManager>>>,
-    /// Event dispatcher for publishing and subscribing to events
-    event_dispatcher: Option<AudioEventDispatcher>,
     /// Setter for audio devices data (optional)
     audio_devices_setter: Option<Rc<dyn observable_data::DataSetter<AudioDevices>>>,
     /// Setter for audio worklet status data (optional)
@@ -82,7 +71,6 @@ impl ConsoleAudioServiceImpl {
     pub fn new() -> Self {
         Self {
             audio_context_manager: None,
-            event_dispatcher: None,
             audio_devices_setter: None,
             audio_worklet_status_setter: None,
         }
@@ -92,41 +80,17 @@ impl ConsoleAudioServiceImpl {
     pub fn with_audio_context_manager(manager: Rc<RefCell<AudioContextManager>>) -> Self {
         Self {
             audio_context_manager: Some(manager),
-            event_dispatcher: None,
             audio_devices_setter: None,
             audio_worklet_status_setter: None,
         }
     }
     
     /// Create console audio service with both manager and event dispatcher
-    pub fn with_dependencies(
-        manager: Rc<RefCell<AudioContextManager>>, 
-        event_dispatcher: AudioEventDispatcher
-    ) -> Self {
-        Self {
-            audio_context_manager: Some(manager),
-            event_dispatcher: Some(event_dispatcher),
-            audio_devices_setter: None,
-            audio_worklet_status_setter: None,
-        }
-    }
-    
     /// Set the audio context manager
     pub fn set_audio_context_manager(&mut self, manager: Rc<RefCell<AudioContextManager>>) {
         self.audio_context_manager = Some(manager);
         
-        // Set up device change listener if we also have an event dispatcher
-        if self.event_dispatcher.is_some() {
-            self.setup_device_change_listener();
-        }
-        
-    }
-    
-    /// Set the event dispatcher
-    pub fn set_event_dispatcher(&mut self, dispatcher: AudioEventDispatcher) {
-        self.event_dispatcher = Some(dispatcher);
-        
-        // Set up device change listener now that we have both manager and dispatcher
+        // Set up device change listener
         self.setup_device_change_listener();
     }
     
@@ -175,25 +139,15 @@ impl ConsoleAudioServiceImpl {
         }
     }
     
-    /// Publish an audio event through the event dispatcher
-    pub fn publish_event(&self, event: AudioEvent) {
-        if let Some(ref dispatcher) = self.event_dispatcher {
-            dispatcher.borrow().publish(&event);
-        } else {
-            dev_log!("Warning: No event dispatcher available to publish event");
-        }
-    }
+
     
     /// Set up device change listener for automatic device refresh on hardware changes
     fn setup_device_change_listener(&self) {
-        if let (Some(manager_rc), Some(event_dispatcher)) = 
-            (&self.audio_context_manager, &self.event_dispatcher) {
-            
+        if let Some(manager_rc) = &self.audio_context_manager {
             dev_log!("Setting up device change listener");
             
             // Clone references for the closure
             let manager_rc_clone = manager_rc.clone();
-            let event_dispatcher_clone = event_dispatcher.clone();
             
             // Set up the device change callback
             let callback = move || {
@@ -201,7 +155,6 @@ impl ConsoleAudioServiceImpl {
                 
                 // Clone references for the async closure
                 let manager_rc_async = manager_rc_clone.clone();
-                let _event_dispatcher_async = event_dispatcher_clone.clone();
                 
                 // Spawn async task to refresh devices
                 wasm_bindgen_futures::spawn_local(async move {
@@ -237,7 +190,7 @@ impl ConsoleAudioServiceImpl {
                 }
             }
         } else {
-            dev_log!("Cannot set up device change listener - missing manager or event dispatcher");
+            dev_log!("Cannot set up device change listener - missing manager");
         }
     }
 }
@@ -258,33 +211,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         Ok(())
     }
     
-    fn subscribe_device_changes(&self, _callback: DeviceChangeCallback) {
-        dev_log!("ConsoleAudioService: Subscribing to device changes");
-        
-        if let Some(ref dispatcher) = self.event_dispatcher {
-            dispatcher.borrow_mut().subscribe("device_list_changed", move |_event| {
-                // DeviceListChanged events are no longer published - using setter instead
-                // This code path will never execute
-            });
-            dev_log!("Device change subscription registered with event dispatcher");
-        } else {
-            dev_log!("Warning: No event dispatcher available for device change subscription");
-        }
-    }
-    
-    fn subscribe_permission_changes(&self, _callback: PermissionChangeCallback) {
-        dev_log!("ConsoleAudioService: Subscribing to permission changes");
-        
-        if let Some(ref dispatcher) = self.event_dispatcher {
-            // Note: PermissionChanged events are no longer published - using direct permission manager calls instead
-            dispatcher.borrow_mut().subscribe("permission_changed_deprecated", move |_event| {
-                // This callback will never be called as PermissionChanged events are no longer published
-            });
-            dev_log!("Permission change subscription registered with event dispatcher");
-        } else {
-            dev_log!("Warning: No event dispatcher available for permission change subscription");
-        }
-    }
+
     
     fn get_current_status(&self) -> AudioStatus {
         let context_state = self.get_current_context_state();
@@ -408,9 +335,5 @@ mod tests {
         
         // Test refresh_devices doesn't panic
         service.refresh_devices();
-        
-        // Test subscribe methods don't panic
-        service.subscribe_device_changes(Box::new(|_| {}));
-        service.subscribe_permission_changes(Box::new(|_| {}));
     }
 }

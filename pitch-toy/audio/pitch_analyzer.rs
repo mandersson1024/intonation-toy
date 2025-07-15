@@ -785,18 +785,7 @@ mod tests {
         let result = analyzer.process_buffer_event(&buffer_event);
         assert!(result.is_ok());
 
-        // Test processing other events (should be ignored)
-        let volume_event = AudioEvent::VolumeDetected {
-            rms_db: -20.0,
-            peak_db: -10.0,
-            peak_fast_db: -12.0,
-            peak_slow_db: -15.0,
-            level: crate::audio::VolumeLevel::Optimal,
-            confidence_weight: 0.8,
-            timestamp: 1000.0,
-        };
-        let result = analyzer.process_buffer_event(&volume_event);
-        assert!(result.is_ok());
+
     }
 
     #[allow(dead_code)]

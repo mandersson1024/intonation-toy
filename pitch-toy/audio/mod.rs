@@ -108,7 +108,7 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 /// Create a ConsoleAudioService instance with event dispatcher
 /// Returns a configured console audio service with both audio context manager and event dispatcher
 pub fn create_console_audio_service_with_events(
-    event_dispatcher: crate::events::AudioEventDispatcher
+    _event_dispatcher: crate::events::AudioEventDispatcher
 ) -> console_service::ConsoleAudioServiceImpl {
     let mut service = console_service::ConsoleAudioServiceImpl::new();
     
@@ -117,16 +117,15 @@ pub fn create_console_audio_service_with_events(
         service.set_audio_context_manager(manager);
     }
     
-    // Set event dispatcher
-    service.set_event_dispatcher(event_dispatcher);
+    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
     
     service
 }
 
-/// Create a ConsoleAudioService instance with event dispatcher and audio devices setter
+/// Create a ConsoleAudioService instance with audio devices setter
 /// Returns a configured console audio service that directly updates audio devices via setter
 pub fn create_console_audio_service_with_setter(
-    event_dispatcher: crate::events::AudioEventDispatcher,
+    _event_dispatcher: crate::events::AudioEventDispatcher,
     audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static
 ) -> console_service::ConsoleAudioServiceImpl {
     let mut service = console_service::ConsoleAudioServiceImpl::new();
@@ -136,8 +135,7 @@ pub fn create_console_audio_service_with_setter(
         service.set_audio_context_manager(manager);
     }
     
-    // Set event dispatcher
-    service.set_event_dispatcher(event_dispatcher);
+    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
     
     // Set audio devices setter
     service.set_audio_devices_setter(audio_devices_setter);
@@ -145,10 +143,10 @@ pub fn create_console_audio_service_with_setter(
     service
 }
 
-/// Create a ConsoleAudioService instance with event dispatcher and both setters
+/// Create a ConsoleAudioService instance with both setters
 /// Returns a configured console audio service that directly updates data via setters
 pub fn create_console_audio_service_with_audioworklet_setter(
-    event_dispatcher: crate::events::AudioEventDispatcher,
+    _event_dispatcher: crate::events::AudioEventDispatcher,
     audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static,
     audioworklet_status_setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + Clone + 'static,
     volume_level_setter: impl observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>> + Clone + 'static
@@ -160,8 +158,7 @@ pub fn create_console_audio_service_with_audioworklet_setter(
         service.set_audio_context_manager(manager);
     }
     
-    // Set event dispatcher
-    service.set_event_dispatcher(event_dispatcher);
+    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
     
     // Set audio devices setter
     service.set_audio_devices_setter(audio_devices_setter);
