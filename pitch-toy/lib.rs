@@ -1,5 +1,3 @@
-use yew::prelude::*;
-use web_sys::HtmlCanvasElement;
 use three_d::*;
 
 pub mod audio;
@@ -22,130 +20,6 @@ use graphics::SpriteScene;
 // Import LiveData type
 use live_data::LiveData;
 
-/// Main application component for Pitch Toy
-#[function_component]
-fn App() -> Html {
-    let canvas_ref = use_node_ref();
-    
-    // Create data sources and LiveData in one memo (run once)  
-    let memo_result = use_memo((), |_| {
-        use observable_data::DataSource;
-        
-        let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
-        let audio_devices_source = DataSource::new(audio::AudioDevices {
-            input_devices: vec![],
-            output_devices: vec![],
-        });
-        let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
-        let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
-        let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
-        let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
-        
-        let live_data = live_data::LiveData {
-            microphone_permission: microphone_permission_source.observer(),
-            audio_devices: audio_devices_source.observer(),
-            performance_metrics: performance_metrics_source.observer(),
-            volume_level: volume_level_source.observer(),
-            pitch_data: pitch_data_source.observer(),
-            audioworklet_status: audioworklet_status_source.observer(),
-        };
-        
-        (
-            live_data, 
-            microphone_permission_source.setter(), 
-            audio_devices_source.setter(), 
-            audioworklet_status_source.setter(),
-            performance_metrics_source.setter(),
-            pitch_data_source.setter(),
-            volume_level_source.setter()
-        )
-    });
-    
-    let live_data = &memo_result.0;
-    let microphone_permission_setter = &memo_result.1;
-    let audio_devices_setter = &memo_result.2;
-    let audioworklet_status_setter = &memo_result.3;
-    let performance_metrics_setter = &memo_result.4;
-    let pitch_data_setter = &memo_result.5;
-    let volume_level_setter = &memo_result.6;
-    
-    
-    // Initialize wgpu canvas after component is rendered
-    use_effect_with(canvas_ref.clone(), {
-        let canvas_ref = canvas_ref.clone();
-        let live_data_clone = live_data.clone();
-        let mic_perm_setter = microphone_permission_setter.clone();
-        let perf_metrics_setter = performance_metrics_setter.clone();
-        let pitch_setter = pitch_data_setter.clone();
-        
-        move |_| {
-            if let Some(canvas_element) = canvas_ref.cast::<HtmlCanvasElement>() {
-                dev_log!("Canvas element found via ref: {}x{}", canvas_element.width(), canvas_element.height());
-                initialize_canvas(&canvas_element);
-                wasm_bindgen_futures::spawn_local(async move {
-                    run_three_d(live_data_clone, mic_perm_setter, perf_metrics_setter, pitch_setter).await;
-                });
-            } else {
-                dev_log!("Warning: Canvas element not found via ref");
-            }
-        }
-    });
-
-    html! {
-        <div>
-            // Debug interface (LivePanel) for debug builds only
-            {
-                if cfg!(debug_assertions) {
-                    // Get global shared event dispatcher
-                    let event_dispatcher = crate::events::get_global_event_dispatcher();
-                    
-                    // Create audio service with event dispatcher and setters
-                    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
-                        event_dispatcher.clone(),
-                        audio_devices_setter.clone(),
-                        audioworklet_status_setter.clone(),
-                        volume_level_setter.clone()
-                    ));
-                    
-                    html! { 
-                        <debug::DebugInterface
-                            audio_service={audio_service}
-                            event_dispatcher={Some(event_dispatcher)}
-                            live_data={live_data.clone()}
-                        />
-                    }
-                } else {
-                    html! {}
-                }
-            }
-            
-            // Canvas for wgpu GPU rendering
-            <canvas 
-                ref={canvas_ref}
-                id="wgpu-canvas"
-                width="1280" 
-                height="720"
-                style="display: block; margin: 0 auto; border: 1px solid #333;"
-            />
-        </div>
-    }
-}
-
-
-
-/// Initialize canvas for three-d graphics rendering
-fn initialize_canvas(canvas: &HtmlCanvasElement) {
-    dev_log!("Initializing canvas for three-d hello-world proof-of-concept");
-    
-    // Set canvas size to match display size
-    let width = canvas.offset_width() as u32;
-    let height = canvas.offset_height() as u32;
-    
-    canvas.set_width(width);
-    canvas.set_height(height);
-    
-    dev_log!("Canvas initialized: {}x{}", width, height);
-}
 
 
 pub async fn run_three_d(
@@ -155,7 +29,6 @@ pub async fn run_three_d(
     pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static
 ) {
     dev_log!("Starting three-d with red sprites");
-    
     
     let window = Window::new(WindowSettings {
         title: "pitch-toy".to_string(),
@@ -252,16 +125,57 @@ pub async fn start() {
 
     dev_log!("✓ Platform validation passed - initializing application");
     
+    // Create data sources and LiveData directly in start()
+    use observable_data::DataSource;
+    
+    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
+    let audio_devices_source = DataSource::new(audio::AudioDevices {
+        input_devices: vec![],
+        output_devices: vec![],
+    });
+    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
+    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
+    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
+    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+    
+    let live_data = live_data::LiveData {
+        microphone_permission: microphone_permission_source.observer(),
+        audio_devices: audio_devices_source.observer(),
+        performance_metrics: performance_metrics_source.observer(),
+        volume_level: volume_level_source.observer(),
+        pitch_data: pitch_data_source.observer(),
+        audioworklet_status: audioworklet_status_source.observer(),
+    };
+    
+    let microphone_permission_setter = microphone_permission_source.setter();
+    let audio_devices_setter = audio_devices_source.setter();
+    let audioworklet_status_setter = audioworklet_status_source.setter();
+    let performance_metrics_setter = performance_metrics_source.setter();
+    let pitch_data_setter = pitch_data_source.setter();
+    let volume_level_setter = volume_level_source.setter();
+    
     // Initialize audio systems first
-    if let Err(e) = initialize_audio_systems(None).await {
+    if let Err(e) = initialize_audio_systems(Some(std::rc::Rc::new(pitch_data_setter.clone()))).await {
         dev_log!("✗ Audio system initialization failed: {}", e);
         dev_log!("Application cannot continue without audio system");
         // TODO: Add error screen rendering in future story when UI requirements are defined
         return;
     }
     
-    // Start Yew application
-    yew::Renderer::<App>::new().render();
+    // Create audio service with event dispatcher and setters for debug builds only
+    #[cfg(debug_assertions)]
+    {
+        let event_dispatcher = crate::events::get_global_event_dispatcher();
+        let _audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
+            event_dispatcher.clone(),
+            audio_devices_setter.clone(),
+            audioworklet_status_setter.clone(),
+            volume_level_setter.clone()
+        ));
+    }
+    
+    // Start three-d application directly
+    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter).await;
 }
 
 /// Initialize all audio systems in sequence with proper error handling

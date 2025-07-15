@@ -1,19 +1,10 @@
 // Debug Module - Specialized debugging and monitoring components
 //
-// This module provides three specialized debug components:
-// - DebugConsole: Command I/O interface for development
-// - LivePanel: Real-time data visualization and monitoring
-// - PermissionButton: Standalone microphone permission management
-//
-// These components replace the monolithic DevConsole with focused,
-// reusable implementations following separation of concerns.
+// This module provides egui-based debug components:
+// - EguiMicrophoneButton: Standalone microphone permission management
+// - EguiLiveDataPanel: Real-time data visualization and monitoring
 
-// pub mod console;
-pub mod live_panel;
-pub mod integration;
 pub mod microphone_button;
 pub mod egui;
 
 use super::audio::AudioPermission;
-pub use live_panel::LivePanel;
-pub use integration::{DebugInterface, create_debug_interface};
