@@ -113,6 +113,43 @@ class TransferableBufferPool {
     }
     
     /**
+     * Return a buffer to the pool by ID (for ping-pong pattern)
+     * @param {number} bufferId - ID of the buffer to return
+     * @param {ArrayBuffer} buffer - The actual buffer being returned
+     */
+    returnBuffer(bufferId, buffer) {
+        if (!buffer || !(buffer instanceof ArrayBuffer)) {
+            console.error('TransferableBufferPool: Invalid buffer provided for return');
+            return false;
+        }
+        
+        // Validate buffer size matches expected
+        const expectedSize = this.bufferCapacity * 4;
+        if (buffer.byteLength !== expectedSize) {
+            console.error('TransferableBufferPool: Returned buffer size mismatch. Expected:', expectedSize, 'Got:', buffer.byteLength);
+            return false;
+        }
+        
+        // For now, treat this as a new buffer (replace existing one in pool)
+        // TODO: Could track buffer IDs more precisely for validation
+        if (this.availableIndices.length < this.poolSize) {
+            // Find or create a slot for this buffer
+            const index = this.availableIndices.length > 0 ? this.availableIndices[0] : this.buffers.length;
+            if (index < this.poolSize) {
+                this.buffers[index] = buffer;
+                if (!this.availableIndices.includes(index)) {
+                    this.availableIndices.push(index);
+                }
+                console.log('TransferableBufferPool: Buffer returned to pool, ID:', bufferId, 'Index:', index);
+                return true;
+            }
+        }
+        
+        console.warn('TransferableBufferPool: Could not return buffer to pool (pool full or invalid state)');
+        return false;
+    }
+    
+    /**
      * Check if a buffer is detached (transferred)
      * @param {ArrayBuffer} buffer - Buffer to check
      * @returns {boolean} - True if buffer is detached

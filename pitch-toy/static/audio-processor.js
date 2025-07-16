@@ -10,12 +10,12 @@
  * - Batched audio data transfer (default: 1024 samples / 8 chunks)
  * - Transferable ArrayBuffers for zero-copy message passing
  * - Configurable batch size and timeout for low-latency scenarios
- * - Automatic buffer pool management to avoid allocations
+ * - Buffer pool management with ping-pong recycling pattern
  * - Error handling and processor lifecycle management
  * - Type-safe message protocol for reliable communication
  * 
  * Communication:
- * - Receives: Configuration messages (startProcessing, stopProcessing, updateBatchConfig)
+ * - Receives: Configuration messages (startProcessing, stopProcessing, updateBatchConfig, returnBuffer)
  * - Sends: Batched audio data via audioDataBatch messages with transferables
  * 
  * Usage:
@@ -26,8 +26,20 @@
  *     bufferTimeout: 30     // ms before sending partial buffer
  * });
  * processor.port.postMessage(message);
+ * 
+ * // Buffer pool usage with ping-pong pattern
+ * const buffer = processor.bufferPool.acquire();
+ * if (buffer) {
+ *     // Fill buffer with audio data
+ *     processor.port.postMessage(message, [buffer]);
+ *     processor.bufferPool.markTransferred(buffer);
+ * }
  * ```
  */
+
+// Import TransferableBufferPool for buffer recycling
+// Note: In AudioWorklet context, we need to import directly
+importScripts('transferable-buffer-pool.js');
 
 // Message Protocol (inlined for AudioWorklet compatibility)
 // Message type constants matching Rust enums
@@ -307,6 +319,14 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.batchSize = 1024; // 8 chunks of 128 samples
         this.chunksPerBatch = this.batchSize / this.chunkSize;
         
+        // Initialize buffer pool for ping-pong recycling
+        this.bufferPool = new TransferableBufferPool(16, this.batchSize); // 16 buffers in pool
+        this.bufferPoolConfig = {
+            maxConsecutiveFailures: 3, // Max consecutive pool failures before warning
+            warningThreshold: 10       // Warn if pool exhausted count exceeds this
+        };
+        this.consecutivePoolFailures = 0;
+        
         // Enhanced buffer management with lifecycle tracking
         this.bufferStats = {
             acquireCount: 0,
@@ -377,14 +397,35 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      */
     acquireNewBuffer() {
         this.bufferStats.acquireCount++;
-        this.bufferStats.bufferLifecycle.created++;
         
-        this.currentBuffer = new ArrayBuffer(this.batchSize * 4); // 4 bytes per float32
-        this.currentBufferArray = new Float32Array(this.currentBuffer);
-        this.writePosition = 0;
-        this.lastBufferStartTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        // Try to acquire from pool first
+        this.currentBuffer = this.bufferPool.acquire();
         
-        console.log('PitchDetectionProcessor: Buffer acquired - lifecycle:', this.bufferStats.bufferLifecycle);
+        if (this.currentBuffer) {
+            // Successfully acquired from pool
+            this.consecutivePoolFailures = 0; // Reset failure counter
+            this.currentBufferArray = new Float32Array(this.currentBuffer);
+            this.writePosition = 0;
+            this.lastBufferStartTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            
+            console.log('PitchDetectionProcessor: Buffer acquired from pool - pool stats:', this.bufferPool.getStats());
+        } else {
+            // Pool exhausted - skip processing rather than fallback allocation
+            this.bufferStats.poolExhaustedCount++;
+            this.consecutivePoolFailures++;
+            
+            // Clear buffer references to indicate no buffer available
+            this.currentBuffer = null;
+            this.currentBufferArray = null;
+            this.writePosition = 0;
+            
+            // Log warning based on failure frequency
+            if (this.consecutivePoolFailures >= this.bufferPoolConfig.maxConsecutiveFailures) {
+                console.warn('PitchDetectionProcessor: Pool exhausted for', this.consecutivePoolFailures, 'consecutive attempts, skipping analysis data');
+            } else if (this.bufferStats.poolExhaustedCount >= this.bufferPoolConfig.warningThreshold) {
+                console.warn('PitchDetectionProcessor: Pool exhaustion count exceeded threshold:', this.bufferStats.poolExhaustedCount);
+            }
+        }
     }
     
     /**
@@ -433,6 +474,12 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 const transferables = this.messageProtocol.getTransferableObjects(batchMessage);
                 this.port.postMessage(batchMessage, transferables);
                 
+                // Mark buffer as transferred in pool (this creates a replacement)
+                // Only mark if buffer was acquired from pool
+                if (this.consecutivePoolFailures === 0) {
+                    this.bufferPool.markTransferred(this.currentBuffer);
+                }
+                
                 // Track buffer transfer statistics
                 this.bufferStats.transferCount++;
                 this.bufferStats.bufferLifecycle.transferred++;
@@ -446,7 +493,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 console.log('PitchDetectionProcessor: Buffer transferred - utilization:', 
                     (utilization * 100).toFixed(1) + '%, average:', 
-                    (this.bufferStats.averageBufferUtilization * 100).toFixed(1) + '%');
+                    (this.bufferStats.averageBufferUtilization * 100).toFixed(1) + '%, pool:', this.bufferPool.getStats());
                 
                 // Clear references to transferred buffer immediately
                 this.currentBuffer = null;
@@ -507,18 +554,31 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 case ToWorkletMessageType.GET_STATUS:
+                    const poolStats = this.bufferPool.getStats();
                     const statusData = {
                         isProcessing: this.isProcessing,
                         chunkCounter: this.chunkCounter,
                         bufferPoolStats: {
-                            ...this.bufferStats,
-                            availableBuffers: this.currentBuffer ? 0 : 1,
-                            inUseBuffers: this.currentBuffer ? 1 : 0,
-                            totalBuffers: 1,
+                            // Pool-specific statistics
+                            poolSize: this.bufferPool.poolSize,
+                            availableBuffers: poolStats.availableBuffers,
+                            inUseBuffers: poolStats.inUseBuffers,
+                            totalBuffers: poolStats.totalBuffers,
+                            acquireCount: poolStats.acquireCount,
+                            transferCount: poolStats.transferCount,
+                            poolExhaustedCount: poolStats.poolExhaustedCount,
+                            consecutivePoolFailures: this.consecutivePoolFailures,
+                            
                             // Enhanced buffer pool reporting
                             bufferUtilizationPercent: (this.bufferStats.averageBufferUtilization * 100).toFixed(1),
                             totalMegabytesTransferred: (this.bufferStats.totalBytesTransferred / 1024 / 1024).toFixed(2),
-                            bufferLifecycle: this.bufferStats.bufferLifecycle
+                            bufferLifecycle: this.bufferStats.bufferLifecycle,
+                            
+                            // Pool efficiency metrics
+                            poolHitRate: poolStats.acquireCount > 0 ? 
+                                (((poolStats.acquireCount - poolStats.poolExhaustedCount) / poolStats.acquireCount) * 100).toFixed(1) : '0.0',
+                            poolEfficiency: poolStats.transferCount > 0 ? 
+                                ((poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100).toFixed(1) : '0.0'
                         }
                     };
                     const statusMessage = this.messageProtocol.createStatusUpdateMessage(statusData);
@@ -588,14 +648,25 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 case ToWorkletMessageType.RETURN_BUFFER:
                     if (actualMessage.bufferId !== undefined) {
-                        // TODO: Implement buffer pool integration
-                        // For now, just log the returned buffer ID
-                        console.log('PitchDetectionProcessor: Buffer returned for recycling:', actualMessage.bufferId);
+                        // Extract buffer from message envelope if present
+                        let returnedBuffer = null;
+                        if (message.payload && message.payload.buffer) {
+                            returnedBuffer = message.payload.buffer;
+                        } else if (actualMessage.buffer) {
+                            returnedBuffer = actualMessage.buffer;
+                        }
                         
-                        // This is a placeholder - the actual implementation will:
-                        // 1. Validate the buffer ID
-                        // 2. Return the buffer to the pool for reuse
-                        // 3. Update pool statistics
+                        if (returnedBuffer) {
+                            // Return buffer to pool for reuse
+                            const success = this.bufferPool.returnBuffer(actualMessage.bufferId, returnedBuffer);
+                            if (success) {
+                                console.log('PitchDetectionProcessor: Buffer successfully returned to pool:', actualMessage.bufferId);
+                            } else {
+                                console.warn('PitchDetectionProcessor: Failed to return buffer to pool:', actualMessage.bufferId);
+                            }
+                        } else {
+                            console.warn('PitchDetectionProcessor: ReturnBuffer message missing buffer data');
+                        }
                     }
                     break;
                 

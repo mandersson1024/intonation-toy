@@ -48,21 +48,21 @@ Add support for returning buffers from main thread to AudioWorklet.
 - Verify message can be sent from Rust to JavaScript
 - Test invalid message handling
 
-### Task 2: Integrate Buffer Pool in AudioWorklet
+### Task 2: Integrate Buffer Pool in AudioWorklet ✅
 Replace buffer allocation with pool usage in the AudioWorklet processor.
 
-- [ ] 2a. Import and initialize `TransferableBufferPool` in `audio-processor.js`
+- [x] 2a. Import and initialize `TransferableBufferPool` in `audio-processor.js`
   ```javascript
   this.bufferPool = new TransferableBufferPool(16, this.batchSize * 4);
   ```
 
-- [ ] 2b. Replace `new ArrayBuffer()` calls with `this.bufferPool.acquire()`
+- [x] 2b. Replace `new ArrayBuffer()` calls with `this.bufferPool.acquire()`
 
-- [ ] 2c. Handle pool exhaustion gracefully with fallback allocation
+- [x] 2c. Handle pool exhaustion gracefully by skipping processing (no fallback allocation)
 
-- [ ] 2d. Add message handler for `ReturnBuffer` messages to release buffers back to pool
+- [x] 2d. Add message handler for `ReturnBuffer` messages to release buffers back to pool
 
-- [ ] 2e. Update pool statistics reporting in debug messages
+- [x] 2e. Update pool statistics reporting in debug messages
 
 **Testing Considerations:**
 - Test normal pool operation
@@ -162,7 +162,7 @@ Update documentation to reflect the new pattern.
 
 ### Challenge 2: Pool Exhaustion During Load Spikes
 **Problem:** All buffers might be in-flight during heavy processing.
-**Solution:** Implement dynamic fallback to allocation, log warnings.
+**Solution:** Skip processing cycles when no buffers available rather than fallback allocation. Audio analysis can tolerate missing data packets without glitching the audio stream.
 
 ### Challenge 3: Memory Leaks from Lost Buffers
 **Problem:** Buffers might get "lost" if processing fails.
@@ -192,7 +192,7 @@ const POOL_CONFIG = {
   size: 16,              // Number of buffers in pool
   bufferSize: 4096,      // Size of each buffer (1024 samples * 4 bytes)
   timeout: 1000,         // Ms before considering buffer lost
-  fallbackEnabled: true, // Allow allocation if pool exhausted
+  skipOnExhaustion: true, // Skip processing when pool exhausted (no fallback)
   metricsEnabled: true   // Track pool statistics
 };
 ```
