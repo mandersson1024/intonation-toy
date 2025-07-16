@@ -70,21 +70,21 @@ Replace buffer allocation with pool usage in the AudioWorklet processor.
 - Verify statistics are accurate
 - Test with various batch sizes
 
-### Task 3: Implement Buffer Return in Rust
+### Task 3: Implement Buffer Return in Rust ✅
 Add logic to return buffers from main thread back to AudioWorklet.
 
-- [ ] 3a. Add buffer return logic after processing in `handle_audio_data_batch()` in `worklet.rs`
+- [x] 3a. Add buffer return logic after processing in `handle_typed_audio_data_batch()` in `worklet.rs`
 
-- [ ] 3b. Create helper function to send `ReturnBuffer` message
+- [x] 3b. Create helper function to send `ReturnBuffer` message
   ```rust
-  fn return_buffer_to_worklet(&self, buffer: Vec<u8>) -> Result<()>
+  fn return_buffer_to_worklet(&self, buffer: js_sys::ArrayBuffer) -> Result<(), AudioError>
   ```
 
-- [ ] 3c. Ensure buffer is properly transferred back (as transferable)
+- [x] 3c. Ensure buffer is properly transferred back (as transferable)
 
-- [ ] 3d. Handle errors if buffer return fails
+- [x] 3d. Handle errors if buffer return fails
 
-- [ ] 3e. Add configuration option to enable/disable ping-pong pattern for A/B testing
+- [x] 3e. Add configuration option to enable/disable ping-pong pattern for A/B testing
 
 **Testing Considerations:**
 - Integration test for full ping-pong cycle

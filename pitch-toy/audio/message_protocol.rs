@@ -1,5 +1,17 @@
 // Structured message protocol for AudioWorklet communication
 // Provides type-safe message construction and parsing for cross-thread communication
+//
+// Features:
+// - ReturnBuffer messages for ping-pong buffer recycling
+// - Structured message envelopes with IDs and timestamps
+// - Serialization/deserialization to/from JavaScript objects
+// - Message validation and error handling
+//
+// Usage:
+//   let factory = AudioWorkletMessageFactory::new();
+//   let return_msg = factory.return_buffer(buffer_id)?;
+//   let serializer = MessageSerializer::new();
+//   let js_message = serializer.serialize_envelope(&return_msg)?;
 
 use crate::audio::test_signal_generator::{TestSignalGeneratorConfig, BackgroundNoiseConfig};
 use js_sys::{Object, Reflect};
