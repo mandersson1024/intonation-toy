@@ -3,7 +3,6 @@ use super::note_mapper::NoteMapper;
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::events::audio_events::AudioEvent;
 
 pub type PitchAnalysisError = String;
 
@@ -177,20 +176,6 @@ impl PitchAnalyzer {
                 self.update_metrics(start_time, end_time, yin_time_us, false);
                 Ok(None)
             }
-        }
-    }
-
-    /// Process BufferAnalyzer events for event-driven pitch detection
-    pub fn process_buffer_event(&mut self, event: &AudioEvent) -> Result<(), PitchAnalysisError> {
-        match event {
-            AudioEvent::BufferFilled { .. } => {
-                // Buffer is filled and ready for analysis
-                // In a real implementation, this would retrieve the buffer data
-                // For now, we'll just update metrics to show we're listening
-                self.publish_metrics_update();
-                Ok(())
-            }
-            _ => Ok(()), // Ignore other audio events
         }
     }
 
@@ -865,24 +850,6 @@ mod tests {
         assert_eq!(analyzer.metrics().failed_detections, 0);
     }
 
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_pitch_analyzer_buffer_event_processing() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-
-        // Test processing buffer filled event (legacy test for compatibility)
-        // Note: Buffer events are no longer used in the main audio pipeline
-        // This test verifies the old event processing method still works for compatibility
-        let buffer_event = AudioEvent::BufferFilled {
-            buffer_index: 0,
-            length: 1024,
-        };
-
-        let result = analyzer.process_buffer_event(&buffer_event);
-        assert!(result.is_ok());
-    }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]

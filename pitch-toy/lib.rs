@@ -3,7 +3,6 @@ use three_d::*;
 pub mod audio;
 pub mod common;
 pub mod platform;
-pub mod events;
 pub mod debug;
 pub mod graphics;
 pub mod live_data;
@@ -167,13 +166,13 @@ pub async fn start() {
         return;
     }
     
-    // Create audio service with event dispatcher and setters AFTER AudioWorklet initialization
+    // Create audio service AFTER AudioWorklet initialization
     // Volume level setter is already configured in initialize_audio_systems, so use the regular service
-    let event_dispatcher = crate::events::get_global_event_dispatcher();
-    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_setter(
-        event_dispatcher.clone(),
-        audio_devices_setter.clone()
-    ));
+    let audio_service = std::rc::Rc::new({
+        let mut service = crate::audio::create_console_audio_service();
+        service.set_audio_devices_setter(audio_devices_setter.clone());
+        service
+    });
     
     // Trigger initial device enumeration
     audio_service.refresh_devices();

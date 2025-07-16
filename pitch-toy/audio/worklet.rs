@@ -97,7 +97,6 @@ pub struct AudioWorkletConfig {
 
 /// Shared data for AudioWorklet message handling
 struct AudioWorkletSharedData {
-    event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
@@ -109,7 +108,6 @@ struct AudioWorkletSharedData {
 impl AudioWorkletSharedData {
     fn new() -> Self {
         Self {
-            event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
             chunks_processed: 0,
@@ -156,7 +154,6 @@ pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
     config: AudioWorkletConfig,
-    event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     test_signal_generator: Option<TestSignalGenerator>,
@@ -184,7 +181,6 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config: AudioWorkletConfig::default(),
-            event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
             test_signal_generator: None,
@@ -206,7 +202,6 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config,
-            event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
             test_signal_generator: None,
@@ -380,9 +375,6 @@ impl AudioWorkletManager {
             let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
             
             // Store references to components that will be used in the handler
-            if let Some(dispatcher) = &self.event_dispatcher {
-                shared_data.borrow_mut().event_dispatcher = Some(dispatcher.clone());
-            }
             if let Some(volume_detector) = &self.volume_detector {
                 shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
             }
@@ -743,25 +735,7 @@ impl AudioWorkletManager {
         state: AudioWorkletState,
         _processing: bool
     ) {
-        if let Some(_dispatcher) = &shared_data.borrow().event_dispatcher {
-            let chunks_processed = shared_data.borrow().chunks_processed;
-            
-            // Create status update for Live Data Panel
-            #[cfg(target_arch = "wasm32")]
-            let timestamp = js_sys::Date::now();
-            #[cfg(not(target_arch = "wasm32"))]
-            let timestamp = 0.0;
-            
-            let _status = crate::debug::egui::live_data_panel::AudioWorkletStatus {
-                state,
-                processor_loaded: true, // If we're getting messages, processor is loaded
-                chunk_size: 128, // Web Audio API standard
-                chunks_processed,
-                last_update: timestamp,
-            };
-            
-            // TODO: Update AudioWorklet status via setter instead of events
-        }
+        // AudioWorklet status updates are handled elsewhere via setters
     }
     
     /// Send control message to AudioWorklet processor
@@ -979,11 +953,6 @@ impl AudioWorkletManager {
 
     // Note: Buffer pool support removed - using direct processing with transferable buffers
 
-    /// Attach an event dispatcher for publishing BufferEvents
-    pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::AudioEventDispatcher) {
-        self.event_dispatcher = Some(dispatcher);
-    }
-    
     /// Set the AudioWorklet status setter for live data updates
     pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>) {
         self.audioworklet_status_setter = Some(setter);
@@ -1405,11 +1374,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_feed_input_chunk_direct_processing() {
         use crate::audio::VolumeDetector;
-        use event_dispatcher::create_shared_dispatcher;
 
         // Create manager with volume detector
         let mut mgr = AudioWorkletManager::new();
-        mgr.set_event_dispatcher(create_shared_dispatcher());
         mgr.set_volume_detector(VolumeDetector::new_default());
 
         // Feed two chunks of 128 samples each - direct processing, no events
@@ -1430,11 +1397,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_volume_detection_direct_processing() {
         use crate::audio::{VolumeDetector, VolumeDetectorConfig};
-        use event_dispatcher::create_shared_dispatcher;
 
         // Create manager with volume detector
         let mut mgr = AudioWorkletManager::new();
-        mgr.set_event_dispatcher(create_shared_dispatcher());
         
         let config = VolumeDetectorConfig {
             sample_rate: 48000.0,
@@ -1484,12 +1449,6 @@ pub async fn initialize_audioworklet_manager() -> Result<(), String> {
     
     // Create AudioWorklet manager
     let mut worklet_manager = AudioWorkletManager::new();
-    
-    // Get event dispatcher
-    let event_dispatcher = crate::events::get_global_event_dispatcher();
-    
-    // Configure AudioWorklet manager
-    worklet_manager.set_event_dispatcher(event_dispatcher.clone());
     
     // Add volume detector for real-time volume analysis
     let volume_detector = super::VolumeDetector::new_default();

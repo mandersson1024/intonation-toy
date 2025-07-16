@@ -460,12 +460,6 @@ impl ConsoleCommand for PipelineDebugCommand {
             outputs.push(ConsoleOutput::error("Pitch Analyzer: Not initialized"));
         }
         
-        // Check Event Dispatcher
-        let event_dispatcher = crate::events::get_global_event_dispatcher();
-        let subscriber_count = event_dispatcher.borrow().subscriber_count("pitch_detected") + 
-                              event_dispatcher.borrow().subscriber_count("volume_detected");
-        outputs.push(ConsoleOutput::info(&format!("Event Subscriptions: {} total (buffer_filled events removed)", subscriber_count)));
-        
         outputs.push(ConsoleOutput::info("=== End Debug Status ==="));
         
         ConsoleCommandResult::MultipleOutputs(outputs)
