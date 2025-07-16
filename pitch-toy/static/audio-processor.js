@@ -77,98 +77,152 @@ class AudioWorkletMessageProtocol {
     }
 
     createProcessorReadyMessage(options = {}) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.PROCESSOR_READY,
-            chunkSize: options.chunkSize || 128,
-            batchSize: options.batchSize || 1024,
-            bufferPoolSize: options.bufferPoolSize || 4,
-            sampleRate: options.sampleRate || 44100,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.PROCESSOR_READY,
+                chunkSize: options.chunkSize || 128,
+                batchSize: options.batchSize || 1024,
+                bufferPoolSize: options.bufferPoolSize || 4,
+                sampleRate: options.sampleRate || 44100
+            }
         };
     }
 
     createProcessingStartedMessage() {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.PROCESSING_STARTED,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.PROCESSING_STARTED
+            }
         };
     }
 
     createProcessingStoppedMessage() {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.PROCESSING_STOPPED,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.PROCESSING_STOPPED
+            }
         };
     }
 
     createAudioDataBatchMessage(buffer, options = {}) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.AUDIO_DATA_BATCH,
-            buffer: buffer,
-            sampleCount: options.sampleCount || 0,
-            batchSize: options.batchSize || 1024,
-            chunkCounter: options.chunkCounter || 0,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.AUDIO_DATA_BATCH,
+                data: {
+                    sampleRate: options.sampleRate || 48000,
+                    sampleCount: options.sampleCount || 0,
+                    bufferLength: buffer ? buffer.byteLength : 0,
+                    timestamp: timestamp,
+                    sequenceNumber: options.chunkCounter || 0
+                },
+                buffer: buffer
+            }
         };
     }
 
     createProcessingErrorMessage(error, code = WorkletErrorCode.GENERIC) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.PROCESSING_ERROR,
-            error: error,
-            code: code,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.PROCESSING_ERROR,
+                error: error,
+                code: code
+            }
         };
     }
 
     createStatusUpdateMessage(status) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.STATUS_UPDATE,
-            isProcessing: status.isProcessing,
-            chunkCounter: status.chunkCounter,
-            bufferPoolStats: status.bufferPoolStats,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.STATUS_UPDATE,
+                isProcessing: status.isProcessing,
+                chunkCounter: status.chunkCounter,
+                bufferPoolStats: status.bufferPoolStats
+            }
         };
     }
 
     createTestSignalConfigUpdatedMessage(config) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.TEST_SIGNAL_CONFIG_UPDATED,
-            config: { ...config },
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.TEST_SIGNAL_CONFIG_UPDATED,
+                config: { ...config }
+            }
         };
     }
 
     createBackgroundNoiseConfigUpdatedMessage(config) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.BACKGROUND_NOISE_CONFIG_UPDATED,
-            config: { ...config },
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.BACKGROUND_NOISE_CONFIG_UPDATED,
+                config: { ...config }
+            }
         };
     }
 
     createBatchConfigUpdatedMessage(config) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.BATCH_CONFIG_UPDATED,
-            config: { ...config },
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.BATCH_CONFIG_UPDATED,
+                config: { ...config }
+            }
         };
     }
 
     createProcessorDestroyedMessage() {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
         return {
-            type: FromWorkletMessageType.PROCESSOR_DESTROYED,
-            messageId: this.generateMessageId(),
-            timestamp: this.getCurrentTimestamp()
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.PROCESSOR_DESTROYED
+            }
         };
     }
 
@@ -220,9 +274,16 @@ class AudioWorkletMessageProtocol {
 
     getTransferableObjects(message) {
         const transferables = [];
-        if (message.type === FromWorkletMessageType.AUDIO_DATA_BATCH && message.buffer) {
+        
+        // Handle envelope messages
+        if (message.payload && message.payload.type === FromWorkletMessageType.AUDIO_DATA_BATCH && message.payload.buffer) {
+            transferables.push(message.payload.buffer);
+        }
+        // Handle direct messages (for backward compatibility)
+        else if (message.type === FromWorkletMessageType.AUDIO_DATA_BATCH && message.buffer) {
             transferables.push(message.buffer);
         }
+        
         return transferables;
     }
 }
@@ -361,7 +422,11 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 }
                 
                 // Create typed message for audio data batch
-                const batchMessage = this.messageProtocol.createAudioDataBatchMessage(this.currentBuffer, metadata);
+                const batchMessage = this.messageProtocol.createAudioDataBatchMessage(this.currentBuffer, {
+                    sampleRate: sampleRate,
+                    sampleCount: metadata.sampleCount,
+                    chunkCounter: metadata.chunkCounter
+                });
                 
                 // Send buffer with transferable
                 const transferables = this.messageProtocol.getTransferableObjects(batchMessage);

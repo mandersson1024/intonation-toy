@@ -443,7 +443,7 @@ impl AudioWorkletManager {
                     if chunks_processed <= 5 {
                         dev_log!("DEBUG: Successfully deserialized typed message: {:?} (ID: {})", envelope.payload, envelope.message_id);
                     }
-                    Self::handle_typed_worklet_message(envelope, &shared_data);
+                    Self::handle_typed_worklet_message(envelope, &shared_data, &obj);
                 }
                 Err(e) => {
                     dev_log!("ERROR: Failed to deserialize typed message: {}", e);
@@ -497,7 +497,8 @@ impl AudioWorkletManager {
     /// Handle typed messages from the AudioWorklet processor
     fn handle_typed_worklet_message(
         envelope: MessageEnvelope<FromWorkletMessage>,
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        original_obj: &js_sys::Object
     ) {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
@@ -517,7 +518,7 @@ impl AudioWorkletManager {
                 Self::publish_status_update(shared_data, AudioWorkletState::Stopped, false);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
-                Self::handle_typed_audio_data_batch(data, shared_data);
+                Self::handle_typed_audio_data_batch(data, shared_data, original_obj);
             }
             FromWorkletMessage::ProcessingError { error } => {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
@@ -534,7 +535,8 @@ impl AudioWorkletManager {
     /// Handle typed audio data batch from the AudioWorklet processor
     fn handle_typed_audio_data_batch(
         data: super::message_protocol::AudioDataBatch,
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        original_obj: &js_sys::Object
     ) {
         let chunks_processed = shared_data.borrow().chunks_processed;
         if chunks_processed <= 5 {
@@ -555,6 +557,37 @@ impl AudioWorkletManager {
         dev_log!("Received typed audio data batch: {} samples, {} bytes, timestamp: {}", 
                  data.sample_count, data.buffer_length, data.timestamp);
         
+        // Extract the ArrayBuffer from the payload
+        if let Ok(payload_obj) = js_sys::Reflect::get(original_obj, &"payload".into())
+            .and_then(|p| p.dyn_into::<js_sys::Object>()) {
+            
+            if let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) {
+                if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
+                    if chunks_processed <= 5 {
+                        dev_log!("DEBUG: Successfully extracted ArrayBuffer with {} bytes", array_buffer.byte_length());
+                    }
+                    
+                    // Convert ArrayBuffer to Float32Array for processing
+                    let float32_array = js_sys::Float32Array::new(&array_buffer);
+                    let mut audio_samples = vec![0.0f32; data.sample_count];
+                    float32_array.copy_to(&mut audio_samples);
+                    
+                    if chunks_processed <= 5 {
+                        dev_log!("DEBUG: Converted to {} audio samples for processing", audio_samples.len());
+                    }
+                    
+                    // Perform actual audio processing
+                    Self::process_audio_samples(&audio_samples, data.sample_rate, shared_data);
+                } else {
+                    dev_log!("Warning: Buffer field is not an ArrayBuffer");
+                }
+            } else {
+                dev_log!("Warning: No buffer field found in payload");
+            }
+        } else {
+            dev_log!("Warning: Could not extract payload object");
+        }
+        
         // Update chunks processed count (batched)
         let chunk_count = (data.sample_count + 127) / 128; // Round up to nearest chunk
         {
@@ -562,18 +595,82 @@ impl AudioWorkletManager {
             shared_data_mut.chunks_processed += chunk_count as u32;
         }
         
-        // For typed messages, the actual audio processing happens in the AudioWorklet
-        // This is just metadata about what was processed
-        // However, we can still provide feedback about the processing
-        
-        if chunks_processed <= 5 {
-            dev_log!("DEBUG: Batch validated - {} samples processed in {} chunks", 
-                     data.sample_count, chunk_count);
-        }
-        
         // Update status periodically
         if chunks_processed % 16 == 0 {
             Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+        }
+    }
+    
+    /// Process audio samples for pitch and volume analysis
+    fn process_audio_samples(
+        audio_samples: &[f32],
+        sample_rate: f64,
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        let chunks_processed = shared_data.borrow().chunks_processed;
+        
+        // Perform volume analysis
+        if let Some(mut volume_detector) = shared_data.borrow().volume_detector.clone() {
+            let volume_analysis = volume_detector.process_buffer(audio_samples, js_sys::Date::now());
+            
+            // Update volume level via setter if available
+            if let Some(volume_setter) = &shared_data.borrow().volume_level_setter {
+                let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
+                    rms_db: volume_analysis.rms_db,
+                    peak_db: volume_analysis.peak_db,
+                    peak_fast_db: volume_analysis.peak_fast_db,
+                    peak_slow_db: volume_analysis.peak_slow_db,
+                    level: volume_analysis.level.clone(),
+                    confidence_weight: volume_analysis.confidence_weight,
+                    timestamp: js_sys::Date::now(),
+                };
+                volume_setter.set(Some(volume_data));
+                
+                if chunks_processed <= 5 || chunks_processed % 64 == 0 {
+                    dev_log!("Volume analysis: peak={:.1}dB, rms={:.1}dB, level={:?}", 
+                             volume_analysis.peak_db, volume_analysis.rms_db, volume_analysis.level);
+                }
+            }
+        }
+        
+        // Perform pitch analysis
+        if let Some(pitch_analyzer) = &shared_data.borrow().pitch_analyzer {
+            match pitch_analyzer.borrow_mut().analyze_samples(audio_samples) {
+                Ok(Some(pitch_result)) => {
+                    // Update pitch data via setter if available
+                    if let Some(pitch_setter) = &shared_data.borrow().pitch_data_setter {
+                        // For now, create a placeholder note since PitchResult doesn't have note field
+                        let placeholder_note = crate::audio::MusicalNote::new(
+                            crate::audio::NoteName::A, 4, 0.0, pitch_result.frequency
+                        );
+                        
+                        let pitch_data = crate::debug::egui::live_data_panel::PitchData {
+                            frequency: pitch_result.frequency,
+                            confidence: pitch_result.confidence,
+                            note: placeholder_note,
+                            clarity: pitch_result.clarity,
+                            timestamp: js_sys::Date::now(),
+                        };
+                        pitch_setter.set(Some(pitch_data));
+                        
+                        if chunks_processed <= 5 || chunks_processed % 64 == 0 {
+                            dev_log!("Pitch detected: {:.1}Hz, confidence={:.2}, clarity={:.2}", 
+                                     pitch_result.frequency, pitch_result.confidence, pitch_result.clarity);
+                        }
+                    }
+                }
+                Ok(None) => {
+                    // No pitch detected, which is normal for silence or noise
+                    if chunks_processed <= 5 {
+                        dev_log!("No pitch detected in this batch");
+                    }
+                }
+                Err(e) => {
+                    if chunks_processed <= 5 {
+                        dev_log!("Pitch analysis error: {}", e);
+                    }
+                }
+            }
         }
     }
     
