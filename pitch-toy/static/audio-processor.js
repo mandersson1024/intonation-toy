@@ -73,7 +73,7 @@ class AudioWorkletMessageProtocol {
     }
 
     getCurrentTimestamp() {
-        return performance.now();
+        return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     }
 
     createProcessorReadyMessage(options = {}) {
@@ -176,11 +176,23 @@ class AudioWorkletMessageProtocol {
         if (!message || typeof message !== 'object') {
             return false;
         }
-        if (!message.type || typeof message.type !== 'string') {
+        
+        // Handle both direct messages and envelope messages with payload
+        let messageType;
+        if (message.payload && typeof message.payload === 'object') {
+            // This is an envelope message from Rust
+            messageType = message.payload.type;
+        } else {
+            // This is a direct message
+            messageType = message.type;
+        }
+        
+        if (!messageType || typeof messageType !== 'string') {
             return false;
         }
+        
         const allMessageTypes = { ...ToWorkletMessageType, ...FromWorkletMessageType };
-        return Object.values(allMessageTypes).includes(message.type);
+        return Object.values(allMessageTypes).includes(messageType);
     }
 
     validateBufferMetadata(buffer, metadata) {
@@ -397,9 +409,19 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             return;
         }
 
+        // Extract actual message from envelope if needed
+        let actualMessage;
+        if (message.payload && typeof message.payload === 'object') {
+            // This is an envelope message from Rust
+            actualMessage = message.payload;
+        } else {
+            // This is a direct message
+            actualMessage = message;
+        }
+
         // Type-safe message handling
         try {
-            switch (message.type) {
+            switch (actualMessage.type) {
                 case ToWorkletMessageType.START_PROCESSING:
                     this.isProcessing = true;
                     const startedMessage = this.messageProtocol.createProcessingStartedMessage();
@@ -438,8 +460,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 case ToWorkletMessageType.UPDATE_TEST_SIGNAL_CONFIG:
-                    if (message.config) {
-                        this.testSignalConfig = { ...this.testSignalConfig, ...message.config };
+                    if (actualMessage.config) {
+                        this.testSignalConfig = { ...this.testSignalConfig, ...actualMessage.config };
                         // Reset phase when configuration changes
                         this.testSignalPhase = 0.0;
                         console.log('PitchDetectionProcessor: Test signal config updated:', this.testSignalConfig);
@@ -449,8 +471,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 case ToWorkletMessageType.UPDATE_BACKGROUND_NOISE_CONFIG:
-                    if (message.config) {
-                        this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...message.config };
+                    if (actualMessage.config) {
+                        this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...actualMessage.config };
                         console.log('PitchDetectionProcessor: Background noise config updated:', this.backgroundNoiseConfig);
                         const noiseConfigUpdatedMessage = this.messageProtocol.createBackgroundNoiseConfigUpdatedMessage(this.backgroundNoiseConfig);
                         this.port.postMessage(noiseConfigUpdatedMessage);
@@ -458,11 +480,11 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 case ToWorkletMessageType.UPDATE_BATCH_CONFIG:
-                    if (message.config) {
+                    if (actualMessage.config) {
                         // Update batch size if provided
-                        if (message.config.batchSize && message.config.batchSize > 0) {
+                        if (actualMessage.config.batchSize && actualMessage.config.batchSize > 0) {
                             // Ensure batch size is a multiple of chunk size
-                            const newBatchSize = Math.ceil(message.config.batchSize / this.chunkSize) * this.chunkSize;
+                            const newBatchSize = Math.ceil(actualMessage.config.batchSize / this.chunkSize) * this.chunkSize;
                             
                             // Send any pending data before changing batch size
                             if (this.currentBuffer && this.writePosition > 0) {
@@ -480,8 +502,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                         }
                         
                         // Update timeout if provided
-                        if (message.config.bufferTimeout !== undefined) {
-                            this.bufferTimeout = Math.max(0, message.config.bufferTimeout);
+                        if (actualMessage.config.bufferTimeout !== undefined) {
+                            this.bufferTimeout = Math.max(0, actualMessage.config.bufferTimeout);
                         }
                         
                         console.log('PitchDetectionProcessor: Batch config updated:', {
@@ -499,8 +521,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 default:
-                    console.warn('PitchDetectionProcessor: Unknown message type:', message.type);
-                    this.sendErrorMessage(`Unknown message type: ${message.type}`, WorkletErrorCode.INVALID_CONFIGURATION);
+                    console.warn('PitchDetectionProcessor: Unknown message type:', actualMessage.type);
+                    this.sendErrorMessage(`Unknown message type: ${actualMessage.type}`, WorkletErrorCode.INVALID_CONFIGURATION);
             }
         } catch (error) {
             console.error('PitchDetectionProcessor: Error handling message:', error);
