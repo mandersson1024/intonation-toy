@@ -299,13 +299,15 @@ fn handle_audio_data_batch(obj: &js_sys::Object, shared_data: &Rc<RefCell<AudioW
 
 ## Complexity Points Analysis
 
-### 1. **Buffer Lifecycle Management** 🔴 HIGH COMPLEXITY
+### 1. **Buffer Lifecycle Management** 🟡 MEDIUM COMPLEXITY
 **Location:** Cross-thread transferable buffer handling
 **Issues:**
 - Buffers become detached after transfer, cannot be reused
 - Must create new ArrayBuffer for each transfer
-- Automatic cleanup required to prevent memory leaks
-- Race conditions between allocation and transfer
+- Fixed pool size simplifies allocation but requires careful recycling
+- Pool exhaustion possible under high load
+
+**Design Constraint:** Fixed-size buffer pools with manual configuration
 
 **Code Example:**
 ```javascript
@@ -317,6 +319,24 @@ this.currentBuffer = null;  // Must null reference
 // Main Thread - Must create new view
 const samples = new Float32Array(event.data.buffer);
 // ⚠️ Original buffer is now owned by main thread
+```
+
+**Pool Exhaustion Handling (with fixed-size pools):**
+```javascript
+acquireNewBuffer() {
+    const buffer = this.bufferPool.acquire();
+    if (!buffer) {
+        // Fixed pool exhausted - must handle gracefully
+        this.port.postMessage({
+            type: 'processingError',
+            code: 'BUFFER_EXHAUSTION',
+            message: 'Fixed buffer pool exhausted'
+        });
+        return false;
+    }
+    this.currentBuffer = buffer;
+    return true;
+}
 ```
 
 ### 2. **Timeout-based Partial Sending** 🟡 MEDIUM COMPLEXITY
@@ -449,7 +469,7 @@ case 'updateBatchConfig':
 
 | Complexity Point | Current Status | Priority |
 |------------------|----------------|----------|
-| Buffer Lifecycle | 🟡 Structured metadata, requires careful management | 🟡 Medium |
+| Buffer Lifecycle | 🟡 Fixed-size pools, requires recycling logic | 🟡 Medium |
 | Timeout Logic | 🟡 Complex timing logic for low latency | 🟡 Medium |
 | Error Propagation | ✅ Structured errors with context preservation | 🟢 Low |
 | State Sync | 🟡 Type-safe but requires careful borrowing | 🟡 Medium |
@@ -494,10 +514,11 @@ case 'updateBatchConfig':
 - Debugging across threads is challenging
 
 #### 2. **Memory Management Overhead**
-- Buffer pool management adds complexity
+- Fixed-size buffer pools simplify management but may waste memory
 - Detached buffer handling requires careful cleanup
-- Memory usage grows with batch size
-- Risk of memory leaks if buffers aren't properly recycled
+- Memory usage is predictable with hard-coded pool sizes
+- Risk of pool exhaustion under high load
+- **Design Decision:** Manual configuration preferred over adaptive sizing
 
 #### 3. **Latency vs Throughput Tradeoffs**
 - Larger batches improve throughput but increase latency
@@ -590,28 +611,47 @@ impl AudioProcessingHub {
 - Selective enablement/disablement
 - Easier testing and debugging
 
-### 4. **Automatic Resource Management** ❌ **NOT IMPLEMENTED**
+### 4. **Buffer Pool with Manual Configuration** ❌ **NOT IMPLEMENTED**
 
-**Concept:** Self-managing buffer pool:
+**Design Decision:** Fixed-size pools with hard-coded configuration
 
 ```rust
 struct AudioBufferPool {
     available: VecDeque<AudioBuffer>,
     in_use: HashSet<BufferId>,
-    high_water_mark: usize,
-    low_water_mark: usize,
+    // Hard-coded configuration
+    const POOL_SIZE: usize = 16;  // Fixed number of buffers
+    const BUFFER_SIZE: usize = 4096; // Fixed buffer size in bytes
 }
 
 impl AudioBufferPool {
-    fn auto_resize(&mut self, usage_stats: &UsageStats) {
-        if usage_stats.pool_exhaustion_rate > EXHAUSTION_THRESHOLD {
-            self.expand_pool();
-        } else if usage_stats.utilization < LOW_UTILIZATION_THRESHOLD {
-            self.shrink_pool();
+    fn new() -> Self {
+        let mut pool = Self {
+            available: VecDeque::new(),
+            in_use: HashSet::new(),
+        };
+        
+        // Pre-allocate fixed number of buffers
+        for _ in 0..Self::POOL_SIZE {
+            pool.available.push_back(AudioBuffer::new(Self::BUFFER_SIZE));
         }
+        
+        pool
+    }
+    
+    // No dynamic resizing - pool size is fixed at compile time
+    fn acquire(&mut self) -> Option<AudioBuffer> {
+        self.available.pop_front()
     }
 }
 ```
+
+**Benefits of Manual Configuration:**
+- Predictable memory usage
+- Simplified implementation without monitoring logic
+- Easier to test and debug
+- No runtime overhead for usage statistics
+- Clear capacity limits known at compile time
 
 ### 5. **Advanced Error Recovery** ⚠️ **PARTIALLY IMPLEMENTED**
 
@@ -652,8 +692,11 @@ impl AudioWorkletManager {
 3. **Message Validation** - Protocol validation and consistency checking
 
 ### 🔴 High Priority (Not Implemented)
-1. **Automatic Resource Management** - Prevent memory leaks and performance degradation
-2. **Buffer Pool Optimization** - Adaptive pool sizing based on usage patterns
+1. **Buffer Pool with Manual Configuration** - Fixed-size pools with hard-coded configuration
+   - **Design Constraint:** Pool sizes are manually configured, not adaptive
+   - Simplifies implementation and testing
+   - Predictable memory usage patterns
+2. **Buffer Lifecycle Management** - Proper cleanup and recycling of detached buffers
 
 ### 🟡 Medium Priority (Not Implemented)
 1. **Adaptive Batching** - Optimize performance under varying loads
@@ -679,7 +722,7 @@ The AudioWorklet architecture is a **robust, type-safe system** for real-time au
 - Message correlation and error context for debugging
 
 **Areas for Optimization:**
-- Buffer pool management and adaptive sizing
+- Buffer pool implementation with fixed-size configuration
 - Timeout-based batching logic optimization  
 - Processing isolation through dedicated channels
 
