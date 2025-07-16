@@ -29,12 +29,191 @@
  * ```
  */
 
-import { 
-    AudioWorkletMessageProtocol, 
-    ToWorkletMessageType, 
-    FromWorkletMessageType,
-    WorkletErrorCode 
-} from './audio-message-protocol.js';
+// Message Protocol (inlined for AudioWorklet compatibility)
+// Message type constants matching Rust enums
+const ToWorkletMessageType = {
+    START_PROCESSING: 'startProcessing',
+    STOP_PROCESSING: 'stopProcessing',
+    UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
+    UPDATE_BATCH_CONFIG: 'updateBatchConfig',
+    UPDATE_BACKGROUND_NOISE_CONFIG: 'updateBackgroundNoiseConfig',
+    GET_STATUS: 'getStatus'
+};
+
+const FromWorkletMessageType = {
+    PROCESSOR_READY: 'processorReady',
+    PROCESSING_STARTED: 'processingStarted',
+    PROCESSING_STOPPED: 'processingStopped',
+    AUDIO_DATA_BATCH: 'audioDataBatch',
+    PROCESSING_ERROR: 'processingError',
+    STATUS_UPDATE: 'status',
+    TEST_SIGNAL_CONFIG_UPDATED: 'testSignalConfigUpdated',
+    BACKGROUND_NOISE_CONFIG_UPDATED: 'backgroundNoiseConfigUpdated',
+    BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
+    PROCESSOR_DESTROYED: 'processorDestroyed'
+};
+
+const WorkletErrorCode = {
+    INITIALIZATION_FAILED: 'InitializationFailed',
+    PROCESSING_FAILED: 'ProcessingFailed',
+    BUFFER_OVERFLOW: 'BufferOverflow',
+    INVALID_CONFIGURATION: 'InvalidConfiguration',
+    MEMORY_ALLOCATION_FAILED: 'MemoryAllocationFailed',
+    GENERIC: 'Generic'
+};
+
+// Simplified message protocol for AudioWorklet
+class AudioWorkletMessageProtocol {
+    constructor() {
+        this.messageIdCounter = 0;
+    }
+
+    generateMessageId() {
+        return ++this.messageIdCounter;
+    }
+
+    getCurrentTimestamp() {
+        return performance.now();
+    }
+
+    createProcessorReadyMessage(options = {}) {
+        return {
+            type: FromWorkletMessageType.PROCESSOR_READY,
+            chunkSize: options.chunkSize || 128,
+            batchSize: options.batchSize || 1024,
+            bufferPoolSize: options.bufferPoolSize || 4,
+            sampleRate: options.sampleRate || 44100,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createProcessingStartedMessage() {
+        return {
+            type: FromWorkletMessageType.PROCESSING_STARTED,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createProcessingStoppedMessage() {
+        return {
+            type: FromWorkletMessageType.PROCESSING_STOPPED,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createAudioDataBatchMessage(buffer, options = {}) {
+        return {
+            type: FromWorkletMessageType.AUDIO_DATA_BATCH,
+            buffer: buffer,
+            sampleCount: options.sampleCount || 0,
+            batchSize: options.batchSize || 1024,
+            chunkCounter: options.chunkCounter || 0,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createProcessingErrorMessage(error, code = WorkletErrorCode.GENERIC) {
+        return {
+            type: FromWorkletMessageType.PROCESSING_ERROR,
+            error: error,
+            code: code,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createStatusUpdateMessage(status) {
+        return {
+            type: FromWorkletMessageType.STATUS_UPDATE,
+            isProcessing: status.isProcessing,
+            chunkCounter: status.chunkCounter,
+            bufferPoolStats: status.bufferPoolStats,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createTestSignalConfigUpdatedMessage(config) {
+        return {
+            type: FromWorkletMessageType.TEST_SIGNAL_CONFIG_UPDATED,
+            config: { ...config },
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createBackgroundNoiseConfigUpdatedMessage(config) {
+        return {
+            type: FromWorkletMessageType.BACKGROUND_NOISE_CONFIG_UPDATED,
+            config: { ...config },
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createBatchConfigUpdatedMessage(config) {
+        return {
+            type: FromWorkletMessageType.BATCH_CONFIG_UPDATED,
+            config: { ...config },
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    createProcessorDestroyedMessage() {
+        return {
+            type: FromWorkletMessageType.PROCESSOR_DESTROYED,
+            messageId: this.generateMessageId(),
+            timestamp: this.getCurrentTimestamp()
+        };
+    }
+
+    validateMessage(message) {
+        if (!message || typeof message !== 'object') {
+            return false;
+        }
+        if (!message.type || typeof message.type !== 'string') {
+            return false;
+        }
+        const allMessageTypes = { ...ToWorkletMessageType, ...FromWorkletMessageType };
+        return Object.values(allMessageTypes).includes(message.type);
+    }
+
+    validateBufferMetadata(buffer, metadata) {
+        if (!buffer || !(buffer instanceof ArrayBuffer)) {
+            return { valid: false, error: 'Invalid buffer: must be ArrayBuffer' };
+        }
+        if (!metadata || typeof metadata !== 'object') {
+            return { valid: false, error: 'Invalid metadata: must be object' };
+        }
+        if (typeof metadata.sampleCount !== 'number' || metadata.sampleCount < 0) {
+            return { valid: false, error: 'Invalid sampleCount: must be non-negative number' };
+        }
+        if (typeof metadata.batchSize !== 'number' || metadata.batchSize <= 0) {
+            return { valid: false, error: 'Invalid batchSize: must be positive number' };
+        }
+        const expectedBufferSize = metadata.batchSize * 4;
+        if (buffer.byteLength < expectedBufferSize) {
+            return { valid: false, error: `Buffer too small: expected at least ${expectedBufferSize} bytes, got ${buffer.byteLength}` };
+        }
+        if (metadata.sampleCount > metadata.batchSize) {
+            return { valid: false, error: `Sample count ${metadata.sampleCount} exceeds batch size ${metadata.batchSize}` };
+        }
+        return { valid: true };
+    }
+
+    getTransferableObjects(message) {
+        const transferables = [];
+        if (message.type === FromWorkletMessageType.AUDIO_DATA_BATCH && message.buffer) {
+            transferables.push(message.buffer);
+        }
+        return transferables;
+    }
+}
 
 
 class PitchDetectionProcessor extends AudioWorkletProcessor {
