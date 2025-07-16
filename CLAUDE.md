@@ -18,6 +18,8 @@ This file is manually edited.
 - Never document how many tests we have. This is most often not interesting and very much subject to change.
 - Sometimes the developer will play devil's advocate and ask tricky questions in attempts to verify the solidity of your reasoning. Do not take this as sarcastic remarks to make you change the implementation, but take it as a challenge to think harder and find out the truth of the matter.
 - Always explicitly distinguish between working functionality and placeholders. Never claim a task is "complete" or "fully functional" if it contains placeholders. Use clear ✅/❌ status indicators for each component to show what works vs what needs implementation.
+- When writing or updating documentation, ONLY describe the current state. Never use evolutionary language like "has evolved", "improved", "enhanced", "moved from", "achievement", etc. Never mention what was before or hint that anything was different. Write as if the current state has always existed. Focus on what IS, not what WAS or what CHANGED.
+- The same principle applies to code: Never use variable names, function names, type names, or identifiers that suggest evolution or change (e.g., `newConfig`, `updatedHandler`, `improvedAlgorithm`, `legacyFormat`, `enhancedFeature`). Name things based on what they ARE, not their relationship to what came before.
 
 ## Module Separation
 - Modules MUST NOT refer to other modules unless there is a clear dependency relationship. Keep modules single-purpose and avoid entangling them into a monolithic structure.
