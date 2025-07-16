@@ -179,17 +179,108 @@ pub enum WorkletErrorCode {
     Generic,
 }
 
-/// Error context for additional debugging information
+impl std::fmt::Display for WorkletError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
+    }
+}
+
+impl std::fmt::Display for WorkletErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorkletErrorCode::InitializationFailed => write!(f, "Initialization failed"),
+            WorkletErrorCode::ProcessingFailed => write!(f, "Processing failed"),
+            WorkletErrorCode::BufferOverflow => write!(f, "Buffer overflow"),
+            WorkletErrorCode::InvalidConfiguration => write!(f, "Invalid configuration"),
+            WorkletErrorCode::MemoryAllocationFailed => write!(f, "Memory allocation failed"),
+            WorkletErrorCode::Generic => write!(f, "Generic error"),
+        }
+    }
+}
+
+impl std::error::Error for WorkletError {}
+
+/// Enhanced error context for detailed debugging information
 #[derive(Debug, Clone, PartialEq)]
 pub struct ErrorContext {
     /// Function or module where error occurred
     pub location: String,
     
+    /// Stack trace information (when available)
+    pub stack_trace: Option<Vec<String>>,
+    
+    /// Message context information
+    pub message_context: Option<MessageContext>,
+    
     /// System state at time of error
-    pub system_state: Option<String>,
+    pub system_state: Option<SystemState>,
     
     /// Additional debug information
     pub debug_info: Option<String>,
+    
+    /// Error timestamp (high precision)
+    pub timestamp: f64,
+    
+    /// Thread or context identifier
+    pub thread_id: Option<String>,
+}
+
+/// Message context information for error reporting
+#[derive(Debug, Clone, PartialEq)]
+pub struct MessageContext {
+    /// Message type or identifier
+    pub message_type: String,
+    
+    /// Message direction (ToWorklet, FromWorklet)
+    pub direction: MessageDirection,
+    
+    /// Message ID if available
+    pub message_id: Option<u32>,
+    
+    /// Message timestamp
+    pub message_timestamp: Option<f64>,
+    
+    /// Message size in bytes
+    pub message_size: Option<usize>,
+}
+
+/// Message direction for context
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageDirection {
+    /// Message sent to worklet
+    ToWorklet,
+    /// Message sent from worklet
+    FromWorklet,
+    /// Internal message processing
+    Internal,
+}
+
+/// System state information for error context
+#[derive(Debug, Clone, PartialEq)]
+pub struct SystemState {
+    /// Current memory usage in bytes
+    pub memory_usage: Option<usize>,
+    
+    /// Message queue depth
+    pub queue_depth: Option<usize>,
+    
+    /// Active buffer count
+    pub active_buffers: Option<usize>,
+    
+    /// Audio processing status
+    pub audio_processing_active: Option<bool>,
+    
+    /// Sample rate
+    pub sample_rate: Option<f64>,
+    
+    /// Buffer size
+    pub buffer_size: Option<usize>,
+    
+    /// Processor load percentage (0-100)
+    pub processor_load: Option<f32>,
+    
+    /// Available heap memory
+    pub available_heap: Option<usize>,
 }
 
 /// Message envelope with correlation and timing information
@@ -289,6 +380,169 @@ impl std::fmt::Display for SerializationError {
 }
 
 impl std::error::Error for SerializationError {}
+
+/// Protocol-specific error types for message handling
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageProtocolError {
+    /// Serialization error
+    Serialization(SerializationError),
+    /// Message validation error
+    Validation(ValidationError),
+    /// Buffer transfer error
+    Transfer(TransferError),
+    /// Message construction error
+    Construction(MessageConstructionError),
+    /// Worklet processing error
+    Worklet(WorkletError),
+}
+
+impl std::fmt::Display for MessageProtocolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageProtocolError::Serialization(err) => write!(f, "Serialization error: {}", err),
+            MessageProtocolError::Validation(err) => write!(f, "Validation error: {}", err),
+            MessageProtocolError::Transfer(err) => write!(f, "Transfer error: {}", err),
+            MessageProtocolError::Construction(err) => write!(f, "Construction error: {}", err),
+            MessageProtocolError::Worklet(err) => write!(f, "Worklet error: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for MessageProtocolError {}
+
+impl From<SerializationError> for MessageProtocolError {
+    fn from(err: SerializationError) -> Self {
+        MessageProtocolError::Serialization(err)
+    }
+}
+
+impl From<ValidationError> for MessageProtocolError {
+    fn from(err: ValidationError) -> Self {
+        MessageProtocolError::Validation(err)
+    }
+}
+
+impl From<TransferError> for MessageProtocolError {
+    fn from(err: TransferError) -> Self {
+        MessageProtocolError::Transfer(err)
+    }
+}
+
+impl From<MessageConstructionError> for MessageProtocolError {
+    fn from(err: MessageConstructionError) -> Self {
+        MessageProtocolError::Construction(err)
+    }
+}
+
+impl From<WorkletError> for MessageProtocolError {
+    fn from(err: WorkletError) -> Self {
+        MessageProtocolError::Worklet(err)
+    }
+}
+
+/// Validation error types for message validation
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValidationError {
+    /// Field validation failed
+    FieldValidation { field: String, reason: String },
+    /// Value out of range
+    ValueOutOfRange { field: String, value: String, min: Option<String>, max: Option<String> },
+    /// Invalid message type
+    InvalidMessageType(String),
+    /// Missing required field
+    MissingRequiredField(String),
+    /// Conflicting configuration
+    ConflictingConfiguration(String),
+    /// Unsupported message version
+    UnsupportedVersion { expected: String, received: String },
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationError::FieldValidation { field, reason } => 
+                write!(f, "Field '{}' validation failed: {}", field, reason),
+            ValidationError::ValueOutOfRange { field, value, min, max } => {
+                let range = match (min, max) {
+                    (Some(min), Some(max)) => format!(" (expected {} to {})", min, max),
+                    (Some(min), None) => format!(" (expected >= {})", min),
+                    (None, Some(max)) => format!(" (expected <= {})", max),
+                    (None, None) => String::new(),
+                };
+                write!(f, "Field '{}' value '{}' out of range{}", field, value, range)
+            },
+            ValidationError::InvalidMessageType(msg_type) => 
+                write!(f, "Invalid message type: {}", msg_type),
+            ValidationError::MissingRequiredField(field) => 
+                write!(f, "Missing required field: {}", field),
+            ValidationError::ConflictingConfiguration(msg) => 
+                write!(f, "Conflicting configuration: {}", msg),
+            ValidationError::UnsupportedVersion { expected, received } => 
+                write!(f, "Unsupported message version: expected {}, received {}", expected, received),
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+/// Transfer error types for buffer transfer operations
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransferError {
+    /// Buffer allocation failed
+    BufferAllocation { size: usize, reason: String },
+    /// Buffer transfer failed
+    BufferTransfer { buffer_id: Option<String>, reason: String },
+    /// Buffer validation failed
+    BufferValidation { buffer_id: Option<String>, reason: String },
+    /// Buffer size mismatch
+    BufferSizeMismatch { expected: usize, actual: usize },
+    /// Transferable object creation failed
+    TransferableCreation(String),
+    /// Buffer pool exhausted
+    BufferPoolExhausted { requested_size: usize, available_memory: Option<usize> },
+    /// Buffer ownership violation
+    BufferOwnershipViolation { buffer_id: String, current_owner: String },
+}
+
+impl std::fmt::Display for TransferError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransferError::BufferAllocation { size, reason } => 
+                write!(f, "Buffer allocation failed for {} bytes: {}", size, reason),
+            TransferError::BufferTransfer { buffer_id, reason } => {
+                let id_str = buffer_id.as_deref().unwrap_or("unknown");
+                write!(f, "Buffer transfer failed for buffer '{}': {}", id_str, reason)
+            },
+            TransferError::BufferValidation { buffer_id, reason } => {
+                let id_str = buffer_id.as_deref().unwrap_or("unknown");
+                write!(f, "Buffer validation failed for buffer '{}': {}", id_str, reason)
+            },
+            TransferError::BufferSizeMismatch { expected, actual } => 
+                write!(f, "Buffer size mismatch: expected {} bytes, got {} bytes", expected, actual),
+            TransferError::TransferableCreation(reason) => 
+                write!(f, "Transferable object creation failed: {}", reason),
+            TransferError::BufferPoolExhausted { requested_size, available_memory } => {
+                match available_memory {
+                    Some(available) => write!(f, "Buffer pool exhausted: requested {} bytes, {} bytes available", requested_size, available),
+                    None => write!(f, "Buffer pool exhausted: requested {} bytes", requested_size),
+                }
+            },
+            TransferError::BufferOwnershipViolation { buffer_id, current_owner } => 
+                write!(f, "Buffer ownership violation: buffer '{}' is owned by '{}'", buffer_id, current_owner),
+        }
+    }
+}
+
+impl std::error::Error for TransferError {}
+
+/// Result type for message protocol operations
+pub type MessageProtocolResult<T> = Result<T, MessageProtocolError>;
+
+/// Result type for validation operations
+pub type ValidationResult<T> = Result<T, ValidationError>;
+
+/// Result type for transfer operations
+pub type TransferResult<T> = Result<T, TransferError>;
 
 /// Trait for converting Rust types to JavaScript objects
 pub trait ToJsMessage {
@@ -1214,14 +1468,38 @@ impl ToJsMessage for ErrorContext {
         Reflect::set(&obj, &"location".into(), &self.location.clone().into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set location: {:?}", e)))?;
         
+        Reflect::set(&obj, &"timestamp".into(), &self.timestamp.into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set timestamp: {:?}", e)))?;
+        
+        if let Some(stack_trace) = &self.stack_trace {
+            let js_array = js_sys::Array::new();
+            for trace in stack_trace {
+                js_array.push(&trace.clone().into());
+            }
+            Reflect::set(&obj, &"stackTrace".into(), &js_array.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set stackTrace: {:?}", e)))?;
+        }
+        
+        if let Some(message_context) = &self.message_context {
+            let context_obj = message_context.to_js_object()?;
+            Reflect::set(&obj, &"messageContext".into(), &context_obj.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageContext: {:?}", e)))?;
+        }
+        
         if let Some(system_state) = &self.system_state {
-            Reflect::set(&obj, &"systemState".into(), &system_state.clone().into())
+            let state_obj = system_state.to_js_object()?;
+            Reflect::set(&obj, &"systemState".into(), &state_obj.into())
                 .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set systemState: {:?}", e)))?;
         }
         
         if let Some(debug_info) = &self.debug_info {
             Reflect::set(&obj, &"debugInfo".into(), &debug_info.clone().into())
                 .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set debugInfo: {:?}", e)))?;
+        }
+        
+        if let Some(thread_id) = &self.thread_id {
+            Reflect::set(&obj, &"threadId".into(), &thread_id.clone().into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set threadId: {:?}", e)))?;
         }
         
         Ok(obj)
@@ -1235,10 +1513,40 @@ impl FromJsMessage for ErrorContext {
             .as_string()
             .ok_or_else(|| SerializationError::InvalidPropertyType("location must be string".to_string()))?;
         
+        let timestamp = Reflect::get(obj, &"timestamp".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get timestamp: {:?}", e)))?
+            .as_f64()
+            .unwrap_or_else(|| js_sys::Date::now());
+        
+        let stack_trace = match Reflect::get(obj, &"stackTrace".into()) {
+            Ok(value) if !value.is_undefined() => {
+                let array = value.dyn_ref::<js_sys::Array>()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("stackTrace must be array".to_string()))?;
+                let mut trace_vec = Vec::new();
+                for i in 0..array.length() {
+                    if let Some(trace_str) = array.get(i).as_string() {
+                        trace_vec.push(trace_str);
+                    }
+                }
+                Some(trace_vec)
+            }
+            _ => None,
+        };
+        
+        let message_context = match Reflect::get(obj, &"messageContext".into()) {
+            Ok(value) if !value.is_undefined() => {
+                let context_obj = value.dyn_ref::<Object>()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageContext must be object".to_string()))?;
+                Some(MessageContext::from_js_object(context_obj)?)
+            }
+            _ => None,
+        };
+        
         let system_state = match Reflect::get(obj, &"systemState".into()) {
             Ok(value) if !value.is_undefined() => {
-                Some(value.as_string()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("systemState must be string".to_string()))?)
+                let state_obj = value.dyn_ref::<Object>()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("systemState must be object".to_string()))?;
+                Some(SystemState::from_js_object(state_obj)?)
             }
             _ => None,
         };
@@ -1251,10 +1559,22 @@ impl FromJsMessage for ErrorContext {
             _ => None,
         };
         
+        let thread_id = match Reflect::get(obj, &"threadId".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_string()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("threadId must be string".to_string()))?)
+            }
+            _ => None,
+        };
+        
         Ok(ErrorContext {
             location,
+            stack_trace,
+            message_context,
             system_state,
             debug_info,
+            timestamp,
+            thread_id,
         })
     }
 }
@@ -1266,6 +1586,477 @@ impl MessageValidator for ErrorContext {
         }
         Ok(())
     }
+}
+
+impl ToJsMessage for MessageContext {
+    fn to_js_object(&self) -> SerializationResult<Object> {
+        let obj = Object::new();
+        
+        Reflect::set(&obj, &"messageType".into(), &self.message_type.clone().into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageType: {:?}", e)))?;
+        
+        let direction_str = match self.direction {
+            MessageDirection::ToWorklet => "toWorklet",
+            MessageDirection::FromWorklet => "fromWorklet", 
+            MessageDirection::Internal => "internal",
+        };
+        Reflect::set(&obj, &"direction".into(), &direction_str.into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set direction: {:?}", e)))?;
+        
+        if let Some(message_id) = self.message_id {
+            Reflect::set(&obj, &"messageId".into(), &message_id.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageId: {:?}", e)))?;
+        }
+        
+        if let Some(timestamp) = self.message_timestamp {
+            Reflect::set(&obj, &"messageTimestamp".into(), &timestamp.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageTimestamp: {:?}", e)))?;
+        }
+        
+        if let Some(size) = self.message_size {
+            Reflect::set(&obj, &"messageSize".into(), &(size as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageSize: {:?}", e)))?;
+        }
+        
+        Ok(obj)
+    }
+}
+
+impl FromJsMessage for MessageContext {
+    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
+        let message_type = Reflect::get(obj, &"messageType".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get messageType: {:?}", e)))?
+            .as_string()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("messageType must be string".to_string()))?;
+        
+        let direction_str = Reflect::get(obj, &"direction".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get direction: {:?}", e)))?
+            .as_string()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("direction must be string".to_string()))?;
+        
+        let direction = match direction_str.as_str() {
+            "toWorklet" => MessageDirection::ToWorklet,
+            "fromWorklet" => MessageDirection::FromWorklet,
+            "internal" => MessageDirection::Internal,
+            _ => return Err(SerializationError::InvalidPropertyType(format!("Invalid direction: {}", direction_str))),
+        };
+        
+        let message_id = match Reflect::get(obj, &"messageId".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageId must be number".to_string()))? as u32)
+            }
+            _ => None,
+        };
+        
+        let message_timestamp = match Reflect::get(obj, &"messageTimestamp".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageTimestamp must be number".to_string()))?)
+            }
+            _ => None,
+        };
+        
+        let message_size = match Reflect::get(obj, &"messageSize".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageSize must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        Ok(MessageContext {
+            message_type,
+            direction,
+            message_id,
+            message_timestamp,
+            message_size,
+        })
+    }
+}
+
+impl ToJsMessage for SystemState {
+    fn to_js_object(&self) -> SerializationResult<Object> {
+        let obj = Object::new();
+        
+        if let Some(memory_usage) = self.memory_usage {
+            Reflect::set(&obj, &"memoryUsage".into(), &(memory_usage as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set memoryUsage: {:?}", e)))?;
+        }
+        
+        if let Some(queue_depth) = self.queue_depth {
+            Reflect::set(&obj, &"queueDepth".into(), &(queue_depth as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set queueDepth: {:?}", e)))?;
+        }
+        
+        if let Some(active_buffers) = self.active_buffers {
+            Reflect::set(&obj, &"activeBuffers".into(), &(active_buffers as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set activeBuffers: {:?}", e)))?;
+        }
+        
+        if let Some(audio_processing_active) = self.audio_processing_active {
+            Reflect::set(&obj, &"audioProcessingActive".into(), &audio_processing_active.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set audioProcessingActive: {:?}", e)))?;
+        }
+        
+        if let Some(sample_rate) = self.sample_rate {
+            Reflect::set(&obj, &"sampleRate".into(), &sample_rate.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
+        }
+        
+        if let Some(buffer_size) = self.buffer_size {
+            Reflect::set(&obj, &"bufferSize".into(), &(buffer_size as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferSize: {:?}", e)))?;
+        }
+        
+        if let Some(processor_load) = self.processor_load {
+            Reflect::set(&obj, &"processorLoad".into(), &(processor_load as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set processorLoad: {:?}", e)))?;
+        }
+        
+        if let Some(available_heap) = self.available_heap {
+            Reflect::set(&obj, &"availableHeap".into(), &(available_heap as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set availableHeap: {:?}", e)))?;
+        }
+        
+        Ok(obj)
+    }
+}
+
+impl FromJsMessage for SystemState {
+    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
+        let memory_usage = match Reflect::get(obj, &"memoryUsage".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("memoryUsage must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        let queue_depth = match Reflect::get(obj, &"queueDepth".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("queueDepth must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        let active_buffers = match Reflect::get(obj, &"activeBuffers".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("activeBuffers must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        let audio_processing_active = match Reflect::get(obj, &"audioProcessingActive".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_bool()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("audioProcessingActive must be boolean".to_string()))?)
+            }
+            _ => None,
+        };
+        
+        let sample_rate = match Reflect::get(obj, &"sampleRate".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?)
+            }
+            _ => None,
+        };
+        
+        let buffer_size = match Reflect::get(obj, &"bufferSize".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferSize must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        let processor_load = match Reflect::get(obj, &"processorLoad".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("processorLoad must be number".to_string()))? as f32)
+            }
+            _ => None,
+        };
+        
+        let available_heap = match Reflect::get(obj, &"availableHeap".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("availableHeap must be number".to_string()))? as usize)
+            }
+            _ => None,
+        };
+        
+        Ok(SystemState {
+            memory_usage,
+            queue_depth,
+            active_buffers,
+            audio_processing_active,
+            sample_rate,
+            buffer_size,
+            processor_load,
+            available_heap,
+        })
+    }
+}
+
+// ================================
+// Error Reporting and Logging System
+// ================================
+
+/// Error reporting system for structured error logging and metrics
+pub struct ErrorReportingSystem {
+    /// Whether logging is enabled
+    logging_enabled: bool,
+    /// Error count by type
+    error_counts: std::rc::Rc<std::cell::RefCell<std::collections::HashMap<String, u32>>>,
+    /// Recent errors for debugging
+    recent_errors: std::rc::Rc<std::cell::RefCell<Vec<ErrorReport>>>,
+    /// Maximum number of recent errors to keep
+    max_recent_errors: usize,
+}
+
+/// Detailed error report for logging and debugging
+#[derive(Debug, Clone)]
+pub struct ErrorReport {
+    /// Error type/category
+    pub error_type: String,
+    /// Error message
+    pub message: String,
+    /// Error context if available
+    pub context: Option<ErrorContext>,
+    /// Timestamp when error was reported
+    pub timestamp: f64,
+    /// Severity level
+    pub severity: ErrorSeverity,
+    /// Error source (message protocol, worklet, etc.)
+    pub source: String,
+}
+
+/// Error severity levels
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorSeverity {
+    /// Low severity - informational
+    Info,
+    /// Medium severity - warning
+    Warning,
+    /// High severity - error that affects functionality
+    Error,
+    /// Critical severity - system-breaking error
+    Critical,
+}
+
+impl ErrorReportingSystem {
+    /// Create a new error reporting system
+    pub fn new() -> Self {
+        Self {
+            logging_enabled: true,
+            error_counts: std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashMap::new())),
+            recent_errors: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+            max_recent_errors: 100,
+        }
+    }
+
+    /// Create error reporting system with custom configuration
+    pub fn with_config(logging_enabled: bool, max_recent_errors: usize) -> Self {
+        Self {
+            logging_enabled,
+            error_counts: std::rc::Rc::new(std::cell::RefCell::new(std::collections::HashMap::new())),
+            recent_errors: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+            max_recent_errors,
+        }
+    }
+
+    /// Report an error to the system
+    pub fn report_error(&self, report: ErrorReport) {
+        if !self.logging_enabled {
+            return;
+        }
+
+        // Update error counts
+        {
+            let mut counts = self.error_counts.borrow_mut();
+            let count = counts.entry(report.error_type.clone()).or_insert(0);
+            *count += 1;
+        }
+
+        // Add to recent errors
+        {
+            let mut recent = self.recent_errors.borrow_mut();
+            recent.push(report.clone());
+            
+            // Keep only the most recent errors
+            let current_len = recent.len();
+            if current_len > self.max_recent_errors {
+                let drain_count = current_len - self.max_recent_errors;
+                recent.drain(0..drain_count);
+            }
+        }
+
+        // Log to console if in debug mode
+        self.log_to_console(&report);
+    }
+
+    /// Report a message protocol error
+    pub fn report_protocol_error(&self, error: &MessageProtocolError, source: &str, context: Option<ErrorContext>) {
+        let (error_type, message, severity) = match error {
+            MessageProtocolError::Serialization(err) => ("serialization".to_string(), err.to_string(), ErrorSeverity::Error),
+            MessageProtocolError::Validation(err) => ("validation".to_string(), err.to_string(), ErrorSeverity::Warning),
+            MessageProtocolError::Transfer(err) => ("transfer".to_string(), err.to_string(), ErrorSeverity::Error),
+            MessageProtocolError::Construction(err) => ("construction".to_string(), err.to_string(), ErrorSeverity::Warning),
+            MessageProtocolError::Worklet(err) => ("worklet".to_string(), err.to_string(), ErrorSeverity::Error),
+        };
+
+        let report = ErrorReport {
+            error_type,
+            message,
+            context,
+            timestamp: js_sys::Date::now(),
+            severity,
+            source: source.to_string(),
+        };
+
+        self.report_error(report);
+    }
+
+    /// Get error counts by type
+    pub fn get_error_counts(&self) -> std::collections::HashMap<String, u32> {
+        self.error_counts.borrow().clone()
+    }
+
+    /// Get recent errors
+    pub fn get_recent_errors(&self) -> Vec<ErrorReport> {
+        self.recent_errors.borrow().clone()
+    }
+
+    /// Get errors by severity
+    pub fn get_errors_by_severity(&self, severity: ErrorSeverity) -> Vec<ErrorReport> {
+        self.recent_errors.borrow()
+            .iter()
+            .filter(|error| error.severity == severity)
+            .cloned()
+            .collect()
+    }
+
+    /// Clear error history
+    pub fn clear_errors(&self) {
+        self.error_counts.borrow_mut().clear();
+        self.recent_errors.borrow_mut().clear();
+    }
+
+    /// Enable or disable logging
+    pub fn set_logging_enabled(&mut self, enabled: bool) {
+        self.logging_enabled = enabled;
+    }
+
+    /// Get total error count
+    pub fn get_total_error_count(&self) -> u32 {
+        self.error_counts.borrow().values().sum()
+    }
+
+    /// Log error to console (for debugging)
+    fn log_to_console(&self, report: &ErrorReport) {
+        // In a real implementation, this would use web_sys::console
+        // For now, we'll create a simple debug representation
+        #[cfg(debug_assertions)]
+        {
+            let severity_str = match report.severity {
+                ErrorSeverity::Info => "INFO",
+                ErrorSeverity::Warning => "WARN", 
+                ErrorSeverity::Error => "ERROR",
+                ErrorSeverity::Critical => "CRITICAL",
+            };
+            
+            // This would be logged to browser console in a real implementation
+            let _log_message = format!(
+                "[{}] {} - {}: {} (source: {})",
+                severity_str,
+                report.timestamp,
+                report.error_type,
+                report.message,
+                report.source
+            );
+        }
+    }
+}
+
+impl ErrorReport {
+    /// Create a new error report
+    pub fn new(
+        error_type: String,
+        message: String,
+        severity: ErrorSeverity,
+        source: String,
+    ) -> Self {
+        Self {
+            error_type,
+            message,
+            context: None,
+            timestamp: js_sys::Date::now(),
+            severity,
+            source,
+        }
+    }
+
+    /// Create error report with context
+    pub fn with_context(
+        error_type: String,
+        message: String,
+        severity: ErrorSeverity,
+        source: String,
+        context: ErrorContext,
+    ) -> Self {
+        Self {
+            error_type,
+            message,
+            context: Some(context),
+            timestamp: js_sys::Date::now(),
+            severity,
+            source,
+        }
+    }
+}
+
+// For global error reporting, we'll use a simple thread-local approach since WebAssembly is single-threaded
+thread_local! {
+    static GLOBAL_ERROR_REPORTER: std::cell::RefCell<Option<ErrorReportingSystem>> = std::cell::RefCell::new(None);
+}
+
+/// Initialize the global error reporting system
+pub fn initialize_error_reporting() {
+    GLOBAL_ERROR_REPORTER.with(|reporter| {
+        *reporter.borrow_mut() = Some(ErrorReportingSystem::new());
+    });
+}
+
+/// Get the global error reporting system
+pub fn with_error_reporter<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut ErrorReportingSystem) -> R,
+{
+    GLOBAL_ERROR_REPORTER.with(|reporter| {
+        if let Some(ref mut system) = *reporter.borrow_mut() {
+            Some(f(system))
+        } else {
+            None
+        }
+    })
+}
+
+/// Report an error to the global error reporting system
+pub fn report_global_error(report: ErrorReport) {
+    with_error_reporter(|reporter| {
+        reporter.report_error(report);
+    });
+}
+
+/// Convenience function to report protocol errors globally
+pub fn report_protocol_error_global(error: &MessageProtocolError, source: &str, context: Option<ErrorContext>) {
+    with_error_reporter(|reporter| {
+        reporter.report_protocol_error(error, source, context);
+    });
 }
 
 // ================================
@@ -1585,19 +2376,182 @@ impl WorkletError {
 
 impl ErrorContext {
     /// Create a new error context
-    pub fn new(
+    pub fn new(location: String) -> Self {
+        Self {
+            location,
+            stack_trace: None,
+            message_context: None,
+            system_state: None,
+            debug_info: None,
+            timestamp: js_sys::Date::now(),
+            thread_id: None,
+        }
+    }
+
+    /// Create a new error context with full information
+    pub fn new_full(
         location: String,
-        system_state: Option<String>,
+        stack_trace: Option<Vec<String>>,
+        message_context: Option<MessageContext>,
+        system_state: Option<SystemState>,
         debug_info: Option<String>,
+        thread_id: Option<String>,
     ) -> MessageConstructionResult<Self> {
         let context = Self {
             location,
+            stack_trace,
+            message_context,
             system_state,
             debug_info,
+            timestamp: js_sys::Date::now(),
+            thread_id,
         };
         
         context.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(context)
+    }
+
+    /// Add stack trace information
+    pub fn with_stack_trace(mut self, stack_trace: Vec<String>) -> Self {
+        self.stack_trace = Some(stack_trace);
+        self
+    }
+
+    /// Add message context information  
+    pub fn with_message_context(mut self, message_context: MessageContext) -> Self {
+        self.message_context = Some(message_context);
+        self
+    }
+
+    /// Add system state information
+    pub fn with_system_state(mut self, system_state: SystemState) -> Self {
+        self.system_state = Some(system_state);
+        self
+    }
+
+    /// Add debug information
+    pub fn with_debug_info(mut self, debug_info: String) -> Self {
+        self.debug_info = Some(debug_info);
+        self
+    }
+
+    /// Add thread identifier
+    pub fn with_thread_id(mut self, thread_id: String) -> Self {
+        self.thread_id = Some(thread_id);
+        self
+    }
+}
+
+impl MessageContext {
+    /// Create a new message context
+    pub fn new(message_type: String, direction: MessageDirection) -> Self {
+        Self {
+            message_type,
+            direction,
+            message_id: None,
+            message_timestamp: None,
+            message_size: None,
+        }
+    }
+
+    /// Add message ID
+    pub fn with_message_id(mut self, message_id: u32) -> Self {
+        self.message_id = Some(message_id);
+        self
+    }
+
+    /// Add message timestamp
+    pub fn with_timestamp(mut self, timestamp: f64) -> Self {
+        self.message_timestamp = Some(timestamp);
+        self
+    }
+
+    /// Add message size
+    pub fn with_size(mut self, size: usize) -> Self {
+        self.message_size = Some(size);
+        self
+    }
+}
+
+impl SystemState {
+    /// Create a new empty system state
+    pub fn new() -> Self {
+        Self {
+            memory_usage: None,
+            queue_depth: None,
+            active_buffers: None,
+            audio_processing_active: None,
+            sample_rate: None,
+            buffer_size: None,
+            processor_load: None,
+            available_heap: None,
+        }
+    }
+
+    /// Create system state with basic information
+    pub fn basic(
+        memory_usage: Option<usize>,
+        queue_depth: Option<usize>,
+        audio_processing_active: Option<bool>,
+    ) -> Self {
+        Self {
+            memory_usage,
+            queue_depth,
+            active_buffers: None,
+            audio_processing_active,
+            sample_rate: None,
+            buffer_size: None,
+            processor_load: None,
+            available_heap: None,
+        }
+    }
+
+    /// Add memory usage information
+    pub fn with_memory_usage(mut self, memory_usage: usize) -> Self {
+        self.memory_usage = Some(memory_usage);
+        self
+    }
+
+    /// Add queue depth information
+    pub fn with_queue_depth(mut self, queue_depth: usize) -> Self {
+        self.queue_depth = Some(queue_depth);
+        self
+    }
+
+    /// Add active buffer count
+    pub fn with_active_buffers(mut self, active_buffers: usize) -> Self {
+        self.active_buffers = Some(active_buffers);
+        self
+    }
+
+    /// Add audio processing status
+    pub fn with_audio_processing_active(mut self, active: bool) -> Self {
+        self.audio_processing_active = Some(active);
+        self
+    }
+
+    /// Add sample rate information
+    pub fn with_sample_rate(mut self, sample_rate: f64) -> Self {
+        self.sample_rate = Some(sample_rate);
+        self
+    }
+
+    /// Add buffer size information
+    pub fn with_buffer_size(mut self, buffer_size: usize) -> Self {
+        self.buffer_size = Some(buffer_size);
+        self
+    }
+
+    /// Add processor load information
+    pub fn with_processor_load(mut self, processor_load: f32) -> Self {
+        self.processor_load = Some(processor_load);
+        self
+    }
+
+    /// Add available heap information
+    pub fn with_available_heap(mut self, available_heap: usize) -> Self {
+        self.available_heap = Some(available_heap);
+        self
     }
 }
 
@@ -1809,7 +2763,7 @@ impl AudioWorkletMessageFactory {
         location: String,
         system_state: Option<String>
     ) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let context = ErrorContext::new(location, system_state, None)?;
+        let context = ErrorContext::new(location);
         let error = WorkletError::new(code, message, Some(context))?;
         self.processing_error(error)
     }
@@ -1948,11 +2902,12 @@ mod tests {
         let error = WorkletError {
             code: WorkletErrorCode::BufferOverflow,
             message: "Buffer overflow detected".to_string(),
-            context: Some(ErrorContext {
-                location: "audio_processor.rs:123".to_string(),
-                system_state: Some("processing=true, queue_size=10".to_string()),
-                debug_info: None,
-            }),
+            context: Some(ErrorContext::new("audio_processor.rs:123".to_string())
+                .with_system_state(SystemState::basic(
+                    Some(1024),
+                    Some(10), 
+                    Some(true)
+                ))),
             timestamp: get_current_timestamp(),
         };
         
@@ -2132,11 +3087,12 @@ mod tests {
             code: WorkletErrorCode::BufferOverflow,
             message: "Buffer overflow occurred".to_string(),
             timestamp: 12345.0,
-            context: Some(ErrorContext {
-                location: "audio_processor.rs:123".to_string(),
-                system_state: Some("processing=true".to_string()),
-                debug_info: None,
-            }),
+            context: Some(ErrorContext::new("audio_processor.rs:123".to_string())
+                .with_system_state(SystemState::basic(
+                    None,
+                    None, 
+                    Some(true)
+                ))),
         };
         
         let obj = error.to_js_object().unwrap();
