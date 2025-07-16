@@ -158,7 +158,8 @@ pub async fn start() {
     // Initialize audio systems first
     if let Err(e) = initialize_audio_systems(
         Some(std::rc::Rc::new(pitch_data_setter.clone())),
-        Some(std::rc::Rc::new(volume_level_setter.clone()))
+        Some(std::rc::Rc::new(volume_level_setter.clone())),
+        Some(std::rc::Rc::new(audioworklet_status_setter.clone()))
     ).await {
         dev_log!("✗ Audio system initialization failed: {}", e);
         dev_log!("Application cannot continue without audio system");
@@ -167,13 +168,11 @@ pub async fn start() {
     }
     
     // Create audio service with event dispatcher and setters AFTER AudioWorklet initialization
-    // This ensures the volume level setter is properly configured on the initialized AudioWorklet manager
+    // Volume level setter is already configured in initialize_audio_systems, so use the regular service
     let event_dispatcher = crate::events::get_global_event_dispatcher();
-    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_audioworklet_setter(
+    let audio_service = std::rc::Rc::new(crate::audio::create_console_audio_service_with_setter(
         event_dispatcher.clone(),
-        audio_devices_setter.clone(),
-        audioworklet_status_setter.clone(),
-        volume_level_setter.clone()
+        audio_devices_setter.clone()
     ));
     
     // Trigger initial device enumeration
@@ -188,7 +187,8 @@ pub async fn start() {
 /// Initialize all audio systems in sequence with proper error handling
 async fn initialize_audio_systems(
     pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>,
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>,
+    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>
 ) -> Result<(), String> {
     // Initialize audio system
     audio::initialize_audio_system().await
@@ -217,6 +217,12 @@ async fn initialize_audio_systems(
     if let Some(setter) = pitch_data_setter {
         audio::set_pitch_data_setter(setter);
         dev_log!("✓ Pitch data setter configured");
+    }
+    
+    // Set the AudioWorklet status setter if provided
+    if let Some(setter) = audioworklet_status_setter {
+        audio::set_audioworklet_status_setter(setter);
+        dev_log!("✓ AudioWorklet status setter configured");
     }
     
     Ok(())

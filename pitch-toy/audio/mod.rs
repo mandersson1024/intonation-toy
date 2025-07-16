@@ -168,9 +168,7 @@ pub fn create_console_audio_service_with_audioworklet_setter(
     
     // Set the volume level setter on the global AudioWorklet manager if it exists
     // Need to clone the Rc to avoid holding the borrow while we check if it's processing
-    dev_log!("🎵 AUDIO_DEBUG: Looking for global AudioWorklet manager to set volume level setter");
     if let Some(manager_rc) = get_global_audioworklet_manager() {
-        dev_log!("🎵 AUDIO_DEBUG: Found global AudioWorklet manager, setting volume level setter");
         let setter_rc = std::rc::Rc::new(volume_level_setter);
         
         // Set the setter on the manager
@@ -187,15 +185,10 @@ pub fn create_console_audio_service_with_audioworklet_setter(
         };
         
         if is_processing {
-            dev_log!("🎵 AUDIO_DEBUG: AudioWorklet already processing - volume setter configured post-initialization");
+            dev_log!("AudioWorklet already processing - volume setter configured post-initialization");
         } else {
-            dev_log!("🎵 AUDIO_DEBUG: Volume level setter configured on AudioWorklet manager");
+            dev_log!("Volume level setter configured on AudioWorklet manager");
         }
-        
-        // Add debug info about the setter
-        dev_log!("🎵 AUDIO_DEBUG: Volume level setter type configured successfully");
-    } else {
-        dev_log!("🎵 AUDIO_DEBUG: AudioWorklet manager not yet initialized when setting volume level setter");
     }
     
     service
