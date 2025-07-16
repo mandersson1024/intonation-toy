@@ -446,11 +446,8 @@ impl AudioWorkletManager {
                     Self::handle_typed_worklet_message(envelope, &shared_data);
                 }
                 Err(e) => {
-                    // Fall back to legacy string-based message handling for backwards compatibility
-                    if chunks_processed <= 5 {
-                        dev_log!("DEBUG: Failed to deserialize as typed message, falling back to legacy: {}", e);
-                    }
-                    Self::handle_legacy_worklet_message(&obj, &shared_data);
+                    dev_log!("ERROR: Failed to deserialize typed message: {}", e);
+                    dev_log!("ERROR: All messages must use the structured message protocol");
                 }
             }
         } else {
@@ -460,7 +457,6 @@ impl AudioWorkletManager {
     
     /// Try to deserialize a JavaScript object as a typed message envelope
     fn try_deserialize_typed_message(obj: &js_sys::Object) -> Result<MessageEnvelope<FromWorkletMessage>, String> {
-        use super::message_protocol::FromJsMessage;
         
         // Check if this looks like a structured message (has message_id and payload fields)
         let has_message_id = js_sys::Reflect::has(obj, &"messageId".into()).unwrap_or(false);
@@ -535,69 +531,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Handle legacy string-based messages for backwards compatibility
-    fn handle_legacy_worklet_message(
-        obj: &js_sys::Object,
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
-    ) {
-        if let Ok(type_val) = js_sys::Reflect::get(obj, &"type".into()) {
-            if let Some(msg_type) = type_val.as_string() {
-                match msg_type.as_str() {
-                    "processorReady" => {
-                        // Extract batch configuration if available
-                        let batch_size = js_sys::Reflect::get(obj, &"batchSize".into())
-                            .ok()
-                            .and_then(|v| v.as_f64())
-                            .map(|v| v as usize);
-                        
-                        let sample_rate = js_sys::Reflect::get(obj, &"sampleRate".into())
-                            .ok()
-                            .and_then(|v| v.as_f64());
-                        
-                        if let Some(size) = batch_size {
-                            dev_log!("✓ AudioWorklet processor ready with batch size: {} samples", size);
-                        } else {
-                            dev_log!("✓ AudioWorklet processor ready");
-                        }
-                        
-                        if let Some(rate) = sample_rate {
-                            dev_log!("  Sample rate: {} Hz", rate);
-                        }
-                        
-                        Self::publish_status_update(shared_data, AudioWorkletState::Ready, false);
-                    }
-                    "processingStarted" => {
-                        dev_log!("✓ AudioWorklet processing started");
-                        Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
-                    }
-                    "processingStopped" => {
-                        dev_log!("✓ AudioWorklet processing stopped");
-                        Self::publish_status_update(shared_data, AudioWorkletState::Stopped, false);
-                    }
-                    "audioData" => {
-                        // Process real audio data (legacy single chunk)
-                        Self::handle_audio_data(obj, shared_data);
-                    }
-                    "audioDataBatch" => {
-                        // Process batched audio data with transferable buffer
-                        Self::handle_audio_data_batch(obj, shared_data);
-                    }
-                    "processingError" => {
-                        if let Ok(error_val) = js_sys::Reflect::get(obj, &"error".into()) {
-                            if let Some(error_msg) = error_val.as_string() {
-                                dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error_msg);
-                                Self::publish_status_update(shared_data, AudioWorkletState::Failed, false);
-                            }
-                        }
-                    }
-                    _ => {
-                        dev_log!("Unknown AudioWorklet message type: {}", msg_type);
-                    }
-                }
-            }
-        }
-    }
-    
     /// Handle typed audio data batch from the AudioWorklet processor
     fn handle_typed_audio_data_batch(
         data: super::message_protocol::AudioDataBatch,
@@ -644,242 +577,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Handle audio data from the AudioWorklet processor
-    fn handle_audio_data(
-        obj: &js_sys::Object, 
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
-    ) {
-        // Extract audio samples from the message
-        if let Ok(samples_val) = js_sys::Reflect::get(obj, &"samples".into()) {
-            if let Ok(samples_array) = samples_val.dyn_into::<js_sys::Float32Array>() {
-                // Convert JS Float32Array to Rust Vec<f32>
-                let samples: Vec<f32> = samples_array.to_vec();
-                
-                // Get timestamp if available
-                let timestamp = if let Ok(timestamp_val) = js_sys::Reflect::get(obj, &"timestamp".into()) {
-                    timestamp_val.as_f64()
-                } else {
-                    None
-                };
-                
-                // Update chunk counter (buffer pool operations removed)
-                {
-                    let mut data = shared_data.borrow_mut();
-                    data.chunks_processed += 1;
-                    
-                    // Publish status update every 16 chunks (~11.6ms at 48kHz)
-                    if data.chunks_processed % 16 == 0 {
-                        drop(data); // Release borrow before calling publish
-                        Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
-                    }
-                }
-                
-                // Note: Buffer pool operations removed - using direct processing with transferable buffers
-                
-                // Perform volume detection if available
-                let volume_detector = shared_data.borrow().volume_detector.clone();
-                if let Some(mut detector) = volume_detector {
-                    let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
-                    // Volume detected
-                    
-                    
-                    // Update volume level data every 16 chunks (~34ms at 48kHz)
-                    let chunks_processed = shared_data.borrow().chunks_processed;
-                    if chunks_processed % 16 == 0 {  // Update every 16 chunks (~34ms at 48kHz)
-                        let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
-                        if let Some(setter) = volume_level_setter {
-                            let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
-                                rms_db: volume_analysis.rms_db,
-                                peak_db: volume_analysis.peak_db,
-                                peak_fast_db: volume_analysis.peak_fast_db,
-                                peak_slow_db: volume_analysis.peak_slow_db,
-                                level: volume_analysis.level,
-                                confidence_weight: volume_analysis.confidence_weight,
-                                timestamp: timestamp.unwrap_or(0.0),
-                            };
-                            setter.set(Some(volume_data));
-                            // Volume data updated successfully
-                        }
-                    }
-                    
-                    // Update stored analysis (store the detector back and update analysis)
-                    {
-                        let mut data = shared_data.borrow_mut();
-                        data.volume_detector = Some(detector);
-                        data.last_volume_analysis = Some(volume_analysis);
-                    }
-                }
-            }
-        }
-    }
-    
-    /// Handle batched audio data from the AudioWorklet processor
-    fn handle_audio_data_batch(
-        obj: &js_sys::Object, 
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
-    ) {
-        let chunks_processed = shared_data.borrow().chunks_processed;
-        if chunks_processed <= 5 {
-            dev_log!("DEBUG: Starting handle_audio_data_batch for chunk #{}", chunks_processed);
-        }
-        
-        // Extract the transferred ArrayBuffer
-        if let Ok(buffer_val) = js_sys::Reflect::get(obj, &"buffer".into()) {
-            if chunks_processed <= 5 {
-                dev_log!("DEBUG: Buffer value extracted for chunk #{}", chunks_processed);
-            }
-            if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
-                if chunks_processed <= 5 {
-                    dev_log!("DEBUG: ArrayBuffer cast successful for chunk #{}", chunks_processed);
-                }
-                // Extract metadata
-                let sample_count = js_sys::Reflect::get(obj, &"sampleCount".into())
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0) as usize;
-                
-                let timestamp = js_sys::Reflect::get(obj, &"timestamp".into())
-                    .ok()
-                    .and_then(|v| v.as_f64());
-                
-                // Create Float32Array view of the buffer
-                let samples_array = js_sys::Float32Array::new(&array_buffer);
-                
-                // Only process the actual samples written (not the full buffer size)
-                let valid_samples = if sample_count > 0 && sample_count <= samples_array.length() as usize {
-                    samples_array.slice(0, sample_count as u32)
-                } else {
-                    samples_array
-                };
-                
-                // Convert to Vec<f32> for processing
-                let samples: Vec<f32> = valid_samples.to_vec();
-                
-                if chunks_processed <= 5 {
-                    dev_log!("DEBUG: Converted to {} samples for processing", samples.len());
-                }
-                
-                // Note: The ArrayBuffer is already detached after transfer, so no explicit
-                // recycling is needed on the main thread. The AudioWorklet manages its own
-                // buffer pool and creates new buffers as needed.
-                
-                // Update chunks processed count (batched)
-                let chunk_count = (samples.len() + 127) / 128; // Round up to nearest chunk
-                {
-                    let mut data = shared_data.borrow_mut();
-                    data.chunks_processed += chunk_count as u32;
-                }
-                
-                if chunks_processed <= 5 {
-                    dev_log!("DEBUG: Updated chunks_processed to {}", chunk_count);
-                }
-                
-                // Process volume detection on the batch
-                let volume_detector = shared_data.borrow().volume_detector.clone();
-                if let Some(mut detector) = volume_detector {
-                    let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
-                    
-                    // Update volume level data on every batch
-                    {
-                        let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
-                        if let Some(setter) = volume_level_setter {
-                            let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
-                                rms_db: volume_analysis.rms_db,
-                                peak_db: volume_analysis.peak_db,
-                                peak_fast_db: volume_analysis.peak_fast_db,
-                                peak_slow_db: volume_analysis.peak_slow_db,
-                                level: volume_analysis.level,
-                                confidence_weight: volume_analysis.confidence_weight,
-                                timestamp: timestamp.unwrap_or(0.0),
-                            };
-                            setter.set(Some(volume_data));
-                        }
-                    }
-                    
-                    // Store back the detector and analysis
-                    let mut data = shared_data.borrow_mut();
-                    data.volume_detector = Some(detector);
-                    data.last_volume_analysis = Some(volume_analysis);
-                }
-                
-                // Direct pitch analysis on batched data (Task 4)
-                let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
-                
-                if let Some(analyzer) = pitch_analyzer {
-                    if let Ok(mut analyzer_mut) = analyzer.try_borrow_mut() {
-                        match analyzer_mut.analyze_batch_direct(&samples) {
-                            Ok(pitch_results) => {
-                                
-                                // Log pitch detection results (always log when pitch is found)
-                                if !pitch_results.is_empty() {
-                                    dev_log!("✓ PITCH DETECTED: {} results", pitch_results.len());
-                                    for (i, result) in pitch_results.iter().enumerate() {
-                                        dev_log!("  Pitch {}: freq={:.1}Hz, confidence={:.2}", 
-                                            i, result.frequency, result.confidence);
-                                    }
-                                }
-                                
-                                // Update pitch data in UI if setter is available
-                                let pitch_data_setter = shared_data.borrow().pitch_data_setter.clone();
-                                if let Some(setter) = pitch_data_setter {
-                                    if let Some(best_result) = pitch_results.first() {
-                                        // Convert frequency to musical note using the analyzer's note mapper
-                                        let note = analyzer_mut.frequency_to_note(best_result.frequency);
-                                        let pitch_data = crate::debug::egui::live_data_panel::PitchData {
-                                            frequency: best_result.frequency,
-                                            confidence: best_result.confidence,
-                                            note: note.clone(),
-                                            clarity: best_result.clarity,
-                                            timestamp: best_result.timestamp,
-                                        };
-                                        setter.set(Some(pitch_data));
-                                        dev_log!("✓ Pitch data sent to UI: {:.1}Hz {}", best_result.frequency, note);
-                                    } else {
-                                        // No pitch detected, clear the data
-                                        setter.set(None);
-                                    }
-                                }
-                                
-                                // Update volume confidence weighting if available
-                                if let Some(volume_analysis) = shared_data.borrow().last_volume_analysis.as_ref() {
-                                    analyzer_mut.update_volume_analysis(volume_analysis.clone());
-                                }
-                            }
-                            Err(e) => {
-                                // Log errors occasionally to avoid spam
-                                let current_chunks_processed = shared_data.borrow().chunks_processed;
-                                if current_chunks_processed <= 24 {
-                                    dev_log!("Pitch detection error #{}: {}", current_chunks_processed, e);
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // Log warning occasionally if pitch analyzer is not available
-                    let current_chunks_processed = shared_data.borrow().chunks_processed;
-                    if current_chunks_processed % 256 == 0 {
-                        dev_log!("Warning: No pitch analyzer available for batched processing");
-                    }
-                }
-                
-                // Removed noisy batch processing debug logging
-                // Keep only essential debug logging for pitch detection
-                let final_chunks_processed = shared_data.borrow().chunks_processed;
-                if final_chunks_processed <= 40 {  // Increased limit since chunks_processed is higher now
-                    dev_log!("DEBUG: Audio batch #{}: {} samples", final_chunks_processed, samples.len());
-                }
-            } else {
-                if chunks_processed <= 5 {
-                    dev_log!("DEBUG: ArrayBuffer cast failed for chunk #{}", chunks_processed);
-                }
-            }
-        } else {
-            if chunks_processed <= 5 {
-                dev_log!("DEBUG: Buffer field extraction failed for chunk #{}", chunks_processed);
-            }
-        }
-    }
-    
     /// Publish AudioWorklet status update to Live Data Panel
     fn publish_status_update(
         _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
@@ -889,21 +586,6 @@ impl AudioWorkletManager {
         // AudioWorklet status updates are handled elsewhere via setters
     }
     
-    /// Send control message to AudioWorklet processor
-    pub fn send_control_message(&self, message_type: &str) -> Result<(), AudioError> {
-        // Map string message type to typed message
-        let typed_message = match message_type {
-            "startProcessing" => ToWorkletMessage::StartProcessing,
-            "stopProcessing" => ToWorkletMessage::StopProcessing,
-            _ => {
-                return Err(AudioError::Generic(
-                    format!("Unknown control message type: {}", message_type)
-                ));
-            }
-        };
-        
-        self.send_typed_control_message(typed_message)
-    }
     
     /// Send typed control message to AudioWorklet processor
     pub fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
@@ -1059,7 +741,7 @@ impl AudioWorkletManager {
         }
         
         // Send start message to AudioWorklet processor
-        self.send_control_message("startProcessing")?;
+        self.send_typed_control_message(ToWorkletMessage::StartProcessing)?;
         
         self.state = AudioWorkletState::Processing;
         self.publish_audioworklet_status();
@@ -1076,7 +758,7 @@ impl AudioWorkletManager {
         }
         
         // Send stop message to AudioWorklet processor
-        self.send_control_message("stopProcessing")?;
+        self.send_typed_control_message(ToWorkletMessage::StopProcessing)?;
         
         self.state = AudioWorkletState::Stopped;
         self.publish_audioworklet_status();
