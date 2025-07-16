@@ -708,6 +708,10 @@ impl AudioWorkletManager {
                     self.message_factory.update_background_noise_config(config)
                         .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
                 }
+                ToWorkletMessage::ReturnBuffer { buffer_id } => {
+                    self.message_factory.return_buffer(buffer_id)
+                        .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
+                }
             };
             
             let serializer = MessageSerializer::new();

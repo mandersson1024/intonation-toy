@@ -28,6 +28,11 @@ pub enum ToWorkletMessage {
     UpdateBackgroundNoiseConfig {
         config: BackgroundNoiseConfig,
     },
+    
+    /// Return buffer to worklet for recycling
+    ReturnBuffer {
+        buffer_id: u32,
+    },
 }
 
 /// Message types sent from AudioWorklet to main thread
@@ -746,6 +751,12 @@ impl ToJsMessage for ToWorkletMessage {
                 Reflect::set(&obj, &"config".into(), &config_obj.into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
             }
+            ToWorkletMessage::ReturnBuffer { buffer_id } => {
+                Reflect::set(&obj, &"type".into(), &"returnBuffer".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                Reflect::set(&obj, &"bufferId".into(), &(*buffer_id).into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
+            }
         }
         
         Ok(obj)
@@ -786,6 +797,13 @@ impl FromJsMessage for ToWorkletMessage {
                 let config = BackgroundNoiseConfig::from_js_object(&config_obj)?;
                 Ok(ToWorkletMessage::UpdateBackgroundNoiseConfig { config })
             }
+            "returnBuffer" => {
+                let buffer_id = Reflect::get(obj, &"bufferId".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferId: {:?}", e)))?
+                    .as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?;
+                Ok(ToWorkletMessage::ReturnBuffer { buffer_id: buffer_id as u32 })
+            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -798,6 +816,7 @@ impl MessageValidator for ToWorkletMessage {
             ToWorkletMessage::UpdateTestSignalConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBatchConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => config.validate(),
+            ToWorkletMessage::ReturnBuffer { buffer_id: _ } => Ok(()),
         }
     }
 }
@@ -2196,6 +2215,11 @@ impl ToWorkletMessage {
         config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(Self::UpdateBackgroundNoiseConfig { config })
     }
+    
+    /// Create a return buffer message
+    pub fn return_buffer(buffer_id: u32) -> Self {
+        Self::ReturnBuffer { buffer_id }
+    }
 }
 
 impl FromWorkletMessage {
@@ -2674,6 +2698,16 @@ impl AudioWorkletMessageFactory {
     /// Create an update background noise config message envelope
     pub fn update_background_noise_config(&self, config: BackgroundNoiseConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
         let message = ToWorkletMessage::update_background_noise_config(config)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a return buffer message envelope
+    pub fn return_buffer(&self, buffer_id: u32) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::return_buffer(buffer_id);
         Ok(MessageEnvelope {
             message_id: self.generate_id(),
             timestamp: get_high_resolution_timestamp(),

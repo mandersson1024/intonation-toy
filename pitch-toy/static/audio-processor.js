@@ -37,7 +37,8 @@ const ToWorkletMessageType = {
     UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
     UPDATE_BATCH_CONFIG: 'updateBatchConfig',
     UPDATE_BACKGROUND_NOISE_CONFIG: 'updateBackgroundNoiseConfig',
-    GET_STATUS: 'getStatus'
+    GET_STATUS: 'getStatus',
+    RETURN_BUFFER: 'returnBuffer'
 };
 
 const FromWorkletMessageType = {
@@ -582,6 +583,19 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                             bufferTimeout: this.bufferTimeout
                         });
                         this.port.postMessage(batchConfigUpdatedMessage);
+                    }
+                    break;
+                
+                case ToWorkletMessageType.RETURN_BUFFER:
+                    if (actualMessage.bufferId !== undefined) {
+                        // TODO: Implement buffer pool integration
+                        // For now, just log the returned buffer ID
+                        console.log('PitchDetectionProcessor: Buffer returned for recycling:', actualMessage.bufferId);
+                        
+                        // This is a placeholder - the actual implementation will:
+                        // 1. Validate the buffer ID
+                        // 2. Return the buffer to the pool for reuse
+                        // 3. Update pool statistics
                     }
                     break;
                 

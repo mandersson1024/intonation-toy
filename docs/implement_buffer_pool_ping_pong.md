@@ -27,21 +27,21 @@ This document provides a detailed implementation plan for adding a ping-pong buf
 
 ## Implementation Tasks
 
-### Task 1: Extend Message Protocol
+### Task 1: Extend Message Protocol ✅
 Add support for returning buffers from main thread to AudioWorklet.
 
-- [ ] 1a. Add `ReturnBuffer` variant to `ToWorkletMessage` enum in `message_protocol.rs`
+- [x] 1a. Add `ReturnBuffer` variant to `ToWorkletMessage` enum in `message_protocol.rs`
   ```rust
   ReturnBuffer {
       buffer_id: u32,  // Optional: for tracking specific buffers
   }
   ```
 
-- [ ] 1b. Update JavaScript message handling in `audio-processor.js` to recognize `ReturnBuffer` messages
+- [x] 1b. Update JavaScript message handling in `audio-processor.js` to recognize `ReturnBuffer` messages
 
-- [ ] 1c. Add corresponding TypeScript definitions if applicable
+- [x] 1c. Add corresponding TypeScript definitions if applicable
 
-- [ ] 1d. Update message validation to handle the new message type
+- [x] 1d. Update message validation to handle the new message type
 
 **Testing Considerations:**
 - Unit test for message serialization/deserialization
