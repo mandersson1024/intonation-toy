@@ -63,7 +63,7 @@ pub struct ConsoleAudioServiceImpl {
     /// Setter for audio devices data (optional)
     audio_devices_setter: Option<Rc<dyn observable_data::DataSetter<AudioDevices>>>,
     /// Setter for audio worklet status data (optional)
-    audio_worklet_status_setter: Option<Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
+    audio_worklet_status_setter: Option<Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>,
 }
 
 impl ConsoleAudioServiceImpl {
@@ -100,7 +100,7 @@ impl ConsoleAudioServiceImpl {
     }
     
     /// Set the audio worklet status setter for direct data updates
-    pub fn set_audio_worklet_status_setter(&mut self, setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + 'static) {
+    pub fn set_audio_worklet_status_setter(&mut self, setter: impl observable_data::DataSetter<crate::audio::AudioWorkletStatus> + 'static) {
         let setter_rc = Rc::new(setter);
         self.audio_worklet_status_setter = Some(setter_rc.clone());
         

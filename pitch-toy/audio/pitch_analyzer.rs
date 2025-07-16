@@ -69,7 +69,7 @@ pub struct PitchAnalyzer {
     last_volume_analysis: Option<VolumeAnalysis>,
     volume_confidence_enabled: bool,
     // Pitch data setter for observable_data pattern
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
 }
 
 impl PitchAnalyzer {
@@ -100,7 +100,7 @@ impl PitchAnalyzer {
     }
 
     /// Set the pitch data setter for observable_data pattern
-    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>) {
+    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>) {
         self.pitch_data_setter = Some(setter);
     }
 
@@ -623,7 +623,7 @@ impl PitchAnalyzer {
 
         // Update pitch data using setter
         if let Some(ref setter) = self.pitch_data_setter {
-            let pitch_data = crate::debug::egui::live_data_panel::PitchData {
+            let pitch_data = crate::audio::PitchData {
                 frequency: result.frequency,
                 confidence: weighted_confidence,
                 note: note.clone(),

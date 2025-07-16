@@ -16,6 +16,7 @@ pub mod pitch_analyzer;
 pub mod volume_detector;
 pub mod test_signal_generator;
 pub mod message_protocol;
+pub mod data_types;
 
 use crate::common::dev_log;
 
@@ -142,8 +143,8 @@ pub fn create_console_audio_service_with_setter(
 /// Returns a configured console audio service that directly updates data via setters
 pub fn create_console_audio_service_with_audioworklet_setter(
     audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static,
-    audioworklet_status_setter: impl observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus> + Clone + 'static,
-    volume_level_setter: impl observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>> + Clone + 'static
+    audioworklet_status_setter: impl observable_data::DataSetter<AudioWorkletStatus> + Clone + 'static,
+    volume_level_setter: impl observable_data::DataSetter<Option<VolumeLevelData>> + Clone + 'static
 ) -> console_service::ConsoleAudioServiceImpl {
     let mut service = console_service::ConsoleAudioServiceImpl::new();
     
@@ -204,7 +205,7 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 
 /// Set the AudioWorklet status setter on the global AudioWorkletManager
 pub fn set_audioworklet_status_setter(
-    setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>
+    setter: std::rc::Rc<dyn observable_data::DataSetter<AudioWorkletStatus>>
 ) {
     if let Some(manager_rc) = get_global_audioworklet_manager() {
         {
@@ -221,7 +222,7 @@ pub fn set_audioworklet_status_setter(
 
 /// Set the pitch data setter on the global PitchAnalyzer
 pub fn set_pitch_data_setter(
-    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>
+    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<PitchData>>>
 ) {
     if let Some(analyzer_rc) = commands::get_global_pitch_analyzer() {
         let mut analyzer = analyzer_rc.borrow_mut();
@@ -243,7 +244,7 @@ pub fn set_pitch_data_setter(
 
 /// Set the volume level setter on the global AudioWorkletManager
 pub fn set_volume_level_setter(
-    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>
+    setter: std::rc::Rc<dyn observable_data::DataSetter<Option<VolumeLevelData>>>
 ) {
     if let Some(manager_rc) = get_global_audioworklet_manager() {
         let mut manager = manager_rc.borrow_mut();
@@ -337,6 +338,7 @@ pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
 pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
+pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use message_protocol::{
     ToWorkletMessage, FromWorkletMessage, ToWorkletEnvelope, FromWorkletEnvelope,
     AudioDataBatch, ProcessorStatus, BatchConfig, WorkletError, WorkletErrorCode,

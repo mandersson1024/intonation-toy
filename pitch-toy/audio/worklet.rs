@@ -101,9 +101,9 @@ struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
 }
 
 impl AudioWorkletSharedData {
@@ -166,13 +166,13 @@ pub struct AudioWorkletManager {
     // Whether to output audio stream to speakers
     output_to_speakers: bool,
     // Setter for updating AudioWorklet status in live data
-    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>>,
+    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>,
     // Setter for updating volume level in live data
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>>,
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
     // Pitch analyzer for direct audio processing
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
     // Setter for updating pitch data in live data
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
     // Message factory for structured message creation
     message_factory: AudioWorkletMessageFactory,
 }
@@ -240,7 +240,7 @@ impl AudioWorkletManager {
             #[cfg(not(target_arch = "wasm32"))]
             let timestamp = 0.0;
             
-            let status = crate::debug::egui::live_data_panel::AudioWorkletStatus {
+            let status = crate::audio::AudioWorkletStatus {
                 state: self.state.clone(),
                 processor_loaded: self.worklet_node.is_some(),
                 chunk_size: self.config.chunk_size,
@@ -615,7 +615,7 @@ impl AudioWorkletManager {
             
             // Update volume level via setter if available
             if let Some(volume_setter) = &shared_data.borrow().volume_level_setter {
-                let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
+                let volume_data = crate::audio::VolumeLevelData {
                     rms_db: volume_analysis.rms_db,
                     peak_db: volume_analysis.peak_db,
                     peak_fast_db: volume_analysis.peak_fast_db,
@@ -644,7 +644,7 @@ impl AudioWorkletManager {
                             crate::audio::NoteName::A, 4, 0.0, pitch_result.frequency
                         );
                         
-                        let pitch_data = crate::debug::egui::live_data_panel::PitchData {
+                        let pitch_data = crate::audio::PitchData {
                             frequency: pitch_result.frequency,
                             confidence: pitch_result.confidence,
                             note: placeholder_note,
@@ -895,12 +895,12 @@ impl AudioWorkletManager {
     // Note: Buffer pool support removed - using direct processing with transferable buffers
 
     /// Set the AudioWorklet status setter for live data updates
-    pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::debug::egui::live_data_panel::AudioWorkletStatus>>) {
+    pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>) {
         self.audioworklet_status_setter = Some(setter);
     }
     
     /// Set the volume level setter for live data updates
-    pub fn set_volume_level_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::VolumeLevelData>>>) {
+    pub fn set_volume_level_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>) {
         self.volume_level_setter = Some(setter);
         dev_log!("Volume level setter updated on AudioWorkletManager");
         
@@ -918,7 +918,7 @@ impl AudioWorkletManager {
     }
     
     /// Set the pitch data setter for live data updates
-    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>) {
+    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>) {
         self.pitch_data_setter = Some(setter);
         dev_log!("Pitch data setter updated on AudioWorkletManager");
         
@@ -1164,7 +1164,7 @@ impl AudioWorkletManager {
                 
                 // Update volume level using setter
                 if let Some(ref setter) = self.volume_level_setter {
-                    let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
+                    let volume_data = crate::audio::VolumeLevelData {
                         rms_db: volume_analysis.rms_db,
                         peak_db: volume_analysis.peak_db,
                         peak_fast_db: volume_analysis.peak_fast_db,

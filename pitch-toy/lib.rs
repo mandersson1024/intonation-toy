@@ -55,7 +55,7 @@ pub async fn run_three_d(
     let audio_service = std::rc::Rc::new(audio::create_console_audio_service());
     
     // Set the pitch data setter on the global pitch analyzer (it should be initialized by now)
-    audio::set_pitch_data_setter(std::rc::Rc::new(pitch_data_setter.clone()));
+    audio::set_pitch_data_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(std::rc::Rc::new(pitch_data_setter))));
     
     // Create LiveDataPanel
     let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data);
@@ -203,7 +203,7 @@ async fn initialize_audio_systems(
     
     // Set the volume level setter if provided
     if let Some(setter) = volume_level_setter {
-        audio::set_volume_level_setter(setter);
+        audio::set_volume_level_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(setter)));
         dev_log!("✓ Volume level setter configured");
     }
     
@@ -214,13 +214,13 @@ async fn initialize_audio_systems(
     
     // Set the pitch data setter if provided
     if let Some(setter) = pitch_data_setter {
-        audio::set_pitch_data_setter(setter);
+        audio::set_pitch_data_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(setter)));
         dev_log!("✓ Pitch data setter configured");
     }
     
     // Set the AudioWorklet status setter if provided
     if let Some(setter) = audioworklet_status_setter {
-        audio::set_audioworklet_status_setter(setter);
+        audio::set_audioworklet_status_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(setter)));
         dev_log!("✓ AudioWorklet status setter configured");
     }
     
