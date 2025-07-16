@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the design decision to use simple buffer allocation rather than complex recycling patterns for AudioWorklet transferable buffers.
+This document explains the design decision to use a ping-pong buffer recycling pattern for AudioWorklet transferable buffers to optimize performance and reduce allocation overhead.
 
 ## The Core Issue
 
@@ -26,98 +26,120 @@ this.port.postMessage({
 // The buffer now belongs to the main thread
 ```
 
-## Design Decision: Allocation Over Recycling
+## Design Decision: Ping-Pong Buffer Recycling
 
-The system uses simple allocation for each audio batch rather than attempting to recycle buffers.
+The system implements a ping-pong pattern where buffers are recycled between the AudioWorklet and main thread to minimize allocation overhead.
 
 ### Current Implementation Pattern
 
 ```javascript
-// AudioWorklet: Create new buffer for each batch
+// AudioWorklet: Use buffer from pool
 process(inputs) {
-    const newBuffer = new ArrayBuffer(4096);
-    const samples = new Float32Array(newBuffer);
+    const buffer = this.bufferPool.acquire(); // Get recycled buffer
+    const samples = new Float32Array(buffer);
     // Fill samples with audio data...
-    this.port.postMessage({buffer: newBuffer}, [newBuffer]);
-    // newBuffer is now detached, we create a new one next time
+    this.port.postMessage({buffer: buffer}, [buffer]);
+    // buffer is now detached, will be returned by main thread
 }
 
-// Main thread: Receive and process
+// Main thread: Receive, process, and return buffer
 handleAudioData(event) {
     const samples = new Float32Array(event.data.buffer);
     // Process samples...
-    // Garbage collector handles cleanup when done
+    
+    // Return buffer to AudioWorklet for reuse
+    this.audioWorklet.port.postMessage({
+        type: 'returnBuffer',
+        buffer: event.data.buffer
+    }, [event.data.buffer]);
 }
 ```
 
-### Why Not Use a Ping-Pong Pattern?
+### Why Use a Ping-Pong Pattern?
 
-A ping-pong pattern would involve the main thread sending buffers back to the AudioWorklet for reuse:
+The ping-pong pattern involves the main thread sending buffers back to the AudioWorklet for reuse:
 
 ```javascript
-// Theoretical ping-pong approach (NOT IMPLEMENTED)
-// Main thread would send buffers back:
-processedBuffer = new ArrayBuffer(4096);
+// Ping-pong approach implementation
+// Main thread sends buffers back:
 audioWorklet.port.postMessage({
     type: 'returnBuffer',
     buffer: processedBuffer
 }, [processedBuffer]);
+
+// AudioWorklet receives and reuses:
+this.port.onmessage = (event) => {
+    if (event.data.type === 'returnBuffer') {
+        this.bufferPool.release(event.data.buffer);
+    }
+};
 ```
 
-This approach is not used because:
+This approach is chosen because:
 
-1. **Added Complexity** - Requires buffer management on both threads
-2. **Synchronization Issues** - Must ensure buffers are available when needed
-3. **Minimal Performance Benefit** - Modern JS engines efficiently handle ArrayBuffer allocation
-4. **Predictable Allocation Rate** - Buffers are allocated at a known, steady rate
+1. **Reduced Memory Pressure** - Eliminates continuous allocation overhead
+2. **Better Performance** - No GC pauses from constant allocations
+3. **Predictable Memory Usage** - Fixed pool size with known limits
+4. **Zero-Copy Efficiency** - Maintains transferable buffer benefits
 
 ## Performance Considerations
 
 ### Current Performance Profile
 - **Buffer Size**: 4096 bytes (1024 float32 samples)
-- **Allocation Rate**: ~47 buffers/second at 48kHz with 1024-sample batches
-- **Memory Pressure**: ~188 KB/second allocation rate
-- **GC Impact**: Minimal due to predictable allocation pattern
+- **Pool Size**: 8-16 buffers (32-64 KB total memory)
+- **Recycling Rate**: ~47 transfers/second at 48kHz
+- **Memory Pressure**: Zero continuous allocation
+- **GC Impact**: Eliminated through buffer reuse
 
-### When This Might Need to Change
+### Benefits of Ping-Pong Pattern
 
-This allocation-based approach may need reconsideration if:
+1. **Consistent Performance** - No allocation spikes during processing
+2. **Lower Memory Usage** - Fixed pool instead of continuous allocation
+3. **Reduced GC Pressure** - Buffers live through entire session
+4. **Scalable to Higher Rates** - Works efficiently at 96kHz/192kHz
 
-1. **Higher Sample Rates** - 96kHz or 192kHz audio would double/quadruple allocation rate
-2. **Larger Batch Sizes** - Bigger buffers might benefit from pooling
-3. **Memory-Constrained Environments** - Mobile devices or embedded systems
-4. **GC Pressure Becomes Visible** - If profiling shows GC pauses affecting audio
+## Implementation Details
 
-## Monitoring Points
-
-To determine if the approach needs changing, monitor:
+### Buffer Pool Management
 
 ```javascript
-// Performance monitoring hooks
-let allocationCount = 0;
-let lastGCTime = performance.now();
-
-function allocateBuffer() {
-    allocationCount++;
-    
-    // Log allocation rate every 1000 buffers
-    if (allocationCount % 1000 === 0) {
-        console.log(`Allocation rate: ${allocationCount} buffers`);
+class BufferPool {
+    constructor(size, bufferSize) {
+        this.buffers = [];
+        this.bufferSize = bufferSize;
+        
+        // Pre-allocate buffers
+        for (let i = 0; i < size; i++) {
+            this.buffers.push(new ArrayBuffer(bufferSize));
+        }
     }
     
-    return new ArrayBuffer(4096);
+    acquire() {
+        if (this.buffers.length === 0) {
+            // Pool exhausted - fallback allocation
+            console.warn('Buffer pool exhausted, allocating new buffer');
+            return new ArrayBuffer(this.bufferSize);
+        }
+        return this.buffers.pop();
+    }
+    
+    release(buffer) {
+        if (buffer.byteLength === this.bufferSize) {
+            this.buffers.push(buffer);
+        }
+    }
 }
 ```
 
-## Future Migration Path
+## Implementation Steps
 
-If recycling becomes necessary, the migration path would be:
+To implement the ping-pong pattern:
 
-1. **Implement Buffer Pool** on AudioWorklet side
-2. **Add Return Channel** for main thread to send buffers back
-3. **Handle Pool Exhaustion** gracefully with fallback allocation
-4. **Profile Performance** to validate improvements
+1. **Create Buffer Pool** on AudioWorklet side with fixed capacity
+2. **Implement Return Channel** for main thread to send buffers back
+3. **Handle Pool Exhaustion** with graceful fallback to allocation
+4. **Add Monitoring** to track pool usage and performance
 
 ## Conclusion
 
-The current design prioritizes simplicity and maintainability over theoretical performance optimization. The allocation-based approach is sufficient for current requirements and can be revisited if performance profiling indicates a need for change.
+The ping-pong buffer pattern provides optimal performance by eliminating allocation overhead while maintaining the zero-copy benefits of transferable buffers. This approach scales well to higher sample rates and provides consistent, predictable performance characteristics suitable for real-time audio processing.

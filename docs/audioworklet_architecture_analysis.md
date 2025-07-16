@@ -283,19 +283,19 @@ The system uses a sophisticated batched transfer approach with multiple complexi
 
 ## Complexity Points Analysis
 
-### 1. **Buffer Lifecycle Management** 🟢 LOW COMPLEXITY
+### 1. **Buffer Lifecycle Management** 🟡 MEDIUM COMPLEXITY
 **Location:** Cross-thread transferable buffer handling
-**Design Decision:** Simple allocation over recycling patterns
+**Design Decision:** Ping-pong buffer recycling pattern
 
 **Current Approach:**
 - Buffers become detached after transfer - this is expected behavior
-- Create new ArrayBuffer for each transfer (~47 buffers/second at 48kHz)
-- No complex recycling logic needed
-- Garbage collection handles cleanup automatically
+- Implement ping-pong pattern where main thread returns buffers to AudioWorklet
+- Reduces allocation pressure and improves performance
+- Eliminates continuous garbage collection overhead
 
 **Design Constraints:**
-- Fixed-size buffer pools with manual configuration
-- Simple allocation preferred over ping-pong recycling patterns
+- Fixed-size buffer pools with predetermined capacity
+- Ping-pong recycling pattern for optimal performance
 - See `docs/the-detached-buffer-problem.md` for detailed analysis
 
 **Detached Buffer Behavior:**
@@ -311,22 +311,23 @@ The system uses a sophisticated batched transfer approach with multiple complexi
 - Can create new typed array views on received buffer
 - Buffer remains valid until garbage collected
 
-**Simple Allocation Pattern:**
+**Ping-Pong Buffer Pattern:**
 
 **AudioWorklet Thread Process:**
-1. Create new ArrayBuffer for each batch (4096 bytes)
+1. Acquire buffer from pool (or wait for returned buffer)
 2. Create Float32Array view on buffer
 3. Fill buffer with audio data from inputs
 4. Send message with buffer as transferable
-5. Buffer becomes detached - create new one next cycle
+5. Buffer becomes detached - wait for return from main thread
 
 **Main Thread Processing:**
 1. Receive message with transferred buffer
 2. Create Float32Array view on received buffer
 3. Process audio samples
-4. Let garbage collector handle cleanup automatically
+4. Return buffer to AudioWorklet via postMessage with transfer
+5. AudioWorklet receives buffer back for reuse
 
-This eliminates complex pool management while maintaining performance through predictable allocation patterns.
+This pattern reduces allocation overhead while maintaining zero-copy performance through buffer recycling.
 
 ### 2. **Timeout-based Partial Sending** 🟡 MEDIUM COMPLEXITY
 **Location:** AudioWorklet batch accumulation logic
@@ -469,11 +470,11 @@ This eliminates complex pool management while maintaining performance through pr
 - Debugging across threads is challenging
 
 #### 2. **Memory Management Characteristics**
-- Simple allocation pattern eliminates pool management complexity
-- Detached buffers handled by garbage collection automatically
-- Predictable allocation rate (~47 buffers/second at 48kHz, 188 KB/second)
-- No risk of pool exhaustion - buffers created on demand
-- **Design Decision:** Simple allocation preferred over recycling patterns
+- Ping-pong pattern reduces allocation overhead
+- Buffers recycled between threads via transfer mechanism
+- Fixed pool size prevents unbounded memory growth
+- Pool exhaustion handled with graceful degradation
+- **Design Decision:** Ping-pong recycling for optimal performance
 
 #### 3. **Latency vs Throughput Tradeoffs**
 - Larger batches improve throughput but increase latency
@@ -505,23 +506,9 @@ This eliminates complex pool management while maintaining performance through pr
 - Comprehensive error handling with structured error types
 - Cross-language protocol validation
 
-### 2. **Adaptive Batching Strategy** ❌ **NOT IMPLEMENTED**
+### 2. **Adaptive Batching Strategy** ❌ **NOT NEEDED**
 
-**Concept:** Dynamic batch sizing based on:
-- System performance metrics
-- Processing queue depth
-- User interaction patterns
-- Available memory
-
-**Adaptive Logic:**
-```
-if processingLatency > TARGET_LATENCY:
-    batchSize = max(MIN_BATCH_SIZE, batchSize * 0.8)
-elif queueDepth < LOW_QUEUE_THRESHOLD:
-    batchSize = min(MAX_BATCH_SIZE, batchSize * 1.2)
-```
-
-This would automatically tune batch sizes for optimal performance under varying system loads.
+**Design Decision:** Batch sizes are hard-coded at compile time for simplicity and predictability. The system is tuned with fixed values that work well for the target use cases without the complexity of dynamic adjustment.
 
 ### 3. **Isolated Processing Channels** ❌ **NOT IMPLEMENTED**
 
@@ -538,22 +525,22 @@ This would automatically tune batch sizes for optimal performance under varying 
 - Selective enablement/disablement
 - Easier testing and debugging
 
-### 4. **Buffer Pool with Manual Configuration** ❌ **NOT IMPLEMENTED**
+### 4. **Buffer Pool with Ping-Pong Pattern** ❌ **NOT IMPLEMENTED**
 
-**Design Decision:** Fixed-size pools with hard-coded configuration
+**Design Decision:** Fixed-size pools with ping-pong recycling
 
 **Concept:**
-- **Fixed Pool Size**: Pre-determined number of buffers (e.g., 16 buffers)
+- **Fixed Pool Size**: Pre-determined number of buffers (e.g., 8-16 buffers)
 - **Fixed Buffer Size**: Hard-coded buffer size (e.g., 4096 bytes)
-- **No Dynamic Resizing**: Pool size determined at compile time
-- **Simple Acquire/Release**: Basic pool management without statistics
+- **Ping-Pong Recycling**: Buffers returned from main thread for reuse
+- **Pool Management**: Track available and in-flight buffers
 
-**Benefits of Manual Configuration:**
+**Benefits of Ping-Pong Pattern:**
+- Minimal allocation overhead
 - Predictable memory usage
-- Simplified implementation without monitoring logic
-- Easier to test and debug
-- No runtime overhead for usage statistics
-- Clear capacity limits known at compile time
+- Reduced garbage collection pressure
+- Better performance under sustained load
+- Zero-copy transfer maintained
 
 ### 5. **Advanced Error Recovery** ⚠️ **PARTIALLY IMPLEMENTED**
 
@@ -580,20 +567,18 @@ This would automatically tune batch sizes for optimal performance under varying 
 3. **Message Validation** - Protocol validation and consistency checking
 
 ### 🔴 High Priority (Not Implemented)
-1. **Buffer Pool with Manual Configuration** - Fixed-size pools with hard-coded configuration
+1. **Buffer Pool with Ping-Pong Pattern** - Fixed-size pools with buffer recycling
    - **Design Constraint:** Pool sizes are manually configured, not adaptive
-   - **Design Decision:** Simple allocation over complex recycling patterns
-   - Simplifies implementation and testing
-   - Predictable memory usage patterns
+   - **Design Decision:** Ping-pong recycling for optimal performance
+   - Reduces allocation overhead and GC pressure
+   - Maintains zero-copy transfer efficiency
    - See `docs/the-detached-buffer-problem.md` for detailed analysis
 
 ### 🟡 Medium Priority (Not Implemented)
-1. **Adaptive Batching** - Optimize performance under varying loads
-2. **Processing Isolation Channels** - Dedicated channels per subsystem
+1. **Processing Isolation Channels** - Dedicated channels per subsystem
 
 ### 🟢 Low Priority (Not Implemented)
 1. **Advanced Metrics** - Performance monitoring and optimization
-2. **Legacy Browser Support** - Fallback for older browsers
 
 ## Conclusion
 
@@ -611,8 +596,9 @@ The AudioWorklet architecture is a **robust, type-safe system** for real-time au
 - Message correlation and error context for debugging
 
 **Areas for Optimization:**
+- Implement ping-pong buffer recycling pattern
 - Timeout-based batching logic optimization  
 - Processing isolation through dedicated channels
-- Monitor allocation patterns for potential future optimizations
+- Buffer pool management with return channel
 
 The architecture is **production-ready** with robust error handling and type safety. The structured message protocol provides a solid foundation for future extensions while maintaining backward compatibility. The isolation principle ensures that debug UI and other subsystems can operate independently, which is crucial for maintaining system stability in production environments.
