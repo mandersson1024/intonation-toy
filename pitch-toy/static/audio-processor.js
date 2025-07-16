@@ -12,6 +12,7 @@
  * - Configurable batch size and timeout for low-latency scenarios
  * - Automatic buffer pool management to avoid allocations
  * - Error handling and processor lifecycle management
+ * - Type-safe message protocol for reliable communication
  * 
  * Communication:
  * - Receives: Configuration messages (startProcessing, stopProcessing, updateBatchConfig)
@@ -19,16 +20,21 @@
  * 
  * Usage:
  * ```js
- * // Configure batching
- * processor.port.postMessage({
- *     type: 'updateBatchConfig',
- *     config: {
- *         batchSize: 2048,      // samples per batch
- *         bufferTimeout: 30     // ms before sending partial buffer
- *     }
+ * // Configure batching using typed messages
+ * const message = protocol.createUpdateBatchConfigMessage({
+ *     batchSize: 2048,      // samples per batch
+ *     bufferTimeout: 30     // ms before sending partial buffer
  * });
+ * processor.port.postMessage(message);
  * ```
  */
+
+import { 
+    AudioWorkletMessageProtocol, 
+    ToWorkletMessageType, 
+    FromWorkletMessageType,
+    WorkletErrorCode 
+} from './audio-message-protocol.js';
 
 
 class PitchDetectionProcessor extends AudioWorkletProcessor {
@@ -38,6 +44,9 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Constructor logging kept for debugging
         console.log('PitchDetectionProcessor: Constructor called - processor instance created');
         
+        // Initialize message protocol
+        this.messageProtocol = new AudioWorkletMessageProtocol();
+        
         // Fixed chunk size as per Web Audio API specification
         this.chunkSize = 128;
         
@@ -45,11 +54,18 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.batchSize = 1024; // 8 chunks of 128 samples
         this.chunksPerBatch = this.batchSize / this.chunkSize;
         
-        // Direct buffer management (no pooling)
+        // Enhanced buffer management with lifecycle tracking
         this.bufferStats = {
             acquireCount: 0,
             transferCount: 0,
-            poolExhaustedCount: 0
+            poolExhaustedCount: 0,
+            totalBytesTransferred: 0,
+            averageBufferUtilization: 0.0,
+            bufferLifecycle: {
+                created: 0,
+                transferred: 0,
+                detached: 0
+            }
         };
         
         // Current batch buffer tracking
@@ -91,28 +107,31 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.handleMessage(event.data);
         };
         
-        // Initialize processor
-        this.port.postMessage({
-            type: 'processorReady',
+        // Initialize processor with typed message
+        const readyMessage = this.messageProtocol.createProcessorReadyMessage({
             chunkSize: this.chunkSize,
             batchSize: this.batchSize,
             bufferPoolSize: 4, // No longer using pool but keeping for compatibility
-            sampleRate: sampleRate,
-            timestamp: this.currentTime || 0
+            sampleRate: sampleRate
         });
+        this.port.postMessage(readyMessage);
         
         console.log('PitchDetectionProcessor: Constructor complete, ready for processing');
     }
     
     /**
-     * Acquire a new buffer for batching
+     * Acquire a new buffer for batching with lifecycle tracking
      */
     acquireNewBuffer() {
         this.bufferStats.acquireCount++;
+        this.bufferStats.bufferLifecycle.created++;
+        
         this.currentBuffer = new ArrayBuffer(this.batchSize * 4); // 4 bytes per float32
         this.currentBufferArray = new Float32Array(this.currentBuffer);
         this.writePosition = 0;
         this.lastBufferStartTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        
+        console.log('PitchDetectionProcessor: Buffer acquired - lifecycle:', this.bufferStats.bufferLifecycle);
     }
     
     /**
@@ -126,6 +145,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Check if buffer is already detached (safety check)
         if (this.currentBuffer.byteLength === 0) {
             console.error('PitchDetectionProcessor: Attempting to send already detached buffer');
+            this.bufferStats.bufferLifecycle.detached++;
             this.currentBuffer = null;
             this.currentBufferArray = null;
             this.writePosition = 0;
@@ -135,18 +155,41 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Only send if we have data in the buffer
         if (this.writePosition > 0) {
             try {
-                // Send buffer with transferable
-                this.port.postMessage({
-                    type: 'audioDataBatch',
-                    buffer: this.currentBuffer,
+                // Validate buffer metadata before sending
+                const metadata = {
                     sampleCount: this.writePosition,
                     batchSize: this.batchSize,
-                    timestamp: this.currentTime || 0,
                     chunkCounter: this.chunkCounter
-                }, [this.currentBuffer]);
+                };
                 
-                // Mark buffer as transferred
+                const validation = this.messageProtocol.validateBufferMetadata(this.currentBuffer, metadata);
+                if (!validation.valid) {
+                    console.error('PitchDetectionProcessor: Buffer validation failed:', validation.error);
+                    this.sendErrorMessage(`Buffer validation failed: ${validation.error}`, WorkletErrorCode.BUFFER_OVERFLOW);
+                    return;
+                }
+                
+                // Create typed message for audio data batch
+                const batchMessage = this.messageProtocol.createAudioDataBatchMessage(this.currentBuffer, metadata);
+                
+                // Send buffer with transferable
+                const transferables = this.messageProtocol.getTransferableObjects(batchMessage);
+                this.port.postMessage(batchMessage, transferables);
+                
+                // Track buffer transfer statistics
                 this.bufferStats.transferCount++;
+                this.bufferStats.bufferLifecycle.transferred++;
+                this.bufferStats.totalBytesTransferred += this.writePosition * 4; // 4 bytes per float32
+                
+                // Calculate buffer utilization
+                const utilization = this.writePosition / this.batchSize;
+                this.bufferStats.averageBufferUtilization = 
+                    (this.bufferStats.averageBufferUtilization * (this.bufferStats.transferCount - 1) + utilization) / 
+                    this.bufferStats.transferCount;
+                
+                console.log('PitchDetectionProcessor: Buffer transferred - utilization:', 
+                    (utilization * 100).toFixed(1) + '%, average:', 
+                    (this.bufferStats.averageBufferUtilization * 100).toFixed(1) + '%');
                 
                 // Clear references to transferred buffer immediately
                 this.currentBuffer = null;
@@ -164,120 +207,139 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     }
     
     /**
-     * Handle messages from main thread
+     * Handle messages from main thread using typed message protocol
      * @param {Object} message - Message from main thread
      */
     handleMessage(message) {
-        switch (message.type) {
-            case 'startProcessing':
-                this.isProcessing = true;
-                this.port.postMessage({
-                    type: 'processingStarted',
-                    timestamp: this.currentTime || 0
-                });
-                break;
+        // Validate incoming message
+        if (!this.messageProtocol.validateMessage(message)) {
+            console.error('PitchDetectionProcessor: Invalid message received:', message);
+            this.sendErrorMessage('Invalid message format', WorkletErrorCode.INVALID_CONFIGURATION);
+            return;
+        }
+
+        // Type-safe message handling
+        try {
+            switch (message.type) {
+                case ToWorkletMessageType.START_PROCESSING:
+                    this.isProcessing = true;
+                    const startedMessage = this.messageProtocol.createProcessingStartedMessage();
+                    this.port.postMessage(startedMessage);
+                    break;
                 
-            case 'stopProcessing':
-                this.isProcessing = false;
+                case ToWorkletMessageType.STOP_PROCESSING:
+                    this.isProcessing = false;
+                    
+                    // Send any remaining buffered data before stopping
+                    if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
+                        this.sendCurrentBuffer();
+                    }
+                    
+                    const stoppedMessage = this.messageProtocol.createProcessingStoppedMessage();
+                    this.port.postMessage(stoppedMessage);
+                    break;
                 
-                // Send any remaining buffered data before stopping
-                if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
-                    this.sendCurrentBuffer();
-                }
+                case ToWorkletMessageType.GET_STATUS:
+                    const statusData = {
+                        isProcessing: this.isProcessing,
+                        chunkCounter: this.chunkCounter,
+                        bufferPoolStats: {
+                            ...this.bufferStats,
+                            availableBuffers: this.currentBuffer ? 0 : 1,
+                            inUseBuffers: this.currentBuffer ? 1 : 0,
+                            totalBuffers: 1,
+                            // Enhanced buffer pool reporting
+                            bufferUtilizationPercent: (this.bufferStats.averageBufferUtilization * 100).toFixed(1),
+                            totalMegabytesTransferred: (this.bufferStats.totalBytesTransferred / 1024 / 1024).toFixed(2),
+                            bufferLifecycle: this.bufferStats.bufferLifecycle
+                        }
+                    };
+                    const statusMessage = this.messageProtocol.createStatusUpdateMessage(statusData);
+                    this.port.postMessage(statusMessage);
+                    break;
                 
-                this.port.postMessage({
-                    type: 'processingStopped',
-                    timestamp: this.currentTime || 0
-                });
-                break;
+                case ToWorkletMessageType.UPDATE_TEST_SIGNAL_CONFIG:
+                    if (message.config) {
+                        this.testSignalConfig = { ...this.testSignalConfig, ...message.config };
+                        // Reset phase when configuration changes
+                        this.testSignalPhase = 0.0;
+                        console.log('PitchDetectionProcessor: Test signal config updated:', this.testSignalConfig);
+                        const configUpdatedMessage = this.messageProtocol.createTestSignalConfigUpdatedMessage(this.testSignalConfig);
+                        this.port.postMessage(configUpdatedMessage);
+                    }
+                    break;
                 
-            case 'getStatus':
-                this.port.postMessage({
-                    type: 'status',
-                    isProcessing: this.isProcessing,
-                    chunkCounter: this.chunkCounter,
-                    bufferPoolStats: {
-                        ...this.bufferStats,
-                        availableBuffers: this.currentBuffer ? 0 : 1,
-                        inUseBuffers: this.currentBuffer ? 1 : 0,
-                        totalBuffers: 1
-                    },
-                    timestamp: this.currentTime || 0
-                });
-                break;
+                case ToWorkletMessageType.UPDATE_BACKGROUND_NOISE_CONFIG:
+                    if (message.config) {
+                        this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...message.config };
+                        console.log('PitchDetectionProcessor: Background noise config updated:', this.backgroundNoiseConfig);
+                        const noiseConfigUpdatedMessage = this.messageProtocol.createBackgroundNoiseConfigUpdatedMessage(this.backgroundNoiseConfig);
+                        this.port.postMessage(noiseConfigUpdatedMessage);
+                    }
+                    break;
                 
-            case 'updateTestSignalConfig':
-                if (message.config) {
-                    this.testSignalConfig = { ...this.testSignalConfig, ...message.config };
-                    // Reset phase when configuration changes
-                    this.testSignalPhase = 0.0;
-                    console.log('PitchDetectionProcessor: Test signal config updated:', this.testSignalConfig);
-                    this.port.postMessage({
-                        type: 'testSignalConfigUpdated',
-                        config: this.testSignalConfig,
-                        timestamp: this.currentTime || 0
-                    });
-                }
-                break;
-                
-            case 'updateBackgroundNoiseConfig':
-                if (message.config) {
-                    this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...message.config };
-                    console.log('PitchDetectionProcessor: Background noise config updated:', this.backgroundNoiseConfig);
-                    this.port.postMessage({
-                        type: 'backgroundNoiseConfigUpdated',
-                        config: this.backgroundNoiseConfig,
-                        timestamp: this.currentTime || 0
-                    });
-                }
-                break;
-                
-            case 'updateBatchConfig':
-                if (message.config) {
-                    // Update batch size if provided
-                    if (message.config.batchSize && message.config.batchSize > 0) {
-                        // Ensure batch size is a multiple of chunk size
-                        const newBatchSize = Math.ceil(message.config.batchSize / this.chunkSize) * this.chunkSize;
-                        
-                        // Send any pending data before changing batch size
-                        if (this.currentBuffer && this.writePosition > 0) {
-                            this.sendCurrentBuffer();
+                case ToWorkletMessageType.UPDATE_BATCH_CONFIG:
+                    if (message.config) {
+                        // Update batch size if provided
+                        if (message.config.batchSize && message.config.batchSize > 0) {
+                            // Ensure batch size is a multiple of chunk size
+                            const newBatchSize = Math.ceil(message.config.batchSize / this.chunkSize) * this.chunkSize;
+                            
+                            // Send any pending data before changing batch size
+                            if (this.currentBuffer && this.writePosition > 0) {
+                                this.sendCurrentBuffer();
+                            }
+                            
+                            // Update configuration
+                            this.batchSize = newBatchSize;
+                            this.chunksPerBatch = this.batchSize / this.chunkSize;
+                            
+                            // Reset buffer state with new size
+                            this.currentBuffer = null;
+                            this.currentBufferArray = null;
+                            this.writePosition = 0;
                         }
                         
-                        // Update configuration
-                        this.batchSize = newBatchSize;
-                        this.chunksPerBatch = this.batchSize / this.chunkSize;
+                        // Update timeout if provided
+                        if (message.config.bufferTimeout !== undefined) {
+                            this.bufferTimeout = Math.max(0, message.config.bufferTimeout);
+                        }
                         
-                        // Reset buffer state with new size
-                        this.currentBuffer = null;
-                        this.currentBufferArray = null;
-                        this.writePosition = 0;
-                    }
-                    
-                    // Update timeout if provided
-                    if (message.config.bufferTimeout !== undefined) {
-                        this.bufferTimeout = Math.max(0, message.config.bufferTimeout);
-                    }
-                    
-                    console.log('PitchDetectionProcessor: Batch config updated:', {
-                        batchSize: this.batchSize,
-                        bufferTimeout: this.bufferTimeout
-                    });
-                    
-                    this.port.postMessage({
-                        type: 'batchConfigUpdated',
-                        config: {
+                        console.log('PitchDetectionProcessor: Batch config updated:', {
+                            batchSize: this.batchSize,
+                            bufferTimeout: this.bufferTimeout
+                        });
+                        
+                        const batchConfigUpdatedMessage = this.messageProtocol.createBatchConfigUpdatedMessage({
                             batchSize: this.batchSize,
                             chunksPerBatch: this.chunksPerBatch,
                             bufferTimeout: this.bufferTimeout
-                        },
-                        timestamp: this.currentTime || 0
-                    });
-                }
-                break;
+                        });
+                        this.port.postMessage(batchConfigUpdatedMessage);
+                    }
+                    break;
                 
-            default:
-                console.warn('PitchDetectionProcessor: Unknown message type:', message.type);
+                default:
+                    console.warn('PitchDetectionProcessor: Unknown message type:', message.type);
+                    this.sendErrorMessage(`Unknown message type: ${message.type}`, WorkletErrorCode.INVALID_CONFIGURATION);
+            }
+        } catch (error) {
+            console.error('PitchDetectionProcessor: Error handling message:', error);
+            this.sendErrorMessage(error.message, WorkletErrorCode.PROCESSING_FAILED);
+        }
+    }
+
+    /**
+     * Send an error message to the main thread
+     * @param {string} errorMessage - Error message
+     * @param {string} errorCode - Error code
+     */
+    sendErrorMessage(errorMessage, errorCode = WorkletErrorCode.GENERIC) {
+        try {
+            const errorMsg = this.messageProtocol.createProcessingErrorMessage(errorMessage, errorCode);
+            this.port.postMessage(errorMsg);
+        } catch (error) {
+            console.error('PitchDetectionProcessor: Failed to send error message:', error);
         }
     }
     
@@ -523,12 +585,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             } catch (error) {
                 console.error('PitchDetectionProcessor: Error accumulating audio data:', error);
                 
-                // Send error notification to main thread
-                this.port.postMessage({
-                    type: 'processingError',
-                    error: error.message,
-                    timestamp: this.currentTime || 0
-                });
+                // Send structured error notification to main thread
+                this.sendErrorMessage(`Error accumulating audio data: ${error.message}`, WorkletErrorCode.PROCESSING_FAILED);
             }
         } else {
             // Not processing, but still increment chunk counter
@@ -550,10 +608,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.sendCurrentBuffer();
         }
         
-        this.port.postMessage({
-            type: 'processorDestroyed',
-            timestamp: this.currentTime || 0
-        });
+        const destroyedMessage = this.messageProtocol.createProcessorDestroyedMessage();
+        this.port.postMessage(destroyedMessage);
     }
 }
 
