@@ -636,33 +636,8 @@ impl AudioWorkletManager {
                 if let Some(mut detector) = volume_detector {
                     let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
                     
-                    // Update volume level data
-                    let chunks_processed = shared_data.borrow().chunks_processed;
-                    
-                    // PERFORMANCE: We don't update the UI on every chunk because:
-                    // 1. UI updates are expensive (cross-thread communication, DOM updates)
-                    // 2. Audio chunks arrive at ~375Hz (48kHz / 128 samples), far faster than needed
-                    // 3. Human perception doesn't need volume updates faster than ~20-30Hz
-                    // 4. Excessive updates can cause UI jank and degrade audio processing performance
-                    // 5. Every 8 chunks = ~21Hz update rate (8 * 128 / 48000 = ~21ms), which is optimal
-                    //
-                    // FRAGILE: This modulo-based update mechanism is brittle and depends on:
-                    // 1. chunks_processed starting from a value that makes % 8 == 0 possible
-                    // 2. chunk counting never being reset or offset in unexpected ways
-                    // 3. No gaps or irregularities in the chunk sequence
-                    // 
-                    // DANGER: If chunks_processed starts from an odd offset or gets reset,
-                    // volume updates may stop working entirely (as happened with % 16).
-                    // 
-                    // TODO: Replace with time-based updates or explicit update triggers:
-                    // - Use timestamp-based intervals (e.g., update every 50ms)
-                    // - Implement a separate update counter that's guaranteed to start at 0
-                    // - Use a timer-based approach that's independent of chunk processing
-                    // - Consider making volume updates every N processed samples instead
-                    // - Buffer volume data inside the AudioWorklet (like we do for pitch analysis)
-                    //   and send batched updates at regular intervals, decoupling UI updates
-                    //   from chunk processing entirely
-                    if chunks_processed % 8 == 0 { // Update every 8 chunks
+                    // Update volume level data on every batch
+                    {
                         let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
                         if let Some(setter) = volume_level_setter {
                             let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
