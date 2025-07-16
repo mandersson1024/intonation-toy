@@ -253,91 +253,80 @@ AudioWorklet Thread                    Main Thread
 The system uses a sophisticated batched transfer approach with multiple complexity points:
 
 #### 1. **Accumulation Phase** (AudioWorklet Thread)
-```javascript
-// COMPLEXITY: Buffer management with timeout logic
-if (!this.currentBuffer || !this.currentBufferArray) {
-    this.acquireNewBuffer();  // ⚠️ Pool exhaustion handling
-}
 
-// COMPLEXITY: Partial chunk handling
-const remainingSpace = this.batchSize - this.writePosition;
-const samplesToWrite = Math.min(this.chunkSize, remainingSpace);
-
-// COMPLEXITY: Timeout-based sending logic
-const timeElapsed = currentTime - this.lastBufferStartTime;
-const shouldSendDueToTimeout = this.writePosition > 0 && timeElapsed >= this.bufferTimeout;
-```
+**Buffer Management Process:**
+- Check if current buffer exists and has space
+- Acquire new buffer if needed (simple allocation)
+- Calculate remaining space in current buffer
+- Determine how many samples to write from current chunk
+- Check if timeout threshold has been reached
+- Send buffer if full or timeout reached
 
 #### 2. **Transfer Phase** (Cross-thread Communication)
-```javascript
-// COMPLEXITY: Transferable buffer protocol
-this.port.postMessage({
-    type: 'audioDataBatch',
-    buffer: this.currentBuffer,        // ⚠️ Buffer becomes detached
-    sampleCount: this.writePosition,   // ⚠️ Variable size handling
-    timestamp: this.currentTime
-}, [this.currentBuffer]);              // ⚠️ Transferable array
-```
+
+**Transferable Buffer Protocol:**
+- Create message with audio data metadata
+- Include buffer in transferable array for zero-copy transfer
+- Buffer becomes detached after postMessage call
+- Receiver gets ownership of buffer on main thread
+- Variable sample counts require metadata for proper handling
 
 #### 3. **Processing Phase** (Main Thread)
-```rust
-// COMPLEXITY: Multi-analyzer coordination
-fn handle_audio_data_batch(obj: &js_sys::Object, shared_data: &Rc<RefCell<AudioWorkletSharedData>>) {
-    // ⚠️ Buffer lifecycle management
-    let array_buffer = buffer_val.dyn_into::<js_sys::ArrayBuffer>()?;
-    let samples_array = js_sys::Float32Array::new(&array_buffer);
-    
-    // ⚠️ Concurrent processing coordination
-    let volume_detector = shared_data.borrow().volume_detector.clone();
-    let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
-    
-    // ⚠️ State synchronization across analyzers
-    volume_detector.process_buffer(&samples);
-    pitch_analyzer.analyze_batch_direct(&samples);
-}
-```
+
+**Multi-analyzer Coordination:**
+- Create typed array view on received buffer
+- Coordinate access to shared analyzer state
+- Process samples through volume detector
+- Process samples through pitch analyzer
+- Update shared application state consistently
+- Handle errors from individual analyzers
 
 ## Complexity Points Analysis
 
-### 1. **Buffer Lifecycle Management** 🟡 MEDIUM COMPLEXITY
+### 1. **Buffer Lifecycle Management** 🟢 LOW COMPLEXITY
 **Location:** Cross-thread transferable buffer handling
-**Issues:**
-- Buffers become detached after transfer, cannot be reused
-- Must create new ArrayBuffer for each transfer
-- Fixed pool size simplifies allocation but requires careful recycling
-- Pool exhaustion possible under high load
+**Design Decision:** Simple allocation over recycling patterns
 
-**Design Constraint:** Fixed-size buffer pools with manual configuration
+**Current Approach:**
+- Buffers become detached after transfer - this is expected behavior
+- Create new ArrayBuffer for each transfer (~47 buffers/second at 48kHz)
+- No complex recycling logic needed
+- Garbage collection handles cleanup automatically
 
-**Code Example:**
-```javascript
-// AudioWorklet Thread - Buffer becomes unusable after transfer
-this.port.postMessage({...}, [this.currentBuffer]);
-// ⚠️ this.currentBuffer is now detached (byteLength === 0)
-this.currentBuffer = null;  // Must null reference
+**Design Constraints:**
+- Fixed-size buffer pools with manual configuration
+- Simple allocation preferred over ping-pong recycling patterns
+- See `docs/the-detached-buffer-problem.md` for detailed analysis
 
-// Main Thread - Must create new view
-const samples = new Float32Array(event.data.buffer);
-// ⚠️ Original buffer is now owned by main thread
-```
+**Detached Buffer Behavior:**
 
-**Pool Exhaustion Handling (with fixed-size pools):**
-```javascript
-acquireNewBuffer() {
-    const buffer = this.bufferPool.acquire();
-    if (!buffer) {
-        // Fixed pool exhausted - must handle gracefully
-        this.port.postMessage({
-            type: 'processingError',
-            code: 'BUFFER_EXHAUSTION',
-            message: 'Fixed buffer pool exhausted'
-        });
-        return false;
-    }
-    this.currentBuffer = buffer;
-    return true;
-}
-```
+**AudioWorklet Thread:**
+- Buffer becomes detached after transferable postMessage
+- Original buffer reference becomes unusable (byteLength === 0)
+- Must null reference to avoid accessing detached buffer
+- Create new buffer for next transfer cycle
+
+**Main Thread:**
+- Receives ownership of transferred buffer
+- Can create new typed array views on received buffer
+- Buffer remains valid until garbage collected
+
+**Simple Allocation Pattern:**
+
+**AudioWorklet Thread Process:**
+1. Create new ArrayBuffer for each batch (4096 bytes)
+2. Create Float32Array view on buffer
+3. Fill buffer with audio data from inputs
+4. Send message with buffer as transferable
+5. Buffer becomes detached - create new one next cycle
+
+**Main Thread Processing:**
+1. Receive message with transferred buffer
+2. Create Float32Array view on received buffer
+3. Process audio samples
+4. Let garbage collector handle cleanup automatically
+
+This eliminates complex pool management while maintaining performance through predictable allocation patterns.
 
 ### 2. **Timeout-based Partial Sending** 🟡 MEDIUM COMPLEXITY
 **Location:** AudioWorklet batch accumulation logic
@@ -347,58 +336,46 @@ acquireNewBuffer() {
 - Timeout management across processing cycles
 - Balance between latency and throughput
 
-**Code Example:**
-```javascript
-// Complex timeout logic
-const timeElapsed = currentTime - this.lastBufferStartTime;
-const shouldSendDueToTimeout = this.writePosition > 0 && timeElapsed >= this.bufferTimeout;
+**Timeout Logic Pattern:**
 
-if (this.writePosition >= this.batchSize || shouldSendDueToTimeout) {
-    this.sendCurrentBuffer();  // ⚠️ May send partial buffer
-    // ⚠️ Handle remaining samples from current chunk
-    if (samplesToWrite < this.chunkSize) {
-        this.acquireNewBuffer();
-        // Copy remaining samples...
-    }
-}
-```
+**Batch Accumulation Process:**
+1. Calculate time elapsed since buffer started
+2. Check if buffer is full OR timeout threshold reached
+3. If either condition true: send current buffer (may be partial)
+4. Handle remaining samples from current audio chunk
+5. Acquire new buffer and continue accumulation
+
+**Complexity Sources:**
+- Variable batch sizes complicate downstream processing
+- Timeout management across multiple processing cycles
+- Chunk splitting when timeout occurs mid-chunk
+- Balance between latency (smaller timeouts) and efficiency (larger batches)
 
 ### 3. **Cross-thread Error Propagation** 🟡 MEDIUM COMPLEXITY
 **Location:** Error handling between AudioWorklet and main thread
 **Current Implementation:** Structured error handling with comprehensive context
 
-**Code Example:**
-```rust
-// Rust - Structured error types
-pub struct WorkletError {
-    pub code: WorkletErrorCode,
-    pub message: String,
-    pub context: Option<ErrorContext>,
-    pub timestamp: f64,
-}
+**Error Structure:**
+- **Error Codes**: Categorized error types (InitializationFailed, ProcessingFailed, etc.)
+- **Error Context**: Additional information about error conditions
+- **Timestamps**: When errors occurred for debugging
+- **Recovery Hints**: Suggested actions for error handling
 
-pub enum WorkletErrorCode {
-    InitializationFailed,
-    ProcessingFailed,
-    BufferOverflow,
-    InvalidConfiguration,
-    MemoryAllocationFailed,
-}
-```
+**Error Reporting Process:**
 
-```javascript
-// AudioWorklet Thread - Structured error reporting
-try {
-    this.processAudioChunk(samples);
-} catch (error) {
-    // ✅ Comprehensive error context preserved
-    const errorMessage = this.messageProtocol.createProcessingErrorMessage(
-        error, 
-        'PROCESSING_FAILED'
-    );
-    this.port.postMessage(errorMessage);
-}
-```
+**AudioWorklet Thread:**
+1. Wrap processing operations in error handling
+2. Catch errors and classify by type
+3. Create structured error message with context
+4. Send error message using message protocol
+5. Continue processing or halt based on error severity
+
+**Main Thread:**
+1. Receive structured error messages
+2. Parse error type and context information
+3. Take appropriate recovery action
+4. Update system state and user interface
+5. Log errors for debugging and monitoring
 
 **Current Capabilities:**
 - Structured error types with context preservation
@@ -414,30 +391,11 @@ try {
 - Processing order dependencies
 - Event coordination between subsystems
 
-**Code Example:**
-```rust
-// ⚠️ Complex borrowing patterns
-let volume_detector = shared_data.borrow().volume_detector.clone();
-if let Some(mut detector) = volume_detector {
-    let volume_analysis = detector.process_buffer(&samples);
-    
-    // ⚠️ Must release borrow before next operation
-    {
-        let mut data = shared_data.borrow_mut();
-        data.volume_detector = Some(detector);
-        data.last_volume_analysis = Some(volume_analysis);
-    }
-}
-
-// ⚠️ Separate borrow for pitch analyzer
-let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
-if let Some(analyzer) = pitch_analyzer {
-    if let Ok(mut analyzer_mut) = analyzer.try_borrow_mut() {
-        // ⚠️ May fail if already borrowed elsewhere
-        analyzer_mut.analyze_batch_direct(&samples);
-    }
-}
-```
+**Synchronization Challenges:**
+- **Shared State Access**: Multiple analyzers accessing shared data structures
+- **Borrowing Coordination**: Managing exclusive access to mutable state
+- **Processing Order**: Ensuring consistent processing sequence
+- **Error Coordination**: Handling failures across multiple subsystems
 
 ### 5. **Configuration Synchronization** 🟡 MEDIUM COMPLEXITY
 **Location:** Runtime configuration updates across threads
@@ -447,29 +405,26 @@ if let Some(analyzer) = pitch_analyzer {
 - Partial configuration application
 - Dynamic batch size changes
 
-**Code Example:**
-```javascript
-// AudioWorklet Thread - Config update during processing
-case 'updateBatchConfig':
-    // ⚠️ Must handle config change during active processing
-    if (this.currentBuffer && this.writePosition > 0) {
-        this.sendCurrentBuffer();  // Send partial buffer
-    }
-    
-    // ⚠️ Atomic update of multiple related fields
-    this.batchSize = newBatchSize;
-    this.chunksPerBatch = this.batchSize / this.chunkSize;
-    
-    // ⚠️ Reset buffer state consistently
-    this.currentBuffer = null;
-    this.writePosition = 0;
-```
+**Configuration Update Process:**
+
+**Handling Runtime Config Changes:**
+1. Check if processing is currently active
+2. If buffer is partially filled: send it before applying changes
+3. Update all related configuration fields atomically
+4. Reset buffer state to consistent initial state
+5. Resume processing with new configuration
+
+**Synchronization Challenges:**
+- Ensuring atomic updates of related configuration fields
+- Handling partial buffers when config changes
+- Maintaining consistent state across configuration transitions
+- Version synchronization between threads
 
 ## Impact Assessment
 
 | Complexity Point | Current Status | Priority |
 |------------------|----------------|----------|
-| Buffer Lifecycle | 🟡 Fixed-size pools, requires recycling logic | 🟡 Medium |
+| Buffer Lifecycle | 🟢 Simple allocation, no recycling needed | 🟢 Low |
 | Timeout Logic | 🟡 Complex timing logic for low latency | 🟡 Medium |
 | Error Propagation | ✅ Structured errors with context preservation | 🟢 Low |
 | State Sync | 🟡 Type-safe but requires careful borrowing | 🟡 Medium |
@@ -513,12 +468,12 @@ case 'updateBatchConfig':
 - Error propagation across thread boundaries
 - Debugging across threads is challenging
 
-#### 2. **Memory Management Overhead**
-- Fixed-size buffer pools simplify management but may waste memory
-- Detached buffer handling requires careful cleanup
-- Memory usage is predictable with hard-coded pool sizes
-- Risk of pool exhaustion under high load
-- **Design Decision:** Manual configuration preferred over adaptive sizing
+#### 2. **Memory Management Characteristics**
+- Simple allocation pattern eliminates pool management complexity
+- Detached buffers handled by garbage collection automatically
+- Predictable allocation rate (~47 buffers/second at 48kHz, 188 KB/second)
+- No risk of pool exhaustion - buffers created on demand
+- **Design Decision:** Simple allocation preferred over recycling patterns
 
 #### 3. **Latency vs Throughput Tradeoffs**
 - Larger batches improve throughput but increase latency
@@ -538,22 +493,10 @@ case 'updateBatchConfig':
 
 **Current Implementation:** Structured communication layer with:
 
-```rust
-// Implemented: Type-safe message protocol
-pub enum FromWorkletMessage {
-    ProcessorReady { batch_size: usize, sample_rate: f64 },
-    AudioDataBatch(AudioDataBatch),
-    ProcessingError(WorkletError),
-    StatusUpdate { state: String, details: Option<String> },
-}
-
-pub enum ToWorkletMessage {
-    StartProcessing,
-    StopProcessing, 
-    UpdateBatchConfig { new_batch_size: usize },
-    UpdateTestSignalConfig(TestSignalGeneratorConfig),
-}
-```
+- **Message Types**: Defined enums for both directions (ToWorkletMessage, FromWorkletMessage)
+- **Message Envelope**: Wrapper with message ID, timestamp, and payload
+- **Type Safety**: Rust traits for serialization/deserialization
+- **Validation**: Message structure validation on both sides
 
 **Features:**
 - Type-safe message handling via traits
@@ -570,40 +513,24 @@ pub enum ToWorkletMessage {
 - User interaction patterns
 - Available memory
 
-```javascript
-class AdaptiveBatchManager {
-    adjustBatchSize(metrics) {
-        if (metrics.processingLatency > TARGET_LATENCY) {
-            this.batchSize = Math.max(MIN_BATCH_SIZE, this.batchSize * 0.8);
-        } else if (metrics.queueDepth < LOW_QUEUE_THRESHOLD) {
-            this.batchSize = Math.min(MAX_BATCH_SIZE, this.batchSize * 1.2);
-        }
-    }
-}
+**Adaptive Logic:**
 ```
+if processingLatency > TARGET_LATENCY:
+    batchSize = max(MIN_BATCH_SIZE, batchSize * 0.8)
+elif queueDepth < LOW_QUEUE_THRESHOLD:
+    batchSize = min(MAX_BATCH_SIZE, batchSize * 1.2)
+```
+
+This would automatically tune batch sizes for optimal performance under varying system loads.
 
 ### 3. **Isolated Processing Channels** ❌ **NOT IMPLEMENTED**
 
 **Concept:** Dedicated processing channels for each subsystem:
 
-```rust
-struct AudioProcessingHub {
-    volume_channel: ProcessingChannel<VolumeAnalysis>,
-    pitch_channel: ProcessingChannel<PitchResult>,
-    debug_channel: ProcessingChannel<DebugData>,
-}
-
-impl AudioProcessingHub {
-    fn distribute_audio(&mut self, batch: &AudioBatch) {
-        // Each channel processes independently
-        self.volume_channel.process(batch);
-        self.pitch_channel.process(batch);
-        if self.debug_ui_enabled {
-            self.debug_channel.process(batch);
-        }
-    }
-}
-```
+- **AudioProcessingHub**: Central distribution point for audio data
+- **Independent Channels**: Separate processing pipelines for volume, pitch, debug
+- **Selective Processing**: Ability to enable/disable channels independently
+- **Rate Independence**: Each channel can process at its own optimal rate
 
 **Benefits:**
 - True isolation between subsystems
@@ -615,36 +542,11 @@ impl AudioProcessingHub {
 
 **Design Decision:** Fixed-size pools with hard-coded configuration
 
-```rust
-struct AudioBufferPool {
-    available: VecDeque<AudioBuffer>,
-    in_use: HashSet<BufferId>,
-    // Hard-coded configuration
-    const POOL_SIZE: usize = 16;  // Fixed number of buffers
-    const BUFFER_SIZE: usize = 4096; // Fixed buffer size in bytes
-}
-
-impl AudioBufferPool {
-    fn new() -> Self {
-        let mut pool = Self {
-            available: VecDeque::new(),
-            in_use: HashSet::new(),
-        };
-        
-        // Pre-allocate fixed number of buffers
-        for _ in 0..Self::POOL_SIZE {
-            pool.available.push_back(AudioBuffer::new(Self::BUFFER_SIZE));
-        }
-        
-        pool
-    }
-    
-    // No dynamic resizing - pool size is fixed at compile time
-    fn acquire(&mut self) -> Option<AudioBuffer> {
-        self.available.pop_front()
-    }
-}
-```
+**Concept:**
+- **Fixed Pool Size**: Pre-determined number of buffers (e.g., 16 buffers)
+- **Fixed Buffer Size**: Hard-coded buffer size (e.g., 4096 bytes)
+- **No Dynamic Resizing**: Pool size determined at compile time
+- **Simple Acquire/Release**: Basic pool management without statistics
 
 **Benefits of Manual Configuration:**
 - Predictable memory usage
@@ -656,33 +558,19 @@ impl AudioBufferPool {
 ### 5. **Advanced Error Recovery** ⚠️ **PARTIALLY IMPLEMENTED**
 
 **Current State:** Basic structured error handling exists
+
 **Potential Enhancement:** Automatic recovery system:
 
-```rust
-#[derive(Debug)]
-enum AudioWorkletError {
-    BufferExhaustion { available: usize, required: usize },
-    ProcessingTimeout { duration: Duration },
-    TransferFailure { reason: String },
-    ConfigurationError { parameter: String, value: String },
-}
+- **Error Classification**: Categorize errors by type and severity
+- **Recovery Actions**: Predefined responses to common error conditions
+- **Graceful Degradation**: Reduce functionality rather than fail completely
+- **Retry Logic**: Automatic retry with backoff for transient errors
 
-impl AudioWorkletManager {
-    fn handle_error(&mut self, error: AudioWorkletError) -> RecoveryAction {
-        match error {
-            AudioWorkletError::BufferExhaustion { .. } => {
-                self.expand_buffer_pool();
-                RecoveryAction::Retry
-            }
-            AudioWorkletError::ProcessingTimeout { .. } => {
-                self.reduce_batch_size();
-                RecoveryAction::Continue
-            }
-            _ => RecoveryAction::Escalate,
-        }
-    }
-}
-```
+**Recovery Strategies:**
+- Buffer exhaustion → Temporary allocation fallback
+- Processing timeout → Reduce batch size
+- Transfer failure → Retry with smaller buffers
+- Configuration errors → Revert to defaults
 
 ## Implementation Priority
 
@@ -694,9 +582,10 @@ impl AudioWorkletManager {
 ### 🔴 High Priority (Not Implemented)
 1. **Buffer Pool with Manual Configuration** - Fixed-size pools with hard-coded configuration
    - **Design Constraint:** Pool sizes are manually configured, not adaptive
+   - **Design Decision:** Simple allocation over complex recycling patterns
    - Simplifies implementation and testing
    - Predictable memory usage patterns
-2. **Buffer Lifecycle Management** - Proper cleanup and recycling of detached buffers
+   - See `docs/the-detached-buffer-problem.md` for detailed analysis
 
 ### 🟡 Medium Priority (Not Implemented)
 1. **Adaptive Batching** - Optimize performance under varying loads
@@ -722,8 +611,8 @@ The AudioWorklet architecture is a **robust, type-safe system** for real-time au
 - Message correlation and error context for debugging
 
 **Areas for Optimization:**
-- Buffer pool implementation with fixed-size configuration
 - Timeout-based batching logic optimization  
 - Processing isolation through dedicated channels
+- Monitor allocation patterns for potential future optimizations
 
 The architecture is **production-ready** with robust error handling and type safety. The structured message protocol provides a solid foundation for future extensions while maintaining backward compatibility. The isolation principle ensures that debug UI and other subsystems can operate independently, which is crucial for maintaining system stability in production environments.
