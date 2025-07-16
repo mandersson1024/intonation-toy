@@ -200,43 +200,16 @@ impl ConsoleCommand for BufferCommand {
         
         match subcommand {
             "status" => {
-                // Buffer status functionality
-                use crate::audio::get_global_buffer_pool;
-                let mut outputs = Vec::new();
-                if let Some(pool_rc) = get_global_buffer_pool() {
-                    let pool = pool_rc.borrow();
-                    outputs.push(ConsoleOutput::info(&format!("Total Buffers: {} (capacity: {} samples each)", pool.len(), pool.buffer_capacity())));
-                    outputs.push(ConsoleOutput::info(&format!("Memory Usage: {:.2} KB", pool.memory_usage_bytes() as f64 / 1024.0)));
-                    for idx in 0..pool.len() {
-                        if let Some(buf) = pool.get(idx) {
-                            outputs.push(ConsoleOutput::info(&format!("Buffer {} - len: {}/{} state: {} overflows: {}", idx, buf.len(), buf.capacity(), buf.state(), buf.overflow_count())));
-                        }
-                    }
-                    ConsoleCommandResult::MultipleOutputs(outputs)
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
-                }
+                // Buffer pool removed - using direct processing with transferable buffers
+                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
             },
             "metrics" => {
-                // Buffer metrics functionality
-                use crate::audio::get_global_buffer_pool;
-                if let Some(pool_rc) = get_global_buffer_pool() {
-                    let pool = pool_rc.borrow();
-                    let msg = format!("Buffers: {}  Overflows: {}  Memory: {:.2} KB", pool.len(), pool.total_overflows(), pool.memory_usage_bytes() as f64 / 1024.0);
-                    ConsoleCommandResult::Output(ConsoleOutput::info(msg))
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
-                }
+                // Buffer pool removed - using direct processing with transferable buffers
+                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
             },
             "reset" => {
-                // Buffer reset functionality
-                use crate::audio::get_global_buffer_pool;
-                if let Some(pool_rc) = get_global_buffer_pool() {
-                    pool_rc.borrow_mut().reset_all();
-                    ConsoleCommandResult::Output(ConsoleOutput::success("Buffer pool cleared"))
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::warning("No buffer pool initialized"))
-                }
+                // Buffer pool removed - using direct processing with transferable buffers
+                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
             },
             "debug" => {
                 // Buffer debug functionality
@@ -468,13 +441,8 @@ impl ConsoleCommand for PipelineDebugCommand {
             outputs.push(ConsoleOutput::error("AudioContext: Not initialized"));
         }
         
-        // Check Buffer Pool
-        if let Some(pool_rc) = super::get_global_buffer_pool() {
-            let pool = pool_rc.borrow();
-            outputs.push(ConsoleOutput::info(&format!("Buffer Pool: {} buffers initialized", pool.len())));
-        } else {
-            outputs.push(ConsoleOutput::error("Buffer Pool: Not initialized"));
-        }
+        // Buffer Pool removed - using direct processing with transferable buffers
+        outputs.push(ConsoleOutput::info("Buffer Pool: Removed - using direct processing with transferable buffers"));
         
         // Check AudioWorklet
         if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
@@ -494,10 +462,9 @@ impl ConsoleCommand for PipelineDebugCommand {
         
         // Check Event Dispatcher
         let event_dispatcher = crate::events::get_global_event_dispatcher();
-        let subscriber_count = event_dispatcher.borrow().subscriber_count("buffer_filled") + 
-                              event_dispatcher.borrow().subscriber_count("pitch_detected") + 
+        let subscriber_count = event_dispatcher.borrow().subscriber_count("pitch_detected") + 
                               event_dispatcher.borrow().subscriber_count("volume_detected");
-        outputs.push(ConsoleOutput::info(&format!("Event Subscriptions: {} total", subscriber_count)));
+        outputs.push(ConsoleOutput::info(&format!("Event Subscriptions: {} total (buffer_filled events removed)", subscriber_count)));
         
         outputs.push(ConsoleOutput::info("=== End Debug Status ==="));
         
@@ -537,17 +504,8 @@ impl ConsoleCommand for AudioWorkletDebugCommand {
                 outputs.push(ConsoleOutput::warning("Volume Analysis: No data"));
             }
             
-            // Check buffer pool connection
-            if let Some(pool_rc) = super::get_global_buffer_pool() {
-                let pool = pool_rc.borrow();
-                if pool.len() > 0 {
-                    if let Some(buffer) = pool.get(0) {
-                        outputs.push(ConsoleOutput::info(&format!("Buffer 0: {}/{} samples ({:.1}% full)", 
-                            buffer.len(), buffer.capacity(), 
-                            (buffer.len() as f32 / buffer.capacity() as f32) * 100.0)));
-                    }
-                }
-            }
+            // Buffer pool removed - using direct processing with transferable buffers
+            outputs.push(ConsoleOutput::info("Buffer Pool: Removed - using direct processing with transferable buffers"));
         } else {
             outputs.push(ConsoleOutput::error("AudioWorklet manager not initialized"));
         }

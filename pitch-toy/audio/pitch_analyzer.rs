@@ -872,7 +872,9 @@ mod tests {
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
 
-        // Test processing buffer filled event
+        // Test processing buffer filled event (legacy test for compatibility)
+        // Note: Buffer events are no longer used in the main audio pipeline
+        // This test verifies the old event processing method still works for compatibility
         let buffer_event = AudioEvent::BufferFilled {
             buffer_index: 0,
             length: 1024,
@@ -880,8 +882,6 @@ mod tests {
 
         let result = analyzer.process_buffer_event(&buffer_event);
         assert!(result.is_ok());
-
-
     }
 
     #[allow(dead_code)]

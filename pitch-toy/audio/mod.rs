@@ -27,10 +27,7 @@ thread_local! {
     static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
 }
 
-// Global buffer pool reference
-thread_local! {
-    static BUFFER_POOL_GLOBAL: RefCell<Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>>> = RefCell::new(None);
-}
+// Note: Buffer pool global state removed - using direct processing with transferable buffers
 
 // Global AudioWorklet manager reference
 thread_local! {
@@ -194,17 +191,7 @@ pub fn create_console_audio_service_with_audioworklet_setter(
     service
 }
 
-/// Set the global BufferPool instance (called after creation)
-pub fn set_global_buffer_pool(pool: Rc<RefCell<buffer_pool::BufferPool<f32>>>) {
-    BUFFER_POOL_GLOBAL.with(|bp| {
-        *bp.borrow_mut() = Some(pool);
-    });
-}
-
-/// Get the global BufferPool instance
-pub fn get_global_buffer_pool() -> Option<Rc<RefCell<buffer_pool::BufferPool<f32>>>> {
-    BUFFER_POOL_GLOBAL.with(|bp| bp.borrow().as_ref().cloned())
-}
+// Note: Buffer pool global functions removed - using direct processing with transferable buffers
 
 /// Set the global AudioWorklet manager instance (called after creation)
 pub fn set_global_audioworklet_manager(manager: Rc<RefCell<worklet::AudioWorkletManager>>) {
@@ -288,33 +275,7 @@ pub fn enable_test_signal_440hz() {
     }
 }
 
-/// Initialize buffer pool with appropriate size for development/production
-pub async fn initialize_buffer_pool() -> Result<(), String> {
-    dev_log!("Initializing buffer pool");
-    
-    // Configure pool size with sufficient capacity for pitch detection window (2048 samples)
-    let (pool_size, buffer_capacity) = (6, 4096); // Increased to accommodate pitch detection analysis
-    
-    // Create buffer pool
-    match buffer_pool::BufferPool::<f32>::new(pool_size, buffer_capacity) {
-        Ok(pool) => {
-            let pool_rc = Rc::new(RefCell::new(pool));
-            
-            // Calculate memory usage for logging
-            let memory_usage = pool_rc.borrow().memory_usage_bytes();
-            dev_log!("✓ Buffer pool created: {} buffers × {} samples ({:.2} KB)", 
-                pool_size, buffer_capacity, memory_usage as f64 / 1024.0);
-            
-            // Store globally for application use
-            set_global_buffer_pool(pool_rc);
-            
-            Ok(())
-        }
-        Err(e) => {
-            Err(format!("Failed to create buffer pool: {}", e))
-        }
-    }
-}
+// Note: initialize_buffer_pool removed - using direct processing with transferable buffers
 
 /// Initialize global pitch analyzer with default configuration
 pub async fn initialize_pitch_analyzer() -> Result<(), String> {
@@ -371,7 +332,7 @@ pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamCon
 pub use permission::PermissionManager;
 pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX, DEV_BUFFER_SIZE_DEFAULT, AUDIO_CHUNK_SIZE, get_buffer_size, validate_buffer_size, validate_buffer_size_for_creation};
 pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
-pub use buffer_pool::{BufferPool, MAX_GPU_MEMORY_BYTES};
+// Note: BufferPool re-export removed - using direct processing with transferable buffers
 pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
 pub use commands::{register_audio_commands, set_global_pitch_analyzer, get_global_pitch_analyzer};
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
