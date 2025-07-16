@@ -15,6 +15,7 @@ pub mod note_mapper;
 pub mod pitch_analyzer;
 pub mod volume_detector;
 pub mod test_signal_generator;
+pub mod message_protocol;
 
 use crate::common::dev_log;
 
@@ -336,6 +337,11 @@ pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
 pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
+pub use message_protocol::{
+    ToWorkletMessage, FromWorkletMessage, ToWorkletEnvelope, FromWorkletEnvelope,
+    AudioDataBatch, ProcessorStatus, BatchConfig, WorkletError, WorkletErrorCode,
+    ErrorContext, MemoryUsage, MessageEnvelope
+};
 
 #[cfg(test)]
 mod tests {

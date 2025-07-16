@@ -17,7 +17,7 @@ pub enum TestWaveform {
 }
 
 /// Configuration for test signal generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TestSignalGeneratorConfig {
     /// Whether test signal is enabled
     pub enabled: bool,
