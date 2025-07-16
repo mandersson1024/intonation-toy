@@ -340,7 +340,9 @@ pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, 
 pub use message_protocol::{
     ToWorkletMessage, FromWorkletMessage, ToWorkletEnvelope, FromWorkletEnvelope,
     AudioDataBatch, ProcessorStatus, BatchConfig, WorkletError, WorkletErrorCode,
-    ErrorContext, MemoryUsage, MessageEnvelope
+    ErrorContext, MemoryUsage, MessageEnvelope, 
+    SerializationResult, SerializationError, ToJsMessage, FromJsMessage, MessageValidator,
+    MessageSerializer, MessageDeserializer
 };
 
 #[cfg(test)]
