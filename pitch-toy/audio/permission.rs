@@ -216,21 +216,21 @@ impl PermissionManager {
 pub fn connect_microphone(setter: impl observable_data::DataSetter<AudioPermission> + 'static) {
     // Set state to requesting immediately (synchronously)
     setter.set(AudioPermission::Requesting);
-    crate::common::dev_log!("DEBUG: Starting microphone connection process");
+    crate::common::dev_log!("Starting microphone connection process");
     
     // Start the async permission request (this should maintain the user gesture context)
     wasm_bindgen_futures::spawn_local(async move {
-        crate::common::dev_log!("DEBUG: Calling connect_microphone_to_audioworklet");
+        crate::common::dev_log!("Calling connect_microphone_to_audioworklet");
         match crate::audio::connect_microphone_to_audioworklet().await {
             Ok(_) => {
                 web_sys::console::log_1(&"✓ Microphone connected successfully".into());
-                crate::common::dev_log!("DEBUG: Microphone connected successfully to AudioWorklet");
+                crate::common::dev_log!("Microphone connected successfully to AudioWorklet");
                 // Update permission state
                 setter.set(AudioPermission::Granted);
             }
             Err(e) => {
                 web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
-                crate::common::dev_log!("DEBUG: Microphone connection failed: {}", e);
+                crate::common::dev_log!("Microphone connection failed: {}", e);
                 
                 // Map error to permission state
                 let permission_state = if e.contains("denied") || e.contains("NotAllowedError") {

@@ -166,7 +166,7 @@ impl Drop for MicrophoneManager {
 pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     use crate::common::dev_log;
     
-    dev_log!("DEBUG: Starting connect_microphone_to_audioworklet");
+    dev_log!("Starting connect_microphone_to_audioworklet");
     dev_log!("Requesting microphone permission and connecting to AudioWorklet");
     
     // Request microphone permission and get stream
@@ -175,10 +175,10 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
             dev_log!("✓ Microphone permission granted, received MediaStream");
             // Check if stream has active tracks
             let tracks = stream.get_tracks();
-            dev_log!("DEBUG: MediaStream has {} tracks", tracks.length());
+            dev_log!("MediaStream has {} tracks", tracks.length());
             for i in 0..tracks.length() {
                 if let Some(track) = tracks.get(i).dyn_ref::<web_sys::MediaStreamTrack>() {
-                    dev_log!("DEBUG: Track {}: kind={}, enabled={}, ready_state={:?}", 
+                    dev_log!("Track {}: kind={}, enabled={}, ready_state={:?}", 
                         i, track.kind(), track.enabled(), track.ready_state());
                 }
             }
@@ -191,7 +191,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     };
     
     // Get audio context and AudioWorklet manager
-    dev_log!("DEBUG: Getting AudioContext manager");
+    dev_log!("Getting AudioContext manager");
     let audio_context_manager = super::get_audio_context_manager()
         .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
     
@@ -241,7 +241,7 @@ pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
             
             // Ensure processing is active after connection
             if !worklet_manager.is_processing() {
-                dev_log!("DEBUG: Starting AudioWorklet processing after microphone connection...");
+                dev_log!("Starting AudioWorklet processing after microphone connection...");
                 match worklet_manager.start_processing() {
                     Ok(_) => {
                         dev_log!("✓ AudioWorklet processing started - audio pipeline active");

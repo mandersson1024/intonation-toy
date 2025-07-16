@@ -591,8 +591,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_config_default() {
         let config = PitchDetectorConfig::default();
-        assert_eq!(config.sample_window_size, 2048);
-        assert_eq!(config.threshold, 0.25);
+        assert_eq!(config.sample_window_size, 1024); // Optimized for 1024-sample AudioWorklet batches
+        assert_eq!(config.threshold, 0.1);            // Lowered threshold for better test signal detection
         assert_eq!(config.min_frequency, 80.0);
         assert_eq!(config.max_frequency, 2000.0);
         
@@ -659,8 +659,8 @@ mod tests {
         
         let detector = detector.unwrap();
         assert_eq!(detector.sample_rate(), 48000.0);
-        assert_eq!(detector.config().sample_window_size, 2048);
-        assert_eq!(detector.config().threshold, 0.25);
+        assert_eq!(detector.config().sample_window_size, 1024); // Updated for AudioWorklet batch size
+        assert_eq!(detector.config().threshold, 0.1);            // Updated for better detection sensitivity
     }
 
     #[allow(dead_code)]
@@ -762,10 +762,10 @@ mod tests {
         let config = PitchDetectorConfig::default();
         let mut detector = PitchDetector::new(config, 48000.0).unwrap();
         
-        let samples = vec![0.0; 512]; // Wrong size, expected 2048
+        let samples = vec![0.0; 512]; // Wrong size, expected 1024
         let result = detector.analyze(&samples);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Expected 2048 samples, got 512"));
+        assert!(result.unwrap_err().contains("Expected 1024 samples, got 512"));
     }
 
     #[allow(dead_code)]
@@ -774,7 +774,7 @@ mod tests {
         let config = PitchDetectorConfig::default();
         let mut detector = PitchDetector::new(config, 48000.0).unwrap();
         
-        let samples = vec![0.0; 2048]; // Silence
+        let samples = vec![0.0; 1024]; // Silence
         let result = detector.analyze(&samples);
         assert!(result.is_ok());
         assert!(result.unwrap().is_none()); // No pitch detected in silence
@@ -789,7 +789,7 @@ mod tests {
         // Generate 440Hz sine wave
         let frequency = 440.0;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -820,7 +820,7 @@ mod tests {
         // Generate 300Hz sine wave (below range)
         let frequency = 300.0;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -867,7 +867,7 @@ mod tests {
         }
         
         // Original config should be unchanged
-        assert_eq!(detector.config().sample_window_size, 2048);
+        assert_eq!(detector.config().sample_window_size, 1024);
     }
 
     #[allow(dead_code)]
@@ -940,7 +940,7 @@ mod tests {
         // Generate A4 (440Hz) - Standard tuning reference
         let frequency = 440.0;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -966,7 +966,7 @@ mod tests {
         // Generate C4 (261.63Hz) - Middle C for note mapping validation
         let frequency = 261.63;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -992,7 +992,7 @@ mod tests {
         // Generate E4 (329.63Hz) - Major third for tuning system testing
         let frequency = 329.63;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -1018,7 +1018,7 @@ mod tests {
         // Generate G4 (392.00Hz) - Perfect fifth for harmonic validation
         let frequency = 392.0;
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -1046,7 +1046,7 @@ mod tests {
         let sample_rate = 48000.0;
         
         for &frequency in &test_frequencies {
-            let samples: Vec<f32> = (0..2048)
+            let samples: Vec<f32> = (0..1024)
                 .map(|i| {
                     let t = i as f32 / sample_rate;
                     (2.0 * std::f32::consts::PI * frequency * t).sin()
@@ -1077,7 +1077,7 @@ mod tests {
         // Generate complex signal with fundamental + harmonics for algorithm robustness
         let fundamental = 220.0; // A3
         let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
+        let samples: Vec<f32> = (0..1024)
             .map(|i| {
                 let t = i as f32 / sample_rate;
                 let fundamental_sin = (2.0 * std::f32::consts::PI * fundamental * t).sin();

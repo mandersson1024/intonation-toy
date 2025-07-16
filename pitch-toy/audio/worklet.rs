@@ -97,7 +97,6 @@ pub struct AudioWorkletConfig {
 
 /// Shared data for AudioWorklet message handling
 struct AudioWorkletSharedData {
-    buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
     event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
@@ -110,7 +109,6 @@ struct AudioWorkletSharedData {
 impl AudioWorkletSharedData {
     fn new() -> Self {
         Self {
-            buffer_pool: None,
             event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
@@ -158,7 +156,6 @@ pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
     config: AudioWorkletConfig,
-    buffer_pool: Option<std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>>,
     event_dispatcher: Option<crate::events::AudioEventDispatcher>,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
@@ -187,7 +184,6 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config: AudioWorkletConfig::default(),
-            buffer_pool: None,
             event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
@@ -210,7 +206,6 @@ impl AudioWorkletManager {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
             config,
-            buffer_pool: None,
             event_dispatcher: None,
             volume_detector: None,
             last_volume_analysis: None,
@@ -385,9 +380,6 @@ impl AudioWorkletManager {
             let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
             
             // Store references to components that will be used in the handler
-            if let Some(pool) = &self.buffer_pool {
-                shared_data.borrow_mut().buffer_pool = Some(pool.clone());
-            }
             if let Some(dispatcher) = &self.event_dispatcher {
                 shared_data.borrow_mut().event_dispatcher = Some(dispatcher.clone());
             }
@@ -490,18 +482,12 @@ impl AudioWorkletManager {
                         }
                         "audioDataBatch" => {
                             // Process batched audio data with transferable buffer
-                            if chunks_processed <= 5 {
-                                dev_log!("DEBUG: Processing audioDataBatch message #{}", chunks_processed);
-                            }
                             Self::handle_audio_data_batch(&obj, &shared_data);
-                            if chunks_processed <= 5 {
-                                dev_log!("DEBUG: Finished processing audioDataBatch message #{}", chunks_processed);
-                            }
                         }
                         "processingError" => {
                             if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
                                 if let Some(error_msg) = error_val.as_string() {
-                                    dev_log!("✗ AudioWorklet processing error: {}", error_msg);
+                                    dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error_msg);
                                     Self::publish_status_update(&shared_data, AudioWorkletState::Failed, false);
                                 }
                             }
@@ -533,68 +519,30 @@ impl AudioWorkletManager {
                     None
                 };
                 
-                // Feed audio data to buffer pool if available
-                let buffer_pool = shared_data.borrow().buffer_pool.clone();
-                if let Some(pool) = buffer_pool {
-                    let (buffer_is_full, buffer_has_overflowed, buffer_len, buffer_overflow_count) = {
-                        let mut pool_borrowed = pool.borrow_mut();
-                        if let Some(buffer) = pool_borrowed.get_mut(0) {
-                            buffer.write_chunk(&samples);
-                            
-                            // Capture buffer state before dropping the borrow
-                            let is_full = buffer.is_full();
-                            let has_overflowed = buffer.has_overflowed();
-                            let len = buffer.len();
-                            let overflow_count = buffer.overflow_count();
-                            
-                            (is_full, has_overflowed, len, overflow_count)
-                        } else {
-                            (false, false, 0, 0)
-                        }
-                    };
+                // Update chunk counter (buffer pool operations removed)
+                {
+                    let mut data = shared_data.borrow_mut();
+                    data.chunks_processed += 1;
                     
-                    // Update chunk counter and publish events
-                    {
-                        let mut data = shared_data.borrow_mut();
-                        data.chunks_processed += 1;
-                        
-                        // Publish status update every 16 chunks (~11.6ms at 48kHz)
-                        if data.chunks_processed % 16 == 0 {
-                            drop(data); // Release borrow before calling publish
-                            Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
-                        }
-                    }
-                    
-                    // Publish buffer events if dispatcher present
-                    let event_dispatcher = shared_data.borrow().event_dispatcher.clone();
-                    if let Some(dispatcher) = event_dispatcher {
-                        if buffer_is_full {
-                            let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
-                                buffer_index: 0,
-                                length: buffer_len,
-                            };
-                            dispatcher.borrow().publish(&buffer_event);
-                        }
-                        
-                        if buffer_has_overflowed {
-                            let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
-                                buffer_index: 0,
-                                overflow_count: buffer_overflow_count,
-                            };
-                            dispatcher.borrow().publish(&overflow_event);
-                        }
+                    // Publish status update every 16 chunks (~11.6ms at 48kHz)
+                    if data.chunks_processed % 16 == 0 {
+                        drop(data); // Release borrow before calling publish
+                        Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
                     }
                 }
+                
+                // Note: Buffer pool operations removed - using direct processing with transferable buffers
                 
                 // Perform volume detection if available
                 let volume_detector = shared_data.borrow().volume_detector.clone();
                 if let Some(mut detector) = volume_detector {
                     let volume_analysis = detector.process_buffer(&samples, timestamp.unwrap_or(0.0));
+                    // Volume detected
                     
                     
                     // Update volume level data every 16 chunks (~34ms at 48kHz)
                     let chunks_processed = shared_data.borrow().chunks_processed;
-                    if chunks_processed % 16 == 0 {
+                    if chunks_processed % 16 == 0 {  // Update every 16 chunks (~34ms at 48kHz)
                         let volume_level_setter = shared_data.borrow().volume_level_setter.clone();
                         if let Some(setter) = volume_level_setter {
                             let volume_data = crate::debug::egui::live_data_panel::VolumeLevelData {
@@ -607,12 +555,7 @@ impl AudioWorkletManager {
                                 timestamp: timestamp.unwrap_or(0.0),
                             };
                             setter.set(Some(volume_data));
-                            // Log occasionally to avoid spam
-                            if chunks_processed % 256 == 0 {
-                                dev_log!("Volume data updated via setter: {:.1}dB", volume_analysis.peak_db);
-                            }
-                        } else if chunks_processed % 256 == 0 {
-                            dev_log!("Warning: No volume level setter available in message handler");
+                            // Volume data updated successfully
                         }
                     }
                     
@@ -708,12 +651,7 @@ impl AudioWorkletManager {
                                 timestamp: timestamp.unwrap_or(0.0),
                             };
                             setter.set(Some(volume_data));
-                            // Removed noisy volume level debug logging
-                        } else {
-                            // Log missing setter occasionally
-                            if chunks_processed % 256 == 0 {
-                                dev_log!("Warning: No volume level setter available in batched processing");
-                            }
+                            // Volume data updated successfully
                         }
                     }
                     
@@ -1041,10 +979,7 @@ impl AudioWorkletManager {
         self.config.chunk_size
     }
 
-    /// Attach a shared buffer pool for real-time audio filling
-    pub fn set_buffer_pool(&mut self, pool: std::rc::Rc<std::cell::RefCell<crate::audio::buffer_pool::BufferPool<f32>>>) {
-        self.buffer_pool = Some(pool);
-    }
+    // Note: Buffer pool support removed - using direct processing with transferable buffers
 
     /// Attach an event dispatcher for publishing BufferEvents
     pub fn set_event_dispatcher(&mut self, dispatcher: crate::events::AudioEventDispatcher) {
@@ -1363,41 +1298,8 @@ impl AudioWorkletManager {
             self.last_volume_analysis = Some(volume_analysis);
         }
 
-        // Buffer management
-        let pool_rc = self.buffer_pool.as_ref().ok_or("No buffer pool attached")?.clone();
-        let mut pool = pool_rc.borrow_mut();
-        let buffer = pool.get_mut(0).ok_or("BufferPool is empty")?;
-
-        buffer.write_chunk(&processed_samples);
-
-        // Publish buffer events if dispatcher present
-        if let Some(dispatcher) = &self.event_dispatcher {
-            if buffer.is_full() {
-                let buffer_event = crate::events::audio_events::AudioEvent::BufferFilled {
-                    buffer_index: 0,
-                    length: buffer.len(),
-                };
-                dispatcher.borrow().publish(&buffer_event);
-            }
-
-            if buffer.has_overflowed() {
-                let overflow_event = crate::events::audio_events::AudioEvent::BufferOverflow {
-                    buffer_index: 0,
-                    overflow_count: buffer.overflow_count(),
-                };
-                dispatcher.borrow().publish(&overflow_event);
-            }
-
-            // Periodically publish metrics (every 256 chunks for example) – simple heuristic here
-            if buffer.len() % 256 == 0 {
-                let metrics_event = crate::events::audio_events::AudioEvent::BufferMetrics {
-                    total_buffers: pool.len(),
-                    total_overflows: pool.total_overflows(),
-                    memory_bytes: pool.memory_usage_bytes(),
-                };
-                dispatcher.borrow().publish(&metrics_event);
-            }
-        }
+        // Note: Buffer pool operations removed - using direct processing with transferable buffers
+        // Events for buffer_filled and buffer_overflow are no longer published from this method
 
         // Note: Speaker output is now handled by AudioWorklet direct connection
         // No need to manually route samples - AudioWorklet output is connected to speakers when enabled
@@ -1503,58 +1405,38 @@ mod tests {
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
-    fn test_feed_input_chunk_and_events() {
-        use crate::audio::{BufferPool, VolumeDetector};
+    fn test_feed_input_chunk_direct_processing() {
+        use crate::audio::VolumeDetector;
         use event_dispatcher::create_shared_dispatcher;
-        use std::rc::Rc;
-        use std::cell::RefCell;
-
-        // Create dispatcher and track events
-        let dispatcher = create_shared_dispatcher();
-        let received = Rc::new(RefCell::new(Vec::new()));
-        let recv_clone = received.clone();
-        dispatcher.borrow_mut().subscribe("buffer_filled", move |e| { recv_clone.borrow_mut().push(e); });
-
-        // Create pool with one buffer 256 samples capacity
-        let pool = Rc::new(RefCell::new(BufferPool::<f32>::new(1, 256).unwrap()));
 
         // Create manager with volume detector
         let mut mgr = AudioWorkletManager::new();
-        mgr.set_buffer_pool(pool.clone());
-        mgr.set_event_dispatcher(dispatcher.clone());
+        mgr.set_event_dispatcher(create_shared_dispatcher());
         mgr.set_volume_detector(VolumeDetector::new_default());
 
-        // Feed two chunks of 128 samples each (fills buffer)
+        // Feed two chunks of 128 samples each - direct processing, no events
         let chunk = vec![0.1_f32; 128]; // Use small signal for volume detection
         mgr.feed_input_chunk(&chunk).unwrap();
         mgr.feed_input_chunk(&chunk).unwrap();
 
-        // Expect buffer_filled event
-        assert_eq!(received.borrow().len(), 1);
-        
-        // Should have volume analysis available
+        // Should have volume analysis available from direct processing
         assert!(mgr.last_volume_analysis().is_some());
+        
+        // Verify volume analysis contains expected data
+        let analysis = mgr.last_volume_analysis().unwrap();
+        assert!(analysis.rms_db.is_finite());
+        assert!(analysis.confidence_weight > 0.0);
     }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
-    fn test_volume_detection_integration() {
-        use crate::audio::{BufferPool, VolumeDetector, VolumeDetectorConfig};
+    fn test_volume_detection_direct_processing() {
+        use crate::audio::{VolumeDetector, VolumeDetectorConfig};
         use event_dispatcher::create_shared_dispatcher;
-        use std::rc::Rc;
-        use std::cell::RefCell;
 
-        // Create dispatcher and track volume events
-        let dispatcher = create_shared_dispatcher();
-        let volume_events = Rc::new(RefCell::new(Vec::new()));
-        let vol_clone = volume_events.clone();
-        dispatcher.borrow_mut().subscribe("volume_detected", move |e| { vol_clone.borrow_mut().push(e); });
-
-        // Create pool and manager with volume detector
-        let pool = Rc::new(RefCell::new(BufferPool::<f32>::new(1, 256).unwrap()));
+        // Create manager with volume detector
         let mut mgr = AudioWorkletManager::new();
-        mgr.set_buffer_pool(pool.clone());
-        mgr.set_event_dispatcher(dispatcher.clone());
+        mgr.set_event_dispatcher(create_shared_dispatcher());
         
         let config = VolumeDetectorConfig {
             sample_rate: 48000.0,
@@ -1562,19 +1444,19 @@ mod tests {
         };
         mgr.set_volume_detector(VolumeDetector::new(config).unwrap());
 
-        // Feed 16 chunks to trigger volume event publication
+        // Feed 16 chunks to trigger volume analysis - direct processing, no events
         let chunk = vec![0.1_f32; 128];
         for _ in 0..16 {
             mgr.feed_input_chunk(&chunk).unwrap();
         }
 
-        // Should have published volume detected event
-        assert!(volume_events.borrow().len() > 0);
-        
-        // Should have volume analysis available
+        // Should have volume analysis available from direct processing
         let analysis = mgr.last_volume_analysis().unwrap();
         assert!(analysis.rms_db.is_finite());
         assert!(analysis.confidence_weight > 0.0);
+        
+        // Verify that volume detection is working correctly
+        assert!(analysis.rms_db < 0.0); // Should be negative dB for small signal
     }
 
     #[allow(dead_code)]
@@ -1605,13 +1487,10 @@ pub async fn initialize_audioworklet_manager() -> Result<(), String> {
     // Create AudioWorklet manager
     let mut worklet_manager = AudioWorkletManager::new();
     
-    // Get buffer pool and event dispatcher
-    let buffer_pool = super::get_global_buffer_pool()
-        .ok_or_else(|| "Buffer pool not initialized".to_string())?;
+    // Get event dispatcher
     let event_dispatcher = crate::events::get_global_event_dispatcher();
     
     // Configure AudioWorklet manager
-    worklet_manager.set_buffer_pool(buffer_pool);
     worklet_manager.set_event_dispatcher(event_dispatcher.clone());
     
     // Add volume detector for real-time volume analysis

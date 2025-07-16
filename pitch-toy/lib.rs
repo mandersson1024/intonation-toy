@@ -156,7 +156,10 @@ pub async fn start() {
     let volume_level_setter = volume_level_source.setter();
     
     // Initialize audio systems first
-    if let Err(e) = initialize_audio_systems(Some(std::rc::Rc::new(pitch_data_setter.clone()))).await {
+    if let Err(e) = initialize_audio_systems(
+        Some(std::rc::Rc::new(pitch_data_setter.clone())),
+        Some(std::rc::Rc::new(volume_level_setter.clone()))
+    ).await {
         dev_log!("✗ Audio system initialization failed: {}", e);
         dev_log!("Application cannot continue without audio system");
         // TODO: Add error screen rendering in future story when UI requirements are defined
@@ -184,22 +187,26 @@ pub async fn start() {
 
 /// Initialize all audio systems in sequence with proper error handling
 async fn initialize_audio_systems(
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>,
+    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>
 ) -> Result<(), String> {
     // Initialize audio system
     audio::initialize_audio_system().await
         .map_err(|e| format!("Audio system initialization failed: {}", e))?;
     dev_log!("✓ Audio system initialized successfully");
     
-    // Initialize buffer pool
-    audio::initialize_buffer_pool().await
-        .map_err(|e| format!("Buffer pool initialization failed: {}", e))?;
-    dev_log!("✓ Buffer pool initialized successfully");
+    // Note: Buffer pool initialization removed - using direct processing with transferable buffers
     
     // Initialize AudioWorklet manager (required)
     audio::worklet::initialize_audioworklet_manager().await
         .map_err(|e| format!("AudioWorklet manager initialization failed: {}", e))?;
     dev_log!("✓ AudioWorklet manager initialized successfully");
+    
+    // Set the volume level setter if provided
+    if let Some(setter) = volume_level_setter {
+        audio::set_volume_level_setter(setter);
+        dev_log!("✓ Volume level setter configured");
+    }
     
     // Initialize pitch analyzer (required)
     audio::initialize_pitch_analyzer().await
