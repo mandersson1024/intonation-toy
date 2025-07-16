@@ -8,7 +8,6 @@ pub mod stream;
 pub mod permission;
 pub mod buffer;
 pub mod buffer_analyzer;
-pub mod buffer_pool;
 pub mod console_service;
 pub mod commands;
 pub mod pitch_detector;
