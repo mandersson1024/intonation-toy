@@ -1268,6 +1268,646 @@ impl MessageValidator for ErrorContext {
     }
 }
 
+// ================================
+// Message Construction Utilities
+// ================================
+
+/// Result type for message construction operations
+pub type MessageConstructionResult<T> = Result<T, MessageConstructionError>;
+
+/// Error types for message construction
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageConstructionError {
+    /// Invalid parameter value
+    InvalidParameter(String),
+    /// Missing required parameter
+    MissingParameter(String),
+    /// Validation failed during construction
+    ValidationFailed(String),
+    /// Message ID generation failed
+    IdGenerationFailed(String),
+}
+
+impl std::fmt::Display for MessageConstructionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageConstructionError::InvalidParameter(msg) => write!(f, "Invalid parameter: {}", msg),
+            MessageConstructionError::MissingParameter(msg) => write!(f, "Missing parameter: {}", msg),
+            MessageConstructionError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
+            MessageConstructionError::IdGenerationFailed(msg) => write!(f, "ID generation failed: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for MessageConstructionError {}
+
+/// Enhanced message ID generator with atomicity support
+pub struct MessageIdGenerator {
+    counter: std::rc::Rc<std::cell::RefCell<u32>>,
+}
+
+impl MessageIdGenerator {
+    /// Create a new message ID generator
+    pub fn new() -> Self {
+        Self {
+            counter: std::rc::Rc::new(std::cell::RefCell::new(0)),
+        }
+    }
+    
+    /// Generate a unique message ID
+    pub fn next_id(&self) -> u32 {
+        let mut counter = self.counter.borrow_mut();
+        *counter = counter.wrapping_add(1);
+        *counter
+    }
+    
+    /// Reset the counter (for testing)
+    pub fn reset(&self) {
+        *self.counter.borrow_mut() = 0;
+    }
+}
+
+impl Default for MessageIdGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global message ID generator instance
+thread_local! {
+    static MESSAGE_ID_GENERATOR: MessageIdGenerator = MessageIdGenerator::new();
+}
+
+/// Generate a unique message ID using the global generator
+pub fn generate_unique_message_id() -> u32 {
+    MESSAGE_ID_GENERATOR.with(|generator| generator.next_id())
+}
+
+/// Get current high-resolution timestamp
+pub fn get_high_resolution_timestamp() -> f64 {
+    // Use performance.now() for high-resolution timing
+    js_sys::Date::now()
+}
+
+/// Message construction utilities
+pub struct MessageBuilder;
+
+impl MessageBuilder {
+    /// Create a new message envelope with auto-generated ID and timestamp
+    pub fn envelope<T: MessageValidator>(payload: T) -> MessageConstructionResult<MessageEnvelope<T>> {
+        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        
+        Ok(MessageEnvelope {
+            message_id: generate_unique_message_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload,
+        })
+    }
+    
+    /// Create a new message envelope with specific ID
+    pub fn envelope_with_id<T: MessageValidator>(payload: T, message_id: u32) -> MessageConstructionResult<MessageEnvelope<T>> {
+        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        
+        Ok(MessageEnvelope {
+            message_id,
+            timestamp: get_high_resolution_timestamp(),
+            payload,
+        })
+    }
+}
+
+// Constructor implementations for message types
+impl ToWorkletMessage {
+    /// Create a start processing message
+    pub fn start_processing() -> Self {
+        Self::StartProcessing
+    }
+    
+    /// Create a stop processing message
+    pub fn stop_processing() -> Self {
+        Self::StopProcessing
+    }
+    
+    /// Create an update test signal config message
+    pub fn update_test_signal_config(config: TestSignalGeneratorConfig) -> MessageConstructionResult<Self> {
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::UpdateTestSignalConfig { config })
+    }
+    
+    /// Create an update batch config message
+    pub fn update_batch_config(config: BatchConfig) -> MessageConstructionResult<Self> {
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::UpdateBatchConfig { config })
+    }
+    
+    /// Create an update background noise config message
+    pub fn update_background_noise_config(config: BackgroundNoiseConfig) -> MessageConstructionResult<Self> {
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::UpdateBackgroundNoiseConfig { config })
+    }
+}
+
+impl FromWorkletMessage {
+    /// Create a processor ready message
+    pub fn processor_ready(batch_size: Option<usize>) -> MessageConstructionResult<Self> {
+        if let Some(size) = batch_size {
+            if size == 0 {
+                return Err(MessageConstructionError::InvalidParameter("batch_size cannot be zero".to_string()));
+            }
+        }
+        Ok(Self::ProcessorReady { batch_size })
+    }
+    
+    /// Create a processing started message
+    pub fn processing_started() -> Self {
+        Self::ProcessingStarted
+    }
+    
+    /// Create a processing stopped message
+    pub fn processing_stopped() -> Self {
+        Self::ProcessingStopped
+    }
+    
+    /// Create an audio data batch message
+    pub fn audio_data_batch(data: AudioDataBatch) -> MessageConstructionResult<Self> {
+        data.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::AudioDataBatch { data })
+    }
+    
+    /// Create a processing error message
+    pub fn processing_error(error: WorkletError) -> MessageConstructionResult<Self> {
+        error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::ProcessingError { error })
+    }
+    
+    /// Create a status update message
+    pub fn status_update(status: ProcessorStatus) -> MessageConstructionResult<Self> {
+        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::StatusUpdate { status })
+    }
+}
+
+impl AudioDataBatch {
+    /// Create a new audio data batch
+    pub fn new(
+        sample_rate: f64,
+        sample_count: usize,
+        buffer_length: usize,
+        sequence_number: Option<u32>,
+    ) -> MessageConstructionResult<Self> {
+        let batch = Self {
+            sample_rate,
+            sample_count,
+            buffer_length,
+            timestamp: get_high_resolution_timestamp(),
+            sequence_number,
+        };
+        
+        batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(batch)
+    }
+    
+    /// Create a new audio data batch with current timestamp
+    pub fn with_timestamp(
+        sample_rate: f64,
+        sample_count: usize,
+        buffer_length: usize,
+        timestamp: f64,
+        sequence_number: Option<u32>,
+    ) -> MessageConstructionResult<Self> {
+        let batch = Self {
+            sample_rate,
+            sample_count,
+            buffer_length,
+            timestamp,
+            sequence_number,
+        };
+        
+        batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(batch)
+    }
+}
+
+impl ProcessorStatus {
+    /// Create a new processor status
+    pub fn new(
+        active: bool,
+        sample_rate: f64,
+        buffer_size: usize,
+        processed_batches: u32,
+        avg_processing_time_ms: f64,
+        memory_usage: Option<MemoryUsage>,
+    ) -> MessageConstructionResult<Self> {
+        let status = Self {
+            active,
+            sample_rate,
+            buffer_size,
+            processed_batches,
+            avg_processing_time_ms,
+            memory_usage,
+        };
+        
+        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(status)
+    }
+}
+
+impl MemoryUsage {
+    /// Create a new memory usage info
+    pub fn new(heap_size: usize, used_heap: usize, active_buffers: usize) -> MessageConstructionResult<Self> {
+        let usage = Self {
+            heap_size,
+            used_heap,
+            active_buffers,
+        };
+        
+        usage.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(usage)
+    }
+}
+
+impl BatchConfig {
+    /// Create a new batch config
+    pub fn new(
+        batch_size: usize,
+        max_queue_size: usize,
+        timeout_ms: u32,
+        enable_compression: bool,
+    ) -> MessageConstructionResult<Self> {
+        let config = Self {
+            batch_size,
+            max_queue_size,
+            timeout_ms,
+            enable_compression,
+        };
+        
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(config)
+    }
+}
+
+impl WorkletError {
+    /// Create a new worklet error
+    pub fn new(
+        code: WorkletErrorCode,
+        message: String,
+        context: Option<ErrorContext>,
+    ) -> MessageConstructionResult<Self> {
+        let error = Self {
+            code,
+            message,
+            timestamp: get_high_resolution_timestamp(),
+            context,
+        };
+        
+        error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(error)
+    }
+    
+    /// Create a new worklet error with custom timestamp
+    pub fn with_timestamp(
+        code: WorkletErrorCode,
+        message: String,
+        timestamp: f64,
+        context: Option<ErrorContext>,
+    ) -> MessageConstructionResult<Self> {
+        let error = Self {
+            code,
+            message,
+            timestamp,
+            context,
+        };
+        
+        error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(error)
+    }
+}
+
+impl ErrorContext {
+    /// Create a new error context
+    pub fn new(
+        location: String,
+        system_state: Option<String>,
+        debug_info: Option<String>,
+    ) -> MessageConstructionResult<Self> {
+        let context = Self {
+            location,
+            system_state,
+            debug_info,
+        };
+        
+        context.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(context)
+    }
+}
+
+impl TestSignalGeneratorConfig {
+    /// Create a new test signal generator config
+    pub fn new(
+        enabled: bool,
+        frequency: f32,
+        amplitude: f32,
+        waveform: crate::audio::test_signal_generator::TestWaveform,
+        sample_rate: f32,
+    ) -> MessageConstructionResult<Self> {
+        let config = Self {
+            enabled,
+            frequency,
+            amplitude,
+            waveform,
+            sample_rate,
+        };
+        
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(config)
+    }
+}
+
+impl BackgroundNoiseConfig {
+    /// Create a new background noise config
+    pub fn new(
+        enabled: bool,
+        level: f32,
+        noise_type: crate::audio::test_signal_generator::TestWaveform,
+    ) -> MessageConstructionResult<Self> {
+        let config = Self {
+            enabled,
+            level,
+            noise_type,
+        };
+        
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(config)
+    }
+}
+
+// ================================
+// AudioWorklet Message Factory
+// ================================
+
+/// Centralized message factory for AudioWorklet communication
+pub struct AudioWorkletMessageFactory {
+    id_generator: MessageIdGenerator,
+}
+
+impl AudioWorkletMessageFactory {
+    /// Create a new message factory
+    pub fn new() -> Self {
+        Self {
+            id_generator: MessageIdGenerator::new(),
+        }
+    }
+    
+    /// Create a message factory with custom ID generator
+    pub fn with_id_generator(id_generator: MessageIdGenerator) -> Self {
+        Self {
+            id_generator,
+        }
+    }
+    
+    /// Generate a unique message ID
+    pub fn generate_id(&self) -> u32 {
+        self.id_generator.next_id()
+    }
+    
+    /// Reset the ID generator (for testing)
+    pub fn reset_id_generator(&self) {
+        self.id_generator.reset();
+    }
+    
+    // ToWorkletMessage factory methods
+    
+    /// Create a start processing message envelope
+    pub fn start_processing(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::start_processing();
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a stop processing message envelope
+    pub fn stop_processing(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::stop_processing();
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create an update test signal config message envelope
+    pub fn update_test_signal_config(&self, config: TestSignalGeneratorConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::update_test_signal_config(config)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create an update batch config message envelope
+    pub fn update_batch_config(&self, config: BatchConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::update_batch_config(config)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create an update background noise config message envelope
+    pub fn update_background_noise_config(&self, config: BackgroundNoiseConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::update_background_noise_config(config)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    // FromWorkletMessage factory methods
+    
+    /// Create a processor ready message envelope
+    pub fn processor_ready(&self, batch_size: Option<usize>) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processor_ready(batch_size)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a processing started message envelope
+    pub fn processing_started(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processing_started();
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a processing stopped message envelope
+    pub fn processing_stopped(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processing_stopped();
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create an audio data batch message envelope
+    pub fn audio_data_batch(&self, data: AudioDataBatch) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::audio_data_batch(data)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a processing error message envelope
+    pub fn processing_error(&self, error: WorkletError) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processing_error(error)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a status update message envelope
+    pub fn status_update(&self, status: ProcessorStatus) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::status_update(status)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    // Convenience methods for common patterns
+    
+    /// Create an audio data batch with metadata
+    pub fn create_audio_data_batch(&self, 
+        sample_rate: f64, 
+        sample_count: usize, 
+        buffer_length: usize,
+        sequence_number: Option<u32>
+    ) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let data = AudioDataBatch::new(sample_rate, sample_count, buffer_length, sequence_number)?;
+        self.audio_data_batch(data)
+    }
+    
+    /// Create a worklet error with context
+    pub fn create_worklet_error(&self, 
+        code: WorkletErrorCode, 
+        message: String, 
+        location: String,
+        system_state: Option<String>
+    ) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let context = ErrorContext::new(location, system_state, None)?;
+        let error = WorkletError::new(code, message, Some(context))?;
+        self.processing_error(error)
+    }
+    
+    /// Create a processor status update
+    pub fn create_processor_status(&self,
+        active: bool,
+        sample_rate: f64,
+        buffer_size: usize,
+        processed_batches: u32,
+        avg_processing_time_ms: f64,
+        memory_usage: Option<MemoryUsage>
+    ) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let status = ProcessorStatus::new(
+            active, 
+            sample_rate, 
+            buffer_size, 
+            processed_batches, 
+            avg_processing_time_ms, 
+            memory_usage
+        )?;
+        self.status_update(status)
+    }
+    
+    /// Create memory usage info
+    pub fn create_memory_usage(&self, 
+        heap_size: usize, 
+        used_heap: usize, 
+        active_buffers: usize
+    ) -> MessageConstructionResult<MemoryUsage> {
+        MemoryUsage::new(heap_size, used_heap, active_buffers)
+    }
+    
+    /// Create a test signal config
+    pub fn create_test_signal_config(&self,
+        enabled: bool,
+        frequency: f32,
+        amplitude: f32,
+        waveform: crate::audio::test_signal_generator::TestWaveform,
+        sample_rate: f32
+    ) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let config = TestSignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
+        self.update_test_signal_config(config)
+    }
+    
+    /// Create a background noise config
+    pub fn create_background_noise_config(&self,
+        enabled: bool,
+        level: f32,
+        noise_type: crate::audio::test_signal_generator::TestWaveform
+    ) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let config = BackgroundNoiseConfig::new(enabled, level, noise_type)?;
+        self.update_background_noise_config(config)
+    }
+    
+    /// Create a batch config
+    pub fn create_batch_config(&self,
+        batch_size: usize,
+        max_queue_size: usize,
+        timeout_ms: u32,
+        enable_compression: bool
+    ) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let config = BatchConfig::new(batch_size, max_queue_size, timeout_ms, enable_compression)?;
+        self.update_batch_config(config)
+    }
+    
+    // Request/response correlation support
+    
+    /// Create a response message with correlation to a request
+    pub fn create_response<T: MessageValidator>(&self, request_id: u32, payload: T) -> MessageConstructionResult<MessageEnvelope<T>> {
+        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        
+        Ok(MessageEnvelope {
+            message_id: request_id, // Use same ID for correlation
+            timestamp: get_high_resolution_timestamp(),
+            payload,
+        })
+    }
+    
+    /// Create a correlated processor ready response
+    pub fn processor_ready_response(&self, request_id: u32, batch_size: Option<usize>) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processor_ready(batch_size)?;
+        self.create_response(request_id, message)
+    }
+    
+    /// Create a correlated error response
+    pub fn error_response(&self, request_id: u32, error: WorkletError) -> MessageConstructionResult<FromWorkletEnvelope> {
+        let message = FromWorkletMessage::processing_error(error)?;
+        self.create_response(request_id, message)
+    }
+}
+
+impl Default for AudioWorkletMessageFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1503,5 +2143,182 @@ mod tests {
         let deserialized = WorkletError::from_js_object(&obj).unwrap();
         
         assert_eq!(error, deserialized);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_message_construction_utilities() {
+        // Test message ID generation
+        let generator = MessageIdGenerator::new();
+        let id1 = generator.next_id();
+        let id2 = generator.next_id();
+        assert_ne!(id1, id2);
+        assert!(id2 > id1);
+        
+        // Test global ID generation
+        let global_id1 = generate_unique_message_id();
+        let global_id2 = generate_unique_message_id();
+        assert_ne!(global_id1, global_id2);
+        
+        // Test timestamp generation
+        let timestamp1 = get_high_resolution_timestamp();
+        let timestamp2 = get_high_resolution_timestamp();
+        assert!(timestamp2 >= timestamp1);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_message_builder() {
+        let payload = ToWorkletMessage::StartProcessing;
+        let envelope = MessageBuilder::envelope(payload.clone()).unwrap();
+        
+        assert_eq!(envelope.payload, payload);
+        assert!(envelope.message_id > 0);
+        assert!(envelope.timestamp > 0.0);
+        
+        // Test with specific ID
+        let specific_id = 42;
+        let envelope_with_id = MessageBuilder::envelope_with_id(payload.clone(), specific_id).unwrap();
+        assert_eq!(envelope_with_id.message_id, specific_id);
+        assert_eq!(envelope_with_id.payload, payload);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_constructor_validation() {
+        use crate::audio::test_signal_generator::TestWaveform;
+        
+        // Test valid construction
+        let valid_config = TestSignalGeneratorConfig::new(
+            true,
+            440.0,
+            0.5,
+            TestWaveform::Sine,
+            48000.0
+        );
+        assert!(valid_config.is_ok());
+        
+        // Test invalid construction
+        let invalid_config = TestSignalGeneratorConfig::new(
+            true,
+            -440.0, // Invalid frequency
+            0.5,
+            TestWaveform::Sine,
+            48000.0
+        );
+        assert!(invalid_config.is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_message_factory() {
+        let factory = AudioWorkletMessageFactory::new();
+        
+        // Test start processing message
+        let start_msg = factory.start_processing().unwrap();
+        assert!(matches!(start_msg.payload, ToWorkletMessage::StartProcessing));
+        assert!(start_msg.message_id > 0);
+        assert!(start_msg.timestamp > 0.0);
+        
+        // Test processor ready message
+        let ready_msg = factory.processor_ready(Some(1024)).unwrap();
+        assert!(matches!(ready_msg.payload, FromWorkletMessage::ProcessorReady { batch_size: Some(1024) }));
+        
+        // Test error message creation
+        let error_msg = factory.create_worklet_error(
+            WorkletErrorCode::BufferOverflow,
+            "Test error".to_string(),
+            "test_location".to_string(),
+            Some("test_state".to_string())
+        ).unwrap();
+        assert!(matches!(error_msg.payload, FromWorkletMessage::ProcessingError { .. }));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_factory_convenience_methods() {
+        let factory = AudioWorkletMessageFactory::new();
+        
+        // Test audio data batch creation
+        let batch_msg = factory.create_audio_data_batch(
+            48000.0,
+            1024,
+            4096,
+            Some(42)
+        ).unwrap();
+        
+        if let FromWorkletMessage::AudioDataBatch { data } = &batch_msg.payload {
+            assert_eq!(data.sample_rate, 48000.0);
+            assert_eq!(data.sample_count, 1024);
+            assert_eq!(data.buffer_length, 4096);
+            assert_eq!(data.sequence_number, Some(42));
+        } else {
+            panic!("Expected AudioDataBatch message");
+        }
+        
+        // Test processor status creation
+        let memory_usage = factory.create_memory_usage(1024, 512, 8).unwrap();
+        let status_msg = factory.create_processor_status(
+            true,
+            48000.0,
+            1024,
+            100,
+            5.2,
+            Some(memory_usage)
+        ).unwrap();
+        
+        if let FromWorkletMessage::StatusUpdate { status } = &status_msg.payload {
+            assert_eq!(status.active, true);
+            assert_eq!(status.sample_rate, 48000.0);
+            assert_eq!(status.processed_batches, 100);
+            assert!(status.memory_usage.is_some());
+        } else {
+            panic!("Expected StatusUpdate message");
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_request_response_correlation() {
+        let factory = AudioWorkletMessageFactory::new();
+        
+        let request_id = 123;
+        let response = factory.processor_ready_response(request_id, Some(1024)).unwrap();
+        
+        assert_eq!(response.message_id, request_id);
+        assert!(matches!(response.payload, FromWorkletMessage::ProcessorReady { batch_size: Some(1024) }));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_construction_error_handling() {
+        // Test invalid parameter
+        let result = FromWorkletMessage::processor_ready(Some(0));
+        assert!(result.is_err());
+        
+        match result.unwrap_err() {
+            MessageConstructionError::InvalidParameter(msg) => {
+                assert!(msg.contains("batch_size cannot be zero"));
+            }
+            _ => panic!("Expected InvalidParameter error"),
+        }
+        
+        // Test validation failure
+        let invalid_memory = MemoryUsage::new(1024, 2048, 8); // used > total
+        assert!(invalid_memory.is_err());
+        
+        match invalid_memory.unwrap_err() {
+            MessageConstructionError::ValidationFailed(msg) => {
+                assert!(msg.contains("used_heap cannot exceed heap_size"));
+            }
+            _ => panic!("Expected ValidationFailed error"),
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_factory_id_generation() {
+        let factory = AudioWorkletMessageFactory::new();
+        
+        // Reset for predictable testing
+        factory.reset_id_generator();
+        
+        let msg1 = factory.start_processing().unwrap();
+        let msg2 = factory.stop_processing().unwrap();
+        
+        assert_ne!(msg1.message_id, msg2.message_id);
+        assert!(msg2.message_id > msg1.message_id);
     }
 }

@@ -342,7 +342,10 @@ pub use message_protocol::{
     AudioDataBatch, ProcessorStatus, BatchConfig, WorkletError, WorkletErrorCode,
     ErrorContext, MemoryUsage, MessageEnvelope, 
     SerializationResult, SerializationError, ToJsMessage, FromJsMessage, MessageValidator,
-    MessageSerializer, MessageDeserializer
+    MessageSerializer, MessageDeserializer,
+    MessageConstructionResult, MessageConstructionError, MessageIdGenerator,
+    MessageBuilder, AudioWorkletMessageFactory, generate_unique_message_id,
+    get_high_resolution_timestamp
 };
 
 #[cfg(test)]
