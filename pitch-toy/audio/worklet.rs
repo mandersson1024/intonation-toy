@@ -50,7 +50,8 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig, BackgroundNoiseConfig};
+use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +173,8 @@ pub struct AudioWorkletManager {
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
     // Setter for updating pitch data in live data
     pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::debug::egui::live_data_panel::PitchData>>>>,
+    // Message factory for structured message creation
+    message_factory: AudioWorkletMessageFactory,
 }
 
 impl AudioWorkletManager {
@@ -193,6 +196,7 @@ impl AudioWorkletManager {
             volume_level_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
+            message_factory: AudioWorkletMessageFactory::new(),
         }
     }
     
@@ -214,6 +218,7 @@ impl AudioWorkletManager {
             volume_level_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
+            message_factory: AudioWorkletMessageFactory::new(),
         }
     }
     
@@ -430,66 +435,212 @@ impl AudioWorkletManager {
             dev_log!("DEBUG: Received AudioWorklet message #{}", chunks_processed);
         }
         
-        // Removed noisy debug logging
-        
-        // Parse message type from JavaScript
+        // Try to deserialize using structured message protocol
         if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
-            if let Ok(type_val) = js_sys::Reflect::get(&obj, &"type".into()) {
-                if let Some(msg_type) = type_val.as_string() {
-                    match msg_type.as_str() {
-                        "processorReady" => {
-                            // Extract batch configuration if available
-                            let batch_size = js_sys::Reflect::get(&obj, &"batchSize".into())
-                                .ok()
-                                .and_then(|v| v.as_f64())
-                                .map(|v| v as usize);
-                            
-                            let sample_rate = js_sys::Reflect::get(&obj, &"sampleRate".into())
-                                .ok()
-                                .and_then(|v| v.as_f64());
-                            
-                            if let Some(size) = batch_size {
-                                dev_log!("✓ AudioWorklet processor ready with batch size: {} samples", size);
-                            } else {
-                                dev_log!("✓ AudioWorklet processor ready");
+            // Try typed message deserialization first
+            match Self::try_deserialize_typed_message(&obj) {
+                Ok(envelope) => {
+                    if chunks_processed <= 5 {
+                        dev_log!("DEBUG: Successfully deserialized typed message: {:?} (ID: {})", envelope.payload, envelope.message_id);
+                    }
+                    Self::handle_typed_worklet_message(envelope, &shared_data);
+                }
+                Err(e) => {
+                    // Fall back to legacy string-based message handling for backwards compatibility
+                    if chunks_processed <= 5 {
+                        dev_log!("DEBUG: Failed to deserialize as typed message, falling back to legacy: {}", e);
+                    }
+                    Self::handle_legacy_worklet_message(&obj, &shared_data);
+                }
+            }
+        } else {
+            dev_log!("Warning: Received non-object message from AudioWorklet");
+        }
+    }
+    
+    /// Try to deserialize a JavaScript object as a typed message envelope
+    fn try_deserialize_typed_message(obj: &js_sys::Object) -> Result<MessageEnvelope<FromWorkletMessage>, String> {
+        use super::message_protocol::FromJsMessage;
+        
+        // Check if this looks like a structured message (has message_id and payload fields)
+        let has_message_id = js_sys::Reflect::has(obj, &"messageId".into()).unwrap_or(false);
+        let has_payload = js_sys::Reflect::has(obj, &"payload".into()).unwrap_or(false);
+        
+        if !has_message_id || !has_payload {
+            return Err("Not a structured message envelope".to_string());
+        }
+        
+        // Extract the envelope fields
+        let message_id = js_sys::Reflect::get(obj, &"messageId".into())
+            .map_err(|e| format!("Failed to get messageId: {:?}", e))?
+            .as_f64()
+            .ok_or("messageId must be number")?
+            as u32;
+            
+        let timestamp = js_sys::Reflect::get(obj, &"timestamp".into())
+            .map_err(|e| format!("Failed to get timestamp: {:?}", e))?
+            .as_f64()
+            .ok_or("timestamp must be number")?;
+            
+        let payload_obj = js_sys::Reflect::get(obj, &"payload".into())
+            .map_err(|e| format!("Failed to get payload: {:?}", e))?
+            .dyn_into::<js_sys::Object>()
+            .map_err(|_| "payload must be object")?;
+        
+        // Deserialize the payload
+        let payload = FromWorkletMessage::from_js_object(&payload_obj)
+            .map_err(|e| format!("Failed to deserialize payload: {:?}", e))?;
+        
+        Ok(MessageEnvelope {
+            message_id,
+            timestamp,
+            payload,
+        })
+    }
+    
+    /// Handle typed messages from the AudioWorklet processor
+    fn handle_typed_worklet_message(
+        envelope: MessageEnvelope<FromWorkletMessage>,
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        match envelope.payload {
+            FromWorkletMessage::ProcessorReady { batch_size } => {
+                if let Some(size) = batch_size {
+                    dev_log!("✓ AudioWorklet processor ready with batch size: {} samples", size);
+                } else {
+                    dev_log!("✓ AudioWorklet processor ready");
+                }
+                Self::publish_status_update(shared_data, AudioWorkletState::Ready, false);
+            }
+            FromWorkletMessage::ProcessingStarted => {
+                dev_log!("✓ AudioWorklet processing started");
+                Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+            }
+            FromWorkletMessage::ProcessingStopped => {
+                dev_log!("✓ AudioWorklet processing stopped");
+                Self::publish_status_update(shared_data, AudioWorkletState::Stopped, false);
+            }
+            FromWorkletMessage::AudioDataBatch { data } => {
+                Self::handle_typed_audio_data_batch(data, shared_data);
+            }
+            FromWorkletMessage::ProcessingError { error } => {
+                dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
+                Self::publish_status_update(shared_data, AudioWorkletState::Failed, false);
+            }
+            FromWorkletMessage::StatusUpdate { status } => {
+                dev_log!("AudioWorklet status update: active={}, processed_batches={}", 
+                         status.active, status.processed_batches);
+                // Status updates don't change the main state
+            }
+        }
+    }
+    
+    /// Handle legacy string-based messages for backwards compatibility
+    fn handle_legacy_worklet_message(
+        obj: &js_sys::Object,
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        if let Ok(type_val) = js_sys::Reflect::get(obj, &"type".into()) {
+            if let Some(msg_type) = type_val.as_string() {
+                match msg_type.as_str() {
+                    "processorReady" => {
+                        // Extract batch configuration if available
+                        let batch_size = js_sys::Reflect::get(obj, &"batchSize".into())
+                            .ok()
+                            .and_then(|v| v.as_f64())
+                            .map(|v| v as usize);
+                        
+                        let sample_rate = js_sys::Reflect::get(obj, &"sampleRate".into())
+                            .ok()
+                            .and_then(|v| v.as_f64());
+                        
+                        if let Some(size) = batch_size {
+                            dev_log!("✓ AudioWorklet processor ready with batch size: {} samples", size);
+                        } else {
+                            dev_log!("✓ AudioWorklet processor ready");
+                        }
+                        
+                        if let Some(rate) = sample_rate {
+                            dev_log!("  Sample rate: {} Hz", rate);
+                        }
+                        
+                        Self::publish_status_update(shared_data, AudioWorkletState::Ready, false);
+                    }
+                    "processingStarted" => {
+                        dev_log!("✓ AudioWorklet processing started");
+                        Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+                    }
+                    "processingStopped" => {
+                        dev_log!("✓ AudioWorklet processing stopped");
+                        Self::publish_status_update(shared_data, AudioWorkletState::Stopped, false);
+                    }
+                    "audioData" => {
+                        // Process real audio data (legacy single chunk)
+                        Self::handle_audio_data(obj, shared_data);
+                    }
+                    "audioDataBatch" => {
+                        // Process batched audio data with transferable buffer
+                        Self::handle_audio_data_batch(obj, shared_data);
+                    }
+                    "processingError" => {
+                        if let Ok(error_val) = js_sys::Reflect::get(obj, &"error".into()) {
+                            if let Some(error_msg) = error_val.as_string() {
+                                dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error_msg);
+                                Self::publish_status_update(shared_data, AudioWorkletState::Failed, false);
                             }
-                            
-                            if let Some(rate) = sample_rate {
-                                dev_log!("  Sample rate: {} Hz", rate);
-                            }
-                            
-                            Self::publish_status_update(&shared_data, AudioWorkletState::Ready, false);
                         }
-                        "processingStarted" => {
-                            dev_log!("✓ AudioWorklet processing started");
-                            Self::publish_status_update(&shared_data, AudioWorkletState::Processing, true);
-                        }
-                        "processingStopped" => {
-                            dev_log!("✓ AudioWorklet processing stopped");
-                            Self::publish_status_update(&shared_data, AudioWorkletState::Stopped, false);
-                        }
-                        "audioData" => {
-                            // Process real audio data (legacy single chunk)
-                            Self::handle_audio_data(&obj, &shared_data);
-                        }
-                        "audioDataBatch" => {
-                            // Process batched audio data with transferable buffer
-                            Self::handle_audio_data_batch(&obj, &shared_data);
-                        }
-                        "processingError" => {
-                            if let Ok(error_val) = js_sys::Reflect::get(&obj, &"error".into()) {
-                                if let Some(error_msg) = error_val.as_string() {
-                                    dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error_msg);
-                                    Self::publish_status_update(&shared_data, AudioWorkletState::Failed, false);
-                                }
-                            }
-                        }
-                        _ => {
-                            dev_log!("Unknown AudioWorklet message type: {}", msg_type);
-                        }
+                    }
+                    _ => {
+                        dev_log!("Unknown AudioWorklet message type: {}", msg_type);
                     }
                 }
             }
+        }
+    }
+    
+    /// Handle typed audio data batch from the AudioWorklet processor
+    fn handle_typed_audio_data_batch(
+        data: super::message_protocol::AudioDataBatch,
+        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+    ) {
+        let chunks_processed = shared_data.borrow().chunks_processed;
+        if chunks_processed <= 5 {
+            dev_log!("DEBUG: Starting handle_typed_audio_data_batch for chunk #{}", chunks_processed);
+        }
+        
+        // Validate the batch metadata
+        if data.sample_count == 0 {
+            dev_log!("Warning: Received audio data batch with zero samples");
+            return;
+        }
+        
+        if data.buffer_length == 0 {
+            dev_log!("Warning: Received audio data batch with zero buffer length");
+            return;
+        }
+        
+        dev_log!("Received typed audio data batch: {} samples, {} bytes, timestamp: {}", 
+                 data.sample_count, data.buffer_length, data.timestamp);
+        
+        // Update chunks processed count (batched)
+        let chunk_count = (data.sample_count + 127) / 128; // Round up to nearest chunk
+        {
+            let mut shared_data_mut = shared_data.borrow_mut();
+            shared_data_mut.chunks_processed += chunk_count as u32;
+        }
+        
+        // For typed messages, the actual audio processing happens in the AudioWorklet
+        // This is just metadata about what was processed
+        // However, we can still provide feedback about the processing
+        
+        if chunks_processed <= 5 {
+            dev_log!("DEBUG: Batch validated - {} samples processed in {} chunks", 
+                     data.sample_count, chunk_count);
+        }
+        
+        // Update status periodically
+        if chunks_processed % 16 == 0 {
+            Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
         }
     }
     
@@ -731,8 +882,8 @@ impl AudioWorkletManager {
     
     /// Publish AudioWorklet status update to Live Data Panel
     fn publish_status_update(
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        state: AudioWorkletState,
+        _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        _state: AudioWorkletState,
         _processing: bool
     ) {
         // AudioWorklet status updates are handled elsewhere via setters
@@ -740,17 +891,56 @@ impl AudioWorkletManager {
     
     /// Send control message to AudioWorklet processor
     pub fn send_control_message(&self, message_type: &str) -> Result<(), AudioError> {
+        // Map string message type to typed message
+        let typed_message = match message_type {
+            "startProcessing" => ToWorkletMessage::StartProcessing,
+            "stopProcessing" => ToWorkletMessage::StopProcessing,
+            _ => {
+                return Err(AudioError::Generic(
+                    format!("Unknown control message type: {}", message_type)
+                ));
+            }
+        };
+        
+        self.send_typed_control_message(typed_message)
+    }
+    
+    /// Send typed control message to AudioWorklet processor
+    pub fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            let message = js_sys::Object::new();
-            js_sys::Reflect::set(&message, &"type".into(), &message_type.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to create message: {:?}", e)))?;
+            let envelope = match message {
+                ToWorkletMessage::StartProcessing => {
+                    self.message_factory.start_processing()
+                        .map_err(|e| AudioError::Generic(format!("Failed to create start processing message: {:?}", e)))?
+                }
+                ToWorkletMessage::StopProcessing => {
+                    self.message_factory.stop_processing()
+                        .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
+                }
+                ToWorkletMessage::UpdateTestSignalConfig { config } => {
+                    self.message_factory.update_test_signal_config(config)
+                        .map_err(|e| AudioError::Generic(format!("Failed to create test signal config message: {:?}", e)))?
+                }
+                ToWorkletMessage::UpdateBatchConfig { config } => {
+                    self.message_factory.update_batch_config(config)
+                        .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
+                }
+                ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => {
+                    self.message_factory.update_background_noise_config(config)
+                        .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
+                }
+            };
+            
+            let serializer = MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&envelope)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
             
             let port = worklet.port()
                 .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.post_message(&message)
+            port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
             
-            dev_log!("Sent control message to AudioWorklet: {}", message_type);
+            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
@@ -760,46 +950,20 @@ impl AudioWorkletManager {
     /// Send test signal configuration to AudioWorklet processor
     fn send_test_signal_config_to_worklet(&self, config: &TestSignalGeneratorConfig) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            // Create the main message object
-            let message = js_sys::Object::new();
-            js_sys::Reflect::set(&message, &"type".into(), &"updateTestSignalConfig".into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set message type: {:?}", e)))?;
+            let envelope = self.message_factory.update_test_signal_config(config.clone())
+                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
             
-            // Create the config object
-            let config_obj = js_sys::Object::new();
-            js_sys::Reflect::set(&config_obj, &"enabled".into(), &config.enabled.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set enabled: {:?}", e)))?;
-            js_sys::Reflect::set(&config_obj, &"frequency".into(), &config.frequency.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set frequency: {:?}", e)))?;
-            js_sys::Reflect::set(&config_obj, &"amplitude".into(), &config.amplitude.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set amplitude: {:?}", e)))?;
-            js_sys::Reflect::set(&config_obj, &"sample_rate".into(), &config.sample_rate.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set sample_rate: {:?}", e)))?;
+            let serializer = MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&envelope)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
             
-            // Convert waveform enum to string
-            let waveform_str = match config.waveform {
-                TestWaveform::Sine => "sine",
-                TestWaveform::Square => "square",
-                TestWaveform::Sawtooth => "sawtooth",
-                TestWaveform::Triangle => "triangle",
-                TestWaveform::WhiteNoise => "white_noise",
-                TestWaveform::PinkNoise => "pink_noise",
-            };
-            js_sys::Reflect::set(&config_obj, &"waveform".into(), &waveform_str.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set waveform: {:?}", e)))?;
-            
-            // Attach config to message
-            js_sys::Reflect::set(&message, &"config".into(), &config_obj)
-                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
-            
-            // Send message
             let port = worklet.port()
                 .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.post_message(&message)
+            port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send test signal config: {:?}", e)))?;
             
-            dev_log!("Sent test signal config to AudioWorklet: enabled={}, freq={:.1}Hz, amp={:.2}", 
-                     config.enabled, config.frequency, config.amplitude);
+            dev_log!("Sent test signal config to AudioWorklet: enabled={}, freq={:.1}Hz, amp={:.2} (ID: {})", 
+                     config.enabled, config.frequency, config.amplitude, envelope.message_id);
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
@@ -809,36 +973,34 @@ impl AudioWorkletManager {
     
     /// Update batch configuration
     pub fn update_batch_config(&self, batch_size: Option<usize>, buffer_timeout: Option<f64>) -> Result<(), AudioError> {
+        use super::message_protocol::BatchConfig;
+        
         if let Some(worklet) = &self.worklet_node {
-            let message = js_sys::Object::new();
-            js_sys::Reflect::set(&message, &"type".into(), &"updateBatchConfig".into())
-                .map_err(|e| AudioError::Generic(format!("Failed to create message: {:?}", e)))?;
-            
-            // Create config object
-            let config = js_sys::Object::new();
+            // Create BatchConfig with current defaults and apply updates
+            let mut config = BatchConfig::default();
             
             if let Some(size) = batch_size {
-                js_sys::Reflect::set(&config, &"batchSize".into(), &JsValue::from(size as f64))
-                    .map_err(|e| AudioError::Generic(format!("Failed to set batchSize: {:?}", e)))?;
+                config.batch_size = size;
             }
             
             if let Some(timeout) = buffer_timeout {
-                js_sys::Reflect::set(&config, &"bufferTimeout".into(), &JsValue::from(timeout))
-                    .map_err(|e| AudioError::Generic(format!("Failed to set bufferTimeout: {:?}", e)))?;
+                config.timeout_ms = timeout as u32;
             }
             
-            // Attach config to message
-            js_sys::Reflect::set(&message, &"config".into(), &config)
-                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
+            let envelope = self.message_factory.update_batch_config(config)
+                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
             
-            // Send message
+            let serializer = MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&envelope)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
+            
             let port = worklet.port()
                 .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.post_message(&message)
+            port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send batch config: {:?}", e)))?;
             
-            dev_log!("Sent batch config to AudioWorklet: batch_size={:?}, timeout={:?}ms", 
-                     batch_size, buffer_timeout);
+            dev_log!("Sent batch config to AudioWorklet: batch_size={:?}, timeout={:?}ms (ID: {})", 
+                     batch_size, buffer_timeout, envelope.message_id);
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
@@ -1097,39 +1259,20 @@ impl AudioWorkletManager {
     /// Send background noise configuration to AudioWorklet processor
     fn send_background_noise_config_to_worklet(&self, config: &BackgroundNoiseConfig) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            // Create the main message object
-            let message = js_sys::Object::new();
-            js_sys::Reflect::set(&message, &"type".into(), &"updateBackgroundNoiseConfig".into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set message type: {:?}", e)))?;
+            let envelope = self.message_factory.update_background_noise_config(config.clone())
+                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
             
-            // Create the config object
-            let config_obj = js_sys::Object::new();
-            js_sys::Reflect::set(&config_obj, &"enabled".into(), &config.enabled.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set enabled: {:?}", e)))?;
-            js_sys::Reflect::set(&config_obj, &"level".into(), &config.level.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set level: {:?}", e)))?;
+            let serializer = MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&envelope)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
             
-            // Convert noise type enum to string
-            let noise_type_str = match config.noise_type {
-                TestWaveform::WhiteNoise => "white_noise",
-                TestWaveform::PinkNoise => "pink_noise",
-                _ => "white_noise", // Default to white noise for non-noise waveforms
-            };
-            js_sys::Reflect::set(&config_obj, &"type".into(), &noise_type_str.into())
-                .map_err(|e| AudioError::Generic(format!("Failed to set noise type: {:?}", e)))?;
-            
-            // Attach config to message
-            js_sys::Reflect::set(&message, &"config".into(), &config_obj)
-                .map_err(|e| AudioError::Generic(format!("Failed to set config: {:?}", e)))?;
-            
-            // Send message to AudioWorklet
             let port = worklet.port()
                 .map_err(|e| AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
-            port.post_message(&message)
+            port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send background noise config: {:?}", e)))?;
             
-            dev_log!("Background noise configuration sent to AudioWorklet: enabled={}, level={}, type={:?}", 
-                    config.enabled, config.level, config.noise_type);
+            dev_log!("Background noise configuration sent to AudioWorklet: enabled={}, level={}, type={:?} (ID: {})", 
+                    config.enabled, config.level, config.noise_type, envelope.message_id);
         }
         
         Ok(())
