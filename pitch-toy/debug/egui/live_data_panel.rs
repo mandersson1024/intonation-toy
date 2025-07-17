@@ -481,17 +481,6 @@ impl EguiLiveDataPanel {
                     ui.label(format!("{:.2}ms", stats.avg_acquisition_time_ms));
                 });
                 
-                ui.horizontal(|ui| {
-                    ui.label("GC Pauses:");
-                    let gc_color = if stats.gc_pauses_detected == 0 {
-                        Color32::GREEN
-                    } else if stats.gc_pauses_detected < 5 {
-                        Color32::YELLOW
-                    } else {
-                        Color32::RED
-                    };
-                    ui.colored_label(gc_color, format!("{}", stats.gc_pauses_detected));
-                });
                 
                 // Data transfer stats
                 ui.horizontal(|ui| {

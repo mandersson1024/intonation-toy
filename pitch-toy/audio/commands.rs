@@ -212,7 +212,6 @@ impl ConsoleCommand for BufferCommand {
                         outputs.push(ConsoleOutput::info(&format!("Efficiency: {:.1}%", stats.pool_efficiency)));
                         outputs.push(ConsoleOutput::info(&format!("Transfers: {}", stats.transfer_count)));
                         outputs.push(ConsoleOutput::info(&format!("Exhausted: {}", stats.pool_exhausted_count)));
-                        outputs.push(ConsoleOutput::info(&format!("GC Pauses: {}", stats.gc_pauses_detected)));
                         outputs.push(ConsoleOutput::info(&format!("Data Transferred: {:.2} MB", stats.total_megabytes_transferred)));
                         ConsoleCommandResult::MultipleOutputs(outputs)
                     } else {
@@ -230,11 +229,10 @@ impl ConsoleCommand for BufferCommand {
                         let hit_rate_symbol = if stats.pool_hit_rate > 90.0 { "✓" } else if stats.pool_hit_rate > 75.0 { "⚠" } else { "✗" };
                         let efficiency_symbol = if stats.pool_efficiency > 90.0 { "✓" } else if stats.pool_efficiency > 75.0 { "⚠" } else { "✗" };
                         
-                        let output = format!("{} Pool: {}/{} | {} Hit: {:.1}% | {} Eff: {:.1}% | GC: {}", 
+                        let output = format!("{} Pool: {}/{} | {} Hit: {:.1}% | {} Eff: {:.1}%", 
                                            status_symbol, stats.available_buffers, stats.pool_size,
                                            hit_rate_symbol, stats.pool_hit_rate,
-                                           efficiency_symbol, stats.pool_efficiency,
-                                           stats.gc_pauses_detected);
+                                           efficiency_symbol, stats.pool_efficiency);
                         ConsoleCommandResult::Output(ConsoleOutput::info(&output))
                     } else {
                         ConsoleCommandResult::Output(ConsoleOutput::warning("Buffer pool metrics not available"))
@@ -687,16 +685,10 @@ impl ConsoleCommand for PerformanceCommand {
                     outputs.push(ConsoleOutput::warning("Note: Reset functionality not yet implemented"));
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
-                "gc" => {
-                    outputs.push(ConsoleOutput::info("GC Pause Detection Status"));
-                    outputs.push(ConsoleOutput::warning("Note: GC detection details not yet implemented"));
-                    return ConsoleCommandResult::MultipleOutputs(outputs);
-                }
                 "help" => {
                     outputs.push(ConsoleOutput::info("Performance Monitor Commands:"));
                     outputs.push(ConsoleOutput::info("  perf        - Show current performance metrics"));
                     outputs.push(ConsoleOutput::info("  perf reset  - Reset performance counters"));
-                    outputs.push(ConsoleOutput::info("  perf gc     - Show GC pause detection"));
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
                 _ => {

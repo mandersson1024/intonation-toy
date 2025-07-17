@@ -43,8 +43,6 @@ pub struct BufferPoolMetrics {
     pub allocation_count: u32,
     /// Average buffer acquisition time in ms
     pub avg_acquisition_time: f32,
-    /// Number of GC pauses detected
-    pub gc_pauses_detected: u32,
     /// Number of dropped chunks due to pool exhaustion
     pub dropped_chunks: u32,
     /// Average audio processing time in ms

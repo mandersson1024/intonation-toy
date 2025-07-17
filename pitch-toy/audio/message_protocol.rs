@@ -188,8 +188,6 @@ pub struct BufferPoolStats {
     /// Slowest acquisition time in milliseconds
     pub slowest_acquisition_time_ms: f32,
     
-    /// Number of GC pauses detected
-    pub gc_pauses_detected: u32,
 }
 
 /// Batch processing configuration
@@ -1287,8 +1285,6 @@ impl ToJsMessage for BufferPoolStats {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set fastestAcquisitionTimeMs: {:?}", e)))?;
         Reflect::set(&obj, &"slowestAcquisitionTimeMs".into(), &(self.slowest_acquisition_time_ms as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set slowestAcquisitionTimeMs: {:?}", e)))?;
-        Reflect::set(&obj, &"gcPausesDetected".into(), &(self.gc_pauses_detected as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set gcPausesDetected: {:?}", e)))?;
         
         Ok(obj)
     }
@@ -1386,11 +1382,6 @@ impl FromJsMessage for BufferPoolStats {
             .ok_or_else(|| SerializationError::InvalidPropertyType("slowestAcquisitionTimeMs must be number".to_string()))?
             as f32;
         
-        let gc_pauses_detected = Reflect::get(obj, &"gcPausesDetected".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get gcPausesDetected: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("gcPausesDetected must be number".to_string()))?
-            as u32;
         
         Ok(BufferPoolStats {
             pool_size,
@@ -1408,7 +1399,6 @@ impl FromJsMessage for BufferPoolStats {
             avg_acquisition_time_ms,
             fastest_acquisition_time_ms,
             slowest_acquisition_time_ms,
-            gc_pauses_detected,
         })
     }
 }
