@@ -1,0 +1,350 @@
+# Implementation Plan: Remove Global AudioWorklet Manager
+
+## Overview
+
+This document outlines the implementation plan for removing the global `get_global_audioworklet_manager()` function and replacing it with an instance-based approach using dependency injection within the audio module.
+
+**Goal:** Improve encapsulation, testability, and maintainability while maintaining current functionality and performance.
+
+## Current State Analysis
+
+### Usage Distribution
+- **Total usages:** 8 occurrences across 2 files, all within audio module
+- **mod.rs:** 7 usages (1 function definition + 3 configuration setters + 3 action listeners)
+- **microphone.rs:** 1 usage (critical initialization with error handling)
+
+### Key Dependencies
+- AudioWorkletManager depends on AudioContextManager
+- Microphone functionality requires both managers
+- UI integration through action pattern and observable data setters
+- Console commands access global instances
+- **Data setters are created before any audio initialization** - available at construction time
+
+### Current Architecture Strengths
+- Modular design with clear separation of concerns
+- Generic interfaces that don't create tight coupling
+- Progressive initialization allowing partial functionality
+- Comprehensive testing with wasm-pack test framework
+- **Data setters are created at startup before any audio components** - perfect for constructor injection
+
+### Areas for Improvement
+- Hidden dependencies through global access make testing difficult
+- No explicit dependency injection makes unit testing complex
+- Global state management complicates lifecycle management
+- Tight coupling between initialization order and functionality
+
+## Implementation Plan
+
+### Task 1: Create AudioSystem Context Structure
+**Goal:** Create a central structure that owns and manages all audio-related instances
+
+- [ ] 1a. Create `AudioSystemContext` struct in `audio/context.rs`
+  - [ ] 1a.1. Define struct with owned AudioContextManager and AudioWorkletManager
+  - [ ] 1a.2. Add PitchAnalyzer and other component instances
+  - [ ] 1a.3. Implement constructor accepting data setters as mandatory parameters
+  - [ ] 1a.4. Add methods for accessing components safely
+
+- [ ] 1b. Implement lifecycle management methods
+  - [ ] 1b.1. `async fn initialize()` method combining all initialization steps
+  - [ ] 1b.2. `fn shutdown()` method for cleanup
+  - [ ] 1b.3. `fn is_ready()` method for status checking
+  - [ ] 1b.4. Error handling for initialization failures
+
+- [ ] 1c. Add constructor parameters for data setters
+  - [ ] 1c.1. Add `volume_level_setter` parameter to constructor
+  - [ ] 1c.2. Add `pitch_data_setter` parameter to constructor
+  - [ ] 1c.3. Add `audioworklet_status_setter` parameter to constructor
+  - [ ] 1c.4. Pass setters during construction rather than after initialization
+
+- [ ] 1d. Write comprehensive tests
+  - [ ] 1d.1. Test AudioSystemContext creation and initialization
+  - [ ] 1d.2. Test component access methods
+  - [ ] 1d.3. Test lifecycle management
+  - [ ] 1d.4. Test error handling scenarios
+
+### Task 2: Update Function Signatures for Dependency Injection
+**Goal:** Modify audio module functions to accept AudioSystemContext instead of using global access
+
+- [ ] 2a. Update initialization functions to pass setters at construction
+  - [ ] 2a.1. Update `initialize_audio_systems()` to pass setters to context constructor
+  - [ ] 2a.2. Remove separate setter configuration calls
+  - [ ] 2a.3. Ensure setters are available during construction phase
+  - [ ] 2a.4. Handle optional setters with no-op implementations if needed
+
+- [ ] 2b. Update action listener setup
+  - [ ] 2b.1. Modify `setup_ui_action_listeners()` to accept context parameter
+  - [ ] 2b.2. Update action listener closures to use context instead of global access
+  - [ ] 2b.3. Ensure proper lifetime management for context references
+  - [ ] 2b.4. Test action listener functionality with new approach
+
+- [ ] 2c. Update microphone integration
+  - [ ] 2c.1. Modify microphone connection functions to accept context
+  - [ ] 2c.2. Update error handling to work with context-based approach
+  - [ ] 2c.3. Ensure proper AudioWorkletManager access in microphone.rs
+  - [ ] 2c.4. Test microphone functionality with dependency injection
+
+- [ ] 2d. Update pitch analyzer initialization
+  - [ ] 2d.1. Modify `initialize_pitch_analyzer()` to accept context parameter
+  - [ ] 2d.2. Update pitch analyzer configuration to use context
+  - [ ] 2d.3. Ensure proper integration with AudioWorkletManager
+  - [ ] 2d.4. Test pitch analyzer functionality
+
+### Task 3: Implement Gradual Migration Strategy
+**Goal:** Implement changes incrementally to maintain functionality during transition
+
+- [ ] 3a. Create bridge pattern for compatibility
+  - [ ] 3a.1. Add temporary global AudioSystemContext instance
+  - [ ] 3a.2. Implement wrapper functions that delegate to context methods
+  - [ ] 3a.3. Add deprecation warnings for global access functions
+  - [ ] 3a.4. Ensure all tests pass with bridge pattern
+
+- [ ] 3b. Migrate module initialization
+  - [ ] 3b.1. Update `initialize_audio_system()` to return AudioSystemContext
+  - [ ] 3b.2. Update main initialization sequence in lib.rs
+  - [ ] 3b.3. Ensure proper context lifecycle management
+  - [ ] 3b.4. Test complete initialization flow
+
+- [ ] 3c. Update calling sites incrementally
+  - [ ] 3c.1. Start with configuration setter calls
+  - [ ] 3c.2. Update action listener setup
+  - [ ] 3c.3. Update microphone integration
+  - [ ] 3c.4. Update pitch analyzer initialization
+
+- [ ] 3d. Test each migration step
+  - [ ] 3d.1. Run full test suite after each change
+  - [ ] 3d.2. Verify no functionality regression
+  - [ ] 3d.3. Check performance impact
+  - [ ] 3d.4. Validate error handling still works
+
+### Task 4: Remove Global State Infrastructure
+**Goal:** Remove thread-local storage and global access functions
+
+- [ ] 4a. Remove global access functions
+  - [ ] 4a.1. Remove `get_global_audioworklet_manager()` function
+  - [ ] 4a.2. Remove `set_global_audioworklet_manager()` function
+  - [ ] 4a.3. Remove `AUDIOWORKLET_MANAGER_GLOBAL` thread-local variable
+  - [ ] 4a.4. Update module exports to remove global functions
+
+- [ ] 4b. Remove bridge pattern infrastructure
+  - [ ] 4b.1. Remove temporary global AudioSystemContext instance
+  - [ ] 4b.2. Remove wrapper functions
+  - [ ] 4b.3. Remove deprecation warnings
+  - [ ] 4b.4. Clean up any remaining compatibility code
+
+- [ ] 4c. Update documentation
+  - [ ] 4c.1. Update function documentation to reflect new parameters
+  - [ ] 4c.2. Update module-level documentation
+  - [ ] 4c.3. Update usage examples in comments
+  - [ ] 4c.4. Update architectural analysis document
+
+- [ ] 4d. Final testing and validation
+  - [ ] 4d.1. Run complete test suite
+  - [ ] 4d.2. Verify all functionality works correctly
+  - [ ] 4d.3. Check for any remaining global state dependencies
+  - [ ] 4d.4. Validate performance hasn't degraded
+
+### Task 5: Enhance Testing Infrastructure
+**Goal:** Improve testing capabilities enabled by dependency injection
+
+- [ ] 5a. Create test helper utilities
+  - [ ] 5a.1. Create `AudioSystemTestContext` for testing
+  - [ ] 5a.2. Add mock implementations for testing
+  - [ ] 5a.3. Add test setup and teardown utilities
+  - [ ] 5a.4. Create test data generation helpers
+
+- [ ] 5b. Write isolated unit tests
+  - [ ] 5b.1. Test AudioWorkletManager in isolation
+  - [ ] 5b.2. Test action listeners with mocked context
+  - [ ] 5b.3. Test microphone integration with dependency injection
+  - [ ] 5b.4. Test pitch analyzer with controlled dependencies
+
+- [ ] 5c. Add integration tests
+  - [ ] 5c.1. Test complete audio system initialization
+  - [ ] 5c.2. Test UI action integration end-to-end
+  - [ ] 5c.3. Test error scenarios and recovery
+  - [ ] 5c.4. Test performance under load
+
+- [ ] 5d. Update existing tests
+  - [ ] 5d.1. Migrate existing tests to use dependency injection
+  - [ ] 5d.2. Add tests for new AudioSystemContext functionality
+  - [ ] 5d.3. Ensure all tests use proper dependency injection
+  - [ ] 5d.4. Validate test coverage hasn't decreased
+
+### Task 6: Performance Optimization and Validation
+**Goal:** Ensure performance characteristics are maintained or improved
+
+- [ ] 6a. Benchmark current performance
+  - [ ] 6a.1. Measure current audio processing latency
+  - [ ] 6a.2. Measure memory usage patterns
+  - [ ] 6a.3. Measure initialization time
+  - [ ] 6a.4. Document baseline performance metrics
+
+- [ ] 6b. Optimize context access patterns
+  - [ ] 6b.1. Minimize context parameter passing overhead
+  - [ ] 6b.2. Optimize frequent access patterns
+  - [ ] 6b.3. Consider using context references vs owned instances
+  - [ ] 6b.4. Profile critical audio processing paths
+
+- [ ] 6c. Validate performance post-migration
+  - [ ] 6c.1. Re-measure audio processing latency
+  - [ ] 6c.2. Re-measure memory usage patterns
+  - [ ] 6c.3. Re-measure initialization time
+  - [ ] 6c.4. Compare against baseline metrics
+
+- [ ] 6d. Address any performance regressions
+  - [ ] 6d.1. Identify performance bottlenecks
+  - [ ] 6d.2. Implement optimization strategies
+  - [ ] 6d.3. Re-test after optimizations
+  - [ ] 6d.4. Document final performance characteristics
+
+## Dependencies and Order of Operations
+
+### Critical Dependencies
+1. **Task 1** must be completed before **Task 2** (context structure needed for function updates)
+2. **Task 2** must be completed before **Task 3** (updated functions needed for migration)
+3. **Task 3** must be completed before **Task 4** (migration needed before removal)
+4. **Task 5** can be done in parallel with **Tasks 2-4** (testing infrastructure)
+5. **Task 6** should be done throughout the process (performance monitoring)
+
+### Initialization Order Requirements
+1. AudioContextManager must be initialized before AudioWorkletManager
+2. AudioWorkletManager must be initialized before PitchAnalyzer
+3. Data setters must be configured after component initialization
+4. Action listeners must be set up after all components are ready
+
+## Testing Considerations
+
+### Test Strategy
+- **Unit tests** for each component in isolation
+- **Integration tests** for component interactions
+- **Performance tests** to validate no regression
+- **End-to-end tests** for complete audio functionality
+
+### Test Requirements
+- All tests must use `wasm-pack test --node` as specified in CLAUDE.md
+- Tests must pass before any task can be marked complete
+- Each subtask should have corresponding tests
+- Performance tests should validate no regression
+
+### Test Coverage Goals
+- 100% coverage of AudioSystemContext functionality
+- 100% coverage of migration paths
+- 100% coverage of error scenarios
+- Maintain existing test coverage levels
+
+## Potential Challenges and Solutions
+
+### Challenge 1: Circular Dependencies
+**Problem:** Components might have circular dependencies when using dependency injection
+
+**Solution:**
+- Use dependency injection for runtime dependencies only
+- Keep initialization dependencies one-way
+- Use event/observer pattern for loose coupling where needed
+
+### Challenge 2: Performance Impact
+**Problem:** Parameter passing might add overhead to performance-critical paths
+
+**Solution:**
+- Use references instead of owned instances where possible
+- Profile critical paths and optimize as needed
+- Consider using context caching for frequently accessed components
+
+### Challenge 3: Complex Initialization Order
+**Problem:** Proper initialization order becomes more complex with dependency injection
+
+**Solution:**
+- Implement initialization in AudioSystemContext constructor
+- Use builder pattern if initialization becomes too complex
+- Add validation to ensure proper initialization order
+
+### Challenge 4: Testing Complexity
+**Problem:** Testing might become more complex with dependency injection
+
+**Solution:**
+- Create comprehensive test utilities and mocks
+- Use dependency injection to make testing easier, not harder
+- Implement test-specific context configurations
+
+### Challenge 5: Backwards Compatibility
+**Problem:** Breaking changes might affect other parts of the system
+
+**Solution:**
+- Use gradual migration strategy with bridge pattern
+- Maintain API compatibility where possible
+- Add deprecation warnings before removal
+
+### Challenge 6: Optional vs Mandatory Setters
+**Problem:** Current code treats setters as optional, but making them mandatory might break things
+
+**Solution:**
+- Analysis shows setters are always available at construction time
+- Provide no-op setters for testing scenarios where data publishing isn't needed
+- Make setters mandatory to ensure components are always properly configured
+
+## Success Criteria
+
+### Functional Requirements
+- [ ] All current functionality maintained
+- [ ] No regression in audio processing capabilities
+- [ ] All tests pass (including new tests)
+- [ ] Action pattern integration continues to work
+- [ ] UI controls continue to function properly
+
+### Non-Functional Requirements
+- [ ] No performance regression in audio processing
+- [ ] Improved testability with dependency injection
+- [ ] Better encapsulation within audio module
+- [ ] Clearer component dependencies
+- [ ] Maintained real-time audio processing capabilities
+
+### Code Quality Requirements
+- [ ] No global state in audio module
+- [ ] Explicit dependency declarations
+- [ ] Improved unit test coverage
+- [ ] Better separation of concerns
+- [ ] Cleaner initialization patterns
+
+## Implementation Timeline
+
+### Phase 1: Foundation (Tasks 1-2)
+- Estimated effort: 3-4 days
+- Create AudioSystemContext and update function signatures
+- Focus on maintaining functionality during transition
+
+### Phase 2: Migration (Task 3)
+- Estimated effort: 2-3 days
+- Implement gradual migration strategy
+- Ensure no functionality regression
+
+### Phase 3: Cleanup (Task 4)
+- Estimated effort: 1-2 days
+- Remove global state infrastructure
+- Clean up temporary migration code
+
+### Phase 4: Enhancement (Tasks 5-6)
+- Estimated effort: 2-3 days
+- Improve testing infrastructure and validate performance
+- Can be done in parallel with other phases
+
+### Total Estimated Effort: 8-12 days
+
+## Post-Implementation Benefits
+
+### Immediate Benefits
+- Improved testability through dependency injection
+- Better encapsulation within audio module
+- Clearer component dependencies
+- Reduced hidden dependencies
+
+### Long-term Benefits
+- Easier to add new audio components
+- Better maintainability and debugging
+- Improved code organization
+- Foundation for future architectural improvements
+
+### Performance Benefits
+- Potential for better optimization through explicit dependencies
+- More predictable initialization and lifecycle management
+- Reduced global state complexity
+- Better memory management patterns
