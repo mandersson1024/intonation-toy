@@ -26,7 +26,7 @@ In the `TransferableBufferPool` class:
 - `release()` method (lines 199-216)
 - `enableGCPauseDetection()` method (lines 369-374)
 - `destroy()` method (lines 376-384)
-- GC pause detection code that's implemented but never enabled
+- GC pause detection code that's implemented but never enabled - **REMOVE: Not connected to any configuration, adds unnecessary complexity, and provides limited value in AudioWorklet context**
 
 ### 4. Unused Types
 - `BufferState` enum in audio/buffer.rs (line 51)
@@ -37,9 +37,10 @@ In the `TransferableBufferPool` class:
 
 ### 6. Test Code
 Several test functions in audio/mod.rs (lines 366-518) are marked with `#[allow(dead_code)]`
+**Note**: The combination of `#[allow(dead_code)]` with `#[wasm_bindgen_test]` is intentionally allowed and should NOT be cleaned up. This pattern is used for WASM test functions.
 
 ### 7. Dead Code Paths
-- GC pause detection code in audio-processor.js (lines 141-148, 361-367) - implemented but never enabled
+- GC pause detection code in audio-processor.js (lines 141-148, 361-367) - **REMOVE: Console commands exist but are not connected to AudioWorklet**
 - The `destroy()` method on line 376 of the buffer pool is never called
 
 ## Recommendations
@@ -48,9 +49,9 @@ Several test functions in audio/mod.rs (lines 366-518) are marked with `#[allow(
 
 2. **Remove unused error reporting system**: The entire error reporting infrastructure in `message_protocol.rs` appears to be unused and adds significant complexity.
 
-3. **Clean up JavaScript buffer pool**: Remove unused methods like `enableGCPauseDetection()` and `destroy()` if they're not needed.
+3. **Clean up JavaScript buffer pool**: Remove unused methods like `enableGCPauseDetection()` and `destroy()` if they're not needed. **Priority: Remove GC pause detection - it's not connected to configuration and adds unnecessary complexity.**
 
-4. **Review test code**: Either enable the tests marked as dead code or remove them if they're no longer relevant.
+4. **Review test code**: Either enable the tests marked as dead code or remove them if they're no longer relevant. **Exception**: Do not remove test functions marked with both `#[allow(dead_code)]` and `#[wasm_bindgen_test]` - this combination is intentionally allowed.
 
 5. **Consider removing unused types**: `BufferState` enum and `TestSignalConfig` struct could be removed if confirmed unused.
 
