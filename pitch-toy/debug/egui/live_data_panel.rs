@@ -411,10 +411,14 @@ impl EguiLiveDataPanel {
     fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
         ui.heading("Buffer Pool Statistics");
         
+        // Request fresh statistics from the audio system
         if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
             let worklet = worklet_rc.borrow();
-            
-            if let Some(stats) = worklet.get_buffer_pool_stats() {
+            let _ = worklet.request_status_update(); // Trigger status update from JavaScript
+        }
+        
+        // Use reactive data from LiveData instead of pulling from worklet
+        if let Some(stats) = self.live_data.buffer_pool_stats.get() {
                 // Pool status
                 ui.horizontal(|ui| {
                     ui.label("Pool Status:");
@@ -500,20 +504,8 @@ impl EguiLiveDataPanel {
                     ui.label(format!("{:.1}%", stats.buffer_utilization_percent));
                 });
                 
-            } else {
-                ui.colored_label(Color32::YELLOW, "No buffer pool statistics available");
-                // Request status update to populate statistics
-                match worklet.request_status_update() {
-                    Ok(()) => {
-                        ui.colored_label(Color32::LIGHT_BLUE, "Status update requested...");
-                    }
-                    Err(e) => {
-                        ui.colored_label(Color32::RED, format!("Failed to request status: {}", e));
-                    }
-                }
-            }
         } else {
-            ui.colored_label(Color32::RED, "AudioWorklet not available");
+            ui.colored_label(Color32::YELLOW, "No buffer pool statistics available");
         }
     }
     

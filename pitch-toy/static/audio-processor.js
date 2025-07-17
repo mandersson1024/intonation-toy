@@ -125,6 +125,10 @@ class TransferableBufferPool {
     acquire() {
         const startTime = getCurrentTime();
         this.stats.acquireCount++;
+        console.log(`🔍 BUFFER_POOL_DEBUG: acquire() called on instance ${this.instanceId} - stats.acquireCount = ${this.stats.acquireCount}, availableIndices.length = ${this.availableIndices.length}`);
+        if (this.stats.acquireCount % 100 === 0) {
+            console.log(`🔍 BUFFER_POOL_DEBUG: acquire() milestone - stats.acquireCount = ${this.stats.acquireCount}`);
+        }
         
         // Check for timed out buffers periodically (since setInterval is not available in AudioWorklet)
         if (this.timeoutCheckEnabled && this.lastTimeoutCheck > 0) {
@@ -178,6 +182,7 @@ class TransferableBufferPool {
     
     markTransferred(buffer) {
         this.stats.transferCount++;
+        console.log(`🔍 BUFFER_POOL_DEBUG: markTransferred() called on instance ${this.instanceId} - stats.transferCount = ${this.stats.transferCount}`);
         
         const index = this.inUseBuffers.get(buffer);
         if (index === undefined) {
@@ -263,12 +268,25 @@ class TransferableBufferPool {
     }
     
     getStats() {
-        return {
-            ...this.stats,
+        console.log(`🔍 BUFFER_POOL_DEBUG: getStats() START - this.stats.acquireCount=${this.stats.acquireCount}, this.stats.transferCount=${this.stats.transferCount}`);
+        
+        // Always return current stats, not cached values
+        const stats = {
+            acquireCount: this.stats.acquireCount,
+            transferCount: this.stats.transferCount,
+            poolExhaustedCount: this.stats.poolExhaustedCount,
+            timeoutCount: this.stats.timeoutCount,
+            validationFailures: this.stats.validationFailures,
+            returnedBuffers: this.stats.returnedBuffers,
+            bufferReuseRate: this.stats.bufferReuseRate,
+            averageTurnoverTime: this.stats.averageTurnoverTime,
             availableBuffers: this.availableIndices.length,
             inUseBuffers: this.inUseBuffers.size,
             totalBuffers: this.poolSize
         };
+        
+        console.log(`🔍 BUFFER_POOL_DEBUG: getStats() RESULT - acquireCount=${stats.acquireCount}, transferCount=${stats.transferCount}`);
+        return stats;
     }
     
     startTimeoutChecker() {
@@ -658,6 +676,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Initialize buffer pool for ping-pong recycling
         this.bufferPool = new TransferableBufferPool(16, this.batchSize); // 16 buffers in pool
+        this.bufferPool.instanceId = Math.random().toString(36).substr(2, 9); // Unique instance ID for debugging
+        console.log(`🔍 BUFFER_POOL_DEBUG: Created buffer pool instance: ${this.bufferPool.instanceId}`);
         this.bufferPoolConfig = {
             maxConsecutiveFailures: 3, // Max consecutive pool failures before warning
             warningThreshold: 10       // Warn if pool exhausted count exceeds this
@@ -752,9 +772,11 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      */
     acquireNewBuffer() {
         this.bufferStats.acquireCount++;
+        console.log(`🔍 BUFFER_POOL_DEBUG: acquireNewBuffer() called, bufferStats.acquireCount=${this.bufferStats.acquireCount}`);
         
         // Try to acquire from pool first
         const acquisition = this.bufferPool.acquire();
+        console.log(`🔍 BUFFER_POOL_DEBUG: acquire() returned:`, acquisition);
         
         if (acquisition) {
             // Successfully acquired from pool
@@ -926,6 +948,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 case ToWorkletMessageType.GET_STATUS:
                     const poolStats = this.bufferPool.getStats();
                     const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
+                    console.log(`🔍 BUFFER_POOL_DEBUG: GET_STATUS calling getStats() on instance ${this.bufferPool.instanceId} - poolStats =`, poolStats);
+                    console.log('🔍 BUFFER_POOL_DEBUG: GET_STATUS - poolPerfMetrics =', poolPerfMetrics);
                     const statusData = {
                         isProcessing: this.isProcessing,
                         chunkCounter: this.chunkCounter,
@@ -1204,18 +1228,18 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
         const processStartTime = getCurrentTime();
         
-        // Debug logging disabled - verification complete
-        // if (this.chunkCounter < 5) {
-        //     console.log(`PitchDetectionProcessor: process() called - chunk ${this.chunkCounter}, inputs: ${inputs.length}, outputs: ${outputs.length}`);
-        // }
+        // Debug logging for buffer pool investigation
+        if (this.chunkCounter < 5) {
+            console.log(`🔍 BUFFER_POOL_DEBUG: process() called - chunk ${this.chunkCounter}, inputs: ${inputs.length}, outputs: ${outputs.length}, isProcessing: ${this.isProcessing}`);
+        }
         
         const input = inputs[0];
         const output = outputs[0];
         
-        // Debug logging disabled - remove spam
-        // if (this.chunkCounter % 100 === 0) {
-        //     console.log(`AudioWorklet: Processing chunk ${this.chunkCounter}, input channels: ${input ? input.length : 0}, processing: ${this.isProcessing}`);
-        // }
+        // Debug logging for buffer pool investigation
+        if (this.chunkCounter % 100 === 0) {
+            console.log(`🔍 BUFFER_POOL_DEBUG: Processing chunk ${this.chunkCounter}, input channels: ${input ? input.length : 0}, processing: ${this.isProcessing}`);
+        }
         
         // Check if we have valid input
         if (!input || input.length === 0) {
@@ -1282,6 +1306,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         }
         
         // Accumulate processed audio data for batching
+        // Debug logging removed to reduce spam
         if (this.isProcessing) {
             try {
                 // Ensure we have a buffer to write to

@@ -138,6 +138,7 @@ pub async fn start() {
     let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
     let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+    let buffer_pool_stats_source = DataSource::new(None::<audio::message_protocol::BufferPoolStats>);
     
     let live_data = live_data::LiveData {
         microphone_permission: microphone_permission_source.observer(),
@@ -146,6 +147,7 @@ pub async fn start() {
         volume_level: volume_level_source.observer(),
         pitch_data: pitch_data_source.observer(),
         audioworklet_status: audioworklet_status_source.observer(),
+        buffer_pool_stats: buffer_pool_stats_source.observer(),
     };
     
     let microphone_permission_setter = microphone_permission_source.setter();
@@ -154,13 +156,15 @@ pub async fn start() {
     let performance_metrics_setter = performance_metrics_source.setter();
     let pitch_data_setter = pitch_data_source.setter();
     let volume_level_setter = volume_level_source.setter();
+    let buffer_pool_stats_setter = buffer_pool_stats_source.setter();
     
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
     match initialize_audio_systems(
         Some(std::rc::Rc::new(pitch_data_setter.clone())),
         Some(std::rc::Rc::new(volume_level_setter.clone())),
-        Some(std::rc::Rc::new(audioworklet_status_setter.clone()))
+        Some(std::rc::Rc::new(audioworklet_status_setter.clone())),
+        Some(std::rc::Rc::new(buffer_pool_stats_setter.clone()))
     ).await {
         Ok(_) => {
             dev_log!("✓ Audio system initialization completed successfully");
@@ -195,7 +199,8 @@ pub async fn start() {
 async fn initialize_audio_systems(
     pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>,
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>,
-    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>
+    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>,
+    buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<audio::message_protocol::BufferPoolStats>>>>
 ) -> Result<(), String> {
     // Initialize audio system
     web_sys::console::log_1(&"DEBUG: About to call audio::initialize_audio_system()".into());
@@ -210,7 +215,7 @@ async fn initialize_audio_systems(
     
     // Initialize AudioWorklet manager (required)
     web_sys::console::log_1(&"DEBUG: About to call initialize_audioworklet_manager()".into());
-    audio::worklet::initialize_audioworklet_manager().await
+    audio::worklet::initialize_audioworklet_manager(buffer_pool_stats_setter).await
         .map_err(|e| {
             web_sys::console::error_1(&format!("AudioWorklet manager initialization failed: {}", e).into());
             format!("AudioWorklet manager initialization failed: {}", e)

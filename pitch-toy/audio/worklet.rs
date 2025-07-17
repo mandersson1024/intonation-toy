@@ -180,6 +180,8 @@ pub struct AudioWorkletManager {
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     // Setter for updating volume level in live data
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
+    // Setter for updating buffer pool statistics in live data
+    buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
     // Pitch analyzer for direct audio processing
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
     // Setter for updating pitch data in live data
@@ -208,6 +210,7 @@ impl AudioWorkletManager {
             audioworklet_status_setter: None,
             shared_data: None,
             volume_level_setter: None,
+            buffer_pool_stats_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
             message_factory: AudioWorkletMessageFactory::new(),
@@ -232,6 +235,7 @@ impl AudioWorkletManager {
             audioworklet_status_setter: None,
             shared_data: None,
             volume_level_setter: None,
+            buffer_pool_stats_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
             message_factory: AudioWorkletMessageFactory::new(),
@@ -560,7 +564,7 @@ impl AudioWorkletManager {
                 dev_log!("AudioWorklet status update: active={}, processed_batches={}", 
                          status.active, status.processed_batches);
                 
-                // Store buffer pool statistics for UI display
+                // Store buffer pool statistics for UI display and push to reactive system
                 if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
                     dev_log!("✓ Buffer pool stats received: hit_rate={:.1}%, pool_size={}, available={}", 
@@ -568,6 +572,14 @@ impl AudioWorkletManager {
                              buffer_pool_stats.pool_size, 
                              buffer_pool_stats.available_buffers);
                     dev_log!("✓ Buffer pool stats stored in shared_data, stats available for UI");
+                    
+                    // Push to reactive system if setter is available
+                    if let Some(setter) = &self.buffer_pool_stats_setter {
+                        setter.set(Some(buffer_pool_stats.clone()));
+                        dev_log!("✓ Buffer pool stats pushed to reactive LiveData system");
+                    } else {
+                        dev_log!("✗ No buffer pool stats setter available for reactive updates");
+                    }
                 } else {
                     dev_log!("✗ Status update received but no buffer pool stats included");
                 }
@@ -1031,6 +1043,24 @@ impl AudioWorkletManager {
             match self.setup_message_handling() {
                 Ok(_) => {
                     dev_log!("Message handler updated with new pitch data setter");
+                }
+                Err(e) => {
+                    dev_log!("Failed to update message handler: {:?}", e);
+                }
+            }
+        }
+    }
+    
+    /// Set the buffer pool stats setter for live data updates
+    pub fn set_buffer_pool_stats_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>) {
+        self.buffer_pool_stats_setter = Some(setter);
+        dev_log!("Buffer pool stats setter updated on AudioWorkletManager");
+        
+        // If AudioWorklet is already initialized, update the message handler to include the new setter
+        if self.worklet_node.is_some() {
+            match self.setup_message_handling() {
+                Ok(_) => {
+                    dev_log!("Message handler updated with new buffer pool stats setter");
                 }
                 Err(e) => {
                     dev_log!("Failed to update message handler: {:?}", e);
@@ -1520,7 +1550,9 @@ mod tests {
 }
 
 /// Initialize AudioWorklet manager with buffer pool and event dispatcher integration
-pub async fn initialize_audioworklet_manager() -> Result<(), String> {
+pub async fn initialize_audioworklet_manager(
+    buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>
+) -> Result<(), String> {
     use crate::common::dev_log;
     
     dev_log!("Initializing AudioWorklet manager");
@@ -1535,6 +1567,14 @@ pub async fn initialize_audioworklet_manager() -> Result<(), String> {
     // Add volume detector for real-time volume analysis
     let volume_detector = super::VolumeDetector::new_default();
     worklet_manager.set_volume_detector(volume_detector);
+    
+    // Set buffer pool stats setter if provided
+    if let Some(setter) = buffer_pool_stats_setter {
+        dev_log!("✓ Setting buffer pool stats setter on worklet manager");
+        worklet_manager.set_buffer_pool_stats_setter(setter);
+    } else {
+        dev_log!("✗ No buffer pool stats setter provided to worklet manager");
+    }
     
     // Note: Initial status will be published automatically by the manager
     

@@ -13,4 +13,5 @@ pub struct LiveData {
     pub volume_level: DataObserver<Option<VolumeLevelData>>,
     pub pitch_data: DataObserver<Option<PitchData>>,
     pub audioworklet_status: DataObserver<AudioWorkletStatus>,
+    pub buffer_pool_stats: DataObserver<Option<crate::audio::message_protocol::BufferPoolStats>>,
 }
