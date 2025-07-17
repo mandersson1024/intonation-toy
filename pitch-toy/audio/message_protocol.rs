@@ -94,6 +94,9 @@ pub struct AudioDataBatch {
     
     /// Optional batch sequence number
     pub sequence_number: Option<u32>,
+    
+    /// Buffer ID for ping-pong pattern
+    pub buffer_id: Option<u32>,
 }
 
 /// Processor status information
@@ -970,6 +973,11 @@ impl ToJsMessage for AudioDataBatch {
                 .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sequenceNumber: {:?}", e)))?;
         }
         
+        if let Some(buffer_id) = self.buffer_id {
+            Reflect::set(&obj, &"bufferId".into(), &(buffer_id as f64).into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
+        }
+        
         Ok(obj)
     }
 }
@@ -1007,12 +1015,22 @@ impl FromJsMessage for AudioDataBatch {
             _ => None,
         };
         
+        let buffer_id = match Reflect::get(obj, &"bufferId".into()) {
+            Ok(value) if !value.is_undefined() => {
+                Some(value.as_f64()
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?
+                    as u32)
+            }
+            _ => None,
+        };
+        
         Ok(AudioDataBatch {
             sample_rate,
             sample_count,
             buffer_length,
             timestamp,
             sequence_number,
+            buffer_id,
         })
     }
 }
@@ -2288,6 +2306,7 @@ impl AudioDataBatch {
             buffer_length,
             timestamp: get_high_resolution_timestamp(),
             sequence_number,
+            buffer_id: None,
         };
         
         batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -2308,6 +2327,7 @@ impl AudioDataBatch {
             buffer_length,
             timestamp,
             sequence_number,
+            buffer_id: None,
         };
         
         batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;

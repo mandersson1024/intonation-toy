@@ -336,11 +336,17 @@ impl AudioWorkletManager {
         
         // Wait for module to load
         let module_future = wasm_bindgen_futures::JsFuture::from(module_promise);
-        module_future.await.map_err(|e| AudioError::StreamInitFailed(
-            format!("AudioWorklet module loading failed: {:?}", e)
-        ))?;
-        
-        dev_log!("✓ AudioWorklet processor module loaded successfully");
+        match module_future.await {
+            Ok(_) => {
+                dev_log!("✓ AudioWorklet processor module loaded successfully");
+            }
+            Err(e) => {
+                dev_log!("✗ AudioWorklet module loading failed: {:?}", e);
+                return Err(AudioError::StreamInitFailed(
+                    format!("AudioWorklet module loading failed: {:?}", e)
+                ));
+            }
+        }
         
         // Create AudioWorklet node with options
         let options = AudioWorkletNodeOptions::new();
@@ -378,7 +384,8 @@ impl AudioWorkletManager {
     /// Create AudioWorklet node with the registered processor
     fn create_worklet_node(&self, context: &AudioContext, options: &AudioWorkletNodeOptions) -> Result<AudioWorkletNode, js_sys::Error> {
         // Create AudioWorkletNode with the registered 'pitch-processor'
-        let node = AudioWorkletNode::new_with_options(context, "pitch-processor", options)?;
+        let node = AudioWorkletNode::new_with_options(context, "pitch-processor", options)
+            .map_err(|e| js_sys::Error::new(&format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e)))?;
         
         dev_log!("✓ AudioWorklet node created successfully");
         Ok(node)
@@ -597,8 +604,12 @@ impl AudioWorkletManager {
                     Self::process_audio_samples(&audio_samples, data.sample_rate, shared_data);
                     
                     // Return buffer to worklet for recycling (ping-pong pattern)
-                    if let Err(e) = self.return_buffer_to_worklet(array_buffer) {
-                        dev_log!("Warning: Failed to return buffer to worklet: {}", e);
+                    if let Some(buffer_id) = data.buffer_id {
+                        if let Err(e) = self.return_buffer_to_worklet(array_buffer, buffer_id) {
+                            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
+                        }
+                    } else {
+                        dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
                     }
                 } else {
                     dev_log!("Warning: Buffer field is not an ArrayBuffer");
@@ -1006,16 +1017,12 @@ impl AudioWorkletManager {
     }
     
     /// Return buffer to AudioWorklet for recycling (ping-pong pattern)
-    fn return_buffer_to_worklet(&self, buffer: js_sys::ArrayBuffer) -> Result<(), crate::audio::AudioError> {
+    fn return_buffer_to_worklet(&self, buffer: js_sys::ArrayBuffer, buffer_id: u32) -> Result<(), crate::audio::AudioError> {
         if !self.ping_pong_enabled {
             return Ok(()); // Skip if ping-pong is disabled
         }
         
         if let Some(worklet_node) = &self.worklet_node {
-            // Generate a buffer ID for tracking
-            let buffer_id = (js_sys::Date::now() as u32).wrapping_mul(1000).wrapping_add(
-                (js_sys::Math::random() * 1000.0) as u32
-            );
             
             // Create ReturnBuffer message
             let return_message = match self.message_factory.return_buffer(buffer_id) {

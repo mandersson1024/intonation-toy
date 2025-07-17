@@ -110,20 +110,21 @@ pub async fn start() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
     
-    dev_log!("Starting Pitch Toy application");
+    web_sys::console::log_1(&"DEBUG: Starting Pitch Toy application".into());
     dev_log!("Build configuration: {}", if cfg!(debug_assertions) { "Development" } else { "Production" });
     dev_log!("{}", Platform::get_platform_info());
     
     // Validate critical platform APIs before proceeding
+    web_sys::console::log_1(&"DEBUG: Checking platform feature support...".into());
     if let PlatformValidationResult::MissingCriticalApis(missing_apis) = Platform::check_feature_support() {
         let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
-        dev_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
-        dev_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
+        web_sys::console::error_1(&format!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", ")).into());
+        web_sys::console::error_1(&"✗ Application cannot start. Please upgrade your browser or use a supported browser:".into());
         // TODO: Add error screen rendering in future story when UI requirements are defined
         return;
     }
 
-    dev_log!("✓ Platform validation passed - initializing application");
+    web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing application".into());
     
     // Create data sources and LiveData directly in start()
     use observable_data::DataSource;
@@ -154,16 +155,23 @@ pub async fn start() {
     let pitch_data_setter = pitch_data_source.setter();
     let volume_level_setter = volume_level_source.setter();
     
-    // Initialize audio systems first
-    if let Err(e) = initialize_audio_systems(
+    // Initialize audio systems first - but don't block the UI if it fails
+    web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
+    match initialize_audio_systems(
         Some(std::rc::Rc::new(pitch_data_setter.clone())),
         Some(std::rc::Rc::new(volume_level_setter.clone())),
         Some(std::rc::Rc::new(audioworklet_status_setter.clone()))
     ).await {
-        dev_log!("✗ Audio system initialization failed: {}", e);
-        dev_log!("Application cannot continue without audio system");
-        // TODO: Add error screen rendering in future story when UI requirements are defined
-        return;
+        Ok(_) => {
+            dev_log!("✓ Audio system initialization completed successfully");
+            web_sys::console::log_1(&"✓ Audio system initialization completed successfully".into());
+        }
+        Err(e) => {
+            dev_log!("✗ Audio system initialization failed: {}", e);
+            dev_log!("Application will continue without audio system");
+            web_sys::console::warn_1(&format!("Audio system initialization failed: {}", e).into());
+            // Continue with UI rendering - audio features will be disabled
+        }
     }
     
     // Create audio service AFTER AudioWorklet initialization
@@ -174,7 +182,7 @@ pub async fn start() {
         service
     });
     
-    // Trigger initial device enumeration
+    // Trigger initial device enumeration - but don't fail if it doesn't work
     audio_service.refresh_devices();
     
     // Note: Audio console service is needed for volume level updates in both debug and release builds
@@ -190,16 +198,24 @@ async fn initialize_audio_systems(
     audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>
 ) -> Result<(), String> {
     // Initialize audio system
+    web_sys::console::log_1(&"DEBUG: About to call audio::initialize_audio_system()".into());
     audio::initialize_audio_system().await
-        .map_err(|e| format!("Audio system initialization failed: {}", e))?;
-    dev_log!("✓ Audio system initialized successfully");
+        .map_err(|e| {
+            web_sys::console::error_1(&format!("Audio system initialization failed: {}", e).into());
+            format!("Audio system initialization failed: {}", e)
+        })?;
+    web_sys::console::log_1(&"DEBUG: ✓ Audio system initialized successfully".into());
     
     // Note: Buffer pool initialization removed - using direct processing with transferable buffers
     
     // Initialize AudioWorklet manager (required)
+    web_sys::console::log_1(&"DEBUG: About to call initialize_audioworklet_manager()".into());
     audio::worklet::initialize_audioworklet_manager().await
-        .map_err(|e| format!("AudioWorklet manager initialization failed: {}", e))?;
-    dev_log!("✓ AudioWorklet manager initialized successfully");
+        .map_err(|e| {
+            web_sys::console::error_1(&format!("AudioWorklet manager initialization failed: {}", e).into());
+            format!("AudioWorklet manager initialization failed: {}", e)
+        })?;
+    web_sys::console::log_1(&"DEBUG: ✓ AudioWorklet manager initialized successfully".into());
     
     // Set the volume level setter if provided
     if let Some(setter) = volume_level_setter {
