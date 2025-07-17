@@ -390,7 +390,7 @@ const FromWorkletMessageType = {
     PROCESSING_STOPPED: 'processingStopped',
     AUDIO_DATA_BATCH: 'audioDataBatch',
     PROCESSING_ERROR: 'processingError',
-    STATUS_UPDATE: 'status',
+    STATUS_UPDATE: 'statusUpdate',
     TEST_SIGNAL_CONFIG_UPDATED: 'testSignalConfigUpdated',
     BACKGROUND_NOISE_CONFIG_UPDATED: 'backgroundNoiseConfigUpdated',
     BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
@@ -509,9 +509,14 @@ class AudioWorkletMessageProtocol {
             timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.STATUS_UPDATE,
-                isProcessing: status.isProcessing,
-                chunkCounter: status.chunkCounter,
-                bufferPoolStats: status.bufferPoolStats
+                status: {
+                    active: status.isProcessing,
+                    sampleRate: this.sampleRate || 44100,
+                    bufferSize: this.bufferSize || 128,
+                    processedBatches: status.chunkCounter,
+                    avgProcessingTimeMs: parseFloat(status.performanceMetrics?.audioProcessing?.averageProcessingTime) || 0.0,
+                    bufferPoolStats: status.bufferPoolStats
+                }
             }
         };
     }
@@ -936,15 +941,21 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                             consecutivePoolFailures: this.consecutivePoolFailures,
                             
                             // Enhanced buffer pool reporting
-                            bufferUtilizationPercent: (this.bufferStats.averageBufferUtilization * 100).toFixed(1),
-                            totalMegabytesTransferred: (this.bufferStats.totalBytesTransferred / 1024 / 1024).toFixed(2),
+                            bufferUtilizationPercent: this.bufferStats.averageBufferUtilization * 100,
+                            totalMegabytesTransferred: this.bufferStats.totalBytesTransferred / 1024 / 1024,
                             bufferLifecycle: this.bufferStats.bufferLifecycle,
                             
                             // Pool efficiency metrics
                             poolHitRate: poolStats.acquireCount > 0 ? 
-                                (((poolStats.acquireCount - poolStats.poolExhaustedCount) / poolStats.acquireCount) * 100).toFixed(1) : '0.0',
+                                ((poolStats.acquireCount - poolStats.poolExhaustedCount) / poolStats.acquireCount) * 100 : 0.0,
                             poolEfficiency: poolStats.transferCount > 0 ? 
-                                ((poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100).toFixed(1) : '0.0'
+                                (poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100 : 0.0,
+                            
+                            // Acquisition time metrics
+                            avgAcquisitionTimeMs: poolPerfMetrics.averageAcquisitionTime || 0.0,
+                            fastestAcquisitionTimeMs: poolPerfMetrics.fastestAcquisitionTime || 0.0,
+                            slowestAcquisitionTimeMs: poolPerfMetrics.slowestAcquisitionTime || 0.0,
+                            gcPausesDetected: poolPerfMetrics.gcPausesDetected || 0
                         },
                         performanceMetrics: {
                             // Buffer pool performance

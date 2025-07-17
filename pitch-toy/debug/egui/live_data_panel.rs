@@ -502,6 +502,15 @@ impl EguiLiveDataPanel {
                 
             } else {
                 ui.colored_label(Color32::YELLOW, "No buffer pool statistics available");
+                // Request status update to populate statistics
+                match worklet.request_status_update() {
+                    Ok(()) => {
+                        ui.colored_label(Color32::LIGHT_BLUE, "Status update requested...");
+                    }
+                    Err(e) => {
+                        ui.colored_label(Color32::RED, format!("Failed to request status: {}", e));
+                    }
+                }
             }
         } else {
             ui.colored_label(Color32::RED, "AudioWorklet not available");

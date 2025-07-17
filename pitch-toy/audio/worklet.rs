@@ -563,10 +563,13 @@ impl AudioWorkletManager {
                 // Store buffer pool statistics for UI display
                 if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
-                    dev_log!("Buffer pool stats: hit_rate={:.1}%, pool_size={}, available={}", 
+                    dev_log!("✓ Buffer pool stats received: hit_rate={:.1}%, pool_size={}, available={}", 
                              buffer_pool_stats.pool_hit_rate, 
                              buffer_pool_stats.pool_size, 
                              buffer_pool_stats.available_buffers);
+                    dev_log!("✓ Buffer pool stats stored in shared_data, stats available for UI");
+                } else {
+                    dev_log!("✗ Status update received but no buffer pool stats included");
                 }
                 // Status updates don't change the main state
             }
@@ -761,6 +764,10 @@ impl AudioWorkletManager {
                     self.message_factory.return_buffer(buffer_id)
                         .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
                 }
+                ToWorkletMessage::GetStatus => {
+                    self.message_factory.get_status()
+                        .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {:?}", e)))?
+                }
             };
             
             let serializer = MessageSerializer::new();
@@ -937,12 +944,51 @@ impl AudioWorkletManager {
     
     /// Get buffer pool statistics
     pub fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
-        self.shared_data.as_ref()?.borrow().buffer_pool_stats.clone()
+        match &self.shared_data {
+            Some(shared_data) => {
+                let stats = shared_data.borrow().buffer_pool_stats.clone();
+                if stats.is_some() {
+                    dev_log!("✓ get_buffer_pool_stats returning stats");
+                } else {
+                    dev_log!("✗ get_buffer_pool_stats: no stats available in shared_data");
+                }
+                stats
+            }
+            None => {
+                dev_log!("✗ get_buffer_pool_stats: no shared_data available");
+                None
+            }
+        }
     }
     
     /// Check if audio processing is active
     pub fn is_processing(&self) -> bool {
         matches!(self.state, AudioWorkletState::Processing)
+    }
+    
+    /// Request status update from the AudioWorklet processor
+    pub fn request_status_update(&self) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            dev_log!("🔍 Requesting status update from AudioWorklet...");
+            
+            let message = self.message_factory.get_status()
+                .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {}", e)))?;
+            
+            let serializer = super::message_protocol::MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&message)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize get status message: {}", e)))?;
+            
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            
+            port.post_message(&js_message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send get status message: {:?}", e)))?;
+            
+            dev_log!("✓ Status update request sent to AudioWorklet, awaiting response...");
+            Ok(())
+        } else {
+            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        }
     }
     
     /// Get chunk size for processing

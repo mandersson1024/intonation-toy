@@ -45,6 +45,9 @@ pub enum ToWorkletMessage {
     ReturnBuffer {
         buffer_id: u32,
     },
+    
+    /// Request status update from worklet
+    GetStatus,
 }
 
 /// Message types sent from AudioWorklet to main thread
@@ -827,6 +830,10 @@ impl ToJsMessage for ToWorkletMessage {
                 Reflect::set(&obj, &"bufferId".into(), &(*buffer_id).into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
             }
+            ToWorkletMessage::GetStatus => {
+                Reflect::set(&obj, &"type".into(), &"getStatus".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+            }
         }
         
         Ok(obj)
@@ -874,6 +881,9 @@ impl FromJsMessage for ToWorkletMessage {
                     .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?;
                 Ok(ToWorkletMessage::ReturnBuffer { buffer_id: buffer_id as u32 })
             }
+            "getStatus" => {
+                Ok(ToWorkletMessage::GetStatus)
+            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -887,6 +897,7 @@ impl MessageValidator for ToWorkletMessage {
             ToWorkletMessage::UpdateBatchConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => config.validate(),
             ToWorkletMessage::ReturnBuffer { buffer_id: _ } => Ok(()),
+            ToWorkletMessage::GetStatus => Ok(()),
         }
     }
 }
@@ -2499,6 +2510,11 @@ impl ToWorkletMessage {
     pub fn return_buffer(buffer_id: u32) -> Self {
         Self::ReturnBuffer { buffer_id }
     }
+    
+    /// Create a get status message
+    pub fn get_status() -> Self {
+        Self::GetStatus
+    }
 }
 
 impl FromWorkletMessage {
@@ -3014,6 +3030,16 @@ impl AudioWorkletMessageFactory {
     /// Create a return buffer message envelope
     pub fn return_buffer(&self, buffer_id: u32) -> MessageConstructionResult<ToWorkletEnvelope> {
         let message = ToWorkletMessage::return_buffer(buffer_id);
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create a get status message envelope
+    pub fn get_status(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::get_status();
         Ok(MessageEnvelope {
             message_id: self.generate_id(),
             timestamp: get_high_resolution_timestamp(),
