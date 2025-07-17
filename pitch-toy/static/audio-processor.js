@@ -37,9 +37,326 @@
  * ```
  */
 
-// Import TransferableBufferPool for buffer recycling
-// Note: In AudioWorklet context, we need to import directly
-importScripts('transferable-buffer-pool.js');
+// TransferableBufferPool class (inlined for AudioWorklet compatibility)
+// Note: importScripts is not available in AudioWorklet context
+class TransferableBufferPool {
+    constructor(poolSize = 4, bufferCapacity = 1024, options = {}) {
+        this.poolSize = poolSize;
+        this.bufferCapacity = bufferCapacity;
+        this.buffers = [];
+        this.availableIndices = [];
+        this.inUseBuffers = new Map();
+        
+        // Buffer lifecycle management
+        this.bufferStates = [];
+        this.bufferTimestamps = [];
+        this.bufferIds = [];
+        this.nextBufferId = 1;
+        
+        // Configuration options
+        this.options = {
+            timeout: options.timeout || 5000,
+            enableTimeouts: options.enableTimeouts !== false,
+            enableValidation: options.enableValidation !== false,
+            ...options
+        };
+        
+        // Buffer states enum
+        this.BUFFER_STATES = {
+            AVAILABLE: 'available',
+            IN_FLIGHT: 'in_flight',
+            PROCESSING: 'processing',
+            TIMED_OUT: 'timed_out'
+        };
+        
+        // Performance counters
+        this.perfCounters = {
+            allocationCount: 0,
+            totalAcquisitionTime: 0,
+            fastestAcquisition: Infinity,
+            slowestAcquisition: 0,
+            poolHitRate: 0,
+            gcPauseDetection: {
+                enabled: false,
+                threshold: 50,
+                pauseCount: 0,
+                lastCheckTime: 0
+            }
+        };
+        
+        // Statistics
+        this.stats = {
+            acquireCount: 0,
+            transferCount: 0,
+            poolExhaustedCount: 0,
+            timeoutCount: 0,
+            validationFailures: 0,
+            returnedBuffers: 0,
+            bufferReuseRate: 0,
+            averageTurnoverTime: 0
+        };
+        
+        // Initialize pool with pre-allocated buffers
+        for (let i = 0; i < poolSize; i++) {
+            this.buffers.push(new ArrayBuffer(bufferCapacity * 4));
+            this.availableIndices.push(i);
+            this.bufferStates.push(this.BUFFER_STATES.AVAILABLE);
+            this.bufferTimestamps.push(0);
+            this.bufferIds.push(0);
+            this.perfCounters.allocationCount++;
+        }
+        
+        // Start timeout checker if enabled
+        if (this.options.enableTimeouts) {
+            this.startTimeoutChecker();
+        }
+    }
+    
+    acquire() {
+        const startTime = performance.now();
+        this.stats.acquireCount++;
+        
+        // GC pause detection
+        if (this.perfCounters.gcPauseDetection.enabled && this.perfCounters.gcPauseDetection.lastCheckTime > 0) {
+            const timeSinceLastCheck = startTime - this.perfCounters.gcPauseDetection.lastCheckTime;
+            if (timeSinceLastCheck > this.perfCounters.gcPauseDetection.threshold) {
+                this.perfCounters.gcPauseDetection.pauseCount++;
+                console.warn(`TransferableBufferPool: Potential GC pause detected (${timeSinceLastCheck.toFixed(2)}ms)`);
+            }
+        }
+        this.perfCounters.gcPauseDetection.lastCheckTime = startTime;
+        
+        if (this.availableIndices.length === 0) {
+            this.stats.poolExhaustedCount++;
+            console.warn('TransferableBufferPool: Pool exhausted, no buffers available');
+            
+            const acquisitionTime = performance.now() - startTime;
+            this.updateAcquisitionMetrics(acquisitionTime);
+            
+            return null;
+        }
+        
+        const index = this.availableIndices.pop();
+        const buffer = this.buffers[index];
+        
+        // Track buffer usage
+        this.inUseBuffers.set(buffer, index);
+        
+        // Update buffer lifecycle tracking
+        this.bufferStates[index] = this.BUFFER_STATES.IN_FLIGHT;
+        this.bufferTimestamps[index] = Date.now();
+        this.bufferIds[index] = this.nextBufferId++;
+        
+        // Track acquisition time
+        const acquisitionTime = performance.now() - startTime;
+        this.updateAcquisitionMetrics(acquisitionTime);
+        
+        return {
+            buffer: buffer,
+            bufferId: this.bufferIds[index]
+        };
+    }
+    
+    markTransferred(buffer) {
+        this.stats.transferCount++;
+        
+        const index = this.inUseBuffers.get(buffer);
+        if (index === undefined) {
+            console.error('TransferableBufferPool: Attempting to mark unknown buffer as transferred');
+            return;
+        }
+        
+        // Remove from in-use tracking
+        this.inUseBuffers.delete(buffer);
+        
+        // Update buffer lifecycle tracking
+        this.bufferStates[index] = this.BUFFER_STATES.PROCESSING;
+        // Keep timestamp for timeout tracking
+    }
+    
+    release(buffer) {
+        const index = this.inUseBuffers.get(buffer);
+        if (index === undefined) {
+            console.error('TransferableBufferPool: Attempting to release unknown buffer');
+            return;
+        }
+        
+        // Remove from in-use tracking
+        this.inUseBuffers.delete(buffer);
+        
+        // Update buffer lifecycle tracking
+        this.bufferStates[index] = this.BUFFER_STATES.AVAILABLE;
+        this.bufferTimestamps[index] = 0;
+        this.bufferIds[index] = 0;
+        
+        // Mark index as available again
+        this.availableIndices.push(index);
+    }
+    
+    returnBuffer(bufferId, buffer) {
+        if (!buffer || !(buffer instanceof ArrayBuffer)) {
+            console.error('TransferableBufferPool: Invalid buffer provided for return');
+            this.stats.validationFailures++;
+            return false;
+        }
+        
+        // Validate buffer size matches expected
+        const expectedSize = this.bufferCapacity * 4;
+        if (this.options.enableValidation && buffer.byteLength !== expectedSize) {
+            console.error('TransferableBufferPool: Returned buffer size mismatch. Expected:', expectedSize, 'Got:', buffer.byteLength);
+            this.stats.validationFailures++;
+            return false;
+        }
+        
+        // Find buffer by ID for proper lifecycle tracking
+        let targetIndex = -1;
+        for (let i = 0; i < this.poolSize; i++) {
+            if (this.bufferIds[i] === bufferId && this.bufferStates[i] === this.BUFFER_STATES.PROCESSING) {
+                targetIndex = i;
+                break;
+            }
+        }
+        
+        if (targetIndex !== -1) {
+            // Found the buffer, return it to its original slot
+            this.buffers[targetIndex] = buffer;
+            this.bufferStates[targetIndex] = this.BUFFER_STATES.AVAILABLE;
+            this.bufferTimestamps[targetIndex] = 0;
+            this.bufferIds[targetIndex] = 0;
+            
+            if (!this.availableIndices.includes(targetIndex)) {
+                this.availableIndices.push(targetIndex);
+            }
+            
+            this.stats.returnedBuffers++;
+            
+            // Calculate buffer reuse rate
+            if (this.stats.transferCount > 0) {
+                this.stats.bufferReuseRate = (this.stats.returnedBuffers / this.stats.transferCount) * 100;
+            }
+            
+            console.log('TransferableBufferPool: Buffer returned to pool, ID:', bufferId, 'Index:', targetIndex);
+            return true;
+        }
+        
+        console.warn('TransferableBufferPool: Could not return buffer to pool');
+        return false;
+    }
+    
+    getStats() {
+        return {
+            ...this.stats,
+            availableBuffers: this.availableIndices.length,
+            inUseBuffers: this.inUseBuffers.size,
+            totalBuffers: this.poolSize
+        };
+    }
+    
+    startTimeoutChecker() {
+        if (this.timeoutChecker) {
+            clearInterval(this.timeoutChecker);
+        }
+        
+        this.timeoutChecker = setInterval(() => {
+            this.checkForTimedOutBuffers();
+        }, 1000);
+    }
+    
+    stopTimeoutChecker() {
+        if (this.timeoutChecker) {
+            clearInterval(this.timeoutChecker);
+            this.timeoutChecker = null;
+        }
+    }
+    
+    checkForTimedOutBuffers() {
+        const now = Date.now();
+        let reclaimedCount = 0;
+        
+        for (let i = 0; i < this.poolSize; i++) {
+            const state = this.bufferStates[i];
+            const timestamp = this.bufferTimestamps[i];
+            
+            if ((state === this.BUFFER_STATES.IN_FLIGHT || state === this.BUFFER_STATES.PROCESSING) && 
+                timestamp > 0 && 
+                (now - timestamp) > this.options.timeout) {
+                
+                this.bufferStates[i] = this.BUFFER_STATES.TIMED_OUT;
+                this.bufferTimestamps[i] = 0;
+                const bufferId = this.bufferIds[i];
+                this.bufferIds[i] = 0;
+                
+                // Create a new buffer to replace the lost one
+                this.buffers[i] = new ArrayBuffer(this.bufferCapacity * 4);
+                this.bufferStates[i] = this.BUFFER_STATES.AVAILABLE;
+                this.perfCounters.allocationCount++;
+                
+                if (!this.availableIndices.includes(i)) {
+                    this.availableIndices.push(i);
+                }
+                
+                reclaimedCount++;
+                this.stats.timeoutCount++;
+                
+                console.warn(`TransferableBufferPool: Buffer ${bufferId} timed out after ${this.options.timeout}ms, reclaimed buffer at index ${i}`);
+            }
+        }
+        
+        if (reclaimedCount > 0) {
+            console.log(`TransferableBufferPool: Reclaimed ${reclaimedCount} timed out buffers`);
+        }
+    }
+    
+    updateAcquisitionMetrics(acquisitionTime) {
+        this.perfCounters.totalAcquisitionTime += acquisitionTime;
+        this.perfCounters.fastestAcquisition = Math.min(this.perfCounters.fastestAcquisition, acquisitionTime);
+        this.perfCounters.slowestAcquisition = Math.max(this.perfCounters.slowestAcquisition, acquisitionTime);
+        
+        // Calculate pool hit rate
+        if (this.stats.acquireCount > 0) {
+            this.perfCounters.poolHitRate = ((this.stats.acquireCount - this.stats.poolExhaustedCount) / this.stats.acquireCount) * 100;
+        }
+    }
+    
+    getPerformanceMetrics() {
+        const avgAcquisitionTime = this.stats.acquireCount > 0 ? 
+            this.perfCounters.totalAcquisitionTime / this.stats.acquireCount : 0;
+            
+        return {
+            allocationCount: this.perfCounters.allocationCount,
+            poolHitRate: this.perfCounters.poolHitRate.toFixed(2) + '%',
+            acquisitionMetrics: {
+                average: avgAcquisitionTime.toFixed(3) + 'ms',
+                fastest: this.perfCounters.fastestAcquisition === Infinity ? 'N/A' : 
+                    this.perfCounters.fastestAcquisition.toFixed(3) + 'ms',
+                slowest: this.perfCounters.slowestAcquisition.toFixed(3) + 'ms',
+                total: this.perfCounters.totalAcquisitionTime.toFixed(3) + 'ms'
+            },
+            gcPauseDetection: {
+                enabled: this.perfCounters.gcPauseDetection.enabled,
+                pauseCount: this.perfCounters.gcPauseDetection.pauseCount,
+                threshold: this.perfCounters.gcPauseDetection.threshold + 'ms'
+            }
+        };
+    }
+    
+    enableGCPauseDetection(threshold = 50) {
+        this.perfCounters.gcPauseDetection.enabled = true;
+        this.perfCounters.gcPauseDetection.threshold = threshold;
+        this.perfCounters.gcPauseDetection.lastCheckTime = performance.now();
+        console.log(`TransferableBufferPool: GC pause detection enabled (threshold: ${threshold}ms)`);
+    }
+    
+    destroy() {
+        this.stopTimeoutChecker();
+        this.buffers = [];
+        this.availableIndices = [];
+        this.inUseBuffers.clear();
+        this.bufferStates = [];
+        this.bufferTimestamps = [];
+        this.bufferIds = [];
+    }
+}
 
 // Message Protocol (inlined for AudioWorklet compatibility)
 // Message type constants matching Rust enums

@@ -6,10 +6,10 @@ This document provides a detailed implementation plan for adding a ping-pong buf
 ## Current State Analysis
 
 ### Existing Components
-1. **TransferableBufferPool** (`static/transferable-buffer-pool.js`)
+1. **TransferableBufferPool** (inlined in `static/audio-processor.js`)
    - Already implemented with acquire/release methods
    - Tracks pool statistics and handles exhaustion
-   - Not currently integrated with AudioWorklet
+   - Integrated with AudioWorklet (inlined due to importScripts limitation)
 
 2. **AudioWorklet Processor** (`static/audio-processor.js`)
    - Creates new buffers for each batch: `new ArrayBuffer(this.batchSize * 4)`
@@ -133,18 +133,18 @@ Add instrumentation to verify performance improvements.
 - Memory profiling tests
 - Performance regression tests
 
-### Task 6: Documentation and Examples
+### Task 6: Documentation and Examples ✅
 Update documentation to reflect the new pattern.
 
-- [ ] 6a. Update `audioworklet_architecture_analysis.md` to mark feature as implemented
+- [x] 6a. Update `audioworklet_architecture_analysis.md` to mark feature as implemented
 
-- [ ] 6b. Update `the-detached-buffer-problem.md` with actual implementation details
+- [x] 6b. Update `the-detached-buffer-problem.md` with actual implementation details
 
-- [ ] 6c. Add code examples showing the ping-pong pattern in action
+- [x] 6c. Add code examples showing the ping-pong pattern in action
 
-- [ ] 6d. Document configuration options and tuning guidelines
+- [x] 6d. Document configuration options and tuning guidelines
 
-- [ ] 6e. Create troubleshooting guide for common issues
+- [x] 6e. Create troubleshooting guide for common issues
 
 ## Dependencies and Order of Operations
 
