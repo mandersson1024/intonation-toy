@@ -121,6 +121,7 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 }
 
 /// Set the AudioWorklet status setter on the global AudioWorkletManager
+/// DEPRECATED: Use AudioSystemContext constructor instead
 pub fn set_audioworklet_status_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<AudioWorkletStatus>>
 ) {
@@ -138,6 +139,7 @@ pub fn set_audioworklet_status_setter(
 }
 
 /// Set the pitch data setter on the global PitchAnalyzer
+/// DEPRECATED: Use AudioSystemContext constructor instead
 pub fn set_pitch_data_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<Option<PitchData>>>
 ) {
@@ -160,6 +162,7 @@ pub fn set_pitch_data_setter(
 }
 
 /// Set the volume level setter on the global AudioWorkletManager
+/// DEPRECATED: Use AudioSystemContext constructor instead
 pub fn set_volume_level_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<Option<VolumeLevelData>>>
 ) {
@@ -176,6 +179,7 @@ pub fn set_volume_level_setter(
 // Note: initialize_buffer_pool removed - using direct processing with transferable buffers
 
 /// Initialize global pitch analyzer with default configuration
+/// DEPRECATED: Use AudioSystemContext::initialize() instead
 pub async fn initialize_pitch_analyzer() -> Result<(), String> {
     dev_log!("Initializing pitch analyzer");
     
@@ -254,6 +258,89 @@ pub use message_protocol::{
 };
 
 /// Setup UI action listeners for audio module
+/// New version with AudioSystemContext parameter - currently using global fallback
+/// TODO: Implement proper thread-safe context sharing for closures
+pub fn setup_ui_action_listeners_with_context(
+    listeners: crate::UIControlListeners,
+    microphone_permission_setter: impl observable_data::DataSetter<AudioPermission> + Clone + 'static,
+    _audio_context: std::rc::Rc<std::cell::RefCell<AudioSystemContext>>,
+) {
+    // For now, we fall back to global access due to thread safety requirements
+    // The ActionListener requires Send + Sync closures, but Rc<RefCell<T>> is not Send/Sync
+    // Future improvement: Consider using Arc<RwLock<T>> or a different approach
+    
+    // Test signal action listener
+    listeners.test_signal.listen(|action| {
+        dev_log!("Received test signal action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI action to audio system config
+            let audio_config = TestSignalGeneratorConfig {
+                enabled: action.enabled,
+                frequency: action.frequency,
+                amplitude: action.volume / 100.0, // Convert percentage to 0-1 range
+                waveform: action.waveform,
+                sample_rate: 48000.0, // Use standard sample rate
+            };
+            
+            worklet.update_test_signal_config(audio_config);
+            dev_log!("✓ Test signal config updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for test signal config");
+        }
+    });
+    
+    // Background noise action listener
+    listeners.background_noise.listen(|action| {
+        dev_log!("Received background noise action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI action to audio system config
+            let audio_config = BackgroundNoiseConfig {
+                enabled: action.enabled,
+                level: action.level,
+                noise_type: action.noise_type,
+            };
+            
+            worklet.update_background_noise_config(audio_config);
+            dev_log!("✓ Background noise config updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for background noise config");
+        }
+    });
+    
+    // Output to speakers action listener
+    listeners.output_to_speakers.listen(|action| {
+        dev_log!("Received output to speakers action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            worklet.set_output_to_speakers(action.enabled);
+            dev_log!("✓ Output to speakers setting updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for output to speakers setting");
+        }
+    });
+    
+    // Microphone permission action listener
+    listeners.microphone_permission.listen(move |action| {
+        dev_log!("Received microphone permission action: {:?}", action);
+        
+        if action.request_permission {
+            // Trigger microphone permission request using the same function
+            // that was previously called directly by the button
+            permission::connect_microphone(microphone_permission_setter.clone());
+            dev_log!("✓ Microphone permission request triggered via action");
+        }
+    });
+}
+
+/// Setup UI action listeners for audio module
+/// DEPRECATED: Use setup_ui_action_listeners_with_context instead
 pub fn setup_ui_action_listeners(
     listeners: crate::UIControlListeners,
     microphone_permission_setter: impl observable_data::DataSetter<AudioPermission> + Clone + 'static,

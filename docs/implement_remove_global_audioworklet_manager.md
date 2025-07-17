@@ -62,32 +62,32 @@ This document outlines the implementation plan for removing the global `get_glob
   - [x] 1d.3. Test lifecycle management
   - [x] 1d.4. Test error handling scenarios
 
-### Task 2: Update Function Signatures for Dependency Injection
+### Task 2: Update Function Signatures for Dependency Injection ✅
 **Goal:** Modify audio module functions to accept AudioSystemContext instead of using global access
 
-- [ ] 2a. Update initialization functions to pass setters at construction
-  - [ ] 2a.1. Update `initialize_audio_systems()` to pass setters to context constructor
-  - [ ] 2a.2. Remove separate setter configuration calls
-  - [ ] 2a.3. Ensure setters are available during construction phase
-  - [ ] 2a.4. All setters are mandatory parameters
+- [x] 2a. Update initialization functions to pass setters at construction
+  - [x] 2a.1. Update `initialize_audio_systems()` to pass setters to context constructor
+  - [x] 2a.2. Remove separate setter configuration calls
+  - [x] 2a.3. Ensure setters are available during construction phase
+  - [x] 2a.4. All setters are mandatory parameters
 
-- [ ] 2b. Update action listener setup
-  - [ ] 2b.1. Modify `setup_ui_action_listeners()` to accept context parameter
-  - [ ] 2b.2. Update action listener closures to use context instead of global access
-  - [ ] 2b.3. Ensure proper lifetime management for context references
-  - [ ] 2b.4. Test action listener functionality with new approach
+- [x] 2b. Update action listener setup
+  - [x] 2b.1. Modify `setup_ui_action_listeners()` to accept context parameter
+  - [x] 2b.2. Update action listener closures to use context instead of global access
+  - [x] 2b.3. Ensure proper lifetime management for context references
+  - [x] 2b.4. Test action listener functionality with new approach
 
-- [ ] 2c. Update microphone integration
-  - [ ] 2c.1. Modify microphone connection functions to accept context
-  - [ ] 2c.2. Update error handling to work with context-based approach
-  - [ ] 2c.3. Ensure proper AudioWorkletManager access in microphone.rs
-  - [ ] 2c.4. Test microphone functionality with dependency injection
+- [x] 2c. Update microphone integration
+  - [x] 2c.1. Modify microphone connection functions to accept context
+  - [x] 2c.2. Update error handling to work with context-based approach
+  - [x] 2c.3. Ensure proper AudioWorkletManager access in microphone.rs
+  - [x] 2c.4. Test microphone functionality with dependency injection
 
-- [ ] 2d. Update pitch analyzer initialization
-  - [ ] 2d.1. Modify `initialize_pitch_analyzer()` to accept context parameter
-  - [ ] 2d.2. Update pitch analyzer configuration to use context
-  - [ ] 2d.3. Ensure proper integration with AudioWorkletManager
-  - [ ] 2d.4. Test pitch analyzer functionality
+- [x] 2d. Update pitch analyzer initialization
+  - [x] 2d.1. Modify `initialize_pitch_analyzer()` to accept context parameter
+  - [x] 2d.2. Update pitch analyzer configuration to use context
+  - [x] 2d.3. Ensure proper integration with AudioWorkletManager
+  - [x] 2d.4. Test pitch analyzer functionality
 
 ### Task 3: Implement Gradual Migration Strategy
 **Goal:** Implement changes incrementally to maintain functionality during transition
