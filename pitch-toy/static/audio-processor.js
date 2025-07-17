@@ -342,6 +342,23 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             }
         };
         
+        // Performance monitoring
+        this.performanceMonitoring = {
+            enabled: true,
+            processingTimes: [],
+            maxSamples: 1000,
+            gcPauseThreshold: 10, // ms
+            lastProcessTime: 0,
+            metrics: {
+                averageProcessingTime: 0,
+                maxProcessingTime: 0,
+                minProcessingTime: Infinity,
+                gcPausesDetected: 0,
+                droppedChunks: 0,
+                processedChunks: 0
+            }
+        };
+        
         // Current batch buffer tracking
         this.currentBuffer = null;
         this.currentBufferArray = null;
@@ -574,6 +591,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 case ToWorkletMessageType.GET_STATUS:
                     const poolStats = this.bufferPool.getStats();
+                    const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
                     const statusData = {
                         isProcessing: this.isProcessing,
                         chunkCounter: this.chunkCounter,
@@ -598,6 +616,22 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                                 (((poolStats.acquireCount - poolStats.poolExhaustedCount) / poolStats.acquireCount) * 100).toFixed(1) : '0.0',
                             poolEfficiency: poolStats.transferCount > 0 ? 
                                 ((poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100).toFixed(1) : '0.0'
+                        },
+                        performanceMetrics: {
+                            // Buffer pool performance
+                            bufferPool: poolPerfMetrics,
+                            
+                            // Audio processing performance
+                            audioProcessing: {
+                                averageProcessingTime: this.performanceMonitoring.metrics.averageProcessingTime.toFixed(3) + 'ms',
+                                maxProcessingTime: this.performanceMonitoring.metrics.maxProcessingTime.toFixed(3) + 'ms',
+                                minProcessingTime: this.performanceMonitoring.metrics.minProcessingTime === Infinity ? 
+                                    'N/A' : this.performanceMonitoring.metrics.minProcessingTime.toFixed(3) + 'ms',
+                                gcPausesDetected: this.performanceMonitoring.metrics.gcPausesDetected,
+                                droppedChunks: this.performanceMonitoring.metrics.droppedChunks,
+                                processedChunks: this.performanceMonitoring.metrics.processedChunks,
+                                sampleCount: this.performanceMonitoring.processingTimes.length
+                            }
                         }
                     };
                     const statusMessage = this.messageProtocol.createStatusUpdateMessage(statusData);
@@ -829,6 +863,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      * @returns {boolean} - True to keep processor alive, false to terminate
      */
     process(inputs, outputs, parameters) {
+        const processStartTime = performance.now();
+        
         // Debug logging disabled - verification complete
         // if (this.chunkCounter < 5) {
         //     console.log(`PitchDetectionProcessor: process() called - chunk ${this.chunkCounter}, inputs: ${inputs.length}, outputs: ${outputs.length}`);
@@ -917,6 +953,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 // If we still don't have a buffer (pool exhausted), skip this chunk
                 if (!this.currentBufferArray) {
                     console.warn('PitchDetectionProcessor: No buffer available, skipping chunk');
+                    this.performanceMonitoring.metrics.droppedChunks++;
                     this.chunkCounter++;
                     return true;
                 }
@@ -962,6 +999,45 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         } else {
             // Not processing, but still increment chunk counter
             this.chunkCounter++;
+        }
+        
+        // Track performance metrics
+        if (this.performanceMonitoring.enabled) {
+            const processingTime = performance.now() - processStartTime;
+            
+            // Detect potential GC pauses
+            if (this.performanceMonitoring.lastProcessTime > 0) {
+                const timeSinceLastProcess = processStartTime - this.performanceMonitoring.lastProcessTime;
+                if (timeSinceLastProcess > this.performanceMonitoring.gcPauseThreshold) {
+                    this.performanceMonitoring.metrics.gcPausesDetected++;
+                    console.warn(`PitchDetectionProcessor: Potential GC pause detected (${timeSinceLastProcess.toFixed(2)}ms between process calls)`);
+                }
+            }
+            this.performanceMonitoring.lastProcessTime = processStartTime;
+            
+            // Update metrics
+            this.performanceMonitoring.metrics.processedChunks++;
+            this.performanceMonitoring.processingTimes.push(processingTime);
+            
+            // Keep only recent samples
+            if (this.performanceMonitoring.processingTimes.length > this.performanceMonitoring.maxSamples) {
+                this.performanceMonitoring.processingTimes.shift();
+            }
+            
+            // Update statistics
+            this.performanceMonitoring.metrics.maxProcessingTime = Math.max(
+                this.performanceMonitoring.metrics.maxProcessingTime,
+                processingTime
+            );
+            this.performanceMonitoring.metrics.minProcessingTime = Math.min(
+                this.performanceMonitoring.metrics.minProcessingTime,
+                processingTime
+            );
+            
+            // Calculate average
+            const sum = this.performanceMonitoring.processingTimes.reduce((a, b) => a + b, 0);
+            this.performanceMonitoring.metrics.averageProcessingTime = 
+                sum / this.performanceMonitoring.processingTimes.length;
         }
         
         // Keep processor alive

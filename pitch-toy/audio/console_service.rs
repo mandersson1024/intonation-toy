@@ -24,6 +24,31 @@ pub struct AudioStatus {
     pub devices: AudioDevices,
     /// Whether the audio system is properly initialized
     pub is_initialized: bool,
+    /// Buffer pool performance metrics (if available)
+    pub buffer_pool_metrics: Option<BufferPoolMetrics>,
+}
+
+/// Buffer pool performance metrics for UI display
+#[derive(Debug, Clone)]
+pub struct BufferPoolMetrics {
+    /// Pool size configuration
+    pub pool_size: u32,
+    /// Currently available buffers
+    pub available_buffers: u32,
+    /// Buffers currently in use
+    pub in_use_buffers: u32,
+    /// Pool hit rate percentage
+    pub pool_hit_rate: f32,
+    /// Total allocations made
+    pub allocation_count: u32,
+    /// Average buffer acquisition time in ms
+    pub avg_acquisition_time: f32,
+    /// Number of GC pauses detected
+    pub gc_pauses_detected: u32,
+    /// Number of dropped chunks due to pool exhaustion
+    pub dropped_chunks: u32,
+    /// Average audio processing time in ms
+    pub avg_processing_time: f32,
 }
 
 
@@ -227,6 +252,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
             context_state,
             devices,
             is_initialized,
+            buffer_pool_metrics: None, // TODO: Implement buffer pool metrics collection
         }
     }
     
@@ -316,6 +342,7 @@ mod tests {
             context_state: AudioContextState::Uninitialized,
             devices: AudioDevices::new(),
             is_initialized: false,
+            buffer_pool_metrics: None,
         };
         
         assert_eq!(status.permission, AudioPermission::Uninitialized);

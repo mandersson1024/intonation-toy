@@ -63,6 +63,7 @@ class TransferableBufferPool {
             this.bufferStates.push(this.BUFFER_STATES.AVAILABLE);
             this.bufferTimestamps.push(0);
             this.bufferIds.push(0);
+            this.perfCounters.allocationCount++; // Track initial allocations
         }
         
         // Statistics
@@ -77,6 +78,28 @@ class TransferableBufferPool {
             averageTurnoverTime: 0
         };
         
+        // Performance counters
+        this.perfCounters = {
+            allocationCount: 0,          // Number of new ArrayBuffer allocations
+            totalAcquisitionTime: 0,     // Total time spent acquiring buffers
+            fastestAcquisition: Infinity,
+            slowestAcquisition: 0,
+            poolHitRate: 0,              // Percentage of successful acquisitions
+            gcPauseDetection: {          // GC pause detection
+                enabled: false,
+                threshold: 50,           // ms threshold for GC pause detection
+                pauseCount: 0,
+                lastCheckTime: 0
+            }
+        };
+        
+        // Performance tracking
+        this.perfTracking = {
+            enabled: options.perfTracking !== false,
+            sampleSize: options.perfSampleSize || 1000,
+            samples: []
+        };
+        
         // Start timeout checker if enabled
         if (this.options.enableTimeouts) {
             this.startTimeoutChecker();
@@ -88,11 +111,27 @@ class TransferableBufferPool {
      * @returns {Object|null} - Object with buffer and bufferId, or null if pool exhausted
      */
     acquire() {
+        const startTime = performance.now();
         this.stats.acquireCount++;
+        
+        // GC pause detection
+        if (this.perfCounters.gcPauseDetection.enabled && this.perfCounters.gcPauseDetection.lastCheckTime > 0) {
+            const timeSinceLastCheck = startTime - this.perfCounters.gcPauseDetection.lastCheckTime;
+            if (timeSinceLastCheck > this.perfCounters.gcPauseDetection.threshold) {
+                this.perfCounters.gcPauseDetection.pauseCount++;
+                console.warn(`TransferableBufferPool: Potential GC pause detected (${timeSinceLastCheck.toFixed(2)}ms)`);
+            }
+        }
+        this.perfCounters.gcPauseDetection.lastCheckTime = startTime;
         
         if (this.availableIndices.length === 0) {
             this.stats.poolExhaustedCount++;
             console.warn('TransferableBufferPool: Pool exhausted, no buffers available');
+            
+            // Track acquisition time even for failures
+            const acquisitionTime = performance.now() - startTime;
+            this.updateAcquisitionMetrics(acquisitionTime);
+            
             return null;
         }
         
@@ -106,6 +145,10 @@ class TransferableBufferPool {
         this.bufferStates[index] = this.BUFFER_STATES.IN_FLIGHT;
         this.bufferTimestamps[index] = Date.now();
         this.bufferIds[index] = this.nextBufferId++;
+        
+        // Track acquisition time
+        const acquisitionTime = performance.now() - startTime;
+        this.updateAcquisitionMetrics(acquisitionTime);
         
         return {
             buffer: buffer,
@@ -136,6 +179,7 @@ class TransferableBufferPool {
         // Create replacement buffer
         const newBuffer = new ArrayBuffer(this.bufferCapacity * 4);
         this.buffers[index] = newBuffer;
+        this.perfCounters.allocationCount++; // Track replacement allocation
         
         // Mark index as available again
         this.availableIndices.push(index);
@@ -293,6 +337,18 @@ class TransferableBufferPool {
         this.stats.returnedBuffers = 0;
         this.stats.bufferReuseRate = 0;
         this.stats.averageTurnoverTime = 0;
+        
+        // Reset performance counters (keep allocation count)
+        this.perfCounters.totalAcquisitionTime = 0;
+        this.perfCounters.fastestAcquisition = Infinity;
+        this.perfCounters.slowestAcquisition = 0;
+        this.perfCounters.poolHitRate = 0;
+        this.perfCounters.gcPauseDetection.pauseCount = 0;
+        
+        // Clear performance samples
+        if (this.perfTracking.enabled) {
+            this.perfTracking.samples = [];
+        }
     }
     
     /**
@@ -344,6 +400,7 @@ class TransferableBufferPool {
                 // Create a new buffer to replace the lost one
                 this.buffers[i] = new ArrayBuffer(this.bufferCapacity * 4);
                 this.bufferStates[i] = this.BUFFER_STATES.AVAILABLE;
+                this.perfCounters.allocationCount++; // Track timeout replacement allocation
                 
                 // Add back to available indices if not already there
                 if (!this.availableIndices.includes(i)) {
@@ -371,6 +428,74 @@ class TransferableBufferPool {
             timestamps: [...this.bufferTimestamps],
             ids: [...this.bufferIds],
             availableIndices: [...this.availableIndices]
+        };
+    }
+    
+    /**
+     * Update acquisition performance metrics
+     * @param {number} acquisitionTime - Time taken to acquire buffer in ms
+     */
+    updateAcquisitionMetrics(acquisitionTime) {
+        this.perfCounters.totalAcquisitionTime += acquisitionTime;
+        this.perfCounters.fastestAcquisition = Math.min(this.perfCounters.fastestAcquisition, acquisitionTime);
+        this.perfCounters.slowestAcquisition = Math.max(this.perfCounters.slowestAcquisition, acquisitionTime);
+        
+        // Calculate pool hit rate
+        if (this.stats.acquireCount > 0) {
+            this.perfCounters.poolHitRate = ((this.stats.acquireCount - this.stats.poolExhaustedCount) / this.stats.acquireCount) * 100;
+        }
+        
+        // Track samples for performance analysis
+        if (this.perfTracking.enabled) {
+            this.perfTracking.samples.push({
+                timestamp: performance.now(),
+                acquisitionTime: acquisitionTime,
+                availableBuffers: this.availableIndices.length
+            });
+            
+            // Keep only recent samples
+            if (this.perfTracking.samples.length > this.perfTracking.sampleSize) {
+                this.perfTracking.samples.shift();
+            }
+        }
+    }
+    
+    /**
+     * Enable GC pause detection
+     * @param {number} threshold - Threshold in ms to consider as GC pause
+     */
+    enableGCPauseDetection(threshold = 50) {
+        this.perfCounters.gcPauseDetection.enabled = true;
+        this.perfCounters.gcPauseDetection.threshold = threshold;
+        this.perfCounters.gcPauseDetection.lastCheckTime = performance.now();
+        console.log(`TransferableBufferPool: GC pause detection enabled (threshold: ${threshold}ms)`);
+    }
+    
+    /**
+     * Get performance metrics
+     * @returns {Object} - Performance metrics
+     */
+    getPerformanceMetrics() {
+        const avgAcquisitionTime = this.stats.acquireCount > 0 ? 
+            this.perfCounters.totalAcquisitionTime / this.stats.acquireCount : 0;
+            
+        return {
+            allocationCount: this.perfCounters.allocationCount,
+            poolHitRate: this.perfCounters.poolHitRate.toFixed(2) + '%',
+            acquisitionMetrics: {
+                average: avgAcquisitionTime.toFixed(3) + 'ms',
+                fastest: this.perfCounters.fastestAcquisition === Infinity ? 'N/A' : 
+                    this.perfCounters.fastestAcquisition.toFixed(3) + 'ms',
+                slowest: this.perfCounters.slowestAcquisition.toFixed(3) + 'ms',
+                total: this.perfCounters.totalAcquisitionTime.toFixed(3) + 'ms'
+            },
+            gcPauseDetection: {
+                enabled: this.perfCounters.gcPauseDetection.enabled,
+                pauseCount: this.perfCounters.gcPauseDetection.pauseCount,
+                threshold: this.perfCounters.gcPauseDetection.threshold + 'ms'
+            },
+            recentSamples: this.perfTracking.enabled ? 
+                this.perfTracking.samples.slice(-10) : []
         };
     }
     
