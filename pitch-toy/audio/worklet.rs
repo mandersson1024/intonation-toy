@@ -790,7 +790,10 @@ impl AudioWorkletManager {
             port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
             
-            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
+            // Only log non-GetStatus messages to avoid console spam
+            if !matches!(envelope.payload, ToWorkletMessage::GetStatus) {
+                dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
+            }
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
