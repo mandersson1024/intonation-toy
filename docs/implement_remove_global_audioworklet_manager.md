@@ -69,7 +69,7 @@ This document outlines the implementation plan for removing the global `get_glob
   - [ ] 2a.1. Update `initialize_audio_systems()` to pass setters to context constructor
   - [ ] 2a.2. Remove separate setter configuration calls
   - [ ] 2a.3. Ensure setters are available during construction phase
-  - [ ] 2a.4. Handle optional setters with no-op implementations if needed
+  - [ ] 2a.4. All setters are mandatory parameters
 
 - [ ] 2b. Update action listener setup
   - [ ] 2b.1. Modify `setup_ui_action_listeners()` to accept context parameter
@@ -143,59 +143,6 @@ This document outlines the implementation plan for removing the global `get_glob
   - [ ] 4d.3. Check for any remaining global state dependencies
   - [ ] 4d.4. Validate performance hasn't degraded
 
-### Task 5: Enhance Testing Infrastructure
-**Goal:** Improve testing capabilities enabled by dependency injection
-
-- [ ] 5a. Create test helper utilities
-  - [ ] 5a.1. Create `AudioSystemTestContext` for testing
-  - [ ] 5a.2. Add mock implementations for testing
-  - [ ] 5a.3. Add test setup and teardown utilities
-  - [ ] 5a.4. Create test data generation helpers
-
-- [ ] 5b. Write isolated unit tests
-  - [ ] 5b.1. Test AudioWorkletManager in isolation
-  - [ ] 5b.2. Test action listeners with mocked context
-  - [ ] 5b.3. Test microphone integration with dependency injection
-  - [ ] 5b.4. Test pitch analyzer with controlled dependencies
-
-- [ ] 5c. Add integration tests
-  - [ ] 5c.1. Test complete audio system initialization
-  - [ ] 5c.2. Test UI action integration end-to-end
-  - [ ] 5c.3. Test error scenarios and recovery
-  - [ ] 5c.4. Test performance under load
-
-- [ ] 5d. Update existing tests
-  - [ ] 5d.1. Migrate existing tests to use dependency injection
-  - [ ] 5d.2. Add tests for new AudioSystemContext functionality
-  - [ ] 5d.3. Ensure all tests use proper dependency injection
-  - [ ] 5d.4. Validate test coverage hasn't decreased
-
-### Task 6: Performance Optimization and Validation
-**Goal:** Ensure performance characteristics are maintained or improved
-
-- [ ] 6a. Benchmark current performance
-  - [ ] 6a.1. Measure current audio processing latency
-  - [ ] 6a.2. Measure memory usage patterns
-  - [ ] 6a.3. Measure initialization time
-  - [ ] 6a.4. Document baseline performance metrics
-
-- [ ] 6b. Optimize context access patterns
-  - [ ] 6b.1. Minimize context parameter passing overhead
-  - [ ] 6b.2. Optimize frequent access patterns
-  - [ ] 6b.3. Consider using context references vs owned instances
-  - [ ] 6b.4. Profile critical audio processing paths
-
-- [ ] 6c. Validate performance post-migration
-  - [ ] 6c.1. Re-measure audio processing latency
-  - [ ] 6c.2. Re-measure memory usage patterns
-  - [ ] 6c.3. Re-measure initialization time
-  - [ ] 6c.4. Compare against baseline metrics
-
-- [ ] 6d. Address any performance regressions
-  - [ ] 6d.1. Identify performance bottlenecks
-  - [ ] 6d.2. Implement optimization strategies
-  - [ ] 6d.3. Re-test after optimizations
-  - [ ] 6d.4. Document final performance characteristics
 
 ## Dependencies and Order of Operations
 
@@ -203,8 +150,6 @@ This document outlines the implementation plan for removing the global `get_glob
 1. **Task 1** must be completed before **Task 2** (context structure needed for function updates)
 2. **Task 2** must be completed before **Task 3** (updated functions needed for migration)
 3. **Task 3** must be completed before **Task 4** (migration needed before removal)
-4. **Task 5** can be done in parallel with **Tasks 2-4** (testing infrastructure)
-5. **Task 6** should be done throughout the process (performance monitoring)
 
 ### Initialization Order Requirements
 1. AudioContextManager must be initialized before AudioWorkletManager
@@ -322,12 +267,7 @@ This document outlines the implementation plan for removing the global `get_glob
 - Remove global state infrastructure
 - Clean up temporary migration code
 
-### Phase 4: Enhancement (Tasks 5-6)
-- Estimated effort: 2-3 days
-- Improve testing infrastructure and validate performance
-- Can be done in parallel with other phases
-
-### Total Estimated Effort: 8-12 days
+### Total Estimated Effort: 6-9 days
 
 ## Post-Implementation Benefits
 
