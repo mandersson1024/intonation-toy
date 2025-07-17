@@ -735,12 +735,6 @@ impl MessageDeserializer {
             .ok_or_else(|| SerializationError::InvalidPropertyType(format!("Property '{}' is not a number", key)))
     }
     
-    /// Helper method to get string property
-    fn get_string_property(&self, obj: &Object, key: &str) -> SerializationResult<String> {
-        let value = self.get_property(obj, key)?;
-        value.as_string()
-            .ok_or_else(|| SerializationError::InvalidPropertyType(format!("Property '{}' is not a string", key)))
-    }
     
     /// Helper method to get object property
     fn get_object_property(&self, obj: &Object, key: &str) -> SerializationResult<Object> {
@@ -749,18 +743,6 @@ impl MessageDeserializer {
             .map_err(|_| SerializationError::InvalidPropertyType(format!("Property '{}' is not an object", key)))
     }
     
-    /// Helper method to get optional object property
-    fn get_optional_object_property(&self, obj: &Object, key: &str) -> SerializationResult<Option<Object>> {
-        match Reflect::get(obj, &key.into()) {
-            Ok(value) if value.is_undefined() || value.is_null() => Ok(None),
-            Ok(value) => {
-                let obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType(format!("Property '{}' is not an object", key)))?;
-                Ok(Some(obj))
-            }
-            Err(e) => Err(SerializationError::PropertyGetFailed(format!("Failed to get '{}': {:?}", key, e))),
-        }
-    }
     
     /// Helper method to get property from object
     fn get_property(&self, obj: &Object, key: &str) -> SerializationResult<JsValue> {
@@ -775,14 +757,6 @@ impl MessageDeserializer {
             })
     }
     
-    /// Helper method to get optional property from object
-    fn get_optional_property(&self, obj: &Object, key: &str) -> SerializationResult<Option<JsValue>> {
-        match Reflect::get(obj, &key.into()) {
-            Ok(value) if value.is_undefined() || value.is_null() => Ok(None),
-            Ok(value) => Ok(Some(value)),
-            Err(e) => Err(SerializationError::PropertyGetFailed(format!("Failed to get '{}': {:?}", key, e))),
-        }
-    }
 }
 
 // ================================

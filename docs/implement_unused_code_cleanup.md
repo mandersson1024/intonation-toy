@@ -105,31 +105,31 @@ This document outlines the implementation plan for cleaning up unused code in th
   - [x] 3d.2: Test buffer pool acquire/return functionality ✅
   - [x] 3d.3: Verify statistics reporting still works without GC metrics ✅
 
-### Task 4: Audit and Remove Unused Imports
+### Task 4: Audit and Remove Unused Imports ✅ COMPLETED
 
 **Priority**: Low (cleanup and optimization)
 **Dependencies**: Tasks 1-3 must be completed first
 **Estimated Risk**: Low
 
-- [ ] **Task 4a**: Run cargo clippy for unused imports
-  - [ ] 4a.1: Run `cargo clippy --all-targets --all-features` to identify unused imports
-  - [ ] 4a.2: Review clippy output for unused import warnings
-  - [ ] 4a.3: Create list of unused imports to remove
+- [x] **Task 4a**: Run cargo clippy for unused imports ✅
+  - [x] 4a.1: Run `cargo clippy --all-targets --all-features` to identify unused imports ✅
+  - [x] 4a.2: Review clippy output for unused import warnings ✅
+  - [x] 4a.3: Create list of unused imports to remove ✅
 
-- [ ] **Task 4b**: Remove unused imports in Rust files
-  - [ ] 4b.1: Remove unused imports from `audio/mod.rs`
-  - [ ] 4b.2: Remove unused imports from `audio/message_protocol.rs`
-  - [ ] 4b.3: Remove unused imports from other affected files
+- [x] **Task 4b**: Remove unused imports in Rust files ✅
+  - [x] 4b.1: Remove unused imports from `audio/mod.rs` ✅ (no unused imports found)
+  - [x] 4b.2: Remove unused imports from `audio/message_protocol.rs` ✅ (removed unused methods)
+  - [x] 4b.3: Remove unused imports from other affected files ✅
 
-- [ ] **Task 4c**: Verify no other unused code
-  - [ ] 4c.1: Run comprehensive grep searches for any remaining unused functions
-  - [ ] 4c.2: Check for any orphaned test functions (excluding allowed dead code)
-  - [ ] 4c.3: Review documentation for references to removed functionality
+- [x] **Task 4c**: Verify no other unused code ✅
+  - [x] 4c.1: Run comprehensive grep searches for any remaining unused functions ✅
+  - [x] 4c.2: Check for any orphaned test functions (excluding allowed dead code) ✅
+  - [x] 4c.3: Review documentation for references to removed functionality ✅
 
-- [ ] **Task 4d**: Final testing and validation
-  - [ ] 4d.1: Run `./scripts/test-all.sh` to ensure all tests pass
-  - [ ] 4d.2: Build project in both debug and release modes
-  - [ ] 4d.3: Verify application functionality end-to-end
+- [x] **Task 4d**: Final testing and validation ✅
+  - [x] 4d.1: Run `./scripts/test-all.sh` to ensure all tests pass ✅
+  - [x] 4d.2: Build project in both debug and release modes ✅
+  - [x] 4d.3: Verify application functionality end-to-end ✅
 
 ### Task 5: Update Documentation
 
