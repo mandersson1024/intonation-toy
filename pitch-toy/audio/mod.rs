@@ -35,10 +35,45 @@ thread_local! {
     static AUDIOWORKLET_MANAGER_GLOBAL: RefCell<Option<Rc<RefCell<worklet::AudioWorkletManager>>>> = RefCell::new(None);
 }
 
-/// Initialize audio system
-/// Returns Result to allow caller to handle initialization failures
+// Temporary global AudioSystemContext instance for bridge pattern
+thread_local! {
+    static GLOBAL_AUDIO_SYSTEM_CONTEXT: RefCell<Option<Rc<RefCell<context::AudioSystemContext>>>> = RefCell::new(None);
+}
+
+/// Initialize audio system with dependency injection
+/// Returns AudioSystemContext for centralized audio management
+pub async fn initialize_audio_system_with_context(
+    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<VolumeLevelData>>>,
+    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<PitchData>>>,
+    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<AudioWorkletStatus>>,
+) -> Result<context::AudioSystemContext, String> {
+    dev_log!("Initializing audio system with dependency injection");
+    
+    // Check AudioContext support
+    if !context::AudioContextManager::is_supported() {
+        return Err("Web Audio API not supported".to_string());
+    }
+    
+    // Create AudioSystemContext with setters passed at construction
+    let mut context = context::AudioSystemContext::new(
+        volume_level_setter,
+        pitch_data_setter,
+        audioworklet_status_setter,
+    );
+    
+    // Initialize the context (this handles all component initialization)
+    context.initialize().await
+        .map_err(|e| format!("AudioSystemContext initialization failed: {}", e))?;
+    
+    dev_log!("✓ Audio system initialization completed with dependency injection");
+    Ok(context)
+}
+
+/// Initialize audio system (legacy function for backward compatibility)
+/// DEPRECATED: Use initialize_audio_system_with_context instead
+#[deprecated(note = "Use initialize_audio_system_with_context instead")]
 pub async fn initialize_audio_system() -> Result<(), String> {
-    dev_log!("Initializing audio system");
+    dev_log!("Initializing audio system (legacy)");
     
     // Check AudioContext support
     if !context::AudioContextManager::is_supported() {
@@ -116,6 +151,8 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 // Note: Buffer pool global functions removed - using direct processing with transferable buffers
 
 /// Set the global AudioWorklet manager instance (called after creation)
+/// DEPRECATED: Use AudioSystemContext constructor instead
+#[deprecated(note = "Use AudioSystemContext constructor instead of global storage")]
 pub fn set_global_audioworklet_manager(manager: Rc<RefCell<worklet::AudioWorkletManager>>) {
     AUDIOWORKLET_MANAGER_GLOBAL.with(|awm| {
         *awm.borrow_mut() = Some(manager);
@@ -123,12 +160,65 @@ pub fn set_global_audioworklet_manager(manager: Rc<RefCell<worklet::AudioWorklet
 }
 
 /// Get the global AudioWorklet manager instance
+/// DEPRECATED: Use AudioSystemContext directly instead
+#[deprecated(note = "Use AudioSystemContext directly instead of global access")]
 pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWorkletManager>>> {
     AUDIOWORKLET_MANAGER_GLOBAL.with(|awm| awm.borrow().as_ref().cloned())
 }
 
+/// Set the global AudioSystemContext instance (bridge pattern)
+/// TEMPORARY: This is for migration purposes only
+pub fn set_global_audio_system_context(context: Rc<RefCell<context::AudioSystemContext>>) {
+    GLOBAL_AUDIO_SYSTEM_CONTEXT.with(|ctx| {
+        *ctx.borrow_mut() = Some(context);
+    });
+}
+
+/// Get the global AudioSystemContext instance (bridge pattern)
+/// TEMPORARY: This is for migration purposes only
+pub fn get_global_audio_system_context() -> Option<Rc<RefCell<context::AudioSystemContext>>> {
+    GLOBAL_AUDIO_SYSTEM_CONTEXT.with(|ctx| ctx.borrow().as_ref().cloned())
+}
+
+// Bridge pattern wrapper functions that delegate to context methods
+// TEMPORARY: These functions provide backwards compatibility during migration
+
+/// Get AudioWorklet manager from global context
+/// TEMPORARY: Use AudioSystemContext directly instead
+pub fn get_global_audioworklet_manager_from_context() -> Option<Rc<RefCell<worklet::AudioWorkletManager>>> {
+    // Note: The context method returns Option<&AudioWorkletManager>, but we need Option<Rc<RefCell<AudioWorkletManager>>>
+    // For now, fall back to the global access - this is a temporary bridge function anyway
+    get_global_audioworklet_manager()
+}
+
+/// Connect microphone using global context
+/// TEMPORARY: Use context-aware functions instead
+pub fn connect_microphone_to_audioworklet_from_context() -> impl std::future::Future<Output = Result<(), String>> {
+    async move {
+        if let Some(ctx) = get_global_audio_system_context() {
+            microphone::connect_microphone_to_audioworklet_with_context(&ctx).await
+        } else {
+            Err("AudioSystemContext not available".to_string())
+        }
+    }
+}
+
+/// Initialize pitch analyzer using global context
+/// TEMPORARY: Use context-aware functions instead
+pub fn initialize_pitch_analyzer_from_context() -> impl std::future::Future<Output = Result<(), String>> {
+    async move {
+        if let Some(ctx) = get_global_audio_system_context() {
+            // For now, use the existing function - can be improved later
+            initialize_pitch_analyzer().await
+        } else {
+            Err("AudioSystemContext not available".to_string())
+        }
+    }
+}
+
 /// Set the AudioWorklet status setter on the global AudioWorkletManager
 /// DEPRECATED: Use AudioSystemContext constructor instead
+#[deprecated(note = "Use AudioSystemContext constructor instead - setters should be passed during initialization")]
 pub fn set_audioworklet_status_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<AudioWorkletStatus>>
 ) {
@@ -147,6 +237,7 @@ pub fn set_audioworklet_status_setter(
 
 /// Set the pitch data setter on the global PitchAnalyzer
 /// DEPRECATED: Use AudioSystemContext constructor instead
+#[deprecated(note = "Use AudioSystemContext constructor instead - setters should be passed during initialization")]
 pub fn set_pitch_data_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<Option<PitchData>>>
 ) {
@@ -170,6 +261,7 @@ pub fn set_pitch_data_setter(
 
 /// Set the volume level setter on the global AudioWorkletManager
 /// DEPRECATED: Use AudioSystemContext constructor instead
+#[deprecated(note = "Use AudioSystemContext constructor instead - setters should be passed during initialization")]
 pub fn set_volume_level_setter(
     setter: std::rc::Rc<dyn observable_data::DataSetter<Option<VolumeLevelData>>>
 ) {
@@ -187,6 +279,7 @@ pub fn set_volume_level_setter(
 
 /// Initialize global pitch analyzer with default configuration
 /// DEPRECATED: Use AudioSystemContext::initialize() instead
+#[deprecated(note = "Use AudioSystemContext::initialize() instead - pitch analyzer is now initialized automatically")]
 pub async fn initialize_pitch_analyzer() -> Result<(), String> {
     dev_log!("Initializing pitch analyzer");
     
@@ -348,6 +441,7 @@ pub fn setup_ui_action_listeners_with_context(
 
 /// Setup UI action listeners for audio module
 /// DEPRECATED: Use setup_ui_action_listeners_with_context instead
+#[deprecated(note = "Use setup_ui_action_listeners_with_context instead - pass AudioSystemContext for better dependency management")]
 pub fn setup_ui_action_listeners(
     listeners: crate::UIControlListeners,
     microphone_permission_setter: impl observable_data::DataSetter<AudioPermission> + Clone + 'static,

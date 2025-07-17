@@ -254,6 +254,7 @@ pub fn connect_microphone_with_context(
 /// Connect microphone to audio worklet and update permission state
 /// DEPRECATED: Use connect_microphone_with_context instead
 /// This function is called synchronously from the user click callback
+#[deprecated(note = "Use connect_microphone_with_context instead - pass AudioSystemContext for better dependency management")]
 pub fn connect_microphone(setter: impl observable_data::DataSetter<AudioPermission> + 'static) {
     // Set state to requesting immediately (synchronously)
     setter.set(AudioPermission::Requesting);

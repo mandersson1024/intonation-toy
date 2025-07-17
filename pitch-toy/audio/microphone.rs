@@ -163,6 +163,8 @@ impl Drop for MicrophoneManager {
 
 /// Connect microphone to AudioWorklet for audio processing
 /// This is the main entry point for establishing the microphone → AudioWorklet pipeline
+/// DEPRECATED: Use connect_microphone_to_audioworklet_with_context instead
+#[deprecated(note = "Use connect_microphone_to_audioworklet_with_context instead - pass AudioSystemContext for better dependency management")]
 pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
     use crate::common::dev_log;
     

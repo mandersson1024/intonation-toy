@@ -123,12 +123,14 @@ impl ConsoleAudioServiceImpl {
     }
     
     /// Set the audio worklet status setter for direct data updates
+    /// Note: This is mainly for console service internal use - prefer constructor injection in AudioSystemContext
     pub fn set_audio_worklet_status_setter(&mut self, setter: impl observable_data::DataSetter<crate::audio::AudioWorkletStatus> + 'static) {
         let setter_rc = Rc::new(setter);
         self.audio_worklet_status_setter = Some(setter_rc.clone());
         
-        // Also set it on the global AudioWorkletManager if available
-        super::set_audioworklet_status_setter(setter_rc);
+        // Note: Global setter configuration is deprecated - setters are now configured during AudioSystemContext initialization
+        // If you need to update the setter, recreate the AudioSystemContext with the new setter
+        dev_log!("AudioWorklet status setter configured on console service (global setter call removed)");
     }
     
     
