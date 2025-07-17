@@ -812,73 +812,25 @@ impl ConsoleCommand for PoolConfigCommand {
                     }
                 }
             }
-            "gc" => {
-                if args.len() < 2 {
-                    outputs.push(ConsoleOutput::error("Usage: pool gc <enable|disable|threshold>"));
-                    outputs.push(ConsoleOutput::info("Examples:"));
-                    outputs.push(ConsoleOutput::info("  pool gc enable"));
-                    outputs.push(ConsoleOutput::info("  pool gc disable"));
-                    outputs.push(ConsoleOutput::info("  pool gc threshold 100"));
-                    return ConsoleCommandResult::MultipleOutputs(outputs);
-                }
-                
-                match args[1] {
-                    "enable" => {
-                        outputs.push(ConsoleOutput::success("GC pause detection enabled"));
-                        outputs.push(ConsoleOutput::warning("Note: Configuration changes not yet implemented"));
-                    }
-                    "disable" => {
-                        outputs.push(ConsoleOutput::success("GC pause detection disabled"));
-                        outputs.push(ConsoleOutput::warning("Note: Configuration changes not yet implemented"));
-                    }
-                    "threshold" => {
-                        if args.len() < 3 {
-                            outputs.push(ConsoleOutput::error("Usage: pool gc threshold <milliseconds>"));
-                            return ConsoleCommandResult::MultipleOutputs(outputs);
-                        }
-                        
-                        match args[2].parse::<u32>() {
-                            Ok(threshold) => {
-                                if threshold < 1 || threshold > 1000 {
-                                    outputs.push(ConsoleOutput::error("GC threshold must be between 1ms and 1000ms"));
-                                } else {
-                                    outputs.push(ConsoleOutput::success(&format!("GC pause threshold set to {}ms", threshold)));
-                                    outputs.push(ConsoleOutput::warning("Note: Configuration changes not yet implemented"));
-                                }
-                            }
-                            Err(_) => {
-                                outputs.push(ConsoleOutput::error("Invalid threshold. Must be a number in milliseconds."));
-                            }
-                        }
-                    }
-                    _ => {
-                        outputs.push(ConsoleOutput::error(&format!("Unknown GC option: {}", args[1])));
-                    }
-                }
-            }
             "optimize" => {
                 outputs.push(ConsoleOutput::success("Buffer Pool Optimization Recommendations"));
                 outputs.push(ConsoleOutput::info("\nFor Low Latency (<10ms):"));
                 outputs.push(ConsoleOutput::info("  pool size 4"));
                 outputs.push(ConsoleOutput::info("  pool timeout 1000"));
-                outputs.push(ConsoleOutput::info("  pool gc threshold 20"));
                 
                 outputs.push(ConsoleOutput::info("\nFor High Throughput:"));
                 outputs.push(ConsoleOutput::info("  pool size 32"));
                 outputs.push(ConsoleOutput::info("  pool timeout 10000"));
-                outputs.push(ConsoleOutput::info("  pool gc threshold 100"));
                 
                 outputs.push(ConsoleOutput::info("\nFor Balanced Performance (default):"));
                 outputs.push(ConsoleOutput::info("  pool size 16"));
                 outputs.push(ConsoleOutput::info("  pool timeout 5000"));
-                outputs.push(ConsoleOutput::info("  pool gc threshold 50"));
             }
             "help" => {
                 outputs.push(ConsoleOutput::info("Pool Configuration Commands:"));
                 outputs.push(ConsoleOutput::info("  pool           - Show current configuration"));
                 outputs.push(ConsoleOutput::info("  pool size <N>  - Set pool size (2-128)"));
                 outputs.push(ConsoleOutput::info("  pool timeout <ms> - Set buffer timeout"));
-                outputs.push(ConsoleOutput::info("  pool gc <opt>  - Configure GC detection"));
                 outputs.push(ConsoleOutput::info("  pool optimize  - Show optimization recommendations"));
             }
             _ => {

@@ -85,13 +85,7 @@ class TransferableBufferPool {
             totalAcquisitionTime: 0,
             fastestAcquisition: Infinity,
             slowestAcquisition: 0,
-            poolHitRate: 0,
-            gcPauseDetection: {
-                enabled: false,
-                threshold: 50,
-                pauseCount: 0,
-                lastCheckTime: 0
-            }
+            poolHitRate: 0
         };
         
         // Statistics
@@ -137,15 +131,6 @@ class TransferableBufferPool {
             }
         }
         
-        // GC pause detection
-        if (this.perfCounters.gcPauseDetection.enabled && this.perfCounters.gcPauseDetection.lastCheckTime > 0) {
-            const timeSinceLastCheck = startTime - this.perfCounters.gcPauseDetection.lastCheckTime;
-            if (timeSinceLastCheck > this.perfCounters.gcPauseDetection.threshold) {
-                this.perfCounters.gcPauseDetection.pauseCount++;
-                console.warn(`TransferableBufferPool: Potential GC pause detected (${timeSinceLastCheck.toFixed(2)}ms)`);
-            }
-        }
-        this.perfCounters.gcPauseDetection.lastCheckTime = startTime;
         
         if (this.availableIndices.length === 0) {
             this.stats.poolExhaustedCount++;
@@ -357,31 +342,11 @@ class TransferableBufferPool {
                     this.perfCounters.fastestAcquisition.toFixed(3) + 'ms',
                 slowest: this.perfCounters.slowestAcquisition.toFixed(3) + 'ms',
                 total: this.perfCounters.totalAcquisitionTime.toFixed(3) + 'ms'
-            },
-            gcPauseDetection: {
-                enabled: this.perfCounters.gcPauseDetection.enabled,
-                pauseCount: this.perfCounters.gcPauseDetection.pauseCount,
-                threshold: this.perfCounters.gcPauseDetection.threshold + 'ms'
             }
         };
     }
     
-    enableGCPauseDetection(threshold = 50) {
-        this.perfCounters.gcPauseDetection.enabled = true;
-        this.perfCounters.gcPauseDetection.threshold = threshold;
-        this.perfCounters.gcPauseDetection.lastCheckTime = getCurrentTime();
-        console.log(`TransferableBufferPool: GC pause detection enabled (threshold: ${threshold}ms)`);
-    }
     
-    destroy() {
-        this.stopTimeoutChecker();
-        this.buffers = [];
-        this.availableIndices = [];
-        this.inUseBuffers.clear();
-        this.bufferStates = [];
-        this.bufferTimestamps = [];
-        this.bufferIds = [];
-    }
 }
 
 // Message Protocol (inlined for AudioWorklet compatibility)
