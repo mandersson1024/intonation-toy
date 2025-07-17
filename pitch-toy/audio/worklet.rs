@@ -475,9 +475,6 @@ impl AudioWorkletManager {
             // Try typed message deserialization first
             match Self::try_deserialize_typed_message(&obj) {
                 Ok(envelope) => {
-                    if chunks_processed <= 5 {
-                        dev_log!("DEBUG: Successfully deserialized typed message: {:?} (ID: {})", envelope.payload, envelope.message_id);
-                    }
                     worklet_manager.handle_typed_worklet_message(envelope, &shared_data, &obj);
                 }
                 Err(e) => {
@@ -561,27 +558,17 @@ impl AudioWorkletManager {
                 Self::publish_status_update(shared_data, AudioWorkletState::Failed, false);
             }
             FromWorkletMessage::StatusUpdate { status } => {
-                dev_log!("AudioWorklet status update: active={}, processed_batches={}", 
-                         status.active, status.processed_batches);
                 
                 // Store buffer pool statistics for UI display and push to reactive system
                 if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
-                    dev_log!("✓ Buffer pool stats received: hit_rate={:.1}%, pool_size={}, available={}", 
-                             buffer_pool_stats.pool_hit_rate, 
-                             buffer_pool_stats.pool_size, 
-                             buffer_pool_stats.available_buffers);
-                    dev_log!("✓ Buffer pool stats stored in shared_data, stats available for UI");
                     
                     // Push to reactive system if setter is available
                     if let Some(setter) = &self.buffer_pool_stats_setter {
                         setter.set(Some(buffer_pool_stats.clone()));
-                        dev_log!("✓ Buffer pool stats pushed to reactive LiveData system");
                     } else {
-                        dev_log!("✗ No buffer pool stats setter available for reactive updates");
                     }
                 } else {
-                    dev_log!("✗ Status update received but no buffer pool stats included");
                 }
                 // Status updates don't change the main state
             }
@@ -981,7 +968,6 @@ impl AudioWorkletManager {
     /// Request status update from the AudioWorklet processor
     pub fn request_status_update(&self) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            dev_log!("🔍 Requesting status update from AudioWorklet...");
             
             let message = self.message_factory.get_status()
                 .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {}", e)))?;
@@ -996,7 +982,6 @@ impl AudioWorkletManager {
             port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send get status message: {:?}", e)))?;
             
-            dev_log!("✓ Status update request sent to AudioWorklet, awaiting response...");
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
