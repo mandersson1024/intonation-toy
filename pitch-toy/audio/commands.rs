@@ -5,9 +5,8 @@
 //! maintaining proper separation of concerns.
 
 use egui_dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
-use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
+use super::{AudioContextState, AudioContextManager, get_audio_context_manager, get_global_audioworklet_manager};
 use super::{PitchAnalyzer, TuningSystem};
-use super::console_service::{ConsoleAudioService, BufferPoolMetrics};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -201,16 +200,51 @@ impl ConsoleCommand for BufferCommand {
         
         match subcommand {
             "status" => {
-                // Buffer pool removed - using direct processing with transferable buffers
-                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
+                if let Some(worklet_rc) = get_global_audioworklet_manager() {
+                    let worklet = worklet_rc.borrow();
+                    if let Some(stats) = worklet.get_buffer_pool_stats() {
+                        let mut outputs = Vec::new();
+                        outputs.push(ConsoleOutput::success("=== Buffer Pool Status ==="));
+                        outputs.push(ConsoleOutput::info(&format!("Pool Size: {} buffers", stats.pool_size)));
+                        outputs.push(ConsoleOutput::info(&format!("Available: {} buffers", stats.available_buffers)));
+                        outputs.push(ConsoleOutput::info(&format!("In Use: {} buffers", stats.in_use_buffers)));
+                        outputs.push(ConsoleOutput::info(&format!("Hit Rate: {:.1}%", stats.pool_hit_rate)));
+                        outputs.push(ConsoleOutput::info(&format!("Efficiency: {:.1}%", stats.pool_efficiency)));
+                        outputs.push(ConsoleOutput::info(&format!("Transfers: {}", stats.transfer_count)));
+                        outputs.push(ConsoleOutput::info(&format!("Exhausted: {}", stats.pool_exhausted_count)));
+                        outputs.push(ConsoleOutput::info(&format!("GC Pauses: {}", stats.gc_pauses_detected)));
+                        outputs.push(ConsoleOutput::info(&format!("Data Transferred: {:.2} MB", stats.total_megabytes_transferred)));
+                        ConsoleCommandResult::MultipleOutputs(outputs)
+                    } else {
+                        ConsoleCommandResult::Output(ConsoleOutput::warning("Buffer pool statistics not available"))
+                    }
+                } else {
+                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
+                }
             },
             "metrics" => {
-                // Buffer pool removed - using direct processing with transferable buffers
-                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
+                if let Some(worklet_rc) = get_global_audioworklet_manager() {
+                    let worklet = worklet_rc.borrow();
+                    if let Some(stats) = worklet.get_buffer_pool_stats() {
+                        let status_symbol = if stats.available_buffers > 0 { "✓" } else { "✗" };
+                        let hit_rate_symbol = if stats.pool_hit_rate > 90.0 { "✓" } else if stats.pool_hit_rate > 75.0 { "⚠" } else { "✗" };
+                        let efficiency_symbol = if stats.pool_efficiency > 90.0 { "✓" } else if stats.pool_efficiency > 75.0 { "⚠" } else { "✗" };
+                        
+                        let output = format!("{} Pool: {}/{} | {} Hit: {:.1}% | {} Eff: {:.1}% | GC: {}", 
+                                           status_symbol, stats.available_buffers, stats.pool_size,
+                                           hit_rate_symbol, stats.pool_hit_rate,
+                                           efficiency_symbol, stats.pool_efficiency,
+                                           stats.gc_pauses_detected);
+                        ConsoleCommandResult::Output(ConsoleOutput::info(&output))
+                    } else {
+                        ConsoleCommandResult::Output(ConsoleOutput::warning("Buffer pool metrics not available"))
+                    }
+                } else {
+                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
+                }
             },
             "reset" => {
-                // Buffer pool removed - using direct processing with transferable buffers
-                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool removed - using direct processing with transferable buffers"))
+                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool reset not implemented (statistics are reset automatically)"))
             },
             "debug" => {
                 // Buffer debug functionality

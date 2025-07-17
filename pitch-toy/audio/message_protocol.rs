@@ -119,6 +119,9 @@ pub struct ProcessorStatus {
     
     /// Memory usage information
     pub memory_usage: Option<MemoryUsage>,
+    
+    /// Buffer pool statistics
+    pub buffer_pool_stats: Option<BufferPoolStats>,
 }
 
 /// Memory usage information
@@ -132,6 +135,58 @@ pub struct MemoryUsage {
     
     /// Number of active buffers
     pub active_buffers: usize,
+}
+
+/// Buffer pool statistics
+#[derive(Debug, Clone, PartialEq)]
+pub struct BufferPoolStats {
+    /// Total number of buffers in the pool
+    pub pool_size: u32,
+    
+    /// Number of available buffers
+    pub available_buffers: u32,
+    
+    /// Number of buffers currently in use
+    pub in_use_buffers: u32,
+    
+    /// Total number of buffers
+    pub total_buffers: u32,
+    
+    /// Number of acquire attempts
+    pub acquire_count: u32,
+    
+    /// Number of successful transfers
+    pub transfer_count: u32,
+    
+    /// Number of times pool was exhausted
+    pub pool_exhausted_count: u32,
+    
+    /// Consecutive pool failures
+    pub consecutive_pool_failures: u32,
+    
+    /// Pool hit rate percentage
+    pub pool_hit_rate: f32,
+    
+    /// Pool efficiency percentage
+    pub pool_efficiency: f32,
+    
+    /// Buffer utilization percentage
+    pub buffer_utilization_percent: f32,
+    
+    /// Total megabytes transferred
+    pub total_megabytes_transferred: f32,
+    
+    /// Average acquisition time in milliseconds
+    pub avg_acquisition_time_ms: f32,
+    
+    /// Fastest acquisition time in milliseconds
+    pub fastest_acquisition_time_ms: f32,
+    
+    /// Slowest acquisition time in milliseconds
+    pub slowest_acquisition_time_ms: f32,
+    
+    /// Number of GC pauses detected
+    pub gc_pauses_detected: u32,
 }
 
 /// Batch processing configuration
@@ -1074,6 +1129,12 @@ impl ToJsMessage for ProcessorStatus {
                 .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set memoryUsage: {:?}", e)))?;
         }
         
+        if let Some(buffer_pool_stats) = &self.buffer_pool_stats {
+            let buffer_pool_obj = buffer_pool_stats.to_js_object()?;
+            Reflect::set(&obj, &"bufferPoolStats".into(), &buffer_pool_obj.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferPoolStats: {:?}", e)))?;
+        }
+        
         Ok(obj)
     }
 }
@@ -1116,6 +1177,15 @@ impl FromJsMessage for ProcessorStatus {
             _ => None,
         };
         
+        let buffer_pool_stats = match Reflect::get(obj, &"bufferPoolStats".into()) {
+            Ok(value) if !value.is_undefined() => {
+                let buffer_pool_obj = value.dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("bufferPoolStats must be object".to_string()))?;
+                Some(BufferPoolStats::from_js_object(&buffer_pool_obj)?)
+            }
+            _ => None,
+        };
+        
         Ok(ProcessorStatus {
             active,
             sample_rate,
@@ -1123,6 +1193,7 @@ impl FromJsMessage for ProcessorStatus {
             processed_batches,
             avg_processing_time_ms,
             memory_usage,
+            buffer_pool_stats,
         })
     }
 }
@@ -1192,6 +1263,184 @@ impl MessageValidator for MemoryUsage {
     fn validate(&self) -> SerializationResult<()> {
         if self.used_heap > self.heap_size {
             return Err(SerializationError::ValidationFailed("used_heap cannot exceed heap_size".to_string()));
+        }
+        Ok(())
+    }
+}
+
+impl ToJsMessage for BufferPoolStats {
+    fn to_js_object(&self) -> SerializationResult<Object> {
+        let obj = Object::new();
+        
+        Reflect::set(&obj, &"poolSize".into(), &(self.pool_size as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolSize: {:?}", e)))?;
+        Reflect::set(&obj, &"availableBuffers".into(), &(self.available_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set availableBuffers: {:?}", e)))?;
+        Reflect::set(&obj, &"inUseBuffers".into(), &(self.in_use_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set inUseBuffers: {:?}", e)))?;
+        Reflect::set(&obj, &"totalBuffers".into(), &(self.total_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set totalBuffers: {:?}", e)))?;
+        Reflect::set(&obj, &"acquireCount".into(), &(self.acquire_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set acquireCount: {:?}", e)))?;
+        Reflect::set(&obj, &"transferCount".into(), &(self.transfer_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set transferCount: {:?}", e)))?;
+        Reflect::set(&obj, &"poolExhaustedCount".into(), &(self.pool_exhausted_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolExhaustedCount: {:?}", e)))?;
+        Reflect::set(&obj, &"consecutivePoolFailures".into(), &(self.consecutive_pool_failures as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set consecutivePoolFailures: {:?}", e)))?;
+        Reflect::set(&obj, &"poolHitRate".into(), &(self.pool_hit_rate as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolHitRate: {:?}", e)))?;
+        Reflect::set(&obj, &"poolEfficiency".into(), &(self.pool_efficiency as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolEfficiency: {:?}", e)))?;
+        Reflect::set(&obj, &"bufferUtilizationPercent".into(), &(self.buffer_utilization_percent as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferUtilizationPercent: {:?}", e)))?;
+        Reflect::set(&obj, &"totalMegabytesTransferred".into(), &(self.total_megabytes_transferred as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set totalMegabytesTransferred: {:?}", e)))?;
+        Reflect::set(&obj, &"avgAcquisitionTimeMs".into(), &(self.avg_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set avgAcquisitionTimeMs: {:?}", e)))?;
+        Reflect::set(&obj, &"fastestAcquisitionTimeMs".into(), &(self.fastest_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set fastestAcquisitionTimeMs: {:?}", e)))?;
+        Reflect::set(&obj, &"slowestAcquisitionTimeMs".into(), &(self.slowest_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set slowestAcquisitionTimeMs: {:?}", e)))?;
+        Reflect::set(&obj, &"gcPausesDetected".into(), &(self.gc_pauses_detected as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set gcPausesDetected: {:?}", e)))?;
+        
+        Ok(obj)
+    }
+}
+
+impl FromJsMessage for BufferPoolStats {
+    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
+        let pool_size = Reflect::get(obj, &"poolSize".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolSize: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("poolSize must be number".to_string()))?
+            as u32;
+        
+        let available_buffers = Reflect::get(obj, &"availableBuffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get availableBuffers: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("availableBuffers must be number".to_string()))?
+            as u32;
+        
+        let in_use_buffers = Reflect::get(obj, &"inUseBuffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get inUseBuffers: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("inUseBuffers must be number".to_string()))?
+            as u32;
+        
+        let total_buffers = Reflect::get(obj, &"totalBuffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get totalBuffers: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("totalBuffers must be number".to_string()))?
+            as u32;
+        
+        let acquire_count = Reflect::get(obj, &"acquireCount".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get acquireCount: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("acquireCount must be number".to_string()))?
+            as u32;
+        
+        let transfer_count = Reflect::get(obj, &"transferCount".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get transferCount: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("transferCount must be number".to_string()))?
+            as u32;
+        
+        let pool_exhausted_count = Reflect::get(obj, &"poolExhaustedCount".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolExhaustedCount: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("poolExhaustedCount must be number".to_string()))?
+            as u32;
+        
+        let consecutive_pool_failures = Reflect::get(obj, &"consecutivePoolFailures".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get consecutivePoolFailures: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("consecutivePoolFailures must be number".to_string()))?
+            as u32;
+        
+        let pool_hit_rate = Reflect::get(obj, &"poolHitRate".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolHitRate: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("poolHitRate must be number".to_string()))?
+            as f32;
+        
+        let pool_efficiency = Reflect::get(obj, &"poolEfficiency".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolEfficiency: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("poolEfficiency must be number".to_string()))?
+            as f32;
+        
+        let buffer_utilization_percent = Reflect::get(obj, &"bufferUtilizationPercent".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferUtilizationPercent: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("bufferUtilizationPercent must be number".to_string()))?
+            as f32;
+        
+        let total_megabytes_transferred = Reflect::get(obj, &"totalMegabytesTransferred".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get totalMegabytesTransferred: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("totalMegabytesTransferred must be number".to_string()))?
+            as f32;
+        
+        let avg_acquisition_time_ms = Reflect::get(obj, &"avgAcquisitionTimeMs".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get avgAcquisitionTimeMs: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("avgAcquisitionTimeMs must be number".to_string()))?
+            as f32;
+        
+        let fastest_acquisition_time_ms = Reflect::get(obj, &"fastestAcquisitionTimeMs".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get fastestAcquisitionTimeMs: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("fastestAcquisitionTimeMs must be number".to_string()))?
+            as f32;
+        
+        let slowest_acquisition_time_ms = Reflect::get(obj, &"slowestAcquisitionTimeMs".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get slowestAcquisitionTimeMs: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("slowestAcquisitionTimeMs must be number".to_string()))?
+            as f32;
+        
+        let gc_pauses_detected = Reflect::get(obj, &"gcPausesDetected".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get gcPausesDetected: {:?}", e)))?
+            .as_f64()
+            .ok_or_else(|| SerializationError::InvalidPropertyType("gcPausesDetected must be number".to_string()))?
+            as u32;
+        
+        Ok(BufferPoolStats {
+            pool_size,
+            available_buffers,
+            in_use_buffers,
+            total_buffers,
+            acquire_count,
+            transfer_count,
+            pool_exhausted_count,
+            consecutive_pool_failures,
+            pool_hit_rate,
+            pool_efficiency,
+            buffer_utilization_percent,
+            total_megabytes_transferred,
+            avg_acquisition_time_ms,
+            fastest_acquisition_time_ms,
+            slowest_acquisition_time_ms,
+            gc_pauses_detected,
+        })
+    }
+}
+
+impl MessageValidator for BufferPoolStats {
+    fn validate(&self) -> SerializationResult<()> {
+        if self.pool_hit_rate < 0.0 || self.pool_hit_rate > 100.0 {
+            return Err(SerializationError::ValidationFailed("pool_hit_rate must be between 0 and 100".to_string()));
+        }
+        if self.pool_efficiency < 0.0 || self.pool_efficiency > 100.0 {
+            return Err(SerializationError::ValidationFailed("pool_efficiency must be between 0 and 100".to_string()));
+        }
+        if self.buffer_utilization_percent < 0.0 || self.buffer_utilization_percent > 100.0 {
+            return Err(SerializationError::ValidationFailed("buffer_utilization_percent must be between 0 and 100".to_string()));
+        }
+        if self.in_use_buffers + self.available_buffers != self.total_buffers {
+            return Err(SerializationError::ValidationFailed("in_use_buffers + available_buffers must equal total_buffers".to_string()));
         }
         Ok(())
     }
@@ -2352,6 +2601,31 @@ impl ProcessorStatus {
             processed_batches,
             avg_processing_time_ms,
             memory_usage,
+            buffer_pool_stats: None,
+        };
+        
+        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(status)
+    }
+    
+    /// Create a new processor status with buffer pool statistics
+    pub fn with_buffer_pool_stats(
+        active: bool,
+        sample_rate: f64,
+        buffer_size: usize,
+        processed_batches: u32,
+        avg_processing_time_ms: f64,
+        memory_usage: Option<MemoryUsage>,
+        buffer_pool_stats: Option<BufferPoolStats>,
+    ) -> MessageConstructionResult<Self> {
+        let status = Self {
+            active,
+            sample_rate,
+            buffer_size,
+            processed_batches,
+            avg_processing_time_ms,
+            memory_usage,
+            buffer_pool_stats,
         };
         
         status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -2991,6 +3265,7 @@ mod tests {
             buffer_length: 4096,
             timestamp: get_current_timestamp(),
             sequence_number: Some(42),
+            buffer_id: None,
         };
         
         assert_eq!(batch.sample_rate, 48000.0);
@@ -3013,6 +3288,7 @@ mod tests {
                 used_heap: 512 * 1024,
                 active_buffers: 8,
             }),
+            buffer_pool_stats: None,
         };
         
         assert_eq!(status.active, true);
@@ -3067,6 +3343,7 @@ mod tests {
             buffer_length: 4096,
             timestamp: 12345.0,
             sequence_number: Some(42),
+            buffer_id: None,
         };
         let msg = FromWorkletMessage::AudioDataBatch { data: data.clone() };
         let obj = msg.to_js_object().unwrap();
@@ -3108,6 +3385,7 @@ mod tests {
             buffer_length: 4096,
             timestamp: 12345.0,
             sequence_number: None,
+            buffer_id: None,
         };
         assert!(invalid_data.validate().is_err());
     }

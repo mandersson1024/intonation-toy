@@ -270,6 +270,10 @@ impl EguiLiveDataPanel {
                 self.render_performance_metrics_section(ui);
                 ui.separator();
                 
+                // Buffer Pool Statistics Section
+                self.render_buffer_pool_stats_section(ui);
+                ui.separator();
+                
                 // Volume Level Section
                 self.render_volume_level_section(ui);
                 ui.separator();
@@ -401,6 +405,107 @@ impl EguiLiveDataPanel {
                        else { Color32::RED };
             ui.colored_label(color, format!("{:.1}%", metrics.cpu_usage));
         });
+    }
+    
+    /// Render buffer pool statistics section
+    fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
+        ui.heading("Buffer Pool Statistics");
+        
+        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+            let worklet = worklet_rc.borrow();
+            
+            if let Some(stats) = worklet.get_buffer_pool_stats() {
+                // Pool status
+                ui.horizontal(|ui| {
+                    ui.label("Pool Status:");
+                    let status_color = if stats.available_buffers > 0 {
+                        Color32::GREEN
+                    } else {
+                        Color32::RED
+                    };
+                    ui.colored_label(status_color, format!("{}/{} available", 
+                                                          stats.available_buffers, 
+                                                          stats.pool_size));
+                });
+                
+                // Pool efficiency metrics
+                ui.horizontal(|ui| {
+                    ui.label("Hit Rate:");
+                    let hit_rate_color = if stats.pool_hit_rate > 90.0 {
+                        Color32::GREEN
+                    } else if stats.pool_hit_rate > 75.0 {
+                        Color32::YELLOW
+                    } else {
+                        Color32::RED
+                    };
+                    ui.colored_label(hit_rate_color, format!("{:.1}%", stats.pool_hit_rate));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Efficiency:");
+                    let efficiency_color = if stats.pool_efficiency > 90.0 {
+                        Color32::GREEN
+                    } else if stats.pool_efficiency > 75.0 {
+                        Color32::YELLOW
+                    } else {
+                        Color32::RED
+                    };
+                    ui.colored_label(efficiency_color, format!("{:.1}%", stats.pool_efficiency));
+                });
+                
+                // Usage statistics
+                ui.horizontal(|ui| {
+                    ui.label("Transfers:");
+                    ui.label(format!("{}", stats.transfer_count));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Exhausted:");
+                    let exhausted_color = if stats.pool_exhausted_count == 0 {
+                        Color32::GREEN
+                    } else if stats.pool_exhausted_count < 10 {
+                        Color32::YELLOW
+                    } else {
+                        Color32::RED
+                    };
+                    ui.colored_label(exhausted_color, format!("{}", stats.pool_exhausted_count));
+                });
+                
+                // Performance metrics
+                ui.horizontal(|ui| {
+                    ui.label("Avg Acquisition:");
+                    ui.label(format!("{:.2}ms", stats.avg_acquisition_time_ms));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("GC Pauses:");
+                    let gc_color = if stats.gc_pauses_detected == 0 {
+                        Color32::GREEN
+                    } else if stats.gc_pauses_detected < 5 {
+                        Color32::YELLOW
+                    } else {
+                        Color32::RED
+                    };
+                    ui.colored_label(gc_color, format!("{}", stats.gc_pauses_detected));
+                });
+                
+                // Data transfer stats
+                ui.horizontal(|ui| {
+                    ui.label("Data Transferred:");
+                    ui.label(format!("{:.2} MB", stats.total_megabytes_transferred));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Utilization:");
+                    ui.label(format!("{:.1}%", stats.buffer_utilization_percent));
+                });
+                
+            } else {
+                ui.colored_label(Color32::YELLOW, "No buffer pool statistics available");
+            }
+        } else {
+            ui.colored_label(Color32::RED, "AudioWorklet not available");
+        }
     }
     
     /// Render volume level section

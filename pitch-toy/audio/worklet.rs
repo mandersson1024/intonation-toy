@@ -111,6 +111,7 @@ struct AudioWorkletSharedData {
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
     pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
+    buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
 }
 
 impl AudioWorkletSharedData {
@@ -122,6 +123,7 @@ impl AudioWorkletSharedData {
             volume_level_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
+            buffer_pool_stats: None,
         }
     }
 }
@@ -174,6 +176,8 @@ pub struct AudioWorkletManager {
     output_to_speakers: bool,
     // Setter for updating AudioWorklet status in live data
     audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>,
+    // Shared data for message handling
+    shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     // Setter for updating volume level in live data
     volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
     // Pitch analyzer for direct audio processing
@@ -202,6 +206,7 @@ impl AudioWorkletManager {
             audio_context: None,
             output_to_speakers: false,
             audioworklet_status_setter: None,
+            shared_data: None,
             volume_level_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
@@ -225,6 +230,7 @@ impl AudioWorkletManager {
             audio_context: None,
             output_to_speakers: false,
             audioworklet_status_setter: None,
+            shared_data: None,
             volume_level_setter: None,
             pitch_analyzer: None,
             pitch_data_setter: None,
@@ -397,6 +403,9 @@ impl AudioWorkletManager {
             // Create shared data for the message handler
             let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
             
+            // Store the shared data in the manager for later access
+            self.shared_data = Some(shared_data.clone());
+            
             // Store references to components that will be used in the handler
             if let Some(volume_detector) = &self.volume_detector {
                 shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
@@ -550,6 +559,15 @@ impl AudioWorkletManager {
             FromWorkletMessage::StatusUpdate { status } => {
                 dev_log!("AudioWorklet status update: active={}, processed_batches={}", 
                          status.active, status.processed_batches);
+                
+                // Store buffer pool statistics for UI display
+                if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
+                    shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
+                    dev_log!("Buffer pool stats: hit_rate={:.1}%, pool_size={}, available={}", 
+                             buffer_pool_stats.pool_hit_rate, 
+                             buffer_pool_stats.pool_size, 
+                             buffer_pool_stats.available_buffers);
+                }
                 // Status updates don't change the main state
             }
         }
@@ -915,6 +933,11 @@ impl AudioWorkletManager {
     /// Get processing node (AudioWorklet)
     pub fn get_processing_node(&self) -> Option<&AudioNode> {
         self.worklet_node.as_ref().map(|node| node.as_ref())
+    }
+    
+    /// Get buffer pool statistics
+    pub fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
+        self.shared_data.as_ref()?.borrow().buffer_pool_stats.clone()
     }
     
     /// Check if audio processing is active
