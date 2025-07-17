@@ -224,7 +224,7 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet};
 pub use permission::AudioPermission;
-pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices};
+pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
