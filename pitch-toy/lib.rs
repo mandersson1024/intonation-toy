@@ -44,11 +44,17 @@ pub struct OutputToSpeakersAction {
     pub enabled: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct MicrophonePermissionAction {
+    pub request_permission: bool,
+}
+
 /// UI Control Actions - Central action registry for UI controls
 pub struct UIControlActions {
     pub test_signal: Action<TestSignalAction>,
     pub background_noise: Action<BackgroundNoiseAction>,
     pub output_to_speakers: Action<OutputToSpeakersAction>,
+    pub microphone_permission: Action<MicrophonePermissionAction>,
 }
 
 impl UIControlActions {
@@ -57,6 +63,7 @@ impl UIControlActions {
             test_signal: Action::new(),
             background_noise: Action::new(),
             output_to_speakers: Action::new(),
+            microphone_permission: Action::new(),
         }
     }
     
@@ -66,6 +73,7 @@ impl UIControlActions {
             test_signal: self.test_signal.trigger(),
             background_noise: self.background_noise.trigger(),
             output_to_speakers: self.output_to_speakers.trigger(),
+            microphone_permission: self.microphone_permission.trigger(),
         }
     }
     
@@ -75,15 +83,18 @@ impl UIControlActions {
             test_signal: self.test_signal.listener(),
             background_noise: self.background_noise.listener(),
             output_to_speakers: self.output_to_speakers.listener(),
+            microphone_permission: self.microphone_permission.listener(),
         }
     }
 }
 
 /// UI Control Triggers - For UI components to fire actions
+#[derive(Clone)]
 pub struct UIControlTriggers {
     pub test_signal: ActionTrigger<TestSignalAction>,
     pub background_noise: ActionTrigger<BackgroundNoiseAction>,
     pub output_to_speakers: ActionTrigger<OutputToSpeakersAction>,
+    pub microphone_permission: ActionTrigger<MicrophonePermissionAction>,
 }
 
 /// UI Control Listeners - For audio module to respond to actions
@@ -91,6 +102,7 @@ pub struct UIControlListeners {
     pub test_signal: ActionListener<TestSignalAction>,
     pub background_noise: ActionListener<BackgroundNoiseAction>,
     pub output_to_speakers: ActionListener<OutputToSpeakersAction>,
+    pub microphone_permission: ActionListener<MicrophonePermissionAction>,
 }
 
 
@@ -101,6 +113,7 @@ pub async fn run_three_d(
     performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
     pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static,
     ui_control_actions: UIControlActions,
+    triggers: UIControlTriggers,
 ) {
     dev_log!("Starting three-d with red sprites");
     
@@ -122,7 +135,7 @@ pub async fn run_three_d(
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(command_registry);
     let mut microphone_button = EguiMicrophoneButton::new(
         live_data.microphone_permission.clone(),
-        microphone_permission_setter,
+        triggers.microphone_permission.clone(),
     );
     
     // Create audio service for LiveDataPanel
@@ -132,8 +145,7 @@ pub async fn run_three_d(
     audio::set_pitch_data_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(std::rc::Rc::new(pitch_data_setter))));
     
     // Create LiveDataPanel with action triggers
-    let triggers = ui_control_actions.get_triggers();
-    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data, triggers);
+    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data, triggers.clone());
 
     dev_log!("Starting three-d + egui render loop");
     
@@ -269,12 +281,13 @@ pub async fn start() {
     // Create UI control actions
     let ui_control_actions = UIControlActions::new();
     let listeners = ui_control_actions.get_listeners();
+    let triggers = ui_control_actions.get_triggers();
     
     // Setup audio module listeners for UI actions
-    audio::setup_ui_action_listeners(listeners);
+    audio::setup_ui_action_listeners(listeners, microphone_permission_setter.clone());
     
     // Start three-d application directly
-    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions).await;
+    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions, triggers).await;
 }
 
 /// Initialize all audio systems in sequence with proper error handling

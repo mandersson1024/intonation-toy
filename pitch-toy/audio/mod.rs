@@ -254,7 +254,10 @@ pub use message_protocol::{
 };
 
 /// Setup UI action listeners for audio module
-pub fn setup_ui_action_listeners(listeners: crate::UIControlListeners) {
+pub fn setup_ui_action_listeners(
+    listeners: crate::UIControlListeners,
+    microphone_permission_setter: impl observable_data::DataSetter<AudioPermission> + Clone + 'static,
+) {
     // Test signal action listener
     listeners.test_signal.listen(|action| {
         dev_log!("Received test signal action: {:?}", action);
@@ -309,6 +312,18 @@ pub fn setup_ui_action_listeners(listeners: crate::UIControlListeners) {
             dev_log!("✓ Output to speakers setting updated via action");
         } else {
             dev_log!("Warning: No AudioWorklet manager available for output to speakers setting");
+        }
+    });
+    
+    // Microphone permission action listener
+    listeners.microphone_permission.listen(move |action| {
+        dev_log!("Received microphone permission action: {:?}", action);
+        
+        if action.request_permission {
+            // Trigger microphone permission request using the same function
+            // that was previously called directly by the button
+            permission::connect_microphone(microphone_permission_setter.clone());
+            dev_log!("✓ Microphone permission request triggered via action");
         }
     });
 }
