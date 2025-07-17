@@ -253,6 +253,66 @@ pub use message_protocol::{
     MessageContext, MessageDirection, SystemState
 };
 
+/// Setup UI action listeners for audio module
+pub fn setup_ui_action_listeners(listeners: crate::UIControlListeners) {
+    // Test signal action listener
+    listeners.test_signal.listen(|action| {
+        dev_log!("Received test signal action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI action to audio system config
+            let audio_config = TestSignalGeneratorConfig {
+                enabled: action.enabled,
+                frequency: action.frequency,
+                amplitude: action.volume / 100.0, // Convert percentage to 0-1 range
+                waveform: action.waveform,
+                sample_rate: 48000.0, // Use standard sample rate
+            };
+            
+            worklet.update_test_signal_config(audio_config);
+            dev_log!("✓ Test signal config updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for test signal config");
+        }
+    });
+    
+    // Background noise action listener
+    listeners.background_noise.listen(|action| {
+        dev_log!("Received background noise action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            
+            // Convert UI action to audio system config
+            let audio_config = BackgroundNoiseConfig {
+                enabled: action.enabled,
+                level: action.level,
+                noise_type: action.noise_type,
+            };
+            
+            worklet.update_background_noise_config(audio_config);
+            dev_log!("✓ Background noise config updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for background noise config");
+        }
+    });
+    
+    // Output to speakers action listener
+    listeners.output_to_speakers.listen(|action| {
+        dev_log!("Received output to speakers action: {:?}", action);
+        
+        if let Some(worklet_rc) = get_global_audioworklet_manager() {
+            let mut worklet = worklet_rc.borrow_mut();
+            worklet.set_output_to_speakers(action.enabled);
+            dev_log!("✓ Output to speakers setting updated via action");
+        } else {
+            dev_log!("Warning: No AudioWorklet manager available for output to speakers setting");
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,6 +4,8 @@
 
 This document analyzes the `get_global_audioworklet_manager()` function in the pitch-toy codebase, examining its implementation, usage patterns, and the trade-offs of its global access pattern.
 
+**Last Updated**: November 2024 - Reflects action/observable pattern refactoring
+
 ## Function Implementation
 
 **Location:** `pitch-toy/audio/mod.rs:119`
@@ -24,18 +26,21 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 ## Usage Analysis
 
 ### Usage Statistics
-- **Total Usages**: 9 occurrences across 3 files
-- **Common Pattern**: 8 usages use `if let Some(manager) = get_global_audioworklet_manager()`
+- **Total Usages**: 10 occurrences across 3 files
+- **Common Pattern**: 9 usages use `if let Some(manager) = get_global_audioworklet_manager()`
 - **Error Handling**: Only 1 usage treats absence as a blocking error
 
 ### Usage Distribution by Module
 
-#### Audio Module (5 usages)
-- **mod.rs**: Configuration of data setters and pitch analyzer
-- **microphone.rs**: Critical initialization (only error-throwing usage)
+#### Audio Module (9 usages)
+- **mod.rs**: 8 usages
+  - 1 function definition
+  - 4 for configuration of data setters and pitch analyzer
+  - 3 for UI action listeners (new with action pattern)
+- **microphone.rs**: 1 usage for critical initialization (only error-throwing usage)
 
-#### Debug Module (4 usages)
-- **live_data_panel.rs**: UI controls for test signals, noise, and speaker output
+#### Debug Module (1 usage)
+- **live_data_panel.rs**: Status update requests for buffer pool statistics
 
 
 ### Common Usage Patterns
@@ -55,12 +60,21 @@ let audioworklet_manager = super::get_global_audioworklet_manager()
     .ok_or_else(|| "AudioWorklet manager not initialized".to_string())?;
 ```
 
-#### Pattern 3: UI Configuration (debug panel)
+#### Pattern 3: Action Listeners (NEW - audio/mod.rs)
+```rust
+listeners.test_signal.listen(|action| {
+    if let Some(worklet_rc) = get_global_audioworklet_manager() {
+        let mut worklet = worklet_rc.borrow_mut();
+        // Apply configuration from action
+    }
+});
+```
+
+#### Pattern 4: Status Requests (debug panel)
 ```rust
 if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
-    // Configure audio settings from UI
-} else {
-    // UI controls disabled or show warning
+    let worklet = worklet_rc.borrow();
+    let _ = worklet.request_status_update();
 }
 ```
 
@@ -134,27 +148,45 @@ The global access pattern is **appropriate** for this codebase given:
 - Project's module separation constraints
 - Need for cross-module audio functionality
 
-### Recent Improvements
-1. **Reduced Complexity**: Fewer usage points make the pattern easier to understand and maintain
-2. **Better Separation**: Clear separation between audio processing and debug functionality
+### Recent Improvements with Action Pattern
+1. **Decoupled UI Controls**: UI no longer directly accesses the global manager
+2. **Action-Based Communication**: UI controls now use action/observable pattern
+3. **Centralized Audio Control**: All UI-triggered audio changes go through action listeners
+4. **Better Module Separation**: Reduced cross-module dependencies
 
-### Potential Further Improvements
-1. **Initialization Validation**: Add startup checks to ensure manager is properly initialized
-2. **Documentation**: Add clear documentation about initialization requirements
-3. **Testing Support**: Consider adding test utilities to mock the global manager
+### Current Issues
+1. **Module Separation Violation**: Debug module still directly accesses audio module for status updates
+2. **Inconsistent Patterns**: Mix of direct access and action-based patterns
+
+### Recommended Next Steps
+1. **Complete Action Migration**: Move remaining debug module access to action pattern
+2. **Status Update Actions**: Create actions for status request/response
+3. **Remove Debug Module Access**: Eliminate direct `get_global_audioworklet_manager()` calls from debug module
+4. **Documentation**: Update all examples to use action pattern where appropriate
 
 ### Alternative Patterns Considered
 - **Dependency Injection**: Would require extensive parameter threading
 - **Service Locator**: Similar complexity to current global pattern
 - **Context Passing**: Would violate real-time performance requirements
+- **Action/Observable Pattern**: ✅ Currently being implemented for UI controls
 
 ## Conclusion
 
-The global access pattern for `get_global_audioworklet_manager()` represents a pragmatic solution balancing simplicity, performance, and architectural constraints. The pattern is manageable with 9 usage points focused on core functionality.
+The global access pattern for `get_global_audioworklet_manager()` represents a pragmatic solution balancing simplicity, performance, and architectural constraints. With the introduction of the action/observable pattern, the usage has been better organized:
 
-The pattern is well-implemented with proper thread safety, optional return types, and consistent usage patterns. The usages are focused on core functionality:
-- Audio system configuration and data flow
-- Critical microphone initialization
-- UI controls for real-time audio parameter adjustment
+### Current State (10 total usages)
+- **Audio Module (9 usages)**: Properly encapsulated within the audio domain
+  - System initialization and configuration (5 usages)
+  - Action listeners for UI controls (3 usages)
+  - Function definition (1 usage)
+- **Debug Module (1 usage)**: Status updates only
 
-This focused usage makes the global access pattern defensible and maintainable while preserving the benefits for real-time audio processing and cross-module integration.
+### Key Improvements with Action Pattern
+1. **UI Decoupling**: UI controls no longer directly access the global manager
+2. **Clear Boundaries**: Action listeners centralize all UI-to-audio communication
+3. **Maintainability**: Easier to track and modify audio control flow
+
+### Remaining Work
+The debug module's direct access for status updates should be migrated to the action pattern to complete the module separation and maintain architectural consistency.
+
+This evolution demonstrates how the global access pattern can coexist with modern architectural patterns like action/observable, providing a migration path toward better module separation while maintaining real-time performance requirements.

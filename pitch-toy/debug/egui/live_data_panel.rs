@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::audio::{
     AudioPermission, MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
-    BackgroundNoiseConfig, TestSignalGeneratorConfig,
+    BackgroundNoiseConfig,
 };
 use crate::live_data::LiveData;
 
@@ -153,6 +153,9 @@ pub struct EguiLiveDataPanel {
     prev_test_signal_config: TestSignalConfig,
     prev_background_noise_config: BackgroundNoiseConfig,
     prev_output_to_speakers: bool,
+    
+    /// Action triggers for UI control actions
+    ui_control_triggers: crate::UIControlTriggers,
 }
 
 impl EguiLiveDataPanel {
@@ -160,6 +163,7 @@ impl EguiLiveDataPanel {
     pub fn new(
         audio_service: Rc<ConsoleAudioServiceImpl>,
         live_data: LiveData,
+        ui_control_triggers: crate::UIControlTriggers,
     ) -> Self {
         let test_signal_config = TestSignalConfig::default();
         let background_noise_config = BackgroundNoiseConfig::default();
@@ -175,49 +179,40 @@ impl EguiLiveDataPanel {
             prev_test_signal_config: test_signal_config,
             prev_background_noise_config: background_noise_config,
             prev_output_to_speakers: output_to_speakers,
+            ui_control_triggers,
         }
     }
     
     /// Apply test signal configuration to audio system
     fn apply_test_signal_config(&self, config: &TestSignalConfig) {
-        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
-            let mut worklet = worklet_rc.borrow_mut();
-            
-            // Convert UI config to audio system config
-            let audio_config = TestSignalGeneratorConfig {
-                enabled: config.enabled,
-                frequency: config.frequency,
-                amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
-                waveform: config.waveform.clone(),
-                sample_rate: 48000.0, // Use standard sample rate
-            };
-            
-            worklet.update_test_signal_config(audio_config);
-        }
+        let action = crate::TestSignalAction {
+            enabled: config.enabled,
+            waveform: config.waveform.clone(),
+            frequency: config.frequency,
+            volume: config.volume,
+        };
+        
+        self.ui_control_triggers.test_signal.fire(action);
     }
     
     /// Apply background noise configuration to audio system
     fn apply_background_noise_config(&self, config: &BackgroundNoiseConfig) {
-        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
-            let mut worklet = worklet_rc.borrow_mut();
-            
-            // Convert UI config to audio system config
-            let audio_config = BackgroundNoiseConfig {
-                enabled: config.enabled,
-                level: config.level,
-                noise_type: config.noise_type.clone(),
-            };
-            
-            worklet.update_background_noise_config(audio_config);
-        }
+        let action = crate::BackgroundNoiseAction {
+            enabled: config.enabled,
+            level: config.level,
+            noise_type: config.noise_type.clone(),
+        };
+        
+        self.ui_control_triggers.background_noise.fire(action);
     }
     
     /// Apply output to speakers setting to audio system
     fn apply_output_to_speakers(&self, enabled: bool) {
-        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
-            let mut worklet = worklet_rc.borrow_mut();
-            worklet.set_output_to_speakers(enabled);
-        }
+        let action = crate::OutputToSpeakersAction {
+            enabled,
+        };
+        
+        self.ui_control_triggers.output_to_speakers.fire(action);
     }
     
     /// Check for configuration changes and apply them

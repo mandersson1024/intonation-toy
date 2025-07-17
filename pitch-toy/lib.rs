@@ -20,13 +20,87 @@ use graphics::SpriteScene;
 // Import LiveData type
 use live_data::LiveData;
 
+// Import action system
+use action::{Action, ActionTrigger, ActionListener};
+
+// UI Control Action Types
+#[derive(Debug, Clone)]
+pub struct TestSignalAction {
+    pub enabled: bool,
+    pub waveform: audio::TestWaveform,
+    pub frequency: f32,
+    pub volume: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackgroundNoiseAction {
+    pub enabled: bool,
+    pub level: f32,
+    pub noise_type: audio::TestWaveform,
+}
+
+#[derive(Debug, Clone)]
+pub struct OutputToSpeakersAction {
+    pub enabled: bool,
+}
+
+/// UI Control Actions - Central action registry for UI controls
+pub struct UIControlActions {
+    pub test_signal: Action<TestSignalAction>,
+    pub background_noise: Action<BackgroundNoiseAction>,
+    pub output_to_speakers: Action<OutputToSpeakersAction>,
+}
+
+impl UIControlActions {
+    pub fn new() -> Self {
+        Self {
+            test_signal: Action::new(),
+            background_noise: Action::new(),
+            output_to_speakers: Action::new(),
+        }
+    }
+    
+    /// Get trigger handles for UI components
+    pub fn get_triggers(&self) -> UIControlTriggers {
+        UIControlTriggers {
+            test_signal: self.test_signal.trigger(),
+            background_noise: self.background_noise.trigger(),
+            output_to_speakers: self.output_to_speakers.trigger(),
+        }
+    }
+    
+    /// Get listener handles for audio module
+    pub fn get_listeners(&self) -> UIControlListeners {
+        UIControlListeners {
+            test_signal: self.test_signal.listener(),
+            background_noise: self.background_noise.listener(),
+            output_to_speakers: self.output_to_speakers.listener(),
+        }
+    }
+}
+
+/// UI Control Triggers - For UI components to fire actions
+pub struct UIControlTriggers {
+    pub test_signal: ActionTrigger<TestSignalAction>,
+    pub background_noise: ActionTrigger<BackgroundNoiseAction>,
+    pub output_to_speakers: ActionTrigger<OutputToSpeakersAction>,
+}
+
+/// UI Control Listeners - For audio module to respond to actions
+pub struct UIControlListeners {
+    pub test_signal: ActionListener<TestSignalAction>,
+    pub background_noise: ActionListener<BackgroundNoiseAction>,
+    pub output_to_speakers: ActionListener<OutputToSpeakersAction>,
+}
+
 
 
 pub async fn run_three_d(
     live_data: LiveData, 
     microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
     performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
-    pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static
+    pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static,
+    ui_control_actions: UIControlActions,
 ) {
     dev_log!("Starting three-d with red sprites");
     
@@ -57,8 +131,9 @@ pub async fn run_three_d(
     // Set the pitch data setter on the global pitch analyzer (it should be initialized by now)
     audio::set_pitch_data_setter(std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(std::rc::Rc::new(pitch_data_setter))));
     
-    // Create LiveDataPanel
-    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data);
+    // Create LiveDataPanel with action triggers
+    let triggers = ui_control_actions.get_triggers();
+    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data, triggers);
 
     dev_log!("Starting three-d + egui render loop");
     
@@ -191,8 +266,15 @@ pub async fn start() {
     
     // Note: Audio console service is needed for volume level updates in both debug and release builds
     
+    // Create UI control actions
+    let ui_control_actions = UIControlActions::new();
+    let listeners = ui_control_actions.get_listeners();
+    
+    // Setup audio module listeners for UI actions
+    audio::setup_ui_action_listeners(listeners);
+    
     // Start three-d application directly
-    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter).await;
+    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions).await;
 }
 
 /// Initialize all audio systems in sequence with proper error handling
