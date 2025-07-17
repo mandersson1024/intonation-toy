@@ -5,7 +5,7 @@
 //! maintaining proper separation of concerns.
 
 use egui_dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
-use super::{AudioContextState, AudioContextManager, get_audio_context_manager, get_global_audioworklet_manager};
+use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 use super::{PitchAnalyzer, TuningSystem};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -16,7 +16,6 @@ use std::rc::Rc;
 
 
 thread_local! { 
-    static BUFFER_DEBUG_ENABLED: std::cell::Cell<bool> = std::cell::Cell::new(false);
     static PITCH_ANALYZER_GLOBAL: RefCell<Option<Rc<RefCell<PitchAnalyzer>>>> = RefCell::new(None);
 }
 
@@ -176,83 +175,6 @@ impl ConsoleCommand for AudioCommand {
     }
 }
 
-/// Base Buffer Command - handles "buffer" with subcommands
-pub struct BufferCommand;
-
-impl ConsoleCommand for BufferCommand {
-    fn name(&self) -> &str { "buffer" }
-    fn description(&self) -> &str { "Buffer management commands" }
-    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            // Show available buffer subcommands
-            let help_lines = vec![
-                "Available buffer commands:".to_string(),
-                "  buffer status - Show buffer pool status and individual buffer details".to_string(),
-                "  buffer metrics - Show brief buffer pool metrics".to_string(),
-                "  buffer reset - Clear and reset all buffers in the pool".to_string(),
-                "  buffer debug - Toggle buffer debug logging on/off".to_string(),
-            ];
-            let help_text = help_lines.join("\n");
-            return ConsoleCommandResult::Output(ConsoleOutput::info(&help_text));
-        }
-        
-        let subcommand = args[0];
-        
-        match subcommand {
-            "status" => {
-                if let Some(worklet_rc) = get_global_audioworklet_manager() {
-                    let worklet = worklet_rc.borrow();
-                    if let Some(stats) = worklet.get_buffer_pool_stats() {
-                        let mut outputs = Vec::new();
-                        outputs.push(ConsoleOutput::success("=== Buffer Pool Status ==="));
-                        outputs.push(ConsoleOutput::info(&format!("Pool Size: {} buffers", stats.pool_size)));
-                        outputs.push(ConsoleOutput::info(&format!("Available: {} buffers", stats.available_buffers)));
-                        outputs.push(ConsoleOutput::info(&format!("In Use: {} buffers", stats.in_use_buffers)));
-                        outputs.push(ConsoleOutput::info(&format!("Hit Rate: {:.1}%", stats.pool_hit_rate)));
-                        outputs.push(ConsoleOutput::info(&format!("Efficiency: {:.1}%", stats.pool_efficiency)));
-                        outputs.push(ConsoleOutput::info(&format!("Transfers: {}", stats.transfer_count)));
-                        outputs.push(ConsoleOutput::info(&format!("Exhausted: {}", stats.pool_exhausted_count)));
-                        outputs.push(ConsoleOutput::info(&format!("Data Transferred: {:.2} MB", stats.total_megabytes_transferred)));
-                        ConsoleCommandResult::MultipleOutputs(outputs)
-                    } else {
-                        ConsoleCommandResult::Output(ConsoleOutput::warning("Buffer pool statistics not available"))
-                    }
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
-                }
-            },
-            "metrics" => {
-                if let Some(worklet_rc) = get_global_audioworklet_manager() {
-                    let worklet = worklet_rc.borrow();
-                    if let Some(stats) = worklet.get_buffer_pool_stats() {
-                        let status_symbol = if stats.available_buffers > 0 { "✓" } else { "✗" };
-                        let hit_rate_symbol = if stats.pool_hit_rate > 90.0 { "✓" } else if stats.pool_hit_rate > 75.0 { "⚠" } else { "✗" };
-                        let efficiency_symbol = if stats.pool_efficiency > 90.0 { "✓" } else if stats.pool_efficiency > 75.0 { "⚠" } else { "✗" };
-                        
-                        let output = format!("{} Pool: {}/{} | {} Hit: {:.1}% | {} Eff: {:.1}%", 
-                                           status_symbol, stats.available_buffers, stats.pool_size,
-                                           hit_rate_symbol, stats.pool_hit_rate,
-                                           efficiency_symbol, stats.pool_efficiency);
-                        ConsoleCommandResult::Output(ConsoleOutput::info(&output))
-                    } else {
-                        ConsoleCommandResult::Output(ConsoleOutput::warning("Buffer pool metrics not available"))
-                    }
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
-                }
-            },
-            "reset" => {
-                ConsoleCommandResult::Output(ConsoleOutput::info("Buffer pool reset not implemented (statistics are reset automatically)"))
-            },
-            "debug" => {
-                // Buffer debug functionality
-                let enabled = BUFFER_DEBUG_ENABLED.with(|c| { let val = !c.get(); c.set(val); val });
-                ConsoleCommandResult::Output(ConsoleOutput::info(&format!("Buffer debug logging {}", if enabled { "enabled" } else { "disabled" })))
-            },
-            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown buffer subcommand: {}", subcommand))),
-        }
-    }
-}
 
 /// Base Pitch Command - handles "pitch" with subcommands
 pub struct PitchCommand;
@@ -450,223 +372,9 @@ impl ConsoleCommand for PitchCommand {
     }
 }
 
-/// Pipeline Debug Command - shows full audio pipeline status
-pub struct PipelineDebugCommand;
-
-impl ConsoleCommand for PipelineDebugCommand {
-    fn name(&self) -> &str { "pipeline-debug" }
-    fn description(&self) -> &str { "Show detailed audio pipeline status for debugging" }
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
-        outputs.push(ConsoleOutput::info("=== Audio Pipeline Debug Status ==="));
-        
-        // Check AudioContext
-        if let Some(manager_rc) = get_audio_context_manager() {
-            let manager = manager_rc.borrow();
-            let state = manager.state();
-            outputs.push(ConsoleOutput::info(&format!("AudioContext: {}", state)));
-            
-            if let Some(context) = manager.get_context() {
-                outputs.push(ConsoleOutput::info(&format!("Sample Rate: {} Hz", context.sample_rate())));
-            }
-        } else {
-            outputs.push(ConsoleOutput::error("AudioContext: Not initialized"));
-        }
-        
-        // Buffer Pool removed - using direct processing with transferable buffers
-        outputs.push(ConsoleOutput::info("Buffer Pool: Removed - using direct processing with transferable buffers"));
-        
-        // Check AudioWorklet
-        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
-            let worklet = worklet_rc.borrow();
-            outputs.push(ConsoleOutput::info(&format!("AudioWorklet: {}", worklet.state())));
-            outputs.push(ConsoleOutput::info(&format!("Processing: {}", if worklet.is_processing() { "Yes" } else { "No" })));
-        } else {
-            outputs.push(ConsoleOutput::error("AudioWorklet: Not initialized"));
-        }
-        
-        // Check Pitch Analyzer
-        if let Some(_) = super::commands::get_global_pitch_analyzer() {
-            outputs.push(ConsoleOutput::info("Pitch Analyzer: Initialized"));
-        } else {
-            outputs.push(ConsoleOutput::error("Pitch Analyzer: Not initialized"));
-        }
-        
-        outputs.push(ConsoleOutput::info("=== End Debug Status ==="));
-        
-        ConsoleCommandResult::MultipleOutputs(outputs)
-    }
-}
 
 
-/// AudioWorklet Debug Command - shows AudioWorklet specific status
-pub struct AudioWorkletDebugCommand;
 
-impl ConsoleCommand for AudioWorkletDebugCommand {
-    fn name(&self) -> &str { "audioworklet-debug" }
-    fn description(&self) -> &str { "Show detailed AudioWorklet status and data flow" }
-    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
-        outputs.push(ConsoleOutput::info("=== AudioWorklet Debug Status ==="));
-        
-        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
-            let worklet = worklet_rc.borrow();
-            
-            outputs.push(ConsoleOutput::info(&format!("State: {}", worklet.state())));
-            outputs.push(ConsoleOutput::info(&format!("Processing: {}", if worklet.is_processing() { "✓ Yes" } else { "✗ No" })));
-            
-            // Check if worklet has processing node
-            if let Some(_node) = worklet.get_processing_node() {
-                outputs.push(ConsoleOutput::info("Processing Node: ✓ Connected"));
-            } else {
-                outputs.push(ConsoleOutput::error("Processing Node: ✗ Not connected"));
-            }
-            
-            // Check volume detector
-            if let Some(analysis) = worklet.last_volume_analysis() {
-                outputs.push(ConsoleOutput::info(&format!("Volume Analysis: Available (RMS: {:.1} dB)", analysis.rms_db)));
-            } else {
-                outputs.push(ConsoleOutput::warning("Volume Analysis: No data"));
-            }
-            
-            // Buffer pool removed - using direct processing with transferable buffers
-            outputs.push(ConsoleOutput::info("Buffer Pool: Removed - using direct processing with transferable buffers"));
-        } else {
-            outputs.push(ConsoleOutput::error("AudioWorklet manager not initialized"));
-        }
-        
-        outputs.push(ConsoleOutput::info("=== End AudioWorklet Debug ==="));
-        ConsoleCommandResult::MultipleOutputs(outputs)
-    }
-}
-
-/// Base Volume Command - handles "volume" with subcommands
-pub struct VolumeCommand;
-
-/// Test Signal Command - enable test signal for pitch detection testing
-pub struct TestSignalCommand;
-
-impl ConsoleCommand for VolumeCommand {
-    fn name(&self) -> &str { "volume" }
-    fn description(&self) -> &str { "Volume detection commands" }
-    fn execute(&self, args: Vec<&str>, _: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        if args.is_empty() {
-            // Show available volume subcommands
-            let help_lines = vec![
-                "Available volume commands:".to_string(),
-                "  volume status - Show current volume levels and detector configuration".to_string(),
-                "  volume config <parameter> <value> - Configure volume detector parameters".to_string(),
-                "  volume test <signal-type> [parameters] - Test volume detection with generated signals".to_string(),
-            ];
-            let help_text = help_lines.join("\n");
-            return ConsoleCommandResult::Output(ConsoleOutput::info(&help_text));
-        }
-        
-        let subcommand = args[0];
-        let sub_args = args[1..].to_vec();
-        
-        match subcommand {
-            "status" => {
-                // Volume status functionality
-                let mut outputs = Vec::new();
-                
-                if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
-                    let worklet = worklet_rc.borrow();
-                    
-                    outputs.push(ConsoleOutput::info("Volume Detection Status:"));
-                    if worklet.has_volume_detector() {
-                        outputs.push(ConsoleOutput::info("  Status: ✓ Available"));
-                        
-                        if let Some(analysis) = worklet.last_volume_analysis() {
-                            outputs.push(ConsoleOutput::info("  Live Data: ✓ Active"));
-                            outputs.push(ConsoleOutput::info(&format!("  Current RMS: {:.1} dB", analysis.rms_db)));
-                            outputs.push(ConsoleOutput::info(&format!("  Current Peak: {:.1} dB", analysis.peak_db)));
-                            outputs.push(ConsoleOutput::info(&format!("  Volume Level: {}", analysis.level)));
-                            outputs.push(ConsoleOutput::info(&format!("  Confidence Weight: {:.2}", analysis.confidence_weight)));
-                        } else {
-                            outputs.push(ConsoleOutput::warning("  Live Data: No recent analysis"));
-                        }
-                    } else {
-                        outputs.push(ConsoleOutput::error("  Status: ✗ Not attached"));
-                    }
-                } else {
-                    outputs.push(ConsoleOutput::error("AudioWorklet manager not initialized"));
-                }
-                
-                ConsoleCommandResult::MultipleOutputs(outputs)
-            },
-            "config" => {
-                // Volume config functionality
-                if sub_args.is_empty() {
-                    let mut outputs = Vec::new();
-                    outputs.push(ConsoleOutput::info("Usage: volume config <parameter> <value>"));
-                    outputs.push(ConsoleOutput::info("Parameters: gain <db> | noise-floor <db> | sample-rate <hz>"));
-                    return ConsoleCommandResult::MultipleOutputs(outputs);
-                }
-                
-                if sub_args.len() < 2 {
-                    return ConsoleCommandResult::Output(ConsoleOutput::error("Usage: volume config <parameter> <value>"));
-                }
-                
-                let parameter = sub_args[0].to_lowercase();
-                let value: f32 = match sub_args[1].parse() {
-                    Ok(v) => v,
-                    Err(_) => return ConsoleCommandResult::Output(ConsoleOutput::error("Invalid numeric value")),
-                };
-                
-                if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
-                    let mut worklet = worklet_rc.borrow_mut();
-                    let current_config = worklet.volume_config().cloned().unwrap_or_else(|| super::VolumeDetectorConfig::default());
-                    
-                    match parameter.as_str() {
-                        "gain" => {
-                            if value < -60.0 || value > 60.0 {
-                                return ConsoleCommandResult::Output(ConsoleOutput::error("Input gain must be between -60 and 60 dB"));
-                            }
-                            let new_config = super::VolumeDetectorConfig { input_gain_db: value, ..current_config };
-                            match worklet.update_volume_config(new_config) {
-                                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success(&format!("Input gain set to {:.1} dB", value))),
-                                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to update config: {}", e)))
-                            }
-                        },
-                        _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown parameter. Use: gain, noise-floor, sample-rate")),
-                    }
-                } else {
-                    ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
-                }
-            },
-            "test" => {
-                // Volume test functionality
-                if sub_args.is_empty() {
-                    let mut outputs = Vec::new();
-                    outputs.push(ConsoleOutput::info("Usage: volume test <signal-type> [parameters]"));
-                    outputs.push(ConsoleOutput::info("Signal types: sine <freq> <amplitude> | silence | pink-noise <amplitude>"));
-                    return ConsoleCommandResult::MultipleOutputs(outputs);
-                }
-                
-                let signal_type = sub_args[0].to_lowercase();
-                match signal_type.as_str() {
-                    "silence" => {
-                        if let Some(worklet_rc) = super::get_global_audioworklet_manager() {
-                            let mut worklet = worklet_rc.borrow_mut();
-                            let samples = vec![0.0f32; 128];
-                            match worklet.feed_input_chunk(&samples) {
-                                Ok(_) => ConsoleCommandResult::Output(ConsoleOutput::success("Generated silence test signal")),
-                                Err(e) => ConsoleCommandResult::Output(ConsoleOutput::error(&format!("Failed to process test signal: {}", e)))
-                            }
-                        } else {
-                            ConsoleCommandResult::Output(ConsoleOutput::error("AudioWorklet manager not initialized"))
-                        }
-                    },
-                    _ => ConsoleCommandResult::Output(ConsoleOutput::error("Unknown signal type. Use: sine, silence, pink-noise")),
-                }
-            },
-            _ => ConsoleCommandResult::Output(ConsoleOutput::error(format!("Unknown volume subcommand: {}", subcommand))),
-        }
-    }
-}
 
 /// Performance Monitor Command - shows buffer pool and audio processing metrics
 pub struct PerformanceCommand;
@@ -840,16 +548,10 @@ impl ConsoleCommand for PoolConfigCommand {
 pub fn register_audio_commands(registry: &mut ConsoleCommandRegistry) {
     // Register base commands that handle subcommands
     registry.register(Box::new(AudioCommand));
-    registry.register(Box::new(BufferCommand));
     registry.register(Box::new(PitchCommand));
-    registry.register(Box::new(VolumeCommand));
     registry.register(Box::new(TuningCommand));
     registry.register(Box::new(PerformanceCommand));
     registry.register(Box::new(PoolConfigCommand));
-    
-    // Register debugging commands
-    registry.register(Box::new(PipelineDebugCommand));
-    registry.register(Box::new(AudioWorkletDebugCommand));
     
 }
 
@@ -878,18 +580,21 @@ mod tests {
         
         // Test that the audio command is registered by checking if it can be executed
         // We'll test with a simple command that doesn't require Web Audio API
-        let result = registry.execute("buffer status");
-        // The result should be a warning about no buffer pool, not an error about unknown command
+        let result = registry.execute("pitch status");
+        // The result should be a warning about no pitch analyzer, not an error about unknown command
         match result {
             egui_dev_console::ConsoleCommandResult::Output(egui_dev_console::ConsoleOutput::Warning(_)) => {
-                // Success - command was found and executed (returned warning about no buffer pool)
+                // Success - command was found and executed (returned warning about no pitch analyzer)
+            },
+            egui_dev_console::ConsoleCommandResult::MultipleOutputs(_) => {
+                // Success - command was found and executed (returned multiple outputs)
             },
             egui_dev_console::ConsoleCommandResult::Output(egui_dev_console::ConsoleOutput::Error(text)) => {
                 // If it's an error about unknown command, that means registration failed
                 if text.contains("Unknown command") {
                     panic!("Audio commands were not properly registered");
                 }
-                // Other errors are acceptable (like "No buffer pool initialized")
+                // Other errors are acceptable (like "No pitch analyzer initialized")
             },
             _ => {
                 // Any other result is acceptable as long as it's not an "Unknown command" error

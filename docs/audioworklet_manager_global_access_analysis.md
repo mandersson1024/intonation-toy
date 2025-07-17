@@ -24,8 +24,8 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 ## Usage Analysis
 
 ### Usage Statistics
-- **Total Usages**: 17 occurrences across 4 files
-- **Common Pattern**: 16 usages use `if let Some(manager) = get_global_audioworklet_manager()`
+- **Total Usages**: 9 occurrences across 3 files
+- **Common Pattern**: 8 usages use `if let Some(manager) = get_global_audioworklet_manager()`
 - **Error Handling**: Only 1 usage treats absence as a blocking error
 
 ### Usage Distribution by Module
@@ -33,13 +33,10 @@ pub fn get_global_audioworklet_manager() -> Option<Rc<RefCell<worklet::AudioWork
 #### Audio Module (5 usages)
 - **mod.rs**: Configuration of data setters and pitch analyzer
 - **microphone.rs**: Critical initialization (only error-throwing usage)
-- **commands.rs**: Console commands for debugging and status
 
 #### Debug Module (4 usages)
 - **live_data_panel.rs**: UI controls for test signals, noise, and speaker output
 
-#### Commands Module (8 usages)
-- **audio/commands.rs**: Console commands for system monitoring and configuration
 
 ### Common Usage Patterns
 
@@ -58,12 +55,12 @@ let audioworklet_manager = super::get_global_audioworklet_manager()
     .ok_or_else(|| "AudioWorklet manager not initialized".to_string())?;
 ```
 
-#### Pattern 3: Status Display (console commands)
+#### Pattern 3: UI Configuration (debug panel)
 ```rust
-if let Some(worklet_rc) = get_global_audioworklet_manager() {
-    // Show status information
+if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
+    // Configure audio settings from UI
 } else {
-    println!("AudioWorklet manager not initialized");
+    // UI controls disabled or show warning
 }
 ```
 
@@ -137,11 +134,14 @@ The global access pattern is **appropriate** for this codebase given:
 - Project's module separation constraints
 - Need for cross-module audio functionality
 
-### Potential Improvements
-1. **Better Error Handling**: Consider making more usages treat missing manager as errors
-2. **Initialization Validation**: Add startup checks to ensure manager is properly initialized
-3. **Documentation**: Add clear documentation about initialization requirements
-4. **Testing Support**: Consider adding test utilities to mock the global manager
+### Recent Improvements
+1. **Reduced Complexity**: Fewer usage points make the pattern easier to understand and maintain
+2. **Better Separation**: Clear separation between audio processing and debug functionality
+
+### Potential Further Improvements
+1. **Initialization Validation**: Add startup checks to ensure manager is properly initialized
+2. **Documentation**: Add clear documentation about initialization requirements
+3. **Testing Support**: Consider adding test utilities to mock the global manager
 
 ### Alternative Patterns Considered
 - **Dependency Injection**: Would require extensive parameter threading
@@ -150,6 +150,11 @@ The global access pattern is **appropriate** for this codebase given:
 
 ## Conclusion
 
-The global access pattern for `get_global_audioworklet_manager()` represents a pragmatic solution balancing simplicity, performance, and architectural constraints. While it introduces some testing and debugging complexity, the benefits for real-time audio processing and cross-module integration make it a reasonable choice for this specific use case.
+The global access pattern for `get_global_audioworklet_manager()` represents a pragmatic solution balancing simplicity, performance, and architectural constraints. The pattern is manageable with 9 usage points focused on core functionality.
 
-The pattern is well-implemented with proper thread safety, optional return types, and mostly consistent usage patterns across the codebase. The primary areas for improvement involve better error handling and initialization validation rather than fundamental architectural changes.
+The pattern is well-implemented with proper thread safety, optional return types, and consistent usage patterns. The usages are focused on core functionality:
+- Audio system configuration and data flow
+- Critical microphone initialization
+- UI controls for real-time audio parameter adjustment
+
+This focused usage makes the global access pattern defensible and maintainable while preserving the benefits for real-time audio processing and cross-module integration.
