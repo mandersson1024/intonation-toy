@@ -250,10 +250,7 @@ pub use message_protocol::{
     get_high_resolution_timestamp,
     // Enhanced error handling types
     MessageProtocolError, ValidationError, TransferError, MessageProtocolResult, ValidationResult, TransferResult,
-    MessageContext, MessageDirection, SystemState,
-    // Error reporting system
-    ErrorReportingSystem, ErrorReport, ErrorSeverity,
-    initialize_error_reporting, with_error_reporter, report_global_error, report_protocol_error_global
+    MessageContext, MessageDirection, SystemState
 };
 
 #[cfg(test)]
