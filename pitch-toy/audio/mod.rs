@@ -103,91 +103,8 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
     service
 }
 
-/// Create a ConsoleAudioService instance with events (legacy function name)
-/// Returns a configured console audio service with audio context manager
-pub fn create_console_audio_service_with_events(
-) -> console_service::ConsoleAudioServiceImpl {
-    let mut service = console_service::ConsoleAudioServiceImpl::new();
-    
-    // Set audio context manager if available
-    if let Some(manager) = get_audio_context_manager() {
-        service.set_audio_context_manager(manager);
-    }
-    
-    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
-    
-    service
-}
 
-/// Create a ConsoleAudioService instance with audio devices setter
-/// Returns a configured console audio service that directly updates audio devices via setter
-pub fn create_console_audio_service_with_setter(
-    audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static
-) -> console_service::ConsoleAudioServiceImpl {
-    let mut service = console_service::ConsoleAudioServiceImpl::new();
-    
-    // Set audio context manager if available
-    if let Some(manager) = get_audio_context_manager() {
-        service.set_audio_context_manager(manager);
-    }
-    
-    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
-    
-    // Set audio devices setter
-    service.set_audio_devices_setter(audio_devices_setter);
-    
-    service
-}
 
-/// Create a ConsoleAudioService instance with both setters
-/// Returns a configured console audio service that directly updates data via setters
-pub fn create_console_audio_service_with_audioworklet_setter(
-    audio_devices_setter: impl observable_data::DataSetter<crate::audio::AudioDevices> + Clone + 'static,
-    audioworklet_status_setter: impl observable_data::DataSetter<AudioWorkletStatus> + Clone + 'static,
-    volume_level_setter: impl observable_data::DataSetter<Option<VolumeLevelData>> + Clone + 'static
-) -> console_service::ConsoleAudioServiceImpl {
-    let mut service = console_service::ConsoleAudioServiceImpl::new();
-    
-    // Set audio context manager if available
-    if let Some(manager) = get_audio_context_manager() {
-        service.set_audio_context_manager(manager);
-    }
-    
-    // Note: Event dispatcher functionality has been removed - using setter-based updates instead
-    
-    // Set audio devices setter
-    service.set_audio_devices_setter(audio_devices_setter);
-    
-    // Set audioworklet status setter
-    service.set_audio_worklet_status_setter(audioworklet_status_setter);
-    
-    // Set the volume level setter on the global AudioWorklet manager if it exists
-    // Need to clone the Rc to avoid holding the borrow while we check if it's processing
-    if let Some(manager_rc) = get_global_audioworklet_manager() {
-        let setter_rc = std::rc::Rc::new(volume_level_setter);
-        
-        // Set the setter on the manager
-        {
-            let mut manager = manager_rc.borrow_mut();
-            manager.set_volume_level_setter(setter_rc.clone());
-        }
-        
-        // If the AudioWorklet is already initialized, we need to update the shared data
-        // This handles the case where the AudioWorklet was initialized before the setter was available
-        let is_processing = {
-            let manager = manager_rc.borrow();
-            matches!(manager.state(), worklet::AudioWorkletState::Processing)
-        };
-        
-        if is_processing {
-            dev_log!("AudioWorklet already processing - volume setter configured post-initialization");
-        } else {
-            dev_log!("Volume level setter configured on AudioWorklet manager");
-        }
-    }
-    
-    service
-}
 
 // Note: Buffer pool global functions removed - using direct processing with transferable buffers
 
@@ -255,23 +172,6 @@ pub fn set_volume_level_setter(
     }
 }
 
-/// Enable test signal generator with a 440Hz sine wave for testing pitch detection
-pub fn enable_test_signal_440hz() {
-    if let Some(worklet_rc) = get_global_audioworklet_manager() {
-        let mut worklet = worklet_rc.borrow_mut();
-        let config = TestSignalGeneratorConfig {
-            enabled: true,
-            frequency: 440.0,
-            amplitude: 0.5, // 50% volume
-            waveform: TestWaveform::Sine,
-            sample_rate: 48000.0,
-        };
-        worklet.update_test_signal_config(config);
-        dev_log!("✓ Test signal enabled: 440Hz sine wave at 50% amplitude");
-    } else {
-        dev_log!("✗ Failed to enable test signal: AudioWorklet manager not available");
-    }
-}
 
 // Note: initialize_buffer_pool removed - using direct processing with transferable buffers
 
