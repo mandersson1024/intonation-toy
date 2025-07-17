@@ -454,7 +454,7 @@ impl AudioWorkletManager {
         // Add debug log for the first few messages
         let chunks_processed = shared_data.borrow().chunks_processed;
         if chunks_processed <= 5 {
-            dev_log!("DEBUG: Received AudioWorklet message #{}", chunks_processed);
+            // AudioWorklet message received
         }
         
         // Try to deserialize using structured message protocol
@@ -564,7 +564,7 @@ impl AudioWorkletManager {
     ) {
         let chunks_processed = shared_data.borrow().chunks_processed;
         if chunks_processed <= 5 {
-            dev_log!("DEBUG: Starting handle_typed_audio_data_batch for chunk #{}", chunks_processed);
+            // Starting handle_typed_audio_data_batch
         }
         
         // Validate the batch metadata
@@ -578,8 +578,7 @@ impl AudioWorkletManager {
             return;
         }
         
-        dev_log!("Received typed audio data batch: {} samples, {} bytes, timestamp: {}", 
-                 data.sample_count, data.buffer_length, data.timestamp);
+        // Audio data batch received and processing
         
         // Extract the ArrayBuffer from the payload
         if let Ok(payload_obj) = js_sys::Reflect::get(original_obj, &"payload".into())
@@ -588,16 +587,17 @@ impl AudioWorkletManager {
             if let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) {
                 if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
                     if chunks_processed <= 5 {
-                        dev_log!("DEBUG: Successfully extracted ArrayBuffer with {} bytes", array_buffer.byte_length());
+                        // Successfully extracted ArrayBuffer
                     }
                     
                     // Convert ArrayBuffer to Float32Array for processing
                     let float32_array = js_sys::Float32Array::new(&array_buffer);
-                    let mut audio_samples = vec![0.0f32; data.sample_count];
+                    let array_length = float32_array.length() as usize;
+                    let mut audio_samples = vec![0.0f32; array_length];
                     float32_array.copy_to(&mut audio_samples);
                     
                     if chunks_processed <= 5 {
-                        dev_log!("DEBUG: Converted to {} audio samples for processing", audio_samples.len());
+                        // Converted to audio samples for processing
                     }
                     
                     // Perform actual audio processing
@@ -660,8 +660,7 @@ impl AudioWorkletManager {
                 volume_setter.set(Some(volume_data));
                 
                 if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                    dev_log!("Volume analysis: peak={:.1}dB, rms={:.1}dB, level={:?}", 
-                             volume_analysis.peak_db, volume_analysis.rms_db, volume_analysis.level);
+                    // Volume analysis completed
                 }
             }
         }
@@ -687,8 +686,7 @@ impl AudioWorkletManager {
                         pitch_setter.set(Some(pitch_data));
                         
                         if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                            dev_log!("Pitch detected: {:.1}Hz, confidence={:.2}, clarity={:.2}", 
-                                     pitch_result.frequency, pitch_result.confidence, pitch_result.clarity);
+                            // Pitch detected and processed
                         }
                     }
                 }
@@ -1245,7 +1243,7 @@ impl AudioWorkletManager {
             
             // Debug log first time we detect volume
             if self.last_volume_analysis.is_none() {
-                dev_log!("First volume analysis: {:.1}dB", volume_analysis.peak_db);
+                // First volume analysis completed
             }
             
 
@@ -1269,7 +1267,7 @@ impl AudioWorkletManager {
                     setter.set(Some(volume_data));
                     // Log occasionally to avoid spam
                     if self.chunk_counter % 256 == 0 {
-                        dev_log!("Volume data updated via process_audio: {:.1}dB", volume_analysis.peak_db);
+                        // Volume data updated via process_audio
                     }
                 } else if self.chunk_counter % 256 == 0 {
                     dev_log!("Warning: No volume level setter available in process_audio");
