@@ -540,35 +540,38 @@ impl AudioWorkletManager {
                 } else {
                     dev_log!("✓ AudioWorklet processor ready");
                 }
-                Self::publish_status_update(shared_data, AudioWorkletState::Ready, false);
+                Self::publish_status_update(self, shared_data, AudioWorkletState::Ready, false);
             }
             FromWorkletMessage::ProcessingStarted => {
                 dev_log!("✓ AudioWorklet processing started");
-                Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+                Self::publish_status_update(self, shared_data, AudioWorkletState::Processing, true);
             }
             FromWorkletMessage::ProcessingStopped => {
                 dev_log!("✓ AudioWorklet processing stopped");
-                Self::publish_status_update(shared_data, AudioWorkletState::Stopped, false);
+                Self::publish_status_update(self, shared_data, AudioWorkletState::Stopped, false);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
                 self.handle_typed_audio_data_batch(data, shared_data, original_obj);
             }
             FromWorkletMessage::ProcessingError { error } => {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-                Self::publish_status_update(shared_data, AudioWorkletState::Failed, false);
+                Self::publish_status_update(self, shared_data, AudioWorkletState::Failed, false);
             }
             FromWorkletMessage::StatusUpdate { status } => {
                 
                 // Store buffer pool statistics for UI display and push to reactive system
                 if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
+                    
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
                     
                     // Push to reactive system if setter is available
                     if let Some(setter) = &self.buffer_pool_stats_setter {
                         setter.set(Some(buffer_pool_stats.clone()));
                     } else {
+                        dev_log!("Warning: No buffer pool stats setter available");
                     }
                 } else {
+                    dev_log!("Warning: No buffer pool stats in StatusUpdate message");
                 }
                 // Status updates don't change the main state
             }
@@ -650,7 +653,7 @@ impl AudioWorkletManager {
         
         // Update status periodically
         if chunks_processed % 16 == 0 {
-            Self::publish_status_update(shared_data, AudioWorkletState::Processing, true);
+            Self::publish_status_update(self, shared_data, AudioWorkletState::Processing, true);
         }
     }
     
@@ -727,11 +730,20 @@ impl AudioWorkletManager {
     
     /// Publish AudioWorklet status update to Live Data Panel
     fn publish_status_update(
+        worklet_manager: &AudioWorkletManager,
         _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        _state: AudioWorkletState,
-        _processing: bool
+        state: AudioWorkletState,
+        processing: bool
     ) {
-        // AudioWorklet status updates are handled elsewhere via setters
+        // Send periodic GetStatus requests to update buffer pool statistics
+        match worklet_manager.send_typed_control_message(ToWorkletMessage::GetStatus) {
+            Ok(_) => {
+                // Successfully sent GetStatus request
+            }
+            Err(e) => {
+                dev_log!("Warning: Failed to send periodic GetStatus: {}", e);
+            }
+        }
     }
     
     

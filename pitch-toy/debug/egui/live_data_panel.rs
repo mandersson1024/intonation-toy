@@ -406,13 +406,8 @@ impl EguiLiveDataPanel {
     fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
         ui.heading("Buffer Pool Statistics");
         
-        // Request fresh statistics from the audio system
-        if let Some(worklet_rc) = crate::audio::get_global_audioworklet_manager() {
-            let worklet = worklet_rc.borrow();
-            let _ = worklet.request_status_update(); // Trigger status update from JavaScript
-        }
-        
-        // Use reactive data from LiveData instead of pulling from worklet
+        // Buffer pool statistics are now updated reactively via periodic status updates
+        // No manual request needed - just consume the reactive data
         if let Some(stats) = self.live_data.buffer_pool_stats.get() {
                 // Pool status
                 ui.horizontal(|ui| {

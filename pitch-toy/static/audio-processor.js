@@ -905,7 +905,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 case ToWorkletMessageType.GET_STATUS:
                     const poolStats = this.bufferPool.getStats();
                     const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
-                    // Debug logging removed
                     const statusData = {
                         isProcessing: this.isProcessing,
                         chunkCounter: this.chunkCounter,
