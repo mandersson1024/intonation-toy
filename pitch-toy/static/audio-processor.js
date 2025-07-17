@@ -146,7 +146,8 @@ class AudioWorkletMessageProtocol {
                     sampleCount: options.sampleCount || 0,
                     bufferLength: buffer ? buffer.byteLength : 0,
                     timestamp: timestamp,
-                    sequenceNumber: options.chunkCounter || 0
+                    sequenceNumber: options.chunkCounter || 0,
+                    bufferId: options.bufferId || 0
                 },
                 buffer: buffer
             }
@@ -344,6 +345,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Current batch buffer tracking
         this.currentBuffer = null;
         this.currentBufferArray = null;
+        this.currentBufferId = 0; // Track buffer ID for ping-pong pattern
         this.writePosition = 0;
         
         // Timeout configuration for low-latency sending
@@ -399,16 +401,18 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.bufferStats.acquireCount++;
         
         // Try to acquire from pool first
-        this.currentBuffer = this.bufferPool.acquire();
+        const acquisition = this.bufferPool.acquire();
         
-        if (this.currentBuffer) {
+        if (acquisition) {
             // Successfully acquired from pool
+            this.currentBuffer = acquisition.buffer;
+            this.currentBufferId = acquisition.bufferId;
             this.consecutivePoolFailures = 0; // Reset failure counter
             this.currentBufferArray = new Float32Array(this.currentBuffer);
             this.writePosition = 0;
             this.lastBufferStartTime = this.currentTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
             
-            console.log('PitchDetectionProcessor: Buffer acquired from pool - pool stats:', this.bufferPool.getStats());
+            console.log('PitchDetectionProcessor: Buffer acquired from pool - ID:', this.currentBufferId, 'pool stats:', this.bufferPool.getStats());
         } else {
             // Pool exhausted - skip processing rather than fallback allocation
             this.bufferStats.poolExhaustedCount++;
@@ -417,6 +421,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             // Clear buffer references to indicate no buffer available
             this.currentBuffer = null;
             this.currentBufferArray = null;
+            this.currentBufferId = 0;
             this.writePosition = 0;
             
             // Log warning based on failure frequency
@@ -442,6 +447,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.bufferStats.bufferLifecycle.detached++;
             this.currentBuffer = null;
             this.currentBufferArray = null;
+            this.currentBufferId = 0;
             this.writePosition = 0;
             return;
         }
@@ -467,7 +473,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 const batchMessage = this.messageProtocol.createAudioDataBatchMessage(this.currentBuffer, {
                     sampleRate: sampleRate,
                     sampleCount: metadata.sampleCount,
-                    chunkCounter: metadata.chunkCounter
+                    chunkCounter: metadata.chunkCounter,
+                    bufferId: this.currentBufferId
                 });
                 
                 // Send buffer with transferable
@@ -491,13 +498,14 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     (this.bufferStats.averageBufferUtilization * (this.bufferStats.transferCount - 1) + utilization) / 
                     this.bufferStats.transferCount;
                 
-                console.log('PitchDetectionProcessor: Buffer transferred - utilization:', 
+                console.log('PitchDetectionProcessor: Buffer transferred - ID:', this.currentBufferId, 'utilization:', 
                     (utilization * 100).toFixed(1) + '%, average:', 
                     (this.bufferStats.averageBufferUtilization * 100).toFixed(1) + '%, pool:', this.bufferPool.getStats());
                 
                 // Clear references to transferred buffer immediately
                 this.currentBuffer = null;
                 this.currentBufferArray = null;
+                this.currentBufferId = 0;
                 this.writePosition = 0;
                 
             } catch (error) {
@@ -505,6 +513,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 // Clear buffer references on error
                 this.currentBuffer = null;
                 this.currentBufferArray = null;
+                this.currentBufferId = 0;
                 this.writePosition = 0;
             }
         }
@@ -547,6 +556,16 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     // Send any remaining buffered data before stopping
                     if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
                         this.sendCurrentBuffer();
+                    }
+                    
+                    // Clean up any remaining buffer state
+                    if (this.currentBuffer && this.currentBufferId > 0) {
+                        this.bufferPool.release(this.currentBuffer);
+                        console.log('PitchDetectionProcessor: Released buffer on stop processing:', this.currentBufferId);
+                        this.currentBuffer = null;
+                        this.currentBufferArray = null;
+                        this.currentBufferId = 0;
+                        this.writePosition = 0;
                     }
                     
                     const stoppedMessage = this.messageProtocol.createProcessingStoppedMessage();
@@ -624,6 +643,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                             // Reset buffer state with new size
                             this.currentBuffer = null;
                             this.currentBufferArray = null;
+                            this.currentBufferId = 0;
                             this.writePosition = 0;
                         }
                         
@@ -958,6 +978,27 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         if (this.currentBuffer && this.currentBufferArray && this.writePosition > 0) {
             this.sendCurrentBuffer();
         }
+        
+        // Clean up buffer pool and handle in-flight buffers
+        if (this.bufferPool) {
+            // Release any current buffer back to pool if not transferred
+            if (this.currentBuffer && this.currentBufferId > 0) {
+                this.bufferPool.release(this.currentBuffer);
+                console.log('PitchDetectionProcessor: Released current buffer on destroy:', this.currentBufferId);
+            }
+            
+            // Stop timeout checker to prevent further cleanup
+            this.bufferPool.stopTimeoutChecker();
+            
+            // Log final pool statistics
+            console.log('PitchDetectionProcessor: Final buffer pool stats:', this.bufferPool.getStats());
+        }
+        
+        // Clear all buffer references
+        this.currentBuffer = null;
+        this.currentBufferArray = null;
+        this.currentBufferId = 0;
+        this.writePosition = 0;
         
         const destroyedMessage = this.messageProtocol.createProcessorDestroyedMessage();
         this.port.postMessage(destroyedMessage);
