@@ -307,7 +307,9 @@ pub async fn start() {
         audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
     } else {
         // Fallback to global approach if context is not available
-        audio::setup_ui_action_listeners(listeners, microphone_permission_setter.clone());
+        // Note: Legacy setup_ui_action_listeners removed - use setup_ui_action_listeners_with_context instead
+        // For now, skip setting up action listeners as the context is not available in this code path
+        web_sys::console::log_1(&"Warning: UI action listeners not set up in legacy mode - use context-aware initialization instead".into());
     }
     
     // Start three-d application directly
@@ -357,11 +359,8 @@ async fn initialize_audio_systems_new(
     
     web_sys::console::log_1(&"DEBUG: ✓ AudioSystemContext initialized successfully with new approach".into());
     
-    // Store the context globally for backward compatibility
+    // Store the context for backward compatibility
     let context_rc = std::rc::Rc::new(std::cell::RefCell::new(context));
-    
-    // Store AudioSystemContext globally for bridge pattern
-    audio::set_global_audio_system_context(context_rc.clone());
     
     // Store individual components globally for backward compatibility
     // Store AudioContextManager globally for backward compatibility
@@ -381,78 +380,3 @@ async fn initialize_audio_systems_new(
     Ok(context_rc)
 }
 
-/// Initialize all audio systems using AudioSystemContext with proper error handling (legacy)
-/// DEPRECATED: Use initialize_audio_systems_new instead
-#[deprecated(note = "Use initialize_audio_systems_new instead")]
-async fn initialize_audio_systems(
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>,
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>,
-    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>,
-    _buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<audio::message_protocol::BufferPoolStats>>>>
-) -> Result<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>, String> {
-    // Convert setters to required types with adapters
-    let pitch_setter = pitch_data_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::PitchData>>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios
-        std::rc::Rc::new(NoOpPitchDataSetter)
-    });
-    
-    let volume_setter = volume_level_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::VolumeLevelData>>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios
-        std::rc::Rc::new(NoOpVolumeDataSetter)
-    });
-    
-    let status_setter = audioworklet_status_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<audio::AudioWorkletStatus>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios  
-        std::rc::Rc::new(NoOpAudioWorkletStatusSetter)
-    });
-    
-    web_sys::console::log_1(&"DEBUG: Creating AudioSystemContext with dependency injection".into());
-    
-    // Create AudioSystemContext with setters passed at construction
-    let mut context = audio::AudioSystemContext::new(
-        volume_setter,
-        pitch_setter,
-        status_setter,
-    );
-    
-    // Initialize the context (this handles all component initialization)
-    web_sys::console::log_1(&"DEBUG: Initializing AudioSystemContext".into());
-    context.initialize().await
-        .map_err(|e| {
-            web_sys::console::error_1(&format!("AudioSystemContext initialization failed: {}", e).into());
-            format!("AudioSystemContext initialization failed: {}", e)
-        })?;
-    web_sys::console::log_1(&"DEBUG: ✓ AudioSystemContext initialized successfully".into());
-    
-    // Store the context globally for backward compatibility
-    let context_rc = std::rc::Rc::new(std::cell::RefCell::new(context));
-    
-    // Store AudioSystemContext globally for bridge pattern
-    audio::set_global_audio_system_context(context_rc.clone());
-    
-    // Store individual components globally for backward compatibility
-    // Store AudioContextManager globally for backward compatibility
-    {
-        let context_borrowed = context_rc.borrow();
-        let manager_rc = context_borrowed.get_audio_context_manager_rc();
-        audio::set_global_audio_context_manager(manager_rc);
-    }
-    
-    dev_log!("✓ AudioSystemContext components available globally for backward compatibility");
-    
-    if let Some(pitch_analyzer) = context_rc.borrow().get_pitch_analyzer_clone() {
-        audio::commands::set_global_pitch_analyzer(pitch_analyzer);
-        dev_log!("✓ Pitch analyzer stored globally for backward compatibility");
-    }
-    
-    Ok(context_rc)
-}

@@ -119,17 +119,17 @@ This document outlines the implementation plan for removing the global `get_glob
 ### Task 4: Remove Global State Infrastructure
 **Goal:** Remove thread-local storage and global access functions
 
-- [ ] 4a. Remove global access functions
-  - [ ] 4a.1. Remove `get_global_audioworklet_manager()` function
-  - [ ] 4a.2. Remove `set_global_audioworklet_manager()` function
-  - [ ] 4a.3. Remove `AUDIOWORKLET_MANAGER_GLOBAL` thread-local variable
-  - [ ] 4a.4. Update module exports to remove global functions
+- [x] 4a. Remove global access functions
+  - [x] 4a.1. Remove `get_global_audioworklet_manager()` function
+  - [x] 4a.2. Remove `set_global_audioworklet_manager()` function
+  - [x] 4a.3. Remove `AUDIOWORKLET_MANAGER_GLOBAL` thread-local variable
+  - [x] 4a.4. Update module exports to remove global functions
 
-- [ ] 4b. Remove bridge pattern infrastructure
-  - [ ] 4b.1. Remove temporary global AudioSystemContext instance
-  - [ ] 4b.2. Remove wrapper functions
-  - [ ] 4b.3. Remove deprecation warnings
-  - [ ] 4b.4. Clean up any remaining compatibility code
+- [x] 4b. Remove bridge pattern infrastructure
+  - [x] 4b.1. Remove temporary global AudioSystemContext instance
+  - [x] 4b.2. Remove wrapper functions
+  - [x] 4b.3. Remove deprecation warnings
+  - [x] 4b.4. Clean up any remaining compatibility code
 
 - [ ] 4c. Update documentation
   - [ ] 4c.1. Update function documentation to reflect new parameters

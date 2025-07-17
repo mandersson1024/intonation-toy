@@ -161,113 +161,33 @@ impl Drop for MicrophoneManager {
     }
 }
 
-/// Connect microphone to AudioWorklet for audio processing
-/// This is the main entry point for establishing the microphone → AudioWorklet pipeline
-/// DEPRECATED: Use connect_microphone_to_audioworklet_with_context instead
-#[deprecated(note = "Use connect_microphone_to_audioworklet_with_context instead - pass AudioSystemContext for better dependency management")]
-pub async fn connect_microphone_to_audioworklet() -> Result<(), String> {
-    use crate::common::dev_log;
-    
-    dev_log!("Starting connect_microphone_to_audioworklet");
-    dev_log!("Requesting microphone permission and connecting to AudioWorklet");
-    
-    // Request microphone permission and get stream
-    let media_stream = match PermissionManager::request_microphone_permission().await {
-        Ok(stream) => {
-            dev_log!("✓ Microphone permission granted, received MediaStream");
-            // Check if stream has active tracks
-            let tracks = stream.get_tracks();
-            dev_log!("MediaStream has {} tracks", tracks.length());
-            for i in 0..tracks.length() {
-                if let Some(track) = tracks.get(i).dyn_ref::<web_sys::MediaStreamTrack>() {
-                    dev_log!("Track {}: kind={}, enabled={}, ready_state={:?}", 
-                        i, track.kind(), track.enabled(), track.ready_state());
-                }
-            }
-            stream
-        }
-        Err(e) => {
-            dev_log!("✗ Microphone permission failed: {:?}", e);
-            return Err(format!("Failed to get microphone permission: {:?}", e));
-        }
-    };
-    
-    // Get audio context and AudioWorklet manager
-    dev_log!("Getting AudioContext manager");
-    let audio_context_manager = super::get_audio_context_manager()
-        .ok_or_else(|| "AudioContext manager not initialized".to_string())?;
-    
-    // Resume AudioContext if suspended (required for processing to start)
-    {
-        let mut manager = audio_context_manager.borrow_mut();
-        dev_log!("DEBUG: Resuming AudioContext");
-        if let Err(e) = manager.resume().await {
-            dev_log!("⚠️ Failed to resume AudioContext: {:?}", e);
-        } else {
-            dev_log!("✓ AudioContext resumed for microphone processing");
-        }
-    }
-    
-    dev_log!("DEBUG: Getting AudioWorklet manager");
-    let audioworklet_manager = super::get_global_audioworklet_manager()
-        .ok_or_else(|| "AudioWorklet manager not initialized".to_string())?;
-    
-    // Create audio source from MediaStream
-    dev_log!("DEBUG: Creating MediaStreamAudioSourceNode");
-    let audio_context = {
-        let manager = audio_context_manager.borrow();
-        manager.get_context()
-            .ok_or_else(|| "AudioContext not available".to_string())?
-            .clone()
-    };
-    
-    let source = match audio_context.create_media_stream_source(&media_stream) {
-        Ok(source_node) => {
-            dev_log!("✓ Created MediaStreamAudioSourceNode from microphone");
-            source_node
-        }
-        Err(e) => {
-            dev_log!("✗ Failed to create audio source: {:?}", e);
-            return Err(format!("Failed to create audio source: {:?}", e));
-        }
-    };
-    
-    // Connect microphone source to AudioWorklet
-    dev_log!("DEBUG: Connecting microphone source to AudioWorklet");
-    let mut worklet_manager = audioworklet_manager.borrow_mut();
-    match worklet_manager.connect_microphone(source.as_ref()) {
-        Ok(_) => {
-            dev_log!("✓ Microphone successfully connected to AudioWorklet");
-            
-            // Note: No need to connect to destination - microphone → AudioWorklet is sufficient for processing
-            
-            // Ensure processing is active after connection
-            if !worklet_manager.is_processing() {
-                dev_log!("Starting AudioWorklet processing after microphone connection...");
-                match worklet_manager.start_processing() {
-                    Ok(_) => {
-                        dev_log!("✓ AudioWorklet processing started - audio pipeline active");
-                    }
-                    Err(e) => {
-                        dev_log!("⚠️ Failed to start processing after microphone connection: {:?}", e);
-                    }
-                }
-            } else {
-                dev_log!("✓ AudioWorklet already processing - audio pipeline active");
-            }
-            
-            // Status is published automatically by the AudioWorklet manager
-            
-            Ok(())
-        }
-        Err(e) => {
-            dev_log!("✗ Failed to connect microphone to AudioWorklet: {:?}", e);
-            Err(format!("Failed to connect microphone: {:?}", e))
-        }
-    }
-}
 
 /// Connect microphone to AudioWorklet using AudioSystemContext
+/// 
+/// This function establishes the complete audio processing pipeline from microphone input
+/// to AudioWorklet processing using dependency injection with AudioSystemContext.
+/// 
+/// # Parameters
+/// - `audio_context`: AudioSystemContext instance containing all audio components
+/// 
+/// # Returns
+/// - `Ok(())` if the connection was successful
+/// - `Err(String)` with error details if the connection failed
+/// 
+/// # Process
+/// 1. Requests microphone permission from the user
+/// 2. Creates MediaStreamAudioSourceNode from the microphone stream
+/// 3. Connects the source to the AudioWorklet processor
+/// 4. Starts audio processing if not already active
+/// 
+/// # Example
+/// ```rust
+/// let context = AudioSystemContext::new(/* setters */);
+/// match connect_microphone_to_audioworklet_with_context(&context).await {
+///     Ok(_) => println!("Microphone connected successfully"),
+///     Err(e) => eprintln!("Failed to connect microphone: {}", e),
+/// }
+/// ```
 pub async fn connect_microphone_to_audioworklet_with_context(
     audio_context: &std::cell::RefCell<super::context::AudioSystemContext>
 ) -> Result<(), String> {
@@ -341,29 +261,39 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     
     // Note: We need to use global access here because the context provides read-only access
     // This is a limitation of the current design that could be improved in future iterations
-    let audioworklet_manager_rc = super::get_global_audioworklet_manager()
-        .ok_or_else(|| "AudioWorklet manager not available globally".to_string())?;
+    // Note: Global access has been removed as part of migration to AudioSystemContext
+    // Use the context parameter to access the AudioWorklet manager
+    let result = {
+        let mut context_borrowed = audio_context.borrow_mut();
+        if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+            worklet_manager.connect_microphone(source.as_ref())
+        } else {
+            return Err("AudioWorklet manager not available in context".to_string());
+        }
+    };
     
-    let mut worklet_manager = audioworklet_manager_rc.borrow_mut();
-    match worklet_manager.connect_microphone(source.as_ref()) {
+    match result {
         Ok(_) => {
             dev_log!("✓ Microphone successfully connected to AudioWorklet");
             
             // Note: No need to connect to destination - microphone → AudioWorklet is sufficient for processing
             
             // Ensure processing is active after connection
-            if !worklet_manager.is_processing() {
-                dev_log!("Starting AudioWorklet processing after microphone connection...");
-                match worklet_manager.start_processing() {
-                    Ok(_) => {
-                        dev_log!("✓ AudioWorklet processing started - audio pipeline active");
+            let mut context_borrowed = audio_context.borrow_mut();
+            if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+                if !worklet_manager.is_processing() {
+                    dev_log!("Starting AudioWorklet processing after microphone connection...");
+                    match worklet_manager.start_processing() {
+                        Ok(_) => {
+                            dev_log!("✓ AudioWorklet processing started - audio pipeline active");
+                        }
+                        Err(e) => {
+                            dev_log!("⚠️ Failed to start processing after microphone connection: {:?}", e);
+                        }
                     }
-                    Err(e) => {
-                        dev_log!("⚠️ Failed to start processing after microphone connection: {:?}", e);
-                    }
+                } else {
+                    dev_log!("✓ AudioWorklet already processing - audio pipeline active");
                 }
-            } else {
-                dev_log!("✓ AudioWorklet already processing - audio pipeline active");
             }
             
             // Status is published automatically by the AudioWorklet manager

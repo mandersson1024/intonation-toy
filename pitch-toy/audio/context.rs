@@ -542,7 +542,44 @@ impl Drop for AudioContextManager {
 }
 
 /// AudioSystemContext manages all audio-related instances and their lifecycle
-/// This provides a unified interface for audio system management with dependency injection
+/// 
+/// This structure provides a unified interface for audio system management using dependency injection.
+/// It centralizes all audio components and their interactions, eliminating the need for global state.
+/// 
+/// # Architecture
+/// 
+/// The AudioSystemContext owns and manages:
+/// - AudioContextManager: Web Audio API context management
+/// - AudioWorkletManager: Real-time audio processing
+/// - PitchAnalyzer: Pitch detection and analysis
+/// - Data setters: Reactive data updates to UI components
+/// 
+/// # Benefits
+/// 
+/// - **Dependency Injection**: All dependencies are explicitly provided at construction
+/// - **Centralized Management**: Single point of access for all audio components  
+/// - **Testability**: Easy to mock dependencies for unit testing
+/// - **Lifecycle Control**: Proper initialization and cleanup of all components
+/// - **Type Safety**: Compile-time guarantees about component availability
+/// 
+/// # Usage
+/// 
+/// ```rust
+/// // Create with mandatory data setters
+/// let context = AudioSystemContext::new(
+///     volume_setter,
+///     pitch_setter,
+///     status_setter,
+/// );
+/// 
+/// // Initialize all components
+/// context.initialize().await?;
+/// 
+/// // Access components safely
+/// if let Some(worklet) = context.get_audioworklet_manager() {
+///     // Use worklet manager
+/// }
+/// ```
 pub struct AudioSystemContext {
     audio_context_manager: std::rc::Rc<std::cell::RefCell<AudioContextManager>>,
     audioworklet_manager: Option<super::worklet::AudioWorkletManager>,
