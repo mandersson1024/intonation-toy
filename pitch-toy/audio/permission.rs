@@ -211,7 +211,48 @@ impl PermissionManager {
     }
 }
 
+/// Connect microphone to audio worklet using AudioSystemContext
+/// This function is called synchronously from the user click callback
+pub fn connect_microphone_with_context(
+    setter: impl observable_data::DataSetter<AudioPermission> + 'static,
+    audio_context: std::rc::Rc<std::cell::RefCell<super::context::AudioSystemContext>>
+) {
+    // Set state to requesting immediately (synchronously)
+    setter.set(AudioPermission::Requesting);
+    crate::common::dev_log!("Starting microphone connection process with context");
+    
+    // Start the async permission request (this should maintain the user gesture context)
+    wasm_bindgen_futures::spawn_local(async move {
+        crate::common::dev_log!("Calling connect_microphone_to_audioworklet_with_context");
+        match crate::audio::connect_microphone_to_audioworklet_with_context(&audio_context).await {
+            Ok(_) => {
+                web_sys::console::log_1(&"✓ Microphone connected successfully".into());
+                crate::common::dev_log!("Microphone connected successfully to AudioWorklet");
+                // Update permission state
+                setter.set(AudioPermission::Granted);
+            }
+            Err(e) => {
+                web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
+                crate::common::dev_log!("Microphone connection failed: {}", e);
+                
+                // Map error to permission state
+                let permission_state = if e.contains("denied") || e.contains("NotAllowedError") {
+                    AudioPermission::Denied
+                } else if e.contains("NotFoundError") || e.contains("unavailable") {
+                    AudioPermission::Unavailable
+                } else {
+                    AudioPermission::Unavailable
+                };
+                
+                // Update permission state
+                setter.set(permission_state);
+            }
+        }
+    });
+}
+
 /// Connect microphone to audio worklet and update permission state
+/// DEPRECATED: Use connect_microphone_with_context instead
 /// This function is called synchronously from the user click callback
 pub fn connect_microphone(setter: impl observable_data::DataSetter<AudioPermission> + 'static) {
     // Set state to requesting immediately (synchronously)

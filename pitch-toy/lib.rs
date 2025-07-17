@@ -302,12 +302,9 @@ pub async fn start() {
     let triggers = ui_control_actions.get_triggers();
     
     // Setup audio module listeners for UI actions
-    if let Some(ref context) = audio_context {
-        audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
-    } else {
-        // Fallback to global access if AudioSystemContext is not available
-        audio::setup_ui_action_listeners(listeners, microphone_permission_setter.clone());
-    }
+    // For now, we continue to use the global approach for action listeners
+    // TODO: Future task - implement proper thread-safe context sharing for action listeners
+    audio::setup_ui_action_listeners(listeners, microphone_permission_setter.clone());
     
     // Start three-d application directly
     run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions, triggers).await;
@@ -367,7 +364,13 @@ async fn initialize_audio_systems(
     let context_rc = std::rc::Rc::new(std::cell::RefCell::new(context));
     
     // Store individual components globally for backward compatibility
-    // Note: The AudioWorkletManager is already stored globally during initialization
+    // Store AudioContextManager globally for backward compatibility
+    {
+        let context_borrowed = context_rc.borrow();
+        let manager_rc = context_borrowed.get_audio_context_manager_rc();
+        audio::set_global_audio_context_manager(manager_rc);
+    }
+    
     dev_log!("✓ AudioSystemContext components available globally for backward compatibility");
     
     if let Some(pitch_analyzer) = context_rc.borrow().get_pitch_analyzer_clone() {

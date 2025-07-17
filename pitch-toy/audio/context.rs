@@ -544,7 +544,7 @@ impl Drop for AudioContextManager {
 /// AudioSystemContext manages all audio-related instances and their lifecycle
 /// This provides a unified interface for audio system management with dependency injection
 pub struct AudioSystemContext {
-    audio_context_manager: AudioContextManager,
+    audio_context_manager: std::rc::Rc<std::cell::RefCell<AudioContextManager>>,
     audioworklet_manager: Option<super::worklet::AudioWorkletManager>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
@@ -562,7 +562,7 @@ impl AudioSystemContext {
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
     ) -> Self {
         Self {
-            audio_context_manager: AudioContextManager::new(),
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
             audioworklet_manager: None,
             pitch_analyzer: None,
             volume_level_setter,
@@ -581,7 +581,7 @@ impl AudioSystemContext {
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
     ) -> Self {
         Self {
-            audio_context_manager: AudioContextManager::with_config(audio_config),
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
             audioworklet_manager: None,
             pitch_analyzer: None,
             volume_level_setter,
@@ -600,7 +600,7 @@ impl AudioSystemContext {
         self.initialization_error = None;
         
         // Step 1: Initialize AudioContextManager
-        if let Err(e) = self.audio_context_manager.initialize().await {
+        if let Err(e) = self.audio_context_manager.borrow_mut().initialize().await {
             let error_msg = format!("Failed to initialize AudioContextManager: {}", e);
             dev_log!("✗ {}", error_msg);
             self.initialization_error = Some(error_msg.clone());
@@ -610,7 +610,7 @@ impl AudioSystemContext {
 
         // Step 2: Initialize AudioWorkletManager
         let mut worklet_manager = super::worklet::AudioWorkletManager::new();
-        if let Err(e) = worklet_manager.initialize(&self.audio_context_manager).await {
+        if let Err(e) = worklet_manager.initialize(&*self.audio_context_manager.borrow()).await {
             let error_msg = format!("Failed to initialize AudioWorkletManager: {}", e);
             dev_log!("✗ {}", error_msg);
             self.initialization_error = Some(error_msg.clone());
@@ -630,7 +630,7 @@ impl AudioSystemContext {
 
         // Step 3: Initialize PitchAnalyzer
         let config = super::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = self.audio_context_manager.config().sample_rate;
+        let sample_rate = self.audio_context_manager.borrow().config().sample_rate;
         
         match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
             Ok(analyzer) => {
@@ -678,7 +678,7 @@ impl AudioSystemContext {
         self.pitch_analyzer = None;
         
         // Close AudioContextManager
-        if let Err(e) = self.audio_context_manager.close().await {
+        if let Err(e) = self.audio_context_manager.borrow_mut().close().await {
             dev_log!("Warning: AudioContextManager close failed: {}", e);
         }
         
@@ -692,7 +692,7 @@ impl AudioSystemContext {
         self.is_initialized && 
         self.audioworklet_manager.is_some() && 
         self.pitch_analyzer.is_some() && 
-        self.audio_context_manager.is_running()
+        self.audio_context_manager.borrow().is_running()
     }
 
     /// Get the last initialization error if any
@@ -701,8 +701,13 @@ impl AudioSystemContext {
     }
 
     /// Get reference to AudioContextManager
-    pub fn get_audio_context_manager(&self) -> &AudioContextManager {
+    pub fn get_audio_context_manager(&self) -> &std::rc::Rc<std::cell::RefCell<AudioContextManager>> {
         &self.audio_context_manager
+    }
+    
+    /// Get cloned Rc of AudioContextManager for global storage
+    pub fn get_audio_context_manager_rc(&self) -> std::rc::Rc<std::cell::RefCell<AudioContextManager>> {
+        self.audio_context_manager.clone()
     }
 
     /// Get reference to AudioWorkletManager
@@ -731,13 +736,13 @@ impl AudioSystemContext {
     }
 
     /// Get current AudioContext configuration
-    pub fn get_audio_config(&self) -> &AudioContextConfig {
-        self.audio_context_manager.config()
+    pub fn get_audio_config(&self) -> AudioContextConfig {
+        self.audio_context_manager.borrow().config().clone()
     }
 
     /// Resume audio context if suspended
     pub async fn resume_if_suspended(&mut self) -> Result<(), String> {
-        self.audio_context_manager.resume().await
+        self.audio_context_manager.borrow_mut().resume().await
             .map_err(|e| format!("Failed to resume AudioContext: {}", e))
     }
 }
@@ -978,7 +983,7 @@ mod tests {
         assert!(context.get_pitch_analyzer().is_none());
         
         // AudioContextManager should be available
-        assert_eq!(*context.get_audio_context_manager().state(), AudioContextState::Uninitialized);
+        assert_eq!(*context.get_audio_context_manager().borrow().state(), AudioContextState::Uninitialized);
     }
 
     #[allow(dead_code)]

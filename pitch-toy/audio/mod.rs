@@ -71,6 +71,13 @@ pub async fn initialize_audio_system() -> Result<(), String> {
     Ok(())
 }
 
+/// Store AudioContextManager globally for backward compatibility
+pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContextManager>>) {
+    AUDIO_CONTEXT_MANAGER.with(|global_manager| {
+        *global_manager.borrow_mut() = Some(manager);
+    });
+}
+
 /// Get the global AudioContext manager
 /// Returns None if audio system hasn't been initialized
 pub fn get_audio_context_manager() -> Option<Rc<RefCell<context::AudioContextManager>>> {
@@ -226,8 +233,8 @@ pub async fn initialize_pitch_analyzer() -> Result<(), String> {
 }
 
 // Re-export public API
-pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet};
-pub use permission::AudioPermission;
+pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet, connect_microphone_to_audioworklet_with_context};
+pub use permission::{AudioPermission, connect_microphone_with_context};
 pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
@@ -326,13 +333,13 @@ pub fn setup_ui_action_listeners_with_context(
         }
     });
     
-    // Microphone permission action listener
+    // Microphone permission action listener  
     listeners.microphone_permission.listen(move |action| {
         dev_log!("Received microphone permission action: {:?}", action);
         
         if action.request_permission {
-            // Trigger microphone permission request using the same function
-            // that was previously called directly by the button
+            // TODO: Use context-aware microphone connection when available
+            // For now, falling back to global access due to thread safety constraints
             permission::connect_microphone(microphone_permission_setter.clone());
             dev_log!("✓ Microphone permission request triggered via action");
         }

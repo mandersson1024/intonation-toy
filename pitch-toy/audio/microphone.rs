@@ -299,7 +299,8 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     dev_log!("Getting AudioContext manager from context");
     let audio_context_instance = {
         let context_borrowed = audio_context.borrow();
-        context_borrowed.get_audio_context_manager().get_context()
+        let manager_ref = context_borrowed.get_audio_context_manager();
+        manager_ref.borrow().get_context()
             .ok_or_else(|| "AudioContext not available".to_string())?
             .clone()
     };
