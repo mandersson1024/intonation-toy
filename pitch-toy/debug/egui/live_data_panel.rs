@@ -5,7 +5,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
 use crate::audio::{
-    MusicalNote, VolumeLevel,
+    MusicalNote,
     AudioWorkletState, ConsoleAudioServiceImpl,
 };
 use crate::live_data::LiveData;
@@ -35,11 +35,6 @@ impl Default for PerformanceMetrics {
 pub struct VolumeLevelData {
     pub rms_db: f32,
     pub peak_db: f32,
-    pub peak_fast_db: f32,
-    pub peak_slow_db: f32,
-    pub level: VolumeLevel,
-    pub confidence_weight: f32,
-    pub timestamp: f64,
 }
 
 /// Pitch detection data for display
@@ -80,11 +75,6 @@ impl From<crate::audio::VolumeLevelData> for VolumeLevelData {
         Self {
             rms_db: audio_data.rms_db,
             peak_db: audio_data.peak_db,
-            peak_fast_db: audio_data.peak_fast_db,
-            peak_slow_db: audio_data.peak_slow_db,
-            level: audio_data.level,
-            confidence_weight: audio_data.confidence_weight,
-            timestamp: audio_data.timestamp,
         }
     }
 }
@@ -447,23 +437,9 @@ impl EguiLiveDataPanel {
         ui.heading("Volume Level");
         
         if let Some(volume) = self.live_data.volume_level.get() {
-            ui.horizontal(|ui| {
-                ui.label("Level:");
-                let (color, text) = match volume.level {
-                    VolumeLevel::Silent => (Color32::GRAY, "Silent"),
-                    VolumeLevel::Low => (Color32::BLUE, "Low"),
-                    VolumeLevel::Optimal => (Color32::GREEN, "Optimal"),
-                    VolumeLevel::High => (Color32::YELLOW, "High"),
-                    VolumeLevel::Clipping => (Color32::RED, "Clipping"),
-                };
-                ui.colored_label(color, text);
-            });
             
             ui.label(format!("RMS: {:.1} dB", volume.rms_db));
             ui.label(format!("Peak: {:.1} dB", volume.peak_db));
-            ui.label(format!("Peak (Fast): {:.1} dB", volume.peak_fast_db));
-            ui.label(format!("Peak (Slow): {:.1} dB", volume.peak_slow_db));
-            ui.label(format!("Confidence: {:.2}", volume.confidence_weight));
             
             // Volume bar visualization
             let bar_width = ui.available_width() - 100.0;
@@ -474,13 +450,7 @@ impl EguiLiveDataPanel {
             // For 0 dB: amplitude = 10^(0/20) = 1.0
             let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
             let normalized = amplitude.clamp(0.0, 1.0);
-            let bar_color = match volume.level {
-                VolumeLevel::Silent => Color32::GRAY,
-                VolumeLevel::Low => Color32::BLUE,
-                VolumeLevel::Optimal => Color32::GREEN,
-                VolumeLevel::High => Color32::YELLOW,
-                VolumeLevel::Clipping => Color32::RED,
-            };
+            let bar_color = Color32::GREEN;
             
             let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
             ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));

@@ -1,32 +1,3 @@
-use std::fmt;
-
-/// Volume level classification based on dB measurement
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VolumeLevel {
-    /// Volume below noise floor threshold (e.g., < -60 dB)
-    Silent,
-    /// Volume below optimal range (e.g., -60 to -30 dB)
-    Low,
-    /// Volume in optimal range for processing (e.g., -30 to -6 dB)
-    Optimal,
-    /// Volume above optimal range (e.g., -6 to 0 dB)
-    High,
-    /// Volume at or above clipping threshold (e.g., >= 0 dB)
-    Clipping,
-}
-
-impl fmt::Display for VolumeLevel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VolumeLevel::Silent => write!(f, "Silent"),
-            VolumeLevel::Low => write!(f, "Low"),
-            VolumeLevel::Optimal => write!(f, "Optimal"),
-            VolumeLevel::High => write!(f, "High"),
-            VolumeLevel::Clipping => write!(f, "Clipping"),
-        }
-    }
-}
-
 /// Volume analysis result from processing an audio buffer
 #[derive(Debug, Clone)]
 pub struct VolumeAnalysis {
@@ -34,72 +5,17 @@ pub struct VolumeAnalysis {
     pub rms_db: f32,
     /// Peak level in dB
     pub peak_db: f32,
-    /// Fast decay peak level in dB
-    pub peak_fast_db: f32,
-    /// Slow decay peak level in dB
-    pub peak_slow_db: f32,
-    /// Volume level classification
-    pub level: VolumeLevel,
-    /// Confidence weight for other audio processing (0.0 - 1.0)
-    pub confidence_weight: f32,
-    /// Timestamp of analysis
-    pub timestamp: f64,
 }
 
 impl VolumeAnalysis {
     /// Create a new volume analysis result
-    pub fn new(rms_db: f32, peak_db: f32, peak_fast_db: f32, peak_slow_db: f32, timestamp: f64) -> Self {
-        let level = Self::classify_volume_level(rms_db);
-        let confidence_weight = Self::calculate_confidence_weight(rms_db, &level);
-        
+    pub fn new(rms_db: f32, peak_db: f32) -> Self {
         Self {
             rms_db,
             peak_db,
-            peak_fast_db,
-            peak_slow_db,
-            level,
-            confidence_weight,
-            timestamp,
         }
     }
 
-    /// Classify volume level based on RMS dB value
-    fn classify_volume_level(rms_db: f32) -> VolumeLevel {
-        if rms_db >= 0.0 {
-            VolumeLevel::Clipping
-        } else if rms_db >= -6.0 {
-            VolumeLevel::High
-        } else if rms_db >= -30.0 {
-            VolumeLevel::Optimal
-        } else if rms_db >= -60.0 {
-            VolumeLevel::Low
-        } else {
-            VolumeLevel::Silent
-        }
-    }
-
-    /// Calculate confidence weight based on volume level
-    fn calculate_confidence_weight(rms_db: f32, level: &VolumeLevel) -> f32 {
-        match level {
-            VolumeLevel::Silent => 0.0,
-            VolumeLevel::Low => {
-                // Linear interpolation from 0.0 at -60dB to 0.3 at -30dB
-                let normalized = (rms_db + 60.0) / 30.0;
-                (normalized * 0.3).max(0.0).min(0.3)
-            }
-            VolumeLevel::Optimal => {
-                // Linear interpolation from 0.3 at -30dB to 1.0 at -6dB
-                let normalized = (rms_db + 30.0) / 24.0;
-                (0.3 + normalized * 0.7).max(0.3).min(1.0)
-            }
-            VolumeLevel::High => {
-                // Linear interpolation from 1.0 at -6dB to 0.7 at 0dB
-                let normalized = (rms_db + 6.0) / 6.0;
-                (1.0 - normalized * 0.3).max(0.7).min(1.0)
-            }
-            VolumeLevel::Clipping => 0.1, // Low confidence for clipping
-        }
-    }
 }
 
 /// Configuration for volume detection
@@ -182,9 +98,9 @@ impl VolumeDetector {
     }
 
     /// Process audio buffer and return volume analysis
-    pub fn process_buffer(&mut self, samples: &[f32], timestamp: f64) -> VolumeAnalysis {
+    pub fn process_buffer(&mut self, samples: &[f32]) -> VolumeAnalysis {
         if samples.is_empty() {
-            return VolumeAnalysis::new(-f32::INFINITY, -f32::INFINITY, -f32::INFINITY, -f32::INFINITY, timestamp);
+            return VolumeAnalysis::new(-f32::INFINITY, -f32::INFINITY);
         }
 
         // Apply input gain
@@ -197,7 +113,7 @@ impl VolumeDetector {
         let rms_db = self.linear_to_db(rms_linear);
         let peak_db = self.linear_to_db(peak_linear);
         
-        VolumeAnalysis::new(rms_db, peak_db, peak_db, peak_db, timestamp)
+        VolumeAnalysis::new(rms_db, peak_db)
     }
 
     /// Calculate RMS and peak values from audio samples with zero allocation
@@ -249,38 +165,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_volume_level_classification() {
-        assert_eq!(VolumeAnalysis::classify_volume_level(5.0), VolumeLevel::Clipping);
-        assert_eq!(VolumeAnalysis::classify_volume_level(0.0), VolumeLevel::Clipping);
-        assert_eq!(VolumeAnalysis::classify_volume_level(-3.0), VolumeLevel::High);
-        assert_eq!(VolumeAnalysis::classify_volume_level(-12.0), VolumeLevel::Optimal);
-        assert_eq!(VolumeAnalysis::classify_volume_level(-45.0), VolumeLevel::Low);
-        assert_eq!(VolumeAnalysis::classify_volume_level(-65.0), VolumeLevel::Silent);
-    }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_confidence_weight_calculation() {
-        // Test confidence weights for different volume levels
-        assert_eq!(VolumeAnalysis::calculate_confidence_weight(-65.0, &VolumeLevel::Silent), 0.0);
-        
-        // Low level should have low confidence
-        let low_confidence = VolumeAnalysis::calculate_confidence_weight(-45.0, &VolumeLevel::Low);
-        assert!(low_confidence > 0.0 && low_confidence < 0.3);
-        
-        // Optimal level should have high confidence
-        let optimal_confidence = VolumeAnalysis::calculate_confidence_weight(-18.0, &VolumeLevel::Optimal);
-        assert!(optimal_confidence > 0.3 && optimal_confidence <= 1.0);
-        
-        // High level should have good confidence
-        let high_confidence = VolumeAnalysis::calculate_confidence_weight(-3.0, &VolumeLevel::High);
-        assert!(high_confidence > 0.7 && high_confidence <= 1.0);
-        
-        // Clipping should have low confidence
-        assert_eq!(VolumeAnalysis::calculate_confidence_weight(0.0, &VolumeLevel::Clipping), 0.1);
-    }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
@@ -343,23 +228,20 @@ mod tests {
         
         // Test with silent buffer
         let silent_samples = vec![0.0; 1024];
-        let analysis = detector.process_buffer(&silent_samples, 0.0);
-        assert_eq!(analysis.level, VolumeLevel::Silent);
-        assert_eq!(analysis.confidence_weight, 0.0);
+        let analysis = detector.process_buffer(&silent_samples);
+        assert!(analysis.rms_db.is_finite() || analysis.rms_db == -f32::INFINITY);
         
         // Test with optimal level signal
         let optimal_samples: Vec<f32> = (0..1024).map(|i| 0.1 * (i as f32 * 0.01).sin()).collect();
-        let analysis = detector.process_buffer(&optimal_samples, 1.0);
-        assert_eq!(analysis.level, VolumeLevel::Optimal);
-        assert!(analysis.confidence_weight > 0.3);
+        let analysis = detector.process_buffer(&optimal_samples);
+        assert!(analysis.rms_db.is_finite());
         
         // Test with high level signal - use smaller amplitude to stay in optimal range
         let high_samples: Vec<f32> = (0..1024).map(|i| 0.3 * (i as f32 * 0.01).sin()).collect();
-        let analysis = detector.process_buffer(&high_samples, 2.0);
+        let analysis = detector.process_buffer(&high_samples);
         // The RMS of a sine wave is amplitude / sqrt(2), so 0.3 / sqrt(2) ≈ 0.21
-        // In dB: 20 * log10(0.21) ≈ -13.6 dB, which is in the Optimal range
-        assert_eq!(analysis.level, VolumeLevel::Optimal);
-        assert!(analysis.confidence_weight > 0.3);
+        // In dB: 20 * log10(0.21) ≈ -13.6 dB
+        assert!(analysis.rms_db.is_finite());
     }
 
     #[allow(dead_code)]
@@ -369,15 +251,14 @@ mod tests {
         
         // Process a high level signal
         let high_samples: Vec<f32> = (0..1024).map(|i| 0.7 * (i as f32 * 0.01).sin()).collect();
-        let analysis1 = detector.process_buffer(&high_samples, 0.0);
+        let analysis1 = detector.process_buffer(&high_samples);
         
         // Process a low level signal - peaks should decay
         let low_samples: Vec<f32> = (0..1024).map(|i| 0.01 * (i as f32 * 0.01).sin()).collect();
-        let analysis2 = detector.process_buffer(&low_samples, 1.0);
+        let analysis2 = detector.process_buffer(&low_samples);
         
-        // Fast peak should decay more than slow peak
-        assert!(analysis2.peak_fast_db < analysis1.peak_fast_db);
-        assert!(analysis2.peak_slow_db < analysis1.peak_slow_db);
+        // Peak should decay
+        assert!(analysis2.peak_db < analysis1.peak_db);
         // Note: Fast peak might not always be less than slow peak depending on timing
     }
 
@@ -385,10 +266,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_empty_buffer_handling() {
         let mut detector = VolumeDetector::new_default();
-        let analysis = detector.process_buffer(&[], 0.0);
+        let analysis = detector.process_buffer(&[]);
         assert_eq!(analysis.rms_db, -f32::INFINITY);
         assert_eq!(analysis.peak_db, -f32::INFINITY);
-        assert_eq!(analysis.level, VolumeLevel::Silent);
     }
 
     #[allow(dead_code)]
@@ -398,7 +278,7 @@ mod tests {
         
         // Test buffer with NaN and infinity values
         let samples = vec![f32::NAN, f32::INFINITY, -f32::INFINITY, 0.1, 0.2];
-        let analysis = detector.process_buffer(&samples, 0.0);
+        let analysis = detector.process_buffer(&samples);
         
         // Should handle gracefully and process valid samples
         assert!(analysis.rms_db.is_finite());
@@ -421,15 +301,6 @@ mod tests {
         assert_eq!(detector.config().noise_floor_db, -50.0);
     }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_volume_level_display() {
-        assert_eq!(VolumeLevel::Silent.to_string(), "Silent");
-        assert_eq!(VolumeLevel::Low.to_string(), "Low");
-        assert_eq!(VolumeLevel::Optimal.to_string(), "Optimal");
-        assert_eq!(VolumeLevel::High.to_string(), "High");
-        assert_eq!(VolumeLevel::Clipping.to_string(), "Clipping");
-    }
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
@@ -438,11 +309,10 @@ mod tests {
         
         // Process a signal to set peak states
         let samples: Vec<f32> = (0..1024).map(|i| 0.5 * (i as f32 * 0.01).sin()).collect();
-        detector.process_buffer(&samples, 0.0);
+        detector.process_buffer(&samples);
         
         // Next processing should start from clean state
-        let analysis = detector.process_buffer(&samples, 1.0);
-        assert!(analysis.peak_fast_db.is_finite());
-        assert!(analysis.peak_slow_db.is_finite());
+        let analysis = detector.process_buffer(&samples);
+        assert!(analysis.peak_db.is_finite());
     }
 }

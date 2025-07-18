@@ -2,18 +2,13 @@
 // These structures allow the audio module to remain independent
 // while still providing data to other modules that may need it
 
-use crate::audio::{AudioWorkletState, VolumeLevel, MusicalNote};
+use crate::audio::{AudioWorkletState, MusicalNote};
 
 /// Volume level data for external consumption
 #[derive(Debug, Clone, PartialEq)]
 pub struct VolumeLevelData {
     pub rms_db: f32,
     pub peak_db: f32,
-    pub peak_fast_db: f32,
-    pub peak_slow_db: f32,
-    pub level: VolumeLevel,
-    pub confidence_weight: f32,
-    pub timestamp: f64,
 }
 
 /// Pitch detection data for external consumption

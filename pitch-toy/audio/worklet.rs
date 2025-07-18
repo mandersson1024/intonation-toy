@@ -713,17 +713,12 @@ impl AudioWorkletManager {
         };
         
         if let Some(mut volume_detector) = volume_detector {
-            let volume_analysis = volume_detector.process_buffer(audio_samples, js_sys::Date::now());
+            let volume_analysis = volume_detector.process_buffer(audio_samples);
             
             // Update volume level via setter (always available now)
             let volume_data = crate::audio::VolumeLevelData {
                 rms_db: volume_analysis.rms_db,
                 peak_db: volume_analysis.peak_db,
-                peak_fast_db: volume_analysis.peak_fast_db,
-                peak_slow_db: volume_analysis.peak_slow_db,
-                level: volume_analysis.level.clone(),
-                confidence_weight: volume_analysis.confidence_weight,
-                timestamp: js_sys::Date::now(),
             };
             volume_setter.set(Some(volume_data));
             
@@ -1352,18 +1347,7 @@ impl AudioWorkletManager {
         // The samples we receive here are already processed (test signal OR mic input)
         let processed_samples = samples.to_vec();
 
-        // Get timestamp for volume analysis
-        let timestamp = timestamp.unwrap_or_else(|| {
-            #[cfg(target_arch = "wasm32")]
-            {
-                js_sys::Date::now()
-            }
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                // For native tests, use a mock timestamp
-                1000.0 + (self.chunk_counter as f64 * 2.67) // ~2.67ms per chunk at 48kHz
-            }
-        });
+        // Timestamp is no longer used in volume analysis
 
         // Increment chunk counter for all processing (independent of volume detector)
         self.chunk_counter += 1;
@@ -1374,7 +1358,7 @@ impl AudioWorkletManager {
 
         // Perform volume analysis if detector is available
         if let Some(detector) = &mut self.volume_detector {
-            let volume_analysis = detector.process_buffer(&processed_samples, timestamp);
+            let volume_analysis = detector.process_buffer(&processed_samples);
             
             // Debug log first time we detect volume
             if self.last_volume_analysis.is_none() {
@@ -1391,11 +1375,6 @@ impl AudioWorkletManager {
                 let volume_data = crate::audio::VolumeLevelData {
                     rms_db: volume_analysis.rms_db,
                     peak_db: volume_analysis.peak_db,
-                    peak_fast_db: volume_analysis.peak_fast_db,
-                    peak_slow_db: volume_analysis.peak_slow_db,
-                    level: volume_analysis.level,
-                    confidence_weight: volume_analysis.confidence_weight,
-                    timestamp,
                 };
                 self.volume_level_setter.set(Some(volume_data));
                 // Log occasionally to avoid spam

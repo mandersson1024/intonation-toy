@@ -65,9 +65,8 @@ pub struct PitchAnalyzer {
     confidence_threshold_for_events: f32,
     // Pre-allocated buffer for zero-allocation processing
     analysis_buffer: Vec<f32>,
-    // Volume-based confidence weighting
+    // Volume analysis for tracking
     last_volume_analysis: Option<VolumeAnalysis>,
-    volume_confidence_enabled: bool,
     // Pitch data setter for observable_data pattern
     pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
 }
@@ -94,7 +93,6 @@ impl PitchAnalyzer {
             confidence_threshold_for_events: 0.1, // Threshold for confidence change events
             analysis_buffer,
             last_volume_analysis: None,
-            volume_confidence_enabled: true,
             pitch_data_setter: None,
         })
     }
@@ -109,29 +107,12 @@ impl PitchAnalyzer {
         self.confidence_threshold_for_events = threshold.clamp(0.0, 1.0);
     }
 
-    /// Enable or disable volume-based confidence weighting
-    pub fn set_volume_confidence_enabled(&mut self, enabled: bool) {
-        self.volume_confidence_enabled = enabled;
-    }
 
     /// Update volume analysis for confidence weighting
     pub fn update_volume_analysis(&mut self, volume_analysis: VolumeAnalysis) {
         self.last_volume_analysis = Some(volume_analysis);
     }
 
-    /// Get the current volume-weighted confidence multiplier
-    /// Returns 1.0 if volume confidence is disabled or no volume data is available
-    fn get_volume_confidence_weight(&self) -> f32 {
-        if !self.volume_confidence_enabled {
-            return 1.0;
-        }
-
-        if let Some(ref volume) = self.last_volume_analysis {
-            volume.confidence_weight
-        } else {
-            1.0 // No volume data, assume optimal
-        }
-    }
 
     /// Analyze audio samples and publish pitch events
     /// 
@@ -616,9 +597,8 @@ impl PitchAnalyzer {
         // Convert frequency to musical note
         let note = self.note_mapper.frequency_to_note(result.frequency);
 
-        // Apply volume-based confidence weighting
-        let volume_weight = self.get_volume_confidence_weight();
-        let weighted_confidence = result.confidence * volume_weight;
+        // Use the detector's raw confidence
+        let weighted_confidence = result.confidence;
 
 
         // Update pitch data using setter

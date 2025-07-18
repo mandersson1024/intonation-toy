@@ -198,7 +198,7 @@ pub use commands::register_audio_commands;
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
-pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeLevel, VolumeAnalysis};
+pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
 pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use message_protocol::{
