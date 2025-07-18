@@ -772,9 +772,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      * Send the current buffer to main thread using transferable
      */
     sendCurrentBuffer() {
-        console.log(`🚨 BUFFER_SEND_DEBUG: sendCurrentBuffer called - currentBuffer: ${!!this.currentBuffer}, currentBufferArray: ${!!this.currentBufferArray}, writePosition: ${this.writePosition}`);
         if (!this.currentBuffer || !this.currentBufferArray) {
-            console.log(`🚨 BUFFER_SEND_DEBUG: Early return - no buffer available`);
             return;
         }
         
@@ -791,7 +789,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Only send if we have data in the buffer
         if (this.writePosition > 0) {
-            console.log(`🚨 BUFFER_SEND_DEBUG: Starting to send buffer with writePosition: ${this.writePosition}`);
             try {
                 // Validate buffer metadata before sending
                 const metadata = {
@@ -849,18 +846,15 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     this.bufferPool.markTransferred(this.currentBuffer);
                 }
                 
-                console.log(`🚨 BUFFER_SEND_DEBUG: About to update buffer transfer statistics - current totalBytesTransferred: ${this.bufferStats.totalBytesTransferred}, writePosition: ${this.writePosition}`);
                 
                 // Track buffer transfer statistics
                 this.bufferStats.transferCount++;
                 this.bufferStats.bufferLifecycle.transferred++;
                 this.bufferStats.totalBytesTransferred += this.writePosition * 4; // 4 bytes per float32
                 
-                console.log(`🚨 BUFFER_SEND_DEBUG: Updated buffer transfer statistics - new totalBytesTransferred: ${this.bufferStats.totalBytesTransferred}, transferCount: ${this.bufferStats.transferCount}`);
                 
                 // Log distinctive message for debugging
                 if (this.bufferStats.transferCount % 10 === 0) {
-                    console.log(`🚨 BUFFER_STATS_UPDATE: totalBytesTransferred=${this.bufferStats.totalBytesTransferred}, transferCount=${this.bufferStats.transferCount}, MB=${(this.bufferStats.totalBytesTransferred / 1024 / 1024).toFixed(2)}`);
                 }
                 
                 // Calculate buffer utilization
@@ -914,7 +908,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         try {
             switch (actualMessage.type) {
                 case ToWorkletMessageType.START_PROCESSING:
-                    console.log(`🚨 PROCESSING_DEBUG: START_PROCESSING received - starting audio processing`);
                     this.isProcessing = true;
                     const startedMessage = this.messageProtocol.createProcessingStartedMessage();
                     this.port.postMessage(startedMessage);
@@ -943,25 +936,9 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 case ToWorkletMessageType.GET_STATUS:
-                    console.log('🚨 GET_STATUS_REQUEST: Received GET_STATUS request');
                     const poolStats = this.bufferPool.getStats();
                     const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
                     
-                    // Debug logging for buffer pool statistics
-                    console.log('🔍 Buffer Pool Debug:', {
-                        isProcessing: this.isProcessing,
-                        poolSize: this.bufferPool.poolSize,
-                        acquireCount: poolStats.acquireCount,
-                        transferCount: poolStats.transferCount,
-                        totalBytesTransferred: this.bufferStats.totalBytesTransferred,
-                        bufferStatsTransferCount: this.bufferStats.transferCount,
-                        currentBuffer: !!this.currentBuffer,
-                        writePosition: this.writePosition,
-                        batchSize: this.batchSize
-                    });
-                    
-                    console.log('📊 Pool stats object:', poolStats);
-                    console.log('⏱️ Pool performance metrics:', poolPerfMetrics);
                     
                     const statusData = {
                         isProcessing: this.isProcessing,
@@ -987,9 +964,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                             buffer_utilization_percent: this.bufferStats.averageBufferUtilization * 100,
                             total_megabytes_transferred: this.bufferStats.totalBytesTransferred / 1024 / 1024,
                             
-                            // Debug: Log the actual values being used
-                            __debug_raw_bytes: this.bufferStats.totalBytesTransferred,
-                            __debug_mb_calculation: (this.bufferStats.totalBytesTransferred / 1024 / 1024),
                             
                             // Acquisition time metrics
                             avg_acquisition_time_ms: poolPerfMetrics.averageAcquisitionTime || 0.0,
@@ -1014,8 +988,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                         }
                     };
                     const statusMessage = this.messageProtocol.createStatusUpdateMessage(statusData);
-                    console.log(`🚨 STATUS_UPDATE_SEND: Sending status update with buffer_pool_stats.total_megabytes_transferred=${statusData.buffer_pool_stats?.total_megabytes_transferred}`);
-                    console.log(`🚨 STATUS_UPDATE_SEND: bufferStats.totalBytesTransferred=${this.bufferStats.totalBytesTransferred}, debug_raw_bytes=${statusData.buffer_pool_stats?.__debug_raw_bytes}, debug_mb=${statusData.buffer_pool_stats?.__debug_mb_calculation}`);
                     this.port.postMessage(statusMessage);
                     break;
                 
@@ -1321,9 +1293,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         if (this.isProcessing) {
             try {
                 // Debug: Check buffer state at start of each process call
-                if (this.chunkCounter % 1000 === 0) {
-                    console.log(`🚨 BUFFER_PROCESS_DEBUG: Process call #${this.chunkCounter} - currentBuffer: ${!!this.currentBuffer}, currentBufferArray: ${!!this.currentBufferArray}, writePosition: ${this.writePosition}, batchSize: ${this.batchSize}, isProcessing: ${this.isProcessing}`);
-                }
                 
                 // Ensure we have a buffer to write to
                 if (!this.currentBuffer || !this.currentBufferArray) {
@@ -1339,9 +1308,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     return true;
                 }
                 
-                if (this.chunkCounter % 1000 === 0) {
-                    console.log(`🚨 BUFFER_PROCESS_DEBUG: About to write to buffer - currentBuffer: ${!!this.currentBuffer}, currentBufferArray: ${!!this.currentBufferArray}, writePosition: ${this.writePosition}, batchSize: ${this.batchSize}`);
-                }
                 
                 // Copy the processed audio into the accumulation buffer
                 const remainingSpace = this.batchSize - this.writePosition;
@@ -1358,7 +1324,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 if (this.writePosition >= this.batchSize || shouldSendDueToTimeout) {
                     // Send the batch (full or partial due to timeout)
-                    console.log(`🚨 BUFFER_PROCESS_DEBUG: Sending buffer - writePosition: ${this.writePosition}, batchSize: ${this.batchSize}, timeElapsed: ${timeElapsed.toFixed(2)}, timeout: ${this.bufferTimeout}, reason: ${this.writePosition >= this.batchSize ? 'full' : 'timeout'}`);
                     this.sendCurrentBuffer();
                     
                     // Handle any remaining samples if chunk was partially written
