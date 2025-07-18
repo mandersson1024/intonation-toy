@@ -4,6 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This file is manually edited.
 
+## Breaking Changes Policy
+- Breaking changes are OK and encouraged! We don't care about backwards compatibility or external code.
+- When refactoring, feel free to make breaking changes that improve the architecture.
+- Don't maintain compatibility layers or deprecation paths - just make the changes.
+
+## Global Variables Policy
+- DO NOT use existing global variables unless absolutely necessary. They are technical debt that will be removed.
+- NEVER add new global variables or increase dependency on existing ones.
+- CRUCIAL: Do NOT introduce new global variables unless strongly motivated and only after explicit discussion and acceptance from the user.
+- See docs/global_variables_refactoring_guide.md for details on planned removal.
+- When possible, use dependency injection instead of accessing globals.
+
 ## House Rules
 - When inserting today's date, use the `date` command in the terminal to check. Never guess or use a placeholder.
 - Never implement changes unless explicitly instructed to do so. If you are uncertain, ask something like "Do you want me to implement these changes?"

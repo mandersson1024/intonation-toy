@@ -15,6 +15,9 @@ use std::rc::Rc;
 
 
 
+// TODO: FUTURE REFACTORING - Remove this global variable and replace with dependency injection.
+// This is a planned future task. Do NOT refactor this during unrelated work.
+// See docs/global_variables_refactoring_guide.md for refactoring strategy.
 thread_local! { 
     static PITCH_ANALYZER_GLOBAL: RefCell<Option<Rc<RefCell<PitchAnalyzer>>>> = RefCell::new(None);
 }

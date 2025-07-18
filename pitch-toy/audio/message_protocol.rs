@@ -402,6 +402,9 @@ impl<T> MessageEnvelope<T> {
 fn generate_message_id() -> u32 {
     // Simple counter-based ID generation
     // In a real implementation, this would use atomic operations
+    // TODO: FUTURE REFACTORING - Remove this unsafe static mut global variable. This appears to be dead code.
+    // This is a planned future task. Do NOT refactor this during unrelated work.
+    // See docs/global_variables_refactoring_guide.md for refactoring strategy.
     static mut COUNTER: u32 = 0;
     unsafe {
         COUNTER += 1;
@@ -2141,7 +2144,10 @@ impl Default for MessageIdGenerator {
     }
 }
 
-/// Global message ID generator instance
+// Global message ID generator instance
+// TODO: FUTURE REFACTORING - Remove this global variable and replace with dependency injection through context.
+// This is a planned future task. Do NOT refactor this during unrelated work.
+// See docs/global_variables_refactoring_guide.md for refactoring strategy.
 thread_local! {
     static MESSAGE_ID_GENERATOR: MessageIdGenerator = MessageIdGenerator::new();
 }

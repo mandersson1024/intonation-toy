@@ -58,6 +58,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 // Global audio context manager for application-wide access
+// TODO: FUTURE REFACTORING - Remove this global variable and replace with dependency injection through AudioSystemContext.
+// This is a planned future task. Do NOT refactor this during unrelated work.
+// See docs/global_variables_refactoring_guide.md for refactoring strategy.
 thread_local! {
     static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
 }
