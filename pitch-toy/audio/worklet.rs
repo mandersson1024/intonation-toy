@@ -433,13 +433,24 @@ impl AudioWorkletManager {
                 dev_log!("✗ Warning: No pitch analyzer available during AudioWorklet initialization");
             }
             
-            // Set up message handler with access to shared data
+            // Capture only the specific fields needed for the message handler
             let shared_data_clone = shared_data.clone();
-            let worklet_manager_ref = self as *const AudioWorkletManager;
+            let worklet_node_clone = worklet.clone();
+            let message_factory_clone = self.message_factory.clone();
+            let ping_pong_enabled = self.ping_pong_enabled;
+            let buffer_pool_stats_setter_clone = self.buffer_pool_stats_setter.clone();
+            let audioworklet_status_setter_clone = self.audioworklet_status_setter.clone();
+            
             let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
-                // SAFETY: This is safe because the closure lifetime is tied to the AudioWorkletManager
-                let worklet_manager = unsafe { &*worklet_manager_ref };
-                Self::handle_worklet_message(event, shared_data_clone.clone(), worklet_manager);
+                Self::handle_worklet_message_static(
+                    event, 
+                    shared_data_clone.clone(), 
+                    worklet_node_clone.clone(),
+                    message_factory_clone.clone(),
+                    ping_pong_enabled,
+                    buffer_pool_stats_setter_clone.clone(),
+                    audioworklet_status_setter_clone.clone()
+                );
             }) as Box<dyn FnMut(MessageEvent)>);
             
             let port = worklet.port()
@@ -456,11 +467,15 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Handle messages from the AudioWorklet processor
-    fn handle_worklet_message(
+    /// Handle messages from the AudioWorklet processor (static version)
+    fn handle_worklet_message_static(
         event: MessageEvent, 
         shared_data: std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        worklet_manager: &AudioWorkletManager
+        worklet_node: AudioWorkletNode,
+        message_factory: AudioWorkletMessageFactory,
+        ping_pong_enabled: bool,
+        buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
+        audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
     ) {
         let data = event.data();
         
@@ -475,7 +490,16 @@ impl AudioWorkletManager {
             // Try typed message deserialization first
             match Self::try_deserialize_typed_message(&obj) {
                 Ok(envelope) => {
-                    worklet_manager.handle_typed_worklet_message(envelope, &shared_data, &obj);
+                    Self::handle_typed_worklet_message_static(
+                        envelope, 
+                        &shared_data, 
+                        &obj,
+                        worklet_node,
+                        message_factory,
+                        ping_pong_enabled,
+                        buffer_pool_stats_setter,
+                        audioworklet_status_setter
+                    );
                 }
                 Err(e) => {
                     dev_log!("ERROR: Failed to deserialize typed message: {}", e);
@@ -526,12 +550,16 @@ impl AudioWorkletManager {
         })
     }
     
-    /// Handle typed messages from the AudioWorklet processor
-    fn handle_typed_worklet_message(
-        &self,
+    /// Handle typed messages from the AudioWorklet processor (static version)
+    fn handle_typed_worklet_message_static(
         envelope: MessageEnvelope<FromWorkletMessage>,
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        original_obj: &js_sys::Object
+        original_obj: &js_sys::Object,
+        worklet_node: AudioWorkletNode,
+        message_factory: AudioWorkletMessageFactory,
+        ping_pong_enabled: bool,
+        buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
+        audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
     ) {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
@@ -540,22 +568,29 @@ impl AudioWorkletManager {
                 } else {
                     dev_log!("✓ AudioWorklet processor ready");
                 }
-                Self::publish_status_update(self, shared_data, AudioWorkletState::Ready, false);
+                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Ready, false, &audioworklet_status_setter);
             }
             FromWorkletMessage::ProcessingStarted => {
                 dev_log!("✓ AudioWorklet processing started");
-                Self::publish_status_update(self, shared_data, AudioWorkletState::Processing, true);
+                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Processing, true, &audioworklet_status_setter);
             }
             FromWorkletMessage::ProcessingStopped => {
                 dev_log!("✓ AudioWorklet processing stopped");
-                Self::publish_status_update(self, shared_data, AudioWorkletState::Stopped, false);
+                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Stopped, false, &audioworklet_status_setter);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
-                self.handle_typed_audio_data_batch(data, shared_data, original_obj);
+                Self::handle_typed_audio_data_batch_static(
+                    data, 
+                    shared_data, 
+                    original_obj,
+                    &worklet_node,
+                    &message_factory,
+                    ping_pong_enabled
+                );
             }
             FromWorkletMessage::ProcessingError { error } => {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-                Self::publish_status_update(self, shared_data, AudioWorkletState::Failed, false);
+                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Failed, false, &audioworklet_status_setter);
             }
             FromWorkletMessage::StatusUpdate { status } => {
                 
@@ -565,7 +600,7 @@ impl AudioWorkletManager {
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
                     
                     // Push to reactive system if setter is available
-                    if let Some(setter) = &self.buffer_pool_stats_setter {
+                    if let Some(setter) = &buffer_pool_stats_setter {
                         setter.set(Some(buffer_pool_stats.clone()));
                     } else {
                         dev_log!("Warning: No buffer pool stats setter available");
@@ -578,12 +613,14 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Handle typed audio data batch from the AudioWorklet processor
-    fn handle_typed_audio_data_batch(
-        &self,
+    /// Handle typed audio data batch from the AudioWorklet processor (static version)
+    fn handle_typed_audio_data_batch_static(
         data: super::message_protocol::AudioDataBatch,
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        original_obj: &js_sys::Object
+        original_obj: &js_sys::Object,
+        worklet_node: &AudioWorkletNode,
+        message_factory: &AudioWorkletMessageFactory,
+        ping_pong_enabled: bool
     ) {
         let chunks_processed = shared_data.borrow().chunks_processed;
         if chunks_processed <= 5 {
@@ -628,8 +665,15 @@ impl AudioWorkletManager {
                     
                     // Return buffer to worklet for recycling (ping-pong pattern)
                     if let Some(buffer_id) = data.buffer_id {
-                        if let Err(e) = self.return_buffer_to_worklet(array_buffer, buffer_id) {
-                            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
+                        if ping_pong_enabled {
+                            if let Err(e) = Self::return_buffer_to_worklet_static(
+                                array_buffer, 
+                                buffer_id,
+                                worklet_node,
+                                message_factory
+                            ) {
+                                dev_log!("Warning: Failed to return buffer to worklet: {}", e);
+                            }
                         }
                     } else {
                         dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
@@ -651,10 +695,7 @@ impl AudioWorkletManager {
             shared_data_mut.chunks_processed += chunk_count as u32;
         }
         
-        // Update status periodically
-        if chunks_processed % 16 == 0 {
-            Self::publish_status_update(self, shared_data, AudioWorkletState::Processing, true);
-        }
+        // Note: Status updates are handled elsewhere, no need to call publish_status_update here
     }
     
     /// Process audio samples for pitch and volume analysis
@@ -728,15 +769,17 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Publish AudioWorklet status update to Live Data Panel
-    fn publish_status_update(
-        worklet_manager: &AudioWorkletManager,
+    /// Publish AudioWorklet status update to Live Data Panel (static version)
+    fn publish_status_update_static(
+        worklet_node: &AudioWorkletNode,
+        message_factory: &AudioWorkletMessageFactory,
         _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         state: AudioWorkletState,
-        processing: bool
+        processing: bool,
+        audioworklet_status_setter: &Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
     ) {
         // Send periodic GetStatus requests to update buffer pool statistics
-        match worklet_manager.send_typed_control_message(ToWorkletMessage::GetStatus) {
+        match Self::send_typed_control_message_static(worklet_node, message_factory, ToWorkletMessage::GetStatus) {
             Ok(_) => {
                 // Successfully sent GetStatus request
             }
@@ -744,6 +787,77 @@ impl AudioWorkletManager {
                 dev_log!("Warning: Failed to send periodic GetStatus: {}", e);
             }
         }
+        
+        // Update AudioWorklet status if setter is available
+        if let Some(setter) = audioworklet_status_setter {
+            #[cfg(target_arch = "wasm32")]
+            let timestamp = js_sys::Date::now();
+            #[cfg(not(target_arch = "wasm32"))]
+            let timestamp = 0.0;
+            
+            let status = crate::audio::AudioWorkletStatus {
+                state: state.clone(),
+                processor_loaded: true, // We have a worklet node
+                chunk_size: 128, // Default chunk size
+                chunks_processed: _shared_data.borrow().chunks_processed,
+                last_update: timestamp,
+            };
+            
+            setter.set(status);
+        }
+    }
+    
+    /// Send typed control message to AudioWorklet processor (static version)
+    fn send_typed_control_message_static(
+        worklet_node: &AudioWorkletNode,
+        message_factory: &AudioWorkletMessageFactory,
+        message: ToWorkletMessage
+    ) -> Result<(), AudioError> {
+        let envelope = match message {
+            ToWorkletMessage::StartProcessing => {
+                message_factory.start_processing()
+                    .map_err(|e| AudioError::Generic(format!("Failed to create start processing message: {:?}", e)))?
+            }
+            ToWorkletMessage::StopProcessing => {
+                message_factory.stop_processing()
+                    .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
+            }
+            ToWorkletMessage::UpdateTestSignalConfig { config } => {
+                message_factory.update_test_signal_config(config)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create test signal config message: {:?}", e)))?
+            }
+            ToWorkletMessage::UpdateBatchConfig { config } => {
+                message_factory.update_batch_config(config)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
+            }
+            ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => {
+                message_factory.update_background_noise_config(config)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
+            }
+            ToWorkletMessage::ReturnBuffer { buffer_id } => {
+                message_factory.return_buffer(buffer_id)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
+            }
+            ToWorkletMessage::GetStatus => {
+                message_factory.get_status()
+                    .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {:?}", e)))?
+            }
+        };
+        
+        let serializer = MessageSerializer::new();
+        let js_message = serializer.serialize_envelope(&envelope)
+            .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
+        
+        let port = worklet_node.port()
+            .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+        port.post_message(&js_message)
+            .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
+        
+        // Only log non-GetStatus messages to avoid console spam
+        if !matches!(envelope.payload, ToWorkletMessage::GetStatus) {
+            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
+        }
+        Ok(())
     }
     
     
@@ -1113,6 +1227,48 @@ impl AudioWorkletManager {
         self.ping_pong_enabled
     }
     
+    /// Return buffer to AudioWorklet for recycling (ping-pong pattern) - static version
+    fn return_buffer_to_worklet_static(
+        buffer: js_sys::ArrayBuffer, 
+        buffer_id: u32,
+        worklet_node: &AudioWorkletNode,
+        message_factory: &AudioWorkletMessageFactory
+    ) -> Result<(), crate::audio::AudioError> {
+        // Create ReturnBuffer message
+        let return_message = match message_factory.return_buffer(buffer_id) {
+            Ok(msg) => msg,
+            Err(e) => {
+                return Err(crate::audio::AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)));
+            }
+        };
+        
+        // Serialize the message
+        let serializer = crate::audio::message_protocol::MessageSerializer::new();
+        let js_message = match serializer.serialize_envelope(&return_message) {
+            Ok(msg) => msg,
+            Err(e) => {
+                return Err(crate::audio::AudioError::Generic(format!("Failed to serialize return buffer message: {:?}", e)));
+            }
+        };
+        
+        // Add buffer to the message for transfer
+        if let Err(e) = js_sys::Reflect::set(&js_message, &"buffer".into(), &buffer) {
+            return Err(crate::audio::AudioError::Generic(format!("Failed to add buffer to message: {:?}", e)));
+        }
+        
+        // Send message with buffer as transferable
+        let port = worklet_node.port()
+            .map_err(|e| crate::audio::AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
+        
+        let transferables = js_sys::Array::new();
+        transferables.push(&buffer);
+        
+        port.post_message_with_transferable(&js_message, &transferables)
+            .map_err(|e| crate::audio::AudioError::Generic(format!("Failed to send return buffer message: {:?}", e)))?;
+        
+        Ok(())
+    }
+    
     /// Return buffer to AudioWorklet for recycling (ping-pong pattern)
     fn return_buffer_to_worklet(&self, buffer: js_sys::ArrayBuffer, buffer_id: u32) -> Result<(), crate::audio::AudioError> {
         if !self.ping_pong_enabled {
@@ -1120,40 +1276,7 @@ impl AudioWorkletManager {
         }
         
         if let Some(worklet_node) = &self.worklet_node {
-            
-            // Create ReturnBuffer message
-            let return_message = match self.message_factory.return_buffer(buffer_id) {
-                Ok(msg) => msg,
-                Err(e) => {
-                    return Err(crate::audio::AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)));
-                }
-            };
-            
-            // Serialize the message
-            let serializer = crate::audio::message_protocol::MessageSerializer::new();
-            let js_message = match serializer.serialize_envelope(&return_message) {
-                Ok(msg) => msg,
-                Err(e) => {
-                    return Err(crate::audio::AudioError::Generic(format!("Failed to serialize return buffer message: {:?}", e)));
-                }
-            };
-            
-            // Add buffer to the message for transfer
-            if let Err(e) = js_sys::Reflect::set(&js_message, &"buffer".into(), &buffer) {
-                return Err(crate::audio::AudioError::Generic(format!("Failed to add buffer to message: {:?}", e)));
-            }
-            
-            // Send message with buffer as transferable
-            let port = worklet_node.port()
-                .map_err(|e| crate::audio::AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
-            
-            let transferables = js_sys::Array::new();
-            transferables.push(&buffer);
-            
-            port.post_message_with_transferable(&js_message, &transferables)
-                .map_err(|e| crate::audio::AudioError::Generic(format!("Failed to send return buffer message: {:?}", e)))?;
-            
-            Ok(())
+            Self::return_buffer_to_worklet_static(buffer, buffer_id, worklet_node, &self.message_factory)
         } else {
             Err(crate::audio::AudioError::Generic("No worklet node available".to_string()))
         }

@@ -2113,6 +2113,7 @@ impl std::fmt::Display for MessageConstructionError {
 impl std::error::Error for MessageConstructionError {}
 
 /// Enhanced message ID generator with atomicity support
+#[derive(Clone)]
 pub struct MessageIdGenerator {
     counter: std::rc::Rc<std::cell::RefCell<u32>>,
 }
@@ -2660,6 +2661,7 @@ impl BackgroundNoiseConfig {
 // ================================
 
 /// Centralized message factory for AudioWorklet communication
+#[derive(Clone)]
 pub struct AudioWorkletMessageFactory {
     id_generator: MessageIdGenerator,
 }
