@@ -180,6 +180,13 @@ pub async fn run_three_d(
 
         gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio,
             |gui_context| {
+                // Configure egui to remove window shadows
+                gui_context.set_visuals(egui::Visuals {
+                    window_shadow: egui::Shadow::NONE,
+                    popup_shadow: egui::Shadow::NONE,
+                    ..egui::Visuals::default()
+                });
+                
                 dev_console.render(gui_context);
                 microphone_button.render(gui_context);
                 live_data_panel.render(gui_context);
