@@ -5,7 +5,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
 use crate::audio::{
-    AudioPermission, MusicalNote, VolumeLevel,
+    MusicalNote, VolumeLevel,
     AudioWorkletState, ConsoleAudioServiceImpl,
 };
 use crate::live_data::LiveData;
@@ -212,20 +212,8 @@ impl EguiLiveDataPanel {
     fn render_audio_devices_section(&self, ui: &mut Ui) {
         ui.heading("Audio Devices");
         
-        let permission = self.live_data.microphone_permission.get();
         let devices = self.live_data.audio_devices.get();
         
-        ui.horizontal(|ui| {
-            ui.label("Microphone Permission:");
-            let (color, text) = match permission {
-                AudioPermission::Uninitialized => (Color32::GRAY, "Uninitialized"),
-                AudioPermission::Requesting => (Color32::YELLOW, "Requesting"),
-                AudioPermission::Granted => (Color32::GREEN, "Granted"),
-                AudioPermission::Denied => (Color32::RED, "Denied"),
-                AudioPermission::Unavailable => (Color32::RED, "Unavailable"),
-            };
-            ui.colored_label(color, text);
-        });
         
         ui.label(format!("Input Devices: {}", devices.input_devices.len()));
         for device in &devices.input_devices {

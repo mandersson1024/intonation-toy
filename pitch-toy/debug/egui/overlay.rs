@@ -176,8 +176,24 @@ impl EguiMicrophoneButton {
             .fixed_size([400.0, 500.0])
             .show(gui_context, |ui| {
                 ui.vertical_centered(|ui| {
-                    // Render microphone permission button
+                    // Render microphone permission status
                     let permission_state = self.microphone_button.get_permission_state();
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Microphone Permission:");
+                        let (color, text) = match permission_state {
+                            AudioPermission::Uninitialized => (three_d::egui::Color32::GRAY, "Uninitialized"),
+                            AudioPermission::Requesting => (three_d::egui::Color32::YELLOW, "Requesting"),
+                            AudioPermission::Granted => (three_d::egui::Color32::GREEN, "Granted"),
+                            AudioPermission::Denied => (three_d::egui::Color32::RED, "Denied"),
+                            AudioPermission::Unavailable => (three_d::egui::Color32::RED, "Unavailable"),
+                        };
+                        ui.colored_label(color, text);
+                    });
+                    
+                    ui.add_space(10.0);
+                    
+                    // Render microphone permission button
                     let button_text = match permission_state {
                         AudioPermission::Uninitialized => "Request Permission",
                         AudioPermission::Requesting => "Requesting...",
