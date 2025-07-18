@@ -37,25 +37,26 @@
 //! setter.set(100);
 //! ```
 
-use std::sync::{Arc, RwLock, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 
-/// Trait for setting data values in a thread-safe manner.
+/// Trait for setting data values.
 /// This provides a way to update data without requiring mutable access to the DataSource.
-pub trait DataSetter<T>: Send + Sync {
+pub trait DataSetter<T> {
     fn set(&self, value: T);
 }
 
-type Callback<T> = Box<dyn Fn(&T) + Send + Sync>;
+type Callback<T> = Box<dyn Fn(&T)>;
 
-trait DataObserverTrait<T>: Send + Sync {
+trait DataObserverTrait<T> {
     fn get(&self) -> T where T: Clone;
     fn listen(&self, callback: Callback<T>);
 }
 
-/// A thread-safe handle to observable data that can be read and listened to.
+/// A handle to observable data that can be read and listened to.
 /// This is the main type that gets distributed to observers.
 pub struct DataObserver<T> {
-    inner: Arc<dyn DataObserverTrait<T>>,
+    inner: Rc<dyn DataObserverTrait<T>>,
 }
 
 impl<T> DataObserver<T> {
@@ -67,7 +68,7 @@ impl<T> DataObserver<T> {
         self.inner.listen(callback)
     }
 
-    pub fn observe_now<F>(&self, callback: F) where T: Clone, F: Fn(&T) + Send + Sync + 'static {
+    pub fn observe_now<F>(&self, callback: F) where T: Clone, F: Fn(&T) + 'static {
         let current_value = self.get();
         callback(&current_value);
         self.observe(Box::new(callback));
@@ -83,43 +84,40 @@ impl<T> Clone for DataObserver<T> {
 }
 
 struct SharedData<T> {
-    value: RwLock<T>,
-    listeners: Mutex<Vec<Callback<T>>>,
+    value: RefCell<T>,
+    listeners: RefCell<Vec<Callback<T>>>,
 }
 
 pub struct DataSource<T> {
-    data: Arc<SharedData<T>>,
+    data: Rc<SharedData<T>>,
 }
 
-/// Thread-safe wrapper for DataSource that implements DataSetter
+/// Wrapper for DataSource that implements DataSetter
 #[derive(Clone)]
 pub struct DataSourceSetter<T> {
-    data: Arc<SharedData<T>>,
+    data: Rc<SharedData<T>>,
 }
 
-impl<T: Clone + Send + Sync> DataSetter<T> for DataSourceSetter<T> {
+impl<T: Clone> DataSetter<T> for DataSourceSetter<T> {
     fn set(&self, data: T) {
         // Update the value
-        {
-            let mut value = self.data.value.write().unwrap();
-            *value = data;
-        }
+        *self.data.value.borrow_mut() = data;
         
         // Notify all listeners
-        let value = self.data.value.read().unwrap();
-        let listeners = self.data.listeners.lock().unwrap();
+        let value = self.data.value.borrow();
+        let listeners = self.data.listeners.borrow();
         for callback in listeners.iter() {
             callback(&*value);
         }
     }
 }
 
-impl<T: 'static + Clone + Send + Sync> DataSource<T> {
+impl<T: 'static + Clone> DataSource<T> {
     pub fn new(data: T) -> Self {
         Self {
-            data: Arc::new(SharedData {
-                value: RwLock::new(data),
-                listeners: Mutex::new(Vec::new()),
+            data: Rc::new(SharedData {
+                value: RefCell::new(data),
+                listeners: RefCell::new(Vec::new()),
             }),
         }
     }
@@ -130,7 +128,7 @@ impl<T: 'static + Clone + Send + Sync> DataSource<T> {
         }
     }
 
-    /// Create a thread-safe setter that can be shared across threads
+    /// Create a setter that can be shared
     pub fn setter(&self) -> DataSourceSetter<T> {
         DataSourceSetter {
             data: self.data.clone(),
@@ -138,20 +136,21 @@ impl<T: 'static + Clone + Send + Sync> DataSource<T> {
     }
 }
 
-impl<T: Clone + Send + Sync> DataObserverTrait<T> for SharedData<T> {
+impl<T: Clone> DataObserverTrait<T> for SharedData<T> {
     fn get(&self) -> T {
-        self.value.read().unwrap().clone()
+        self.value.borrow().clone()
     }
 
     fn listen(&self, callback: Callback<T>) {
-        self.listeners.lock().unwrap().push(callback);
+        self.listeners.borrow_mut().push(callback);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
+    use std::cell::RefCell;
     use wasm_bindgen_test::*;
 
     // No wasm_bindgen_test_configure! needed for Node.js
@@ -202,18 +201,18 @@ mod tests {
         let setter = data_source.setter();
         
         // Track if callback was called
-        let called = Arc::new(Mutex::new(false));
+        let called = Rc::new(RefCell::new(false));
         let called_clone = called.clone();
         
         observer.observe(Box::new(move |_| {
-            *called_clone.lock().unwrap() = true;
+            *called_clone.borrow_mut() = true;
         }));
         
         // Trigger update
         setter.set(2);
         
         // Verify listener was called
-        assert!(*called.lock().unwrap());
+        assert!(*called.borrow());
     }
 
     #[allow(dead_code)]
@@ -223,24 +222,24 @@ mod tests {
         let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
-        let called1 = Arc::new(Mutex::new(false));
-        let called2 = Arc::new(Mutex::new(false));
+        let called1 = Rc::new(RefCell::new(false));
+        let called2 = Rc::new(RefCell::new(false));
         
         let called1_clone = called1.clone();
         let called2_clone = called2.clone();
         
         observer.observe(Box::new(move |_| {
-            *called1_clone.lock().unwrap() = true;
+            *called1_clone.borrow_mut() = true;
         }));
         
         observer.observe(Box::new(move |_| {
-            *called2_clone.lock().unwrap() = true;
+            *called2_clone.borrow_mut() = true;
         }));
         
         setter.set(5);
         
-        assert!(*called1.lock().unwrap());
-        assert!(*called2.lock().unwrap());
+        assert!(*called1.borrow());
+        assert!(*called2.borrow());
     }
 
     #[allow(dead_code)]
@@ -251,24 +250,24 @@ mod tests {
         let observer2: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
-        let called1 = Arc::new(Mutex::new(false));
-        let called2 = Arc::new(Mutex::new(false));
+        let called1 = Rc::new(RefCell::new(false));
+        let called2 = Rc::new(RefCell::new(false));
         
         let called1_clone = called1.clone();
         let called2_clone = called2.clone();
         
         observer1.observe(Box::new(move |_| {
-            *called1_clone.lock().unwrap() = true;
+            *called1_clone.borrow_mut() = true;
         }));
         
         observer2.observe(Box::new(move |_| {
-            *called2_clone.lock().unwrap() = true;
+            *called2_clone.borrow_mut() = true;
         }));
         
         setter.set(7);
         
-        assert!(*called1.lock().unwrap());
-        assert!(*called2.lock().unwrap());
+        assert!(*called1.borrow());
+        assert!(*called2.borrow());
     }
 
     #[allow(dead_code)]
@@ -278,18 +277,18 @@ mod tests {
         let observer: DataObserver<String> = data_source.observer();
         let setter = data_source.setter();
         
-        let called = Arc::new(Mutex::new(false));
+        let called = Rc::new(RefCell::new(false));
         let called_clone = called.clone();
         
         observer.observe(Box::new(move |_| {
-            *called_clone.lock().unwrap() = true;
+            *called_clone.borrow_mut() = true;
         }));
         
         assert_eq!(observer.get(), "hello");
         
         setter.set("world".to_string());
         assert_eq!(observer.get(), "world");
-        assert!(*called.lock().unwrap());
+        assert!(*called.borrow());
     }
 
     #[allow(dead_code)]
@@ -316,8 +315,8 @@ mod tests {
         let observer: DataObserver<i32> = data_source.observer();
         let setter = data_source.setter();
         
-        let immediate_called = Arc::new(Mutex::new(false));
-        let future_called = Arc::new(Mutex::new(false));
+        let immediate_called = Rc::new(RefCell::new(false));
+        let future_called = Rc::new(RefCell::new(false));
         
         let immediate_clone = immediate_called.clone();
         let future_clone = future_called.clone();
@@ -325,21 +324,21 @@ mod tests {
         // Use observe_now - should trigger immediately and listen for future
         observer.observe_now(move |value| {
             if *value == 10 {
-                *immediate_clone.lock().unwrap() = true;
+                *immediate_clone.borrow_mut() = true;
             } else if *value == 20 {
-                *future_clone.lock().unwrap() = true;
+                *future_clone.borrow_mut() = true;
             }
         });
         
         // Should have immediately been called with current value
-        assert!(*immediate_called.lock().unwrap());
-        assert!(!*future_called.lock().unwrap());
+        assert!(*immediate_called.borrow());
+        assert!(!*future_called.borrow());
         
         // Trigger update for future listener
         setter.set(20);
         
         // Should now have been called for future value too
-        assert!(*future_called.lock().unwrap());
+        assert!(*future_called.borrow());
     }
 
     #[allow(dead_code)]
@@ -357,16 +356,16 @@ mod tests {
         assert_eq!(observer.get(), 100);
         
         // Test that listeners are called
-        let called = Arc::new(Mutex::new(false));
+        let called = Rc::new(RefCell::new(false));
         let called_clone = called.clone();
         
         observer.observe(Box::new(move |_| {
-            *called_clone.lock().unwrap() = true;
+            *called_clone.borrow_mut() = true;
         }));
         
         setter.set(200);
         assert_eq!(observer.get(), 200);
-        assert!(*called.lock().unwrap());
+        assert!(*called.borrow());
     }
 
     #[allow(dead_code)]

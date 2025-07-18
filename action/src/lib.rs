@@ -1,29 +1,29 @@
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 
-type Callback<T> = Box<dyn Fn(T) + Send + Sync + 'static>;
+type Callback<T> = Box<dyn Fn(T) + 'static>;
 
 /// Internal shared state for an action
 struct SharedAction<T> {
-    listeners: Mutex<Vec<Callback<T>>>,
+    listeners: RefCell<Vec<Callback<T>>>,
 }
 
 impl<T> SharedAction<T> {
     fn new() -> Self {
         Self {
-            listeners: Mutex::new(Vec::new()),
+            listeners: RefCell::new(Vec::new()),
         }
     }
 
     fn add_listener(&self, callback: Callback<T>) {
-        let mut listeners = self.listeners.lock().unwrap();
-        listeners.push(callback);
+        self.listeners.borrow_mut().push(callback);
     }
 
     fn fire(&self, data: T) 
     where 
         T: Clone,
     {
-        let listeners = self.listeners.lock().unwrap();
+        let listeners = self.listeners.borrow();
         for callback in listeners.iter() {
             callback(data.clone());
         }
@@ -32,14 +32,14 @@ impl<T> SharedAction<T> {
 
 /// Main Action factory that creates triggers and listeners
 pub struct Action<T> {
-    shared: Arc<SharedAction<T>>,
+    shared: Rc<SharedAction<T>>,
 }
 
 impl<T> Action<T> {
     /// Create a new action
     pub fn new() -> Self {
         Self {
-            shared: Arc::new(SharedAction::new()),
+            shared: Rc::new(SharedAction::new()),
         }
     }
 
@@ -66,7 +66,7 @@ impl<T> Default for Action<T> {
 
 /// Handle that can only trigger/fire actions
 pub struct ActionTrigger<T> {
-    shared: Arc<SharedAction<T>>,
+    shared: Rc<SharedAction<T>>,
 }
 
 impl<T> ActionTrigger<T> {
@@ -89,14 +89,14 @@ impl<T> Clone for ActionTrigger<T> {
 
 /// Handle that can only listen to actions
 pub struct ActionListener<T> {
-    shared: Arc<SharedAction<T>>,
+    shared: Rc<SharedAction<T>>,
 }
 
 impl<T> ActionListener<T> {
     /// Register a callback to be called when the action is fired
     pub fn listen<F>(&self, callback: F) 
     where 
-        F: Fn(T) + Send + Sync + 'static,
+        F: Fn(T) + 'static,
     {
         self.shared.add_listener(Box::new(callback));
     }
@@ -113,8 +113,8 @@ impl<T> Clone for ActionListener<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
+    use std::rc::Rc;
+    use std::cell::RefCell;
 
     #[test]
     fn test_action_with_data() {
@@ -122,17 +122,17 @@ mod tests {
         let trigger = action.trigger();
         let listener = action.listener();
 
-        let received = Arc::new(Mutex::new(Vec::new()));
+        let received = Rc::new(RefCell::new(Vec::new()));
         let received_clone = received.clone();
 
         listener.listen(move |data| {
-            received_clone.lock().unwrap().push(data);
+            received_clone.borrow_mut().push(data);
         });
 
         trigger.fire("hello".to_string());
         trigger.fire("world".to_string());
 
-        let received_data = received.lock().unwrap();
+        let received_data = received.borrow();
         assert_eq!(received_data.len(), 2);
         assert_eq!(received_data[0], "hello");
         assert_eq!(received_data[1], "world");
@@ -144,17 +144,17 @@ mod tests {
         let trigger = action.trigger();
         let listener = action.listener();
 
-        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count = Rc::new(RefCell::new(0));
         let call_count_clone = call_count.clone();
 
         listener.listen(move |_| {
-            call_count_clone.fetch_add(1, Ordering::SeqCst);
+            *call_count_clone.borrow_mut() += 1;
         });
 
         trigger.fire(());
         trigger.fire(());
 
-        assert_eq!(call_count.load(Ordering::SeqCst), 2);
+        assert_eq!(*call_count.borrow(), 2);
     }
 
     #[test]
@@ -164,23 +164,23 @@ mod tests {
         let listener1 = action.listener();
         let listener2 = action.listener();
 
-        let received1 = Arc::new(Mutex::new(Vec::new()));
-        let received2 = Arc::new(Mutex::new(Vec::new()));
+        let received1 = Rc::new(RefCell::new(Vec::new()));
+        let received2 = Rc::new(RefCell::new(Vec::new()));
         let received1_clone = received1.clone();
         let received2_clone = received2.clone();
 
         listener1.listen(move |data| {
-            received1_clone.lock().unwrap().push(data);
+            received1_clone.borrow_mut().push(data);
         });
 
         listener2.listen(move |data| {
-            received2_clone.lock().unwrap().push(data * 2);
+            received2_clone.borrow_mut().push(data * 2);
         });
 
         trigger.fire(5);
 
-        assert_eq!(received1.lock().unwrap()[0], 5);
-        assert_eq!(received2.lock().unwrap()[0], 10);
+        assert_eq!(received1.borrow()[0], 5);
+        assert_eq!(received2.borrow()[0], 10);
     }
 
     #[test]
@@ -191,18 +191,18 @@ mod tests {
         let listener1 = action.listener();
         let listener2 = listener1.clone();
 
-        let received = Arc::new(Mutex::new(Vec::new()));
+        let received = Rc::new(RefCell::new(Vec::new()));
         let received_clone = received.clone();
 
         listener1.listen(move |data| {
-            received_clone.lock().unwrap().push(data);
+            received_clone.borrow_mut().push(data);
         });
 
         // Both triggers should work
         trigger1.fire("from_trigger1".to_string());
         trigger2.fire("from_trigger2".to_string());
 
-        let received_data = received.lock().unwrap();
+        let received_data = received.borrow();
         assert_eq!(received_data.len(), 2);
         assert!(received_data.contains(&"from_trigger1".to_string()));
         assert!(received_data.contains(&"from_trigger2".to_string()));

@@ -1,7 +1,7 @@
 // Microphone Permission Button for EGUI
 // Central microphone button that requests permission and connects to audio pipeline
 
-use std::sync::Arc;
+use std::rc::Rc;
 use three_d::egui;
 use observable_data::DataObserver;
 use super::AudioPermission;
@@ -9,7 +9,7 @@ use super::AudioPermission;
 
 
 /// Callback type for microphone button clicks (must be synchronous for getUserMedia)
-type ClickCallback = Arc<dyn Fn() + Send + Sync>;
+type ClickCallback = Rc<dyn Fn()>;
 
 /// Microphone button state and behavior
 pub struct MicrophoneButton {
@@ -28,9 +28,9 @@ impl MicrophoneButton {
     /// Set callback for button clicks (called synchronously)
     pub fn set_click_callback<F>(&mut self, callback: F)
     where
-        F: Fn() + Send + Sync + 'static,
+        F: Fn() + 'static,
     {
-        self.click_callback = Some(Arc::new(callback));
+        self.click_callback = Some(Rc::new(callback));
     }
 
 
