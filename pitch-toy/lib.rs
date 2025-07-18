@@ -138,6 +138,8 @@ pub async fn run_three_d(
         live_data.microphone_permission.clone(),
         triggers.microphone_permission.clone(),
         triggers.output_to_speakers.clone(),
+        triggers.test_signal.clone(),
+        triggers.background_noise.clone(),
     );
     
     // Create audio service for LiveDataPanel

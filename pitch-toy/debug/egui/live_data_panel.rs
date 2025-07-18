@@ -6,8 +6,7 @@ use std::rc::Rc;
 
 use crate::audio::{
     AudioPermission, MusicalNote, VolumeLevel,
-    AudioWorkletState, ConsoleAudioServiceImpl, TestWaveform,
-    BackgroundNoiseConfig,
+    AudioWorkletState, ConsoleAudioServiceImpl,
 };
 use crate::live_data::LiveData;
 
@@ -114,25 +113,6 @@ impl From<crate::audio::AudioWorkletStatus> for AudioWorkletStatus {
     }
 }
 
-/// Test signal configuration
-#[derive(Debug, Clone, PartialEq)]
-pub struct TestSignalConfig {
-    pub enabled: bool,
-    pub waveform: TestWaveform,
-    pub frequency: f32,
-    pub volume: f32,
-}
-
-impl Default for TestSignalConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            waveform: TestWaveform::Sine,
-            frequency: 440.0,
-            volume: 50.0,
-        }
-    }
-}
 
 /// EGUI Live Data Panel - Real-time audio monitoring and control interface
 pub struct EguiLiveDataPanel {
@@ -141,16 +121,11 @@ pub struct EguiLiveDataPanel {
     
     live_data: LiveData,
     
-    /// Test signal configuration
-    test_signal_config: TestSignalConfig,
-    background_noise_config: BackgroundNoiseConfig,
     
     /// UI state
     last_metrics_update: f64,
     
     /// Previous values to detect changes
-    prev_test_signal_config: TestSignalConfig,
-    prev_background_noise_config: BackgroundNoiseConfig,
     // prev_output_to_speakers moved to microphone button
     
     /// Action triggers for UI control actions
@@ -164,61 +139,21 @@ impl EguiLiveDataPanel {
         live_data: LiveData,
         ui_control_triggers: crate::UIControlTriggers,
     ) -> Self {
-        let test_signal_config = TestSignalConfig::default();
-        let background_noise_config = BackgroundNoiseConfig::default();
             
         Self {
             audio_service,
             live_data,
-            test_signal_config: test_signal_config.clone(),
-            background_noise_config: background_noise_config.clone(),
                     last_metrics_update: 0.0,
-            prev_test_signal_config: test_signal_config,
-            prev_background_noise_config: background_noise_config,
             // prev_output_to_speakers moved to microphone button
             ui_control_triggers,
         }
     }
     
-    /// Apply test signal configuration to audio system
-    fn apply_test_signal_config(&self, config: &TestSignalConfig) {
-        let action = crate::TestSignalAction {
-            enabled: config.enabled,
-            waveform: config.waveform.clone(),
-            frequency: config.frequency,
-            volume: config.volume,
-        };
-        
-        self.ui_control_triggers.test_signal.fire(action);
-    }
-    
-    /// Apply background noise configuration to audio system
-    fn apply_background_noise_config(&self, config: &BackgroundNoiseConfig) {
-        let action = crate::BackgroundNoiseAction {
-            enabled: config.enabled,
-            level: config.level,
-            noise_type: config.noise_type.clone(),
-        };
-        
-        self.ui_control_triggers.background_noise.fire(action);
-    }
     
     /// Apply output to speakers setting to audio system
     
     /// Check for configuration changes and apply them
     fn check_and_apply_changes(&mut self) {
-        // Check test signal config changes
-        if self.test_signal_config != self.prev_test_signal_config {
-            self.apply_test_signal_config(&self.test_signal_config);
-            self.prev_test_signal_config = self.test_signal_config.clone();
-        }
-        
-        // Check background noise config changes
-        if self.background_noise_config != self.prev_background_noise_config {
-            self.apply_background_noise_config(&self.background_noise_config);
-            self.prev_background_noise_config = self.background_noise_config.clone();
-        }
-        
         // Check output to speakers changes
     }
     
@@ -266,7 +201,6 @@ impl EguiLiveDataPanel {
                 ui.separator();
                 
                 // Test Signal Controls Section
-                self.render_test_signal_controls_section(ui);
                 ui.separator();
                 
                 // Global Audio Controls Section
@@ -545,53 +479,6 @@ impl EguiLiveDataPanel {
         }
     }
     
-    /// Render test signal controls section
-    fn render_test_signal_controls_section(&mut self, ui: &mut Ui) {
-        ui.heading("Test Signal Generator");
-        
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.test_signal_config.enabled, "Enable Test Signal");
-        });
-        
-        if self.test_signal_config.enabled {
-            ui.horizontal(|ui| {
-                ui.label("Waveform:");
-                egui::ComboBox::from_id_salt("waveform")
-                    .selected_text(format!("{:?}", self.test_signal_config.waveform))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::Sine, "Sine");
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::Square, "Square");
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::Triangle, "Triangle");
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::Sawtooth, "Sawtooth");
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::WhiteNoise, "White Noise");
-                        ui.selectable_value(&mut self.test_signal_config.waveform, TestWaveform::PinkNoise, "Pink Noise");
-                    });
-            });
-            
-            ui.horizontal(|ui| {
-                ui.label("Frequency:");
-                ui.add(egui::Slider::new(&mut self.test_signal_config.frequency, 20.0..=2000.0)
-                    .suffix(" Hz")
-                    .logarithmic(true));
-            });
-            
-            ui.horizontal(|ui| {
-                ui.label("Volume:");
-                ui.add(egui::Slider::new(&mut self.test_signal_config.volume, 0.0..=100.0)
-                    .suffix("%"));
-            });
-        }
-        
-        ui.horizontal(|ui| {
-            ui.label("Background Noise:");
-            let mut level = self.background_noise_config.level * 100.0; // Convert to percentage
-            if ui.add(egui::Slider::new(&mut level, 0.0..=100.0)
-                .suffix("%")).changed() {
-                self.background_noise_config.level = level / 100.0; // Convert back to 0-1 range
-                self.background_noise_config.enabled = level > 0.0; // Auto-enable when level > 0
-            }
-        });
-    }
     
 }
 
