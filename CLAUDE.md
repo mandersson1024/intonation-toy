@@ -50,3 +50,6 @@ Refer to:
 - docs/architecture/coding standards.md
 - docs/architecture/source-tree.md
 - docs/architecture/tech-stack.md
+
+## Error Handling
+- Always do things in one single way, and if that fails on the platform it runs on then just log an error. Never implement fallback approaches.

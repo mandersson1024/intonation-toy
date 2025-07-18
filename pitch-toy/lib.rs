@@ -269,7 +269,7 @@ pub async fn start() {
     };
     
     // Create audio service AFTER AudioWorklet initialization
-    // Volume level setter is already configured in initialize_audio_systems, so use the regular service
+    // Volume level setter is configured in initialize_audio_systems_new, so use the regular service
     let audio_service = std::rc::Rc::new({
         let mut service = crate::audio::create_console_audio_service();
         service.set_audio_devices_setter(audio_devices_setter.clone());
@@ -287,21 +287,20 @@ pub async fn start() {
     let triggers = ui_control_actions.get_triggers();
     
     // Setup audio module listeners for UI actions
-    if let Some(ref context) = audio_context {
-        // Use context-aware action listener setup
-        audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
-    } else {
-        // Fallback to global approach if context is not available
-        // Note: Legacy setup_ui_action_listeners removed - use setup_ui_action_listeners_with_context instead
-        // For now, skip setting up action listeners as the context is not available in this code path
-        web_sys::console::log_1(&"Warning: UI action listeners not set up in legacy mode - use context-aware initialization instead".into());
+    match audio_context {
+        Some(ref context) => {
+            audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
+        }
+        None => {
+            web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());
+        }
     }
     
     // Start three-d application directly
     run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions, triggers).await;
 }
 
-/// Initialize all audio systems using new AudioSystemContext approach
+/// Initialize all audio systems using AudioSystemContext approach
 async fn initialize_audio_systems_new(
     pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>,
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>,
@@ -320,9 +319,9 @@ async fn initialize_audio_systems_new(
     
     let buffer_stats_setter = buffer_pool_stats_setter;
     
-    web_sys::console::log_1(&"DEBUG: Using new AudioSystemContext initialization approach".into());
+    web_sys::console::log_1(&"DEBUG: Using AudioSystemContext initialization approach".into());
     
-    // Use the new initialization function
+    // Use the initialization function
     let context = audio::initialize_audio_system_with_context(
         volume_setter,
         pitch_setter,
@@ -330,7 +329,7 @@ async fn initialize_audio_systems_new(
         buffer_stats_setter,
     ).await?;
     
-    web_sys::console::log_1(&"DEBUG: ✓ AudioSystemContext initialized successfully with new approach".into());
+    web_sys::console::log_1(&"DEBUG: ✓ AudioSystemContext initialized successfully".into());
     
     // Store the context for backward compatibility
     let context_rc = std::rc::Rc::new(std::cell::RefCell::new(context));

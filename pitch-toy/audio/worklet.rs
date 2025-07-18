@@ -1135,7 +1135,12 @@ impl AudioWorkletManager {
 
     /// Set volume detector for real-time volume analysis
     pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
-        self.volume_detector = Some(detector);
+        self.volume_detector = Some(detector.clone());
+        
+        // Also update the shared data with the volume detector
+        if let Some(shared_data) = &self.shared_data {
+            shared_data.borrow_mut().volume_detector = Some(detector);
+        }
     }
 
     /// Update volume detector configuration

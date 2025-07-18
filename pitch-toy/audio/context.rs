@@ -696,6 +696,16 @@ impl AudioSystemContext {
             }
         }
 
+        // Step 4: Initialize VolumeDetector
+        let volume_detector = super::volume_detector::VolumeDetector::new_default();
+        
+        // Configure VolumeDetector in AudioWorkletManager
+        if let Some(ref mut worklet_manager) = self.audioworklet_manager {
+            worklet_manager.set_volume_detector(volume_detector);
+        }
+        
+        dev_log!("✓ VolumeDetector initialized and configured");
+
         self.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
         Ok(())
