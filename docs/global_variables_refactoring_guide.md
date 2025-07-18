@@ -9,7 +9,7 @@ The codebase currently has 4 global state variables that violate dependency inje
 1. **AUDIO_CONTEXT_MANAGER** - Thread-local global for audio context access
 2. **PITCH_ANALYZER_GLOBAL** - Thread-local global for pitch analyzer access  
 3. **MESSAGE_ID_GENERATOR** - Thread-local for generating unique message IDs
-4. **COUNTER** - Unsafe static mut for message ID generation (appears to be dead code)
+4. **COUNTER** - Unsafe static mut for message ID generation (confirmed dead code)
 
 ## Detailed Analysis
 
@@ -124,16 +124,16 @@ static mut COUNTER: u32 = 0;
 
 **Current Usage**:
 - Inside `generate_message_id()` function
-- Appears to be dead code (MESSAGE_ID_GENERATOR is used instead)
-- Has comment indicating it should use atomics
+- Confirmed dead code (MESSAGE_ID_GENERATOR is used instead)
+- Has TODO comment indicating it should use atomics
 
 **Why It Exists**:
 - Quick implementation for unique IDs
 - Likely leftover from earlier implementation
 
 **Refactoring Strategy**:
-- Delete immediately - it's unsafe and unused
-- If needed, use atomic operations instead
+- Delete immediately - it's unsafe and confirmed unused
+- If similar functionality is needed, use atomic operations instead
 
 **How to Avoid Increasing Dependency**:
 - ❌ NEVER use static mut
