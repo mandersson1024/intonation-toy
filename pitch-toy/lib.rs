@@ -137,6 +137,7 @@ pub async fn run_three_d(
     let mut microphone_button = EguiMicrophoneButton::new(
         live_data.microphone_permission.clone(),
         triggers.microphone_permission.clone(),
+        triggers.output_to_speakers.clone(),
     );
     
     // Create audio service for LiveDataPanel

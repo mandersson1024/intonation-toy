@@ -32,6 +32,16 @@ impl MicrophoneButton {
     {
         self.click_callback = Some(Rc::new(callback));
     }
+    
+    pub fn get_permission_state(&self) -> AudioPermission {
+        self.microphone_permission.get()
+    }
+    
+    pub fn trigger_click(&self) {
+        if let Some(callback) = &self.click_callback {
+            callback();
+        }
+    }
 
 
     /// Render the microphone button in the center of the screen

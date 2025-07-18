@@ -144,7 +144,7 @@ pub struct EguiLiveDataPanel {
     /// Test signal configuration
     test_signal_config: TestSignalConfig,
     background_noise_config: BackgroundNoiseConfig,
-    output_to_speakers: bool,
+    // output_to_speakers moved to microphone button
     
     /// UI state
     last_metrics_update: f64,
@@ -152,7 +152,7 @@ pub struct EguiLiveDataPanel {
     /// Previous values to detect changes
     prev_test_signal_config: TestSignalConfig,
     prev_background_noise_config: BackgroundNoiseConfig,
-    prev_output_to_speakers: bool,
+    // prev_output_to_speakers moved to microphone button
     
     /// Action triggers for UI control actions
     ui_control_triggers: crate::UIControlTriggers,
@@ -167,18 +167,18 @@ impl EguiLiveDataPanel {
     ) -> Self {
         let test_signal_config = TestSignalConfig::default();
         let background_noise_config = BackgroundNoiseConfig::default();
-        let output_to_speakers = false;
+        // output_to_speakers moved to microphone button
         
         Self {
             audio_service,
             live_data,
             test_signal_config: test_signal_config.clone(),
             background_noise_config: background_noise_config.clone(),
-            output_to_speakers,
+            // output_to_speakers moved to microphone button
             last_metrics_update: 0.0,
             prev_test_signal_config: test_signal_config,
             prev_background_noise_config: background_noise_config,
-            prev_output_to_speakers: output_to_speakers,
+            // prev_output_to_speakers moved to microphone button
             ui_control_triggers,
         }
     }
@@ -207,13 +207,7 @@ impl EguiLiveDataPanel {
     }
     
     /// Apply output to speakers setting to audio system
-    fn apply_output_to_speakers(&self, enabled: bool) {
-        let action = crate::OutputToSpeakersAction {
-            enabled,
-        };
-        
-        self.ui_control_triggers.output_to_speakers.fire(action);
-    }
+    // apply_output_to_speakers moved to microphone button
     
     /// Check for configuration changes and apply them
     fn check_and_apply_changes(&mut self) {
@@ -230,10 +224,7 @@ impl EguiLiveDataPanel {
         }
         
         // Check output to speakers changes
-        if self.output_to_speakers != self.prev_output_to_speakers {
-            self.apply_output_to_speakers(self.output_to_speakers);
-            self.prev_output_to_speakers = self.output_to_speakers;
-        }
+        // output_to_speakers change detection moved to microphone button
     }
     
     /// Render the live data panel
@@ -284,7 +275,7 @@ impl EguiLiveDataPanel {
                 ui.separator();
                 
                 // Global Audio Controls Section
-                self.render_global_audio_controls_section(ui);
+                // Global Audio Controls section removed - Output To Speakers moved to microphone button
             });
         });
     }
@@ -608,15 +599,7 @@ impl EguiLiveDataPanel {
         });
     }
     
-    /// Render global audio controls section
-    fn render_global_audio_controls_section(&mut self, ui: &mut Ui) {
-        ui.heading("Global Audio Controls");
-        
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.output_to_speakers, "Output to Speakers");
-        });
-        
-    }
+    // Global Audio Controls section removed - Output To Speakers moved to microphone button
 }
 
 // Adapter setters that convert between debug types and audio types
