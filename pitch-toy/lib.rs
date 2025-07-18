@@ -23,21 +23,6 @@ use live_data::LiveData;
 // Import action system
 use action::{Action, ActionTrigger, ActionListener};
 
-// No-op setters for testing scenarios where data publishing isn't needed
-struct NoOpPitchDataSetter;
-impl observable_data::DataSetter<Option<audio::PitchData>> for NoOpPitchDataSetter {
-    fn set(&self, _data: Option<audio::PitchData>) {}
-}
-
-struct NoOpVolumeDataSetter;
-impl observable_data::DataSetter<Option<audio::VolumeLevelData>> for NoOpVolumeDataSetter {
-    fn set(&self, _data: Option<audio::VolumeLevelData>) {}
-}
-
-struct NoOpAudioWorkletStatusSetter;
-impl observable_data::DataSetter<audio::AudioWorkletStatus> for NoOpAudioWorkletStatusSetter {
-    fn set(&self, _data: audio::AudioWorkletStatus) {}
-}
 
 // UI Control Action Types
 #[derive(Debug, Clone)]
@@ -264,10 +249,10 @@ pub async fn start() {
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
     let audio_context = match initialize_audio_systems_new(
-        Some(std::rc::Rc::new(pitch_data_setter.clone())),
-        Some(std::rc::Rc::new(volume_level_setter.clone())),
-        Some(std::rc::Rc::new(audioworklet_status_setter.clone())),
-        Some(std::rc::Rc::new(buffer_pool_stats_setter.clone()))
+        std::rc::Rc::new(pitch_data_setter.clone()),
+        std::rc::Rc::new(volume_level_setter.clone()),
+        std::rc::Rc::new(audioworklet_status_setter.clone()),
+        std::rc::Rc::new(buffer_pool_stats_setter.clone())
     ).await {
         Ok(context) => {
             dev_log!("✓ Audio system initialization completed successfully");
@@ -318,35 +303,22 @@ pub async fn start() {
 
 /// Initialize all audio systems using new AudioSystemContext approach
 async fn initialize_audio_systems_new(
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>>,
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>>,
-    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>>,
-    buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<audio::message_protocol::BufferPoolStats>>>>
+    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>,
+    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>,
+    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>,
+    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<audio::message_protocol::BufferPoolStats>>>
 ) -> Result<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>, String> {
     // Convert setters to required types with adapters
-    let pitch_setter = pitch_data_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::PitchData>>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios
-        std::rc::Rc::new(NoOpPitchDataSetter)
-    });
+    let pitch_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(pitch_data_setter))
+        as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::PitchData>>>;
     
-    let volume_setter = volume_level_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::VolumeLevelData>>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios
-        std::rc::Rc::new(NoOpVolumeDataSetter)
-    });
+    let volume_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(volume_level_setter))
+        as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::VolumeLevelData>>>;
     
-    let status_setter = audioworklet_status_setter.map(|setter| {
-        std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(setter))
-            as std::rc::Rc<dyn observable_data::DataSetter<audio::AudioWorkletStatus>>
-    }).unwrap_or_else(|| {
-        // Create no-op setter for testing scenarios  
-        std::rc::Rc::new(NoOpAudioWorkletStatusSetter)
-    });
+    let status_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(audioworklet_status_setter))
+        as std::rc::Rc<dyn observable_data::DataSetter<audio::AudioWorkletStatus>>;
+    
+    let buffer_stats_setter = buffer_pool_stats_setter;
     
     web_sys::console::log_1(&"DEBUG: Using new AudioSystemContext initialization approach".into());
     
@@ -355,6 +327,7 @@ async fn initialize_audio_systems_new(
         volume_setter,
         pitch_setter,
         status_setter,
+        buffer_stats_setter,
     ).await?;
     
     web_sys::console::log_1(&"DEBUG: ✓ AudioSystemContext initialized successfully with new approach".into());

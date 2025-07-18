@@ -105,6 +105,7 @@ pub async fn initialize_audio_system_with_context(
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<VolumeLevelData>>>,
     pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<PitchData>>>,
     audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<AudioWorkletStatus>>,
+    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<message_protocol::BufferPoolStats>>>,
 ) -> Result<context::AudioSystemContext, String> {
     dev_log!("Initializing audio system with dependency injection");
     
@@ -118,6 +119,7 @@ pub async fn initialize_audio_system_with_context(
         volume_level_setter,
         pitch_data_setter,
         audioworklet_status_setter,
+        buffer_pool_stats_setter,
     );
     
     // Initialize the context (this handles all component initialization)

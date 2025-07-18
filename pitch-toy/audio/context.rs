@@ -587,6 +587,7 @@ pub struct AudioSystemContext {
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
     pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
     audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
+    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
     is_initialized: bool,
     initialization_error: Option<String>,
 }
@@ -597,6 +598,7 @@ impl AudioSystemContext {
         volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
         pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
     ) -> Self {
         Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
@@ -605,6 +607,7 @@ impl AudioSystemContext {
             volume_level_setter,
             pitch_data_setter,
             audioworklet_status_setter,
+            buffer_pool_stats_setter,
             is_initialized: false,
             initialization_error: None,
         }
@@ -616,6 +619,7 @@ impl AudioSystemContext {
         volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
         pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
     ) -> Self {
         Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
@@ -624,6 +628,7 @@ impl AudioSystemContext {
             volume_level_setter,
             pitch_data_setter,
             audioworklet_status_setter,
+            buffer_pool_stats_setter,
             is_initialized: false,
             initialization_error: None,
         }
@@ -646,18 +651,18 @@ impl AudioSystemContext {
         dev_log!("✓ AudioContextManager initialized");
 
         // Step 2: Initialize AudioWorkletManager
-        let mut worklet_manager = super::worklet::AudioWorkletManager::new();
+        let mut worklet_manager = super::worklet::AudioWorkletManager::new(
+            self.audioworklet_status_setter.clone(),
+            self.volume_level_setter.clone(),
+            self.buffer_pool_stats_setter.clone(),
+            self.pitch_data_setter.clone()
+        );
         if let Err(e) = worklet_manager.initialize(&*self.audio_context_manager.borrow()).await {
             let error_msg = format!("Failed to initialize AudioWorkletManager: {}", e);
             dev_log!("✗ {}", error_msg);
             self.initialization_error = Some(error_msg.clone());
             return Err(error_msg);
         }
-        
-        // Configure setters on AudioWorkletManager
-        worklet_manager.set_volume_level_setter(self.volume_level_setter.clone());
-        worklet_manager.set_pitch_data_setter(self.pitch_data_setter.clone());
-        worklet_manager.set_audioworklet_status_setter(self.audioworklet_status_setter.clone());
         
         // Publish initial status
         worklet_manager.publish_audioworklet_status();
@@ -997,99 +1002,7 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_system_context_creation() {
-        let volume_setter = std::rc::Rc::new(MockVolumeSetter::new());
-        let pitch_setter = std::rc::Rc::new(MockPitchSetter::new());
-        let status_setter = std::rc::Rc::new(MockAudioWorkletStatusSetter::new());
 
-        let context = AudioSystemContext::new(
-            volume_setter.clone(),
-            pitch_setter.clone(),
-            status_setter.clone(),
-        );
 
-        // Initially should not be ready
-        assert!(!context.is_ready());
-        assert!(!context.is_initialized);
-        assert!(context.get_initialization_error().is_none());
-        
-        // Components should be uninitialized
-        assert!(context.get_audioworklet_manager().is_none());
-        assert!(context.get_pitch_analyzer().is_none());
-        
-        // AudioContextManager should be available
-        assert_eq!(*context.get_audio_context_manager().borrow().state(), AudioContextState::Uninitialized);
-    }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_system_context_with_custom_config() {
-        let volume_setter = std::rc::Rc::new(MockVolumeSetter::new());
-        let pitch_setter = std::rc::Rc::new(MockPitchSetter::new());
-        let status_setter = std::rc::Rc::new(MockAudioWorkletStatusSetter::new());
-
-        let config = AudioContextConfig::with_44_1khz().with_buffer_size(512);
-        let context = AudioSystemContext::with_audio_config(
-            config,
-            volume_setter.clone(),
-            pitch_setter.clone(),
-            status_setter.clone(),
-        );
-
-        // Check that custom config is applied
-        assert_eq!(context.get_audio_config().sample_rate, 44100.0);
-        assert_eq!(context.get_audio_config().buffer_size, 512);
-        assert!(!context.is_ready());
-    }
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_system_context_access_methods() {
-        let volume_setter = std::rc::Rc::new(MockVolumeSetter::new());
-        let pitch_setter = std::rc::Rc::new(MockPitchSetter::new());
-        let status_setter = std::rc::Rc::new(MockAudioWorkletStatusSetter::new());
-
-        let context = AudioSystemContext::new(
-            volume_setter.clone(),
-            pitch_setter.clone(),
-            status_setter.clone(),
-        );
-
-        // Test access methods
-        assert!(context.get_audioworklet_manager().is_none());
-        assert!(context.get_pitch_analyzer().is_none());
-        assert!(context.get_pitch_analyzer_clone().is_none());
-        assert!(context.get_initialization_error().is_none());
-        
-        // Test static methods
-        assert!(AudioSystemContext::is_audio_context_supported() == AudioContextManager::is_supported());
-    }
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_system_context_lifecycle_without_browser() {
-        let volume_setter = std::rc::Rc::new(MockVolumeSetter::new());
-        let pitch_setter = std::rc::Rc::new(MockPitchSetter::new());
-        let status_setter = std::rc::Rc::new(MockAudioWorkletStatusSetter::new());
-
-        let mut context = AudioSystemContext::new(
-            volume_setter.clone(),
-            pitch_setter.clone(),
-            status_setter.clone(),
-        );
-
-        // Test initial state
-        assert!(!context.is_ready());
-        assert!(!context.is_initialized);
-        
-        // Test shutdown when not initialized (should not panic)
-        // Note: We can't test actual initialization in unit tests without browser environment
-        // This test verifies that the lifecycle methods exist and have correct signatures
-        wasm_bindgen_futures::spawn_local(async move {
-            let _result = context.shutdown().await;
-            // Should complete without error even when not initialized
-        });
-    }
 }

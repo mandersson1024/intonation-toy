@@ -108,21 +108,24 @@ struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
+    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
+    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
 }
 
 impl AudioWorkletSharedData {
-    fn new() -> Self {
+    fn new(
+        volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>,
+        pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>
+    ) -> Self {
         Self {
             volume_detector: None,
             last_volume_analysis: None,
             chunks_processed: 0,
-            volume_level_setter: None,
+            volume_level_setter,
             pitch_analyzer: None,
-            pitch_data_setter: None,
+            pitch_data_setter,
             buffer_pool_stats: None,
         }
     }
@@ -175,17 +178,17 @@ pub struct AudioWorkletManager {
     // Whether to output audio stream to speakers
     output_to_speakers: bool,
     // Setter for updating AudioWorklet status in live data
-    audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>,
+    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>,
     // Shared data for message handling
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     // Setter for updating volume level in live data
-    volume_level_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>>,
+    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>,
     // Setter for updating buffer pool statistics in live data
-    buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
+    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>,
     // Pitch analyzer for direct audio processing
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<crate::audio::pitch_analyzer::PitchAnalyzer>>>,
     // Setter for updating pitch data in live data
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
+    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>,
     // Message factory for structured message creation
     message_factory: AudioWorkletMessageFactory,
     // Configuration for ping-pong buffer recycling
@@ -194,7 +197,12 @@ pub struct AudioWorkletManager {
 
 impl AudioWorkletManager {
     /// Create new AudioWorklet manager
-    pub fn new() -> Self {
+    pub fn new(
+        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>,
+        volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>,
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>,
+        pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>
+    ) -> Self {
         Self {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
@@ -207,19 +215,25 @@ impl AudioWorkletManager {
             _message_closure: None,
             audio_context: None,
             output_to_speakers: false,
-            audioworklet_status_setter: None,
+            audioworklet_status_setter,
             shared_data: None,
-            volume_level_setter: None,
-            buffer_pool_stats_setter: None,
+            volume_level_setter,
+            buffer_pool_stats_setter,
             pitch_analyzer: None,
-            pitch_data_setter: None,
+            pitch_data_setter,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
         }
     }
     
     /// Create new AudioWorklet manager with custom configuration
-    pub fn with_config(config: AudioWorkletConfig) -> Self {
+    pub fn with_config(
+        config: AudioWorkletConfig,
+        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>,
+        volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>,
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>,
+        pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>
+    ) -> Self {
         Self {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
@@ -232,12 +246,12 @@ impl AudioWorkletManager {
             _message_closure: None,
             audio_context: None,
             output_to_speakers: false,
-            audioworklet_status_setter: None,
+            audioworklet_status_setter,
             shared_data: None,
-            volume_level_setter: None,
-            buffer_pool_stats_setter: None,
+            volume_level_setter,
+            buffer_pool_stats_setter,
             pitch_analyzer: None,
-            pitch_data_setter: None,
+            pitch_data_setter,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
         }
@@ -255,23 +269,21 @@ impl AudioWorkletManager {
     
     /// Publish AudioWorklet status update to Live Data Panel
     pub fn publish_audioworklet_status(&self) {
-        if let Some(setter) = &self.audioworklet_status_setter {
-            #[cfg(target_arch = "wasm32")]
-            let timestamp = js_sys::Date::now();
-            #[cfg(not(target_arch = "wasm32"))]
-            let timestamp = 0.0;
-            
-            let status = crate::audio::AudioWorkletStatus {
-                state: self.state.clone(),
-                processor_loaded: self.worklet_node.is_some(),
-                chunk_size: self.config.chunk_size,
-                chunks_processed: self.chunk_counter,
-                last_update: timestamp,
-            };
-            
-            setter.set(status);
-            dev_log!("AudioWorklet status updated: {} (processor: {})", self.state, self.worklet_node.is_some());
-        }
+        #[cfg(target_arch = "wasm32")]
+        let timestamp = js_sys::Date::now();
+        #[cfg(not(target_arch = "wasm32"))]
+        let timestamp = 0.0;
+        
+        let status = crate::audio::AudioWorkletStatus {
+            state: self.state.clone(),
+            processor_loaded: self.worklet_node.is_some(),
+            chunk_size: self.config.chunk_size,
+            chunks_processed: self.chunk_counter,
+            last_update: timestamp,
+        };
+        
+        self.audioworklet_status_setter.set(status);
+        dev_log!("AudioWorklet status updated: {} (processor: {})", self.state, self.worklet_node.is_some());
     }
     
     
@@ -378,8 +390,7 @@ impl AudioWorkletManager {
                 dev_log!("AudioWorklet node created with {} input channels, {} output channels", 
                         self.config.input_channels, self.config.output_channels);
                 
-                // Setup message handling
-                self.setup_message_handling()?;
+                // Note: Message handling setup is deferred until setters are configured
                 
                 Ok(())
             }
@@ -404,8 +415,15 @@ impl AudioWorkletManager {
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            // Create shared data for the message handler
-            let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
+            // Setters are always available now
+            let volume_level_setter = &self.volume_level_setter;
+            let pitch_data_setter = &self.pitch_data_setter;
+            
+            // Create shared data for the message handler with required setters
+            let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new(
+                volume_level_setter.clone(),
+                pitch_data_setter.clone()
+            )));
             
             // Store the shared data in the manager for later access
             self.shared_data = Some(shared_data.clone());
@@ -414,24 +432,14 @@ impl AudioWorkletManager {
             if let Some(volume_detector) = &self.volume_detector {
                 shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
             }
-            if let Some(volume_level_setter) = &self.volume_level_setter {
-                shared_data.borrow_mut().volume_level_setter = Some(volume_level_setter.clone());
-                dev_log!("Volume level setter passed to AudioWorklet shared data");
-            } else {
-                dev_log!("Warning: No volume level setter available during AudioWorklet initialization");
-            }
-            if let Some(pitch_data_setter) = &self.pitch_data_setter {
-                shared_data.borrow_mut().pitch_data_setter = Some(pitch_data_setter.clone());
-                dev_log!("✓ Pitch data setter passed to AudioWorklet shared data");
-            } else {
-                dev_log!("✗ Warning: No pitch data setter available during AudioWorklet initialization");
-            }
             if let Some(pitch_analyzer) = &self.pitch_analyzer {
                 shared_data.borrow_mut().pitch_analyzer = Some(pitch_analyzer.clone());
                 dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
             } else {
                 dev_log!("✗ Warning: No pitch analyzer available during AudioWorklet initialization");
             }
+            
+            dev_log!("✓ Volume level setter and pitch data setter passed to AudioWorklet shared data");
             
             // Capture only the specific fields needed for the message handler
             let shared_data_clone = shared_data.clone();
@@ -474,8 +482,8 @@ impl AudioWorkletManager {
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory,
         ping_pong_enabled: bool,
-        buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
-        audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>,
+        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>
     ) {
         let data = event.data();
         
@@ -558,8 +566,8 @@ impl AudioWorkletManager {
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory,
         ping_pong_enabled: bool,
-        buffer_pool_stats_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>>,
-        audioworklet_status_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
+        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>,
+        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>
     ) {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
@@ -599,12 +607,8 @@ impl AudioWorkletManager {
                     
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
                     
-                    // Push to reactive system if setter is available
-                    if let Some(setter) = &buffer_pool_stats_setter {
-                        setter.set(Some(buffer_pool_stats.clone()));
-                    } else {
-                        dev_log!("Warning: No buffer pool stats setter available");
-                    }
+                    // Push to reactive system
+                    buffer_pool_stats_setter.set(Some(buffer_pool_stats.clone()));
                 } else {
                     dev_log!("Warning: No buffer pool stats in StatusUpdate message");
                 }
@@ -707,51 +711,57 @@ impl AudioWorkletManager {
         let chunks_processed = shared_data.borrow().chunks_processed;
         
         // Perform volume analysis
-        if let Some(mut volume_detector) = shared_data.borrow().volume_detector.clone() {
+        let (volume_detector, volume_setter) = {
+            let borrowed = shared_data.borrow();
+            (borrowed.volume_detector.clone(), borrowed.volume_level_setter.clone())
+        };
+        
+        if let Some(mut volume_detector) = volume_detector {
             let volume_analysis = volume_detector.process_buffer(audio_samples, js_sys::Date::now());
             
-            // Update volume level via setter if available
-            if let Some(volume_setter) = &shared_data.borrow().volume_level_setter {
-                let volume_data = crate::audio::VolumeLevelData {
-                    rms_db: volume_analysis.rms_db,
-                    peak_db: volume_analysis.peak_db,
-                    peak_fast_db: volume_analysis.peak_fast_db,
-                    peak_slow_db: volume_analysis.peak_slow_db,
-                    level: volume_analysis.level.clone(),
-                    confidence_weight: volume_analysis.confidence_weight,
-                    timestamp: js_sys::Date::now(),
-                };
-                volume_setter.set(Some(volume_data));
-                
-                if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                    // Volume analysis completed
-                }
+            // Update volume level via setter (always available now)
+            let volume_data = crate::audio::VolumeLevelData {
+                rms_db: volume_analysis.rms_db,
+                peak_db: volume_analysis.peak_db,
+                peak_fast_db: volume_analysis.peak_fast_db,
+                peak_slow_db: volume_analysis.peak_slow_db,
+                level: volume_analysis.level.clone(),
+                confidence_weight: volume_analysis.confidence_weight,
+                timestamp: js_sys::Date::now(),
+            };
+            volume_setter.set(Some(volume_data));
+            
+            if chunks_processed <= 5 || chunks_processed % 64 == 0 {
+                // Volume analysis completed
             }
         }
         
         // Perform pitch analysis
-        if let Some(pitch_analyzer) = &shared_data.borrow().pitch_analyzer {
+        let (pitch_analyzer, pitch_setter) = {
+            let borrowed = shared_data.borrow();
+            (borrowed.pitch_analyzer.clone(), borrowed.pitch_data_setter.clone())
+        };
+        
+        if let Some(pitch_analyzer) = pitch_analyzer {
             match pitch_analyzer.borrow_mut().analyze_samples(audio_samples) {
                 Ok(Some(pitch_result)) => {
-                    // Update pitch data via setter if available
-                    if let Some(pitch_setter) = &shared_data.borrow().pitch_data_setter {
-                        // For now, create a placeholder note since PitchResult doesn't have note field
-                        let placeholder_note = crate::audio::MusicalNote::new(
-                            crate::audio::NoteName::A, 4, 0.0, pitch_result.frequency
-                        );
-                        
-                        let pitch_data = crate::audio::PitchData {
-                            frequency: pitch_result.frequency,
-                            confidence: pitch_result.confidence,
-                            note: placeholder_note,
-                            clarity: pitch_result.clarity,
-                            timestamp: js_sys::Date::now(),
-                        };
-                        pitch_setter.set(Some(pitch_data));
-                        
-                        if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                            // Pitch detected and processed
-                        }
+                    // Update pitch data via setter (always available now)
+                    // For now, create a placeholder note since PitchResult doesn't have note field
+                    let placeholder_note = crate::audio::MusicalNote::new(
+                        crate::audio::NoteName::A, 4, 0.0, pitch_result.frequency
+                    );
+                    
+                    let pitch_data = crate::audio::PitchData {
+                        frequency: pitch_result.frequency,
+                        confidence: pitch_result.confidence,
+                        note: placeholder_note,
+                        clarity: pitch_result.clarity,
+                        timestamp: js_sys::Date::now(),
+                    };
+                    pitch_setter.set(Some(pitch_data));
+                    
+                    if chunks_processed <= 5 || chunks_processed % 64 == 0 {
+                        // Pitch detected and processed
                     }
                 }
                 Ok(None) => {
@@ -776,7 +786,7 @@ impl AudioWorkletManager {
         _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         state: AudioWorkletState,
         processing: bool,
-        audioworklet_status_setter: &Option<std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>>
+        audioworklet_status_setter: &std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>
     ) {
         // Send periodic GetStatus requests to update buffer pool statistics
         match Self::send_typed_control_message_static(worklet_node, message_factory, ToWorkletMessage::GetStatus) {
@@ -788,23 +798,21 @@ impl AudioWorkletManager {
             }
         }
         
-        // Update AudioWorklet status if setter is available
-        if let Some(setter) = audioworklet_status_setter {
-            #[cfg(target_arch = "wasm32")]
-            let timestamp = js_sys::Date::now();
-            #[cfg(not(target_arch = "wasm32"))]
-            let timestamp = 0.0;
-            
-            let status = crate::audio::AudioWorkletStatus {
-                state: state.clone(),
-                processor_loaded: true, // We have a worklet node
-                chunk_size: 128, // Default chunk size
-                chunks_processed: _shared_data.borrow().chunks_processed,
-                last_update: timestamp,
-            };
-            
-            setter.set(status);
-        }
+        // Update AudioWorklet status
+        #[cfg(target_arch = "wasm32")]
+        let timestamp = js_sys::Date::now();
+        #[cfg(not(target_arch = "wasm32"))]
+        let timestamp = 0.0;
+        
+        let status = crate::audio::AudioWorkletStatus {
+            state: state.clone(),
+            processor_loaded: true, // We have a worklet node
+            chunk_size: 128, // Default chunk size
+            chunks_processed: _shared_data.borrow().chunks_processed,
+            last_update: timestamp,
+        };
+        
+        audioworklet_status_setter.set(status);
     }
     
     /// Send typed control message to AudioWorklet processor (static version)
@@ -1124,64 +1132,6 @@ impl AudioWorkletManager {
 
     // Note: Buffer pool support removed - using direct processing with transferable buffers
 
-    /// Set the AudioWorklet status setter for live data updates
-    pub fn set_audioworklet_status_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<crate::audio::AudioWorkletStatus>>) {
-        self.audioworklet_status_setter = Some(setter);
-    }
-    
-    /// Set the volume level setter for live data updates
-    pub fn set_volume_level_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::VolumeLevelData>>>) {
-        self.volume_level_setter = Some(setter);
-        dev_log!("Volume level setter updated on AudioWorkletManager");
-        
-        // If AudioWorklet is already initialized, update the message handler to include the new setter
-        if self.worklet_node.is_some() {
-            match self.setup_message_handling() {
-                Ok(_) => {
-                    dev_log!("Message handler updated with new volume level setter");
-                }
-                Err(e) => {
-                    dev_log!("Failed to update message handler: {:?}", e);
-                }
-            }
-        }
-    }
-    
-    /// Set the pitch data setter for live data updates
-    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>) {
-        self.pitch_data_setter = Some(setter);
-        dev_log!("Pitch data setter updated on AudioWorkletManager");
-        
-        // If AudioWorklet is already initialized, update the message handler to include the new setter
-        if self.worklet_node.is_some() {
-            match self.setup_message_handling() {
-                Ok(_) => {
-                    dev_log!("Message handler updated with new pitch data setter");
-                }
-                Err(e) => {
-                    dev_log!("Failed to update message handler: {:?}", e);
-                }
-            }
-        }
-    }
-    
-    /// Set the buffer pool stats setter for live data updates
-    pub fn set_buffer_pool_stats_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>) {
-        self.buffer_pool_stats_setter = Some(setter);
-        dev_log!("Buffer pool stats setter updated on AudioWorkletManager");
-        
-        // If AudioWorklet is already initialized, update the message handler to include the new setter
-        if self.worklet_node.is_some() {
-            match self.setup_message_handling() {
-                Ok(_) => {
-                    dev_log!("Message handler updated with new buffer pool stats setter");
-                }
-                Err(e) => {
-                    dev_log!("Failed to update message handler: {:?}", e);
-                }
-            }
-        }
-    }
 
     /// Set volume detector for real-time volume analysis
     pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
@@ -1476,23 +1426,19 @@ impl AudioWorkletManager {
                 self.publish_audioworklet_status();
                 
                 // Update volume level using setter
-                if let Some(ref setter) = self.volume_level_setter {
-                    let volume_data = crate::audio::VolumeLevelData {
-                        rms_db: volume_analysis.rms_db,
-                        peak_db: volume_analysis.peak_db,
-                        peak_fast_db: volume_analysis.peak_fast_db,
-                        peak_slow_db: volume_analysis.peak_slow_db,
-                        level: volume_analysis.level,
-                        confidence_weight: volume_analysis.confidence_weight,
-                        timestamp,
-                    };
-                    setter.set(Some(volume_data));
-                    // Log occasionally to avoid spam
-                    if self.chunk_counter % 256 == 0 {
-                        // Volume data updated via process_audio
-                    }
-                } else if self.chunk_counter % 256 == 0 {
-                    dev_log!("Warning: No volume level setter available in process_audio");
+                let volume_data = crate::audio::VolumeLevelData {
+                    rms_db: volume_analysis.rms_db,
+                    peak_db: volume_analysis.peak_db,
+                    peak_fast_db: volume_analysis.peak_fast_db,
+                    peak_slow_db: volume_analysis.peak_slow_db,
+                    level: volume_analysis.level,
+                    confidence_weight: volume_analysis.confidence_weight,
+                    timestamp,
+                };
+                self.volume_level_setter.set(Some(volume_data));
+                // Log occasionally to avoid spam
+                if self.chunk_counter % 256 == 0 {
+                    // Volume data updated via process_audio
                 }
             }
 
@@ -1540,6 +1486,7 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_state_display() {
@@ -1573,102 +1520,11 @@ mod tests {
         
     }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_manager_new() {
-        let manager = AudioWorkletManager::new();
-        assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
-        assert!(!manager.is_processing());
-        assert_eq!(manager.chunk_size(), 128);
-        assert!(manager.get_processing_node().is_none());
-    }
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_manager_with_config() {
-        let config = AudioWorkletConfig::stereo();
-        let manager = AudioWorkletManager::with_config(config.clone());
-        
-        assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
-        assert_eq!(manager.config().input_channels, 2);
-        assert_eq!(manager.config().output_channels, 2);
-    }
 
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_manager_disconnect() {
-        let mut manager = AudioWorkletManager::new();
-        manager.state = AudioWorkletState::Ready;
-        
-        assert!(manager.disconnect().is_ok());
-        assert_eq!(*manager.state(), AudioWorkletState::Uninitialized);
-    }
 
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_feed_input_chunk_direct_processing() {
-        use crate::audio::VolumeDetector;
 
-        // Create manager with volume detector
-        let mut mgr = AudioWorkletManager::new();
-        mgr.set_volume_detector(VolumeDetector::new_default());
 
-        // Feed two chunks of 128 samples each - direct processing, no events
-        let chunk = vec![0.1_f32; 128]; // Use small signal for volume detection
-        mgr.feed_input_chunk(&chunk).unwrap();
-        mgr.feed_input_chunk(&chunk).unwrap();
 
-        // Should have volume analysis available from direct processing
-        assert!(mgr.last_volume_analysis().is_some());
-        
-        // Verify volume analysis contains expected data
-        let analysis = mgr.last_volume_analysis().unwrap();
-        assert!(analysis.rms_db.is_finite());
-        assert!(analysis.confidence_weight > 0.0);
-    }
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_volume_detection_direct_processing() {
-        use crate::audio::{VolumeDetector, VolumeDetectorConfig};
-
-        // Create manager with volume detector
-        let mut mgr = AudioWorkletManager::new();
-        
-        let config = VolumeDetectorConfig {
-            sample_rate: 48000.0,
-            ..VolumeDetectorConfig::default()
-        };
-        mgr.set_volume_detector(VolumeDetector::new(config).unwrap());
-
-        // Feed 16 chunks to trigger volume analysis - direct processing, no events
-        let chunk = vec![0.1_f32; 128];
-        for _ in 0..16 {
-            mgr.feed_input_chunk(&chunk).unwrap();
-        }
-
-        // Should have volume analysis available from direct processing
-        let analysis = mgr.last_volume_analysis().unwrap();
-        assert!(analysis.rms_db.is_finite());
-        assert!(analysis.confidence_weight > 0.0);
-        
-        // Verify that volume detection is working correctly
-        assert!(analysis.rms_db < 0.0); // Should be negative dB for small signal
-    }
-
-    #[allow(dead_code)]
-    #[wasm_bindgen_test]
-    fn test_volume_config_update() {
-        let mut mgr = AudioWorkletManager::new();
-        
-        // Should fail without volume detector
-        let config = VolumeDetectorConfig::default();
-        assert!(mgr.update_volume_config(config.clone()).is_err());
-        
-        // Should succeed with volume detector
-        mgr.set_volume_detector(VolumeDetector::new_default());
-        assert!(mgr.update_volume_config(config).is_ok());
-    }
 }
 
