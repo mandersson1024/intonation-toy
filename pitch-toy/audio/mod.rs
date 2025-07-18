@@ -223,28 +223,19 @@ pub use message_protocol::{
 /// - `microphone_permission_setter`: Data setter for microphone permission state updates
 /// - `audio_context`: AudioSystemContext instance containing all audio components
 /// 
-/// # Note
-/// Due to thread safety constraints (ActionListener requires Send + Sync closures),
-/// the AudioSystemContext parameter is currently not used in closures. This is a known
-/// limitation that may be addressed in future iterations with Arc<RwLock<T>> or similar.
 pub fn setup_ui_action_listeners_with_context(
     listeners: crate::UIControlListeners,
     microphone_permission_setter: impl observable_data::DataSetter<AudioPermission> + Clone + 'static,
-    _audio_context: std::rc::Rc<std::cell::RefCell<AudioSystemContext>>,
+    audio_context: std::rc::Rc<std::cell::RefCell<AudioSystemContext>>,
 ) {
-    // For now, we fall back to global access due to thread safety requirements
-    // The ActionListener requires Send + Sync closures, but Rc<RefCell<T>> is not Send/Sync
-    // Future improvement: Consider using Arc<RwLock<T>> or a different approach
     
     // Test signal action listener
-    listeners.test_signal.listen(|action| {
+    let audio_context_clone = audio_context.clone();
+    listeners.test_signal.listen(move |action| {
         dev_log!("Received test signal action: {:?}", action);
         
-        // Note: Global access has been removed as part of migration to AudioSystemContext
-        // This functionality is temporarily disabled until proper thread-safe context sharing is implemented
-        if let Some(worklet_rc) = None::<std::rc::Rc<std::cell::RefCell<worklet::AudioWorkletManager>>> {
-            let mut worklet = worklet_rc.borrow_mut();
-            
+        let mut context = audio_context_clone.borrow_mut();
+        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
             // Convert UI action to audio system config
             let audio_config = TestSignalGeneratorConfig {
                 enabled: action.enabled,
@@ -254,7 +245,7 @@ pub fn setup_ui_action_listeners_with_context(
                 sample_rate: 48000.0, // Use standard sample rate
             };
             
-            worklet.update_test_signal_config(audio_config);
+            worklet_manager.update_test_signal_config(audio_config);
             dev_log!("✓ Test signal config updated via action");
         } else {
             dev_log!("Warning: No AudioWorklet manager available for test signal config");
@@ -262,14 +253,12 @@ pub fn setup_ui_action_listeners_with_context(
     });
     
     // Background noise action listener
-    listeners.background_noise.listen(|action| {
+    let audio_context_clone = audio_context.clone();
+    listeners.background_noise.listen(move |action| {
         dev_log!("Received background noise action: {:?}", action);
         
-        // Note: Global access has been removed as part of migration to AudioSystemContext
-        // This functionality is temporarily disabled until proper thread-safe context sharing is implemented
-        if let Some(worklet_rc) = None::<std::rc::Rc<std::cell::RefCell<worklet::AudioWorkletManager>>> {
-            let mut worklet = worklet_rc.borrow_mut();
-            
+        let mut context = audio_context_clone.borrow_mut();
+        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
             // Convert UI action to audio system config
             let audio_config = BackgroundNoiseConfig {
                 enabled: action.enabled,
@@ -277,7 +266,7 @@ pub fn setup_ui_action_listeners_with_context(
                 noise_type: action.noise_type,
             };
             
-            worklet.update_background_noise_config(audio_config);
+            worklet_manager.update_background_noise_config(audio_config);
             dev_log!("✓ Background noise config updated via action");
         } else {
             dev_log!("Warning: No AudioWorklet manager available for background noise config");
@@ -285,14 +274,13 @@ pub fn setup_ui_action_listeners_with_context(
     });
     
     // Output to speakers action listener
-    listeners.output_to_speakers.listen(|action| {
+    let audio_context_clone = audio_context.clone();
+    listeners.output_to_speakers.listen(move |action| {
         dev_log!("Received output to speakers action: {:?}", action);
         
-        // Note: Global access has been removed as part of migration to AudioSystemContext
-        // This functionality is temporarily disabled until proper thread-safe context sharing is implemented
-        if let Some(worklet_rc) = None::<std::rc::Rc<std::cell::RefCell<worklet::AudioWorkletManager>>> {
-            let mut worklet = worklet_rc.borrow_mut();
-            worklet.set_output_to_speakers(action.enabled);
+        let mut context = audio_context_clone.borrow_mut();
+        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
+            worklet_manager.set_output_to_speakers(action.enabled);
             dev_log!("✓ Output to speakers setting updated via action");
         } else {
             dev_log!("Warning: No AudioWorklet manager available for output to speakers setting");
@@ -300,14 +288,35 @@ pub fn setup_ui_action_listeners_with_context(
     });
     
     // Microphone permission action listener  
+    let audio_context_clone = audio_context.clone();
+    let microphone_permission_setter_clone = microphone_permission_setter.clone();
     listeners.microphone_permission.listen(move |action| {
         dev_log!("Received microphone permission action: {:?}", action);
         
         if action.request_permission {
-            // Note: Context-aware microphone connection cannot be used here due to thread safety constraints
-            // ActionListener requires Send + Sync closures, but Rc<RefCell<AudioSystemContext>> is not Send/Sync
-            // This functionality is temporarily disabled - use direct microphone permission flow instead
-            dev_log!("Warning: Context-aware microphone connection not available in action listener due to thread safety constraints");
+            // Now we can use the context-aware microphone connection!
+            wasm_bindgen_futures::spawn_local({
+                let audio_context = audio_context_clone.clone();
+                let permission_setter = microphone_permission_setter_clone.clone();
+                
+                async move {
+                    match microphone::connect_microphone_to_audioworklet_with_context(&audio_context).await {
+                        Ok(_) => {
+                            dev_log!("✓ Microphone permission granted and connected via action");
+                            permission_setter.set(AudioPermission::Granted);
+                        }
+                        Err(e) => {
+                            dev_log!("✗ Microphone permission denied or error: {}", e);
+                            // Determine the appropriate permission state based on the error
+                            if e.contains("Permission denied") || e.contains("NotAllowedError") {
+                                permission_setter.set(AudioPermission::Denied);
+                            } else {
+                                permission_setter.set(AudioPermission::Unavailable);
+                            }
+                        }
+                    }
+                }
+            });
         }
     });
 }
