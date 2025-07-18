@@ -344,10 +344,6 @@ async fn initialize_audio_systems_new(
     
     dev_log!("✓ AudioSystemContext components available globally for backward compatibility");
     
-    if let Some(pitch_analyzer) = context_rc.borrow().get_pitch_analyzer_clone() {
-        audio::commands::set_global_pitch_analyzer(pitch_analyzer);
-        dev_log!("✓ Pitch analyzer stored globally for backward compatibility");
-    }
     
     Ok(context_rc)
 }

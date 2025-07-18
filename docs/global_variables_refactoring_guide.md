@@ -4,11 +4,10 @@ This document analyzes all global variables in the codebase, their current usage
 
 ## Overview of Global Variables
 
-The codebase currently has 3 global state variables that violate dependency injection principles:
+The codebase currently has 2 global state variables that violate dependency injection principles:
 
 1. **AUDIO_CONTEXT_MANAGER** - Thread-local global for audio context access
-2. **PITCH_ANALYZER_GLOBAL** - Thread-local global for pitch analyzer access  
-3. **MESSAGE_ID_GENERATOR** - Thread-local for generating unique message IDs
+2. **MESSAGE_ID_GENERATOR** - Thread-local for generating unique message IDs
 
 ## Detailed Analysis
 
@@ -45,42 +44,7 @@ thread_local! {
 - ✅ Use the existing AudioSystemContext methods instead
 - ✅ For console commands, work toward passing context at registration time
 
-### 2. PITCH_ANALYZER_GLOBAL
-
-**Location**: `pitch-toy/audio/commands.rs`
-
-**Declaration**:
-```rust
-thread_local! {
-    static PITCH_ANALYZER_GLOBAL: RefCell<Option<Rc<RefCell<PitchAnalyzer>>>> = RefCell::new(None);
-}
-```
-
-**Current Usage**:
-- Set during initialization for backward compatibility
-- Used exclusively by console commands:
-  - `tuning` - Show/change tuning system
-  - `pitch status` - Show pitch detection config
-  - `pitch range` - Set frequency detection range  
-  - `pitch benchmarks` - Run performance benchmarks
-
-**Why It Exists**:
-- Console commands need runtime access to pitch analyzer
-- Allows configuration changes through console
-- Performance monitoring and debugging
-
-**Refactoring Strategy**:
-- Pass PitchAnalyzer reference through console command registration
-- Store reference in console command handler context
-- Remove global setter/getter functions
-
-**How to Avoid Increasing Dependency**:
-- ❌ NEVER access PITCH_ANALYZER_GLOBAL from new code
-- ✅ Access pitch analyzer through AudioSystemContext
-- ✅ Pass analyzer reference explicitly to functions that need it
-- ✅ For new console commands, plan for receiving context as parameter
-
-### 3. MESSAGE_ID_GENERATOR
+### 2. MESSAGE_ID_GENERATOR
 
 **Location**: `pitch-toy/audio/message_protocol.rs`
 
@@ -168,8 +132,7 @@ fn my_command(args: Vec<String>, context: &AudioSystemContext) {
 ## Migration Priority
 
 1. **HIGH**: Remove AUDIO_CONTEXT_MANAGER (plan exists)
-2. **MEDIUM**: Remove PITCH_ANALYZER_GLOBAL 
-3. **LOW**: Refactor MESSAGE_ID_GENERATOR (least harmful)
+2. **LOW**: Refactor MESSAGE_ID_GENERATOR (least harmful)
 
 ## Conclusion
 
