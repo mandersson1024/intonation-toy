@@ -210,24 +210,25 @@ impl EguiLiveDataPanel {
     
     /// Render audio devices section
     fn render_audio_devices_section(&self, ui: &mut Ui) {
-        ui.heading("Audio Devices");
-        
         let devices = self.live_data.audio_devices.get();
         
-        
-        ui.label(format!("Input Devices: {}", devices.input_devices.len()));
-        for device in &devices.input_devices {
-            ui.indent("input_device", |ui| {
-                ui.label(format!("• {}", device.1));
+        egui::CollapsingHeader::new("Audio Devices")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(format!("Input Devices: {}", devices.input_devices.len()));
+                for device in &devices.input_devices {
+                    ui.indent("input_device", |ui| {
+                        ui.label(format!("• {}", device.1));
+                    });
+                }
+                
+                ui.label(format!("Output Devices: {}", devices.output_devices.len()));
+                for device in &devices.output_devices {
+                    ui.indent("output_device", |ui| {
+                        ui.label(format!("• {}", device.1));
+                    });
+                }
             });
-        }
-        
-        ui.label(format!("Output Devices: {}", devices.output_devices.len()));
-        for device in &devices.output_devices {
-            ui.indent("output_device", |ui| {
-                ui.label(format!("• {}", device.1));
-            });
-        }
     }
     
     /// Render AudioWorklet status section
@@ -443,7 +444,23 @@ impl EguiLiveDataPanel {
             ui.painter().rect_filled(filled_rect, 2.0, bar_color);
             
         } else {
-            ui.label("No volume data available");
+            ui.horizontal(|ui| {
+                ui.label("Level:");
+                ui.colored_label(Color32::GRAY, "");
+            });
+            
+            ui.label("RMS:  dB");
+            ui.label("Peak:  dB");
+            ui.label("Peak (Fast):  dB");
+            ui.label("Peak (Slow):  dB");
+            ui.label("Confidence: ");
+            
+            // Volume bar visualization (empty)
+            let bar_width = ui.available_width() - 100.0;
+            let bar_height = 20.0;
+            
+            let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+            ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
         }
     }
     
@@ -463,7 +480,12 @@ impl EguiLiveDataPanel {
             ui.label(format!("Age: {:.1}s", age));
             
         } else {
-            ui.label("No pitch data available");
+            ui.label("Frequency:  Hz");
+            ui.label("Note:  ()");
+            ui.label("Cents: ");
+            ui.label("Confidence: ");
+            ui.label("Clarity: ");
+            ui.label("Age: s");
         }
     }
     
