@@ -379,7 +379,7 @@ impl<T> MessageEnvelope<T> {
     /// Create a new message envelope with the given payload
     pub fn new(payload: T) -> Self {
         Self {
-            message_id: generate_message_id(),
+            message_id: generate_unique_message_id(),
             timestamp: get_current_timestamp(),
             payload,
         }
@@ -395,19 +395,6 @@ impl<T> MessageEnvelope<T> {
     }
 }
 
-/// Generate a unique message ID
-fn generate_message_id() -> u32 {
-    // Simple counter-based ID generation
-    // In a real implementation, this would use atomic operations
-    // TODO: FUTURE REFACTORING - Remove this unsafe static mut global variable. This appears to be dead code.
-    // This is a planned future task. Do NOT refactor this during unrelated work.
-    // See docs/global_variables_refactoring_guide.md for refactoring strategy.
-    static mut COUNTER: u32 = 0;
-    unsafe {
-        COUNTER += 1;
-        COUNTER
-    }
-}
 
 /// Get current timestamp in milliseconds
 fn get_current_timestamp() -> f64 {
