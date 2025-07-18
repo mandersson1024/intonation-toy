@@ -460,16 +460,8 @@ impl EguiLiveDataPanel {
             ui.painter().rect_filled(filled_rect, 2.0, bar_color);
             
         } else {
-            ui.horizontal(|ui| {
-                ui.label("Level:");
-                ui.colored_label(Color32::GRAY, "");
-            });
-            
             ui.label("RMS:  dB");
             ui.label("Peak:  dB");
-            ui.label("Peak (Fast):  dB");
-            ui.label("Peak (Slow):  dB");
-            ui.label("Confidence: ");
             
             // Volume bar visualization (empty)
             let bar_width = ui.available_width() - 100.0;
