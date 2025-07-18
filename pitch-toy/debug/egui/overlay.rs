@@ -120,7 +120,8 @@ impl EguiMicrophoneButton {
             ui.checkbox(&mut self.test_signal_config.enabled, "Enable Test Signal");
         });
         
-        if self.test_signal_config.enabled {
+        // Always show all controls but disable them when test signal is disabled
+        ui.add_enabled_ui(self.test_signal_config.enabled, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Waveform:");
                 egui::ComboBox::from_id_salt("waveform")
@@ -147,7 +148,7 @@ impl EguiMicrophoneButton {
                 ui.add(egui::Slider::new(&mut self.test_signal_config.volume, 0.0..=100.0)
                     .suffix("%"));
             });
-        }
+        });
         
         ui.horizontal(|ui| {
             ui.label("Background Noise:");

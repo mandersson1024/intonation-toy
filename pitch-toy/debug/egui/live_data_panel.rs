@@ -395,7 +395,50 @@ impl EguiLiveDataPanel {
                 });
                 
         } else {
-            ui.colored_label(Color32::YELLOW, "No buffer pool statistics available");
+            // Pool status
+            ui.horizontal(|ui| {
+                ui.label("Pool Status:");
+                ui.colored_label(Color32::GRAY, "");
+            });
+            
+            // Pool efficiency metrics
+            ui.horizontal(|ui| {
+                ui.label("Hit Rate:");
+                ui.colored_label(Color32::GRAY, "");
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Efficiency:");
+                ui.colored_label(Color32::GRAY, "");
+            });
+            
+            // Usage statistics
+            ui.horizontal(|ui| {
+                ui.label("Transfers:");
+                ui.label("");
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Exhausted:");
+                ui.colored_label(Color32::GRAY, "");
+            });
+            
+            // Performance metrics
+            ui.horizontal(|ui| {
+                ui.label("Avg Acquisition:");
+                ui.label("ms");
+            });
+            
+            // Data transfer stats
+            ui.horizontal(|ui| {
+                ui.label("Data Transferred:");
+                ui.label("MB");
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Utilization:");
+                ui.label("%");
+            });
         }
     }
     
