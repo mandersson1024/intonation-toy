@@ -61,20 +61,21 @@ impl MockAudioWorkletMessageGenerator {
         let message_id = self.generate_message_id();
         let timestamp = 1000.0 + (message_id as f64 * 50.0); // Mock increasing timestamps
         
-        let status = ProcessorStatus {
-            active: true,
+        // Use AudioDataBatch instead of StatusUpdate since we now bundle buffer stats with audio data
+        let audio_data = AudioDataBatch {
             sample_rate: 48000.0,
-            buffer_size: 1024,
-            processed_batches: message_id * 10,
-            avg_processing_time_ms: 0.1,
-            memory_usage: None,
+            sample_count: 1024,
+            buffer_length: 4096,
+            timestamp,
+            sequence_number: Some(message_id),
+            buffer_id: Some(1),
             buffer_pool_stats: Some(stats),
         };
         
         FromWorkletEnvelope {
             message_id,
             timestamp,
-            payload: FromWorkletMessage::StatusUpdate { status },
+            payload: FromWorkletMessage::AudioDataBatch { data: audio_data },
         }
     }
     
@@ -122,8 +123,8 @@ impl MockAudioSystemContext {
     fn handle_worklet_message(&self, message: FromWorkletEnvelope) {
         // Extract buffer pool statistics from the message
         match message.payload {
-            FromWorkletMessage::StatusUpdate { status } => {
-                if let Some(stats) = status.buffer_pool_stats {
+            FromWorkletMessage::AudioDataBatch { data } => {
+                if let Some(stats) = data.buffer_pool_stats {
                     // This simulates the audio system processing the message
                     // and updating the buffer pool statistics
                     self.buffer_pool_stats_setter.set(Some(stats));

@@ -357,7 +357,6 @@ const ToWorkletMessageType = {
     UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
     UPDATE_BATCH_CONFIG: 'updateBatchConfig',
     UPDATE_BACKGROUND_NOISE_CONFIG: 'updateBackgroundNoiseConfig',
-    GET_STATUS: 'getStatus',
     RETURN_BUFFER: 'returnBuffer'
 };
 
@@ -935,61 +934,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     this.port.postMessage(stoppedMessage);
                     break;
                 
-                case ToWorkletMessageType.GET_STATUS:
-                    const poolStats = this.bufferPool.getStats();
-                    const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
-                    
-                    
-                    const statusData = {
-                        isProcessing: this.isProcessing,
-                        chunkCounter: this.chunkCounter,
-                        buffer_pool_stats: {
-                            // Pool-specific statistics (using snake_case for Rust compatibility)
-                            pool_size: this.bufferPool.poolSize,
-                            available_buffers: poolStats.availableBuffers,
-                            in_use_buffers: poolStats.inUseBuffers,
-                            total_buffers: poolStats.totalBuffers,
-                            acquire_count: poolStats.acquireCount,
-                            transfer_count: poolStats.transferCount,
-                            pool_exhausted_count: poolStats.poolExhaustedCount,
-                            consecutive_pool_failures: this.consecutivePoolFailures,
-                            
-                            // Pool efficiency metrics
-                            pool_hit_rate: poolStats.acquireCount > 0 ? 
-                                ((poolStats.acquireCount - poolStats.poolExhaustedCount) / poolStats.acquireCount) * 100 : 0.0,
-                            pool_efficiency: poolStats.transferCount > 0 ? 
-                                (poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100 : 0.0,
-                            
-                            // Enhanced buffer pool reporting
-                            buffer_utilization_percent: this.bufferStats.averageBufferUtilization * 100,
-                            total_megabytes_transferred: this.bufferStats.totalBytesTransferred / 1024 / 1024,
-                            
-                            
-                            // Acquisition time metrics
-                            avg_acquisition_time_ms: poolPerfMetrics.averageAcquisitionTime || 0.0,
-                            fastest_acquisition_time_ms: poolPerfMetrics.fastestAcquisitionTime || 0.0,
-                            slowest_acquisition_time_ms: poolPerfMetrics.slowestAcquisitionTime || 0.0
-                        },
-                        performanceMetrics: {
-                            // Buffer pool performance
-                            bufferPool: poolPerfMetrics,
-                            
-                            // Audio processing performance
-                            audioProcessing: {
-                                averageProcessingTime: this.performanceMonitoring.metrics.averageProcessingTime.toFixed(3) + 'ms',
-                                maxProcessingTime: this.performanceMonitoring.metrics.maxProcessingTime.toFixed(3) + 'ms',
-                                minProcessingTime: this.performanceMonitoring.metrics.minProcessingTime === Infinity ? 
-                                    'N/A' : this.performanceMonitoring.metrics.minProcessingTime.toFixed(3) + 'ms',
-                                gcPausesDetected: this.performanceMonitoring.metrics.gcPausesDetected,
-                                droppedChunks: this.performanceMonitoring.metrics.droppedChunks,
-                                processedChunks: this.performanceMonitoring.metrics.processedChunks,
-                                sampleCount: this.performanceMonitoring.processingTimes.length
-                            }
-                        }
-                    };
-                    const statusMessage = this.messageProtocol.createStatusUpdateMessage(statusData);
-                    this.port.postMessage(statusMessage);
-                    break;
                 
                 case ToWorkletMessageType.UPDATE_TEST_SIGNAL_CONFIG:
                     if (actualMessage.config) {

@@ -601,19 +601,6 @@ impl AudioWorkletManager {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
                 Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Failed, false, &audioworklet_status_setter);
             }
-            FromWorkletMessage::StatusUpdate { status } => {
-                
-                // Store buffer pool statistics for UI display and push to reactive system
-                if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
-                    
-                    shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
-                    
-                    // Push to reactive system
-                    buffer_pool_stats_setter.set(Some(buffer_pool_stats.clone()));
-                } else {
-                }
-                // Status updates don't change the main state
-            }
         }
     }
     
@@ -846,10 +833,6 @@ impl AudioWorkletManager {
                 message_factory.return_buffer(buffer_id)
                     .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
             }
-            ToWorkletMessage::GetStatus => {
-                message_factory.get_status()
-                    .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {:?}", e)))?
-            }
         };
         
         let serializer = MessageSerializer::new();
@@ -861,10 +844,7 @@ impl AudioWorkletManager {
         port.post_message(&js_message)
             .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
         
-        // Only log non-GetStatus messages to avoid console spam
-        if !matches!(envelope.payload, ToWorkletMessage::GetStatus) {
-            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
-        }
+        dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
         Ok(())
     }
     
@@ -897,10 +877,6 @@ impl AudioWorkletManager {
                     self.message_factory.return_buffer(buffer_id)
                         .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
                 }
-                ToWorkletMessage::GetStatus => {
-                    self.message_factory.get_status()
-                        .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {:?}", e)))?
-                }
             };
             
             let serializer = MessageSerializer::new();
@@ -912,10 +888,7 @@ impl AudioWorkletManager {
             port.post_message(&js_message)
                 .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
             
-            // Only log non-GetStatus messages to avoid console spam
-            if !matches!(envelope.payload, ToWorkletMessage::GetStatus) {
-                dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
-            }
+            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
             Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
@@ -1102,28 +1075,6 @@ impl AudioWorkletManager {
         matches!(self.state, AudioWorkletState::Processing)
     }
     
-    /// Request status update from the AudioWorklet processor
-    pub fn request_status_update(&self) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            
-            let message = self.message_factory.get_status()
-                .map_err(|e| AudioError::Generic(format!("Failed to create get status message: {}", e)))?;
-            
-            let serializer = super::message_protocol::MessageSerializer::new();
-            let js_message = serializer.serialize_envelope(&message)
-                .map_err(|e| AudioError::Generic(format!("Failed to serialize get status message: {}", e)))?;
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            
-            port.post_message(&js_message)
-                .map_err(|e| AudioError::Generic(format!("Failed to send get status message: {:?}", e)))?;
-            
-            Ok(())
-        } else {
-            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
-        }
-    }
     
     /// Get chunk size for processing
     pub fn chunk_size(&self) -> u32 {

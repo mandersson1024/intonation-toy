@@ -46,8 +46,6 @@ pub enum ToWorkletMessage {
         buffer_id: u32,
     },
     
-    /// Request status update from worklet
-    GetStatus,
 }
 
 /// Message types sent from AudioWorklet to main thread
@@ -74,10 +72,6 @@ pub enum FromWorkletMessage {
         error: WorkletError,
     },
     
-    /// Processor status update
-    StatusUpdate {
-        status: ProcessorStatus,
-    },
 }
 
 /// Audio data batch structure for transferable buffer communication
@@ -808,10 +802,6 @@ impl ToJsMessage for ToWorkletMessage {
                 Reflect::set(&obj, &"bufferId".into(), &(*buffer_id).into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
             }
-            ToWorkletMessage::GetStatus => {
-                Reflect::set(&obj, &"type".into(), &"getStatus".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-            }
         }
         
         Ok(obj)
@@ -859,9 +849,6 @@ impl FromJsMessage for ToWorkletMessage {
                     .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?;
                 Ok(ToWorkletMessage::ReturnBuffer { buffer_id: buffer_id as u32 })
             }
-            "getStatus" => {
-                Ok(ToWorkletMessage::GetStatus)
-            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -875,7 +862,6 @@ impl MessageValidator for ToWorkletMessage {
             ToWorkletMessage::UpdateBatchConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => config.validate(),
             ToWorkletMessage::ReturnBuffer { buffer_id: _ } => Ok(()),
-            ToWorkletMessage::GetStatus => Ok(()),
         }
     }
 }
@@ -915,13 +901,6 @@ impl ToJsMessage for FromWorkletMessage {
                 let error_obj = error.to_js_object()?;
                 Reflect::set(&obj, &"error".into(), &error_obj.into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set error: {:?}", e)))?;
-            }
-            FromWorkletMessage::StatusUpdate { status } => {
-                Reflect::set(&obj, &"type".into(), &"statusUpdate".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let status_obj = status.to_js_object()?;
-                Reflect::set(&obj, &"status".into(), &status_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set status: {:?}", e)))?;
             }
         }
         
@@ -966,14 +945,6 @@ impl FromJsMessage for FromWorkletMessage {
                 let error = WorkletError::from_js_object(&error_obj)?;
                 Ok(FromWorkletMessage::ProcessingError { error })
             }
-            "statusUpdate" => {
-                let status_obj = Reflect::get(obj, &"status".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get status: {:?}", e)))?
-                    .dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("status must be object".to_string()))?;
-                let status = ProcessorStatus::from_js_object(&status_obj)?;
-                Ok(FromWorkletMessage::StatusUpdate { status })
-            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -993,7 +964,6 @@ impl MessageValidator for FromWorkletMessage {
             FromWorkletMessage::ProcessingStarted | FromWorkletMessage::ProcessingStopped => Ok(()),
             FromWorkletMessage::AudioDataBatch { data } => data.validate(),
             FromWorkletMessage::ProcessingError { error } => error.validate(),
-            FromWorkletMessage::StatusUpdate { status } => status.validate(),
         }
     }
 }
@@ -2245,10 +2215,6 @@ impl ToWorkletMessage {
         Self::ReturnBuffer { buffer_id }
     }
     
-    /// Create a get status message
-    pub fn get_status() -> Self {
-        Self::GetStatus
-    }
 }
 
 impl FromWorkletMessage {
@@ -2284,11 +2250,6 @@ impl FromWorkletMessage {
         Ok(Self::ProcessingError { error })
     }
     
-    /// Create a status update message
-    pub fn status_update(status: ProcessorStatus) -> MessageConstructionResult<Self> {
-        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(Self::StatusUpdate { status })
-    }
 }
 
 impl AudioDataBatch {
@@ -2774,15 +2735,6 @@ impl AudioWorkletMessageFactory {
         })
     }
     
-    /// Create a get status message envelope
-    pub fn get_status(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::get_status();
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
-    }
     
     // FromWorkletMessage factory methods
     
@@ -2836,15 +2788,6 @@ impl AudioWorkletMessageFactory {
         })
     }
     
-    /// Create a status update message envelope
-    pub fn status_update(&self, status: ProcessorStatus) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::status_update(status)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
-    }
     
     // Convenience methods for common patterns
     
@@ -2871,25 +2814,6 @@ impl AudioWorkletMessageFactory {
         self.processing_error(error)
     }
     
-    /// Create a processor status update
-    pub fn create_processor_status(&self,
-        active: bool,
-        sample_rate: f64,
-        buffer_size: usize,
-        processed_batches: u32,
-        avg_processing_time_ms: f64,
-        memory_usage: Option<MemoryUsage>
-    ) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let status = ProcessorStatus::new(
-            active, 
-            sample_rate, 
-            buffer_size, 
-            processed_batches, 
-            avg_processing_time_ms, 
-            memory_usage
-        )?;
-        self.status_update(status)
-    }
     
     /// Create memory usage info
     pub fn create_memory_usage(&self, 
@@ -3317,25 +3241,6 @@ mod tests {
             panic!("Expected AudioDataBatch message");
         }
         
-        // Test processor status creation
-        let memory_usage = factory.create_memory_usage(1024, 512, 8).unwrap();
-        let status_msg = factory.create_processor_status(
-            true,
-            48000.0,
-            1024,
-            100,
-            5.2,
-            Some(memory_usage)
-        ).unwrap();
-        
-        if let FromWorkletMessage::StatusUpdate { status } = &status_msg.payload {
-            assert_eq!(status.active, true);
-            assert_eq!(status.sample_rate, 48000.0);
-            assert_eq!(status.processed_batches, 100);
-            assert!(status.memory_usage.is_some());
-        } else {
-            panic!("Expected StatusUpdate message");
-        }
     }
 
     #[wasm_bindgen_test]
