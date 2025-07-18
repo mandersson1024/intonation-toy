@@ -74,9 +74,11 @@ impl EguiDevConsole {
             return;
         }
 
+        let screen_rect = ctx.screen_rect();
         three_d::egui::Window::new("Dev Console")
+            .default_pos([screen_rect.width() - 600.0, 0.0])
             .default_width(600.0)
-            .default_height(400.0)
+            .default_height(screen_rect.height() * 0.25)
             .resizable(true)
             .show(ctx, |ui| {
                 self.render_console(ui);

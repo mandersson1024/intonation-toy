@@ -238,8 +238,10 @@ impl EguiLiveDataPanel {
     
     /// Render the live data panel
     pub fn render(&mut self, gui_context: &egui::Context) {
+        let screen_rect = gui_context.screen_rect();
         egui::Window::new("Live Data Panel")
-            .default_size(Vec2::new(400.0, 600.0))
+            .default_pos([0.0, 0.0])
+            .default_size(Vec2::new(400.0, screen_rect.height()))
             .resizable(true)
             .show(gui_context, |ui| {
                 self.render_content(ui);
