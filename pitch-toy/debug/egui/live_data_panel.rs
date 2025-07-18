@@ -223,88 +223,94 @@ impl EguiLiveDataPanel {
     
     /// Render AudioWorklet status section
     fn render_audioworklet_status_section(&self, ui: &mut Ui) {
-        ui.heading("AudioWorklet Status");
-        
-        let status = self.live_data.audioworklet_status.get();
-        
-        ui.horizontal(|ui| {
-            ui.label("State:");
-            let (color, text) = match status.state {
-                AudioWorkletState::Uninitialized => (Color32::GRAY, "Uninitialized"),
-                AudioWorkletState::Initializing => (Color32::YELLOW, "Initializing"),
-                AudioWorkletState::Ready => (Color32::GREEN, "Ready"),
-                AudioWorkletState::Processing => (Color32::GREEN, "Processing"),
-                AudioWorkletState::Stopped => (Color32::YELLOW, "Stopped"),
-                AudioWorkletState::Failed => (Color32::RED, "Failed"),
-            };
-            ui.colored_label(color, text);
-        });
-        
-        ui.horizontal(|ui| {
-            ui.label("Processor Loaded:");
-            let color = if status.processor_loaded { Color32::GREEN } else { Color32::RED };
-            ui.colored_label(color, status.processor_loaded.to_string());
-        });
-        
-        ui.label(format!("Chunk Size: {} samples", status.chunk_size));
-        ui.label(format!("Chunks Processed: {}", status.chunks_processed));
-        
-        if status.last_update > 0.0 {
-            let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
-            let age = now - status.last_update;
-            ui.label(format!("Last Update: {:.1}s ago", age));
-        }
+        egui::CollapsingHeader::new("AudioWorklet Status")
+            .default_open(true)
+            .show(ui, |ui| {
+                let status = self.live_data.audioworklet_status.get();
+                
+                ui.horizontal(|ui| {
+                    ui.label("State:");
+                    let (color, text) = match status.state {
+                        AudioWorkletState::Uninitialized => (Color32::GRAY, "Uninitialized"),
+                        AudioWorkletState::Initializing => (Color32::YELLOW, "Initializing"),
+                        AudioWorkletState::Ready => (Color32::GREEN, "Ready"),
+                        AudioWorkletState::Processing => (Color32::GREEN, "Processing"),
+                        AudioWorkletState::Stopped => (Color32::YELLOW, "Stopped"),
+                        AudioWorkletState::Failed => (Color32::RED, "Failed"),
+                    };
+                    ui.colored_label(color, text);
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Processor Loaded:");
+                    let color = if status.processor_loaded { Color32::GREEN } else { Color32::RED };
+                    ui.colored_label(color, status.processor_loaded.to_string());
+                });
+                
+                ui.label(format!("Chunk Size: {} samples", status.chunk_size));
+                ui.label(format!("Chunks Processed: {}", status.chunks_processed));
+                
+                if status.last_update > 0.0 {
+                    let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
+                    let age = now - status.last_update;
+                    ui.label(format!("Last Update: {:.1}s ago", age));
+                }
+            });
     }
     
     /// Render performance metrics section
     fn render_performance_metrics_section(&mut self, ui: &mut Ui) {
-        ui.heading("Performance Metrics");
-        
-        let metrics = self.live_data.performance_metrics.get();
-        
-        // Update metrics periodically
-        let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
-        if now - self.last_metrics_update > 1.0 {
-            self.last_metrics_update = now;
-            // TODO: Trigger metrics update through setter
-        }
-        
-        ui.horizontal(|ui| {
-            ui.label("FPS:");
-            let color = if metrics.fps >= 50.0 { Color32::GREEN } 
-                       else if metrics.fps >= 30.0 { Color32::YELLOW } 
-                       else { Color32::RED };
-            ui.colored_label(color, format!("{:.1}", metrics.fps));
-        });
-        
-        ui.horizontal(|ui| {
-            ui.label("Memory:");
-            let color = if metrics.memory_usage < 50.0 { Color32::GREEN } 
-                       else if metrics.memory_usage < 80.0 { Color32::YELLOW } 
-                       else { Color32::RED };
-            ui.colored_label(color, format!("{:.1}%", metrics.memory_usage));
-        });
-        
-        ui.horizontal(|ui| {
-            ui.label("Audio Latency:");
-            let color = if metrics.audio_latency < 20.0 { Color32::GREEN } 
-                       else if metrics.audio_latency < 50.0 { Color32::YELLOW } 
-                       else { Color32::RED };
-            ui.colored_label(color, format!("{:.1}ms", metrics.audio_latency));
-        });
-        
-        ui.horizontal(|ui| {
-            ui.label("CPU:");
-            let color = if metrics.cpu_usage < 50.0 { Color32::GREEN } 
-                       else if metrics.cpu_usage < 80.0 { Color32::YELLOW } 
-                       else { Color32::RED };
-            ui.colored_label(color, format!("{:.1}%", metrics.cpu_usage));
-        });
+        egui::CollapsingHeader::new("Performance Metrics")
+            .default_open(true)
+            .show(ui, |ui| {
+                let metrics = self.live_data.performance_metrics.get();
+                
+                // Update metrics periodically
+                let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
+                if now - self.last_metrics_update > 1.0 {
+                    self.last_metrics_update = now;
+                    // TODO: Trigger metrics update through setter
+                }
+                
+                ui.horizontal(|ui| {
+                    ui.label("FPS:");
+                    let color = if metrics.fps >= 50.0 { Color32::GREEN } 
+                               else if metrics.fps >= 30.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}", metrics.fps));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Memory:");
+                    let color = if metrics.memory_usage < 50.0 { Color32::GREEN } 
+                               else if metrics.memory_usage < 80.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}%", metrics.memory_usage));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Audio Latency:");
+                    let color = if metrics.audio_latency < 20.0 { Color32::GREEN } 
+                               else if metrics.audio_latency < 50.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}ms", metrics.audio_latency));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("CPU:");
+                    let color = if metrics.cpu_usage < 50.0 { Color32::GREEN } 
+                               else if metrics.cpu_usage < 80.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}%", metrics.cpu_usage));
+                });
+            });
     }
     
     /// Render buffer pool statistics section
     fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
-        ui.heading("Buffer Pool Statistics");
+        egui::CollapsingHeader::new("Buffer Pool Statistics")
+            .default_open(true)
+            .show(ui, |ui| {
         
         // Buffer pool statistics are now updated reactively via periodic status updates
         // No manual request needed - just consume the reactive data
@@ -430,71 +436,76 @@ impl EguiLiveDataPanel {
                 ui.label("%");
             });
         }
+            });
     }
     
     /// Render volume level section
     fn render_volume_level_section(&self, ui: &mut Ui) {
-        ui.heading("Volume Level");
-        
-        if let Some(volume) = self.live_data.volume_level.get() {
-            
-            ui.label(format!("RMS: {:.1} dB", volume.rms_db));
-            ui.label(format!("Peak: {:.1} dB", volume.peak_db));
-            
-            // Volume bar visualization
-            let bar_width = ui.available_width() - 100.0;
-            let bar_height = 20.0;
-            
-            // Convert dB to amplitude (amplitude = 10^(dB/20))
-            // For -60 dB: amplitude = 10^(-60/20) = 10^(-3) = 0.001
-            // For 0 dB: amplitude = 10^(0/20) = 1.0
-            let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
-            let normalized = amplitude.clamp(0.0, 1.0);
-            let bar_color = Color32::GREEN;
-            
-            let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-            ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
-            
-            let filled_width = rect.width() * normalized;
-            let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
-            ui.painter().rect_filled(filled_rect, 2.0, bar_color);
-            
-        } else {
-            ui.label("RMS:  dB");
-            ui.label("Peak:  dB");
-            
-            // Volume bar visualization (empty)
-            let bar_width = ui.available_width() - 100.0;
-            let bar_height = 20.0;
-            
-            let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-            ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
-        }
+        egui::CollapsingHeader::new("Volume Level")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let Some(volume) = self.live_data.volume_level.get() {
+                    
+                    ui.label(format!("RMS: {:.1} dB", volume.rms_db));
+                    ui.label(format!("Peak: {:.1} dB", volume.peak_db));
+                    
+                    // Volume bar visualization
+                    let bar_width = ui.available_width() - 100.0;
+                    let bar_height = 20.0;
+                    
+                    // Convert dB to amplitude (amplitude = 10^(dB/20))
+                    // For -60 dB: amplitude = 10^(-60/20) = 10^(-3) = 0.001
+                    // For 0 dB: amplitude = 10^(0/20) = 1.0
+                    let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
+                    let normalized = amplitude.clamp(0.0, 1.0);
+                    let bar_color = Color32::GREEN;
+                    
+                    let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+                    
+                    let filled_width = rect.width() * normalized;
+                    let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
+                    ui.painter().rect_filled(filled_rect, 2.0, bar_color);
+                    
+                } else {
+                    ui.label("RMS:  dB");
+                    ui.label("Peak:  dB");
+                    
+                    // Volume bar visualization (empty)
+                    let bar_width = ui.available_width() - 100.0;
+                    let bar_height = 20.0;
+                    
+                    let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+                }
+            });
     }
     
     /// Render pitch detection section
     fn render_pitch_detection_section(&self, ui: &mut Ui) {
-        ui.heading("Pitch Detection");
-        
-        if let Some(pitch) = self.live_data.pitch_data.get() {
-            ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
-            ui.label(format!("Note: {} ({})", pitch.note.note, pitch.note.octave));
-            ui.label(format!("Cents: {:+.1}", pitch.note.cents));
-            ui.label(format!("Confidence: {:.2}", pitch.confidence));
-            ui.label(format!("Clarity: {:.2}", pitch.clarity));
-            
-            let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
-            let age = now - pitch.timestamp;
-            ui.label(format!("Age: {:.1}s", age));
-            
-        } else {
-            ui.label("Frequency:  Hz");
-            ui.label("Note:  ()");
-            ui.label("Cents: ");
-            ui.label("Confidence: ");
-            ui.label("Clarity: ");
-            ui.label("Age: s");
-        }
+        egui::CollapsingHeader::new("Pitch Detection")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let Some(pitch) = self.live_data.pitch_data.get() {
+                    ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
+                    ui.label(format!("Note: {} ({})", pitch.note.note, pitch.note.octave));
+                    ui.label(format!("Cents: {:+.1}", pitch.note.cents));
+                    ui.label(format!("Confidence: {:.2}", pitch.confidence));
+                    ui.label(format!("Clarity: {:.2}", pitch.clarity));
+                    
+                    let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
+                    let age = now - pitch.timestamp;
+                    ui.label(format!("Age: {:.1}s", age));
+                    
+                } else {
+                    ui.label("Frequency:  Hz");
+                    ui.label("Note:  ()");
+                    ui.label("Cents: ");
+                    ui.label("Confidence: ");
+                    ui.label("Clarity: ");
+                    ui.label("Age: s");
+                }
+            });
     }
     
     
