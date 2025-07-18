@@ -469,8 +469,11 @@ impl EguiLiveDataPanel {
             let bar_width = ui.available_width() - 100.0;
             let bar_height = 20.0;
             
-            // Normalize peak_db from -60 to 0 dB
-            let normalized = ((volume.peak_db + 60.0) / 60.0).clamp(0.0, 1.0);
+            // Convert dB to amplitude (amplitude = 10^(dB/20))
+            // For -60 dB: amplitude = 10^(-60/20) = 10^(-3) = 0.001
+            // For 0 dB: amplitude = 10^(0/20) = 1.0
+            let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
+            let normalized = amplitude.clamp(0.0, 1.0);
             let bar_color = match volume.level {
                 VolumeLevel::Silent => Color32::GRAY,
                 VolumeLevel::Low => Color32::BLUE,
