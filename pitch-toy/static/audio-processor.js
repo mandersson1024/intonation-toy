@@ -729,11 +729,9 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
      */
     acquireNewBuffer() {
         this.bufferStats.acquireCount++;
-        console.log('🔧 acquireNewBuffer() called - bufferStats.acquireCount:', this.bufferStats.acquireCount);
         
         // Try to acquire from pool first
         const acquisition = this.bufferPool.acquire();
-        console.log('🔧 bufferPool.acquire() returned:', !!acquisition, acquisition ? 'bufferId: ' + acquisition.bufferId : 'null');
         
         if (acquisition) {
             // Successfully acquired from pool
@@ -744,7 +742,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.writePosition = 0;
             this.lastBufferStartTime = this.currentTime || getCurrentTime();
             
-            console.log('🔧 Buffer acquired and assigned - currentBuffer:', !!this.currentBuffer, 'currentBufferArray:', !!this.currentBufferArray, 'byteLength:', this.currentBuffer?.byteLength);
             
             // Buffer acquired from pool successfully
         } else {
@@ -1240,7 +1237,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 // Ensure we have a buffer to write to
                 if (!this.currentBuffer || !this.currentBufferArray) {
-                    console.log('🔧 Acquiring new buffer - currentBuffer:', !!this.currentBuffer, 'currentBufferArray:', !!this.currentBufferArray);
                     this.acquireNewBuffer();
                 }
                 
