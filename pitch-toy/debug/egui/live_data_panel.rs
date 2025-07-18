@@ -408,7 +408,19 @@ impl EguiLiveDataPanel {
         
         // Buffer pool statistics are now updated reactively via periodic status updates
         // No manual request needed - just consume the reactive data
-        if let Some(stats) = self.live_data.buffer_pool_stats.get() {
+        let stats = self.live_data.buffer_pool_stats.get();
+        // Only log GUI updates occasionally to reduce spam
+        static mut GUI_LOG_COUNTER: u32 = 0;
+        unsafe {
+            GUI_LOG_COUNTER += 1;
+            if GUI_LOG_COUNTER % 100 == 0 {
+                web_sys::console::log_1(&format!("🚨 GUI_UPDATE: Buffer pool stats from observer: {:?}", stats.is_some()).into());
+                if let Some(ref stats) = stats {
+                    web_sys::console::log_1(&format!("🚨 GUI_UPDATE: total_megabytes_transferred={}", stats.total_megabytes_transferred).into());
+                }
+            }
+        }
+        if let Some(stats) = stats {
                 // Pool status
                 ui.horizontal(|ui| {
                     ui.label("Pool Status:");

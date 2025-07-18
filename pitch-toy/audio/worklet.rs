@@ -587,13 +587,15 @@ impl AudioWorkletManager {
                 Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Stopped, false, &audioworklet_status_setter);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
+                web_sys::console::log_1(&format!("🚨 AUDIO_DATA_BATCH: Received audio data batch with {} samples", data.sample_count).into());
                 Self::handle_typed_audio_data_batch_static(
                     data, 
                     shared_data, 
                     original_obj,
                     &worklet_node,
                     &message_factory,
-                    ping_pong_enabled
+                    ping_pong_enabled,
+                    &buffer_pool_stats_setter
                 );
             }
             FromWorkletMessage::ProcessingError { error } => {
@@ -601,6 +603,8 @@ impl AudioWorkletManager {
                 Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Failed, false, &audioworklet_status_setter);
             }
             FromWorkletMessage::StatusUpdate { status } => {
+                dev_log!("🚨 STATUS_UPDATE_RECEIVED: Received StatusUpdate message");
+                dev_log!("🚨 STATUS_UPDATE_RECEIVED: Buffer pool stats present: {}", status.buffer_pool_stats.is_some());
                 
                 // Store buffer pool statistics for UI display and push to reactive system
                 if let Some(buffer_pool_stats) = &status.buffer_pool_stats {
@@ -608,9 +612,10 @@ impl AudioWorkletManager {
                     shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
                     
                     // Push to reactive system
+                    dev_log!("🚨 STATUS_UPDATE_RECEIVED: Setting buffer pool stats in reactive system, total_megabytes_transferred={}", buffer_pool_stats.total_megabytes_transferred);
                     buffer_pool_stats_setter.set(Some(buffer_pool_stats.clone()));
                 } else {
-                    dev_log!("Warning: No buffer pool stats in StatusUpdate message");
+                    dev_log!("🚨 STATUS_UPDATE_RECEIVED: No buffer pool stats in StatusUpdate message");
                 }
                 // Status updates don't change the main state
             }
@@ -624,11 +629,25 @@ impl AudioWorkletManager {
         original_obj: &js_sys::Object,
         worklet_node: &AudioWorkletNode,
         message_factory: &AudioWorkletMessageFactory,
-        ping_pong_enabled: bool
+        ping_pong_enabled: bool,
+        buffer_pool_stats_setter: &std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::message_protocol::BufferPoolStats>>>
     ) {
         let chunks_processed = shared_data.borrow().chunks_processed;
-        if chunks_processed <= 5 {
-            // Starting handle_typed_audio_data_batch
+        if chunks_processed % 10 == 0 {
+            web_sys::console::log_1(&format!("🚨 AUDIO_DATA_BATCH: Processing batch #{}, sample_count={}", chunks_processed, data.sample_count).into());
+        }
+        
+        // Extract buffer pool statistics from the audio data batch
+        if let Some(buffer_pool_stats) = &data.buffer_pool_stats {
+            web_sys::console::log_1(&format!("🚨 AUDIO_DATA_BATCH: Buffer pool stats included, total_megabytes_transferred={}", buffer_pool_stats.total_megabytes_transferred).into());
+            
+            // Update the buffer pool stats in the reactive system
+            buffer_pool_stats_setter.set(Some(buffer_pool_stats.clone()));
+            
+            // Store in shared data for other components
+            shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
+        } else {
+            web_sys::console::log_1(&format!("🚨 AUDIO_DATA_BATCH: No buffer pool stats included in audio data batch").into());
         }
         
         // Validate the batch metadata
@@ -871,6 +890,7 @@ impl AudioWorkletManager {
     
     /// Send typed control message to AudioWorklet processor
     pub fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
+        dev_log!("🚨 WORKLET_DEBUG: send_typed_control_message called with message: {:?}", message);
         if let Some(worklet) = &self.worklet_node {
             let envelope = match message {
                 ToWorkletMessage::StartProcessing => {
@@ -1027,16 +1047,20 @@ impl AudioWorkletManager {
     
     /// Start audio processing
     pub fn start_processing(&mut self) -> Result<(), AudioError> {
+        dev_log!("🚨 WORKLET_DEBUG: start_processing called, current state: {}", self.state);
         if self.state != AudioWorkletState::Ready {
+            dev_log!("🚨 WORKLET_DEBUG: Cannot start processing in state: {}", self.state);
             return Err(AudioError::Generic(
                 format!("Cannot start processing in state: {}", self.state)
             ));
         }
         
         // Send start message to AudioWorklet processor
+        dev_log!("🚨 WORKLET_DEBUG: Sending StartProcessing message to AudioWorklet");
         self.send_typed_control_message(ToWorkletMessage::StartProcessing)?;
         
         self.state = AudioWorkletState::Processing;
+        dev_log!("🚨 WORKLET_DEBUG: State changed to Processing, publishing status");
         self.publish_audioworklet_status();
         dev_log!("✓ Audio processing started using AudioWorklet");
         Ok(())
@@ -1414,6 +1438,14 @@ impl AudioWorkletManager {
             }
         });
 
+        // Increment chunk counter for all processing (independent of volume detector)
+        self.chunk_counter += 1;
+        
+        // Debug: Log every chunk counter increment to see if this is the issue
+        if self.chunk_counter % 50 == 0 {
+            web_sys::console::log_1(&format!("🚨 CHUNK_DEBUG: Chunk counter incremented to {}", self.chunk_counter).into());
+        }
+
         // Perform volume analysis if detector is available
         if let Some(detector) = &mut self.volume_detector {
             let volume_analysis = detector.process_buffer(&processed_samples, timestamp);
@@ -1425,7 +1457,6 @@ impl AudioWorkletManager {
             
 
             // Update volume level data every 16 chunks (~11.6ms at 48kHz)
-            self.chunk_counter += 1;
             if self.chunk_counter % 16 == 0 {
                 // Also update AudioWorklet status periodically
                 self.publish_audioworklet_status();
@@ -1449,6 +1480,29 @@ impl AudioWorkletManager {
 
             // Store the current analysis for next comparison
             self.last_volume_analysis = Some(volume_analysis);
+        }
+
+        // Debug: Always log chunk counter to see if this method is being called
+        if self.chunk_counter % 100 == 0 {
+            web_sys::console::log_1(&format!("🚨 CHUNK_DEBUG: feed_input_chunk_with_timestamp called, chunk_counter={}", self.chunk_counter).into());
+        }
+        
+        // Request buffer pool statistics update every 16 chunks (independent of volume processing)
+        // This ensures buffer pool stats are updated even when volume detector is not active
+        if self.chunk_counter % 16 == 0 {
+            web_sys::console::log_1(&format!("🚨 GET_STATUS_REQUEST: Chunk counter {} - sending GetStatus request", self.chunk_counter).into());
+            if let Some(ref worklet_node) = self.worklet_node {
+                match Self::send_typed_control_message_static(worklet_node, &self.message_factory, ToWorkletMessage::GetStatus) {
+                    Ok(_) => {
+                        web_sys::console::log_1(&format!("🚨 GET_STATUS_REQUEST: GetStatus request sent successfully").into());
+                    }
+                    Err(e) => {
+                        web_sys::console::log_1(&format!("🚨 GET_STATUS_REQUEST: Failed to send periodic GetStatus for buffer pool stats: {}", e).into());
+                    }
+                }
+            } else {
+                web_sys::console::log_1(&format!("🚨 GET_STATUS_REQUEST: No worklet_node available for GetStatus request").into());
+            }
         }
 
         // Note: Buffer pool operations removed - using direct processing with transferable buffers

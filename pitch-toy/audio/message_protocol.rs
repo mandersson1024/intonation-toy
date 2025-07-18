@@ -100,6 +100,9 @@ pub struct AudioDataBatch {
     
     /// Buffer ID for ping-pong pattern
     pub buffer_id: Option<u32>,
+    
+    /// Buffer pool statistics bundled with the audio data
+    pub buffer_pool_stats: Option<BufferPoolStats>,
 }
 
 /// Processor status information
@@ -1019,6 +1022,12 @@ impl ToJsMessage for AudioDataBatch {
                 .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
         }
         
+        if let Some(buffer_pool_stats) = &self.buffer_pool_stats {
+            let stats_obj = buffer_pool_stats.to_js_object()?;
+            Reflect::set(&obj, &"bufferPoolStats".into(), &stats_obj.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferPoolStats: {:?}", e)))?;
+        }
+        
         Ok(obj)
     }
 }
@@ -1065,6 +1074,15 @@ impl FromJsMessage for AudioDataBatch {
             _ => None,
         };
         
+        let buffer_pool_stats = match Reflect::get(obj, &"bufferPoolStats".into()) {
+            Ok(value) if !value.is_undefined() => {
+                let stats_obj = value.dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("bufferPoolStats must be object".to_string()))?;
+                Some(BufferPoolStats::from_js_object(&stats_obj)?)
+            }
+            _ => None,
+        };
+        
         Ok(AudioDataBatch {
             sample_rate,
             sample_count,
@@ -1072,6 +1090,7 @@ impl FromJsMessage for AudioDataBatch {
             timestamp,
             sequence_number,
             buffer_id,
+            buffer_pool_stats,
         })
     }
 }
@@ -1117,8 +1136,8 @@ impl ToJsMessage for ProcessorStatus {
         
         if let Some(buffer_pool_stats) = &self.buffer_pool_stats {
             let buffer_pool_obj = buffer_pool_stats.to_js_object()?;
-            Reflect::set(&obj, &"bufferPoolStats".into(), &buffer_pool_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferPoolStats: {:?}", e)))?;
+            Reflect::set(&obj, &"buffer_pool_stats".into(), &buffer_pool_obj.into())
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set buffer_pool_stats: {:?}", e)))?;
         }
         
         Ok(obj)
@@ -1163,10 +1182,10 @@ impl FromJsMessage for ProcessorStatus {
             _ => None,
         };
         
-        let buffer_pool_stats = match Reflect::get(obj, &"bufferPoolStats".into()) {
+        let buffer_pool_stats = match Reflect::get(obj, &"buffer_pool_stats".into()) {
             Ok(value) if !value.is_undefined() => {
                 let buffer_pool_obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("bufferPoolStats must be object".to_string()))?;
+                    .map_err(|_| SerializationError::InvalidPropertyType("buffer_pool_stats must be object".to_string()))?;
                 Some(BufferPoolStats::from_js_object(&buffer_pool_obj)?)
             }
             _ => None,
@@ -1258,36 +1277,36 @@ impl ToJsMessage for BufferPoolStats {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
         
-        Reflect::set(&obj, &"poolSize".into(), &(self.pool_size as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolSize: {:?}", e)))?;
-        Reflect::set(&obj, &"availableBuffers".into(), &(self.available_buffers as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set availableBuffers: {:?}", e)))?;
-        Reflect::set(&obj, &"inUseBuffers".into(), &(self.in_use_buffers as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set inUseBuffers: {:?}", e)))?;
-        Reflect::set(&obj, &"totalBuffers".into(), &(self.total_buffers as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set totalBuffers: {:?}", e)))?;
-        Reflect::set(&obj, &"acquireCount".into(), &(self.acquire_count as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set acquireCount: {:?}", e)))?;
-        Reflect::set(&obj, &"transferCount".into(), &(self.transfer_count as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set transferCount: {:?}", e)))?;
-        Reflect::set(&obj, &"poolExhaustedCount".into(), &(self.pool_exhausted_count as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolExhaustedCount: {:?}", e)))?;
-        Reflect::set(&obj, &"consecutivePoolFailures".into(), &(self.consecutive_pool_failures as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set consecutivePoolFailures: {:?}", e)))?;
-        Reflect::set(&obj, &"poolHitRate".into(), &(self.pool_hit_rate as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolHitRate: {:?}", e)))?;
-        Reflect::set(&obj, &"poolEfficiency".into(), &(self.pool_efficiency as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set poolEfficiency: {:?}", e)))?;
-        Reflect::set(&obj, &"bufferUtilizationPercent".into(), &(self.buffer_utilization_percent as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferUtilizationPercent: {:?}", e)))?;
-        Reflect::set(&obj, &"totalMegabytesTransferred".into(), &(self.total_megabytes_transferred as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set totalMegabytesTransferred: {:?}", e)))?;
-        Reflect::set(&obj, &"avgAcquisitionTimeMs".into(), &(self.avg_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set avgAcquisitionTimeMs: {:?}", e)))?;
-        Reflect::set(&obj, &"fastestAcquisitionTimeMs".into(), &(self.fastest_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set fastestAcquisitionTimeMs: {:?}", e)))?;
-        Reflect::set(&obj, &"slowestAcquisitionTimeMs".into(), &(self.slowest_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set slowestAcquisitionTimeMs: {:?}", e)))?;
+        Reflect::set(&obj, &"pool_size".into(), &(self.pool_size as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set pool_size: {:?}", e)))?;
+        Reflect::set(&obj, &"available_buffers".into(), &(self.available_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set available_buffers: {:?}", e)))?;
+        Reflect::set(&obj, &"in_use_buffers".into(), &(self.in_use_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set in_use_buffers: {:?}", e)))?;
+        Reflect::set(&obj, &"total_buffers".into(), &(self.total_buffers as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set total_buffers: {:?}", e)))?;
+        Reflect::set(&obj, &"acquire_count".into(), &(self.acquire_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set acquire_count: {:?}", e)))?;
+        Reflect::set(&obj, &"transfer_count".into(), &(self.transfer_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set transfer_count: {:?}", e)))?;
+        Reflect::set(&obj, &"pool_exhausted_count".into(), &(self.pool_exhausted_count as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set pool_exhausted_count: {:?}", e)))?;
+        Reflect::set(&obj, &"consecutive_pool_failures".into(), &(self.consecutive_pool_failures as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set consecutive_pool_failures: {:?}", e)))?;
+        Reflect::set(&obj, &"pool_hit_rate".into(), &(self.pool_hit_rate as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set pool_hit_rate: {:?}", e)))?;
+        Reflect::set(&obj, &"pool_efficiency".into(), &(self.pool_efficiency as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set pool_efficiency: {:?}", e)))?;
+        Reflect::set(&obj, &"buffer_utilization_percent".into(), &(self.buffer_utilization_percent as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set buffer_utilization_percent: {:?}", e)))?;
+        Reflect::set(&obj, &"total_megabytes_transferred".into(), &(self.total_megabytes_transferred as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set total_megabytes_transferred: {:?}", e)))?;
+        Reflect::set(&obj, &"avg_acquisition_time_ms".into(), &(self.avg_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set avg_acquisition_time_ms: {:?}", e)))?;
+        Reflect::set(&obj, &"fastest_acquisition_time_ms".into(), &(self.fastest_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set fastest_acquisition_time_ms: {:?}", e)))?;
+        Reflect::set(&obj, &"slowest_acquisition_time_ms".into(), &(self.slowest_acquisition_time_ms as f64).into())
+            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set slowest_acquisition_time_ms: {:?}", e)))?;
         
         Ok(obj)
     }
@@ -1295,94 +1314,94 @@ impl ToJsMessage for BufferPoolStats {
 
 impl FromJsMessage for BufferPoolStats {
     fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let pool_size = Reflect::get(obj, &"poolSize".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolSize: {:?}", e)))?
+        let pool_size = Reflect::get(obj, &"pool_size".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get pool_size: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("poolSize must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("pool_size must be number".to_string()))?
             as u32;
         
-        let available_buffers = Reflect::get(obj, &"availableBuffers".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get availableBuffers: {:?}", e)))?
+        let available_buffers = Reflect::get(obj, &"available_buffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get available_buffers: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("availableBuffers must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("available_buffers must be number".to_string()))?
             as u32;
         
-        let in_use_buffers = Reflect::get(obj, &"inUseBuffers".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get inUseBuffers: {:?}", e)))?
+        let in_use_buffers = Reflect::get(obj, &"in_use_buffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get in_use_buffers: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("inUseBuffers must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("in_use_buffers must be number".to_string()))?
             as u32;
         
-        let total_buffers = Reflect::get(obj, &"totalBuffers".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get totalBuffers: {:?}", e)))?
+        let total_buffers = Reflect::get(obj, &"total_buffers".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get total_buffers: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("totalBuffers must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("total_buffers must be number".to_string()))?
             as u32;
         
-        let acquire_count = Reflect::get(obj, &"acquireCount".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get acquireCount: {:?}", e)))?
+        let acquire_count = Reflect::get(obj, &"acquire_count".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get acquire_count: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("acquireCount must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("acquire_count must be number".to_string()))?
             as u32;
         
-        let transfer_count = Reflect::get(obj, &"transferCount".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get transferCount: {:?}", e)))?
+        let transfer_count = Reflect::get(obj, &"transfer_count".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get transfer_count: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("transferCount must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("transfer_count must be number".to_string()))?
             as u32;
         
-        let pool_exhausted_count = Reflect::get(obj, &"poolExhaustedCount".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolExhaustedCount: {:?}", e)))?
+        let pool_exhausted_count = Reflect::get(obj, &"pool_exhausted_count".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get pool_exhausted_count: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("poolExhaustedCount must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("pool_exhausted_count must be number".to_string()))?
             as u32;
         
-        let consecutive_pool_failures = Reflect::get(obj, &"consecutivePoolFailures".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get consecutivePoolFailures: {:?}", e)))?
+        let consecutive_pool_failures = Reflect::get(obj, &"consecutive_pool_failures".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get consecutive_pool_failures: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("consecutivePoolFailures must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("consecutive_pool_failures must be number".to_string()))?
             as u32;
         
-        let pool_hit_rate = Reflect::get(obj, &"poolHitRate".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolHitRate: {:?}", e)))?
+        let pool_hit_rate = Reflect::get(obj, &"pool_hit_rate".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get pool_hit_rate: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("poolHitRate must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("pool_hit_rate must be number".to_string()))?
             as f32;
         
-        let pool_efficiency = Reflect::get(obj, &"poolEfficiency".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get poolEfficiency: {:?}", e)))?
+        let pool_efficiency = Reflect::get(obj, &"pool_efficiency".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get pool_efficiency: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("poolEfficiency must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("pool_efficiency must be number".to_string()))?
             as f32;
         
-        let buffer_utilization_percent = Reflect::get(obj, &"bufferUtilizationPercent".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferUtilizationPercent: {:?}", e)))?
+        let buffer_utilization_percent = Reflect::get(obj, &"buffer_utilization_percent".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get buffer_utilization_percent: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("bufferUtilizationPercent must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("buffer_utilization_percent must be number".to_string()))?
             as f32;
         
-        let total_megabytes_transferred = Reflect::get(obj, &"totalMegabytesTransferred".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get totalMegabytesTransferred: {:?}", e)))?
+        let total_megabytes_transferred = Reflect::get(obj, &"total_megabytes_transferred".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get total_megabytes_transferred: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("totalMegabytesTransferred must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("total_megabytes_transferred must be number".to_string()))?
             as f32;
         
-        let avg_acquisition_time_ms = Reflect::get(obj, &"avgAcquisitionTimeMs".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get avgAcquisitionTimeMs: {:?}", e)))?
+        let avg_acquisition_time_ms = Reflect::get(obj, &"avg_acquisition_time_ms".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get avg_acquisition_time_ms: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("avgAcquisitionTimeMs must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("avg_acquisition_time_ms must be number".to_string()))?
             as f32;
         
-        let fastest_acquisition_time_ms = Reflect::get(obj, &"fastestAcquisitionTimeMs".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get fastestAcquisitionTimeMs: {:?}", e)))?
+        let fastest_acquisition_time_ms = Reflect::get(obj, &"fastest_acquisition_time_ms".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get fastest_acquisition_time_ms: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("fastestAcquisitionTimeMs must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("fastest_acquisition_time_ms must be number".to_string()))?
             as f32;
         
-        let slowest_acquisition_time_ms = Reflect::get(obj, &"slowestAcquisitionTimeMs".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get slowestAcquisitionTimeMs: {:?}", e)))?
+        let slowest_acquisition_time_ms = Reflect::get(obj, &"slowest_acquisition_time_ms".into())
+            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get slowest_acquisition_time_ms: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("slowestAcquisitionTimeMs must be number".to_string()))?
+            .ok_or_else(|| SerializationError::InvalidPropertyType("slowest_acquisition_time_ms must be number".to_string()))?
             as f32;
         
         
@@ -2287,6 +2306,7 @@ impl AudioDataBatch {
             timestamp: get_high_resolution_timestamp(),
             sequence_number,
             buffer_id: None,
+            buffer_pool_stats: None,
         };
         
         batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -2308,6 +2328,7 @@ impl AudioDataBatch {
             timestamp,
             sequence_number,
             buffer_id: None,
+            buffer_pool_stats: None,
         };
         
         batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -3008,6 +3029,7 @@ mod tests {
             timestamp: get_current_timestamp(),
             sequence_number: Some(42),
             buffer_id: None,
+            buffer_pool_stats: None,
         };
         
         assert_eq!(batch.sample_rate, 48000.0);
@@ -3086,6 +3108,7 @@ mod tests {
             timestamp: 12345.0,
             sequence_number: Some(42),
             buffer_id: None,
+            buffer_pool_stats: None,
         };
         let msg = FromWorkletMessage::AudioDataBatch { data: data.clone() };
         let obj = msg.to_js_object().unwrap();
@@ -3128,6 +3151,7 @@ mod tests {
             timestamp: 12345.0,
             sequence_number: None,
             buffer_id: None,
+            buffer_pool_stats: None,
         };
         assert!(invalid_data.validate().is_err());
     }

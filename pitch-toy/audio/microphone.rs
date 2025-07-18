@@ -281,19 +281,22 @@ pub async fn connect_microphone_to_audioworklet_with_context(
             // Ensure processing is active after connection
             let mut context_borrowed = audio_context.borrow_mut();
             if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+                dev_log!("🚨 MICROPHONE_DEBUG: Found worklet manager, checking if processing: {}", worklet_manager.is_processing());
                 if !worklet_manager.is_processing() {
-                    dev_log!("Starting AudioWorklet processing after microphone connection...");
+                    dev_log!("🚨 MICROPHONE_DEBUG: Starting AudioWorklet processing after microphone connection...");
                     match worklet_manager.start_processing() {
                         Ok(_) => {
-                            dev_log!("✓ AudioWorklet processing started - audio pipeline active");
+                            dev_log!("🚨 MICROPHONE_DEBUG: AudioWorklet processing started - audio pipeline active");
                         }
                         Err(e) => {
-                            dev_log!("⚠️ Failed to start processing after microphone connection: {:?}", e);
+                            dev_log!("🚨 MICROPHONE_DEBUG: Failed to start processing after microphone connection: {:?}", e);
                         }
                     }
                 } else {
-                    dev_log!("✓ AudioWorklet already processing - audio pipeline active");
+                    dev_log!("🚨 MICROPHONE_DEBUG: AudioWorklet already processing - audio pipeline active");
                 }
+            } else {
+                dev_log!("🚨 MICROPHONE_DEBUG: No AudioWorklet manager available");
             }
             
             // Status is published automatically by the AudioWorklet manager
