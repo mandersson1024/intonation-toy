@@ -115,6 +115,7 @@ User Input → Presentation Layer
 - **Observable Data**: FFT data (roadmap)
 
 ### Model → Engine Interface
+- **Action**: Request microphone permission
 - **Action**: Start/stop audio processing
 - **Action**: Configure sample rate
 - **Action**: Configure buffer size
@@ -128,6 +129,7 @@ User Input → Presentation Layer
 - **Observable Data**: Animation parameters
 
 ### Presentation → Model Interface
+- **Action**: Request microphone permission
 - **Action**: User interactions
 - **Action**: Configuration changes
 - **Action**: Control commands
