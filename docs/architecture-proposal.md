@@ -110,10 +110,10 @@ User Input → Presentation Layer
 - **Observable Data**: Option<AudioAnalysis> containing:
   - Pitch: enum { Detected(f32 (Hz), confidence), NotDetected }
   - Volume level (amplitude Peak + RMS)
-  - Signal quality metrics [TODO: Flesh out the type, or is it even needed at all?]
+  - Signal quality metrics [TODO: Flesh out the type, or is it even needed at all?] [COMMENT: Could be useful for UI feedback. Consider: SNR (signal-to-noise ratio), clarity score, or just fold this into pitch confidence. Might not need separate metrics if pitch confidence covers it.]
   - FFT data: Option<Vec<f32>> (roadmap)
   - Timestamp
-- **Observable Data**: Error states [TODO: More than one of these can probably be active at the same time?]
+- **Observable Data**: Error states [TODO: More than one of these can probably be active at the same time?] [COMMENT: Yes, you could have "permission denied" + "API not supported". Consider using a bitflags set or Vec<ErrorType>. Alternatively, separate observables for each error category.]
   - Microphone permission denied [TODO: Maybe this should not be an error state, but just a separate observable?]
   - Microphone not available/disconnected
   - Audio processing error (e.g., buffer overflow, invalid data)
