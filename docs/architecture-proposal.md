@@ -109,30 +109,29 @@ User Input → Presentation Layer
 ### Engine → Model Interface
 - **Observable Data**: Pitch frequency (Hz)
 - **Observable Data**: Volume level (amplitude, dB)
-- **Observable Data**: Signal quality metrics
-- **Observable Data**: Timestamp
+- **Observable Data**: Signal quality metrics [TODO: should probably be bundled with pitch]
+- **Observable Data**: Timestamp [TODO: timestamp should probably be bundled with other messages, or does it make sense to have it solo?]
 - **Observable Data**: Error states
 - **Observable Data**: FFT data (roadmap)
 
 ### Model → Engine Interface
 - **Action**: Request microphone permission
 - **Action**: Start/stop audio processing
-- **Action**: Configure sample rate
-- **Action**: Configure buffer size
-- **Action**: Enable/disable FFT (roadmap)
+- **Action**: Configure sample rate [TODO: is this necessary?]
+- **Action**: Configure buffer size [TODO: is this necessary?]
 
 ### Model → Presentation Interface
-- **Observable Data**: Transformed visualization data
-- **Observable Data**: Application state
-- **Observable Data**: User-friendly metrics
-- **Observable Data**: Historical data
-- **Observable Data**: Animation parameters
+- **Observable Data**: Transformed visualization data [TODO: elaborate on what this means]
+- **Observable Data**: Application state [TODO: specify]
+- **Observable Data**: User-friendly metrics [TODO: specify]
+- **Observable Data**: Historical data [TODO: specify]
+- **Observable Data**: Animation parameters [TODO: specify]
 
 ### Presentation → Model Interface
 - **Action**: Request microphone permission
-- **Action**: User interactions
-- **Action**: Configuration changes
-- **Action**: Control commands
+- **Action**: User interactions [TODO: specify]
+- **Action**: Configuration changes [TODO: specify]
+- **Action**: Control commands [TODO: specify]
 - **Action**: Theme selection (roadmap)
 
 ## Benefits of This Architecture
