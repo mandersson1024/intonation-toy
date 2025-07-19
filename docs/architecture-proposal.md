@@ -13,16 +13,16 @@ This document outlines a three-layer architecture for the pitch toy application.
 - Hardware interface via browser APIs
 - Audio stream capture and processing
 - Real-time pitch detection and analysis
-- Volume level monitoring
+- Volume level analysis
 - Audio worklet management
 - Low-level signal processing
 - FFT analysis (roadmap)
 
 **Key Components**:
 - Audio Worklet for real-time processing
-- Pitch detection algorithms
+- Pitch detection
 - Volume analysis
-- Hardware abstraction
+- Platform abstraction
 - FFT implementation (roadmap)
 
 **Output**: Raw audio metrics (pitch frequency, volume levels, signal quality indicators, frequency spectrum data)
