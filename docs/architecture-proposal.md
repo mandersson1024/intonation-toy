@@ -109,29 +109,29 @@ User Input → Presentation Layer
 ### Engine → Model Interface
 - **Observable Data**: Pitch frequency (Hz)
 - **Observable Data**: Volume level (amplitude, dB)
-- **Observable Data**: Signal quality metrics [TODO: should probably be bundled with pitch]
-- **Observable Data**: Timestamp [TODO: timestamp should probably be bundled with other messages, or does it make sense to have it solo?]
+- **Observable Data**: Signal quality metrics [TODO: should probably be bundled with pitch] [COMMENT: Yes, bundling makes sense. Consider a single "AudioAnalysis" observable containing pitch, quality, and timestamp together]
+- **Observable Data**: Timestamp [TODO: timestamp should probably be bundled with other messages, or does it make sense to have it solo?] [COMMENT: Bundle with data messages. Solo timestamps aren't useful - each data point needs its temporal reference]
 - **Observable Data**: Error states
 - **Observable Data**: FFT data (roadmap)
 
 ### Model → Engine Interface
 - **Action**: Request microphone permission
 - **Action**: Start/stop audio processing
-- **Action**: Configure sample rate [TODO: is this necessary?]
-- **Action**: Configure buffer size [TODO: is this necessary?]
+- **Action**: Configure sample rate [TODO: is this necessary?] [COMMENT: Probably not needed initially. Audio context typically handles this automatically. Could be roadmap item for advanced users]
+- **Action**: Configure buffer size [TODO: is this necessary?] [COMMENT: May be useful for latency vs performance tradeoffs. Keep as roadmap item - start with sensible defaults]
 
 ### Model → Presentation Interface
-- **Observable Data**: Transformed visualization data [TODO: elaborate on what this means]
-- **Observable Data**: Application state [TODO: specify]
-- **Observable Data**: User-friendly metrics [TODO: specify]
-- **Observable Data**: Historical data [TODO: specify]
-- **Observable Data**: Animation parameters [TODO: specify]
+- **Observable Data**: Transformed visualization data [TODO: elaborate on what this means] [COMMENT: Normalized/scaled values ready for rendering (e.g., pitch mapped to Y-coordinates, volume to size/opacity, note names, cents deviation)]
+- **Observable Data**: Application state [TODO: specify] [COMMENT: Recording status, active tuning system, selected visualization mode, error states, permission status]
+- **Observable Data**: User-friendly metrics [TODO: specify] [COMMENT: Note name, octave, cents off from nearest note, volume in human-friendly units, pitch stability indicator]
+- **Observable Data**: Historical data [TODO: specify] [COMMENT: Rolling buffers of recent pitch/volume values for trails, averages, trends. Time window configurable by visualization needs]
+- **Observable Data**: Animation parameters [TODO: specify] [COMMENT: Interpolation values, easing functions, transition states between visualization modes, particle system parameters]
 
 ### Presentation → Model Interface
 - **Action**: Request microphone permission
-- **Action**: User interactions [TODO: specify]
-- **Action**: Configuration changes [TODO: specify]
-- **Action**: Control commands [TODO: specify]
+- **Action**: User interactions [TODO: specify] [COMMENT: Click/tap on visualization elements, drag gestures, keyboard shortcuts, WebGL canvas interactions]
+- **Action**: Configuration changes [TODO: specify] [COMMENT: Select tuning system, change visualization mode, adjust sensitivity, toggle features, set reference pitch]
+- **Action**: Control commands [TODO: specify] [COMMENT: Start/stop recording, reset visualization, pause/resume, clear history, trigger calibration]
 - **Action**: Theme selection (roadmap)
 
 ## Benefits of This Architecture
