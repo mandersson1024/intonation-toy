@@ -107,10 +107,11 @@ User Input → Presentation Layer
 
 ### Engine → Model Interface
 - Pitch frequency (Hz)
-- Volume level (dB)
+- Volume level (amplitude, dB)
 - Signal quality metrics
 - Timestamp
 - Error states
+- FFT data (roadmap)
 
 ### Model → Presentation Interface
 - Transformed visualization data
