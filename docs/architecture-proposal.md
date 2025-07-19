@@ -102,28 +102,36 @@ User Input → Presentation Layer
 3. **Clear Interfaces**: Well-defined contracts between layers
 4. **No Direct Cross-Layer Communication**: Layers only communicate with adjacent layers
 5. **Reactive Updates**: Changes propagate automatically through the system
+6. **Observable/Action Pattern**: Layers communicate using observable data (for continuous values) and actions (for commands/events)
 
 ## Interface Definitions
 
 ### Engine → Model Interface
-- Pitch frequency (Hz)
-- Volume level (amplitude, dB)
-- Signal quality metrics
-- Timestamp
-- Error states
-- FFT data (roadmap)
+- **Observable Data**: Pitch frequency (Hz)
+- **Observable Data**: Volume level (amplitude, dB)
+- **Observable Data**: Signal quality metrics
+- **Observable Data**: Timestamp
+- **Observable Data**: Error states
+- **Observable Data**: FFT data (roadmap)
+
+### Model → Engine Interface
+- **Action**: Start/stop audio processing
+- **Action**: Configure sample rate
+- **Action**: Configure buffer size
+- **Action**: Enable/disable FFT (roadmap)
 
 ### Model → Presentation Interface
-- Transformed visualization data
-- Application state
-- User-friendly metrics
-- Historical data
-- Animation parameters
+- **Observable Data**: Transformed visualization data
+- **Observable Data**: Application state
+- **Observable Data**: User-friendly metrics
+- **Observable Data**: Historical data
+- **Observable Data**: Animation parameters
 
 ### Presentation → Model Interface
-- User interactions
-- Configuration changes
-- Control commands
+- **Action**: User interactions
+- **Action**: Configuration changes
+- **Action**: Control commands
+- **Action**: Theme selection (roadmap)
 
 ## Benefits of This Architecture
 
