@@ -108,7 +108,7 @@ User Input → Presentation Layer
 
 ### Engine → Model Interface
 - **Observable Data**: Pitch frequency (Hz)
-- **Observable Data**: Volume level (amplitude, dB)
+- **Observable Data**: Volume level (amplitude Peak + RMS)
 - **Observable Data**: Signal quality metrics [TODO: should probably be bundled with pitch] [COMMENT: Yes, bundling makes sense. Consider a single "AudioAnalysis" observable containing pitch, quality, and timestamp together]
 - **Observable Data**: Timestamp [TODO: timestamp should probably be bundled with other messages, or does it make sense to have it solo?] [COMMENT: Bundle with data messages. Solo timestamps aren't useful - each data point needs its temporal reference]
 - **Observable Data**: Error states
