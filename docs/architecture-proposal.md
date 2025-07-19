@@ -1,0 +1,140 @@
+# Pitch Toy Architecture Proposal
+
+## Overview
+
+This document outlines a three-layer architecture for the pitch toy application. The architecture follows a clean separation of concerns, with each layer having distinct responsibilities and well-defined interfaces.
+
+## Architecture Layers
+
+### 1. Audio Engine Layer (Foundation)
+**Status**: Mostly implemented
+
+**Responsibilities**:
+- Hardware interface via browser APIs
+- Audio stream capture and processing
+- Real-time pitch detection and analysis
+- Volume level monitoring
+- Audio worklet management
+- Low-level signal processing
+
+**Key Components**:
+- Audio Worklet for real-time processing
+- Pitch detection algorithms
+- Volume analysis
+- Hardware abstraction
+
+**Output**: Raw audio metrics (pitch frequency, volume levels, signal quality indicators)
+
+### 2. Data Model Layer (Transformation)
+**Status**: To be implemented
+
+**Responsibilities**:
+- Transform raw audio data into meaningful representations
+- Manage application state
+- Apply data smoothing and filtering
+- Calculate derived metrics
+- Handle temporal patterns and histories
+- Provide rich data structures for visualization
+
+**Key Components**:
+- State management
+- Data transformers
+- Pattern recognition
+- History buffers
+- Event generation
+
+**Input**: Raw audio metrics from Engine Layer
+**Output**: Structured data models ready for visualization
+
+### 3. Presentation Layer (Visualization)
+**Status**: To be implemented
+
+**Responsibilities**:
+- WebGL-based rendering
+- User interface elements
+- Interactive controls
+- Visual representations of audio data
+- User input handling
+- Animation and transitions
+
+**Key Components**:
+- WebGL renderer
+- UI components
+- Input handlers
+- Animation system
+- Visual effects
+
+**Input**: Structured data from Model Layer
+**Output**: Visual feedback and user interactions
+
+## Data Flow
+
+```
+User Input → Presentation Layer
+              ↓
+         Model Layer
+              ↓
+         Engine Layer
+              ↓
+        Audio Hardware
+              ↓
+         Engine Layer (processing)
+              ↓
+         Model Layer (transformation)
+              ↓
+     Presentation Layer (visualization)
+              ↓
+         User Display
+```
+
+## Key Design Principles
+
+1. **Unidirectional Data Flow**: Data flows down through layers, events flow up
+2. **Layer Independence**: Each layer can be developed and tested independently
+3. **Clear Interfaces**: Well-defined contracts between layers
+4. **No Direct Cross-Layer Communication**: Layers only communicate with adjacent layers
+5. **Reactive Updates**: Changes propagate automatically through the system
+
+## Interface Definitions
+
+### Engine → Model Interface
+- Pitch frequency (Hz)
+- Volume level (dB)
+- Signal quality metrics
+- Timestamp
+- Error states
+
+### Model → Presentation Interface
+- Transformed visualization data
+- Application state
+- User-friendly metrics
+- Historical data
+- Animation parameters
+
+### Presentation → Model Interface
+- User interactions
+- Configuration changes
+- Control commands
+
+## Benefits of This Architecture
+
+1. **Modularity**: Each layer can be modified without affecting others
+2. **Testability**: Layers can be tested in isolation
+3. **Scalability**: New features can be added at the appropriate layer
+4. **Maintainability**: Clear separation makes code easier to understand
+5. **Flexibility**: Different visualizations can use the same model data
+
+## Next Steps
+
+1. Define detailed interfaces between layers
+2. Implement the Model Layer foundation
+3. Create basic Presentation Layer structure
+4. Establish communication protocols
+5. Build example visualizations
+
+## Open Questions
+
+1. Should the Model Layer support multiple simultaneous transformations?
+2. What specific data structures best serve the Presentation Layer?
+3. How should configuration flow through the layers?
+4. What error handling strategies should each layer employ?
