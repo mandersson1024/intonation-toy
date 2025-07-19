@@ -107,12 +107,18 @@ User Input → Presentation Layer
 ## Interface Definitions
 
 ### Engine → Model Interface
-- **Observable Data**: Pitch frequency (Hz)
-- **Observable Data**: Volume level (amplitude Peak + RMS)
-- **Observable Data**: Signal quality metrics [TODO: should probably be bundled with pitch] [COMMENT: Yes, bundling makes sense. Consider a single "AudioAnalysis" observable containing pitch, quality, and timestamp together]
-- **Observable Data**: Timestamp [TODO: timestamp should probably be bundled with other messages, or does it make sense to have it solo?] [COMMENT: Bundle with data messages. Solo timestamps aren't useful - each data point needs its temporal reference]
-- **Observable Data**: Error states
-- **Observable Data**: FFT data (roadmap)
+- **Observable Data**: Option<AudioAnalysis> containing:
+  - Pitch: enum { Detected(f32 (Hz), confidence), NotDetected }
+  - Volume level (amplitude Peak + RMS)
+  - Signal quality metrics [TODO: Flesh out the type, or is it even needed at all?]
+  - FFT data: Option<Vec<f32>> (roadmap)
+  - Timestamp
+- **Observable Data**: Error states [TODO: More than one of these can probably be active at the same time?]
+  - Microphone permission denied [TODO: Maybe this should not be an error state, but just a separate observable?]
+  - Microphone not available/disconnected
+  - Audio processing error (e.g., buffer overflow, invalid data)
+  - Browser API not supported
+  - Audio context suspended/failed to initialize
 
 ### Model → Engine Interface
 - **Action**: Request microphone permission
