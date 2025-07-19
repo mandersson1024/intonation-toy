@@ -16,14 +16,16 @@ This document outlines a three-layer architecture for the pitch toy application.
 - Volume level monitoring
 - Audio worklet management
 - Low-level signal processing
+- FFT analysis (roadmap)
 
 **Key Components**:
 - Audio Worklet for real-time processing
 - Pitch detection algorithms
 - Volume analysis
 - Hardware abstraction
+- FFT implementation (roadmap)
 
-**Output**: Raw audio metrics (pitch frequency, volume levels, signal quality indicators)
+**Output**: Raw audio metrics (pitch frequency, volume levels, signal quality indicators, frequency spectrum data)
 
 ### 2. Data Model Layer (Transformation)
 **Status**: To be implemented
@@ -35,6 +37,8 @@ This document outlines a three-layer architecture for the pitch toy application.
 - Calculate derived metrics
 - Handle temporal patterns and histories
 - Provide rich data structures for visualization
+- Tuning system management (equal temperament, just intonation, etc.)
+- Note detection and musical interpretation
 
 **Key Components**:
 - State management
@@ -42,6 +46,8 @@ This document outlines a three-layer architecture for the pitch toy application.
 - Pattern recognition
 - History buffers
 - Event generation
+- Tuning system implementations
+- Musical note mapping
 
 **Input**: Raw audio metrics from Engine Layer
 **Output**: Structured data models ready for visualization
@@ -50,19 +56,21 @@ This document outlines a three-layer architecture for the pitch toy application.
 **Status**: To be implemented
 
 **Responsibilities**:
-- WebGL-based rendering
-- User interface elements
+- WebGL-based rendering (all visuals)
+- User interface elements (rendered in WebGL)
 - Interactive controls
 - Visual representations of audio data
 - User input handling
 - Animation and transitions
+- Theme support (roadmap)
 
 **Key Components**:
 - WebGL renderer
-- UI components
+- UI components (WebGL-rendered, not HTML)
 - Input handlers
 - Animation system
 - Visual effects
+- Theme system (roadmap)
 
 **Input**: Structured data from Model Layer
 **Output**: Visual feedback and user interactions
@@ -123,6 +131,12 @@ User Input → Presentation Layer
 3. **Scalability**: New features can be added at the appropriate layer
 4. **Maintainability**: Clear separation makes code easier to understand
 5. **Flexibility**: Different visualizations can use the same model data
+
+## Implementation Notes
+
+- Layer APIs will be carefully defined in separate documents when implementation begins
+- Each layer should maintain clear boundaries and avoid tight coupling
+- The current tuning system implementation in the engine will migrate to the Model Layer
 
 ## Next Steps
 
