@@ -395,6 +395,41 @@ pub async fn start() {
         })
     };
     
+    // Create bridge permission setter that updates both legacy and interface
+    let permission_bridge_setter = {
+        let legacy_setter = microphone_permission_setter.clone();
+        let interface_setter = engine_to_model.permission_state_setter();
+        
+        #[derive(Clone)]
+        struct PermissionBridgeSetter {
+            legacy: observable_data::DataSourceSetter<engine::audio::AudioPermission>,
+            interface: observable_data::DataSourceSetter<module_interfaces::engine_to_model::PermissionState>,
+        }
+        
+        impl observable_data::DataSetter<engine::audio::AudioPermission> for PermissionBridgeSetter {
+            fn set(&self, data: engine::audio::AudioPermission) {
+                // Update legacy setter
+                self.legacy.set(data.clone());
+                
+                // Convert to interface permission state
+                let interface_state = match data {
+                    engine::audio::AudioPermission::Uninitialized => module_interfaces::engine_to_model::PermissionState::NotRequested,
+                    engine::audio::AudioPermission::Requesting => module_interfaces::engine_to_model::PermissionState::Requested,
+                    engine::audio::AudioPermission::Granted => module_interfaces::engine_to_model::PermissionState::Granted,
+                    engine::audio::AudioPermission::Denied => module_interfaces::engine_to_model::PermissionState::Denied,
+                    engine::audio::AudioPermission::Unavailable => module_interfaces::engine_to_model::PermissionState::Denied, // Map unavailable to denied
+                };
+                
+                self.interface.set(interface_state);
+            }
+        }
+        
+        PermissionBridgeSetter {
+            legacy: legacy_setter,
+            interface: interface_setter,
+        }
+    };
+    
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
     let audio_context = match initialize_audio_systems_new(
@@ -440,7 +475,7 @@ pub async fn start() {
     // Setup audio module listeners for UI actions (including debug actions)
     match audio_context {
         Some(ref context) => {
-            engine::audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
+            engine::audio::setup_ui_action_listeners_with_context(listeners, permission_bridge_setter.clone(), context.clone());
             // Setup debug action listeners
             engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &debug_actions);
         }
