@@ -141,6 +141,7 @@ impl Default for AudioWorkletConfig {
 
 impl AudioWorkletConfig {
     /// Create configuration for stereo processing
+    #[cfg(test)]
     pub fn stereo() -> Self {
         Self {
             input_channels: 2,
@@ -150,6 +151,7 @@ impl AudioWorkletConfig {
     }
     
     /// Create configuration with custom channel count
+    #[cfg(test)]
     pub fn with_channels(input_channels: u32, output_channels: u32) -> Self {
         Self {
             input_channels,
@@ -225,7 +227,7 @@ impl AudioWorkletManager {
     }
     
     /// Create new AudioWorklet manager with custom configuration
-    pub fn with_config(
+    fn with_config(
         config: AudioWorkletConfig,
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::AudioWorkletStatus>>,
         volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::VolumeLevelData>>>,
@@ -256,12 +258,12 @@ impl AudioWorkletManager {
     }
     
     /// Get current AudioWorklet state
-    pub fn state(&self) -> &AudioWorkletState {
+    fn state(&self) -> &AudioWorkletState {
         &self.state
     }
     
     /// Get current configuration
-    pub fn config(&self) -> &AudioWorkletConfig {
+    fn config(&self) -> &AudioWorkletConfig {
         &self.config
     }
     
@@ -286,7 +288,7 @@ impl AudioWorkletManager {
     
     
     /// Check if AudioWorklet is supported
-    pub fn is_worklet_supported(context: &AudioContextManager) -> bool {
+    fn is_worklet_supported(context: &AudioContextManager) -> bool {
         if let Some(audio_context) = context.get_context() {
             // Check for AudioWorklet support
             let worklet_check = js_sys::Reflect::has(audio_context, &"audioWorklet".into())
@@ -411,7 +413,7 @@ impl AudioWorkletManager {
     }
     
     /// Setup message handling for the AudioWorklet processor
-    pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
+    fn setup_message_handling(&mut self) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
             // Setters are always available now
             let volume_level_setter = &self.volume_level_setter;
@@ -484,8 +486,6 @@ impl AudioWorkletManager {
         audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::AudioWorkletStatus>>
     ) {
         let data = event.data();
-        
-        let chunks_processed = shared_data.borrow().chunks_processed;
         
         // Try to deserialize using structured message protocol
         if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
@@ -570,15 +570,15 @@ impl AudioWorkletManager {
                 } else {
                     dev_log!("✓ AudioWorklet processor ready");
                 }
-                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Ready, false, &audioworklet_status_setter);
+                Self::publish_status_update_static(shared_data, AudioWorkletState::Ready, &audioworklet_status_setter);
             }
             FromWorkletMessage::ProcessingStarted => {
                 dev_log!("✓ AudioWorklet processing started");
-                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Processing, true, &audioworklet_status_setter);
+                Self::publish_status_update_static(shared_data, AudioWorkletState::Processing, &audioworklet_status_setter);
             }
             FromWorkletMessage::ProcessingStopped => {
                 dev_log!("✓ AudioWorklet processing stopped");
-                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Stopped, false, &audioworklet_status_setter);
+                Self::publish_status_update_static(shared_data, AudioWorkletState::Stopped, &audioworklet_status_setter);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
                 Self::handle_typed_audio_data_batch_static(
@@ -593,7 +593,7 @@ impl AudioWorkletManager {
             }
             FromWorkletMessage::ProcessingError { error } => {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-                Self::publish_status_update_static(&worklet_node, &message_factory, shared_data, AudioWorkletState::Failed, false, &audioworklet_status_setter);
+                Self::publish_status_update_static(shared_data, AudioWorkletState::Failed, &audioworklet_status_setter);
             }
         }
     }
@@ -608,8 +608,6 @@ impl AudioWorkletManager {
         ping_pong_enabled: bool,
         buffer_pool_stats_setter: &std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>
     ) {
-        let chunks_processed = shared_data.borrow().chunks_processed;
-        
         // Extract buffer pool statistics from the audio data batch
         if let Some(buffer_pool_stats) = &data.buffer_pool_stats {
             
@@ -647,7 +645,7 @@ impl AudioWorkletManager {
                     float32_array.copy_to(&mut audio_samples);
                     
                     // Perform actual audio processing
-                    Self::process_audio_samples(&audio_samples, data.sample_rate, shared_data);
+                    Self::process_audio_samples(&audio_samples, shared_data);
                     
                     // Return buffer to worklet for recycling (ping-pong pattern)
                     if let Some(buffer_id) = data.buffer_id {
@@ -687,7 +685,6 @@ impl AudioWorkletManager {
     /// Process audio samples for pitch and volume analysis
     fn process_audio_samples(
         audio_samples: &[f32],
-        sample_rate: f64,
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
     ) {
         let chunks_processed = shared_data.borrow().chunks_processed;
@@ -750,11 +747,8 @@ impl AudioWorkletManager {
     
     /// Publish AudioWorklet status update to Live Data Panel (static version)
     fn publish_status_update_static(
-        worklet_node: &AudioWorkletNode,
-        message_factory: &AudioWorkletMessageFactory,
         _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         state: AudioWorkletState,
-        processing: bool,
         audioworklet_status_setter: &std::rc::Rc<dyn observable_data::DataSetter<super::AudioWorkletStatus>>
     ) {
         
@@ -775,55 +769,8 @@ impl AudioWorkletManager {
         audioworklet_status_setter.set(status);
     }
     
-    /// Send typed control message to AudioWorklet processor (static version)
-    fn send_typed_control_message_static(
-        worklet_node: &AudioWorkletNode,
-        message_factory: &AudioWorkletMessageFactory,
-        message: ToWorkletMessage
-    ) -> Result<(), AudioError> {
-        let envelope = match message {
-            ToWorkletMessage::StartProcessing => {
-                message_factory.start_processing()
-                    .map_err(|e| AudioError::Generic(format!("Failed to create start processing message: {:?}", e)))?
-            }
-            ToWorkletMessage::StopProcessing => {
-                message_factory.stop_processing()
-                    .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
-            }
-            ToWorkletMessage::UpdateTestSignalConfig { config } => {
-                message_factory.update_test_signal_config(config)
-                    .map_err(|e| AudioError::Generic(format!("Failed to create test signal config message: {:?}", e)))?
-            }
-            ToWorkletMessage::UpdateBatchConfig { config } => {
-                message_factory.update_batch_config(config)
-                    .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
-            }
-            ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => {
-                message_factory.update_background_noise_config(config)
-                    .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
-            }
-            ToWorkletMessage::ReturnBuffer { buffer_id } => {
-                message_factory.return_buffer(buffer_id)
-                    .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
-            }
-        };
-        
-        let serializer = MessageSerializer::new();
-        let js_message = serializer.serialize_envelope(&envelope)
-            .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-        
-        let port = worklet_node.port()
-            .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-        port.post_message(&js_message)
-            .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
-        
-        dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
-        Ok(())
-    }
-    
-    
     /// Send typed control message to AudioWorklet processor
-    pub fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
+    fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
             let envelope = match message {
                 ToWorkletMessage::StartProcessing => {
@@ -893,7 +840,7 @@ impl AudioWorkletManager {
     
     
     /// Update batch configuration
-    pub fn update_batch_config(&self, batch_size: Option<usize>, buffer_timeout: Option<f64>) -> Result<(), AudioError> {
+    fn update_batch_config(&self, batch_size: Option<usize>, buffer_timeout: Option<f64>) -> Result<(), AudioError> {
         use super::message_protocol::BatchConfig;
         
         if let Some(worklet) = &self.worklet_node {
@@ -929,7 +876,7 @@ impl AudioWorkletManager {
     }
     
     /// Connect audio worklet to audio pipeline
-    pub fn connect_to_destination(&self, context: &AudioContextManager) -> Result<(), AudioError> {
+    fn connect_to_destination(&self, context: &AudioContextManager) -> Result<(), AudioError> {
         let audio_context = context.get_context()
             .ok_or_else(|| AudioError::Generic("AudioContext not available".to_string()))?;
             
@@ -1020,12 +967,12 @@ impl AudioWorkletManager {
     }
     
     /// Get processing node (AudioWorklet)
-    pub fn get_processing_node(&self) -> Option<&AudioNode> {
+    fn get_processing_node(&self) -> Option<&AudioNode> {
         self.worklet_node.as_ref().map(|node| node.as_ref())
     }
     
     /// Get buffer pool statistics
-    pub fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
+    fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
         match &self.shared_data {
             Some(shared_data) => {
                 let stats = shared_data.borrow().buffer_pool_stats.clone();
@@ -1050,7 +997,7 @@ impl AudioWorkletManager {
     
     
     /// Get chunk size for processing
-    pub fn chunk_size(&self) -> u32 {
+    fn chunk_size(&self) -> u32 {
         self.config.chunk_size
     }
 
@@ -1068,7 +1015,7 @@ impl AudioWorkletManager {
     }
 
     /// Update volume detector configuration
-    pub fn update_volume_config(&mut self, config: VolumeDetectorConfig) -> Result<(), String> {
+    fn update_volume_config(&mut self, config: VolumeDetectorConfig) -> Result<(), String> {
         if let Some(detector) = &mut self.volume_detector {
             detector.update_config(config)
         } else {
@@ -1077,32 +1024,32 @@ impl AudioWorkletManager {
     }
 
     /// Get current volume analysis result
-    pub fn last_volume_analysis(&self) -> Option<&VolumeAnalysis> {
+    fn last_volume_analysis(&self) -> Option<&VolumeAnalysis> {
         self.last_volume_analysis.as_ref()
     }
 
     /// Get reference to volume detector if available
-    pub fn volume_detector(&self) -> Option<&VolumeDetector> {
+    fn volume_detector(&self) -> Option<&VolumeDetector> {
         self.volume_detector.as_ref()
     }
 
     /// Get current volume detector configuration
-    pub fn volume_config(&self) -> Option<&VolumeDetectorConfig> {
+    fn volume_config(&self) -> Option<&VolumeDetectorConfig> {
         self.volume_detector.as_ref().map(|detector| detector.config())
     }
 
     /// Check if volume detector is attached
-    pub fn has_volume_detector(&self) -> bool {
+    fn has_volume_detector(&self) -> bool {
         self.volume_detector.is_some()
     }
     
     /// Enable or disable ping-pong buffer recycling
-    pub fn set_ping_pong_enabled(&mut self, enabled: bool) {
+    fn set_ping_pong_enabled(&mut self, enabled: bool) {
         self.ping_pong_enabled = enabled;
     }
     
     /// Check if ping-pong buffer recycling is enabled
-    pub fn is_ping_pong_enabled(&self) -> bool {
+    fn is_ping_pong_enabled(&self) -> bool {
         self.ping_pong_enabled
     }
     
@@ -1162,7 +1109,7 @@ impl AudioWorkletManager {
     }
 
     /// Set test signal generator for audio validation
-    pub fn set_test_signal_generator(&mut self, generator: TestSignalGenerator) {
+    fn set_test_signal_generator(&mut self, generator: TestSignalGenerator) {
         self.test_signal_generator = Some(generator);
     }
 
@@ -1182,12 +1129,12 @@ impl AudioWorkletManager {
     }
 
     /// Get current test signal generator configuration
-    pub fn test_signal_config(&self) -> Option<&TestSignalGeneratorConfig> {
+    fn test_signal_config(&self) -> Option<&TestSignalGeneratorConfig> {
         self.test_signal_generator.as_ref().map(|g| g.config())
     }
 
     /// Check if test signal generator is enabled
-    pub fn is_test_signal_enabled(&self) -> bool {
+    fn is_test_signal_enabled(&self) -> bool {
         self.test_signal_generator
             .as_ref()
             .map(|g| g.config().enabled)
@@ -1195,7 +1142,7 @@ impl AudioWorkletManager {
     }
 
     /// Generate test signal chunk
-    pub fn generate_test_signal_chunk(&mut self) -> Option<Vec<f32>> {
+    fn generate_test_signal_chunk(&mut self) -> Option<Vec<f32>> {
         if let Some(generator) = &mut self.test_signal_generator {
             if generator.config().enabled {
                 Some(generator.generate_chunk(self.config.chunk_size as usize))
@@ -1218,12 +1165,12 @@ impl AudioWorkletManager {
     }
 
     /// Get current background noise configuration
-    pub fn background_noise_config(&self) -> &BackgroundNoiseConfig {
+    fn background_noise_config(&self) -> &BackgroundNoiseConfig {
         &self.background_noise_config
     }
 
     /// Check if background noise is enabled
-    pub fn is_background_noise_enabled(&self) -> bool {
+    fn is_background_noise_enabled(&self) -> bool {
         self.background_noise_config.enabled
     }
 
@@ -1301,7 +1248,7 @@ impl AudioWorkletManager {
     }
 
     /// Check if output to speakers is enabled
-    pub fn is_output_to_speakers_enabled(&self) -> bool {
+    fn is_output_to_speakers_enabled(&self) -> bool {
         self.output_to_speakers
     }
 
@@ -1311,12 +1258,12 @@ impl AudioWorkletManager {
     /// Feed a 128-sample chunk (from the AudioWorklet processor) into the first buffer of the pool.
     /// This method is platform-agnostic and can be unit-tested natively.
     /// Also performs real-time volume analysis if VolumeDetector is attached.
-    pub fn feed_input_chunk(&mut self, samples: &[f32]) -> Result<(), String> {
-        self.feed_input_chunk_with_timestamp(samples, None)
+    fn feed_input_chunk(&mut self, samples: &[f32]) -> Result<(), String> {
+        self.feed_input_chunk_with_timestamp(samples)
     }
 
     /// Feed input chunk with explicit timestamp (for testing)
-    pub fn feed_input_chunk_with_timestamp(&mut self, samples: &[f32], timestamp: Option<f64>) -> Result<(), String> {
+    fn feed_input_chunk_with_timestamp(&mut self, samples: &[f32]) -> Result<(), String> {
         if samples.len() as u32 != self.config.chunk_size {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
         }
@@ -1324,8 +1271,6 @@ impl AudioWorkletManager {
         // AudioWorklet processor now handles test signal generation and mixing
         // The samples we receive here are already processed (test signal OR mic input)
         let processed_samples = samples.to_vec();
-
-        // Timestamp is no longer used in volume analysis
 
         // Increment chunk counter for all processing (independent of volume detector)
         self.chunk_counter += 1;
