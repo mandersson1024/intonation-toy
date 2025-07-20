@@ -5,6 +5,10 @@ pub mod engine;
 pub mod model;
 pub mod presentation;
 
+// Interface modules
+pub mod engine_model_interface;
+pub mod model_presentation_interface;
+
 // Supporting modules
 pub mod common;
 pub mod debug;
