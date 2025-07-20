@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 use web_sys::MediaStream;
 use std::fmt;
-use crate::audio::permission::{PermissionManager, AudioPermission};
+use super::permission::{PermissionManager, AudioPermission};
 
 /// Audio stream information
 #[derive(Debug, Clone)]

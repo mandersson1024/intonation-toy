@@ -2,7 +2,7 @@
 // Commands for platform information and API status
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
-use crate::{platform::Platform, common::dev_log};
+use crate::{engine::platform::Platform, common::dev_log};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {

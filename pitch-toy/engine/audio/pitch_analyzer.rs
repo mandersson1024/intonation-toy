@@ -68,7 +68,7 @@ pub struct PitchAnalyzer {
     // Volume analysis for tracking
     last_volume_analysis: Option<VolumeAnalysis>,
     // Pitch data setter for observable_data pattern
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>>,
+    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<super::PitchData>>>>,
 }
 
 impl PitchAnalyzer {
@@ -98,7 +98,7 @@ impl PitchAnalyzer {
     }
 
     /// Set the pitch data setter for observable_data pattern
-    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<crate::audio::PitchData>>>) {
+    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::PitchData>>>) {
         self.pitch_data_setter = Some(setter);
     }
 
@@ -235,15 +235,15 @@ impl PitchAnalyzer {
                 let start = self.get_high_resolution_time();
                 
                 // Create temporary detector for this window size
-                let config = crate::audio::pitch_detector::PitchDetectorConfig {
+                let config = super::pitch_detector::PitchDetectorConfig {
                     sample_window_size: window_size,
                     threshold: 0.15,
-                    tuning_system: crate::audio::pitch_detector::TuningSystem::default(),
+                    tuning_system: super::pitch_detector::TuningSystem::default(),
                     min_frequency: 80.0,
                     max_frequency: 2000.0,
                 };
                 
-                if let Ok(mut detector) = crate::audio::pitch_detector::PitchDetector::new(config, sample_rate) {
+                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate) {
                     let _ = detector.analyze(&test_samples);
                 }
                 
@@ -312,7 +312,7 @@ impl PitchAnalyzer {
     /// Optimize configuration for target latency while prioritizing accuracy
     pub fn optimize_for_latency(&mut self, target_latency_ms: f32) -> Result<(), PitchAnalysisError> {
         // Get optimal window size for target latency (accuracy-prioritized)
-        let optimal_size = crate::audio::pitch_detector::PitchDetector::get_optimal_window_size_for_latency(
+        let optimal_size = super::pitch_detector::PitchDetector::get_optimal_window_size_for_latency(
             target_latency_ms, 
             self.pitch_detector.sample_rate()
         );
@@ -333,7 +333,7 @@ impl PitchAnalyzer {
 
     /// Optimize configuration for maximum accuracy within reasonable latency bounds
     pub fn optimize_for_accuracy(&mut self) -> Result<(), PitchAnalysisError> {
-        let optimal_size = crate::audio::pitch_detector::PitchDetector::get_accuracy_optimized_window_size(
+        let optimal_size = super::pitch_detector::PitchDetector::get_accuracy_optimized_window_size(
             self.pitch_detector.sample_rate(),
             self.config().min_frequency
         );
@@ -603,7 +603,7 @@ impl PitchAnalyzer {
 
         // Update pitch data using setter
         if let Some(ref setter) = self.pitch_data_setter {
-            let pitch_data = crate::audio::PitchData {
+            let pitch_data = super::PitchData {
                 frequency: result.frequency,
                 confidence: weighted_confidence,
                 note: note.clone(),
@@ -685,7 +685,7 @@ impl PitchAnalyzer {
     }
 
     /// Convert frequency to musical note using the internal note mapper
-    pub fn frequency_to_note(&self, frequency: f32) -> crate::audio::MusicalNote {
+    pub fn frequency_to_note(&self, frequency: f32) -> super::MusicalNote {
         self.note_mapper.frequency_to_note(frequency)
     }
 }
@@ -694,7 +694,7 @@ impl PitchAnalyzer {
 mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
-   use crate::audio::pitch_detector::{TuningSystem, PitchDetectorConfig};
+   use crate::engine::audio::{TuningSystem, PitchDetectorConfig};
 
     fn create_test_config() -> PitchDetectorConfig {
         PitchDetectorConfig {
@@ -876,8 +876,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_integration() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -918,8 +918,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_insufficient_data() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -941,8 +941,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_size_mismatch() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -964,8 +964,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_continuous_processing() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1011,8 +1011,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_circular_buffer_integration() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::WindowFunction;
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1050,8 +1050,8 @@ mod tests {
     #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_windowing_functions() {
-        use crate::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
-        use crate::audio::buffer_analyzer::WindowFunction;
+        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
@@ -1266,7 +1266,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_optimization_features() {
         let config = create_test_config();
-        let detector = crate::audio::pitch_detector::PitchDetector::new(config, 48000.0).unwrap();
+        let detector = crate::engine::audio::PitchDetector::new(config, 48000.0).unwrap();
 
         // Test memory usage reporting
         let memory_usage = detector.memory_usage_bytes();
@@ -1278,7 +1278,7 @@ mod tests {
         assert!(!grade.is_empty());
         
         // Test optimal window size calculation
-        let optimal_size = crate::audio::pitch_detector::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000.0);
+        let optimal_size = crate::engine::audio::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000.0);
         assert!(optimal_size >= 128); // Should be at least minimum
         assert!(optimal_size % 128 == 0); // Should be multiple of 128
         
@@ -1290,7 +1290,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_energy_threshold() {
         let config = create_test_config();
-        let mut detector = crate::audio::pitch_detector::PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = crate::engine::audio::PitchDetector::new(config, 48000.0).unwrap();
 
         // Test with silence (should return None due to energy threshold)
         let silence = vec![0.0; 2048];
@@ -1646,7 +1646,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_end_to_end_tuning_system_switching() {
         // Test switching tuning systems during operation
-        use crate::audio::{TuningSystem, PitchDetectorConfig};
+        use crate::engine::audio::{TuningSystem, PitchDetectorConfig};
         
         let frequency = 440.0; // A4
         let sample_rate = 48000.0;
@@ -1680,7 +1680,7 @@ mod tests {
             
             if let Some(pitch_result) = result.unwrap() {
                 let note = analyzer.note_mapper.frequency_to_note(pitch_result.frequency);
-                assert_eq!(note.note, crate::audio::NoteName::A, "Should detect A note in tuning system {}", i);
+                assert_eq!(note.note, crate::engine::audio::NoteName::A, "Should detect A note in tuning system {}", i);
                 assert_eq!(note.octave, 4, "Should detect octave 4 in tuning system {}", i);
             }
         }

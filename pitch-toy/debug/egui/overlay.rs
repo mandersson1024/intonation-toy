@@ -4,7 +4,7 @@
 use three_d::egui;
 use super::super::microphone_button::MicrophoneButton;
 use observable_data::DataObserver;
-use crate::audio::{AudioPermission, TestWaveform, test_signal_generator::BackgroundNoiseConfig};
+use crate::engine::audio::{AudioPermission, TestWaveform, test_signal_generator::BackgroundNoiseConfig};
 
 /// Test signal configuration
 #[derive(Debug, Clone, PartialEq)]

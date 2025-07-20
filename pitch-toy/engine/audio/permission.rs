@@ -239,7 +239,7 @@ pub fn connect_microphone_with_context(
     // Start the async permission request (this should maintain the user gesture context)
     wasm_bindgen_futures::spawn_local(async move {
         crate::common::dev_log!("Calling connect_microphone_to_audioworklet_with_context");
-        match crate::audio::connect_microphone_to_audioworklet_with_context(&audio_context).await {
+        match super::connect_microphone_to_audioworklet_with_context(&audio_context).await {
             Ok(_) => {
                 web_sys::console::log_1(&"✓ Microphone connected successfully".into());
                 crate::common::dev_log!("Microphone connected successfully to AudioWorklet");

@@ -803,7 +803,7 @@ impl AudioSystemContext {
 mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use crate::audio::data_types;
+    use crate::engine::audio::data_types;
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]

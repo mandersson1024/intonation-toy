@@ -2,7 +2,7 @@
 // These structures allow the audio module to remain independent
 // while still providing data to other modules that may need it
 
-use crate::audio::{AudioWorkletState, MusicalNote};
+use super::{AudioWorkletState, MusicalNote};
 
 /// Volume level data for external consumption
 #[derive(Debug, Clone, PartialEq)]

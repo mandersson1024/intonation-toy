@@ -1,7 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::*;
 #[cfg(target_arch = "wasm32")]
-use pitch_toy::audio::{
+use pitch_toy::engine::audio::{
     MicrophoneManager, AudioContextManager, StreamReconnectionHandler,
     AudioPermission, AudioContextState, StreamState,
     AudioStreamInfo, AudioContextConfig, StreamConfig,

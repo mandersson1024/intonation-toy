@@ -6,7 +6,7 @@ pub mod commands;
 use crate::common::dev_log;
 
 #[cfg(target_arch = "wasm32")]
-use crate::audio::MicrophoneManager;
+use super::audio::MicrophoneManager;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;

@@ -1,21 +1,24 @@
 use three_d::*;
 
-pub mod audio;
+// Three-layer architecture modules
+pub mod engine;
+pub mod model;
+pub mod presentation;
+
+// Supporting modules
 pub mod common;
-pub mod platform;
 pub mod debug;
-pub mod graphics;
 pub mod live_data;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
-use crate::audio::console_service::ConsoleAudioService;
+use crate::engine::audio::console_service::ConsoleAudioService;
 
-use platform::{Platform, PlatformValidationResult};
+use engine::platform::{Platform, PlatformValidationResult};
 use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
 
-use graphics::SpriteScene;
+use presentation::graphics::SpriteScene;
 
 // Import LiveData type
 use live_data::LiveData;
@@ -28,7 +31,7 @@ use action::{Action, ActionTrigger, ActionListener};
 #[derive(Debug, Clone)]
 pub struct TestSignalAction {
     pub enabled: bool,
-    pub waveform: audio::TestWaveform,
+    pub waveform: engine::audio::TestWaveform,
     pub frequency: f32,
     pub volume: f32,
 }
@@ -37,7 +40,7 @@ pub struct TestSignalAction {
 pub struct BackgroundNoiseAction {
     pub enabled: bool,
     pub level: f32,
-    pub noise_type: audio::TestWaveform,
+    pub noise_type: engine::audio::TestWaveform,
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +113,7 @@ pub struct UIControlListeners {
 
 pub async fn run_three_d(
     live_data: LiveData, 
-    microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
+    microphone_permission_setter: impl observable_data::DataSetter<engine::audio::AudioPermission> + Clone + 'static,
     performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
     pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static,
     ui_control_actions: UIControlActions,
@@ -130,8 +133,8 @@ pub async fn run_three_d(
     let mut gui = three_d::GUI::new(&context);
     
     let mut command_registry = ConsoleCommandRegistry::new();
-    crate::platform::commands::register_platform_commands(&mut command_registry);
-    crate::audio::register_audio_commands(&mut command_registry);
+    crate::engine::platform::commands::register_platform_commands(&mut command_registry);
+    crate::engine::audio::register_audio_commands(&mut command_registry);
 
     let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(command_registry);
     let mut microphone_button = EguiMicrophoneButton::new(
@@ -143,7 +146,7 @@ pub async fn run_three_d(
     );
     
     // Create audio service for LiveDataPanel
-    let audio_service = std::rc::Rc::new(audio::create_console_audio_service());
+    let audio_service = std::rc::Rc::new(engine::audio::create_console_audio_service());
     
     // Pitch data setter is now configured during AudioSystemContext initialization
     // No need to set it again here
@@ -227,8 +230,8 @@ pub async fn start() {
     // Create data sources and LiveData directly in start()
     use observable_data::DataSource;
     
-    let microphone_permission_source = DataSource::new(audio::AudioPermission::Uninitialized);
-    let audio_devices_source = DataSource::new(audio::AudioDevices {
+    let microphone_permission_source = DataSource::new(engine::audio::AudioPermission::Uninitialized);
+    let audio_devices_source = DataSource::new(engine::audio::AudioDevices {
         input_devices: vec![],
         output_devices: vec![],
     });
@@ -236,7 +239,7 @@ pub async fn start() {
     let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
     let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
-    let buffer_pool_stats_source = DataSource::new(None::<audio::message_protocol::BufferPoolStats>);
+    let buffer_pool_stats_source = DataSource::new(None::<engine::audio::message_protocol::BufferPoolStats>);
     
     let live_data = live_data::LiveData {
         microphone_permission: microphone_permission_source.observer(),
@@ -281,7 +284,7 @@ pub async fn start() {
     // Create audio service AFTER AudioWorklet initialization
     // Volume level setter is configured in initialize_audio_systems_new, so use the regular service
     let audio_service = std::rc::Rc::new({
-        let mut service = crate::audio::create_console_audio_service();
+        let mut service = crate::engine::audio::create_console_audio_service();
         service.set_audio_devices_setter(audio_devices_setter.clone());
         service
     });
@@ -299,7 +302,7 @@ pub async fn start() {
     // Setup audio module listeners for UI actions
     match audio_context {
         Some(ref context) => {
-            audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
+            engine::audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
         }
         None => {
             web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());
@@ -315,24 +318,24 @@ async fn initialize_audio_systems_new(
     pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>,
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>,
     audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>,
-    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<audio::message_protocol::BufferPoolStats>>>
-) -> Result<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>, String> {
+    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::message_protocol::BufferPoolStats>>>
+) -> Result<std::rc::Rc<std::cell::RefCell<engine::audio::AudioSystemContext>>, String> {
     // Convert setters to required types with adapters
     let pitch_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(pitch_data_setter))
-        as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::PitchData>>>;
+        as std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::PitchData>>>;
     
     let volume_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(volume_level_setter))
-        as std::rc::Rc<dyn observable_data::DataSetter<Option<audio::VolumeLevelData>>>;
+        as std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::VolumeLevelData>>>;
     
     let status_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(audioworklet_status_setter))
-        as std::rc::Rc<dyn observable_data::DataSetter<audio::AudioWorkletStatus>>;
+        as std::rc::Rc<dyn observable_data::DataSetter<engine::audio::AudioWorkletStatus>>;
     
     let buffer_stats_setter = buffer_pool_stats_setter;
     
     web_sys::console::log_1(&"DEBUG: Using AudioSystemContext initialization approach".into());
     
     // Use the initialization function
-    let context = audio::initialize_audio_system_with_context(
+    let context = engine::audio::initialize_audio_system_with_context(
         volume_setter,
         pitch_setter,
         status_setter,
@@ -349,7 +352,7 @@ async fn initialize_audio_systems_new(
     {
         let context_borrowed = context_rc.borrow();
         let manager_rc = context_borrowed.get_audio_context_manager_rc();
-        audio::set_global_audio_context_manager(manager_rc);
+        engine::audio::set_global_audio_context_manager(manager_rc);
     }
     
     dev_log!("✓ AudioSystemContext components available globally for backward compatibility");

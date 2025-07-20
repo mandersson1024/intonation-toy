@@ -4,7 +4,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use std::rc::Rc;
 
-use crate::audio::{
+use crate::engine::audio::{
     MusicalNote,
     AudioWorkletState, ConsoleAudioServiceImpl,
 };
@@ -70,8 +70,8 @@ impl Default for AudioWorkletStatus {
 }
 
 // Conversion functions between debug types and audio types
-impl From<crate::audio::VolumeLevelData> for VolumeLevelData {
-    fn from(audio_data: crate::audio::VolumeLevelData) -> Self {
+impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
+    fn from(audio_data: crate::engine::audio::VolumeLevelData) -> Self {
         Self {
             rms_db: audio_data.rms_db,
             peak_db: audio_data.peak_db,
@@ -79,8 +79,8 @@ impl From<crate::audio::VolumeLevelData> for VolumeLevelData {
     }
 }
 
-impl From<crate::audio::PitchData> for PitchData {
-    fn from(audio_data: crate::audio::PitchData) -> Self {
+impl From<crate::engine::audio::PitchData> for PitchData {
+    fn from(audio_data: crate::engine::audio::PitchData) -> Self {
         Self {
             frequency: audio_data.frequency,
             confidence: audio_data.confidence,
@@ -91,8 +91,8 @@ impl From<crate::audio::PitchData> for PitchData {
     }
 }
 
-impl From<crate::audio::AudioWorkletStatus> for AudioWorkletStatus {
-    fn from(audio_data: crate::audio::AudioWorkletStatus) -> Self {
+impl From<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatus {
+    fn from(audio_data: crate::engine::audio::AudioWorkletStatus) -> Self {
         Self {
             state: audio_data.state,
             processor_loaded: audio_data.processor_loaded,
@@ -525,8 +525,8 @@ impl VolumeDataAdapter {
 unsafe impl Send for VolumeDataAdapter {}
 unsafe impl Sync for VolumeDataAdapter {}
 
-impl observable_data::DataSetter<Option<crate::audio::VolumeLevelData>> for VolumeDataAdapter {
-    fn set(&self, data: Option<crate::audio::VolumeLevelData>) {
+impl observable_data::DataSetter<Option<crate::engine::audio::VolumeLevelData>> for VolumeDataAdapter {
+    fn set(&self, data: Option<crate::engine::audio::VolumeLevelData>) {
         let converted = data.map(|d| d.into());
         self.inner.set(converted);
     }
@@ -545,8 +545,8 @@ impl PitchDataAdapter {
 unsafe impl Send for PitchDataAdapter {}
 unsafe impl Sync for PitchDataAdapter {}
 
-impl observable_data::DataSetter<Option<crate::audio::PitchData>> for PitchDataAdapter {
-    fn set(&self, data: Option<crate::audio::PitchData>) {
+impl observable_data::DataSetter<Option<crate::engine::audio::PitchData>> for PitchDataAdapter {
+    fn set(&self, data: Option<crate::engine::audio::PitchData>) {
         let converted = data.map(|d| d.into());
         self.inner.set(converted);
     }
@@ -565,8 +565,8 @@ impl AudioWorkletStatusAdapter {
 unsafe impl Send for AudioWorkletStatusAdapter {}
 unsafe impl Sync for AudioWorkletStatusAdapter {}
 
-impl observable_data::DataSetter<crate::audio::AudioWorkletStatus> for AudioWorkletStatusAdapter {
-    fn set(&self, data: crate::audio::AudioWorkletStatus) {
+impl observable_data::DataSetter<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatusAdapter {
+    fn set(&self, data: crate::engine::audio::AudioWorkletStatus) {
         let converted = data.into();
         self.inner.set(converted);
     }

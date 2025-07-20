@@ -6,7 +6,7 @@
 use wasm_bindgen_test::*;
 use std::rc::Rc;
 use std::cell::RefCell;
-use pitch_toy::audio::message_protocol::*;
+use pitch_toy::engine::audio::message_protocol::*;
 use observable_data::DataSetter;
 
 // No wasm_bindgen_test_configure! needed for Node.js

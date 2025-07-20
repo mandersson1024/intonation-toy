@@ -369,7 +369,7 @@ impl<'a> BufferProcessor for SlidingWindowProcessor<'a> {
 mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use crate::audio::buffer::CircularBuffer;
+    use crate::engine::audio::buffer::CircularBuffer;
 
     #[allow(dead_code)]
     #[wasm_bindgen_test]
