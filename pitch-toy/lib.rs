@@ -5,9 +5,9 @@ pub mod engine;
 pub mod model;
 pub mod presentation;
 
-// Interface modules
-pub mod engine_model_interface;
-pub mod model_presentation_interface;
+// Module interfaces
+#[path = "module-interfaces/mod.rs"]
+pub mod module_interfaces;
 
 // Supporting modules
 pub mod common;

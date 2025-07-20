@@ -1,5 +1,4 @@
-use crate::action::Action;
-use crate::observable_data::ObservableData;
+use observable_data::{DataSource};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Volume {
@@ -39,11 +38,18 @@ pub enum PermissionState {
     Denied,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RequestMicrophonePermissionAction;
+pub struct EngineToModelInterface {
+    audio_analysis_source: DataSource<Option<AudioAnalysis>>,
+    audio_errors_source: DataSource<Vec<AudioError>>,
+    permission_state_source: DataSource<PermissionState>,
+}
 
-impl Action for RequestMicrophonePermissionAction {}
-
-pub type AudioAnalysisObservable = ObservableData<Option<AudioAnalysis>>;
-pub type AudioErrorsObservable = ObservableData<Vec<AudioError>>;
-pub type PermissionStateObservable = ObservableData<PermissionState>;
+impl EngineToModelInterface {
+    pub fn new() -> Self {
+        Self {
+            audio_analysis_source: DataSource::new(None),
+            audio_errors_source: DataSource::new(Vec::new()),
+            permission_state_source: DataSource::new(PermissionState::NotRequested),
+        }
+    }
+}
