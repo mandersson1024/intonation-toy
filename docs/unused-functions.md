@@ -10,17 +10,6 @@ This document lists functions that are defined but never used anywhere in the co
 
 ## Unused Functions by Category
 
-### Builder Pattern Methods (9 functions)
-
-These functions implement builder patterns for configuration objects but are never called:
-
-#### MessageContext Builder Methods
-**File:** [`pitch-toy/engine/audio/message_protocol.rs`](../pitch-toy/engine/audio/message_protocol.rs)
-
-- [`with_message_id`](../pitch-toy/engine/audio/message_protocol.rs#L2488) (line 2488)
-- [`with_timestamp`](../pitch-toy/engine/audio/message_protocol.rs#L2494) (line 2494)
-- [`with_size`](../pitch-toy/engine/audio/message_protocol.rs#L2500) (line 2500)
-
 ## Analysis Notes
 
 ### Why These Functions Are Unused

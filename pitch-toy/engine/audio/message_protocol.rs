@@ -2460,24 +2460,6 @@ impl MessageContext {
             message_size: None,
         }
     }
-
-    /// Add message ID
-    pub fn with_message_id(mut self, message_id: u32) -> Self {
-        self.message_id = Some(message_id);
-        self
-    }
-
-    /// Add message timestamp
-    pub fn with_timestamp(mut self, timestamp: f64) -> Self {
-        self.message_timestamp = Some(timestamp);
-        self
-    }
-
-    /// Add message size
-    pub fn with_size(mut self, size: usize) -> Self {
-        self.message_size = Some(size);
-        self
-    }
 }
 
 impl SystemState {
