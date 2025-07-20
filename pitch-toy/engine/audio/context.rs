@@ -657,6 +657,21 @@ impl AudioSystemContext {
         
         context
     }
+
+    /// Create AudioSystemContext with interfaces and debug actions support
+    pub fn with_interfaces_and_debug(
+        engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
+        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
+        debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
+    ) -> Self {
+        // Create context with interfaces first
+        let context = Self::with_interfaces(engine_to_model, model_to_engine);
+        
+        // Set up debug action listeners
+        context.setup_debug_action_listeners(debug_actions);
+        
+        context
+    }
     
     /// Set up action listeners for model → engine communication
     /// 
@@ -691,6 +706,50 @@ impl AudioSystemContext {
             
             dev_log!("TODO: Implement microphone permission handling in interface-based architecture");
             permission_state_setter.set(crate::module_interfaces::engine_to_model::PermissionState::Granted);
+        });
+    }
+
+    /// Set up debug action listeners for debug GUI controls
+    /// 
+    /// This method connects debug-specific action listeners to the audio system.
+    /// These actions are separate from core application logic and only used by debug components.
+    /// 
+    /// Note: This is a placeholder implementation that demonstrates the architecture.
+    /// The actual implementation would need to be integrated with the full audio system.
+    pub fn setup_debug_action_listeners(
+        &self,
+        debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
+    ) {
+        use crate::common::dev_log;
+        
+        // Test signal action listener
+        let test_signal_listener = debug_actions.test_signal_listener();
+        test_signal_listener.listen(move |action| {
+            dev_log!("Received debug test signal action: {:?}", action);
+            
+            // TODO: Implement actual test signal config update
+            // This would need to access the AudioWorkletManager through the context
+            dev_log!("TODO: Apply test signal config - enabled: {}, freq: {}, vol: {}", 
+                    action.enabled, action.frequency, action.volume);
+        });
+        
+        // Output to speakers action listener
+        let output_listener = debug_actions.output_to_speakers_listener();
+        output_listener.listen(move |action| {
+            dev_log!("Received debug output to speakers action: {:?}", action);
+            
+            // TODO: Implement actual output to speakers setting
+            dev_log!("TODO: Set output to speakers - enabled: {}", action.enabled);
+        });
+        
+        // Background noise action listener
+        let noise_listener = debug_actions.background_noise_listener();
+        noise_listener.listen(move |action| {
+            dev_log!("Received debug background noise action: {:?}", action);
+            
+            // TODO: Implement actual background noise config update
+            dev_log!("TODO: Apply background noise config - enabled: {}, level: {}", 
+                    action.enabled, action.level);
         });
     }
 

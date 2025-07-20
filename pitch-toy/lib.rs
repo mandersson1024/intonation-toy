@@ -1,4 +1,5 @@
 use three_d::*;
+use three_d::egui::Color32;
 
 // Three-layer architecture modules
 pub mod engine;
@@ -20,7 +21,7 @@ use egui_dev_console::ConsoleCommandRegistry;
 use crate::engine::audio::console_service::ConsoleAudioService;
 
 use engine::platform::{Platform, PlatformValidationResult};
-use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel};
+use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel, HybridEguiLiveDataPanel};
 
 use presentation::graphics::SpriteScene;
 
@@ -199,6 +200,123 @@ pub async fn run_three_d(
     });
 }
 
+/// Run three-d with hybrid debug GUI architecture
+pub async fn run_three_d_hybrid(
+    engine_to_model: module_interfaces::engine_to_model::EngineToModelInterface,
+    debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
+    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
+    performance_metrics_observer: observable_data::DataObserver<debug::egui::live_data_panel::PerformanceMetrics>,
+    audio_devices_observer: observable_data::DataObserver<engine::audio::AudioDevices>,
+    audioworklet_status_observer: observable_data::DataObserver<debug::egui::live_data_panel::AudioWorkletStatus>,
+    buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
+    microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
+    ui_triggers: UIControlTriggers,
+) {
+    dev_log!("Starting three-d with hybrid debug GUI architecture");
+    
+    let window = Window::new(WindowSettings {
+        title: "pitch-toy".to_string(),
+        max_size: Some((1280, 720)),
+        ..Default::default()
+    })
+    .unwrap();
+    
+    let context = window.gl();
+    let mut scene = SpriteScene::new(&context, window.viewport());
+    let mut gui = three_d::GUI::new(&context);
+    
+    let mut command_registry = ConsoleCommandRegistry::new();
+    crate::engine::platform::commands::register_platform_commands(&mut command_registry);
+    crate::engine::audio::register_audio_commands(&mut command_registry);
+
+    let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
+    
+    // Create microphone button
+    let mut microphone_button = EguiMicrophoneButton::new(
+        microphone_permission_observer.clone(),
+        ui_triggers.microphone_permission.clone(),
+        ui_triggers.output_to_speakers.clone(),
+        ui_triggers.test_signal.clone(),
+        ui_triggers.background_noise.clone(),
+    );
+    
+    // Create hybrid live data
+    let hybrid_live_data = live_data::HybridLiveData::new(
+        &engine_to_model,
+        audio_devices_observer,
+        performance_metrics_observer,
+        audioworklet_status_observer,
+        buffer_pool_stats_observer,
+    );
+    
+    // Create hybrid debug panel
+    let mut hybrid_live_data_panel = HybridEguiLiveDataPanel::new(
+        hybrid_live_data,
+        debug_actions,
+    );
+
+    dev_log!("Starting three-d + egui render loop with hybrid architecture");
+    
+    // Performance tracking
+    let mut frame_count = 0u32;
+    let mut last_fps_update = 0.0;
+    let mut fps = 0.0;
+    
+    window.render_loop(move |mut frame_input| {
+        // Update FPS counter
+        frame_count += 1;
+        let current_time = frame_input.accumulated_time as f64;
+        
+        // Update FPS every second
+        if current_time - last_fps_update >= 1000.0 {
+            fps = (frame_count as f64) / ((current_time - last_fps_update) / 1000.0);
+            frame_count = 0;
+            last_fps_update = current_time;
+            
+            // Update performance metrics
+            let metrics = debug::egui::live_data_panel::PerformanceMetrics {
+                fps,
+                memory_usage: 0.0, // Placeholder
+                audio_latency: 0.0, // Placeholder
+                cpu_usage: 0.0, // Placeholder
+            };
+            performance_metrics_setter.set(metrics);
+        }
+        
+        // Scene doesn't need updating for now
+        
+        // Extract needed values before borrowing screen
+        let accumulated_time = frame_input.accumulated_time;
+        let viewport = frame_input.viewport;
+        let device_pixel_ratio = frame_input.device_pixel_ratio;
+        
+        gui.update(
+            &mut frame_input.events,
+            accumulated_time,
+            viewport,
+            device_pixel_ratio,
+            |gui_context| {
+                gui_context.set_visuals(egui::Visuals {
+                    window_fill: Color32::from_rgba_unmultiplied(27, 27, 27, 240),
+                    override_text_color: Some(Color32::from_rgb(255, 255, 255)),
+                    ..egui::Visuals::default()
+                });
+                
+                dev_console.render(gui_context);
+                microphone_button.render(gui_context);
+                hybrid_live_data_panel.render(gui_context);
+            }
+        );
+        
+        let mut screen = frame_input.screen();
+        screen.clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0));
+        scene.render(&mut screen);
+        
+        let _ = gui.render();
+        FrameOutput::default()
+    });
+}
+
 /// Application entry point
 #[wasm_bindgen(start)]
 pub async fn start() {
@@ -236,7 +354,7 @@ pub async fn start() {
     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
     let buffer_pool_stats_source = DataSource::new(None::<engine::audio::message_protocol::BufferPoolStats>);
     
-    let live_data = live_data::LiveData {
+    let _live_data = live_data::LiveData {
         microphone_permission: microphone_permission_source.observer(),
         audio_devices: audio_devices_source.observer(),
         performance_metrics: performance_metrics_source.observer(),
@@ -294,18 +412,34 @@ pub async fn start() {
     let listeners = ui_control_actions.get_listeners();
     let triggers = ui_control_actions.get_triggers();
     
-    // Setup audio module listeners for UI actions
+    // Create interfaces for hybrid architecture
+    let engine_to_model = module_interfaces::engine_to_model::EngineToModelInterface::new();
+    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
+    
+    // Setup audio module listeners for UI actions (including debug actions)
     match audio_context {
         Some(ref context) => {
             engine::audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
+            // Setup debug action listeners
+            context.borrow().setup_debug_action_listeners(&debug_actions);
         }
         None => {
             web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());
         }
     }
     
-    // Start three-d application directly
-    run_three_d(live_data, performance_metrics_setter, triggers).await;
+    // Start three-d application with hybrid architecture
+    run_three_d_hybrid(
+        engine_to_model,
+        debug_actions,
+        performance_metrics_setter,
+        performance_metrics_source.observer(),
+        audio_devices_source.observer(),
+        audioworklet_status_source.observer(),
+        buffer_pool_stats_source.observer(),
+        microphone_permission_source.observer(),
+        triggers,
+    ).await;
 }
 
 /// Initialize all audio systems using AudioSystemContext approach

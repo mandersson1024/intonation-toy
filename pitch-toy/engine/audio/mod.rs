@@ -184,6 +184,34 @@ pub async fn initialize_audio_system_with_interfaces(
     Ok(context)
 }
 
+/// Initialize audio system with interfaces and debug actions support
+pub async fn initialize_audio_system_with_interfaces_and_debug(
+    engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
+    model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
+    debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
+) -> Result<context::AudioSystemContext, String> {
+    dev_log!("Initializing audio system with three-layer architecture interfaces and debug actions");
+    
+    // Check AudioContext support
+    if !context::AudioContextManager::is_supported() {
+        return Err("Web Audio API not supported".to_string());
+    }
+    
+    // Create AudioSystemContext with interfaces and debug actions
+    let mut context = context::AudioSystemContext::with_interfaces_and_debug(
+        engine_to_model,
+        model_to_engine,
+        debug_actions,
+    );
+    
+    // Initialize the context (this handles all component initialization)
+    context.initialize().await
+        .map_err(|e| format!("AudioSystemContext initialization failed: {}", e))?;
+    
+    dev_log!("✓ Audio system initialization completed with interface-based architecture and debug actions");
+    Ok(context)
+}
+
 
 /// Store AudioContextManager globally for backward compatibility
 pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContextManager>>) {

@@ -1,0 +1,501 @@
+// Hybrid EGUI Live Data Panel
+// Real-time data visualization and monitoring for egui interface using hybrid architecture
+
+use three_d::egui::{self, Color32, Vec2, Ui};
+use crate::engine::audio::{
+    AudioWorkletState,
+};
+use crate::live_data::HybridLiveData;
+use crate::module_interfaces::debug_actions::{
+    DebugActionsInterface, TestSignalAction, OutputToSpeakersAction, BackgroundNoiseAction
+};
+use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
+
+/// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
+pub struct HybridEguiLiveDataPanel {
+    hybrid_data: HybridLiveData,
+    debug_actions: DebugActionsInterface,
+    last_metrics_update: f64,
+    
+    // UI state for debug controls
+    test_signal_enabled: bool,
+    test_signal_frequency: f32,
+    test_signal_volume: f32,
+    test_signal_waveform: crate::engine::audio::TestWaveform,
+    output_to_speakers_enabled: bool,
+    background_noise_enabled: bool,
+    background_noise_level: f32,
+    background_noise_type: crate::engine::audio::TestWaveform,
+}
+
+impl HybridEguiLiveDataPanel {
+    /// Create new Hybrid EGUI Live Data Panel
+    pub fn new(
+        hybrid_data: HybridLiveData,
+        debug_actions: DebugActionsInterface,
+    ) -> Self {
+        Self {
+            hybrid_data,
+            debug_actions,
+            last_metrics_update: 0.0,
+            
+            // Initialize UI state
+            test_signal_enabled: false,
+            test_signal_frequency: 440.0,
+            test_signal_volume: 50.0,
+            test_signal_waveform: crate::engine::audio::TestWaveform::Sine,
+            output_to_speakers_enabled: false,
+            background_noise_enabled: false,
+            background_noise_level: 0.1,
+            background_noise_type: crate::engine::audio::TestWaveform::WhiteNoise,
+        }
+    }
+    
+    /// Render the live data panel
+    pub fn render(&mut self, gui_context: &egui::Context) {
+        let screen_rect = gui_context.screen_rect();
+        egui::Window::new("Hybrid Live Data Panel")
+            .default_pos([0.0, 0.0])
+            .default_size(Vec2::new(400.0, screen_rect.height()))
+            .resizable(true)
+            .show(gui_context, |ui| {
+                self.render_content(ui);
+            });
+    }
+    
+    /// Render panel content
+    fn render_content(&mut self, ui: &mut Ui) {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.vertical(|ui| {
+                // Audio Devices Section (debug-specific data)
+                self.render_audio_devices_section(ui);
+                ui.separator();
+                
+                // AudioWorklet Status Section (debug-specific data)
+                self.render_audioworklet_status_section(ui);
+                ui.separator();
+                
+                // Performance Metrics Section (debug-specific data)
+                self.render_performance_metrics_section(ui);
+                ui.separator();
+                
+                // Buffer Pool Statistics Section (debug-specific data)
+                self.render_buffer_pool_stats_section(ui);
+                ui.separator();
+                
+                // Volume Level Section (core data via interface)
+                self.render_volume_level_section(ui);
+                ui.separator();
+                
+                // Pitch Detection Section (core data via interface)
+                self.render_pitch_detection_section(ui);
+                ui.separator();
+                
+                // Permission State Section (core data via interface)
+                self.render_permission_state_section(ui);
+                ui.separator();
+                
+                // Audio Errors Section (core data via interface)
+                self.render_audio_errors_section(ui);
+                ui.separator();
+                
+                // Test Signal Controls Section (debug actions)
+                self.render_test_signal_controls(ui);
+                ui.separator();
+                
+                // Output to Speakers Controls Section (debug actions)
+                self.render_output_to_speakers_controls(ui);
+                ui.separator();
+                
+                // Background Noise Controls Section (debug actions)
+                self.render_background_noise_controls(ui);
+            });
+        });
+    }
+    
+    /// Render audio devices section (debug-specific data)
+    fn render_audio_devices_section(&self, ui: &mut Ui) {
+        let devices = self.hybrid_data.audio_devices.get();
+        
+        egui::CollapsingHeader::new("Audio Devices")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(format!("Input Devices: {}", devices.input_devices.len()));
+                for device in &devices.input_devices {
+                    ui.indent("input_device", |ui| {
+                        ui.label(format!("• {}", device.1));
+                    });
+                }
+                
+                ui.label(format!("Output Devices: {}", devices.output_devices.len()));
+                for device in &devices.output_devices {
+                    ui.indent("output_device", |ui| {
+                        ui.label(format!("• {}", device.1));
+                    });
+                }
+            });
+    }
+    
+    /// Render AudioWorklet status section (debug-specific data)
+    fn render_audioworklet_status_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("AudioWorklet Status")
+            .default_open(true)
+            .show(ui, |ui| {
+                let status = self.hybrid_data.audioworklet_status.get();
+                
+                ui.horizontal(|ui| {
+                    ui.label("State:");
+                    let (color, text) = match status.state {
+                        AudioWorkletState::Uninitialized => (Color32::GRAY, "Uninitialized"),
+                        AudioWorkletState::Initializing => (Color32::YELLOW, "Initializing"),
+                        AudioWorkletState::Ready => (Color32::GREEN, "Ready"),
+                        AudioWorkletState::Processing => (Color32::GREEN, "Processing"),
+                        AudioWorkletState::Stopped => (Color32::YELLOW, "Stopped"),
+                        AudioWorkletState::Failed => (Color32::RED, "Failed"),
+                    };
+                    ui.colored_label(color, text);
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Processor Loaded:");
+                    let color = if status.processor_loaded { Color32::GREEN } else { Color32::RED };
+                    ui.colored_label(color, status.processor_loaded.to_string());
+                });
+                
+                ui.label(format!("Chunk Size: {} samples", status.chunk_size));
+                ui.label(format!("Chunks Processed: {}", status.chunks_processed));
+                
+                if status.last_update > 0.0 {
+                    let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
+                    let age = now - status.last_update;
+                    ui.label(format!("Last Update: {:.1}s ago", age));
+                }
+            });
+    }
+    
+    /// Render performance metrics section (debug-specific data)
+    fn render_performance_metrics_section(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Performance Metrics")
+            .default_open(true)
+            .show(ui, |ui| {
+                let metrics = self.hybrid_data.performance_metrics.get();
+                
+                // Update metrics periodically
+                let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
+                if now - self.last_metrics_update > 1.0 {
+                    self.last_metrics_update = now;
+                }
+                
+                ui.horizontal(|ui| {
+                    ui.label("FPS:");
+                    let color = if metrics.fps >= 50.0 { Color32::GREEN } 
+                               else if metrics.fps >= 30.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}", metrics.fps));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Memory:");
+                    let color = if metrics.memory_usage < 50.0 { Color32::GREEN } 
+                               else if metrics.memory_usage < 80.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}%", metrics.memory_usage));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Audio Latency:");
+                    let color = if metrics.audio_latency < 20.0 { Color32::GREEN } 
+                               else if metrics.audio_latency < 50.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}ms", metrics.audio_latency));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("CPU:");
+                    let color = if metrics.cpu_usage < 50.0 { Color32::GREEN } 
+                               else if metrics.cpu_usage < 80.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}%", metrics.cpu_usage));
+                });
+            });
+    }
+    
+    /// Render buffer pool statistics section (debug-specific data)
+    fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Buffer Pool Statistics")
+            .default_open(true)
+            .show(ui, |ui| {
+                let stats = self.hybrid_data.buffer_pool_stats.get();
+                if let Some(stats) = stats {
+                    // Pool status
+                    ui.horizontal(|ui| {
+                        ui.label("Pool Status:");
+                        let status_color = if stats.available_buffers > 0 {
+                            Color32::GREEN
+                        } else {
+                            Color32::RED
+                        };
+                        ui.colored_label(status_color, format!("{}/{} available", 
+                                                              stats.available_buffers, 
+                                                              stats.pool_size));
+                    });
+                    
+                    // Pool efficiency metrics
+                    ui.horizontal(|ui| {
+                        ui.label("Hit Rate:");
+                        let hit_rate_color = if stats.pool_hit_rate > 90.0 {
+                            Color32::GREEN
+                        } else if stats.pool_hit_rate > 75.0 {
+                            Color32::YELLOW
+                        } else {
+                            Color32::RED
+                        };
+                        ui.colored_label(hit_rate_color, format!("{:.1}%", stats.pool_hit_rate));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Efficiency:");
+                        let efficiency_color = if stats.pool_efficiency > 90.0 {
+                            Color32::GREEN
+                        } else if stats.pool_efficiency > 75.0 {
+                            Color32::YELLOW
+                        } else {
+                            Color32::RED
+                        };
+                        ui.colored_label(efficiency_color, format!("{:.1}%", stats.pool_efficiency));
+                    });
+                    
+                    // Additional stats
+                    ui.label(format!("Data Transferred: {:.2} MB", stats.total_megabytes_transferred));
+                    ui.label(format!("Utilization: {:.1}%", stats.buffer_utilization_percent));
+                } else {
+                    ui.label("No buffer pool statistics available");
+                }
+            });
+    }
+    
+    /// Render volume level section (core data via interface)
+    fn render_volume_level_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Volume Level")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let Some(volume) = self.hybrid_data.get_volume_level() {
+                    ui.label(format!("RMS: {:.1} dB", volume.rms_db));
+                    ui.label(format!("Peak: {:.1} dB", volume.peak_db));
+                    
+                    // Volume bar visualization
+                    let bar_width = ui.available_width() - 100.0;
+                    let bar_height = 20.0;
+                    
+                    let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
+                    let normalized = amplitude.clamp(0.0, 1.0);
+                    let bar_color = Color32::GREEN;
+                    
+                    let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+                    
+                    let filled_width = rect.width() * normalized;
+                    let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
+                    ui.painter().rect_filled(filled_rect, 2.0, bar_color);
+                } else {
+                    ui.label("No volume data available");
+                }
+            });
+    }
+    
+    /// Render pitch detection section (core data via interface)
+    fn render_pitch_detection_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Pitch Detection")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let Some(pitch) = self.hybrid_data.get_pitch_data() {
+                    ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
+                    ui.label(format!("Note: {} ({})", pitch.note.note, pitch.note.octave));
+                    ui.label(format!("Cents: {:+.1}", pitch.note.cents));
+                    ui.label(format!("Confidence: {:.2}", pitch.confidence));
+                    ui.label(format!("Clarity: {:.2}", pitch.clarity));
+                    
+                    let now = js_sys::Date::now() / 1000.0;
+                    let age = now - pitch.timestamp;
+                    ui.label(format!("Age: {:.1}s", age));
+                } else {
+                    ui.label("No pitch detected");
+                }
+            });
+    }
+    
+    /// Render permission state section (core data via interface)
+    fn render_permission_state_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Permission State")
+            .default_open(true)
+            .show(ui, |ui| {
+                let permission = self.hybrid_data.get_microphone_permission();
+                
+                ui.horizontal(|ui| {
+                    ui.label("Microphone Permission:");
+                    let (color, text) = match permission {
+                        crate::engine::audio::AudioPermission::Uninitialized => (Color32::GRAY, "Not Requested"),
+                        crate::engine::audio::AudioPermission::Requesting => (Color32::YELLOW, "Requesting"),
+                        crate::engine::audio::AudioPermission::Granted => (Color32::GREEN, "Granted"),
+                        crate::engine::audio::AudioPermission::Denied => (Color32::RED, "Denied"),
+                        crate::engine::audio::AudioPermission::Unavailable => (Color32::RED, "Unavailable"),
+                    };
+                    ui.colored_label(color, text);
+                });
+            });
+    }
+    
+    /// Render audio errors section (core data via interface)
+    fn render_audio_errors_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Audio Errors")
+            .default_open(false)
+            .show(ui, |ui| {
+                let errors = self.hybrid_data.audio_errors.get();
+                
+                if errors.is_empty() {
+                    ui.colored_label(Color32::GREEN, "No errors");
+                } else {
+                    for error in errors {
+                        ui.colored_label(Color32::RED, format!("• {:?}", error));
+                    }
+                }
+            });
+    }
+    
+    /// Render test signal controls (debug actions)
+    fn render_test_signal_controls(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Test Signal Controls")
+            .default_open(true)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.test_signal_enabled, "Enable Test Signal").changed() {
+                        self.send_test_signal_action();
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Frequency:");
+                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 50.0..=8000.0).suffix(" Hz")).changed() {
+                        if self.test_signal_enabled {
+                            self.send_test_signal_action();
+                        }
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Volume:");
+                    if ui.add(egui::Slider::new(&mut self.test_signal_volume, 0.0..=100.0).suffix("%")).changed() {
+                        if self.test_signal_enabled {
+                            self.send_test_signal_action();
+                        }
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Waveform:");
+                    egui::ComboBox::from_label("")
+                        .selected_text(format!("{:?}", self.test_signal_waveform))
+                        .show_ui(ui, |ui| {
+                            let waveforms = [
+                                crate::engine::audio::TestWaveform::Sine,
+                                crate::engine::audio::TestWaveform::Square,
+                                crate::engine::audio::TestWaveform::Triangle,
+                                crate::engine::audio::TestWaveform::Sawtooth,
+                            ];
+                            
+                            for waveform in &waveforms {
+                                if ui.selectable_value(&mut self.test_signal_waveform, waveform.clone(), format!("{:?}", waveform)).clicked() {
+                                    if self.test_signal_enabled {
+                                        self.send_test_signal_action();
+                                    }
+                                }
+                            }
+                        });
+                });
+            });
+    }
+    
+    /// Render output to speakers controls (debug actions)
+    fn render_output_to_speakers_controls(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Output to Speakers")
+            .default_open(true)
+            .show(ui, |ui| {
+                if ui.checkbox(&mut self.output_to_speakers_enabled, "Enable Output to Speakers").changed() {
+                    self.send_output_to_speakers_action();
+                }
+            });
+    }
+    
+    /// Render background noise controls (debug actions)
+    fn render_background_noise_controls(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Background Noise Controls")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.background_noise_enabled, "Enable Background Noise").changed() {
+                        self.send_background_noise_action();
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Level:");
+                    if ui.add(egui::Slider::new(&mut self.background_noise_level, 0.0..=1.0)).changed() {
+                        if self.background_noise_enabled {
+                            self.send_background_noise_action();
+                        }
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Type:");
+                    egui::ComboBox::from_label("")
+                        .selected_text(format!("{:?}", self.background_noise_type))
+                        .show_ui(ui, |ui| {
+                            let noise_types = [
+                                crate::engine::audio::TestWaveform::WhiteNoise,
+                                crate::engine::audio::TestWaveform::PinkNoise,
+                            ];
+                            
+                            for noise_type in &noise_types {
+                                if ui.selectable_value(&mut self.background_noise_type, noise_type.clone(), format!("{:?}", noise_type)).clicked() {
+                                    if self.background_noise_enabled {
+                                        self.send_background_noise_action();
+                                    }
+                                }
+                            }
+                        });
+                });
+            });
+    }
+    
+    // Debug action helper methods
+    
+    fn send_test_signal_action(&self) {
+        let action = TestSignalAction {
+            enabled: self.test_signal_enabled,
+            frequency: self.test_signal_frequency,
+            volume: self.test_signal_volume,
+            waveform: self.test_signal_waveform.clone(),
+        };
+        
+        self.debug_actions.test_signal_trigger().fire(action);
+    }
+    
+    fn send_output_to_speakers_action(&self) {
+        let action = OutputToSpeakersAction {
+            enabled: self.output_to_speakers_enabled,
+        };
+        
+        self.debug_actions.output_to_speakers_trigger().fire(action);
+    }
+    
+    fn send_background_noise_action(&self) {
+        let action = BackgroundNoiseAction {
+            enabled: self.background_noise_enabled,
+            level: self.background_noise_level,
+            noise_type: self.background_noise_type.clone(),
+        };
+        
+        self.debug_actions.background_noise_trigger().fire(action);
+    }
+}
