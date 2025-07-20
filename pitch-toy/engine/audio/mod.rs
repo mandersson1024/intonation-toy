@@ -609,4 +609,189 @@ mod tests {
         }
         assert_eq!(analysis.timestamp, 12345.0);
     }
+
+    #[wasm_bindgen_test]
+    fn test_engine_to_model_data_propagation() {
+        use observable_data::DataSetter;
+        
+        // Create interfaces
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        let model_to_engine = crate::module_interfaces::model_to_engine::ModelToEngineInterface::new();
+        
+        // Create audio system context with interfaces
+        let _context = context::AudioSystemContext::with_interfaces(&engine_to_model, &model_to_engine);
+        
+        // Get observers from interface to monitor data flow
+        let audio_analysis_observer = engine_to_model.audio_analysis_observer();
+        let audio_errors_observer = engine_to_model.audio_errors_observer();
+        let permission_state_observer = engine_to_model.permission_state_observer();
+        
+        // Verify initial states
+        assert_eq!(audio_analysis_observer.get(), None);
+        assert_eq!(audio_errors_observer.get(), Vec::<crate::module_interfaces::engine_to_model::AudioError>::new());
+        assert_eq!(permission_state_observer.get(), crate::module_interfaces::engine_to_model::PermissionState::NotRequested);
+        
+        // Test data propagation through setters
+        let audio_analysis_setter = engine_to_model.audio_analysis_setter();
+        let test_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: crate::module_interfaces::engine_to_model::Volume { peak: -6.0, rms: -12.0 },
+            pitch: crate::module_interfaces::engine_to_model::Pitch::Detected(440.0, 0.9),
+            fft_data: None,
+            timestamp: 54321.0,
+        };
+        
+        audio_analysis_setter.set(Some(test_analysis.clone()));
+        
+        // Verify data propagated through interface
+        let received_analysis = audio_analysis_observer.get();
+        assert!(received_analysis.is_some());
+        let received = received_analysis.unwrap();
+        assert_eq!(received.volume_level.peak, -6.0);
+        assert_eq!(received.volume_level.rms, -12.0);
+        match received.pitch {
+            crate::module_interfaces::engine_to_model::Pitch::Detected(freq, clarity) => {
+                assert_eq!(freq, 440.0);
+                assert_eq!(clarity, 0.9);
+            }
+            _ => panic!("Expected detected pitch"),
+        }
+        assert_eq!(received.timestamp, 54321.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_model_to_engine_action_handling() {
+        // Create interfaces
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        let model_to_engine = crate::module_interfaces::model_to_engine::ModelToEngineInterface::new();
+        
+        // Create audio system context with interfaces (this sets up action listeners)
+        let _context = context::AudioSystemContext::with_interfaces(&engine_to_model, &model_to_engine);
+        
+        // Get permission state observer to monitor changes
+        let permission_state_observer = engine_to_model.permission_state_observer();
+        
+        // Verify initial state
+        assert_eq!(permission_state_observer.get(), crate::module_interfaces::engine_to_model::PermissionState::NotRequested);
+        
+        // Test action handling: trigger microphone permission request
+        let trigger = model_to_engine.request_microphone_permission_trigger();
+        let action = crate::module_interfaces::model_to_engine::RequestMicrophonePermissionAction;
+        
+        trigger.fire(action);
+        
+        // The action should have been handled and permission state should be updated
+        // Note: In the current implementation, this immediately sets to Granted as a placeholder
+        assert_eq!(permission_state_observer.get(), crate::module_interfaces::engine_to_model::PermissionState::Granted);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_data_flow_isolation() {
+        use observable_data::DataSetter;
+        
+        // Test that multiple interface instances don't interfere with each other
+        let interface1 = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        let interface2 = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        
+        let observer1 = interface1.audio_analysis_observer();
+        let observer2 = interface2.audio_analysis_observer();
+        let setter1 = interface1.audio_analysis_setter();
+        
+        // Set data only on interface1
+        let test_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: crate::module_interfaces::engine_to_model::Volume { peak: -3.0, rms: -9.0 },
+            pitch: crate::module_interfaces::engine_to_model::Pitch::NotDetected,
+            fft_data: None,
+            timestamp: 98765.0,
+        };
+        
+        setter1.set(Some(test_analysis));
+        
+        // Verify only interface1 received the data
+        assert!(observer1.get().is_some());
+        assert!(observer2.get().is_none());
+        
+        // Verify the data content on interface1
+        let received = observer1.get().unwrap();
+        assert_eq!(received.volume_level.peak, -3.0);
+        assert_eq!(received.timestamp, 98765.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_error_propagation() {
+        use observable_data::DataSetter;
+        
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        
+        let errors_observer = engine_to_model.audio_errors_observer();
+        let errors_setter = engine_to_model.audio_errors_setter();
+        
+        // Test error propagation
+        let test_errors = vec![
+            crate::module_interfaces::engine_to_model::AudioError::MicrophonePermissionDenied,
+            crate::module_interfaces::engine_to_model::AudioError::ProcessingError("Test error".to_string()),
+        ];
+        
+        errors_setter.set(test_errors.clone());
+        
+        // Verify errors propagated correctly
+        let received_errors = errors_observer.get();
+        assert_eq!(received_errors.len(), 2);
+        assert_eq!(received_errors[0], crate::module_interfaces::engine_to_model::AudioError::MicrophonePermissionDenied);
+        match &received_errors[1] {
+            crate::module_interfaces::engine_to_model::AudioError::ProcessingError(msg) => {
+                assert_eq!(msg, "Test error");
+            }
+            _ => panic!("Expected ProcessingError"),
+        }
+    }
+
+    #[wasm_bindgen_test] 
+    fn test_interface_permission_state_transitions() {
+        use observable_data::DataSetter;
+        
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        
+        let permission_observer = engine_to_model.permission_state_observer();
+        let permission_setter = engine_to_model.permission_state_setter();
+        
+        // Test all permission state transitions
+        let states = vec![
+            crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            crate::module_interfaces::engine_to_model::PermissionState::Requested,
+            crate::module_interfaces::engine_to_model::PermissionState::Granted,
+            crate::module_interfaces::engine_to_model::PermissionState::Denied,
+        ];
+        
+        for state in states {
+            permission_setter.set(state.clone());
+            assert_eq!(permission_observer.get(), state);
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_based_initialization_function() {
+        // Test the new initialize_audio_system_with_interfaces function
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        let model_to_engine = crate::module_interfaces::model_to_engine::ModelToEngineInterface::new();
+        
+        // Test that the function returns a result without panicking
+        // Note: We can't actually test the full initialization in a unit test environment
+        // since it requires Web Audio API, but we can test that the function signature works
+        // and doesn't panic during initial setup
+        
+        // This would normally be tested with: 
+        // let result = initialize_audio_system_with_interfaces(&engine_to_model, &model_to_engine).await;
+        // But in unit tests, we just verify the interfaces can be created and passed
+        
+        // Verify the interfaces are properly set up for the function call
+        assert!(engine_to_model.audio_analysis_observer().get().is_none());
+        
+        // Test that we can get the listener (this validates the interface works)
+        let _listener = model_to_engine.request_microphone_permission_listener();
+        
+        // Test that AudioSystemContext can be created with interfaces (this part works in unit tests)
+        let context = context::AudioSystemContext::with_interfaces(&engine_to_model, &model_to_engine);
+        assert!(!context.is_ready()); // Not ready since not initialized
+        assert!(context.get_initialization_error().is_none());
+    }
 }

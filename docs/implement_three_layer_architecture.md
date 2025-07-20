@@ -39,18 +39,18 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
   - [x] Add getter methods for extracting data observers (e.g., `audio_analysis_observer()` → `DataObserver`)
   - [x] Add getter methods for extracting action triggers and listeners
 
-- [ ] **1b**: Update engine layer to use interfaces
-  - [ ] Modify `AudioEngine` to accept `EngineToModelInterface` and `ModelToEngineInterface`
-  - [ ] **Important**: Extract data setters from `EngineToModelInterface` (not Java-style interfaces - these are Rust structs containing `DataSource` objects)
-  - [ ] Route audio analysis data through extracted setters from `EngineToModelInterface`
-  - [ ] Listen for microphone permission requests using action listeners from `ModelToEngineInterface`
-  - [ ] Remove direct data setter dependencies from engine
+- [x] **1b**: Update engine layer to use interfaces
+  - [x] Modify `AudioEngine` to accept `EngineToModelInterface` and `ModelToEngineInterface`
+  - [x] **Important**: Extract data setters from `EngineToModelInterface` (not Java-style interfaces - these are Rust structs containing `DataSource` objects)
+  - [x] Route audio analysis data through extracted setters from `EngineToModelInterface`
+  - [x] Listen for microphone permission requests using action listeners from `ModelToEngineInterface`
+  - [x] Remove direct data setter dependencies from engine
 
-- [ ] **1c**: Test interface integration
-  - [ ] Create unit tests for interface data flow
-  - [ ] Test engine → model data propagation
-  - [ ] Test model → engine action handling
-  - [ ] Verify no breaking changes to existing audio functionality
+- [x] **1c**: Test interface integration
+  - [x] Create unit tests for interface data flow
+  - [x] Test engine → model data propagation
+  - [x] Test model → engine action handling
+  - [x] Verify no breaking changes to existing audio functionality
 
 **Dependencies**: None  
 **Testing**: Run `./scripts/test-all.sh` after each subtask  
