@@ -14,15 +14,6 @@ This document lists functions that are defined but never used anywhere in the co
 
 These functions implement builder patterns for configuration objects but are never called:
 
-
-#### ErrorContext Builder Methods
-**File:** [`pitch-toy/engine/audio/message_protocol.rs`](../pitch-toy/engine/audio/message_protocol.rs)
-
-- [`with_stack_trace`](../pitch-toy/engine/audio/message_protocol.rs#L2445) (line 2445)
-- [`with_message_context`](../pitch-toy/engine/audio/message_protocol.rs#L2451) (line 2451)
-- [`with_debug_info`](../pitch-toy/engine/audio/message_protocol.rs#L2463) (line 2463)
-- [`with_thread_id`](../pitch-toy/engine/audio/message_protocol.rs#L2469) (line 2469)
-
 #### MessageContext Builder Methods
 **File:** [`pitch-toy/engine/audio/message_protocol.rs`](../pitch-toy/engine/audio/message_protocol.rs)
 

@@ -2441,35 +2441,12 @@ impl ErrorContext {
         Ok(context)
     }
 
-    /// Add stack trace information
-    pub fn with_stack_trace(mut self, stack_trace: Vec<String>) -> Self {
-        self.stack_trace = Some(stack_trace);
-        self
-    }
-
-    /// Add message context information  
-    pub fn with_message_context(mut self, message_context: MessageContext) -> Self {
-        self.message_context = Some(message_context);
-        self
-    }
-
     /// Add system state information
     pub fn with_system_state(mut self, system_state: SystemState) -> Self {
         self.system_state = Some(system_state);
         self
     }
 
-    /// Add debug information
-    pub fn with_debug_info(mut self, debug_info: String) -> Self {
-        self.debug_info = Some(debug_info);
-        self
-    }
-
-    /// Add thread identifier
-    pub fn with_thread_id(mut self, thread_id: String) -> Self {
-        self.thread_id = Some(thread_id);
-        self
-    }
 }
 
 impl MessageContext {
