@@ -123,20 +123,20 @@ User Input → Presentation Layer
 - **Observable Data**: PermissionState enum { NotRequested, Requested, Granted, Denied }
 
 ### Model → Engine Interface
-- **Action**: Request microphone permission
+- **Action**: RequestMicrophonePermissionAction
 
 ### Model → Presentation Interface
 - **Observable Data**: Transformed visualization data [PROPOSAL: VisualizationData { pitch_y: f32 (0.0-1.0), volume_scale: f32, note_info: NoteInfo { name: String, octave: i32, cents_deviation: f32 } }]
 - **Observable Data**: Application state [PROPOSAL: AppState { is_recording: bool, tuning_system: TuningSystem, visualization_mode: VisualizationMode, errors: Vec<Error>, permission_state: PermissionState }]
 - **Observable Data**: User-friendly metrics [PROPOSAL: Metrics { note: String, octave: i32, cents_off: f32, volume_db: f32, pitch_stability: f32 (0.0-1.0) }]
-- **Observable Data**: Historical data [PROPOSAL: History { pitch_buffer: CircularBuffer<(f32, Timestamp)>, volume_buffer: CircularBuffer<(f32, Timestamp)>, window_size_ms: u32 }]
-- **Observable Data**: Animation parameters [PROPOSAL: AnimationParams { interpolation_factor: f32, easing: EasingFunction, transition_progress: f32, particles: Vec<Particle> }]
 
 ### Presentation → Model Interface
-- **Action**: Request microphone permission
+- **Action**: RequestMicrophonePermissionAction
 - **Action**: SetTuningSystemAction { tuning_system: TuningSystem }
-- **Action**: SetRootNotePitchAction { root_note_pitch: f32 }
-- **Action**: Theme selection (roadmap)
+- **Action**: SetRootNoteAction { root_note: Note }
+- **Action**: IncreaseRootNoteAction
+- **Action**: DecreaseRootNoteAction
+- **Action**: SelectThemeAction (roadmap)
 
 ## Benefits of This Architecture
 
