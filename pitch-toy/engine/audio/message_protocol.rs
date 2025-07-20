@@ -2536,30 +2536,6 @@ impl SystemState {
         }
     }
 
-    /// Add memory usage information
-    pub fn with_memory_usage(mut self, memory_usage: usize) -> Self {
-        self.memory_usage = Some(memory_usage);
-        self
-    }
-
-    /// Add queue depth information
-    pub fn with_queue_depth(mut self, queue_depth: usize) -> Self {
-        self.queue_depth = Some(queue_depth);
-        self
-    }
-
-    /// Add active buffer count
-    pub fn with_active_buffers(mut self, active_buffers: usize) -> Self {
-        self.active_buffers = Some(active_buffers);
-        self
-    }
-
-    /// Add audio processing status
-    pub fn with_audio_processing_active(mut self, active: bool) -> Self {
-        self.audio_processing_active = Some(active);
-        self
-    }
-
     /// Add sample rate information
     pub fn with_sample_rate(mut self, sample_rate: f64) -> Self {
         self.sample_rate = Some(sample_rate);
@@ -2572,17 +2548,6 @@ impl SystemState {
         self
     }
 
-    /// Add processor load information
-    pub fn with_processor_load(mut self, processor_load: f32) -> Self {
-        self.processor_load = Some(processor_load);
-        self
-    }
-
-    /// Add available heap information
-    pub fn with_available_heap(mut self, available_heap: usize) -> Self {
-        self.available_heap = Some(available_heap);
-        self
-    }
 }
 
 impl TestSignalGeneratorConfig {
