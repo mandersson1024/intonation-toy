@@ -21,12 +21,11 @@ use egui_dev_console::ConsoleCommandRegistry;
 use crate::engine::audio::console_service::ConsoleAudioService;
 
 use engine::platform::{Platform, PlatformValidationResult};
-use debug::egui::{EguiMicrophoneButton, EguiLiveDataPanel, HybridEguiLiveDataPanel};
+use debug::egui::{EguiMicrophoneButton, HybridEguiLiveDataPanel};
 
 use presentation::graphics::SpriteScene;
 
-// Import LiveData type
-use live_data::LiveData;
+// Import for hybrid architecture only
 
 // Import action system
 use action::{Action, ActionTrigger, ActionListener};
@@ -116,89 +115,7 @@ pub struct UIControlListeners {
 
 
 
-pub async fn run_three_d(
-    live_data: LiveData, 
-    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
-    triggers: UIControlTriggers,
-) {
-    dev_log!("Starting three-d with red sprites");
-    
-    let window = Window::new(WindowSettings {
-        title: "pitch-toy".to_string(),
-        max_size: Some((1280, 720)),
-        ..Default::default()
-    })
-    .unwrap();
-    
-    let context = window.gl();
-    let mut scene = SpriteScene::new(&context, window.viewport());
-    let mut gui = three_d::GUI::new(&context);
-    
-    let mut command_registry = ConsoleCommandRegistry::new();
-    crate::engine::platform::commands::register_platform_commands(&mut command_registry);
-    crate::engine::audio::register_audio_commands(&mut command_registry);
-
-    let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
-    let mut microphone_button = EguiMicrophoneButton::new(
-        live_data.microphone_permission.clone(),
-        triggers.microphone_permission.clone(),
-        triggers.output_to_speakers.clone(),
-        triggers.test_signal.clone(),
-        triggers.background_noise.clone(),
-    );
-    
-    // Create LiveDataPanel with action triggers
-    let mut live_data_panel = EguiLiveDataPanel::new(live_data);
-
-    dev_log!("Starting three-d + egui render loop");
-    
-    // Performance tracking
-    let mut frame_count = 0u32;
-    let mut last_fps_update = 0.0;
-    let mut fps = 0.0;
-    
-    window.render_loop(move |mut frame_input| {
-        // Update FPS counter
-        frame_count += 1;
-        let current_time = frame_input.accumulated_time as f64;
-        
-        // Update FPS every second
-        if current_time - last_fps_update >= 1000.0 {
-            fps = (frame_count as f64) / ((current_time - last_fps_update) / 1000.0);
-            frame_count = 0;
-            last_fps_update = current_time;
-            
-            // Update performance metrics
-            let metrics = debug::egui::live_data_panel::PerformanceMetrics {
-                fps,
-                memory_usage: 0.0, // TODO: Implement when Performance.memory is available
-                audio_latency: 0.0, // TODO: Get from audio system
-                cpu_usage: 0.0, // TODO: Estimate from frame time
-            };
-            performance_metrics_setter.set(metrics);
-        }
-        scene.update_viewport(frame_input.viewport);
-        scene.render(&mut frame_input.screen());
-
-        gui.update(&mut frame_input.events, frame_input.accumulated_time, frame_input.viewport, frame_input.device_pixel_ratio,
-            |gui_context| {
-                // Configure egui to remove window shadows
-                gui_context.set_visuals(egui::Visuals {
-                    window_shadow: egui::Shadow::NONE,
-                    popup_shadow: egui::Shadow::NONE,
-                    ..egui::Visuals::default()
-                });
-                
-                dev_console.render(gui_context);
-                microphone_button.render(gui_context);
-                live_data_panel.render(gui_context);
-            }
-        );
-        
-        let _ = gui.render();
-        FrameOutput::default()
-    });
-}
+// Legacy run_three_d function removed - using hybrid architecture only
 
 /// Run three-d with hybrid debug GUI architecture
 pub async fn run_three_d_hybrid(
@@ -340,7 +257,7 @@ pub async fn start() {
 
     web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing application".into());
     
-    // Create data sources and LiveData directly in start()
+    // Create data sources for debug-specific data and bridge components
     use observable_data::DataSource;
     
     let microphone_permission_source = DataSource::new(engine::audio::AudioPermission::Uninitialized);
@@ -353,16 +270,6 @@ pub async fn start() {
     let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
     let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
     let buffer_pool_stats_source = DataSource::new(None::<engine::audio::message_protocol::BufferPoolStats>);
-    
-    let _live_data = live_data::LiveData {
-        microphone_permission: microphone_permission_source.observer(),
-        audio_devices: audio_devices_source.observer(),
-        performance_metrics: performance_metrics_source.observer(),
-        volume_level: volume_level_source.observer(),
-        pitch_data: pitch_data_source.observer(),
-        audioworklet_status: audioworklet_status_source.observer(),
-        buffer_pool_stats: buffer_pool_stats_source.observer(),
-    };
     
     let microphone_permission_setter = microphone_permission_source.setter();
     let audio_devices_setter = audio_devices_source.setter();
