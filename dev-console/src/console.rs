@@ -7,7 +7,7 @@ use web_sys::Storage;
 /// Local storage key for console history persistence (same as original dev-console)
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";
 
-pub struct EguiDevConsole {
+pub struct DevConsole {
     command_registry: ConsoleCommandRegistry,
     output_manager: ConsoleOutputManager,
     history: ConsoleHistory,
@@ -15,7 +15,7 @@ pub struct EguiDevConsole {
     is_visible: bool
 }
 
-impl EguiDevConsole {
+impl DevConsole {
     pub fn new() -> Self {
         let mut output_manager = ConsoleOutputManager::new();
         

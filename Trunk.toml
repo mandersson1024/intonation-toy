@@ -3,5 +3,5 @@ target = "pitch-toy/index.html"
 dist = "dist"
 
 [watch]
-watch = ["pitch-toy", "egui-dev-console"]
+watch = ["pitch-toy", "dev-console"]
 ignore = ["target", "dist"]

@@ -18,11 +18,8 @@ wasm-pack test --node pitch-toy
 # Observable data library
 wasm-pack test --node observable-data
 
-# Event dispatcher
-wasm-pack test --node event-dispatcher
-
 # Egui dev console
-wasm-pack test --node egui-dev-console
+wasm-pack test --node dev-console
 ```
 
 ## Why wasm-pack test --node?

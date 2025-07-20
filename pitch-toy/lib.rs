@@ -133,7 +133,7 @@ pub async fn run_three_d(
     crate::engine::platform::commands::register_platform_commands(&mut command_registry);
     crate::engine::audio::register_audio_commands(&mut command_registry);
 
-    let mut dev_console = egui_dev_console::EguiDevConsole::new_with_registry(command_registry);
+    let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
     let mut microphone_button = EguiMicrophoneButton::new(
         live_data.microphone_permission.clone(),
         triggers.microphone_permission.clone(),

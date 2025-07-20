@@ -1,3 +1,3 @@
 [workspace]
-members = ["pitch-toy", "egui-dev-console", "observable-data", "action"]
+members = ["pitch-toy", "dev-console", "observable-data", "action"]
 resolver = "2"
