@@ -279,27 +279,32 @@ impl HybridEguiLiveDataPanel {
         egui::CollapsingHeader::new("Volume Level")
             .default_open(true)
             .show(ui, |ui| {
+                // Always reserve space for consistent height
                 if let Some(volume) = self.hybrid_data.get_volume_level() {
                     ui.label(format!("RMS: {:.1} dB", volume.rms_db));
                     ui.label(format!("Peak: {:.1} dB", volume.peak_db));
-                    
-                    // Volume bar visualization
-                    let bar_width = ui.available_width() - 100.0;
-                    let bar_height = 20.0;
-                    
-                    let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
-                    let normalized = amplitude.clamp(0.0, 1.0);
-                    let bar_color = Color32::GREEN;
-                    
-                    let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-                    ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
-                    
-                    let filled_width = rect.width() * normalized;
-                    let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
-                    ui.painter().rect_filled(filled_rect, 2.0, bar_color);
                 } else {
-                    ui.label("No volume data available");
+                    ui.label("RMS: -- dB");
+                    ui.label("Peak: -- dB");
                 }
+                
+                // Volume bar visualization (always present)
+                let bar_width = ui.available_width() - 100.0;
+                let bar_height = 20.0;
+                
+                let (normalized, bar_color) = if let Some(volume) = self.hybrid_data.get_volume_level() {
+                    let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
+                    (amplitude.clamp(0.0, 1.0), Color32::GREEN)
+                } else {
+                    (0.0, Color32::GRAY)
+                };
+                
+                let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+                
+                let filled_width = rect.width() * normalized;
+                let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
+                ui.painter().rect_filled(filled_rect, 2.0, bar_color);
             });
     }
     
@@ -308,6 +313,7 @@ impl HybridEguiLiveDataPanel {
         egui::CollapsingHeader::new("Pitch Detection")
             .default_open(true)
             .show(ui, |ui| {
+                // Always reserve space for consistent height
                 if let Some(pitch) = self.hybrid_data.get_pitch_data() {
                     ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
                     ui.label(format!("Note: {} ({})", pitch.note.note, pitch.note.octave));
@@ -319,7 +325,12 @@ impl HybridEguiLiveDataPanel {
                     let age = now - pitch.timestamp;
                     ui.label(format!("Age: {:.1}s", age));
                 } else {
-                    ui.label("No pitch detected");
+                    ui.label("Frequency: -- Hz");
+                    ui.label("Note: -- (-)");
+                    ui.label("Cents: --");
+                    ui.label("Confidence: --");
+                    ui.label("Clarity: --");
+                    ui.label("Age: --");
                 }
             });
     }
