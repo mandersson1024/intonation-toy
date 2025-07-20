@@ -135,8 +135,11 @@ User Input → Presentation Layer
 ### Presentation → Model Interface
 - **Action**: Request microphone permission
 - **Action**: User interactions [PROPOSAL: UserAction enum { Click(x: f32, y: f32), Drag(start: Point, end: Point), KeyPress(key: String), Touch(touches: Vec<Touch>) }]
-- **Action**: Configuration changes [PROPOSAL: ConfigAction enum { SetTuningSystem(TuningSystem), SetVisualizationMode(VisualizationMode), SetSensitivity(f32), SetReferencePitch(f32), ToggleFeature(FeatureName) }]
-- **Action**: Control commands [PROPOSAL: ControlAction enum { StartRecording, StopRecording, ResetVisualization, ClearHistory, Calibrate }]
+- **Action**: Configuration changes - separate actions for each configuration:
+  - SetTuningSystemAction { tuning_system: TuningSystem }
+  - SetSensitivityAction { sensitivity: f32 }
+  - SetReferencePitchAction { reference_pitch: f32 }
+  - ToggleFeatureAction { feature: FeatureName, enabled: bool }
 - **Action**: Theme selection (roadmap)
 
 ## Benefits of This Architecture
