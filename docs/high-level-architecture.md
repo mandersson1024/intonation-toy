@@ -1,8 +1,8 @@
-# Pitch Toy Architecture Proposal
+# Pitch Toy High-Level Architecture
 
 ## Overview
 
-This document outlines a three-layer architecture for the pitch toy application. The architecture follows a clean separation of concerns, with each layer having distinct responsibilities and well-defined interfaces.
+This document describes the three-layer architecture of the pitch toy application. The architecture follows a clean separation of concerns, with each layer having distinct responsibilities and well-defined interfaces.
 
 ## Architecture Layers
 
