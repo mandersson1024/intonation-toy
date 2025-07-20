@@ -108,8 +108,8 @@ User Input → Presentation Layer
 
 ### Engine → Model Interface
 - **Observable Data**: Option<AudioAnalysis> containing:
-  - Pitch: enum { Detected(f32 (Hz), confidence), NotDetected }
-  - Volume level (amplitude Peak + RMS)
+  - volume_level: Volume { peak: f32, rms: f32 }
+  - pitch: enum { Detected(f32, clarity), NotDetected }
   - FFT data: Option<Vec<f32>> (roadmap)
   - Timestamp
 - **Observable Data**: Vec<AudioError> (multiple simultaneous errors possible)
@@ -120,22 +120,23 @@ User Input → Presentation Layer
     - BrowserApiNotSupported
     - AudioContextSuspended
     - AudioContextInitFailed
-- **Observable Data**: PermissionState enum { NotRequested, Requested, Granted, Denied }
+- **Observable Data**: PermissionState enum
+  - variants:
+     NotRequested 
+     Requested
+     Granted
+     Denied
 
 ### Model → Engine Interface
 - **Action**: RequestMicrophonePermissionAction
 
 ### Model → Presentation Interface
-- **Observable Data**: Transformed visualization data (VisualizationData):
-  - volume: Volume { peak: f32, rms: f32 }
-  - pitch_clarity: f32
-  - relative_pitch: f32 (1.0 = same as root note)
-  - cents_off: f32
-  - closest_note: Note { name: String, octave: i32, pitch: f32 }
-- **Observable Data**: Application state (AppState):
-  - tuning_system: TuningSystem
-  - errors: Vec<Error>
-  - permission_state: PermissionState
+- **Observable Data**: volume_level     - Volume { peak: f32, rms: f32 }
+- **Observable Data**: pitch            - enum { Detected(f32, clarity), NotDetected }
+- **Observable Data**: accuracy         - Accuracy { closest_note, accuracy }
+- **Observable Data**: tuning_system    - TuningSystem
+- **Observable Data**: errors           - Vec<Error>
+- **Observable Data**: permission_state - PermissionState
 
 ### Presentation → Model Interface
 - **Action**: RequestMicrophonePermissionAction
@@ -143,7 +144,7 @@ User Input → Presentation Layer
 - **Action**: SetRootNoteAction { root_note: Note }
 - **Action**: IncreaseRootNoteAction
 - **Action**: DecreaseRootNoteAction
-- **Action**: SelectThemeAction (roadmap)
+- **Action**: SelectThemeAction { theme : Theme }
 
 ## Benefits of This Architecture
 
