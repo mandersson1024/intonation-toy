@@ -106,36 +106,19 @@ impl From<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatus {
 
 /// EGUI Live Data Panel - Real-time audio monitoring and control interface
 pub struct EguiLiveDataPanel {
-    /// Audio service for device operations
-    audio_service: Rc<ConsoleAudioServiceImpl>,
-    
     live_data: LiveData,
-    
-    
-    /// UI state
     last_metrics_update: f64,
-    
-    /// Previous values to detect changes
-    // prev_output_to_speakers moved to microphone button
-    
-    /// Action triggers for UI control actions
-    ui_control_triggers: crate::UIControlTriggers,
 }
 
 impl EguiLiveDataPanel {
     /// Create new EGUI Live Data Panel
     pub fn new(
-        audio_service: Rc<ConsoleAudioServiceImpl>,
         live_data: LiveData,
-        ui_control_triggers: crate::UIControlTriggers,
     ) -> Self {
             
         Self {
-            audio_service,
             live_data,
-                    last_metrics_update: 0.0,
-            // prev_output_to_speakers moved to microphone button
-            ui_control_triggers,
+            last_metrics_update: 0.0,
         }
     }
     

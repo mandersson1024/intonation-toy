@@ -149,7 +149,7 @@ pub async fn run_three_d(
     // No need to set it again here
     
     // Create LiveDataPanel with action triggers
-    let mut live_data_panel = EguiLiveDataPanel::new(audio_service.clone(), live_data, triggers.clone());
+    let mut live_data_panel = EguiLiveDataPanel::new(live_data);
 
     dev_log!("Starting three-d + egui render loop");
     

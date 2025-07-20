@@ -189,7 +189,6 @@ mod tests {
         let trigger1 = action.trigger();
         let trigger2 = trigger1.clone();
         let listener1 = action.listener();
-        let listener2 = listener1.clone();
 
         let received = Rc::new(RefCell::new(Vec::new()));
         let received_clone = received.clone();

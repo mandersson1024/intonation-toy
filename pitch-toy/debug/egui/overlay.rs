@@ -30,7 +30,6 @@ impl Default for TestSignalConfig {
 pub struct EguiMicrophoneButton {
     microphone_button: MicrophoneButton,
     output_to_speakers: bool,
-    prev_output_to_speakers: bool,
     output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
     test_signal_config: TestSignalConfig,
     prev_test_signal_config: TestSignalConfig,
@@ -65,7 +64,6 @@ impl EguiMicrophoneButton {
         Self {
             microphone_button,
             output_to_speakers: false,
-            prev_output_to_speakers: false,
             output_to_speakers_trigger,
             test_signal_config: test_signal_config.clone(),
             prev_test_signal_config: test_signal_config,
