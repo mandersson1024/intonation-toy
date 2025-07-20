@@ -372,11 +372,127 @@ pub async fn start() {
     let volume_level_setter = volume_level_source.setter();
     let buffer_pool_stats_setter = buffer_pool_stats_source.setter();
     
+    // Create interfaces for hybrid architecture first
+    let engine_to_model = module_interfaces::engine_to_model::EngineToModelInterface::new();
+    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
+    
+    // Create bridge setters that feed data into both legacy and interface systems
+    let audio_analysis_setter = engine_to_model.audio_analysis_setter();
+    
+    // Create shared state for combining volume and pitch data
+    use std::sync::{Arc, Mutex};
+    let shared_audio_state = Arc::new(Mutex::new((
+        Option::<debug::egui::live_data_panel::VolumeLevelData>::None,
+        Option::<debug::egui::live_data_panel::PitchData>::None,
+    )));
+    
+    // Create bridge volume setter that updates both legacy and interface
+    let volume_bridge_setter = {
+        let legacy_setter = volume_level_setter.clone();
+        let interface_setter = audio_analysis_setter.clone();
+        let state = shared_audio_state.clone();
+        
+        struct VolumeBridgeSetter {
+            legacy: observable_data::DataSourceSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>,
+            interface: observable_data::DataSourceSetter<Option<module_interfaces::engine_to_model::AudioAnalysis>>,
+            state: Arc<Mutex<(Option<debug::egui::live_data_panel::VolumeLevelData>, Option<debug::egui::live_data_panel::PitchData>)>>,
+        }
+        
+        impl observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>> for VolumeBridgeSetter {
+            fn set(&self, data: Option<debug::egui::live_data_panel::VolumeLevelData>) {
+                // Update legacy setter
+                self.legacy.set(data.clone());
+                
+                // Update shared state and interface
+                if let Ok(mut state) = self.state.lock() {
+                    state.0 = data.clone();
+                    
+                    // Create combined audio analysis
+                    let audio_analysis = module_interfaces::engine_to_model::AudioAnalysis {
+                        volume_level: if let Some(volume_data) = &state.0 {
+                            module_interfaces::engine_to_model::Volume {
+                                peak: volume_data.peak_db,
+                                rms: volume_data.rms_db,
+                            }
+                        } else {
+                            module_interfaces::engine_to_model::Volume { peak: 0.0, rms: 0.0 }
+                        },
+                        pitch: if let Some(pitch_data) = &state.1 {
+                            module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
+                        } else {
+                            module_interfaces::engine_to_model::Pitch::NotDetected
+                        },
+                        fft_data: None,
+                        timestamp: js_sys::Date::now() / 1000.0,
+                    };
+                    self.interface.set(Some(audio_analysis));
+                }
+            }
+        }
+        
+        std::rc::Rc::new(VolumeBridgeSetter {
+            legacy: legacy_setter,
+            interface: interface_setter,
+            state,
+        })
+    };
+    
+    // Create bridge pitch setter that updates both legacy and interface
+    let pitch_bridge_setter = {
+        let legacy_setter = pitch_data_setter.clone();
+        let interface_setter = audio_analysis_setter.clone();
+        let state = shared_audio_state.clone();
+        
+        struct PitchBridgeSetter {
+            legacy: observable_data::DataSourceSetter<Option<debug::egui::live_data_panel::PitchData>>,
+            interface: observable_data::DataSourceSetter<Option<module_interfaces::engine_to_model::AudioAnalysis>>,
+            state: Arc<Mutex<(Option<debug::egui::live_data_panel::VolumeLevelData>, Option<debug::egui::live_data_panel::PitchData>)>>,
+        }
+        
+        impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> for PitchBridgeSetter {
+            fn set(&self, data: Option<debug::egui::live_data_panel::PitchData>) {
+                // Update legacy setter
+                self.legacy.set(data.clone());
+                
+                // Update shared state and interface
+                if let Ok(mut state) = self.state.lock() {
+                    state.1 = data.clone();
+                    
+                    // Create combined audio analysis
+                    let audio_analysis = module_interfaces::engine_to_model::AudioAnalysis {
+                        volume_level: if let Some(volume_data) = &state.0 {
+                            module_interfaces::engine_to_model::Volume {
+                                peak: volume_data.peak_db,
+                                rms: volume_data.rms_db,
+                            }
+                        } else {
+                            module_interfaces::engine_to_model::Volume { peak: 0.0, rms: 0.0 }
+                        },
+                        pitch: if let Some(pitch_data) = &state.1 {
+                            module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
+                        } else {
+                            module_interfaces::engine_to_model::Pitch::NotDetected
+                        },
+                        fft_data: None,
+                        timestamp: if let Some(pitch_data) = data { pitch_data.timestamp } else { js_sys::Date::now() / 1000.0 },
+                    };
+                    self.interface.set(Some(audio_analysis));
+                }
+            }
+        }
+        
+        std::rc::Rc::new(PitchBridgeSetter {
+            legacy: legacy_setter,
+            interface: interface_setter,
+            state,
+        })
+    };
+    
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
     let audio_context = match initialize_audio_systems_new(
-        std::rc::Rc::new(pitch_data_setter.clone()),
-        std::rc::Rc::new(volume_level_setter.clone()),
+        pitch_bridge_setter,
+        volume_bridge_setter,
         std::rc::Rc::new(audioworklet_status_setter.clone()),
         std::rc::Rc::new(buffer_pool_stats_setter.clone())
     ).await {
@@ -412,9 +528,7 @@ pub async fn start() {
     let listeners = ui_control_actions.get_listeners();
     let triggers = ui_control_actions.get_triggers();
     
-    // Create interfaces for hybrid architecture
-    let engine_to_model = module_interfaces::engine_to_model::EngineToModelInterface::new();
-    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
+    // Interfaces already created above for bridge setters
     
     // Setup audio module listeners for UI actions (including debug actions)
     match audio_context {
