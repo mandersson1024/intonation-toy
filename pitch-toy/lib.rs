@@ -142,12 +142,6 @@ pub async fn run_three_d(
         triggers.background_noise.clone(),
     );
     
-    // Create audio service for LiveDataPanel
-    let audio_service = std::rc::Rc::new(engine::audio::create_console_audio_service());
-    
-    // Pitch data setter is now configured during AudioSystemContext initialization
-    // No need to set it again here
-    
     // Create LiveDataPanel with action triggers
     let mut live_data_panel = EguiLiveDataPanel::new(live_data);
 
