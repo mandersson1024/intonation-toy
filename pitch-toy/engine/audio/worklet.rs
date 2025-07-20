@@ -106,7 +106,6 @@ pub struct AudioWorkletConfig {
 /// Shared data for AudioWorklet message handling
 struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
-    last_volume_analysis: Option<VolumeAnalysis>,
     chunks_processed: u32,
     volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::VolumeLevelData>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
@@ -121,7 +120,6 @@ impl AudioWorkletSharedData {
     ) -> Self {
         Self {
             volume_detector: None,
-            last_volume_analysis: None,
             chunks_processed: 0,
             volume_level_setter,
             pitch_analyzer: None,
@@ -487,11 +485,7 @@ impl AudioWorkletManager {
     ) {
         let data = event.data();
         
-        // Add debug log for the first few messages
         let chunks_processed = shared_data.borrow().chunks_processed;
-        if chunks_processed <= 5 {
-            // AudioWorklet message received
-        }
         
         // Try to deserialize using structured message protocol
         if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
@@ -624,7 +618,6 @@ impl AudioWorkletManager {
             
             // Store in shared data for other components
             shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
-        } else {
         }
         
         // Validate the batch metadata
@@ -646,19 +639,12 @@ impl AudioWorkletManager {
             
             if let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) {
                 if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
-                    if chunks_processed <= 5 {
-                        // Successfully extracted ArrayBuffer
-                    }
                     
                     // Convert ArrayBuffer to Float32Array for processing
                     let float32_array = js_sys::Float32Array::new(&array_buffer);
                     let array_length = float32_array.length() as usize;
                     let mut audio_samples = vec![0.0f32; array_length];
                     float32_array.copy_to(&mut audio_samples);
-                    
-                    if chunks_processed <= 5 {
-                        // Converted to audio samples for processing
-                    }
                     
                     // Perform actual audio processing
                     Self::process_audio_samples(&audio_samples, data.sample_rate, shared_data);
@@ -721,10 +707,6 @@ impl AudioWorkletManager {
                 peak_db: volume_analysis.peak_db,
             };
             volume_setter.set(Some(volume_data));
-            
-            if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                // Volume analysis completed
-            }
         }
         
         // Perform pitch analysis
@@ -750,10 +732,6 @@ impl AudioWorkletManager {
                         timestamp: js_sys::Date::now(),
                     };
                     pitch_setter.set(Some(pitch_data));
-                    
-                    if chunks_processed <= 5 || chunks_processed % 64 == 0 {
-                        // Pitch detected and processed
-                    }
                 }
                 Ok(None) => {
                     // No pitch detected, which is normal for silence or noise
@@ -1351,19 +1329,11 @@ impl AudioWorkletManager {
 
         // Increment chunk counter for all processing (independent of volume detector)
         self.chunk_counter += 1;
-        
-        // Debug: Log every chunk counter increment to see if this is the issue
-        if self.chunk_counter % 50 == 0 {
-        }
 
         // Perform volume analysis if detector is available
         if let Some(detector) = &mut self.volume_detector {
             let volume_analysis = detector.process_buffer(&processed_samples);
             
-            // Debug log first time we detect volume
-            if self.last_volume_analysis.is_none() {
-                // First volume analysis completed
-            }
             
 
             // Update volume level data every 16 chunks (~11.6ms at 48kHz)
@@ -1377,10 +1347,6 @@ impl AudioWorkletManager {
                     peak_db: volume_analysis.peak_db,
                 };
                 self.volume_level_setter.set(Some(volume_data));
-                // Log occasionally to avoid spam
-                if self.chunk_counter % 256 == 0 {
-                    // Volume data updated via process_audio
-                }
             }
 
             // Store the current analysis for next comparison
