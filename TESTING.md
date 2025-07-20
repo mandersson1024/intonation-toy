@@ -56,14 +56,12 @@ mod tests {
 
     // No wasm_bindgen_test_configure! needed for Node.js
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_basic_functionality() {
         // Simple unit test
         assert_eq!(2 + 2, 4);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_data_structure() {
         // Test your data structures
@@ -74,7 +72,6 @@ mod tests {
         assert_eq!(data.get_value(), 100);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_error_handling() {
         // Test error cases
@@ -94,19 +91,10 @@ mod tests {
 
 ### Key Differences from Standard Rust Tests
 
-- Use `#[allow(dead_code)]` and `#[wasm_bindgen_test]` attributes together
 - Import `wasm_bindgen_test::*`
 - No `wasm_bindgen_test_configure!` needed for Node.js
 - Test only pure logic and data structures
 - Cannot test browser APIs or JavaScript interop
-
-### Why `#[allow(dead_code)]`?
-
-The `#[allow(dead_code)]` attribute is needed because:
-- rust-analyzer sees these functions as "unused" since they're not called by standard Rust code
-- These functions are only called by the wasm-pack test runner, not the standard Rust toolchain
-- The attribute silences the "unused function" warnings in your IDE
-- This is the honest approach - these functions ARE dead code from the standard Rust perspective
 
 ## Prerequisites
 

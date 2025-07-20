@@ -805,7 +805,6 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
     use crate::engine::audio::data_types;
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_state_display() {
         assert_eq!(AudioContextState::Uninitialized.to_string(), "Uninitialized");
@@ -816,7 +815,6 @@ mod tests {
         assert_eq!(AudioContextState::Recreating.to_string(), "Recreating");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
@@ -825,7 +823,6 @@ mod tests {
         assert_eq!(config.max_recreation_attempts, 3);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_config_builders() {
         let config_44_1 = AudioContextConfig::with_44_1khz();
@@ -841,7 +838,6 @@ mod tests {
         assert_eq!(config_buffer.buffer_size, 2048);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_manager_new() {
         let manager = AudioContextManager::new();
@@ -852,7 +848,6 @@ mod tests {
         assert!(!manager.has_device_change_listener());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_manager_with_config() {
         let config = AudioContextConfig::with_44_1khz().with_buffer_size(512);
@@ -863,7 +858,6 @@ mod tests {
         assert_eq!(manager.config().buffer_size, 512);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_manager_update_config() {
         let mut manager = AudioContextManager::new();
@@ -874,7 +868,6 @@ mod tests {
         assert_eq!(manager.config().sample_rate, 44100.0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_context_manager_recreation_attempts() {
         let mut manager = AudioContextManager::new();
@@ -888,7 +881,6 @@ mod tests {
         assert_eq!(manager.recreation_attempts(), 0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_refresh_audio_devices_structure() {
         let _manager = AudioContextManager::new();
@@ -902,7 +894,6 @@ mod tests {
         assert!(true);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_devices_struct() {
         let devices = AudioDevices::new();
@@ -917,7 +908,6 @@ mod tests {
         assert_eq!(devices_with_data.output_devices.len(), 1);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_cached_devices_functionality() {
         let manager = AudioContextManager::new();
@@ -928,7 +918,6 @@ mod tests {
         assert!(cached.output_devices.is_empty());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_device_change_listener_state() {
         let manager = AudioContextManager::new();
@@ -941,8 +930,7 @@ mod tests {
     }
 
     // Mock data setter for testing
-    #[allow(dead_code)]
-    struct MockVolumeSetter {
+        struct MockVolumeSetter {
         calls: std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::VolumeLevelData>>>>,
     }
 
@@ -965,8 +953,7 @@ mod tests {
     }
 
     // Mock data setter for pitch data
-    #[allow(dead_code)]
-    struct MockPitchSetter {
+        struct MockPitchSetter {
         calls: std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::PitchData>>>>,
     }
 
@@ -989,8 +976,7 @@ mod tests {
     }
 
     // Mock data setter for audioworklet status
-    #[allow(dead_code)]
-    struct MockAudioWorkletStatusSetter {
+        struct MockAudioWorkletStatusSetter {
         calls: std::sync::Arc<std::sync::Mutex<Vec<data_types::AudioWorkletStatus>>>,
     }
 

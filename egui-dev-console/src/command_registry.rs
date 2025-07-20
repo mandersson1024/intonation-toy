@@ -134,7 +134,6 @@ mod tests {
 
     // No wasm_bindgen_test_configure! needed for Node.js
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_command_registry_basic_functionality() {
         let registry = ConsoleCommandRegistry::new();
@@ -184,7 +183,6 @@ mod tests {
         }
     }
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_command_parsing() {
         let registry = ConsoleCommandRegistry::new();
@@ -204,7 +202,6 @@ mod tests {
         }
     }
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_output_types() {
         let info = ConsoleOutput::info("test");
@@ -217,7 +214,6 @@ mod tests {
     }
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_help_shows_all_commands() {
         // Create a test registry with multiple commands

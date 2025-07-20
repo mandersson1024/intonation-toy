@@ -1430,7 +1430,6 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_state_display() {
         assert_eq!(AudioWorkletState::Uninitialized.to_string(), "Uninitialized");
@@ -1441,7 +1440,6 @@ mod tests {
         assert_eq!(AudioWorkletState::Failed.to_string(), "Failed");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_config_default() {
         let config = AudioWorkletConfig::default();
@@ -1450,7 +1448,6 @@ mod tests {
         assert_eq!(config.output_channels, 1);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_worklet_config_builders() {
         let stereo_config = AudioWorkletConfig::stereo();

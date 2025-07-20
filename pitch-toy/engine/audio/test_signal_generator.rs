@@ -258,7 +258,6 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_test_signal_generator_creation() {
         let generator = TestSignalGenerator::new_default();
@@ -267,7 +266,6 @@ mod tests {
         assert_eq!(generator.config().amplitude, 0.3);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_sine_wave_generation() {
         let config = TestSignalGeneratorConfig {
@@ -289,7 +287,6 @@ mod tests {
         assert!(max_sample <= 1.0); // Should not clip
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_disabled_generator() {
         let config = TestSignalGeneratorConfig {
@@ -307,7 +304,6 @@ mod tests {
         assert!(samples.iter().all(|&x| x == 0.0));
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_noise_generation() {
         let config = TestSignalGeneratorConfig {
@@ -335,7 +331,6 @@ mod tests {
         assert!(samples.iter().all(|&x| x >= -1.0 && x <= 1.0));
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_expected_rms_calculation() {
         let config = TestSignalGeneratorConfig {
@@ -354,7 +349,6 @@ mod tests {
         assert!((rms_db + 9.0).abs() < 1.0); // Within 1 dB
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_signal_description() {
         let config = TestSignalGeneratorConfig {
@@ -373,7 +367,6 @@ mod tests {
         assert!(description.contains("75.0"));
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_is_audible() {
         let mut config = TestSignalGeneratorConfig::default();
@@ -402,7 +395,6 @@ mod tests {
         assert!(!generator.is_audible());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_config_update() {
         let mut generator = TestSignalGenerator::new_default();
@@ -421,7 +413,6 @@ mod tests {
         assert_eq!(generator.config().waveform, TestWaveform::Square);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_phase_continuity() {
         let config = TestSignalGeneratorConfig {

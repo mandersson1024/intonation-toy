@@ -259,7 +259,6 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_platform_info_generation() {
         // Since this involves browser APIs, we test the fallback behavior in native tests
@@ -270,7 +269,6 @@ mod tests {
         assert_eq!(info, "UserAgent: Unknown");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_platform_validation_result_types() {
         // Test that our validation result types work correctly

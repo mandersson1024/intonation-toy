@@ -315,7 +315,6 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_microphone_state_display() {
         assert_eq!(AudioPermission::Uninitialized.to_string(), "Uninitialized");
@@ -325,7 +324,6 @@ mod tests {
         assert_eq!(AudioPermission::Unavailable.to_string(), "Unavailable");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
@@ -335,7 +333,6 @@ mod tests {
         assert!(info.device_label.is_none());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_error_display() {
         let error = AudioError::PermissionDenied("test".to_string());
@@ -348,7 +345,6 @@ mod tests {
         assert_eq!(error.to_string(), "Not supported: test");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_microphone_manager_new() {
         let manager = MicrophoneManager::new();
@@ -357,7 +353,6 @@ mod tests {
         assert!(manager.get_stream().is_none());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_microphone_manager_stream_info() {
         let manager = MicrophoneManager::new();

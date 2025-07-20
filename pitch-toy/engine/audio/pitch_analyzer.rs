@@ -706,7 +706,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_creation() {
         let config = create_test_config();
@@ -718,7 +717,6 @@ mod tests {
         assert_eq!(analyzer.config().sample_window_size, 2048);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_config_update() {
         let config = create_test_config();
@@ -734,7 +732,6 @@ mod tests {
         assert_eq!(analyzer.config().threshold, 0.2);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_invalid_sample_size() {
         let config = create_test_config();
@@ -747,7 +744,6 @@ mod tests {
         assert!(result.unwrap_err().contains("Expected 2048 samples"));
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_silence() {
         let config = create_test_config();
@@ -763,7 +759,6 @@ mod tests {
         assert_eq!(analyzer.metrics().failed_detections, 1);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_sine_wave() {
         let config = create_test_config();
@@ -794,7 +789,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_confidence_threshold() {
         let config = create_test_config();
@@ -812,7 +806,6 @@ mod tests {
         assert_eq!(analyzer.confidence_threshold_for_events, 1.0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_metrics_reset() {
         let config = create_test_config();
@@ -831,7 +824,6 @@ mod tests {
     }
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_performance_metrics_default() {
         let metrics = PitchPerformanceMetrics::default();
@@ -849,7 +841,6 @@ mod tests {
         assert_eq!(metrics.yin_processing_time_us, 0.0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_multiple_detections() {
         let config = create_test_config();
@@ -873,7 +864,6 @@ mod tests {
         assert!(analyzer.metrics().average_confidence > 0.0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_integration() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -915,7 +905,6 @@ mod tests {
         assert_eq!(analyzer.metrics().analysis_cycles, 1);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_insufficient_data() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -938,7 +927,6 @@ mod tests {
         assert!(result.unwrap().is_none());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_size_mismatch() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -961,7 +949,6 @@ mod tests {
         assert!(result.unwrap_err().contains("does not match pitch window size"));
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_continuous_processing() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -1008,7 +995,6 @@ mod tests {
         assert_eq!(analyzer.metrics().successful_detections, num_results as u64);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_circular_buffer_integration() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -1047,7 +1033,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_windowing_functions() {
         use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
@@ -1087,7 +1072,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_metrics_update() {
         let config = create_test_config();
@@ -1121,7 +1105,6 @@ mod tests {
         assert!(metrics.memory_usage_bytes > 0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_grade() {
         let config = create_test_config();
@@ -1151,7 +1134,6 @@ mod tests {
         assert_eq!(test_analyzer.performance_grade(), "Unacceptable");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_meets_performance_requirements() {
         let config = create_test_config();
@@ -1175,7 +1157,6 @@ mod tests {
         assert!(!test_analyzer.meets_performance_requirements());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_benchmark_window_sizes() {
         let config = create_test_config();
@@ -1195,7 +1176,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_violation_tracking() {
         let config = create_test_config();
@@ -1216,7 +1196,6 @@ mod tests {
         assert_eq!(analyzer.metrics().analysis_cycles, 2);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_zero_allocation_validation() {
         let config = create_test_config();
@@ -1232,7 +1211,6 @@ mod tests {
         assert!(is_efficient); // Should be efficient for reasonable window sizes
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_optimization() {
         let config = create_test_config();
@@ -1262,7 +1240,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_optimization_features() {
         let config = create_test_config();
@@ -1286,7 +1263,6 @@ mod tests {
         assert!(detector.is_power_of_2_optimized()); // 1024 is power of 2
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_pitch_detector_energy_threshold() {
         let config = create_test_config();
@@ -1313,7 +1289,6 @@ mod tests {
 
     // Confidence Scoring Accuracy and Consistency Tests (Task 8 Requirements)
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_scoring_consistency() {
         let config = create_test_config();
@@ -1350,7 +1325,6 @@ mod tests {
         assert!(avg_confidence > 0.7, "Clean sine wave should have high confidence: {}", avg_confidence);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_scoring_with_noise() {
         let config = create_test_config();
@@ -1391,7 +1365,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_scoring_amplitude_dependency() {
         let config = create_test_config();
@@ -1427,7 +1400,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_scoring_frequency_accuracy() {
         let config = create_test_config();
@@ -1465,7 +1437,6 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_confidence_scoring_edge_cases() {
         let config = create_test_config();
@@ -1513,7 +1484,6 @@ mod tests {
 
     // End-to-End Tests with Simulated Audio Input (Task 8 Requirements)
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_end_to_end_pitch_detection_pipeline() {
         // Create pitch analyzer
@@ -1562,7 +1532,6 @@ mod tests {
         assert!(metrics.successful_detections > 0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_end_to_end_musical_scale_detection() {
         // Test detection of a complete musical scale
@@ -1606,7 +1575,6 @@ mod tests {
         assert!(octaves.iter().all(|&o| o == 4 || o == 5), "Octaves should be 4 or 5");
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_end_to_end_polyphonic_interference() {
         // Test pitch detection with polyphonic (multiple frequency) interference
@@ -1642,7 +1610,6 @@ mod tests {
     }
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_end_to_end_tuning_system_switching() {
         // Test switching tuning systems during operation

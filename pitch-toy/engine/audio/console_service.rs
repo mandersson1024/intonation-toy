@@ -325,7 +325,6 @@ mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
    
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_console_audio_service_creation() {
         let service = ConsoleAudioServiceImpl::new();
@@ -334,7 +333,6 @@ mod tests {
         assert!(service.audio_context_manager.is_none());
     }
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_audio_status_structure() {
         let status = AudioStatus {
@@ -350,7 +348,6 @@ mod tests {
         assert!(!status.is_initialized);
     }
     
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_service_interface_methods() {
         let service = ConsoleAudioServiceImpl::new();

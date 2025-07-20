@@ -113,10 +113,7 @@ pub struct UIControlListeners {
 
 pub async fn run_three_d(
     live_data: LiveData, 
-    microphone_permission_setter: impl observable_data::DataSetter<engine::audio::AudioPermission> + Clone + 'static,
     performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
-    pitch_data_setter: impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> + Clone + 'static,
-    ui_control_actions: UIControlActions,
     triggers: UIControlTriggers,
 ) {
     dev_log!("Starting three-d with red sprites");
@@ -310,7 +307,7 @@ pub async fn start() {
     }
     
     // Start three-d application directly
-    run_three_d(live_data, microphone_permission_setter, performance_metrics_setter, pitch_data_setter, ui_control_actions, triggers).await;
+    run_three_d(live_data, performance_metrics_setter, triggers).await;
 }
 
 /// Initialize all audio systems using AudioSystemContext approach

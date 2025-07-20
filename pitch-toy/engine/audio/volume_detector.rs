@@ -167,7 +167,6 @@ mod tests {
 
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_detector_config_validation() {
         let mut config = VolumeDetectorConfig::new();
@@ -189,7 +188,6 @@ mod tests {
         assert!(config.validate().is_err());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_detector_creation() {
         let detector = VolumeDetector::new_default();
@@ -206,7 +204,6 @@ mod tests {
         assert!(detector.is_ok());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_db_linear_conversions() {
         let detector = VolumeDetector::new_default();
@@ -221,7 +218,6 @@ mod tests {
         assert_eq!(detector.db_to_linear(-f32::INFINITY), 0.0);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_volume_processing() {
         let mut detector = VolumeDetector::new_default();
@@ -244,7 +240,6 @@ mod tests {
         assert!(analysis.rms_db.is_finite());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_peak_detector_behavior() {
         let mut detector = VolumeDetector::new_default();
@@ -262,7 +257,6 @@ mod tests {
         // Note: Fast peak might not always be less than slow peak depending on timing
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_empty_buffer_handling() {
         let mut detector = VolumeDetector::new_default();
@@ -271,7 +265,6 @@ mod tests {
         assert_eq!(analysis.peak_db, -f32::INFINITY);
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_nan_and_infinity_handling() {
         let mut detector = VolumeDetector::new_default();
@@ -285,7 +278,6 @@ mod tests {
         assert!(analysis.peak_db.is_finite());
     }
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_config_update() {
         let mut detector = VolumeDetector::new_default();
@@ -302,7 +294,6 @@ mod tests {
     }
 
 
-    #[allow(dead_code)]
     #[wasm_bindgen_test]
     fn test_reset_functionality() {
         let mut detector = VolumeDetector::new_default();
