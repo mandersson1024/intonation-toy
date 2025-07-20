@@ -153,6 +153,26 @@ User Input → Presentation Layer
 4. **Maintainability**: Clear separation makes code easier to understand
 5. **Flexibility**: Different visualizations can use the same model data
 
+## Debug GUI (Development Tool)
+
+The Debug GUI exists outside the core three-layer architecture as an optional development and debugging tool. It has special privileges to observe and interact with all layers without being part of the main data flow.
+
+**Characteristics**:
+- **Cross-layer Access**: Can read data from and send commands to any layer
+- **Non-intrusive**: Does not affect the core architecture or data flow
+- **Optional**: Can be completely removed in production builds
+- **Development-only**: Not part of the user-facing application
+
+**Capabilities**:
+- Monitor real-time data from all layers
+- Inject test signals at any layer
+- Override configuration values
+- Display performance metrics
+- Trigger actions manually
+- Inspect internal state
+
+**Design Principle**: The Debug GUI should never be a dependency for any core functionality. The application must work identically with or without it.
+
 ## Implementation Notes
 
 - Layer APIs are defined in this document in the Interface Definitions section
