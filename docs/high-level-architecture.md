@@ -187,6 +187,77 @@ The Debug GUI exists outside the core three-layer architecture as an optional de
 4. Establish communication protocols
 5. Build example visualizations
 
+## Implementation Example
+
+Here's the high-level pseudo code for application setup and render loop:
+
+```rust
+// === Application Setup ===
+
+// Create interfaces between layers using existing factory functions
+let engine_to_model = EngineToModelInterface::new();
+let model_to_engine = ModelToEngineInterface::new();
+let model_to_presentation = ModelToPresentationInterface::new();
+let presentation_to_model = PresentationToModelInterface::new();
+
+// Initialize layers with their interfaces
+let engine = AudioEngine::create(
+    engine_to_model.clone(),
+    model_to_engine.clone()
+)?;
+
+let model = DataModel::create(
+    engine_to_model.clone(),
+    model_to_engine.clone(),
+    model_to_presentation.clone(),
+    presentation_to_model.clone()
+)?;
+
+let presenter = Presenter::create(
+    model_to_presentation.clone(),
+    presentation_to_model.clone()
+)?;
+
+// Optional debug GUI with read-only access to all interfaces
+#[cfg(debug_assertions)]
+let debug_gui = Some(DebugGui::create(
+    engine_to_model.clone(),
+    model_to_presentation.clone()
+));
+
+// === Main Render Loop ===
+
+// Create three-d window and start render loop
+let window = Window::new(WindowSettings {
+    title: "pitch-toy".to_string(),
+    max_size: Some((1280, 720)),
+    ..Default::default()
+})?;
+
+window.render_loop(move |frame_input| {
+    // Update phase - process in dependency order
+    engine.update(frame_input.accumulated_time);       // Process audio input
+    model.update(frame_input.accumulated_time);        // Transform audio data
+    presenter.update(frame_input.accumulated_time);    // Prepare visuals
+    
+    // Render phase
+    presenter.render(&mut frame_input.screen());       // WebGL rendering via three-d
+    
+    #[cfg(debug_assertions)]
+    debug_gui.render(&frame_input);                     // egui overlay
+    
+    FrameOutput::default()
+});
+```
+
+### Key Implementation Details
+
+1. **Interface Sharing**: Each interface is cloned between layers that need access to it
+2. **Update Order**: Critical to maintain engine → model → presenter order for correct data flow
+3. **Error Propagation**: Each `create()` method returns `Result<T, E>` for initialization errors
+4. **Debug GUI**: Has read-only access to observe all data flows without affecting them
+5. **Timestamp Synchronization**: All updates receive the same timestamp for coordinated behavior
+
 ## Open Questions
 
 1. Should the Model Layer support multiple simultaneous transformations?
