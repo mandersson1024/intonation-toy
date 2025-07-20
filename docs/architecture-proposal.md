@@ -110,34 +110,33 @@ User Input → Presentation Layer
 - **Observable Data**: Option<AudioAnalysis> containing:
   - Pitch: enum { Detected(f32 (Hz), confidence), NotDetected }
   - Volume level (amplitude Peak + RMS)
-  - Signal quality metrics [TODO: Flesh out the type, or is it even needed at all?] [COMMENT: Could be useful for UI feedback. Consider: SNR (signal-to-noise ratio), clarity score, or just fold this into pitch confidence. Might not need separate metrics if pitch confidence covers it.]
   - FFT data: Option<Vec<f32>> (roadmap)
   - Timestamp
-- **Observable Data**: Error states [TODO: More than one of these can probably be active at the same time?] [COMMENT: Yes, you could have "permission denied" + "API not supported". Consider using a bitflags set or Vec<ErrorType>. Alternatively, separate observables for each error category.]
-  - Microphone permission denied [TODO: Maybe this should not be an error state, but just a separate observable?]
-  - Microphone not available/disconnected
-  - Audio processing error (e.g., buffer overflow, invalid data)
-  - Browser API not supported
-  - Audio context suspended/failed to initialize
+- **Observable Data**: Vec<AudioError> (multiple simultaneous errors possible)
+  - AudioError variants:
+    - MicrophoneNotAvailable
+    - MicrophoneDisconnected
+    - ProcessingError(details: String)
+    - BrowserApiNotSupported
+    - AudioContextSuspended
+    - AudioContextInitFailed
+- **Observable Data**: PermissionState enum { NotRequested, Requested, Granted, Denied }
 
 ### Model → Engine Interface
 - **Action**: Request microphone permission
-- **Action**: Start/stop audio processing
-- **Action**: Configure sample rate [TODO: is this necessary?] [COMMENT: Probably not needed initially. Audio context typically handles this automatically. Could be roadmap item for advanced users]
-- **Action**: Configure buffer size [TODO: is this necessary?] [COMMENT: May be useful for latency vs performance tradeoffs. Keep as roadmap item - start with sensible defaults]
 
 ### Model → Presentation Interface
-- **Observable Data**: Transformed visualization data [TODO: elaborate on what this means] [COMMENT: Normalized/scaled values ready for rendering (e.g., pitch mapped to Y-coordinates, volume to size/opacity, note names, cents deviation)]
-- **Observable Data**: Application state [TODO: specify] [COMMENT: Recording status, active tuning system, selected visualization mode, error states, permission status]
-- **Observable Data**: User-friendly metrics [TODO: specify] [COMMENT: Note name, octave, cents off from nearest note, volume in human-friendly units, pitch stability indicator]
-- **Observable Data**: Historical data [TODO: specify] [COMMENT: Rolling buffers of recent pitch/volume values for trails, averages, trends. Time window configurable by visualization needs]
-- **Observable Data**: Animation parameters [TODO: specify] [COMMENT: Interpolation values, easing functions, transition states between visualization modes, particle system parameters]
+- **Observable Data**: Transformed visualization data [PROPOSAL: VisualizationData { pitch_y: f32 (0.0-1.0), volume_scale: f32, note_info: NoteInfo { name: String, octave: i32, cents_deviation: f32 } }]
+- **Observable Data**: Application state [PROPOSAL: AppState { is_recording: bool, tuning_system: TuningSystem, visualization_mode: VisualizationMode, errors: Vec<Error>, permission_state: PermissionState }]
+- **Observable Data**: User-friendly metrics [PROPOSAL: Metrics { note: String, octave: i32, cents_off: f32, volume_db: f32, pitch_stability: f32 (0.0-1.0) }]
+- **Observable Data**: Historical data [PROPOSAL: History { pitch_buffer: CircularBuffer<(f32, Timestamp)>, volume_buffer: CircularBuffer<(f32, Timestamp)>, window_size_ms: u32 }]
+- **Observable Data**: Animation parameters [PROPOSAL: AnimationParams { interpolation_factor: f32, easing: EasingFunction, transition_progress: f32, particles: Vec<Particle> }]
 
 ### Presentation → Model Interface
 - **Action**: Request microphone permission
-- **Action**: User interactions [TODO: specify] [COMMENT: Click/tap on visualization elements, drag gestures, keyboard shortcuts, WebGL canvas interactions]
-- **Action**: Configuration changes [TODO: specify] [COMMENT: Select tuning system, change visualization mode, adjust sensitivity, toggle features, set reference pitch]
-- **Action**: Control commands [TODO: specify] [COMMENT: Start/stop recording, reset visualization, pause/resume, clear history, trigger calibration]
+- **Action**: User interactions [PROPOSAL: UserAction enum { Click(x: f32, y: f32), Drag(start: Point, end: Point), KeyPress(key: String), Touch(touches: Vec<Touch>) }]
+- **Action**: Configuration changes [PROPOSAL: ConfigAction enum { SetTuningSystem(TuningSystem), SetVisualizationMode(VisualizationMode), SetSensitivity(f32), SetReferencePitch(f32), ToggleFeature(FeatureName) }]
+- **Action**: Control commands [PROPOSAL: ControlAction enum { StartRecording, StopRecording, ResetVisualization, ClearHistory, Calibrate }]
 - **Action**: Theme selection (roadmap)
 
 ## Benefits of This Architecture
@@ -150,7 +149,7 @@ User Input → Presentation Layer
 
 ## Implementation Notes
 
-- Layer APIs will be carefully defined in separate documents when implementation begins
+- Layer APIs are defined in this document in the Interface Definitions section
 - Each layer should maintain clear boundaries and avoid tight coupling
 - The current tuning system implementation in the engine will migrate to the Model Layer
 
