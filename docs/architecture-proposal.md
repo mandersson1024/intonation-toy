@@ -126,9 +126,16 @@ User Input → Presentation Layer
 - **Action**: RequestMicrophonePermissionAction
 
 ### Model → Presentation Interface
-- **Observable Data**: Transformed visualization data [PROPOSAL: VisualizationData { pitch_y: f32 (0.0-1.0), volume_scale: f32, note_info: NoteInfo { name: String, octave: i32, cents_deviation: f32 } }]
-- **Observable Data**: Application state [PROPOSAL: AppState { is_recording: bool, tuning_system: TuningSystem, visualization_mode: VisualizationMode, errors: Vec<Error>, permission_state: PermissionState }]
-- **Observable Data**: User-friendly metrics [PROPOSAL: Metrics { note: String, octave: i32, cents_off: f32, volume_db: f32, pitch_stability: f32 (0.0-1.0) }]
+- **Observable Data**: Transformed visualization data (VisualizationData):
+  - volume: Volume { peak: f32, rms: f32 }
+  - pitch_clarity: f32
+  - relative_pitch: f32 (1.0 = same as root note)
+  - cents_off: f32
+  - closest_note: Note { name: String, octave: i32, pitch: f32 }
+- **Observable Data**: Application state (AppState):
+  - tuning_system: TuningSystem
+  - errors: Vec<Error>
+  - permission_state: PermissionState
 
 ### Presentation → Model Interface
 - **Action**: RequestMicrophonePermissionAction
