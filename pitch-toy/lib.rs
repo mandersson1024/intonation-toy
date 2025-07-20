@@ -442,7 +442,7 @@ pub async fn start() {
         Some(ref context) => {
             engine::audio::setup_ui_action_listeners_with_context(listeners, microphone_permission_setter.clone(), context.clone());
             // Setup debug action listeners
-            context.borrow().setup_debug_action_listeners(&debug_actions);
+            engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &debug_actions);
         }
         None => {
             web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());

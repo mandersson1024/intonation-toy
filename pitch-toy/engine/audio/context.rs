@@ -668,7 +668,7 @@ impl AudioSystemContext {
         let context = Self::with_interfaces(engine_to_model, model_to_engine);
         
         // Set up debug action listeners
-        context.setup_debug_action_listeners(debug_actions);
+        // Debug action listeners will be set up after context is wrapped in Rc
         
         context
     }
@@ -717,20 +717,38 @@ impl AudioSystemContext {
     /// Note: This is a placeholder implementation that demonstrates the architecture.
     /// The actual implementation would need to be integrated with the full audio system.
     pub fn setup_debug_action_listeners(
-        &self,
+        context_rc: &std::rc::Rc<std::cell::RefCell<Self>>,
         debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
     ) {
         use crate::common::dev_log;
+        
+        // Clone the context Rc for use in closures
+        let context_for_test_signal = context_rc.clone();
+        let context_for_output = context_rc.clone();
+        let context_for_noise = context_rc.clone();
         
         // Test signal action listener
         let test_signal_listener = debug_actions.test_signal_listener();
         test_signal_listener.listen(move |action| {
             dev_log!("Received debug test signal action: {:?}", action);
             
-            // TODO: Implement actual test signal config update
-            // This would need to access the AudioWorkletManager through the context
-            dev_log!("TODO: Apply test signal config - enabled: {}, freq: {}, vol: {}", 
-                    action.enabled, action.frequency, action.volume);
+            let mut context = context_for_test_signal.borrow_mut();
+            if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
+                // Convert debug action to audio system config
+                let audio_config = super::TestSignalGeneratorConfig {
+                    enabled: action.enabled,
+                    frequency: action.frequency,
+                    amplitude: action.volume / 100.0, // Convert percentage to 0-1 range
+                    waveform: action.waveform,
+                    sample_rate: 48000.0, // Use standard sample rate
+                };
+                
+                worklet_manager.update_test_signal_config(audio_config);
+                dev_log!("✓ Debug test signal config updated - enabled: {}, freq: {}, vol: {}", 
+                        action.enabled, action.frequency, action.volume);
+            } else {
+                dev_log!("Warning: No AudioWorklet manager available for debug test signal config");
+            }
         });
         
         // Output to speakers action listener
@@ -738,8 +756,13 @@ impl AudioSystemContext {
         output_listener.listen(move |action| {
             dev_log!("Received debug output to speakers action: {:?}", action);
             
-            // TODO: Implement actual output to speakers setting
-            dev_log!("TODO: Set output to speakers - enabled: {}", action.enabled);
+            let mut context = context_for_output.borrow_mut();
+            if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
+                worklet_manager.set_output_to_speakers(action.enabled);
+                dev_log!("✓ Debug output to speakers setting updated - enabled: {}", action.enabled);
+            } else {
+                dev_log!("Warning: No AudioWorklet manager available for debug output to speakers setting");
+            }
         });
         
         // Background noise action listener
@@ -747,9 +770,21 @@ impl AudioSystemContext {
         noise_listener.listen(move |action| {
             dev_log!("Received debug background noise action: {:?}", action);
             
-            // TODO: Implement actual background noise config update
-            dev_log!("TODO: Apply background noise config - enabled: {}, level: {}", 
-                    action.enabled, action.level);
+            let mut context = context_for_noise.borrow_mut();
+            if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
+                // Convert debug action to audio system config
+                let audio_config = super::BackgroundNoiseConfig {
+                    enabled: action.enabled,
+                    level: action.level,
+                    noise_type: action.noise_type,
+                };
+                
+                worklet_manager.update_background_noise_config(audio_config);
+                dev_log!("✓ Debug background noise config updated - enabled: {}, level: {}", 
+                        action.enabled, action.level);
+            } else {
+                dev_log!("Warning: No AudioWorklet manager available for debug background noise config");
+            }
         });
     }
 
