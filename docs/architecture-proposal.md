@@ -115,11 +115,10 @@ User Input → Presentation Layer
 - **Observable Data**: Vec<AudioError> (multiple simultaneous errors possible)
   - AudioError variants:
     - MicrophoneNotAvailable
-    - MicrophoneDisconnected
     - ProcessingError(details: String)
     - BrowserApiNotSupported
-    - AudioContextSuspended
     - AudioContextInitFailed
+    - AudioContextSuspended
 - **Observable Data**: PermissionState enum
   - variants:
      NotRequested 
