@@ -143,7 +143,6 @@ User Input → Presentation Layer
 - **Action**: SetRootNoteAction { root_note: Note }
 - **Action**: IncreaseRootNoteAction
 - **Action**: DecreaseRootNoteAction
-- **Action**: SelectThemeAction { theme : Theme }
 
 ## Benefits of This Architecture
 
