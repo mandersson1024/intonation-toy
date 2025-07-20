@@ -613,6 +613,87 @@ impl AudioSystemContext {
         }
     }
 
+    /// Create new AudioSystemContext with interfaces
+    /// 
+    /// This method creates an AudioSystemContext using the three-layer architecture interfaces.
+    /// Data setters are extracted from the EngineToModelInterface and used internally.
+    /// Action listeners from the ModelToEngineInterface are also set up.
+    /// 
+    /// # Parameters
+    /// - `engine_to_model`: Interface for engine → model data flow
+    /// - `model_to_engine`: Interface for model → engine action handling
+    pub fn with_interfaces(
+        engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
+        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
+    ) -> Self {
+        // Extract setters from engine_to_model interface
+        let audio_analysis_setter = engine_to_model.audio_analysis_setter();
+        let _audio_errors_setter = engine_to_model.audio_errors_setter();
+        let permission_state_setter = engine_to_model.permission_state_setter();
+        
+        // Create adapter setters that convert from interface types to audio engine types
+        let volume_level_setter = std::rc::Rc::new(VolumeAnalysisAdapter::new(audio_analysis_setter.clone()));
+        let pitch_data_setter = std::rc::Rc::new(PitchAnalysisAdapter::new(audio_analysis_setter));
+        
+        // Create a placeholder audioworklet_status_setter and buffer_pool_stats_setter
+        // These will be improved in future iterations
+        let audioworklet_status_setter = std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter);
+        let buffer_pool_stats_setter = std::rc::Rc::new(PlaceholderBufferPoolStatsSetter);
+        
+        let context = Self {
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
+            audioworklet_manager: None,
+            pitch_analyzer: None,
+            volume_level_setter,
+            pitch_data_setter,
+            audioworklet_status_setter,
+            buffer_pool_stats_setter,
+            is_initialized: false,
+            initialization_error: None,
+        };
+        
+        // Set up action listeners from model_to_engine interface
+        context.setup_action_listeners(model_to_engine, permission_state_setter);
+        
+        context
+    }
+    
+    /// Set up action listeners for model → engine communication
+    /// 
+    /// This method connects action listeners from the ModelToEngineInterface to the audio system.
+    /// Currently handles microphone permission requests.
+    /// 
+    /// Note: This is a placeholder implementation. The actual microphone connection handling
+    /// would need to be implemented after the AudioSystemContext is fully initialized.
+    fn setup_action_listeners(
+        &self,
+        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
+        permission_state_setter: observable_data::DataSourceSetter<crate::module_interfaces::engine_to_model::PermissionState>,
+    ) {
+        use crate::common::dev_log;
+        use observable_data::DataSetter;
+        
+        // Set up microphone permission request listener
+        let listener = model_to_engine.request_microphone_permission_listener();
+        
+        listener.listen(move |_action| {
+            dev_log!("Received microphone permission request through interface");
+            
+            // Update permission state to requesting
+            permission_state_setter.set(crate::module_interfaces::engine_to_model::PermissionState::Requested);
+            
+            // TODO: Implement actual microphone connection handling
+            // For now, this is a placeholder that immediately sets the state to granted
+            // In a full implementation, this would:
+            // 1. Request microphone permission from the browser
+            // 2. Connect the microphone to the audio processing pipeline
+            // 3. Update the permission state based on the result
+            
+            dev_log!("TODO: Implement microphone permission handling in interface-based architecture");
+            permission_state_setter.set(crate::module_interfaces::engine_to_model::PermissionState::Granted);
+        });
+    }
+
     /// Create new AudioSystemContext with custom AudioContext configuration
     pub fn with_audio_config(
         audio_config: AudioContextConfig,
@@ -796,6 +877,103 @@ impl AudioSystemContext {
     pub async fn resume_if_suspended(&mut self) -> Result<(), String> {
         self.audio_context_manager.borrow_mut().resume().await
             .map_err(|e| format!("Failed to resume AudioContext: {}", e))
+    }
+}
+
+/// Adapter that converts from AudioAnalysis to VolumeLevelData
+/// 
+/// This adapter extracts volume information from AudioAnalysis data
+/// and converts it to the format expected by the audio engine.
+pub struct VolumeAnalysisAdapter {
+    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
+}
+
+impl VolumeAnalysisAdapter {
+    pub fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
+        Self {
+            audio_analysis_setter,
+        }
+    }
+}
+
+impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for VolumeAnalysisAdapter {
+    fn set(&self, volume_data: Option<super::data_types::VolumeLevelData>) {
+        if let Some(volume_data) = volume_data {
+            let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+                volume_level: crate::module_interfaces::engine_to_model::Volume {
+                    peak: volume_data.peak_db,
+                    rms: volume_data.rms_db,
+                },
+                pitch: crate::module_interfaces::engine_to_model::Pitch::NotDetected,
+                fft_data: None,
+                timestamp: js_sys::Date::now(),
+            };
+            self.audio_analysis_setter.set(Some(audio_analysis));
+        } else {
+            self.audio_analysis_setter.set(None);
+        }
+    }
+}
+
+/// Adapter that converts from PitchData to AudioAnalysis
+/// 
+/// This adapter extracts pitch information from PitchData and converts it
+/// to the format expected by the interface.
+pub struct PitchAnalysisAdapter {
+    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
+}
+
+impl PitchAnalysisAdapter {
+    pub fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
+        Self {
+            audio_analysis_setter,
+        }
+    }
+}
+
+impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PitchAnalysisAdapter {
+    fn set(&self, pitch_data: Option<super::data_types::PitchData>) {
+        if let Some(pitch_data) = pitch_data {
+            let pitch = if pitch_data.frequency > 0.0 {
+                crate::module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
+            } else {
+                crate::module_interfaces::engine_to_model::Pitch::NotDetected
+            };
+            
+            let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+                volume_level: crate::module_interfaces::engine_to_model::Volume { peak: 0.0, rms: 0.0 }, // Placeholder
+                pitch,
+                fft_data: None,
+                timestamp: pitch_data.timestamp,
+            };
+            self.audio_analysis_setter.set(Some(audio_analysis));
+        } else {
+            self.audio_analysis_setter.set(None);
+        }
+    }
+}
+
+/// Placeholder setter for AudioWorkletStatus during interface transition
+/// 
+/// This placeholder implements the DataSetter trait but doesn't actually do anything.
+/// It's used during the transition to interface-based architecture.
+pub struct PlaceholderAudioWorkletStatusSetter;
+
+impl observable_data::DataSetter<super::data_types::AudioWorkletStatus> for PlaceholderAudioWorkletStatusSetter {
+    fn set(&self, _data: super::data_types::AudioWorkletStatus) {
+        // Placeholder - does nothing during interface transition
+    }
+}
+
+/// Placeholder setter for BufferPoolStats during interface transition
+/// 
+/// This placeholder implements the DataSetter trait but doesn't actually do anything.
+/// It's used during the transition to interface-based architecture.
+pub struct PlaceholderBufferPoolStatsSetter;
+
+impl observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>> for PlaceholderBufferPoolStatsSetter {
+    fn set(&self, _data: Option<super::message_protocol::BufferPoolStats>) {
+        // Placeholder - does nothing during interface transition
     }
 }
 

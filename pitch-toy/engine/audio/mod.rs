@@ -130,6 +130,60 @@ pub async fn initialize_audio_system_with_context(
     Ok(context)
 }
 
+/// Initialize audio system with three-layer architecture interfaces
+/// 
+/// This function creates and initializes a complete AudioSystemContext using the three-layer
+/// architecture interfaces. Data setters are extracted from the interfaces and used internally.
+/// 
+/// # Parameters
+/// - `engine_to_model`: Interface for engine → model data flow
+/// - `model_to_engine`: Interface for model → engine action handling
+/// 
+/// # Returns
+/// - `Ok(AudioSystemContext)` with fully initialized audio system
+/// - `Err(String)` with error details if initialization failed
+/// 
+/// # Components Initialized
+/// - AudioContextManager for Web Audio API management
+/// - AudioWorkletManager for real-time audio processing
+/// - PitchAnalyzer for pitch detection and analysis
+/// - Interface-based data routing
+/// 
+/// # Example
+/// ```rust
+/// let engine_to_model = EngineToModelInterface::new();
+/// let model_to_engine = ModelToEngineInterface::new();
+/// 
+/// let context = initialize_audio_system_with_interfaces(
+///     &engine_to_model,
+///     &model_to_engine,
+/// ).await?;
+/// ```
+pub async fn initialize_audio_system_with_interfaces(
+    engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
+    model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
+) -> Result<context::AudioSystemContext, String> {
+    dev_log!("Initializing audio system with three-layer architecture interfaces");
+    
+    // Check AudioContext support
+    if !context::AudioContextManager::is_supported() {
+        return Err("Web Audio API not supported".to_string());
+    }
+    
+    // Create AudioSystemContext with interfaces
+    let mut context = context::AudioSystemContext::with_interfaces(
+        engine_to_model,
+        model_to_engine,
+    );
+    
+    // Initialize the context (this handles all component initialization)
+    context.initialize().await
+        .map_err(|e| format!("AudioSystemContext initialization failed: {}", e))?;
+    
+    dev_log!("✓ Audio system initialization completed with interface-based architecture");
+    Ok(context)
+}
+
 
 /// Store AudioContextManager globally for backward compatibility
 pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContextManager>>) {
@@ -186,7 +240,7 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet_with_context};
 pub use permission::{AudioPermission, connect_microphone_with_context};
-pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext};
+pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext, VolumeAnalysisAdapter, PitchAnalysisAdapter, PlaceholderAudioWorkletStatusSetter, PlaceholderBufferPoolStatsSetter};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
@@ -473,5 +527,86 @@ mod tests {
         // Both should be Debug-formatted correctly
         assert!(format!("{:?}", audio_error).contains("Generic"));
         assert!(format!("{:?}", stream_error).contains("ConfigurationError"));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_based_audio_system_context_creation() {
+        // Test that AudioSystemContext can be created with interfaces
+        let engine_to_model = crate::module_interfaces::engine_to_model::EngineToModelInterface::new();
+        let model_to_engine = crate::module_interfaces::model_to_engine::ModelToEngineInterface::new();
+        
+        let context = context::AudioSystemContext::with_interfaces(&engine_to_model, &model_to_engine);
+        
+        // Context should be created but not initialized yet
+        assert!(!context.is_ready());
+        assert!(context.get_initialization_error().is_none());
+        
+        // Context should have the required components ready for initialization
+        assert!(context.get_audio_context_manager().borrow().state() == &context::AudioContextState::Uninitialized);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_adapter_volume_data_conversion() {
+        use observable_data::{DataSource, DataSetter};
+        
+        // Create a data source to capture converted data
+        let audio_analysis_source = DataSource::new(None::<crate::module_interfaces::engine_to_model::AudioAnalysis>);
+        let setter = audio_analysis_source.setter();
+        
+        // Create adapter
+        let adapter = context::VolumeAnalysisAdapter::new(setter);
+        
+        // Test volume data conversion
+        let volume_data = data_types::VolumeLevelData {
+            peak_db: -10.0,
+            rms_db: -20.0,
+        };
+        
+        adapter.set(Some(volume_data));
+        
+        // Verify the data was converted and set
+        let result = audio_analysis_source.observer().get();
+        assert!(result.is_some());
+        
+        let analysis = result.unwrap();
+        assert_eq!(analysis.volume_level.peak, -10.0);
+        assert_eq!(analysis.volume_level.rms, -20.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interface_adapter_pitch_data_conversion() {
+        use observable_data::{DataSource, DataSetter};
+        
+        // Create a data source to capture converted data
+        let audio_analysis_source = DataSource::new(None::<crate::module_interfaces::engine_to_model::AudioAnalysis>);
+        let setter = audio_analysis_source.setter();
+        
+        // Create adapter
+        let adapter = context::PitchAnalysisAdapter::new(setter);
+        
+        // Test pitch data conversion
+        let pitch_data = data_types::PitchData {
+            frequency: 440.0,
+            confidence: 0.9,
+            note: pitch_detector::MusicalNote::new(pitch_detector::NoteName::A, 4, 0.0, 440.0),
+            clarity: 0.8,
+            timestamp: 12345.0,
+        };
+        
+        adapter.set(Some(pitch_data));
+        
+        // Verify the data was converted and set
+        let result = audio_analysis_source.observer().get();
+        assert!(result.is_some());
+        
+        let analysis = result.unwrap();
+        match analysis.pitch {
+            crate::module_interfaces::engine_to_model::Pitch::Detected(freq, clarity) => {
+                assert_eq!(freq, 440.0);
+                assert_eq!(clarity, 0.8);
+            }
+            _ => panic!("Expected detected pitch"),
+        }
+        assert_eq!(analysis.timestamp, 12345.0);
     }
 }
