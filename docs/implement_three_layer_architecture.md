@@ -122,11 +122,11 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
   - [x] Create engine, model, and presenter using new pattern
   - [x] Move audio system initialization into AudioEngine::create()
 
-- [ ] **4b**: Implement new render loop structure
-  - [ ] Refactor `run_three_d()` to accept layer instances
-  - [ ] Implement three-layer update sequence (engine → model → presenter)
-  - [ ] Keep existing SpriteScene rendering in render loop (presenter does nothing)
-  - [ ] Maintain timestamp synchronization across layers
+- [x] **4b**: Implement new render loop structure
+  - [x] Refactor `run_three_d()` to accept layer instances
+  - [x] Implement three-layer update sequence (engine → model → presenter)
+  - [x] Keep existing SpriteScene rendering in render loop (presenter does nothing)
+  - [x] Maintain timestamp synchronization across layers
 
 - [ ] **4c**: Update debug GUI integration
   - [ ] Modify debug GUI to accept interface observers only

@@ -68,11 +68,11 @@ use crate::module_interfaces::{
 pub struct Presenter {
     /// Interface for receiving data from the model
     /// Contains observers for volume, pitch, accuracy, tuning system, errors, and permission state
-    _model_to_presentation: ModelToPresentationInterface,
+    _model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
     
     /// Interface for sending actions to the model
     /// Contains triggers for user actions like tuning system changes and permission requests
-    _presentation_to_model: PresentationToModelInterface,
+    _presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
 }
 
 impl Presenter {
@@ -96,8 +96,8 @@ impl Presenter {
     /// Currently stores all interfaces but does not use them. Future implementations
     /// will set up observers and listeners to process data flow between layers.
     pub fn create(
-        model_to_presentation: ModelToPresentationInterface,
-        presentation_to_model: PresentationToModelInterface,
+        model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
+        presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
     ) -> Result<Self, String> {
         // Placeholder implementation - just store the interfaces
         // TODO: Set up observers for model data
@@ -185,8 +185,8 @@ mod tests {
         let presentation_to_model = PresentationToModelInterface::new();
 
         let result = Presenter::create(
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         assert!(result.is_ok(), "Presenter::create() should always succeed");
@@ -199,8 +199,8 @@ mod tests {
         let presentation_to_model = PresentationToModelInterface::new();
 
         let mut presenter = Presenter::create(
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         ).expect("Presenter creation should succeed");
 
         // Test that update can be called multiple times without panicking
@@ -226,8 +226,8 @@ mod tests {
         let presentation_to_model = PresentationToModelInterface::new();
 
         let presenter = Presenter::create(
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         ).expect("Presenter creation should succeed");
 
         // We can't easily create a RenderTarget in unit tests without a full WebGL context
@@ -249,8 +249,8 @@ mod tests {
         // This test verifies that the struct can be constructed with the interfaces
         // and that the interfaces are properly typed
         let presenter = Presenter::create(
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         match presenter {
@@ -273,8 +273,8 @@ mod tests {
             let presentation_to_model = PresentationToModelInterface::new();
 
             let mut presenter = Presenter::create(
-                model_to_presentation,
-                presentation_to_model,
+                std::rc::Rc::new(model_to_presentation),
+                std::rc::Rc::new(presentation_to_model),
             ).expect("Presenter creation should always succeed");
 
             // Test multiple operations
@@ -302,8 +302,8 @@ mod tests {
 
         // Test successful creation
         let presenter_result = Presenter::create(
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         // Test that the result type is correct
@@ -327,13 +327,13 @@ mod tests {
         let presentation_to_model2 = PresentationToModelInterface::new();
 
         let presenter1 = Presenter::create(
-            model_to_presentation1,
-            presentation_to_model1,
+            std::rc::Rc::new(model_to_presentation1),
+            std::rc::Rc::new(presentation_to_model1),
         ).expect("Presenter1 creation should succeed");
 
         let presenter2 = Presenter::create(
-            model_to_presentation2,
-            presentation_to_model2,
+            std::rc::Rc::new(model_to_presentation2),
+            std::rc::Rc::new(presentation_to_model2),
         ).expect("Presenter2 creation should succeed");
 
         // Both presenters should be independent and work correctly

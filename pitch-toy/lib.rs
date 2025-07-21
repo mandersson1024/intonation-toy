@@ -130,7 +130,7 @@ pub async fn run_three_d_with_layers(
     buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
     microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
     ui_triggers: UIControlTriggers,
-    legacy_engine_to_model: module_interfaces::engine_to_model::EngineToModelInterface,
+    legacy_engine_to_model: std::rc::Rc<module_interfaces::engine_to_model::EngineToModelInterface>,
 ) {
     dev_log!("Starting three-d with three-layer architecture");
     
@@ -400,8 +400,13 @@ pub async fn start() {
 
     web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing three-layer architecture".into());
     
-    // Create interfaces using factory function
-    let interfaces = module_interfaces::ThreeLayerInterfaces::create();
+    // Create shared interfaces using Rc for proper interface sharing
+    use std::rc::Rc;
+    let engine_to_model = Rc::new(module_interfaces::engine_to_model::EngineToModelInterface::new());
+    let model_to_engine = Rc::new(module_interfaces::model_to_engine::ModelToEngineInterface::new());
+    let model_to_presentation = Rc::new(module_interfaces::model_to_presentation::ModelToPresentationInterface::new());
+    let presentation_to_model = Rc::new(module_interfaces::presentation_to_model::PresentationToModelInterface::new());
+    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
     
     // Create data sources for debug-specific data and bridge components (legacy compatibility)
     use observable_data::DataSource;
@@ -426,7 +431,7 @@ pub async fn start() {
     let buffer_pool_stats_setter = buffer_pool_stats_source.setter();
     
     // Create bridge setters that feed data into both legacy and interface systems
-    let audio_analysis_setter = interfaces.engine_to_model.audio_analysis_setter();
+    let audio_analysis_setter = engine_to_model.audio_analysis_setter();
     
     // Create shared state for combining volume and pitch data
     use std::sync::{Arc, Mutex};
@@ -540,7 +545,7 @@ pub async fn start() {
     // Create bridge permission setter that updates both legacy and interface
     let permission_bridge_setter = {
         let legacy_setter = microphone_permission_setter.clone();
-        let interface_setter = interfaces.engine_to_model.permission_state_setter();
+        let interface_setter = engine_to_model.permission_state_setter();
         
         #[derive(Clone)]
         struct PermissionBridgeSetter {
@@ -575,10 +580,55 @@ pub async fn start() {
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
     
-    // For now, create placeholder layers that will be filled when we move audio initialization
-    let engine = None; // Will be created after audio system is initialized
-    let model = None;  // Will be created after interfaces are ready
-    let presenter = None; // Will be created after interfaces are ready
+    // Create engine layer
+    let engine = match engine::AudioEngine::create(
+        engine_to_model.clone(),
+        model_to_engine.clone(),
+    ).await {
+        Ok(engine) => {
+            dev_log!("✓ Engine layer created successfully");
+            Some(engine)
+        }
+        Err(e) => {
+            dev_log!("✗ Engine layer creation failed: {}", e);
+            dev_log!("Application will continue without engine layer");
+            None
+        }
+    };
+    
+    // Create model layer
+    let model = match model::DataModel::create(
+        engine_to_model.clone(),
+        model_to_engine.clone(),
+        model_to_presentation.clone(),
+        presentation_to_model.clone(),
+    ) {
+        Ok(model) => {
+            dev_log!("✓ Model layer created successfully");
+            Some(model)
+        }
+        Err(e) => {
+            dev_log!("✗ Model layer creation failed: {}", e);
+            dev_log!("Application will continue without model layer");
+            None
+        }
+    };
+    
+    // Create presentation layer
+    let presenter = match presentation::Presenter::create(
+        model_to_presentation.clone(),
+        presentation_to_model.clone(),
+    ) {
+        Ok(presenter) => {
+            dev_log!("✓ Presentation layer created successfully");
+            Some(presenter)
+        }
+        Err(e) => {
+            dev_log!("✗ Presentation layer creation failed: {}", e);
+            dev_log!("Application will continue without presentation layer");
+            None
+        }
+    };
     
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
@@ -627,7 +677,7 @@ pub async fn start() {
         Some(ref context) => {
             engine::audio::setup_ui_action_listeners_with_context(listeners, permission_bridge_setter.clone(), context.clone());
             // Setup debug action listeners
-            engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &interfaces.debug_actions);
+            engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &debug_actions);
         }
         None => {
             web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());
@@ -639,7 +689,7 @@ pub async fn start() {
         engine,
         model,
         presenter,
-        interfaces.debug_actions,
+        debug_actions,
         performance_metrics_setter,
         performance_metrics_source.observer(),
         audio_devices_source.observer(),
@@ -647,7 +697,7 @@ pub async fn start() {
         buffer_pool_stats_source.observer(),
         microphone_permission_source.observer(),
         triggers,
-        interfaces.engine_to_model, // For legacy compatibility
+        engine_to_model.clone() // Use the same interface as the layers
     ).await;
 }
 

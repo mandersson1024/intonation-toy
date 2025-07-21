@@ -32,11 +32,11 @@ use crate::module_interfaces::{
 pub struct AudioEngine {
     /// Interface for sending data to the model
     /// Contains setters for audio analysis, errors, and permission state
-    _engine_to_model: EngineToModelInterface,
+    _engine_to_model: std::rc::Rc<EngineToModelInterface>,
     
     /// Interface for receiving actions from the model
     /// Contains listeners for microphone permission requests
-    _model_to_engine: ModelToEngineInterface,
+    _model_to_engine: std::rc::Rc<ModelToEngineInterface>,
     
     /// Audio system context for managing audio processing
     _audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
@@ -58,8 +58,8 @@ impl AudioEngine {
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
     pub async fn create(
-        engine_to_model: EngineToModelInterface,
-        model_to_engine: ModelToEngineInterface,
+        engine_to_model: std::rc::Rc<EngineToModelInterface>,
+        model_to_engine: std::rc::Rc<ModelToEngineInterface>,
     ) -> Result<Self, String> {
         // TODO: Move audio system initialization here from lib.rs
         // TODO: Set up interface data routing

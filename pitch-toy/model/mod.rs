@@ -66,19 +66,19 @@ use crate::module_interfaces::{
 pub struct DataModel {
     /// Interface for receiving data from the engine
     /// Contains observers for audio analysis, errors, and permission state
-    _engine_to_model: EngineToModelInterface,
+    _engine_to_model: std::rc::Rc<EngineToModelInterface>,
     
     /// Interface for sending actions to the engine
     /// Contains triggers for microphone permission requests
-    _model_to_engine: ModelToEngineInterface,
+    _model_to_engine: std::rc::Rc<ModelToEngineInterface>,
     
     /// Interface for sending data to the presentation
     /// Contains setters for volume, pitch, accuracy, tuning system, errors, and permission state
-    _model_to_presentation: ModelToPresentationInterface,
+    _model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
     
     /// Interface for receiving actions from the presentation
     /// Contains listeners for user actions like tuning system changes
-    _presentation_to_model: PresentationToModelInterface,
+    _presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
 }
 
 impl DataModel {
@@ -104,10 +104,10 @@ impl DataModel {
     /// Currently stores all interfaces but does not use them. Future implementations
     /// will set up observers and listeners to process data flow between layers.
     pub fn create(
-        engine_to_model: EngineToModelInterface,
-        model_to_engine: ModelToEngineInterface,
-        model_to_presentation: ModelToPresentationInterface,
-        presentation_to_model: PresentationToModelInterface,
+        engine_to_model: std::rc::Rc<EngineToModelInterface>,
+        model_to_engine: std::rc::Rc<ModelToEngineInterface>,
+        model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
+        presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
     ) -> Result<Self, String> {
         // Placeholder implementation - just store the interfaces
         // TODO: Set up observers for engine data
@@ -168,10 +168,10 @@ mod tests {
         let presentation_to_model = PresentationToModelInterface::new();
 
         let result = DataModel::create(
-            engine_to_model,
-            model_to_engine,
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(engine_to_model),
+            std::rc::Rc::new(model_to_engine),
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         assert!(result.is_ok(), "DataModel::create() should always succeed");
@@ -186,10 +186,10 @@ mod tests {
         let presentation_to_model = PresentationToModelInterface::new();
 
         let mut model = DataModel::create(
-            engine_to_model,
-            model_to_engine,
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(engine_to_model),
+            std::rc::Rc::new(model_to_engine),
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         ).expect("DataModel creation should succeed");
 
         // Test that update can be called multiple times without panicking
@@ -213,10 +213,10 @@ mod tests {
         // This test verifies that the struct can be constructed with the interfaces
         // and that the interfaces are properly typed
         let model = DataModel::create(
-            engine_to_model,
-            model_to_engine,
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(engine_to_model),
+            std::rc::Rc::new(model_to_engine),
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         match model {
@@ -241,10 +241,10 @@ mod tests {
             let presentation_to_model = PresentationToModelInterface::new();
 
             let mut model = DataModel::create(
-                engine_to_model,
-                model_to_engine,
-                model_to_presentation,
-                presentation_to_model,
+                std::rc::Rc::new(engine_to_model),
+                std::rc::Rc::new(model_to_engine),
+                std::rc::Rc::new(model_to_presentation),
+                std::rc::Rc::new(presentation_to_model),
             ).expect("DataModel creation should always succeed");
 
             // Test multiple operations
@@ -274,10 +274,10 @@ mod tests {
 
         // Test successful creation
         let model_result = DataModel::create(
-            engine_to_model,
-            model_to_engine,
-            model_to_presentation,
-            presentation_to_model,
+            std::rc::Rc::new(engine_to_model),
+            std::rc::Rc::new(model_to_engine),
+            std::rc::Rc::new(model_to_presentation),
+            std::rc::Rc::new(presentation_to_model),
         );
 
         // Test that the result type is correct
