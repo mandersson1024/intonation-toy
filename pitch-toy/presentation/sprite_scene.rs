@@ -1,8 +1,28 @@
-// Sprite Scene - WebGL scene with red sprites using three-d
+//! Sprite Scene - Placeholder WebGL scene with red sprites
+//! 
+//! This is a PLACEHOLDER implementation used for development and testing.
+//! It demonstrates basic 3D rendering with the three-d library.
+//! 
+//! TODO: Replace this with actual pitch visualization components when
+//! the presentation layer is fully implemented.
+//! 
+//! This file can be safely deleted once proper visualization is implemented.
 
-use three_d::*;
+use three_d::{Context, Viewport, Camera, Axes, ColorMaterial, Sprites, AmbientLight, Srgba, ClearState, Gm, RenderTarget, vec3, degrees, InnerSpace};
 
-/// WebGL scene with red sprites and camera
+/// PLACEHOLDER WebGL scene with red sprites and camera
+/// 
+/// This is a temporary implementation used to demonstrate basic 3D rendering
+/// capabilities while the actual pitch visualization is being developed.
+/// 
+/// # Purpose
+/// - Provides a visual confirmation that the 3D rendering pipeline works
+/// - Serves as a basic example of three-d library usage
+/// - Acts as a placeholder until proper pitch/volume visualization is implemented
+/// 
+/// # Removal
+/// This struct and file should be deleted once the presentation layer
+/// has proper pitch visualization components.
 pub struct SpriteScene {
     camera: Camera,
     axes: Axes,
@@ -14,7 +34,10 @@ pub struct SpriteScene {
 }
 
 impl SpriteScene {
-    /// Create new sprite scene
+    /// Create new placeholder sprite scene
+    /// 
+    /// Sets up a basic 3D scene with red sprites positioned at various locations
+    /// to demonstrate 3D rendering capabilities.
     pub fn new(context: &Context, viewport: Viewport) -> Self {
         let camera = Camera::new_perspective(
             viewport,
@@ -76,12 +99,15 @@ impl SpriteScene {
         }
     }
 
-    /// Update camera viewport
+    /// Update camera viewport for window resize
     pub fn update_viewport(&mut self, viewport: Viewport) {
         self.camera.set_viewport(viewport);
     }
 
-    /// Render the scene
+    /// Render the placeholder scene
+    /// 
+    /// Renders the red sprites and coordinate axes to the screen.
+    /// This is purely for demonstration purposes.
     pub fn render(&self, screen: &mut RenderTarget) {
         screen
             .clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0))

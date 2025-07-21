@@ -1,4 +1,4 @@
-use three_d::*;
+use three_d::{self, *};
 use three_d::egui::Color32;
 
 // Three-layer architecture modules
@@ -22,7 +22,6 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 use debug::egui::{EguiMicrophoneButton, HybridEguiLiveDataPanel};
 
-use presentation::graphics::SpriteScene;
 
 // Import action system
 use action::{Action, ActionTrigger, ActionListener};
@@ -145,7 +144,6 @@ pub async fn run_three_d_with_layers(
     .unwrap();
     
     let context = window.gl();
-    let scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
     let mut command_registry = ConsoleCommandRegistry::new();
@@ -223,6 +221,7 @@ pub async fn run_three_d_with_layers(
         // Update presentation layer
         if let Some(ref mut presenter) = presenter {
             presenter.update(timestamp);
+            presenter.update_viewport(frame_input.viewport);
         }
         
         // Extract needed values before borrowing screen
@@ -250,13 +249,10 @@ pub async fn run_three_d_with_layers(
         let mut screen = frame_input.screen();
         screen.clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0));
         
-        // Render presentation layer (currently does nothing, so render existing scene)
-        scene.render(&mut screen);
-        
-        // Future: presentation layer rendering
-        // if let Some(ref presenter) = presenter {
-        //     presenter.render(&mut screen);
-        // }
+        // Render presentation layer
+        if let Some(ref mut presenter) = presenter {
+            presenter.render(&context, &mut screen);
+        }
         
         let _ = gui.render();
         FrameOutput::default()
@@ -355,6 +351,7 @@ pub async fn start() {
     ) {
         Ok(presenter) => {
             dev_log!("✓ Presentation layer created successfully");
+            // Sprite scene will be initialized on first render to avoid variable shadowing
             Some(presenter)
         }
         Err(e) => {

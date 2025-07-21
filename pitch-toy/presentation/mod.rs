@@ -56,9 +56,12 @@
 //! - Manage screen layout and visual elements
 //! - Provide visual feedback for audio processing
 
-pub mod graphics;
+// PLACEHOLDER: Import temporary sprite scene for development/testing
+// TODO: Remove this import and sprite_scene.rs when proper visualization is implemented
+mod sprite_scene;
+pub use sprite_scene::SpriteScene;
 
-use three_d::RenderTarget;
+use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::{
     model_to_presentation::ModelToPresentationInterface,
     presentation_to_model::PresentationToModelInterface,
@@ -105,6 +108,12 @@ pub struct Presenter {
     /// Interface for sending actions to the model
     /// Contains triggers for user actions like tuning system changes and permission requests
     _presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
+    
+    /// Sprite scene for rendering
+    sprite_scene: Option<SpriteScene>,
+    
+    /// Flag to track if scene has been initialized
+    scene_initialized: bool,
 }
 
 impl Presenter {
@@ -138,7 +147,35 @@ impl Presenter {
         Ok(Self {
             _model_to_presentation: model_to_presentation,
             _presentation_to_model: presentation_to_model,
+            sprite_scene: None,
+            scene_initialized: false,
         })
+    }
+
+    /// Initialize the sprite scene with a WebGL context and viewport
+    /// 
+    /// This method should be called after the WebGL context is available
+    /// to set up the 3D rendering components.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `context` - The WebGL context for rendering
+    /// * `viewport` - The initial viewport dimensions
+    pub fn initialize_scene(&mut self, context: &Context, viewport: Viewport) {
+        self.sprite_scene = Some(SpriteScene::new(context, viewport));
+    }
+
+    /// Update viewport size for the sprite scene
+    /// 
+    /// This should be called when the window/canvas is resized.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `viewport` - The new viewport dimensions
+    pub fn update_viewport(&mut self, viewport: Viewport) {
+        if let Some(ref mut scene) = self.sprite_scene {
+            scene.update_viewport(viewport);
+        }
     }
 
     /// Update the presentation layer with a new timestamp
@@ -174,33 +211,24 @@ impl Presenter {
     /// Render the presentation layer to the screen
     /// 
     /// This method is called by the main render loop to draw the visual interface.
-    /// It should render all visual elements including pitch displays, volume indicators,
-    /// user controls, and debug information.
+    /// It initializes the sprite scene on first render if needed, then renders it.
     /// 
     /// # Arguments
     /// 
+    /// * `context` - The WebGL context for rendering
     /// * `screen` - The render target to draw to
-    /// 
-    /// # Placeholder Behavior
-    /// 
-    /// Currently does nothing. The screen parameter is unused.
-    /// 
-    /// # Future Implementation
-    /// 
-    /// When implemented, this method will:
-    /// 1. Clear/prepare the render target if needed
-    /// 2. Render pitch visualization elements
-    /// 3. Render volume level indicators  
-    /// 4. Render user interface controls
-    /// 5. Render tuning system information
-    /// 6. Render error messages and status
-    pub fn render(&self, _screen: &mut RenderTarget) {
-        // TODO: Implement presentation rendering
-        // TODO: Render pitch visualization
-        // TODO: Render volume indicators
-        // TODO: Render user interface controls
-        // TODO: Render status information
-        // Placeholder - does nothing
+    pub fn render(&mut self, context: &Context, screen: &mut RenderTarget) {
+        // Initialize scene on first render if not already done
+        if !self.scene_initialized {
+            let viewport = screen.viewport();
+            self.sprite_scene = Some(SpriteScene::new(context, viewport));
+            self.scene_initialized = true;
+        }
+        
+        // Render the scene if available
+        if let Some(ref scene) = self.sprite_scene {
+            scene.render(screen);
+        }
     }
 }
 
@@ -267,7 +295,7 @@ mod tests {
         // This test mainly ensures the render method signature is correct
         
         // Create a mock function pointer to verify the signature
-        let _render_fn: fn(&Presenter, &mut RenderTarget) = Presenter::render;
+        let _render_fn: fn(&mut Presenter, &Context, &mut RenderTarget) = Presenter::render;
         
         assert!(true, "render() method signature is correct");
     }
