@@ -128,11 +128,11 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
   - [x] Keep existing SpriteScene rendering in render loop (presenter does nothing)
   - [x] Maintain timestamp synchronization across layers
 
-- [ ] **4c**: Update debug GUI integration
-  - [ ] Modify debug GUI to accept interface observers only
-  - [ ] Remove direct access to internal layer state
-  - [ ] Ensure debug GUI works with new data flow
-  - [ ] Maintain existing debug functionality
+- [x] **4c**: Update debug GUI integration
+  - [x] Modify debug GUI to accept interface observers only
+  - [x] Remove direct access to internal layer state
+  - [x] Ensure debug GUI works with new data flow
+  - [x] Maintain existing debug functionality
 
 **Dependencies**: Tasks 1, 2, 3 (All layer implementations)  
 **Testing**: Full integration testing + manual testing required  
