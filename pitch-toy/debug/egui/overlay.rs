@@ -159,6 +159,31 @@ impl EguiMicrophoneButton {
         });
     }
     
+    /// Render the microphone button inline within an existing UI context
+    pub fn render_inline(&mut self, ui: &mut egui::Ui) {
+        // Render microphone permission button inline
+        let permission_state = self.microphone_button.get_permission_state();
+        
+        let button_text = match permission_state {
+            AudioPermission::Uninitialized => "Request Permission",
+            AudioPermission::Requesting => "Requesting...",
+            AudioPermission::Granted => "✓ Permission Granted",
+            AudioPermission::Denied => "Permission Denied",
+            AudioPermission::Unavailable => "Microphone Unavailable",
+        };
+        
+        let button_enabled = matches!(permission_state, AudioPermission::Uninitialized | AudioPermission::Denied);
+        
+        ui.add_enabled_ui(button_enabled, |ui| {
+            if ui.button(button_text).clicked() {
+                self.microphone_button.trigger_click();
+            }
+        });
+        
+        // Check and apply any configuration changes
+        self.check_and_apply_changes();
+    }
+
     /// Render the microphone button and all audio controls
     pub fn render(&mut self, gui_context: &egui::Context) {
         // Get screen dimensions

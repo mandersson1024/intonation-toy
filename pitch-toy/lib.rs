@@ -170,6 +170,7 @@ pub async fn run_three_d_hybrid(
     let mut hybrid_live_data_panel = HybridEguiLiveDataPanel::new(
         hybrid_live_data,
         debug_actions,
+        microphone_button,
     );
 
     dev_log!("Starting three-d + egui render loop with hybrid architecture");
@@ -220,7 +221,6 @@ pub async fn run_three_d_hybrid(
                 });
                 
                 dev_console.render(gui_context);
-                microphone_button.render(gui_context);
                 hybrid_live_data_panel.render(gui_context);
             }
         );

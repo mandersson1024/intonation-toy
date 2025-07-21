@@ -10,11 +10,13 @@ use crate::module_interfaces::debug_actions::{
     DebugActionsInterface, TestSignalAction, OutputToSpeakersAction, BackgroundNoiseAction
 };
 use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
+use crate::debug::egui::EguiMicrophoneButton;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
 pub struct HybridEguiLiveDataPanel {
     hybrid_data: HybridLiveData,
     debug_actions: DebugActionsInterface,
+    microphone_button: EguiMicrophoneButton,
     last_metrics_update: f64,
     
     // UI state for debug controls
@@ -33,10 +35,12 @@ impl HybridEguiLiveDataPanel {
     pub fn new(
         hybrid_data: HybridLiveData,
         debug_actions: DebugActionsInterface,
+        microphone_button: EguiMicrophoneButton,
     ) -> Self {
         Self {
             hybrid_data,
             debug_actions,
+            microphone_button,
             last_metrics_update: 0.0,
             
             // Initialize UI state
@@ -336,7 +340,7 @@ impl HybridEguiLiveDataPanel {
     }
     
     /// Render permission state section (core data via interface)
-    fn render_permission_state_section(&self, ui: &mut Ui) {
+    fn render_permission_state_section(&mut self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Permission State")
             .default_open(true)
             .show(ui, |ui| {
@@ -354,6 +358,9 @@ impl HybridEguiLiveDataPanel {
                     ui.colored_label(color, text);
                 });
             });
+        
+        // Render microphone button outside the collapsing header to avoid click conflicts
+        self.microphone_button.render_inline(ui);
     }
     
     /// Render audio errors section (core data via interface)
