@@ -39,7 +39,7 @@ pub struct AudioEngine {
     _model_to_engine: std::rc::Rc<ModelToEngineInterface>,
     
     /// Audio system context for managing audio processing
-    _audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
+    audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
 }
 
 impl AudioEngine {
@@ -61,14 +61,26 @@ impl AudioEngine {
         engine_to_model: std::rc::Rc<EngineToModelInterface>,
         model_to_engine: std::rc::Rc<ModelToEngineInterface>,
     ) -> Result<Self, String> {
-        // TODO: Move audio system initialization here from lib.rs
-        // TODO: Set up interface data routing
-        // TODO: Set up action listeners
+        // Initialize audio system with interface-based communication
+        let audio_context = match audio::initialize_audio_system_with_interfaces(
+            &engine_to_model,
+            &model_to_engine,
+        ).await {
+            Ok(context) => {
+                crate::common::dev_log!("✓ Audio system initialized successfully in AudioEngine");
+                Some(std::rc::Rc::new(std::cell::RefCell::new(context)))
+            }
+            Err(e) => {
+                crate::common::dev_log!("✗ Audio system initialization failed: {}", e);
+                crate::common::dev_log!("AudioEngine will continue without audio functionality");
+                None
+            }
+        };
         
         Ok(Self {
             _engine_to_model: engine_to_model,
             _model_to_engine: model_to_engine,
-            _audio_context: None,
+            audio_context,
         })
     }
 
@@ -82,10 +94,42 @@ impl AudioEngine {
     /// 
     /// * `timestamp` - The current timestamp in seconds since application start
     pub fn update(&mut self, _timestamp: f64) {
-        // TODO: Implement engine update logic
-        // TODO: Process audio stream data
-        // TODO: Handle device enumeration updates
-        // TODO: Push audio analysis to model
-        // Placeholder - does nothing
+        // Update audio context if available
+        // Note: AudioSystemContext doesn't have an update method - it's handled by the worklet
+        // This method is kept for future engine-level updates
+    }
+    
+    /// Set up UI action listeners with the audio system
+    /// 
+    /// This method configures the engine to listen for UI control actions
+    /// like microphone permission requests, test signals, etc.
+    pub fn setup_ui_listeners(
+        &self,
+        ui_listeners: crate::UIControlListeners,
+        microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
+    ) {
+        if let Some(ref context) = self.audio_context {
+            audio::setup_ui_action_listeners_with_context(
+                ui_listeners,
+                microphone_permission_setter,
+                context.clone(),
+            );
+        }
+    }
+    
+    /// Set up debug action listeners with the audio system
+    /// 
+    /// This method configures the engine to listen for debug actions
+    /// from the debug GUI.
+    pub fn setup_debug_listeners(
+        &self,
+        debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
+    ) {
+        if let Some(ref context) = self.audio_context {
+            audio::context::AudioSystemContext::setup_debug_action_listeners(
+                context,
+                debug_actions,
+            );
+        }
     }
 }

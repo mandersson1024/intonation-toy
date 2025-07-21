@@ -165,11 +165,11 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
 ### Task 6: Cleanup and Documentation
 **Priority**: Medium - Polish and maintainability
 
-- [ ] **6a**: Remove obsolete code
-  - [ ] Remove direct audio initialization from lib.rs
-  - [ ] Remove bypass patterns and direct coupling
-  - [ ] Clean up unused imports and dependencies
-  - [ ] Remove global variable dependencies where possible
+- [x] **6a**: Remove obsolete code
+  - [x] Remove direct audio initialization from lib.rs
+  - [x] Remove bypass patterns and direct coupling
+  - [x] Clean up unused imports and dependencies
+  - [x] Remove global variable dependencies where possible
 
 - [ ] **6b**: Update documentation
   - [ ] Update architecture documentation with actual implementation
