@@ -62,6 +62,12 @@ pub struct UIControlActions {
     pub microphone_permission: Action<MicrophonePermissionAction>,
 }
 
+impl Default for UIControlActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UIControlActions {
     pub fn new() -> Self {
         Self {
@@ -183,7 +189,7 @@ pub async fn run_three_d_with_layers(
     window.render_loop(move |mut frame_input| {
         // Update FPS counter
         frame_count += 1;
-        let current_time = frame_input.accumulated_time as f64;
+        let current_time = frame_input.accumulated_time;
         
         // Update FPS every second
         if current_time - last_fps_update >= 1000.0 {

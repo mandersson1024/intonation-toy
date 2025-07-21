@@ -58,6 +58,12 @@ pub struct ModelToPresentationInterface {
     permission_state_source: DataSource<PermissionState>,
 }
 
+impl Default for ModelToPresentationInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelToPresentationInterface {
     /// Create a new Model → Presentation interface with all data sources
     pub fn new() -> Self {

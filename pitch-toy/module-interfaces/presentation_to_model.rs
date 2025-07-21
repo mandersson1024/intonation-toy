@@ -29,6 +29,12 @@ pub struct PresentationToModelInterface {
     decrease_root_note: Action<DecreaseRootNoteAction>,
 }
 
+impl Default for PresentationToModelInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PresentationToModelInterface {
     /// Create a new Presentation → Model interface with all actions
     pub fn new() -> Self {

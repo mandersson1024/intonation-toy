@@ -15,6 +15,12 @@ pub struct DevConsole {
     is_visible: bool
 }
 
+impl Default for DevConsole {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DevConsole {
     pub fn new() -> Self {
         let mut output_manager = ConsoleOutputManager::new();
@@ -26,7 +32,7 @@ impl DevConsole {
         // Load command history from local storage
         let command_history = Self::load_history_from_storage();
         if !command_history.is_empty() {
-            output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
+            output_manager.add_output(ConsoleOutput::info(format!("Restored {} commands from history", command_history.len())));
         }
         
         Self {
@@ -48,7 +54,7 @@ impl DevConsole {
         // Load command history from local storage
         let command_history = Self::load_history_from_storage();
         if !command_history.is_empty() {
-            output_manager.add_output(ConsoleOutput::info(&format!("Restored {} commands from history", command_history.len())));
+            output_manager.add_output(ConsoleOutput::info(format!("Restored {} commands from history", command_history.len())));
         }
         
         Self {

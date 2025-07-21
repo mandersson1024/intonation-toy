@@ -7,6 +7,12 @@ pub struct ModelToEngineInterface {
     request_microphone_permission: Action<RequestMicrophonePermissionAction>,
 }
 
+impl Default for ModelToEngineInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelToEngineInterface {
     /// Create a new Model → Engine interface with all actions
     pub fn new() -> Self {

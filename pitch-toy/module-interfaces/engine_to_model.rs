@@ -44,6 +44,12 @@ pub struct EngineToModelInterface {
     permission_state_source: DataSource<PermissionState>,
 }
 
+impl Default for EngineToModelInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EngineToModelInterface {
     pub fn new() -> Self {
         Self {

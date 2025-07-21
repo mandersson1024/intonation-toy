@@ -37,10 +37,8 @@ pub fn validate_buffer_size_for_creation(size: usize) -> Result<(), String> {
             return Err(format!("Development buffer size {} must be between {} and {}", 
                 size, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX));
         }
-    } else {
-        if size != PRODUCTION_BUFFER_SIZE {
-            return Err(format!("Production buffer size must be {}", PRODUCTION_BUFFER_SIZE));
-        }
+    } else if size != PRODUCTION_BUFFER_SIZE {
+        return Err(format!("Production buffer size must be {}", PRODUCTION_BUFFER_SIZE));
     }
     
     Ok(())

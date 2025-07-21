@@ -10,6 +10,12 @@ pub struct ConsoleCommandRegistry {
     commands: HashMap<String, Box<dyn ConsoleCommand>>,
 }
 
+impl Default for ConsoleCommandRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConsoleCommandRegistry {
     /// Create a new registry with only built-in commands (no module dependencies)
     /// Built-in commands: help, clear, test
@@ -31,7 +37,7 @@ impl ConsoleCommandRegistry {
     }
     
     pub fn execute(&self, input: &str) -> ConsoleCommandResult {
-        let parts: Vec<&str> = input.trim().split_whitespace().collect();
+        let parts: Vec<&str> = input.split_whitespace().collect();
         if parts.is_empty() {
             return ConsoleCommandResult::Output(ConsoleOutput::error("Empty command"));
         }
