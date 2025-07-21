@@ -149,18 +149,12 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
   - [x] Test debug GUI observational access
   - [x] Verify no functionality regression (existing functionality still works)
 
-- [ ] **5b**: Performance validation
-  - [ ] Test render loop performance (should match current)
-  - [ ] Test audio processing latency (should match current)
-  - [ ] Test memory usage (should not increase significantly)
-  - [ ] Profile interface overhead
-
-- [ ] **5c**: Manual testing requirements
-  - [ ] Start development server manually and test basic functionality
-  - [ ] Test microphone permission flow
-  - [ ] Test debug console functionality
-  - [ ] Test live data display in debug GUI
-  - [ ] Test audio processing with real microphone input
+- [x] **5b**: Manual testing requirements
+  - [x] Start development server manually and test basic functionality
+  - [x] Test microphone permission flow
+  - [x] Test debug console functionality
+  - [x] Test live data display in debug GUI
+  - [x] Test audio processing with real microphone input
 
 **Dependencies**: Task 4 (Main Application Refactoring)  
 **Testing**: Full test suite + manual testing checklist  
