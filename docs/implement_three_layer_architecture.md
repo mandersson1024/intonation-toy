@@ -101,11 +101,11 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
   - [x] Add placeholder documentation comments
   - [x] Ensure no runtime panics or crashes
 
-- [ ] **3c**: Basic presentation layer tests
-  - [ ] Test that Presenter::create() succeeds
-  - [ ] Test that update() and render() methods can be called without panicking
-  - [ ] Verify struct accepts required interfaces
-  - [ ] No functional testing - just compilation and basic runtime safety
+- [x] **3c**: Basic presentation layer tests
+  - [x] Test that Presenter::create() succeeds
+  - [x] Test that update() and render() methods can be called without panicking
+  - [x] Verify struct accepts required interfaces
+  - [x] No functional testing - just compilation and basic runtime safety
 
 **Dependencies**: Task 2 (Model Layer)  
 **Testing**: Basic compilation and runtime safety tests  

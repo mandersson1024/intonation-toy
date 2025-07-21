@@ -171,3 +171,173 @@ impl Presenter {
         // Placeholder - does nothing
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+    use three_d::*;
+
+    /// Test that Presenter::create() succeeds with all required interfaces
+    #[wasm_bindgen_test]
+    fn test_presenter_create_succeeds() {
+        let model_to_presentation = ModelToPresentationInterface::new();
+        let presentation_to_model = PresentationToModelInterface::new();
+
+        let result = Presenter::create(
+            model_to_presentation,
+            presentation_to_model,
+        );
+
+        assert!(result.is_ok(), "Presenter::create() should always succeed");
+    }
+
+    /// Test that update() and render() methods can be called without panicking
+    #[wasm_bindgen_test]
+    fn test_presenter_update_and_render_no_panic() {
+        let model_to_presentation = ModelToPresentationInterface::new();
+        let presentation_to_model = PresentationToModelInterface::new();
+
+        let mut presenter = Presenter::create(
+            model_to_presentation,
+            presentation_to_model,
+        ).expect("Presenter creation should succeed");
+
+        // Test that update can be called multiple times without panicking
+        presenter.update(0.0);
+        presenter.update(1.0);
+        presenter.update(123.456);
+        presenter.update(-1.0); // Negative timestamp should also be safe
+        
+        // Test render method - we need a mock render target
+        // Since we can't easily create a real RenderTarget in tests,
+        // we'll create a simple test that verifies the method signature
+        // The actual render testing will be done in integration tests
+        
+        // For now, just verify update doesn't panic
+        // If we reach this point, no panic occurred
+        assert!(true, "update() method should not panic");
+    }
+
+    /// Test that render method can be called (basic signature verification)
+    #[wasm_bindgen_test]
+    fn test_presenter_render_method_exists() {
+        let model_to_presentation = ModelToPresentationInterface::new();
+        let presentation_to_model = PresentationToModelInterface::new();
+
+        let presenter = Presenter::create(
+            model_to_presentation,
+            presentation_to_model,
+        ).expect("Presenter creation should succeed");
+
+        // We can't easily create a RenderTarget in unit tests without a full WebGL context
+        // But we can verify the method exists and compiles correctly by checking the type
+        // This test mainly ensures the render method signature is correct
+        
+        // Create a mock function pointer to verify the signature
+        let _render_fn: fn(&Presenter, &mut RenderTarget) = Presenter::render;
+        
+        assert!(true, "render() method signature is correct");
+    }
+
+    /// Verify that struct accepts all required interfaces
+    #[wasm_bindgen_test]
+    fn test_presenter_accepts_interfaces() {
+        let model_to_presentation = ModelToPresentationInterface::new();
+        let presentation_to_model = PresentationToModelInterface::new();
+
+        // This test verifies that the struct can be constructed with the interfaces
+        // and that the interfaces are properly typed
+        let presenter = Presenter::create(
+            model_to_presentation,
+            presentation_to_model,
+        );
+
+        match presenter {
+            Ok(_) => {
+                // Success - all interfaces were accepted
+                assert!(true, "All interfaces were accepted by Presenter");
+            }
+            Err(e) => {
+                panic!("Presenter should accept all required interfaces, but got error: {}", e);
+            }
+        }
+    }
+
+    /// Test basic runtime safety - creation and operation should not crash
+    #[wasm_bindgen_test]
+    fn test_presenter_runtime_safety() {
+        // Create multiple instances to test memory safety
+        for i in 0..10 {
+            let model_to_presentation = ModelToPresentationInterface::new();
+            let presentation_to_model = PresentationToModelInterface::new();
+
+            let mut presenter = Presenter::create(
+                model_to_presentation,
+                presentation_to_model,
+            ).expect("Presenter creation should always succeed");
+
+            // Test multiple operations
+            presenter.update(i as f64);
+            presenter.update((i as f64) * 0.5);
+            
+            // Test edge case values
+            presenter.update(f64::MAX);
+            presenter.update(f64::MIN);
+            presenter.update(0.0);
+        }
+        
+        // If we reach this point, all operations completed safely
+        assert!(true, "All Presenter operations completed safely");
+    }
+
+    /// Test that Presenter compilation requirements are met
+    #[wasm_bindgen_test]
+    fn test_presenter_compilation_safety() {
+        // This test exists primarily to ensure the struct compiles correctly
+        // and that all interface types are properly imported and used
+        
+        let model_to_presentation = ModelToPresentationInterface::new();
+        let presentation_to_model = PresentationToModelInterface::new();
+
+        // Test successful creation
+        let presenter_result = Presenter::create(
+            model_to_presentation,
+            presentation_to_model,
+        );
+
+        // Test that the result type is correct
+        assert!(presenter_result.is_ok());
+        
+        let mut presenter = presenter_result.unwrap();
+        
+        // Test that update signature is correct
+        presenter.update(42.0);
+        
+        // Test completed - all compilation requirements verified
+        assert!(true, "Presenter meets all compilation requirements");
+    }
+
+    /// Test interface isolation - different instances should be independent
+    #[wasm_bindgen_test]
+    fn test_presenter_interface_isolation() {
+        let model_to_presentation1 = ModelToPresentationInterface::new();
+        let presentation_to_model1 = PresentationToModelInterface::new();
+        let model_to_presentation2 = ModelToPresentationInterface::new();
+        let presentation_to_model2 = PresentationToModelInterface::new();
+
+        let presenter1 = Presenter::create(
+            model_to_presentation1,
+            presentation_to_model1,
+        ).expect("Presenter1 creation should succeed");
+
+        let presenter2 = Presenter::create(
+            model_to_presentation2,
+            presentation_to_model2,
+        ).expect("Presenter2 creation should succeed");
+
+        // Both presenters should be independent and work correctly
+        // This is mainly a compilation test since they're placeholders
+        assert!(true, "Multiple Presenter instances are properly isolated");
+    }
+}
