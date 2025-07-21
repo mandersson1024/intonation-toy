@@ -117,7 +117,150 @@ pub struct UIControlListeners {
 
 // Legacy run_three_d function removed - using hybrid architecture only
 
-/// Run three-d with hybrid debug GUI architecture
+/// Run three-d with three-layer architecture
+pub async fn run_three_d_with_layers(
+    mut engine: Option<engine::AudioEngine>,
+    mut model: Option<model::DataModel>,
+    mut presenter: Option<presentation::Presenter>,
+    debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
+    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::data_types::PerformanceMetrics> + Clone + 'static,
+    performance_metrics_observer: observable_data::DataObserver<debug::egui::data_types::PerformanceMetrics>,
+    audio_devices_observer: observable_data::DataObserver<engine::audio::AudioDevices>,
+    audioworklet_status_observer: observable_data::DataObserver<debug::egui::data_types::AudioWorkletStatus>,
+    buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
+    microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
+    ui_triggers: UIControlTriggers,
+    legacy_engine_to_model: module_interfaces::engine_to_model::EngineToModelInterface,
+) {
+    dev_log!("Starting three-d with three-layer architecture");
+    
+    let window = Window::new(WindowSettings {
+        title: "pitch-toy".to_string(),
+        max_size: Some((1280, 720)),
+        ..Default::default()
+    })
+    .unwrap();
+    
+    let context = window.gl();
+    let scene = SpriteScene::new(&context, window.viewport());
+    let mut gui = three_d::GUI::new(&context);
+    
+    let mut command_registry = ConsoleCommandRegistry::new();
+    crate::engine::platform::commands::register_platform_commands(&mut command_registry);
+    crate::engine::audio::register_audio_commands(&mut command_registry);
+
+    let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
+    
+    // Create microphone button
+    let microphone_button = EguiMicrophoneButton::new(
+        microphone_permission_observer.clone(),
+        ui_triggers.microphone_permission.clone(),
+        ui_triggers.output_to_speakers.clone(),
+        ui_triggers.test_signal.clone(),
+        ui_triggers.background_noise.clone(),
+    );
+    
+    // Create hybrid live data (for backward compatibility)
+    let hybrid_live_data = live_data::HybridLiveData::new(
+        &legacy_engine_to_model,
+        audio_devices_observer,
+        performance_metrics_observer,
+        audioworklet_status_observer,
+        buffer_pool_stats_observer,
+    );
+    
+    // Create hybrid debug panel
+    let mut hybrid_live_data_panel = HybridEguiLiveDataPanel::new(
+        hybrid_live_data,
+        debug_actions,
+        microphone_button,
+    );
+
+    dev_log!("Starting three-d + egui render loop with three-layer architecture");
+    
+    // Performance tracking
+    let mut frame_count = 0u32;
+    let mut last_fps_update = 0.0;
+    let mut fps = 0.0;
+    
+    window.render_loop(move |mut frame_input| {
+        // Update FPS counter
+        frame_count += 1;
+        let current_time = frame_input.accumulated_time as f64;
+        
+        // Update FPS every second
+        if current_time - last_fps_update >= 1000.0 {
+            fps = (frame_count as f64) / ((current_time - last_fps_update) / 1000.0);
+            frame_count = 0;
+            last_fps_update = current_time;
+            
+            // Update performance metrics
+            let metrics = debug::egui::data_types::PerformanceMetrics {
+                fps,
+                memory_usage: 0.0, // Placeholder
+                audio_latency: 0.0, // Placeholder
+                cpu_usage: 0.0, // Placeholder
+            };
+            performance_metrics_setter.set(metrics);
+        }
+        
+        // Three-layer update sequence (engine → model → presenter)
+        let timestamp = current_time / 1000.0;
+        
+        // Update engine layer
+        if let Some(ref mut engine) = engine {
+            engine.update(timestamp);
+        }
+        
+        // Update model layer
+        if let Some(ref mut model) = model {
+            model.update(timestamp);
+        }
+        
+        // Update presentation layer
+        if let Some(ref mut presenter) = presenter {
+            presenter.update(timestamp);
+        }
+        
+        // Extract needed values before borrowing screen
+        let accumulated_time = frame_input.accumulated_time;
+        let viewport = frame_input.viewport;
+        let device_pixel_ratio = frame_input.device_pixel_ratio;
+        
+        gui.update(
+            &mut frame_input.events,
+            accumulated_time,
+            viewport,
+            device_pixel_ratio,
+            |gui_context| {
+                gui_context.set_visuals(egui::Visuals {
+                    window_fill: Color32::from_rgba_unmultiplied(27, 27, 27, 240),
+                    override_text_color: Some(Color32::from_rgb(255, 255, 255)),
+                    ..egui::Visuals::default()
+                });
+                
+                dev_console.render(gui_context);
+                hybrid_live_data_panel.render(gui_context);
+            }
+        );
+        
+        let mut screen = frame_input.screen();
+        screen.clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0));
+        
+        // Render presentation layer (currently does nothing, so render existing scene)
+        scene.render(&mut screen);
+        
+        // Future: presentation layer rendering
+        // if let Some(ref presenter) = presenter {
+        //     presenter.render(&mut screen);
+        // }
+        
+        let _ = gui.render();
+        FrameOutput::default()
+    });
+}
+
+/// Run three-d with hybrid debug GUI architecture (legacy compatibility)
 pub async fn run_three_d_hybrid(
     engine_to_model: module_interfaces::engine_to_model::EngineToModelInterface,
     debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
@@ -255,9 +398,12 @@ pub async fn start() {
         return;
     }
 
-    web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing application".into());
+    web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing three-layer architecture".into());
     
-    // Create data sources for debug-specific data and bridge components
+    // Create interfaces using factory function
+    let interfaces = module_interfaces::ThreeLayerInterfaces::create();
+    
+    // Create data sources for debug-specific data and bridge components (legacy compatibility)
     use observable_data::DataSource;
     
     let microphone_permission_source = DataSource::new(engine::audio::AudioPermission::Uninitialized);
@@ -279,12 +425,8 @@ pub async fn start() {
     let volume_level_setter = volume_level_source.setter();
     let buffer_pool_stats_setter = buffer_pool_stats_source.setter();
     
-    // Create interfaces for hybrid architecture first
-    let engine_to_model = module_interfaces::engine_to_model::EngineToModelInterface::new();
-    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
-    
     // Create bridge setters that feed data into both legacy and interface systems
-    let audio_analysis_setter = engine_to_model.audio_analysis_setter();
+    let audio_analysis_setter = interfaces.engine_to_model.audio_analysis_setter();
     
     // Create shared state for combining volume and pitch data
     use std::sync::{Arc, Mutex};
@@ -398,7 +540,7 @@ pub async fn start() {
     // Create bridge permission setter that updates both legacy and interface
     let permission_bridge_setter = {
         let legacy_setter = microphone_permission_setter.clone();
-        let interface_setter = engine_to_model.permission_state_setter();
+        let interface_setter = interfaces.engine_to_model.permission_state_setter();
         
         #[derive(Clone)]
         struct PermissionBridgeSetter {
@@ -429,6 +571,14 @@ pub async fn start() {
             interface: interface_setter,
         }
     };
+    
+    // Create three-layer architecture instances
+    dev_log!("Creating three-layer architecture instances...");
+    
+    // For now, create placeholder layers that will be filled when we move audio initialization
+    let engine = None; // Will be created after audio system is initialized
+    let model = None;  // Will be created after interfaces are ready
+    let presenter = None; // Will be created after interfaces are ready
     
     // Initialize audio systems first - but don't block the UI if it fails
     web_sys::console::log_1(&"DEBUG: Starting audio system initialization...".into());
@@ -477,17 +627,19 @@ pub async fn start() {
         Some(ref context) => {
             engine::audio::setup_ui_action_listeners_with_context(listeners, permission_bridge_setter.clone(), context.clone());
             // Setup debug action listeners
-            engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &debug_actions);
+            engine::audio::context::AudioSystemContext::setup_debug_action_listeners(context, &interfaces.debug_actions);
         }
         None => {
             web_sys::console::error_1(&"Error: Audio system initialization failed - UI action listeners cannot be set up".into());
         }
     }
     
-    // Start three-d application with hybrid architecture
-    run_three_d_hybrid(
-        engine_to_model,
-        debug_actions,
+    // Start three-d application with three-layer architecture
+    run_three_d_with_layers(
+        engine,
+        model,
+        presenter,
+        interfaces.debug_actions,
         performance_metrics_setter,
         performance_metrics_source.observer(),
         audio_devices_source.observer(),
@@ -495,6 +647,7 @@ pub async fn start() {
         buffer_pool_stats_source.observer(),
         microphone_permission_source.observer(),
         triggers,
+        interfaces.engine_to_model, // For legacy compatibility
     ).await;
 }
 

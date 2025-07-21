@@ -116,11 +116,11 @@ Refactor to match the implementation example in `docs/high-level-architecture.md
 ### Task 4: Main Application Refactoring
 **Priority**: Critical - Core architecture implementation
 
-- [ ] **4a**: Refactor lib.rs initialization
-  - [ ] Remove direct audio system initialization from `start()`
-  - [ ] Implement interface creation using factory functions
-  - [ ] Create engine, model, and presenter using new pattern
-  - [ ] Move audio system initialization into AudioEngine::create()
+- [x] **4a**: Refactor lib.rs initialization
+  - [x] Remove direct audio system initialization from `start()`
+  - [x] Implement interface creation using factory functions
+  - [x] Create engine, model, and presenter using new pattern
+  - [x] Move audio system initialization into AudioEngine::create()
 
 - [ ] **4b**: Implement new render loop structure
   - [ ] Refactor `run_three_d()` to accept layer instances
