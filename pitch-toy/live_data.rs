@@ -3,7 +3,7 @@ use crate::engine::audio::{
     AudioPermission,
     AudioDevices,
 };
-use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
+use crate::debug::egui::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 
 /// Legacy LiveData structure for backward compatibility
 #[derive(Clone)]

@@ -2,7 +2,6 @@
 // Manages microphone button rendering in three-d + egui context
 
 use three_d::egui;
-use super::super::microphone_button::MicrophoneButton;
 use observable_data::DataObserver;
 use crate::engine::audio::{AudioPermission, TestWaveform, test_signal_generator::BackgroundNoiseConfig};
 
@@ -28,7 +27,8 @@ impl Default for TestSignalConfig {
 
 /// EGUI microphone button wrapper for three-d + egui rendering
 pub struct EguiMicrophoneButton {
-    microphone_button: MicrophoneButton,
+    permission_observer: DataObserver<AudioPermission>,
+    microphone_trigger: action::ActionTrigger<crate::MicrophonePermissionAction>,
     output_to_speakers: bool,
     output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
     test_signal_config: TestSignalConfig,
@@ -48,21 +48,12 @@ impl EguiMicrophoneButton {
         test_signal_trigger: action::ActionTrigger<crate::TestSignalAction>,
         background_noise_trigger: action::ActionTrigger<crate::BackgroundNoiseAction>,
     ) -> Self {
-        let mut microphone_button = MicrophoneButton::new(permission_observer);
-        
-        // Set up microphone button click callback to trigger permission request action
-        microphone_button.set_click_callback(move || {
-            let action = crate::MicrophonePermissionAction {
-                request_permission: true,
-            };
-            microphone_trigger.fire(action);
-        });
-        
         let test_signal_config = TestSignalConfig::default();
         let background_noise_config = BackgroundNoiseConfig::default();
         
         Self {
-            microphone_button,
+            permission_observer,
+            microphone_trigger,
             output_to_speakers: false,
             output_to_speakers_trigger,
             test_signal_config: test_signal_config.clone(),
@@ -162,7 +153,7 @@ impl EguiMicrophoneButton {
     /// Render the microphone button inline within an existing UI context
     pub fn render_inline(&mut self, ui: &mut egui::Ui) {
         // Render microphone permission button inline
-        let permission_state = self.microphone_button.get_permission_state();
+        let permission_state = self.permission_observer.get();
         
         let button_text = match permission_state {
             AudioPermission::Uninitialized => "Request Permission",
@@ -176,85 +167,14 @@ impl EguiMicrophoneButton {
         
         ui.add_enabled_ui(button_enabled, |ui| {
             if ui.button(button_text).clicked() {
-                self.microphone_button.trigger_click();
+                let action = crate::MicrophonePermissionAction {
+                    request_permission: true,
+                };
+                self.microphone_trigger.fire(action);
             }
         });
         
         // Check and apply any configuration changes
         self.check_and_apply_changes();
-    }
-
-    /// Render the microphone button and all audio controls
-    pub fn render(&mut self, gui_context: &egui::Context) {
-        // Get screen dimensions
-        let screen_rect = gui_context.screen_rect();
-        let center_x = screen_rect.width() / 2.0;
-        let center_y = screen_rect.height() / 2.0;
-        
-        // Create a larger window in the center for all audio controls
-        egui::Window::new("audio_controls")
-            .title_bar(false)
-            .resizable(false)
-            .collapsible(false)
-            .fixed_pos([center_x - 200.0, center_y - 75.0])
-            .fixed_size([400.0, 500.0])
-            .show(gui_context, |ui| {
-                ui.vertical_centered(|ui| {
-                    // Render microphone permission status
-                    let permission_state = self.microphone_button.get_permission_state();
-                    
-                    ui.horizontal(|ui| {
-                        ui.label("Microphone Permission:");
-                        let (color, text) = match permission_state {
-                            AudioPermission::Uninitialized => (three_d::egui::Color32::GRAY, "Uninitialized"),
-                            AudioPermission::Requesting => (three_d::egui::Color32::YELLOW, "Requesting"),
-                            AudioPermission::Granted => (three_d::egui::Color32::GREEN, "Granted"),
-                            AudioPermission::Denied => (three_d::egui::Color32::RED, "Denied"),
-                            AudioPermission::Unavailable => (three_d::egui::Color32::RED, "Unavailable"),
-                        };
-                        ui.colored_label(color, text);
-                    });
-                    
-                    ui.add_space(10.0);
-                    
-                    // Render microphone permission button
-                    let button_text = match permission_state {
-                        AudioPermission::Uninitialized => "Request Permission",
-                        AudioPermission::Requesting => "Requesting...",
-                        AudioPermission::Granted => "Granted",
-                        AudioPermission::Denied => "Denied",
-                        AudioPermission::Unavailable => "Unknown Error",
-                    };
-                    let button_enabled = matches!(permission_state, 
-                        AudioPermission::Uninitialized | AudioPermission::Denied | AudioPermission::Unavailable
-                    );
-                    
-                    ui.add_enabled_ui(button_enabled, |ui| {
-                        if ui.button(button_text).clicked() {
-                            self.microphone_button.trigger_click();
-                        }
-                    });
-                    
-                    ui.add_space(10.0);
-                    
-                    // Render output to speakers checkbox
-                    if ui.checkbox(&mut self.output_to_speakers, "Output to Speakers").changed() {
-                        let action = crate::OutputToSpeakersAction {
-                            enabled: self.output_to_speakers,
-                        };
-                        self.output_to_speakers_trigger.fire(action);
-                    }
-                    
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
-                    
-                    // Render test signal controls
-                    self.render_test_signal_controls_section(ui);
-                    
-                    // Check for changes and apply them after rendering
-                    self.check_and_apply_changes();
-                });
-            });
     }
 }

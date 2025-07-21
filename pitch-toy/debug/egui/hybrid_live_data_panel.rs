@@ -9,7 +9,6 @@ use crate::live_data::HybridLiveData;
 use crate::module_interfaces::debug_actions::{
     DebugActionsInterface, TestSignalAction, OutputToSpeakersAction, BackgroundNoiseAction
 };
-use crate::debug::egui::live_data_panel::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 use crate::debug::egui::EguiMicrophoneButton;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture

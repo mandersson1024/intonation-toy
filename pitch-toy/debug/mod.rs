@@ -2,9 +2,6 @@
 //
 // This module provides egui-based debug components:
 // - EguiMicrophoneButton: Standalone microphone permission management
-// - EguiLiveDataPanel: Real-time data visualization and monitoring
+// - HybridEguiLiveDataPanel: Real-time data visualization and monitoring
 
-pub mod microphone_button;
 pub mod egui;
-
-use super::engine::audio::AudioPermission;

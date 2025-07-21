@@ -121,10 +121,10 @@ pub struct UIControlListeners {
 pub async fn run_three_d_hybrid(
     engine_to_model: module_interfaces::engine_to_model::EngineToModelInterface,
     debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
-    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::live_data_panel::PerformanceMetrics> + Clone + 'static,
-    performance_metrics_observer: observable_data::DataObserver<debug::egui::live_data_panel::PerformanceMetrics>,
+    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::data_types::PerformanceMetrics> + Clone + 'static,
+    performance_metrics_observer: observable_data::DataObserver<debug::egui::data_types::PerformanceMetrics>,
     audio_devices_observer: observable_data::DataObserver<engine::audio::AudioDevices>,
-    audioworklet_status_observer: observable_data::DataObserver<debug::egui::live_data_panel::AudioWorkletStatus>,
+    audioworklet_status_observer: observable_data::DataObserver<debug::egui::data_types::AudioWorkletStatus>,
     buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
     microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
     ui_triggers: UIControlTriggers,
@@ -139,7 +139,7 @@ pub async fn run_three_d_hybrid(
     .unwrap();
     
     let context = window.gl();
-    let mut scene = SpriteScene::new(&context, window.viewport());
+    let scene = SpriteScene::new(&context, window.viewport());
     let mut gui = three_d::GUI::new(&context);
     
     let mut command_registry = ConsoleCommandRegistry::new();
@@ -149,7 +149,7 @@ pub async fn run_three_d_hybrid(
     let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
     
     // Create microphone button
-    let mut microphone_button = EguiMicrophoneButton::new(
+    let microphone_button = EguiMicrophoneButton::new(
         microphone_permission_observer.clone(),
         ui_triggers.microphone_permission.clone(),
         ui_triggers.output_to_speakers.clone(),
@@ -192,7 +192,7 @@ pub async fn run_three_d_hybrid(
             last_fps_update = current_time;
             
             // Update performance metrics
-            let metrics = debug::egui::live_data_panel::PerformanceMetrics {
+            let metrics = debug::egui::data_types::PerformanceMetrics {
                 fps,
                 memory_usage: 0.0, // Placeholder
                 audio_latency: 0.0, // Placeholder
@@ -265,10 +265,10 @@ pub async fn start() {
         input_devices: vec![],
         output_devices: vec![],
     });
-    let performance_metrics_source = DataSource::new(debug::egui::live_data_panel::PerformanceMetrics::default());
-    let volume_level_source = DataSource::new(None::<debug::egui::live_data_panel::VolumeLevelData>);
-    let pitch_data_source = DataSource::new(None::<debug::egui::live_data_panel::PitchData>);
-    let audioworklet_status_source = DataSource::new(debug::egui::live_data_panel::AudioWorkletStatus::default());
+    let performance_metrics_source = DataSource::new(debug::egui::data_types::PerformanceMetrics::default());
+    let volume_level_source = DataSource::new(None::<debug::egui::data_types::VolumeLevelData>);
+    let pitch_data_source = DataSource::new(None::<debug::egui::data_types::PitchData>);
+    let audioworklet_status_source = DataSource::new(debug::egui::data_types::AudioWorkletStatus::default());
     let buffer_pool_stats_source = DataSource::new(None::<engine::audio::message_protocol::BufferPoolStats>);
     
     let microphone_permission_setter = microphone_permission_source.setter();
@@ -289,8 +289,8 @@ pub async fn start() {
     // Create shared state for combining volume and pitch data
     use std::sync::{Arc, Mutex};
     let shared_audio_state = Arc::new(Mutex::new((
-        Option::<debug::egui::live_data_panel::VolumeLevelData>::None,
-        Option::<debug::egui::live_data_panel::PitchData>::None,
+        Option::<debug::egui::data_types::VolumeLevelData>::None,
+        Option::<debug::egui::data_types::PitchData>::None,
     )));
     
     // Create bridge volume setter that updates both legacy and interface
@@ -300,13 +300,13 @@ pub async fn start() {
         let state = shared_audio_state.clone();
         
         struct VolumeBridgeSetter {
-            legacy: observable_data::DataSourceSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>,
+            legacy: observable_data::DataSourceSetter<Option<debug::egui::data_types::VolumeLevelData>>,
             interface: observable_data::DataSourceSetter<Option<module_interfaces::engine_to_model::AudioAnalysis>>,
-            state: Arc<Mutex<(Option<debug::egui::live_data_panel::VolumeLevelData>, Option<debug::egui::live_data_panel::PitchData>)>>,
+            state: Arc<Mutex<(Option<debug::egui::data_types::VolumeLevelData>, Option<debug::egui::data_types::PitchData>)>>,
         }
         
-        impl observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>> for VolumeBridgeSetter {
-            fn set(&self, data: Option<debug::egui::live_data_panel::VolumeLevelData>) {
+        impl observable_data::DataSetter<Option<debug::egui::data_types::VolumeLevelData>> for VolumeBridgeSetter {
+            fn set(&self, data: Option<debug::egui::data_types::VolumeLevelData>) {
                 // Update legacy setter
                 self.legacy.set(data.clone());
                 
@@ -351,13 +351,13 @@ pub async fn start() {
         let state = shared_audio_state.clone();
         
         struct PitchBridgeSetter {
-            legacy: observable_data::DataSourceSetter<Option<debug::egui::live_data_panel::PitchData>>,
+            legacy: observable_data::DataSourceSetter<Option<debug::egui::data_types::PitchData>>,
             interface: observable_data::DataSourceSetter<Option<module_interfaces::engine_to_model::AudioAnalysis>>,
-            state: Arc<Mutex<(Option<debug::egui::live_data_panel::VolumeLevelData>, Option<debug::egui::live_data_panel::PitchData>)>>,
+            state: Arc<Mutex<(Option<debug::egui::data_types::VolumeLevelData>, Option<debug::egui::data_types::PitchData>)>>,
         }
         
-        impl observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>> for PitchBridgeSetter {
-            fn set(&self, data: Option<debug::egui::live_data_panel::PitchData>) {
+        impl observable_data::DataSetter<Option<debug::egui::data_types::PitchData>> for PitchBridgeSetter {
+            fn set(&self, data: Option<debug::egui::data_types::PitchData>) {
                 // Update legacy setter
                 self.legacy.set(data.clone());
                 
@@ -500,19 +500,19 @@ pub async fn start() {
 
 /// Initialize all audio systems using AudioSystemContext approach
 async fn initialize_audio_systems_new(
-    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::PitchData>>>,
-    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::live_data_panel::VolumeLevelData>>>,
-    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<debug::egui::live_data_panel::AudioWorkletStatus>>,
+    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::data_types::PitchData>>>,
+    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<debug::egui::data_types::VolumeLevelData>>>,
+    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<debug::egui::data_types::AudioWorkletStatus>>,
     buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::message_protocol::BufferPoolStats>>>
 ) -> Result<std::rc::Rc<std::cell::RefCell<engine::audio::AudioSystemContext>>, String> {
     // Convert setters to required types with adapters
-    let pitch_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::PitchDataAdapter::new(pitch_data_setter))
+    let pitch_setter = std::rc::Rc::new(crate::debug::egui::data_types::PitchDataAdapter::new(pitch_data_setter))
         as std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::PitchData>>>;
     
-    let volume_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::VolumeDataAdapter::new(volume_level_setter))
+    let volume_setter = std::rc::Rc::new(crate::debug::egui::data_types::VolumeDataAdapter::new(volume_level_setter))
         as std::rc::Rc<dyn observable_data::DataSetter<Option<engine::audio::VolumeLevelData>>>;
     
-    let status_setter = std::rc::Rc::new(crate::debug::egui::live_data_panel::AudioWorkletStatusAdapter::new(audioworklet_status_setter))
+    let status_setter = std::rc::Rc::new(crate::debug::egui::data_types::AudioWorkletStatusAdapter::new(audioworklet_status_setter))
         as std::rc::Rc<dyn observable_data::DataSetter<engine::audio::AudioWorkletStatus>>;
     
     let buffer_stats_setter = buffer_pool_stats_setter;
