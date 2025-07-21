@@ -632,8 +632,10 @@ impl AudioSystemContext {
         let permission_state_setter = engine_to_model.permission_state_setter();
         
         // Create adapter setters that convert from interface types to audio engine types
-        let volume_level_setter = std::rc::Rc::new(VolumeAnalysisAdapter::new(audio_analysis_setter.clone()));
-        let pitch_data_setter = std::rc::Rc::new(PitchAnalysisAdapter::new(audio_analysis_setter));
+        // Use a merger to combine volume and pitch updates into AudioAnalysis
+        let audio_analysis_merger = std::rc::Rc::new(std::cell::RefCell::new(AudioAnalysisMerger::new(audio_analysis_setter)));
+        let volume_level_setter = std::rc::Rc::new(VolumeMergerAdapter::new(audio_analysis_merger.clone()));
+        let pitch_data_setter = std::rc::Rc::new(PitchMergerAdapter::new(audio_analysis_merger));
         
         // Create a placeholder audioworklet_status_setter and buffer_pool_stats_setter
         // These will be improved in future iterations
@@ -974,6 +976,93 @@ impl AudioSystemContext {
     }
 }
 
+/// Merger that combines volume and pitch data into AudioAnalysis
+struct AudioAnalysisMerger {
+    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
+    current_volume: std::cell::RefCell<crate::module_interfaces::engine_to_model::Volume>,
+    current_pitch: std::cell::RefCell<crate::module_interfaces::engine_to_model::Pitch>,
+    last_timestamp: std::cell::Cell<f64>,
+}
+
+impl AudioAnalysisMerger {
+    fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
+        Self {
+            audio_analysis_setter,
+            current_volume: std::cell::RefCell::new(crate::module_interfaces::engine_to_model::Volume { peak: -60.0, rms: -60.0 }),
+            current_pitch: std::cell::RefCell::new(crate::module_interfaces::engine_to_model::Pitch::NotDetected),
+            last_timestamp: std::cell::Cell::new(0.0),
+        }
+    }
+    
+    fn update_volume(&self, volume: crate::module_interfaces::engine_to_model::Volume) {
+        *self.current_volume.borrow_mut() = volume;
+        self.publish_analysis();
+    }
+    
+    fn update_pitch(&self, pitch: crate::module_interfaces::engine_to_model::Pitch, timestamp: f64) {
+        *self.current_pitch.borrow_mut() = pitch;
+        self.last_timestamp.set(timestamp);
+        self.publish_analysis();
+    }
+    
+    fn publish_analysis(&self) {
+        let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: self.current_volume.borrow().clone(),
+            pitch: self.current_pitch.borrow().clone(),
+            fft_data: None,
+            timestamp: self.last_timestamp.get().max(js_sys::Date::now()),
+        };
+        observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
+    }
+}
+
+/// Adapter that forwards volume data to the merger
+struct VolumeMergerAdapter {
+    merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>,
+}
+
+impl VolumeMergerAdapter {
+    fn new(merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>) -> Self {
+        Self { merger }
+    }
+}
+
+impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for VolumeMergerAdapter {
+    fn set(&self, volume_data: Option<super::data_types::VolumeLevelData>) {
+        if let Some(volume_data) = volume_data {
+            let volume = crate::module_interfaces::engine_to_model::Volume {
+                peak: volume_data.peak_db,
+                rms: volume_data.rms_db,
+            };
+            self.merger.borrow().update_volume(volume);
+        }
+    }
+}
+
+/// Adapter that forwards pitch data to the merger
+struct PitchMergerAdapter {
+    merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>,
+}
+
+impl PitchMergerAdapter {
+    fn new(merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>) -> Self {
+        Self { merger }
+    }
+}
+
+impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PitchMergerAdapter {
+    fn set(&self, pitch_data: Option<super::data_types::PitchData>) {
+        if let Some(pitch_data) = pitch_data {
+            let pitch = if pitch_data.frequency > 0.0 {
+                crate::module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
+            } else {
+                crate::module_interfaces::engine_to_model::Pitch::NotDetected
+            };
+            self.merger.borrow().update_pitch(pitch, pitch_data.timestamp);
+        }
+    }
+}
+
 /// Adapter that converts from AudioAnalysis to VolumeLevelData
 /// 
 /// This adapter extracts volume information from AudioAnalysis data
@@ -1002,7 +1091,7 @@ impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for
                 fft_data: None,
                 timestamp: js_sys::Date::now(),
             };
-            self.audio_analysis_setter.set(Some(audio_analysis));
+            observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
         } else {
             self.audio_analysis_setter.set(None);
         }
@@ -1040,7 +1129,7 @@ impl observable_data::DataSetter<Option<super::data_types::PitchData>> for Pitch
                 fft_data: None,
                 timestamp: pitch_data.timestamp,
             };
-            self.audio_analysis_setter.set(Some(audio_analysis));
+            observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
         } else {
             self.audio_analysis_setter.set(None);
         }

@@ -1264,6 +1264,12 @@ impl AudioWorkletManager {
 
     /// Feed input chunk with explicit timestamp (for testing)
     fn feed_input_chunk_with_timestamp(&mut self, samples: &[f32]) -> Result<(), String> {
+        // Debug: log when method is called
+        if self.chunk_counter % 50 == 0 {
+            web_sys::console::log_1(&format!("feed_input_chunk called - chunk #{}, samples len: {}", 
+                self.chunk_counter, samples.len()).into());
+        }
+        
         if samples.len() as u32 != self.config.chunk_size {
             return Err(format!("Expected chunk size {}, got {}", self.config.chunk_size, samples.len()));
         }
@@ -1279,7 +1285,20 @@ impl AudioWorkletManager {
         if let Some(detector) = &mut self.volume_detector {
             let volume_analysis = detector.process_buffer(&processed_samples);
             
-            
+            // Debug: log volume values - changed to every 50 chunks for more frequent logging
+            if self.chunk_counter % 50 == 0 {
+                let sample_preview = if processed_samples.is_empty() {
+                    vec![]
+                } else {
+                    processed_samples[..processed_samples.len().min(10)].to_vec()
+                };
+                web_sys::console::log_1(&format!("Volume analysis - RMS: {:.2} dB, Peak: {:.2} dB, Samples (len={}): {:?}", 
+                    volume_analysis.rms_db, 
+                    volume_analysis.peak_db,
+                    processed_samples.len(),
+                    sample_preview
+                ).into());
+            }
 
             // Update volume level data every 16 chunks (~11.6ms at 48kHz)
             if self.chunk_counter % 16 == 0 {

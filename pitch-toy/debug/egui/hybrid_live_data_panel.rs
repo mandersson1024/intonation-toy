@@ -296,8 +296,36 @@ impl HybridEguiLiveDataPanel {
                 let bar_height = 20.0;
                 
                 let (normalized, bar_color) = if let Some(volume) = self.hybrid_data.get_volume_level() {
-                    let amplitude = 10.0_f32.powf(volume.peak_db / 20.0);
-                    (amplitude.clamp(0.0, 1.0), Color32::GREEN)
+                    // Convert dB back to linear amplitude
+                    let amplitude = if volume.peak_db <= -60.0 {
+                        0.0
+                    } else {
+                        10.0_f32.powf(volume.peak_db / 20.0)
+                    };
+                    
+                    // Debug logging
+                    static mut DEBUG_COUNTER: u32 = 0;
+                    unsafe {
+                        DEBUG_COUNTER += 1;
+                        if DEBUG_COUNTER % 60 == 0 {
+                            web_sys::console::log_1(&format!("UI Volume - Peak dB: {:.2}, Amplitude: {:.4}, Normalized: {:.4}", 
+                                volume.peak_db, amplitude, amplitude.clamp(0.0, 1.0)).into());
+                        }
+                    }
+                    
+                    // Clamp to 0-1 range
+                    let normalized = amplitude.clamp(0.0, 1.0);
+                    
+                    // Color based on amplitude level
+                    let bar_color = if normalized > 0.9 {
+                        Color32::RED  // Near clipping
+                    } else if normalized > 0.7 {
+                        Color32::YELLOW  // High level
+                    } else {
+                        Color32::GREEN  // Normal level
+                    };
+                    
+                    (normalized, bar_color)
                 } else {
                     (0.0, Color32::GRAY)
                 };
