@@ -1,5 +1,40 @@
-// Engine Layer - Audio processing and hardware interface
-// Handles low-level audio operations and browser API interactions
+//! Engine Layer - Audio processing and hardware interface
+//!
+//! This layer handles low-level audio operations and browser API interactions.
+//! It communicates with the Model layer via defined interfaces.
+//!
+//! ## Interface Usage in Engine Layer
+//!
+//! The engine layer uses interfaces to:
+//! - Push audio analysis data to the model layer
+//! - Listen for permission request actions from the model layer
+//!
+//! ```rust
+//! use std::rc::Rc;
+//! use pitch_toy::engine::AudioEngine;
+//! use pitch_toy::module_interfaces::{
+//!     engine_to_model::EngineToModelInterface,
+//!     model_to_engine::ModelToEngineInterface,
+//! };
+//!
+//! // Create interfaces
+//! let engine_to_model = Rc::new(EngineToModelInterface::new());
+//! let model_to_engine = Rc::new(ModelToEngineInterface::new());
+//!
+//! // Create engine with interfaces
+//! let engine = AudioEngine::create(
+//!     engine_to_model,
+//!     model_to_engine,
+//! ).await?;
+//!
+//! // Engine internally extracts setters to push data:
+//! // - audio_analysis_setter() for pitch and volume data
+//! // - permission_state_setter() for microphone permission state
+//! // - audio_errors_setter() for error reporting
+//!
+//! // Engine internally extracts listeners to respond to actions:
+//! // - request_microphone_permission_listener() for permission requests
+//! ```
 
 pub mod audio;
 pub mod platform;

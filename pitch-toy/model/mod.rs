@@ -8,6 +8,45 @@
 //! - Pattern recognition and pitch tracking
 //! - History buffers for temporal analysis
 //! 
+//! ## Interface Usage in Model Layer
+//! 
+//! The model layer uses interfaces to:
+//! - Receive audio analysis data from the engine layer
+//! - Send processed visualization data to the presentation layer
+//! - Handle user actions from the presentation layer
+//! - Send permission requests to the engine layer
+//! 
+//! ```rust
+//! use std::rc::Rc;
+//! use pitch_toy::model::DataModel;
+//! use pitch_toy::module_interfaces::{
+//!     engine_to_model::EngineToModelInterface,
+//!     model_to_engine::ModelToEngineInterface,
+//!     model_to_presentation::ModelToPresentationInterface,
+//!     presentation_to_model::PresentationToModelInterface,
+//! };
+//! 
+//! // Create interfaces
+//! let engine_to_model = Rc::new(EngineToModelInterface::new());
+//! let model_to_engine = Rc::new(ModelToEngineInterface::new());
+//! let model_to_presentation = Rc::new(ModelToPresentationInterface::new());
+//! let presentation_to_model = Rc::new(PresentationToModelInterface::new());
+//! 
+//! // Create model with all interfaces
+//! let model = DataModel::create(
+//!     engine_to_model,
+//!     model_to_engine,
+//!     model_to_presentation,
+//!     presentation_to_model,
+//! )?;
+//! 
+//! // Model internally should extract:
+//! // - audio_analysis_observer() to read engine data
+//! // - volume_level_setter() to push processed data to presentation
+//! // - pitch_setter() to push processed data to presentation
+//! // - user action listeners to respond to presentation layer
+//! ```
+//! 
 //! ## Current Status
 //! 
 //! This is a placeholder implementation. The DataModel struct accepts all required

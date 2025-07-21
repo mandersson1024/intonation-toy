@@ -8,6 +8,38 @@
 //! - Visual feedback and animations
 //! - Debug visualization and overlays
 //! 
+//! ## Interface Usage in Presentation Layer
+//! 
+//! The presentation layer uses interfaces to:
+//! - Receive processed visualization data from the model layer
+//! - Send user actions and configuration changes to the model layer
+//! 
+//! ```rust
+//! use std::rc::Rc;
+//! use pitch_toy::presentation::Presenter;
+//! use pitch_toy::module_interfaces::{
+//!     model_to_presentation::ModelToPresentationInterface,
+//!     presentation_to_model::PresentationToModelInterface,
+//! };
+//! 
+//! // Create interfaces
+//! let model_to_presentation = Rc::new(ModelToPresentationInterface::new());
+//! let presentation_to_model = Rc::new(PresentationToModelInterface::new());
+//! 
+//! // Create presenter with interfaces
+//! let presenter = Presenter::create(
+//!     model_to_presentation,
+//!     presentation_to_model,
+//! )?;
+//! 
+//! // Presenter internally should extract:
+//! // - volume_level_observer() to read processed volume data
+//! // - pitch_observer() to read processed pitch data
+//! // - accuracy_observer() to read pitch accuracy data
+//! // - permission_request_trigger() to send user permission actions
+//! // - tuning_system_trigger() to send configuration changes
+//! ```
+//! 
 //! ## Current Status
 //! 
 //! This is a placeholder implementation. The Presenter struct accepts all required
