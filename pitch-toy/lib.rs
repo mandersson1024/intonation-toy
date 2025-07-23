@@ -208,14 +208,22 @@ pub async fn run_three_d_with_layers(
         // Three-layer update sequence (engine → model → presenter)
         let timestamp = current_time / 1000.0;
         
-        // Update engine layer
-        if let Some(ref mut engine) = engine {
-            engine.update(timestamp);
-        }
+        // Update engine layer and get results
+        let engine_data = if let Some(ref mut engine) = engine {
+            engine.update(timestamp)
+        } else {
+            // Provide default engine data when engine is not available
+            crate::module_interfaces::engine_to_model::EngineUpdateResult {
+                audio_analysis: None,
+                audio_errors: Vec::new(),
+                permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            }
+        };
         
-        // Update model layer
+        // Update model layer with engine data
         if let Some(ref mut model) = model {
-            model.update(timestamp);
+            let _model_data = model.update(timestamp, engine_data);
+            // TODO: Pass model_data to presentation layer (Task 4 and 5)
         }
         
         // Update presentation layer
@@ -324,12 +332,7 @@ pub async fn start() {
     };
     
     // Create model layer
-    let model = match model::DataModel::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    ) {
+    let model = match model::DataModel::create() {
         Ok(model) => {
             dev_log!("✓ Model layer created successfully");
             Some(model)

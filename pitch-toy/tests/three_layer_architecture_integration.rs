@@ -31,20 +31,22 @@ fn test_all_layers_can_be_created_without_panicking() {
     let _listener = engine_interfaces.1.request_microphone_permission_listener();
 
     // Test model layer creation
-    let model_result = pitch_toy::model::DataModel::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let model_result = pitch_toy::model::DataModel::create();
     assert!(model_result.is_ok());
     
     let mut model = model_result.unwrap();
     
+    // Create dummy engine data for testing
+    let dummy_engine_data = pitch_toy::module_interfaces::engine_to_model::EngineUpdateResult {
+        audio_analysis: None,
+        audio_errors: Vec::new(),
+        permission_state: pitch_toy::module_interfaces::engine_to_model::PermissionState::NotRequested,
+    };
+    
     // Test model layer can be called without panicking
-    model.update(0.0);
-    model.update(1.0);
-    model.update(100.0);
+    let _result1 = model.update(0.0, dummy_engine_data.clone());
+    let _result2 = model.update(1.0, dummy_engine_data.clone());
+    let _result3 = model.update(100.0, dummy_engine_data);
 
     // Test presentation layer creation
     let presenter_result = pitch_toy::presentation::Presenter::create(
@@ -300,12 +302,7 @@ fn test_existing_functionality_regression() {
     assert_eq!(*debug_received_count.borrow(), 1);
     
     // Test layer creation (basic smoke test)
-    let model = pitch_toy::model::DataModel::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let model = pitch_toy::model::DataModel::create();
     assert!(model.is_ok());
     
     let presenter = pitch_toy::presentation::Presenter::create(
@@ -324,12 +321,8 @@ fn test_layer_update_sequence() {
     let model_to_presentation = Rc::new(pitch_toy::module_interfaces::model_to_presentation::ModelToPresentationInterface::new());
     let presentation_to_model = Rc::new(pitch_toy::module_interfaces::presentation_to_model::PresentationToModelInterface::new());
     
-    let mut model = pitch_toy::model::DataModel::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    ).expect("Model creation should succeed");
+    let mut model = pitch_toy::model::DataModel::create()
+        .expect("Model creation should succeed");
     
     let mut presenter = pitch_toy::presentation::Presenter::create(
         model_to_presentation.clone(),
@@ -356,8 +349,15 @@ fn test_layer_update_sequence() {
             ));
         }
         
+        // Create dummy engine data for model update
+        let dummy_engine_data = pitch_toy::module_interfaces::engine_to_model::EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: pitch_toy::module_interfaces::engine_to_model::PermissionState::NotRequested,
+        };
+        
         // Model layer update
-        model.update(timestamp);
+        let _model_result = model.update(timestamp, dummy_engine_data);
         
         // Presentation layer update
         presenter.update(timestamp);
@@ -381,12 +381,7 @@ fn test_render_loop_functionality() {
     let presentation_to_model = std::rc::Rc::new(pitch_toy::module_interfaces::presentation_to_model::PresentationToModelInterface::new());
     
     // Create layer instances (like in lib.rs)
-    let model_result = pitch_toy::model::DataModel::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let model_result = pitch_toy::model::DataModel::create();
     assert!(model_result.is_ok());
     let mut model = Some(model_result.unwrap());
     
@@ -424,7 +419,13 @@ fn test_render_loop_functionality() {
         
         // Update model layer (like in lib.rs line 216)
         if let Some(ref mut model) = model {
-            model.update(timestamp);
+            // Create dummy engine data for model update
+            let dummy_engine_data = pitch_toy::module_interfaces::engine_to_model::EngineUpdateResult {
+                audio_analysis: None,
+                audio_errors: Vec::new(),
+                permission_state: pitch_toy::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            };
+            let _model_result = model.update(timestamp, dummy_engine_data);
         }
         
         // Update presentation layer (like in lib.rs line 221)

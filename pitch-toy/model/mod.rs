@@ -8,50 +8,37 @@
 //! - Pattern recognition and pitch tracking
 //! - History buffers for temporal analysis
 //! 
-//! ## Interface Usage in Model Layer
+//! ## Return-Based Data Flow in Model Layer
 //! 
-//! The model layer uses interfaces to:
-//! - Receive audio analysis data from the engine layer
-//! - Send processed visualization data to the presentation layer
-//! - Handle user actions from the presentation layer
-//! - Send permission requests to the engine layer
+//! The model layer now uses a return-based pattern for data processing:
+//! - Receives `EngineUpdateResult` data as a parameter from the engine layer
+//! - Processes and transforms the audio analysis data
+//! - Returns `ModelUpdateResult` containing processed data for the presentation layer
 //! 
 //! ```rust
-//! use std::rc::Rc;
 //! use pitch_toy::model::DataModel;
 //! use pitch_toy::module_interfaces::{
-//!     engine_to_model::EngineToModelInterface,
-//!     model_to_engine::ModelToEngineInterface,
-//!     model_to_presentation::ModelToPresentationInterface,
-//!     presentation_to_model::PresentationToModelInterface,
+//!     engine_to_model::EngineUpdateResult,
+//!     model_to_presentation::ModelUpdateResult,
 //! };
 //! 
-//! // Create interfaces
-//! let engine_to_model = Rc::new(EngineToModelInterface::new());
-//! let model_to_engine = Rc::new(ModelToEngineInterface::new());
-//! let model_to_presentation = Rc::new(ModelToPresentationInterface::new());
-//! let presentation_to_model = Rc::new(PresentationToModelInterface::new());
+//! // Create model without interface dependencies
+//! let mut model = DataModel::create()?;
 //! 
-//! // Create model with all interfaces
-//! let model = DataModel::create(
-//!     engine_to_model,
-//!     model_to_engine,
-//!     model_to_presentation,
-//!     presentation_to_model,
-//! )?;
-//! 
-//! // Model internally should extract:
-//! // - audio_analysis_observer() to read engine data
-//! // - volume_level_setter() to push processed data to presentation
-//! // - pitch_setter() to push processed data to presentation
-//! // - user action listeners to respond to presentation layer
+//! // Process engine data and get results for presentation
+//! let engine_data = EngineUpdateResult {
+//!     audio_analysis: None,
+//!     audio_errors: Vec::new(),
+//!     permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+//! };
+//! let presentation_data = model.update(timestamp, engine_data);
 //! ```
 //! 
 //! ## Current Status
 //! 
-//! This is a placeholder implementation. The DataModel struct accepts all required
-//! interfaces but does not yet implement any functionality. All methods are stubs
-//! that compile and run without errors.
+//! The DataModel struct operates without interface dependencies and processes
+//! data through method parameters and return values. It provides basic audio
+//! data transformation functionality.
 //! 
 //! ## Future Implementation
 //! 
@@ -64,10 +51,8 @@
 //! - Provide processed data to the presentation layer
 
 use crate::module_interfaces::{
-    engine_to_model::EngineToModelInterface,
-    model_to_engine::ModelToEngineInterface,
-    model_to_presentation::ModelToPresentationInterface,
-    presentation_to_model::PresentationToModelInterface,
+    engine_to_model::EngineUpdateResult,
+    model_to_presentation::{ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note},
 };
 
 /// DataModel - The model layer of the three-layer architecture
@@ -76,120 +61,167 @@ use crate::module_interfaces::{
 /// of the application. It sits between the engine (which provides raw audio data)
 /// and the presentation layer (which displays processed information).
 /// 
-/// # Placeholder Implementation
+/// Data flows through method parameters and return values rather than interface dependencies.
 /// 
-/// This is currently a placeholder that:
-/// - Accepts all required interfaces in the constructor
-/// - Stores interfaces with underscore prefixes (unused)
-/// - Provides stub methods that do nothing
-/// - Always returns success (Ok) from fallible operations
+/// # Current Implementation
+/// 
+/// This implementation:
+/// - Operates without observable interface dependencies
+/// - Receives engine data through `update()` method parameters
+/// - Returns processed data through `ModelUpdateResult` struct
+/// - Provides basic audio data transformation
 /// 
 /// # Example
 /// 
 /// ```no_run
-/// use pitch_toy::module_interfaces::*;
 /// use pitch_toy::model::DataModel;
+/// use pitch_toy::module_interfaces::engine_to_model::EngineUpdateResult;
 /// 
-/// let engine_to_model = engine_to_model::EngineToModelInterface::new();
-/// let model_to_engine = model_to_engine::ModelToEngineInterface::new();
-/// let model_to_presentation = model_to_presentation::ModelToPresentationInterface::new();
-/// let presentation_to_model = presentation_to_model::PresentationToModelInterface::new();
+/// let mut model = DataModel::create()
+///     .expect("DataModel creation should always succeed");
 /// 
-/// let model = DataModel::create(
-///     engine_to_model,
-///     model_to_engine,
-///     model_to_presentation,
-///     presentation_to_model,
-/// ).expect("DataModel creation should always succeed");
+/// let engine_data = EngineUpdateResult {
+///     audio_analysis: None,
+///     audio_errors: Vec::new(),
+///     permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+/// };
+/// 
+/// let presentation_data = model.update(0.0, engine_data);
 /// ```
 pub struct DataModel {
-    /// Interface for receiving data from the engine
-    /// Contains observers for audio analysis, errors, and permission state
-    _engine_to_model: std::rc::Rc<EngineToModelInterface>,
-    
-    /// Interface for sending actions to the engine
-    /// Contains triggers for microphone permission requests
-    _model_to_engine: std::rc::Rc<ModelToEngineInterface>,
-    
-    /// Interface for sending data to the presentation
-    /// Contains setters for volume, pitch, accuracy, tuning system, errors, and permission state
-    _model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
-    
-    /// Interface for receiving actions from the presentation
-    /// Contains listeners for user actions like tuning system changes
-    _presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
+    // Model layer now operates without interface dependencies
+    // Data flows through method parameters and return values
 }
 
 impl DataModel {
-    /// Create a new DataModel with the required interfaces
+    /// Create a new DataModel without interface dependencies
     /// 
-    /// This constructor accepts all four interfaces that connect the model layer
-    /// to the engine and presentation layers. The interfaces enable bi-directional
-    /// communication using the Observable Data and Action patterns.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `engine_to_model` - Interface for receiving data from the audio engine
-    /// * `model_to_engine` - Interface for sending actions to the audio engine
-    /// * `model_to_presentation` - Interface for sending processed data to the UI
-    /// * `presentation_to_model` - Interface for receiving user actions from the UI
+    /// This constructor creates a model layer that operates through method parameters
+    /// and return values rather than observable interfaces.
     /// 
     /// # Returns
     /// 
-    /// Always returns `Ok(DataModel)` as this placeholder implementation cannot fail.
+    /// Always returns `Ok(DataModel)` as this implementation cannot fail.
     /// 
-    /// # Placeholder Behavior
+    /// # Current Behavior
     /// 
-    /// Currently stores all interfaces but does not use them. Future implementations
-    /// will set up observers and listeners to process data flow between layers.
-    pub fn create(
-        engine_to_model: std::rc::Rc<EngineToModelInterface>,
-        model_to_engine: std::rc::Rc<ModelToEngineInterface>,
-        model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
-        presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
-    ) -> Result<Self, String> {
-        // Placeholder implementation - just store the interfaces
-        // TODO: Set up observers for engine data
-        // TODO: Set up listeners for presentation actions
-        // TODO: Initialize internal state
-        Ok(Self {
-            _engine_to_model: engine_to_model,
-            _model_to_engine: model_to_engine,
-            _model_to_presentation: model_to_presentation,
-            _presentation_to_model: presentation_to_model,
-        })
+    /// Creates an empty model struct. Future implementations will initialize
+    /// internal state for pitch tracking, tuning systems, and other model functionality.
+    pub fn create() -> Result<Self, String> {
+        // Model layer initialization without interface dependencies
+        // TODO: Initialize internal state for pitch tracking, tuning systems, etc.
+        Ok(Self {})
     }
 
-    /// Update the model layer with a new timestamp
+    /// Update the model layer with a new timestamp and engine data
     /// 
     /// This method is called by the main render loop to update the model's state.
-    /// It should process any pending data from the engine, update internal state,
-    /// and push processed data to the presentation layer.
+    /// It processes the provided engine data, updates internal state, and returns
+    /// processed data for the presentation layer.
     /// 
     /// # Arguments
     /// 
     /// * `timestamp` - The current timestamp in seconds since application start
+    /// * `engine_data` - The data provided by the engine layer, containing audio analysis, errors, and permission state
     /// 
-    /// # Placeholder Behavior
+    /// # Returns
     /// 
-    /// Currently does nothing. The timestamp parameter is ignored.
+    /// Returns `ModelUpdateResult` containing processed data for the presentation layer
     /// 
-    /// # Future Implementation
+    /// # Current Implementation
     /// 
-    /// When implemented, this method will:
-    /// 1. Check for new audio analysis data from the engine
-    /// 2. Process frequency data into musical notes
-    /// 3. Update pitch tracking history
-    /// 4. Calculate accuracy metrics
-    /// 5. Push updated data to the presentation layer
-    /// 6. Handle any pending user actions from the presentation
-    pub fn update(&mut self, _timestamp: f64) {
-        // TODO: Implement model update logic
-        // TODO: Process audio analysis from engine
-        // TODO: Transform frequency to notes
-        // TODO: Update pitch history
-        // TODO: Push updates to presentation
-        // Placeholder - does nothing
+    /// This is a basic implementation that:
+    /// 1. Processes audio analysis from engine data into volume and pitch information
+    /// 2. Provides placeholder values for accuracy and tuning system
+    /// 3. Passes through errors and permission state
+    /// 
+    /// # Future Enhancement
+    /// 
+    /// When fully implemented, this method will:
+    /// 1. Transform frequency data into musical notes
+    /// 2. Update pitch tracking history and patterns
+    /// 3. Calculate accuracy metrics based on pitch stability
+    /// 4. Apply different tuning systems
+    /// 5. Handle complex audio analysis processing
+    pub fn update(&mut self, _timestamp: f64, engine_data: EngineUpdateResult) -> ModelUpdateResult {
+        // Process audio analysis from engine data
+        let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
+            // Extract volume and pitch from audio analysis
+            let volume = Volume {
+                peak: audio_analysis.volume_level.peak,
+                rms: audio_analysis.volume_level.rms,
+            };
+            
+            let pitch = match audio_analysis.pitch {
+                crate::module_interfaces::engine_to_model::Pitch::Detected(frequency, clarity) => {
+                    Pitch::Detected(frequency, clarity)
+                }
+                crate::module_interfaces::engine_to_model::Pitch::NotDetected => {
+                    Pitch::NotDetected
+                }
+            };
+            
+            (volume, pitch)
+        } else {
+            // No audio analysis available - return defaults
+            (
+                Volume { peak: -60.0, rms: -60.0 }, // Silent levels
+                Pitch::NotDetected
+            )
+        };
+        
+        // Convert engine errors to model errors
+        let errors: Vec<Error> = engine_data.audio_errors.into_iter().map(|engine_error| {
+            match engine_error {
+                crate::module_interfaces::engine_to_model::AudioError::ProcessingError(msg) => {
+                    Error::ProcessingError(msg)
+                }
+                crate::module_interfaces::engine_to_model::AudioError::MicrophonePermissionDenied => {
+                    Error::MicrophonePermissionDenied
+                }
+                crate::module_interfaces::engine_to_model::AudioError::MicrophoneNotAvailable => {
+                    Error::MicrophoneNotAvailable
+                }
+                crate::module_interfaces::engine_to_model::AudioError::BrowserApiNotSupported => {
+                    Error::BrowserApiNotSupported
+                }
+                crate::module_interfaces::engine_to_model::AudioError::AudioContextInitFailed => {
+                    Error::AudioContextInitFailed
+                }
+                crate::module_interfaces::engine_to_model::AudioError::AudioContextSuspended => {
+                    Error::AudioContextSuspended
+                }
+            }
+        }).collect();
+        
+        // Convert engine permission state to model permission state
+        let permission_state = match engine_data.permission_state {
+            crate::module_interfaces::engine_to_model::PermissionState::NotRequested => {
+                PermissionState::NotRequested
+            }
+            crate::module_interfaces::engine_to_model::PermissionState::Requested => {
+                PermissionState::Requested
+            }
+            crate::module_interfaces::engine_to_model::PermissionState::Granted => {
+                PermissionState::Granted
+            }
+            crate::module_interfaces::engine_to_model::PermissionState::Denied => {
+                PermissionState::Denied
+            }
+        };
+        
+        // Return processed model data
+        ModelUpdateResult {
+            volume,
+            pitch,
+            accuracy: Accuracy {
+                closest_note: Note::A,  // Placeholder - would calculate from pitch
+                accuracy: 0.0,         // Placeholder - would calculate based on pitch stability
+            },
+            tuning_system: TuningSystem::EqualTemperament, // Placeholder - would come from user settings
+            errors,
+            permission_state,
+        }
     }
 }
 
@@ -198,73 +230,49 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::*;
 
-    /// Test that DataModel::create() succeeds with all required interfaces
+    /// Test that DataModel::create() succeeds without interface dependencies
     #[wasm_bindgen_test]
     fn test_data_model_create_succeeds() {
-        let engine_to_model = EngineToModelInterface::new();
-        let model_to_engine = ModelToEngineInterface::new();
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        let result = DataModel::create(
-            std::rc::Rc::new(engine_to_model),
-            std::rc::Rc::new(model_to_engine),
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
-
+        let result = DataModel::create();
         assert!(result.is_ok(), "DataModel::create() should always succeed");
     }
 
     /// Test that update() method can be called without panicking
     #[wasm_bindgen_test]
     fn test_data_model_update_no_panic() {
-        let engine_to_model = EngineToModelInterface::new();
-        let model_to_engine = ModelToEngineInterface::new();
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
+        let mut model = DataModel::create()
+            .expect("DataModel creation should succeed");
 
-        let mut model = DataModel::create(
-            std::rc::Rc::new(engine_to_model),
-            std::rc::Rc::new(model_to_engine),
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        ).expect("DataModel creation should succeed");
+        // Create test engine data
+        let engine_data = EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+        };
 
         // Test that update can be called multiple times without panicking
-        model.update(0.0);
-        model.update(1.0);
-        model.update(123.456);
-        model.update(-1.0); // Negative timestamp should also be safe
+        let _result1 = model.update(0.0, engine_data.clone());
+        let _result2 = model.update(1.0, engine_data.clone());
+        let _result3 = model.update(123.456, engine_data.clone());
+        let _result4 = model.update(-1.0, engine_data); // Negative timestamp should also be safe
         
         // If we reach this point, no panic occurred
         assert!(true, "update() method should not panic");
     }
 
-    /// Verify that struct accepts all required interfaces
+    /// Verify that struct can be created without interface dependencies
     #[wasm_bindgen_test]
-    fn test_data_model_accepts_interfaces() {
-        let engine_to_model = EngineToModelInterface::new();
-        let model_to_engine = ModelToEngineInterface::new();
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        // This test verifies that the struct can be constructed with the interfaces
-        // and that the interfaces are properly typed
-        let model = DataModel::create(
-            std::rc::Rc::new(engine_to_model),
-            std::rc::Rc::new(model_to_engine),
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
+    fn test_data_model_interface_free_creation() {
+        // This test verifies that the struct can be constructed without interfaces
+        let model = DataModel::create();
 
         match model {
             Ok(_) => {
-                // Success - all interfaces were accepted
-                assert!(true, "All interfaces were accepted by DataModel");
+                // Success - model was created without interface dependencies
+                assert!(true, "DataModel was created without interface dependencies");
             }
             Err(e) => {
-                panic!("DataModel should accept all required interfaces, but got error: {}", e);
+                panic!("DataModel should be creatable without interfaces, but got error: {}", e);
             }
         }
     }
@@ -274,26 +282,24 @@ mod tests {
     fn test_data_model_runtime_safety() {
         // Create multiple instances to test memory safety
         for i in 0..10 {
-            let engine_to_model = EngineToModelInterface::new();
-            let model_to_engine = ModelToEngineInterface::new();
-            let model_to_presentation = ModelToPresentationInterface::new();
-            let presentation_to_model = PresentationToModelInterface::new();
+            let mut model = DataModel::create()
+                .expect("DataModel creation should always succeed");
 
-            let mut model = DataModel::create(
-                std::rc::Rc::new(engine_to_model),
-                std::rc::Rc::new(model_to_engine),
-                std::rc::Rc::new(model_to_presentation),
-                std::rc::Rc::new(presentation_to_model),
-            ).expect("DataModel creation should always succeed");
+            // Create test engine data
+            let engine_data = EngineUpdateResult {
+                audio_analysis: None,
+                audio_errors: Vec::new(),
+                permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            };
 
             // Test multiple operations
-            model.update(i as f64);
-            model.update((i as f64) * 0.5);
+            let _result1 = model.update(i as f64, engine_data.clone());
+            let _result2 = model.update((i as f64) * 0.5, engine_data.clone());
             
             // Test edge case values
-            model.update(f64::MAX);
-            model.update(f64::MIN);
-            model.update(0.0);
+            let _result3 = model.update(f64::MAX, engine_data.clone());
+            let _result4 = model.update(f64::MIN, engine_data.clone());
+            let _result5 = model.update(0.0, engine_data);
         }
         
         // If we reach this point, all operations completed safely
@@ -304,28 +310,25 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_data_model_compilation_safety() {
         // This test exists primarily to ensure the struct compiles correctly
-        // and that all interface types are properly imported and used
-        
-        let engine_to_model = EngineToModelInterface::new();
-        let model_to_engine = ModelToEngineInterface::new();
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
+        // without interface dependencies
 
         // Test successful creation
-        let model_result = DataModel::create(
-            std::rc::Rc::new(engine_to_model),
-            std::rc::Rc::new(model_to_engine),
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
+        let model_result = DataModel::create();
 
         // Test that the result type is correct
         assert!(model_result.is_ok());
         
         let mut model = model_result.unwrap();
         
+        // Create test engine data
+        let engine_data = EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+        };
+        
         // Test that update signature is correct
-        model.update(42.0);
+        let _result = model.update(42.0, engine_data);
         
         // Test completed - all compilation requirements verified
         assert!(true, "DataModel meets all compilation requirements");

@@ -66,11 +66,11 @@ Modify the engine to return data instead of pushing to observable_data.
 ### Task 3: Update Model Layer
 Modify the model to accept engine data as parameter and return presentation data.
 
-- [ ] 3a. Change model update signature
+- [✅] 3a. Change model update signature
   - From: `pub fn update(&mut self, _timestamp: f64)`
   - To: `pub fn update(&mut self, timestamp: f64, engine_data: EngineUpdateResult) -> ModelUpdateResult`
 
-- [ ] 3b. Remove observable_data dependencies from model
+- [✅] 3b. Remove observable_data dependencies from model
   - Remove `EngineToModelInterface` from Model struct
   - Remove `ModelToPresentationInterface` from Model struct
   - Remove observer/setter extraction in Model::new()
