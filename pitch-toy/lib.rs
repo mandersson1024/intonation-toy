@@ -220,15 +220,27 @@ pub async fn run_three_d_with_layers(
             }
         };
         
-        // Update model layer with engine data
-        if let Some(ref mut model) = model {
-            let _model_data = model.update(timestamp, engine_data);
-            // TODO: Pass model_data to presentation layer (Task 4 and 5)
-        }
+        // Update model layer with engine data and capture result
+        let model_data = if let Some(ref mut model) = model {
+            model.update(timestamp, engine_data)
+        } else {
+            // Provide default model data when model is not available
+            crate::module_interfaces::model_to_presentation::ModelUpdateResult {
+                volume: crate::module_interfaces::model_to_presentation::Volume { peak: -60.0, rms: -60.0 },
+                pitch: crate::module_interfaces::model_to_presentation::Pitch::NotDetected,
+                accuracy: crate::module_interfaces::model_to_presentation::Accuracy {
+                    closest_note: crate::module_interfaces::model_to_presentation::Note::A,
+                    accuracy: 1.0,
+                },
+                tuning_system: crate::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+                errors: Vec::new(),
+                permission_state: crate::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+            }
+        };
         
-        // Update presentation layer
+        // Update presentation layer with model data
         if let Some(ref mut presenter) = presenter {
-            presenter.update(timestamp);
+            presenter.update(timestamp, model_data);
             presenter.update_viewport(frame_input.viewport);
         }
         

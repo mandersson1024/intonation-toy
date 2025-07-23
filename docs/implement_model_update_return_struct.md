@@ -84,7 +84,7 @@ Modify the model to accept engine data as parameter and return presentation data
 ### Task 4: Update Presentation Layer
 Modify the presentation to accept model data as parameter.
 
-- [ ] 4a. Change presentation update signature
+- [✅] 4a. Change presentation update signature
   - From: `pub fn update(&mut self, _timestamp: f64)`
   - To: `pub fn update(&mut self, timestamp: f64, model_data: ModelUpdateResult)`
 

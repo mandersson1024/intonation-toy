@@ -8,36 +8,41 @@
 //! - Visual feedback and animations
 //! - Debug visualization and overlays
 //! 
-//! ## Interface Usage in Presentation Layer
+//! ## Return-Based Data Flow in Presentation Layer
 //! 
-//! The presentation layer uses interfaces to:
-//! - Receive processed visualization data from the model layer
-//! - Send user actions and configuration changes to the model layer
+//! The presentation layer now uses a return-based pattern for data processing:
+//! - Receives `ModelUpdateResult` data as a parameter from the model layer
+//! - Processes visual data including volume, pitch, accuracy, errors, and permission state
+//! - Updates UI elements and visualizations based on the provided data
 //! 
 //! ```rust
 //! use std::rc::Rc;
 //! use pitch_toy::presentation::Presenter;
 //! use pitch_toy::module_interfaces::{
-//!     model_to_presentation::ModelToPresentationInterface,
+//!     model_to_presentation::{ModelToPresentationInterface, ModelUpdateResult},
 //!     presentation_to_model::PresentationToModelInterface,
 //! };
 //! 
-//! // Create interfaces
+//! // Create interfaces (for remaining interface dependencies)
 //! let model_to_presentation = Rc::new(ModelToPresentationInterface::new());
 //! let presentation_to_model = Rc::new(PresentationToModelInterface::new());
 //! 
 //! // Create presenter with interfaces
-//! let presenter = Presenter::create(
+//! let mut presenter = Presenter::create(
 //!     model_to_presentation,
 //!     presentation_to_model,
 //! )?;
 //! 
-//! // Presenter internally should extract:
-//! // - volume_level_observer() to read processed volume data
-//! // - pitch_observer() to read processed pitch data
-//! // - accuracy_observer() to read pitch accuracy data
-//! // - permission_request_trigger() to send user permission actions
-//! // - tuning_system_trigger() to send configuration changes
+//! // Update with model data
+//! let model_data = ModelUpdateResult {
+//!     volume: pitch_toy::module_interfaces::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
+//!     pitch: pitch_toy::module_interfaces::model_to_presentation::Pitch::Detected(440.0, 0.95),
+//!     accuracy: pitch_toy::module_interfaces::model_to_presentation::Accuracy { closest_note: pitch_toy::module_interfaces::model_to_presentation::Note::A, accuracy: 0.05 },
+//!     tuning_system: pitch_toy::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+//!     errors: Vec::new(),
+//!     permission_state: pitch_toy::module_interfaces::model_to_presentation::PermissionState::Granted,
+//! };
+//! presenter.update(timestamp, model_data);
 //! ```
 //! 
 //! ## Current Status
@@ -63,7 +68,7 @@ pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::{
-    model_to_presentation::ModelToPresentationInterface,
+    model_to_presentation::{ModelToPresentationInterface, ModelUpdateResult},
     presentation_to_model::PresentationToModelInterface,
 };
 
@@ -178,34 +183,40 @@ impl Presenter {
         }
     }
 
-    /// Update the presentation layer with a new timestamp
+    /// Update the presentation layer with a new timestamp and model data
     /// 
     /// This method is called by the main render loop to update the presentation's state.
-    /// It should check for new data from the model, update internal rendering state,
-    /// and prepare for the next render call.
+    /// It receives processed data from the model layer, updates internal rendering state,
+    /// and prepares for the next render call.
     /// 
     /// # Arguments
     /// 
     /// * `timestamp` - The current timestamp in seconds since application start
+    /// * `model_data` - The processed data from the model layer containing volume, pitch, accuracy, etc.
     /// 
     /// # Placeholder Behavior
     /// 
-    /// Currently does nothing. The timestamp parameter is ignored.
+    /// Currently does nothing. Both parameters are ignored.
     /// 
     /// # Future Implementation
     /// 
     /// When implemented, this method will:
-    /// 1. Check for new processed data from the model
-    /// 2. Update internal rendering state
-    /// 3. Handle animations and visual transitions
-    /// 4. Process any pending user interactions
-    /// 5. Prepare visual elements for rendering
-    pub fn update(&mut self, _timestamp: f64) {
+    /// 1. Process the model data to update visual elements
+    /// 2. Update pitch display based on detected notes and accuracy
+    /// 3. Update volume meters and visualizations
+    /// 4. Handle error states and permission status
+    /// 5. Update animations and visual transitions
+    /// 6. Process any pending user interactions
+    pub fn update(&mut self, _timestamp: f64, model_data: ModelUpdateResult) {
         // TODO: Implement presentation update logic
-        // TODO: Check for model data updates
+        // TODO: Process model_data.volume for volume visualization
+        // TODO: Process model_data.pitch for pitch display
+        // TODO: Process model_data.accuracy for tuning indicators
+        // TODO: Handle model_data.errors for error states
         // TODO: Update animations and transitions
         // TODO: Process user interactions
         // Placeholder - does nothing
+        let _ = model_data; // Silence unused parameter warning
     }
 
     /// Render the presentation layer to the screen
@@ -237,6 +248,21 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::*;
     use three_d::*;
+    
+    /// Create test model data for testing purposes
+    fn create_test_model_data() -> ModelUpdateResult {
+        ModelUpdateResult {
+            volume: crate::module_interfaces::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::module_interfaces::model_to_presentation::Pitch::NotDetected,
+            accuracy: crate::module_interfaces::model_to_presentation::Accuracy {
+                closest_note: crate::module_interfaces::model_to_presentation::Note::A,
+                accuracy: 1.0,
+            },
+            tuning_system: crate::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+            errors: Vec::new(),
+            permission_state: crate::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+        }
+    }
 
     /// Test that Presenter::create() succeeds with all required interfaces
     #[wasm_bindgen_test]
@@ -264,10 +290,11 @@ mod tests {
         ).expect("Presenter creation should succeed");
 
         // Test that update can be called multiple times without panicking
-        presenter.update(0.0);
-        presenter.update(1.0);
-        presenter.update(123.456);
-        presenter.update(-1.0); // Negative timestamp should also be safe
+        let test_data = create_test_model_data();
+        presenter.update(0.0, test_data.clone());
+        presenter.update(1.0, test_data.clone());
+        presenter.update(123.456, test_data.clone());
+        presenter.update(-1.0, test_data); // Negative timestamp should also be safe
         
         // Test render method - we need a mock render target
         // Since we can't easily create a real RenderTarget in tests,
@@ -338,13 +365,14 @@ mod tests {
             ).expect("Presenter creation should always succeed");
 
             // Test multiple operations
-            presenter.update(i as f64);
-            presenter.update((i as f64) * 0.5);
+            let test_data = create_test_model_data();
+            presenter.update(i as f64, test_data.clone());
+            presenter.update((i as f64) * 0.5, test_data.clone());
             
             // Test edge case values
-            presenter.update(f64::MAX);
-            presenter.update(f64::MIN);
-            presenter.update(0.0);
+            presenter.update(f64::MAX, test_data.clone());
+            presenter.update(f64::MIN, test_data.clone());
+            presenter.update(0.0, test_data);
         }
         
         // If we reach this point, all operations completed safely
@@ -372,7 +400,8 @@ mod tests {
         let mut presenter = presenter_result.unwrap();
         
         // Test that update signature is correct
-        presenter.update(42.0);
+        let test_data = create_test_model_data();
+        presenter.update(42.0, test_data);
         
         // Test completed - all compilation requirements verified
         assert!(true, "Presenter meets all compilation requirements");

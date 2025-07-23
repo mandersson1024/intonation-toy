@@ -58,9 +58,20 @@ fn test_all_layers_can_be_created_without_panicking() {
     let mut presenter = presenter_result.unwrap();
     
     // Test presentation layer can be called without panicking
-    presenter.update(0.0);
-    presenter.update(1.0);
-    presenter.update(100.0);
+    let test_model_data = pitch_toy::module_interfaces::model_to_presentation::ModelUpdateResult {
+        volume: pitch_toy::module_interfaces::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
+        pitch: pitch_toy::module_interfaces::model_to_presentation::Pitch::NotDetected,
+        accuracy: pitch_toy::module_interfaces::model_to_presentation::Accuracy {
+            closest_note: pitch_toy::module_interfaces::model_to_presentation::Note::A,
+            accuracy: 1.0,
+        },
+        tuning_system: pitch_toy::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+        errors: Vec::new(),
+        permission_state: pitch_toy::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+    };
+    presenter.update(0.0, test_model_data.clone());
+    presenter.update(1.0, test_model_data.clone());
+    presenter.update(100.0, test_model_data);
 }
 
 #[wasm_bindgen_test]
@@ -360,7 +371,18 @@ fn test_layer_update_sequence() {
         let _model_result = model.update(timestamp, dummy_engine_data);
         
         // Presentation layer update
-        presenter.update(timestamp);
+        let test_model_data = pitch_toy::module_interfaces::model_to_presentation::ModelUpdateResult {
+            volume: pitch_toy::module_interfaces::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
+            pitch: pitch_toy::module_interfaces::model_to_presentation::Pitch::NotDetected,
+            accuracy: pitch_toy::module_interfaces::model_to_presentation::Accuracy {
+                closest_note: pitch_toy::module_interfaces::model_to_presentation::Note::A,
+                accuracy: 1.0,
+            },
+            tuning_system: pitch_toy::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+            errors: Vec::new(),
+            permission_state: pitch_toy::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+        };
+        presenter.update(timestamp, test_model_data);
     }
     
     // Verify that data flows through the interfaces
@@ -430,7 +452,18 @@ fn test_render_loop_functionality() {
         
         // Update presentation layer (like in lib.rs line 221)
         if let Some(ref mut presenter) = presenter {
-            presenter.update(timestamp);
+            let test_model_data = pitch_toy::module_interfaces::model_to_presentation::ModelUpdateResult {
+                volume: pitch_toy::module_interfaces::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
+                pitch: pitch_toy::module_interfaces::model_to_presentation::Pitch::NotDetected,
+                accuracy: pitch_toy::module_interfaces::model_to_presentation::Accuracy {
+                    closest_note: pitch_toy::module_interfaces::model_to_presentation::Note::A,
+                    accuracy: 1.0,
+                },
+                tuning_system: pitch_toy::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+                errors: Vec::new(),
+                permission_state: pitch_toy::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+            };
+            presenter.update(timestamp, test_model_data);
         }
     }
     
