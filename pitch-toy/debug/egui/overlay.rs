@@ -2,7 +2,6 @@
 // Manages microphone button rendering in three-d + egui context
 
 use three_d::egui;
-use observable_data::DataObserver;
 use crate::engine::audio::{AudioPermission, TestWaveform, test_signal_generator::BackgroundNoiseConfig};
 
 /// Test signal configuration
@@ -27,7 +26,6 @@ impl Default for TestSignalConfig {
 
 /// EGUI microphone button wrapper for three-d + egui rendering
 pub struct EguiMicrophoneButton {
-    permission_observer: DataObserver<AudioPermission>,
     microphone_trigger: action::ActionTrigger<crate::MicrophonePermissionAction>,
     output_to_speakers: bool,
     output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
@@ -40,9 +38,8 @@ pub struct EguiMicrophoneButton {
 }
 
 impl EguiMicrophoneButton {
-    /// Create new EGUI microphone button with permission observer and action trigger
+    /// Create new EGUI microphone button with action triggers
     pub fn new(
-        permission_observer: DataObserver<AudioPermission>,
         microphone_trigger: action::ActionTrigger<crate::MicrophonePermissionAction>,
         output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
         test_signal_trigger: action::ActionTrigger<crate::TestSignalAction>,
@@ -52,7 +49,6 @@ impl EguiMicrophoneButton {
         let background_noise_config = BackgroundNoiseConfig::default();
         
         Self {
-            permission_observer,
             microphone_trigger,
             output_to_speakers: false,
             output_to_speakers_trigger,
@@ -151,9 +147,8 @@ impl EguiMicrophoneButton {
     }
     
     /// Render the microphone button inline within an existing UI context
-    pub fn render_inline(&mut self, ui: &mut egui::Ui) {
+    pub fn render_inline(&mut self, ui: &mut egui::Ui, permission_state: AudioPermission) {
         // Render microphone permission button inline
-        let permission_state = self.permission_observer.get();
         
         let button_text = match permission_state {
             AudioPermission::Uninitialized => "Request Permission",

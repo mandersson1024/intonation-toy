@@ -54,6 +54,26 @@ impl HybridEguiLiveDataPanel {
         }
     }
     
+    /// Update the hybrid data with engine and model results
+    pub fn update_data(
+        &mut self,
+        engine_result: &crate::module_interfaces::engine_to_model::EngineUpdateResult,
+        model_result: Option<&crate::module_interfaces::model_to_presentation::ModelUpdateResult>,
+    ) {
+        self.hybrid_data.update_from_layers(engine_result, model_result);
+    }
+    
+    /// Update debug-specific data  
+    pub fn update_debug_data(
+        &mut self,
+        audio_devices: Option<crate::engine::audio::AudioDevices>,
+        performance_metrics: Option<crate::debug::egui::data_types::PerformanceMetrics>,
+        audioworklet_status: Option<crate::debug::egui::data_types::AudioWorkletStatus>,
+        buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
+    ) {
+        self.hybrid_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
+    }
+    
     /// Render the live data panel
     pub fn render(&mut self, gui_context: &egui::Context) {
         let screen_rect = gui_context.screen_rect();
@@ -118,7 +138,7 @@ impl HybridEguiLiveDataPanel {
     
     /// Render audio devices section (debug-specific data)
     fn render_audio_devices_section(&self, ui: &mut Ui) {
-        let devices = self.hybrid_data.audio_devices.get();
+        let devices = &self.hybrid_data.audio_devices;
         
         egui::CollapsingHeader::new("Audio Devices")
             .default_open(false)
@@ -144,7 +164,7 @@ impl HybridEguiLiveDataPanel {
         egui::CollapsingHeader::new("AudioWorklet Status")
             .default_open(true)
             .show(ui, |ui| {
-                let status = self.hybrid_data.audioworklet_status.get();
+                let status = &self.hybrid_data.audioworklet_status;
                 
                 ui.horizontal(|ui| {
                     ui.label("State:");
@@ -181,7 +201,7 @@ impl HybridEguiLiveDataPanel {
         egui::CollapsingHeader::new("Performance Metrics")
             .default_open(true)
             .show(ui, |ui| {
-                let metrics = self.hybrid_data.performance_metrics.get();
+                let metrics = &self.hybrid_data.performance_metrics;
                 
                 // Update metrics periodically
                 let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
@@ -228,7 +248,7 @@ impl HybridEguiLiveDataPanel {
         egui::CollapsingHeader::new("Buffer Pool Statistics")
             .default_open(true)
             .show(ui, |ui| {
-                let stats = self.hybrid_data.buffer_pool_stats.get();
+                let stats = &self.hybrid_data.buffer_pool_stats;
                 if let Some(stats) = stats {
                     // Pool status
                     ui.horizontal(|ui| {
@@ -387,7 +407,8 @@ impl HybridEguiLiveDataPanel {
             });
         
         // Render microphone button outside the collapsing header to avoid click conflicts
-        self.microphone_button.render_inline(ui);
+        let permission_state = self.hybrid_data.get_microphone_permission();
+        self.microphone_button.render_inline(ui, permission_state);
     }
     
     /// Render audio errors section (placeholder implementation)

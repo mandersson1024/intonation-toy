@@ -142,15 +142,15 @@ Remove the observable_data crate and related code.
 ### Task 8: Update Debug Layer
 Adapt debug layer to work without observable_data.
 
-- [ ] 8a. Update HybridLiveData structure
+- [✅] 8a. Update HybridLiveData structure
   - Change from holding DataObservers to holding actual data
   - Add update method that takes engine and model results
 
-- [ ] 8b. Update debug overlay
+- [✅] 8b. Update debug overlay
   - Pass current data state instead of observers
   - Update rendering to use passed data
 
-- [ ] 8c. Update debug panel updates
+- [✅] 8c. Update debug panel updates
   - Modify to receive data through update calls
   - Remove observer.get() calls
 

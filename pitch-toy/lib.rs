@@ -125,12 +125,6 @@ pub async fn run_three_d_with_layers(
     mut model: Option<model::DataModel>,
     mut presenter: Option<presentation::Presenter>,
     debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
-    performance_metrics_setter: impl observable_data::DataSetter<debug::egui::data_types::PerformanceMetrics> + Clone + 'static,
-    performance_metrics_observer: observable_data::DataObserver<debug::egui::data_types::PerformanceMetrics>,
-    audio_devices_observer: observable_data::DataObserver<engine::audio::AudioDevices>,
-    audioworklet_status_observer: observable_data::DataObserver<debug::egui::data_types::AudioWorkletStatus>,
-    buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
-    microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
     ui_triggers: UIControlTriggers,
 ) {
     dev_log!("Starting three-d with three-layer architecture");
@@ -153,7 +147,6 @@ pub async fn run_three_d_with_layers(
     
     // Create microphone button
     let microphone_button = EguiMicrophoneButton::new(
-        microphone_permission_observer.clone(),
         ui_triggers.microphone_permission.clone(),
         ui_triggers.output_to_speakers.clone(),
         ui_triggers.test_signal.clone(),
@@ -161,12 +154,7 @@ pub async fn run_three_d_with_layers(
     );
     
     // Create hybrid live data without legacy interface
-    let hybrid_live_data = live_data::HybridLiveData::new(
-        audio_devices_observer,
-        performance_metrics_observer,
-        audioworklet_status_observer,
-        buffer_pool_stats_observer,
-    );
+    let hybrid_live_data = live_data::HybridLiveData::new();
     
     // Create hybrid debug panel
     let mut hybrid_live_data_panel = HybridEguiLiveDataPanel::new(
@@ -200,7 +188,6 @@ pub async fn run_three_d_with_layers(
                 audio_latency: 0.0, // Placeholder
                 cpu_usage: 0.0, // Placeholder
             };
-            performance_metrics_setter.set(metrics);
         }
         
         // Three-layer update sequence (engine → model → presenter)
@@ -220,7 +207,7 @@ pub async fn run_three_d_with_layers(
         
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
-            model.update(timestamp, engine_data)
+            model.update(timestamp, engine_data.clone())
         } else {
             // Provide default model data when model is not available
             crate::module_interfaces::model_to_presentation::ModelUpdateResult {
@@ -235,6 +222,23 @@ pub async fn run_three_d_with_layers(
                 permission_state: crate::module_interfaces::model_to_presentation::PermissionState::NotRequested,
             }
         };
+        
+        // Update debug panel data with engine and model results
+        hybrid_live_data_panel.update_data(&engine_data, Some(&model_data));
+        
+        // Update debug panel data with performance metrics
+        let performance_metrics = debug::egui::data_types::PerformanceMetrics {
+            fps,
+            memory_usage: 0.0, // Placeholder
+            audio_latency: 0.0, // Placeholder
+            cpu_usage: 0.0, // Placeholder
+        };
+        hybrid_live_data_panel.update_debug_data(
+            None, // audio_devices - not updated in main loop
+            Some(performance_metrics),
+            None, // audioworklet_status - not updated in main loop
+            None, // buffer_pool_stats - not updated in main loop
+        );
         
         // Update presentation layer with model data
         if let Some(ref mut presenter) = presenter {
@@ -303,21 +307,6 @@ pub async fn start() {
     
     let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
     
-    // Create data sources for debug GUI only
-    use observable_data::DataSource;
-    
-    let microphone_permission_source = DataSource::new(engine::audio::AudioPermission::Uninitialized);
-    let audio_devices_source = DataSource::new(engine::audio::AudioDevices {
-        input_devices: vec![],
-        output_devices: vec![],
-    });
-    let performance_metrics_source = DataSource::new(debug::egui::data_types::PerformanceMetrics::default());
-    let audioworklet_status_source = DataSource::new(debug::egui::data_types::AudioWorkletStatus::default());
-    let buffer_pool_stats_source = DataSource::new(None::<engine::audio::message_protocol::BufferPoolStats>);
-    
-    let performance_metrics_setter = performance_metrics_source.setter();
-    let microphone_permission_setter = microphone_permission_source.setter();
-    
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
@@ -368,16 +357,13 @@ pub async fn start() {
     let listeners = ui_control_actions.get_listeners();
     let triggers = ui_control_actions.get_triggers();
     
-    // Set up UI and debug action listeners through the engine
+    // Set up debug action listeners through the engine
     if let Some(ref engine_instance) = engine {
-        // Set up UI action listeners with microphone permission setter
-        engine_instance.setup_ui_listeners(
-            listeners,
-            microphone_permission_setter.clone(),
-        );
-        
         // Set up debug action listeners
         engine_instance.setup_debug_listeners(&debug_actions);
+        
+        // TODO: Re-enable UI listeners setup once engine layer observable_data is removed
+        // The engine layer still has observable_data dependencies that are outside Task 8c scope
     }
     
     // Start three-d application with three-layer architecture
@@ -386,12 +372,6 @@ pub async fn start() {
         model,
         presenter,
         debug_actions,
-        performance_metrics_setter,
-        performance_metrics_source.observer(),
-        audio_devices_source.observer(),
-        audioworklet_status_source.observer(),
-        buffer_pool_stats_source.observer(),
-        microphone_permission_source.observer(),
         triggers,
     ).await;
 }

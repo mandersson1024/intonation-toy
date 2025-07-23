@@ -164,21 +164,26 @@ fn test_debug_gui_observational_access() {
     let buffer_pool_stats_source = DataSource::new(None::<pitch_toy::engine::audio::message_protocol::BufferPoolStats>);
     
     // Create HybridLiveData (debug GUI's data source) without interface
-    let hybrid_live_data = pitch_toy::live_data::HybridLiveData::new(
-        audio_devices_source.observer(),
-        performance_metrics_source.observer(),
-        audioworklet_status_source.observer(),
-        buffer_pool_stats_source.observer(),
+    let hybrid_live_data = pitch_toy::live_data::HybridLiveData::new();
+    
+    // Test that debug GUI can access data directly
+    // Note: The new HybridLiveData starts with default data, not from observers
+    // For this test, we'll update it with the test data
+    let mut hybrid_live_data = hybrid_live_data;
+    hybrid_live_data.update_debug_data(
+        Some(test_audio_devices),
+        Some(test_performance_metrics),
+        Some(pitch_toy::debug::egui::data_types::AudioWorkletStatus::default()),
+        None,
     );
     
-    // Test that debug GUI can access data through observers (read-only)
-    let audio_devices = hybrid_live_data.audio_devices.get();
+    let audio_devices = &hybrid_live_data.audio_devices;
     assert_eq!(audio_devices.input_devices.len(), 1);
     assert_eq!(audio_devices.input_devices[0].1, "Test Input Device");
     assert_eq!(audio_devices.output_devices.len(), 1);
     assert_eq!(audio_devices.output_devices[0].1, "Test Output Device");
     
-    let performance_metrics = hybrid_live_data.performance_metrics.get();
+    let performance_metrics = &hybrid_live_data.performance_metrics;
     assert_eq!(performance_metrics.fps, 60.0);
     assert_eq!(performance_metrics.memory_usage, 25.0);
     
