@@ -268,7 +268,7 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 // Re-export public API
 pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet_with_context};
 pub use permission::{AudioPermission, connect_microphone_with_context};
-pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext, VolumeAnalysisAdapter, PitchAnalysisAdapter, PlaceholderAudioWorkletStatusSetter, PlaceholderBufferPoolStatsSetter};
+pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext, PlaceholderAudioWorkletStatusSetter, PlaceholderBufferPoolStatsSetter, convert_volume_data, convert_pitch_data, merge_audio_analysis};
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
@@ -575,44 +575,28 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_interface_adapter_volume_data_conversion() {
-        use observable_data::{DataSource, DataSetter};
-        
-        // Create a data source to capture converted data
-        let audio_analysis_source = DataSource::new(None::<crate::module_interfaces::engine_to_model::AudioAnalysis>);
-        let setter = audio_analysis_source.setter();
-        
-        // Create adapter
-        let adapter = context::VolumeAnalysisAdapter::new(setter);
-        
-        // Test volume data conversion
+        // Test volume data conversion using new conversion functions
         let volume_data = data_types::VolumeLevelData {
             peak_db: -10.0,
             rms_db: -20.0,
         };
         
-        adapter.set(Some(volume_data));
+        // Test the conversion function
+        let converted = context::convert_volume_data(Some(volume_data));
+        assert!(converted.is_some());
         
-        // Verify the data was converted and set
-        let result = audio_analysis_source.observer().get();
-        assert!(result.is_some());
+        let volume = converted.unwrap();
+        assert_eq!(volume.peak, -10.0);
+        assert_eq!(volume.rms, -20.0);
         
-        let analysis = result.unwrap();
-        assert_eq!(analysis.volume_level.peak, -10.0);
-        assert_eq!(analysis.volume_level.rms, -20.0);
+        // Test with None input
+        let converted_none = context::convert_volume_data(None);
+        assert!(converted_none.is_none());
     }
 
     #[wasm_bindgen_test]
     fn test_interface_adapter_pitch_data_conversion() {
-        use observable_data::{DataSource, DataSetter};
-        
-        // Create a data source to capture converted data
-        let audio_analysis_source = DataSource::new(None::<crate::module_interfaces::engine_to_model::AudioAnalysis>);
-        let setter = audio_analysis_source.setter();
-        
-        // Create adapter
-        let adapter = context::PitchAnalysisAdapter::new(setter);
-        
-        // Test pitch data conversion
+        // Test pitch data conversion using new conversion functions
         let pitch_data = data_types::PitchData {
             frequency: 440.0,
             confidence: 0.9,
@@ -621,21 +605,41 @@ mod tests {
             timestamp: 12345.0,
         };
         
-        adapter.set(Some(pitch_data));
+        // Test the conversion function
+        let converted = context::convert_pitch_data(Some(pitch_data));
+        assert!(converted.is_some());
         
-        // Verify the data was converted and set
-        let result = audio_analysis_source.observer().get();
-        assert!(result.is_some());
-        
-        let analysis = result.unwrap();
-        match analysis.pitch {
+        let pitch = converted.unwrap();
+        match pitch {
             crate::module_interfaces::engine_to_model::Pitch::Detected(freq, clarity) => {
                 assert_eq!(freq, 440.0);
                 assert_eq!(clarity, 0.8);
             }
             _ => panic!("Expected detected pitch"),
         }
-        assert_eq!(analysis.timestamp, 12345.0);
+        
+        // Test with None input
+        let converted_none = context::convert_pitch_data(None);
+        assert!(converted_none.is_none());
+        
+        // Test with zero frequency (should be NotDetected)
+        let pitch_data_zero = data_types::PitchData {
+            frequency: 0.0,
+            confidence: 0.0,
+            note: pitch_detector::MusicalNote::new(pitch_detector::NoteName::A, 4, 0.0, 440.0),
+            clarity: 0.0,
+            timestamp: 12345.0,
+        };
+        
+        let converted_zero = context::convert_pitch_data(Some(pitch_data_zero));
+        assert!(converted_zero.is_some());
+        
+        match converted_zero.unwrap() {
+            crate::module_interfaces::engine_to_model::Pitch::NotDetected => {
+                // Expected
+            }
+            _ => panic!("Expected NotDetected pitch for zero frequency"),
+        }
     }
 
     #[wasm_bindgen_test]

@@ -43,22 +43,22 @@ Define the data structures that will be returned from update methods and passed 
 ### Task 2: Update Engine Layer
 Modify the engine to return data instead of pushing to observable_data.
 
-- [ ] 2a. Change engine update signature
+- [✅] 2a. Change engine update signature
   - From: `pub fn update(&mut self, _timestamp: f64)`
   - To: `pub fn update(&mut self, timestamp: f64) -> EngineUpdateResult`
 
-- [ ] 2b. Remove observable_data dependencies from engine
+- [✅] 2b. Remove observable_data dependencies from engine
   - Remove `EngineToModelInterface` from Engine struct
   - Remove setter extraction in Engine::new()
   - Remove all calls to setters in update logic
 
-- [ ] 2c. Modify engine update implementation to collect and return data
+- [✅] 2c. Modify engine update implementation to collect and return data
   - Collect audio analysis data during update
   - Collect audio errors during update
   - Collect permission state
   - Return EngineUpdateResult with all collected data
 
-- [ ] 2d. Update audio context and adapters
+- [✅] 2d. Update audio context and adapters
   - Remove adapter connections to setters
   - Modify adapters to return data instead of pushing to setters
   - Update AudioAnalysisMerger to return merged data

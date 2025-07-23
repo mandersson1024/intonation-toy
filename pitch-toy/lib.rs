@@ -311,10 +311,7 @@ pub async fn start() {
     dev_log!("Creating three-layer architecture instances...");
     
     // Create engine layer
-    let engine = match engine::AudioEngine::create(
-        engine_to_model.clone(),
-        model_to_engine.clone(),
-    ).await {
+    let engine = match engine::AudioEngine::create().await {
         Ok(engine) => {
             dev_log!("✓ Engine layer created successfully");
             Some(engine)

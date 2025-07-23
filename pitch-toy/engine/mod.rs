@@ -1,48 +1,30 @@
 //! Engine Layer - Audio processing and hardware interface
 //!
 //! This layer handles low-level audio operations and browser API interactions.
-//! It communicates with the Model layer via defined interfaces.
+//! It communicates with the Model layer by returning structured data from update calls.
 //!
-//! ## Interface Usage in Engine Layer
+//! ## Data Flow in Engine Layer
 //!
-//! The engine layer uses interfaces to:
-//! - Push audio analysis data to the model layer
-//! - Listen for permission request actions from the model layer
+//! The engine layer:
+//! - Processes audio data from microphone and browser APIs
+//! - Returns structured data via EngineUpdateResult from update() calls
+//! - Provides audio analysis, error information, and permission state
 //!
 //! ```rust
-//! use std::rc::Rc;
 //! use pitch_toy::engine::AudioEngine;
-//! use pitch_toy::module_interfaces::{
-//!     engine_to_model::EngineToModelInterface,
-//!     model_to_engine::ModelToEngineInterface,
-//! };
 //!
-//! // Create interfaces
-//! let engine_to_model = Rc::new(EngineToModelInterface::new());
-//! let model_to_engine = Rc::new(ModelToEngineInterface::new());
+//! // Create engine without dependencies
+//! let mut engine = AudioEngine::create().await?;
 //!
-//! // Create engine with interfaces
-//! let engine = AudioEngine::create(
-//!     engine_to_model,
-//!     model_to_engine,
-//! ).await?;
-//!
-//! // Engine internally extracts setters to push data:
-//! // - audio_analysis_setter() for pitch and volume data
-//! // - permission_state_setter() for microphone permission state
-//! // - audio_errors_setter() for error reporting
-//!
-//! // Engine internally extracts listeners to respond to actions:
-//! // - request_microphone_permission_listener() for permission requests
+//! // Engine returns data directly from update calls
+//! let result = engine.update(timestamp);
+//! // result contains: audio_analysis, audio_errors, permission_state
 //! ```
 
 pub mod audio;
 pub mod platform;
 
-use crate::module_interfaces::{
-    engine_to_model::EngineToModelInterface,
-    model_to_engine::ModelToEngineInterface,
-};
+use crate::module_interfaces::engine_to_model::EngineUpdateResult;
 
 /// AudioEngine - The engine layer of the three-layer architecture
 /// 
@@ -53,85 +35,112 @@ use crate::module_interfaces::{
 /// # Example
 /// 
 /// ```no_run
-/// use pitch_toy::module_interfaces::*;
 /// use pitch_toy::engine::AudioEngine;
 /// 
-/// let engine_to_model = engine_to_model::EngineToModelInterface::new();
-/// let model_to_engine = model_to_engine::ModelToEngineInterface::new();
-/// 
-/// let engine = AudioEngine::create(
-///     engine_to_model,
-///     model_to_engine,
-/// ).await.expect("AudioEngine creation should succeed");
+/// let engine = AudioEngine::create()
+///     .await.expect("AudioEngine creation should succeed");
 /// ```
 pub struct AudioEngine {
-    /// Interface for sending data to the model
-    /// Contains setters for audio analysis, errors, and permission state
-    _engine_to_model: std::rc::Rc<EngineToModelInterface>,
-    
-    /// Interface for receiving actions from the model
-    /// Contains listeners for microphone permission requests
-    _model_to_engine: std::rc::Rc<ModelToEngineInterface>,
-    
     /// Audio system context for managing audio processing
     audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
 }
 
 impl AudioEngine {
-    /// Create a new AudioEngine with the required interfaces
+    /// Create a new AudioEngine without observable data dependencies
     /// 
-    /// This constructor accepts the interfaces that connect the engine layer
-    /// to the model layer and initializes the audio processing system.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `engine_to_model` - Interface for sending audio data to the model
-    /// * `model_to_engine` - Interface for receiving actions from the model
+    /// This constructor initializes the audio processing system using direct
+    /// data return patterns instead of the observable data pattern.
     /// 
     /// # Returns
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn create(
-        engine_to_model: std::rc::Rc<EngineToModelInterface>,
-        model_to_engine: std::rc::Rc<ModelToEngineInterface>,
-    ) -> Result<Self, String> {
-        // Initialize audio system with interface-based communication
-        let audio_context = match audio::initialize_audio_system_with_interfaces(
-            &engine_to_model,
-            &model_to_engine,
-        ).await {
-            Ok(context) => {
-                crate::common::dev_log!("✓ Audio system initialized successfully in AudioEngine");
-                Some(std::rc::Rc::new(std::cell::RefCell::new(context)))
+    pub async fn create() -> Result<Self, String> {
+        crate::common::dev_log!("Creating AudioEngine with return-based pattern");
+        
+        // Create audio context using the new return-based constructor
+        let mut audio_context = audio::AudioSystemContext::new_return_based();
+        
+        // Initialize the audio system
+        match audio_context.initialize().await {
+            Ok(()) => {
+                crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
+                Ok(Self {
+                    audio_context: Some(std::rc::Rc::new(std::cell::RefCell::new(audio_context))),
+                })
             }
             Err(e) => {
-                crate::common::dev_log!("✗ Audio system initialization failed: {}", e);
-                crate::common::dev_log!("AudioEngine will continue without audio functionality");
-                None
+                crate::common::dev_log!("⚠ AudioEngine created but audio system initialization failed: {}", e);
+                // Still create the engine but without audio context for now
+                // This allows the application to continue running
+                Ok(Self {
+                    audio_context: None,
+                })
             }
-        };
-        
-        Ok(Self {
-            _engine_to_model: engine_to_model,
-            _model_to_engine: model_to_engine,
-            audio_context,
-        })
+        }
     }
 
     /// Update the engine layer with a new timestamp
     /// 
     /// This method is called by the main render loop to update the engine's state.
-    /// It should process audio data, handle device changes, and push updates
-    /// to the model layer.
+    /// It processes audio data, handles device changes, and returns updates
+    /// for the model layer.
     /// 
     /// # Arguments
     /// 
     /// * `timestamp` - The current timestamp in seconds since application start
-    pub fn update(&mut self, _timestamp: f64) {
-        // Update audio context if available
-        // Note: AudioSystemContext doesn't have an update method - it's handled by the worklet
-        // This method is kept for future engine-level updates
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `EngineUpdateResult` containing audio analysis data, errors, and permission state
+    pub fn update(&mut self, timestamp: f64) -> EngineUpdateResult {
+        // Collect audio analysis data
+        let audio_analysis = self.collect_audio_analysis(timestamp);
+        
+        // Collect audio errors
+        let audio_errors = self.collect_audio_errors();
+        
+        // Collect permission state
+        let permission_state = self.collect_permission_state();
+        
+        EngineUpdateResult {
+            audio_analysis,
+            audio_errors,
+            permission_state,
+        }
+    }
+    
+    /// Collect current audio analysis data from the audio system
+    fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::module_interfaces::engine_to_model::AudioAnalysis> {
+        if let Some(ref context) = self.audio_context {
+            let borrowed_context = context.borrow();
+            borrowed_context.collect_audio_analysis(timestamp)
+        } else {
+            // No audio context available
+            None
+        }
+    }
+    
+    /// Collect current audio errors from the audio system
+    fn collect_audio_errors(&self) -> Vec<crate::module_interfaces::engine_to_model::AudioError> {
+        if let Some(ref context) = self.audio_context {
+            let borrowed_context = context.borrow();
+            borrowed_context.collect_audio_errors()
+        } else {
+            // No audio context available - return appropriate error
+            vec![crate::module_interfaces::engine_to_model::AudioError::ProcessingError("Audio system not initialized".to_string())]
+        }
+    }
+    
+    /// Collect current permission state from the audio system
+    fn collect_permission_state(&self) -> crate::module_interfaces::engine_to_model::PermissionState {
+        if let Some(ref context) = self.audio_context {
+            let borrowed_context = context.borrow();
+            borrowed_context.collect_permission_state()
+        } else {
+            // No audio context available
+            crate::module_interfaces::engine_to_model::PermissionState::NotRequested
+        }
     }
     
     /// Set up UI action listeners with the audio system

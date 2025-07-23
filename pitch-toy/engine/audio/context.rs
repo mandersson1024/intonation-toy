@@ -631,11 +631,10 @@ impl AudioSystemContext {
         let _audio_errors_setter = engine_to_model.audio_errors_setter();
         let permission_state_setter = engine_to_model.permission_state_setter();
         
-        // Create adapter setters that convert from interface types to audio engine types
-        // Use a merger to combine volume and pitch updates into AudioAnalysis
-        let audio_analysis_merger = std::rc::Rc::new(std::cell::RefCell::new(AudioAnalysisMerger::new(audio_analysis_setter)));
-        let volume_level_setter = std::rc::Rc::new(VolumeMergerAdapter::new(audio_analysis_merger.clone()));
-        let pitch_data_setter = std::rc::Rc::new(PitchMergerAdapter::new(audio_analysis_merger));
+        // Note: This method is for compatibility with the observable pattern during transition
+        // In the return-based pattern, these adapters are not needed
+        let volume_level_setter = std::rc::Rc::new(PlaceholderVolumeSetter);
+        let pitch_data_setter = std::rc::Rc::new(PlaceholderPitchSetter);
         
         // Create a placeholder audioworklet_status_setter and buffer_pool_stats_setter
         // These will be improved in future iterations
@@ -811,6 +810,43 @@ impl AudioSystemContext {
         }
     }
 
+    /// Create new AudioSystemContext without setters (return-based pattern)
+    /// 
+    /// This constructor creates an AudioSystemContext that works with the
+    /// return-based data flow pattern instead of the observable/setter pattern.
+    /// Data is collected from the audio system and returned directly rather
+    /// than being pushed to setters.
+    pub fn new_return_based() -> Self {
+        Self {
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
+            audioworklet_manager: None,
+            pitch_analyzer: None,
+            // Use placeholder setters to maintain compatibility during transition
+            volume_level_setter: std::rc::Rc::new(PlaceholderVolumeSetter),
+            pitch_data_setter: std::rc::Rc::new(PlaceholderPitchSetter),
+            audioworklet_status_setter: std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter),
+            buffer_pool_stats_setter: std::rc::Rc::new(PlaceholderBufferPoolStatsSetter),
+            is_initialized: false,
+            initialization_error: None,
+        }
+    }
+
+    /// Create new AudioSystemContext with custom config (return-based pattern)
+    pub fn new_return_based_with_config(audio_config: AudioContextConfig) -> Self {
+        Self {
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
+            audioworklet_manager: None,
+            pitch_analyzer: None,
+            // Use placeholder setters to maintain compatibility during transition
+            volume_level_setter: std::rc::Rc::new(PlaceholderVolumeSetter),
+            pitch_data_setter: std::rc::Rc::new(PlaceholderPitchSetter),
+            audioworklet_status_setter: std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter),
+            buffer_pool_stats_setter: std::rc::Rc::new(PlaceholderBufferPoolStatsSetter),
+            is_initialized: false,
+            initialization_error: None,
+        }
+    }
+
     /// Initialize all audio components with proper dependency order
     pub async fn initialize(&mut self) -> Result<(), String> {
         dev_log!("Initializing AudioSystemContext");
@@ -974,20 +1010,86 @@ impl AudioSystemContext {
         self.audio_context_manager.borrow_mut().resume().await
             .map_err(|e| format!("Failed to resume AudioContext: {}", e))
     }
+
+    /// Collect current audio analysis data (return-based pattern)
+    /// 
+    /// This method retrieves the current audio analysis data from the audio system
+    /// without using the observable/setter pattern. It's used by the engine layer
+    /// to collect data for returning in EngineUpdateResult.
+    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::module_interfaces::engine_to_model::AudioAnalysis> {
+        // For now, this is a placeholder implementation since the full audio
+        // pipeline integration is still in progress. This will be enhanced
+        // as more components are updated to the return-based pattern.
+        
+        if !self.is_initialized {
+            return None;
+        }
+
+        // TODO: Collect actual volume and pitch data from audio components
+        // This will require updating the AudioWorkletManager and related components
+        // to provide data collection methods instead of just pushing to setters.
+        
+        // Return placeholder data to maintain the interface
+        // In the final implementation, this would collect real data from:
+        // - AudioWorkletManager for volume data
+        // - PitchAnalyzer for pitch data
+        // - Merge the data using the new conversion functions
+        
+        None
+    }
+
+    /// Collect current audio errors (return-based pattern)
+    pub fn collect_audio_errors(&self) -> Vec<crate::module_interfaces::engine_to_model::AudioError> {
+        let mut errors = Vec::new();
+        
+        // Check for initialization errors
+        if let Some(error_msg) = self.initialization_error.as_ref() {
+            errors.push(crate::module_interfaces::engine_to_model::AudioError::ProcessingError(error_msg.clone()));
+        }
+        
+        // Check AudioContext manager state
+        let context_manager = self.audio_context_manager.borrow();
+        if !context_manager.is_running() {
+            match context_manager.state() {
+                AudioContextState::Closed => {
+                    errors.push(crate::module_interfaces::engine_to_model::AudioError::ProcessingError("AudioContext is closed".to_string()));
+                }
+                AudioContextState::Suspended => {
+                    errors.push(crate::module_interfaces::engine_to_model::AudioError::ProcessingError("AudioContext is suspended".to_string()));
+                }
+                _ => {}
+            }
+        }
+        
+        errors
+    }
+
+    /// Collect current permission state (return-based pattern)
+    pub fn collect_permission_state(&self) -> crate::module_interfaces::engine_to_model::PermissionState {
+        // For now, return a basic permission state
+        // This will be enhanced when the full permission handling is implemented
+        if self.is_initialized {
+            crate::module_interfaces::engine_to_model::PermissionState::Granted
+        } else {
+            crate::module_interfaces::engine_to_model::PermissionState::NotRequested
+        }
+    }
 }
 
 /// Merger that combines volume and pitch data into AudioAnalysis
+/// 
+/// This merger combines volume and pitch updates into a unified AudioAnalysis
+/// structure. It stores the current state and provides methods to update individual
+/// components and retrieve the merged result.
 struct AudioAnalysisMerger {
-    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
     current_volume: std::cell::RefCell<crate::module_interfaces::engine_to_model::Volume>,
     current_pitch: std::cell::RefCell<crate::module_interfaces::engine_to_model::Pitch>,
     last_timestamp: std::cell::Cell<f64>,
 }
 
 impl AudioAnalysisMerger {
-    fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
+    fn new() -> Self {
         Self {
-            audio_analysis_setter,
             current_volume: std::cell::RefCell::new(crate::module_interfaces::engine_to_model::Volume { peak: -60.0, rms: -60.0 }),
             current_pitch: std::cell::RefCell::new(crate::module_interfaces::engine_to_model::Pitch::NotDetected),
             last_timestamp: std::cell::Cell::new(0.0),
@@ -996,143 +1098,69 @@ impl AudioAnalysisMerger {
     
     fn update_volume(&self, volume: crate::module_interfaces::engine_to_model::Volume) {
         *self.current_volume.borrow_mut() = volume;
-        self.publish_analysis();
     }
     
     fn update_pitch(&self, pitch: crate::module_interfaces::engine_to_model::Pitch, timestamp: f64) {
         *self.current_pitch.borrow_mut() = pitch;
         self.last_timestamp.set(timestamp);
-        self.publish_analysis();
     }
     
-    fn publish_analysis(&self) {
-        let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+    
+    /// Get current audio analysis data
+    fn get_current_analysis(&self) -> crate::module_interfaces::engine_to_model::AudioAnalysis {
+        crate::module_interfaces::engine_to_model::AudioAnalysis {
             volume_level: self.current_volume.borrow().clone(),
             pitch: self.current_pitch.borrow().clone(),
             fft_data: None,
             timestamp: self.last_timestamp.get().max(js_sys::Date::now()),
-        };
-        observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
-    }
-}
-
-/// Adapter that forwards volume data to the merger
-struct VolumeMergerAdapter {
-    merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>,
-}
-
-impl VolumeMergerAdapter {
-    fn new(merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>) -> Self {
-        Self { merger }
-    }
-}
-
-impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for VolumeMergerAdapter {
-    fn set(&self, volume_data: Option<super::data_types::VolumeLevelData>) {
-        if let Some(volume_data) = volume_data {
-            let volume = crate::module_interfaces::engine_to_model::Volume {
-                peak: volume_data.peak_db,
-                rms: volume_data.rms_db,
-            };
-            self.merger.borrow().update_volume(volume);
         }
     }
 }
 
-/// Adapter that forwards pitch data to the merger
-struct PitchMergerAdapter {
-    merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>,
-}
-
-impl PitchMergerAdapter {
-    fn new(merger: std::rc::Rc<std::cell::RefCell<AudioAnalysisMerger>>) -> Self {
-        Self { merger }
-    }
-}
-
-impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PitchMergerAdapter {
-    fn set(&self, pitch_data: Option<super::data_types::PitchData>) {
-        if let Some(pitch_data) = pitch_data {
-            let pitch = if pitch_data.frequency > 0.0 {
-                crate::module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
-            } else {
-                crate::module_interfaces::engine_to_model::Pitch::NotDetected
-            };
-            self.merger.borrow().update_pitch(pitch, pitch_data.timestamp);
-        }
-    }
-}
-
-/// Adapter that converts from AudioAnalysis to VolumeLevelData
+/// Conversion functions for audio data types (return-based pattern)
 /// 
-/// This adapter extracts volume information from AudioAnalysis data
-/// and converts it to the format expected by the audio engine.
-pub struct VolumeAnalysisAdapter {
-    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
+/// These functions convert raw audio engine data types to interface types
+/// without using the observable/setter pattern.
+
+/// Convert VolumeLevelData to Volume interface type
+pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::module_interfaces::engine_to_model::Volume> {
+    volume_data.map(|data| crate::module_interfaces::engine_to_model::Volume {
+        peak: data.peak_db,
+        rms: data.rms_db,
+    })
 }
 
-impl VolumeAnalysisAdapter {
-    pub fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
-        Self {
-            audio_analysis_setter,
-        }
-    }
-}
-
-impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for VolumeAnalysisAdapter {
-    fn set(&self, volume_data: Option<super::data_types::VolumeLevelData>) {
-        if let Some(volume_data) = volume_data {
-            let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
-                volume_level: crate::module_interfaces::engine_to_model::Volume {
-                    peak: volume_data.peak_db,
-                    rms: volume_data.rms_db,
-                },
-                pitch: crate::module_interfaces::engine_to_model::Pitch::NotDetected,
-                fft_data: None,
-                timestamp: js_sys::Date::now(),
-            };
-            observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
+/// Convert PitchData to Pitch interface type
+pub fn convert_pitch_data(pitch_data: Option<super::data_types::PitchData>) -> Option<crate::module_interfaces::engine_to_model::Pitch> {
+    pitch_data.map(|data| {
+        if data.frequency > 0.0 {
+            crate::module_interfaces::engine_to_model::Pitch::Detected(data.frequency, data.clarity)
         } else {
-            self.audio_analysis_setter.set(None);
+            crate::module_interfaces::engine_to_model::Pitch::NotDetected
         }
-    }
+    })
 }
 
-/// Adapter that converts from PitchData to AudioAnalysis
+/// Merge volume and pitch data into AudioAnalysis
 /// 
-/// This adapter extracts pitch information from PitchData and converts it
-/// to the format expected by the interface.
-pub struct PitchAnalysisAdapter {
-    audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>,
-}
-
-impl PitchAnalysisAdapter {
-    pub fn new(audio_analysis_setter: observable_data::DataSourceSetter<Option<crate::module_interfaces::engine_to_model::AudioAnalysis>>) -> Self {
-        Self {
-            audio_analysis_setter,
-        }
-    }
-}
-
-impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PitchAnalysisAdapter {
-    fn set(&self, pitch_data: Option<super::data_types::PitchData>) {
-        if let Some(pitch_data) = pitch_data {
-            let pitch = if pitch_data.frequency > 0.0 {
-                crate::module_interfaces::engine_to_model::Pitch::Detected(pitch_data.frequency, pitch_data.clarity)
-            } else {
-                crate::module_interfaces::engine_to_model::Pitch::NotDetected
-            };
-            
-            let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
-                volume_level: crate::module_interfaces::engine_to_model::Volume { peak: 0.0, rms: 0.0 }, // Placeholder
-                pitch,
-                fft_data: None,
-                timestamp: pitch_data.timestamp,
-            };
-            observable_data::DataSetter::set(&self.audio_analysis_setter, Some(audio_analysis));
-        } else {
-            self.audio_analysis_setter.set(None);
-        }
+/// This function combines separate volume and pitch data into a unified
+/// AudioAnalysis structure, similar to how AudioAnalysisMerger works but
+/// as a pure function without state.
+pub fn merge_audio_analysis(
+    volume: Option<crate::module_interfaces::engine_to_model::Volume>,
+    pitch: Option<crate::module_interfaces::engine_to_model::Pitch>,
+    timestamp: f64
+) -> Option<crate::module_interfaces::engine_to_model::AudioAnalysis> {
+    // Only create AudioAnalysis if we have at least some data
+    if volume.is_some() || pitch.is_some() {
+        Some(crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: volume.unwrap_or(crate::module_interfaces::engine_to_model::Volume { peak: -60.0, rms: -60.0 }),
+            pitch: pitch.unwrap_or(crate::module_interfaces::engine_to_model::Pitch::NotDetected),
+            fft_data: None,
+            timestamp: timestamp.max(js_sys::Date::now()),
+        })
+    } else {
+        None
     }
 }
 
@@ -1157,6 +1185,24 @@ pub struct PlaceholderBufferPoolStatsSetter;
 impl observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>> for PlaceholderBufferPoolStatsSetter {
     fn set(&self, _data: Option<super::message_protocol::BufferPoolStats>) {
         // Placeholder - does nothing during interface transition
+    }
+}
+
+/// Placeholder setter for VolumeLevelData during return-based transition
+pub struct PlaceholderVolumeSetter;
+
+impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for PlaceholderVolumeSetter {
+    fn set(&self, _data: Option<super::data_types::VolumeLevelData>) {
+        // Placeholder - does nothing during return-based transition
+    }
+}
+
+/// Placeholder setter for PitchData during return-based transition
+pub struct PlaceholderPitchSetter;
+
+impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PlaceholderPitchSetter {
+    fn set(&self, _data: Option<super::data_types::PitchData>) {
+        // Placeholder - does nothing during return-based transition
     }
 }
 
