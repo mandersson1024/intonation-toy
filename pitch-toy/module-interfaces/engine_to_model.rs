@@ -38,6 +38,13 @@ pub enum PermissionState {
     Denied,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct EngineUpdateResult {
+    pub audio_analysis: Option<AudioAnalysis>,
+    pub audio_errors: Vec<AudioError>,
+    pub permission_state: PermissionState,
+}
+
 pub struct EngineToModelInterface {
     audio_analysis_source: DataSource<Option<AudioAnalysis>>,
     audio_errors_source: DataSource<Vec<AudioError>>,
@@ -152,5 +159,27 @@ mod tests {
         // Only interface1 should have the updated data
         assert_eq!(observer1.get(), test_data);
         assert_eq!(observer2.get(), None); // interface2 should still have default
+    }
+
+    #[wasm_bindgen_test]
+    fn test_engine_update_result_creation() {
+        let test_analysis = AudioAnalysis {
+            volume_level: Volume { peak: 0.5, rms: 0.3 },
+            pitch: Pitch::Detected(440.0, 0.9),
+            fft_data: None,
+            timestamp: 123.456,
+        };
+
+        let test_errors = vec![AudioError::MicrophonePermissionDenied];
+
+        let update_result = EngineUpdateResult {
+            audio_analysis: Some(test_analysis.clone()),
+            audio_errors: test_errors.clone(),
+            permission_state: PermissionState::Granted,
+        };
+
+        assert_eq!(update_result.audio_analysis, Some(test_analysis));
+        assert_eq!(update_result.audio_errors, test_errors);
+        assert_eq!(update_result.permission_state, PermissionState::Granted);
     }
 }
