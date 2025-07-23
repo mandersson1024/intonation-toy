@@ -126,17 +126,18 @@ Remove observable_data from factory methods and initialization.
 ### Task 7: Clean Up Observable Data Dependencies
 Remove the observable_data crate and related code.
 
-- [ ] 7a. Remove observable_data from Cargo.toml dependencies
+- [✅] 7a. Remove observable_data from Cargo.toml dependencies
   - Remove from workspace Cargo.toml
   - Remove from pitch-toy/Cargo.toml
 
-- [ ] 7b. Delete the observable-data crate directory
+- [✅] 7b. Delete the observable-data crate directory
   - Delete the entire observable-data directory
 
-- [ ] 7c. Remove module interface files that are no longer needed
+- [✅] 7c. Remove module interface files that are no longer needed
   - Keep data type definitions
-  - Remove DataSource-related methods
+  - Remove DataSource-related methods  
   - Update imports in interface modules
+  - Note: Remaining observable_data references in debug layer and engine components to be addressed in Task 8
 
 ### Task 8: Update Debug Layer
 Adapt debug layer to work without observable_data.

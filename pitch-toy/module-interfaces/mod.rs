@@ -5,8 +5,7 @@
 //!
 //! ## Interface Usage Pattern
 //!
-//! Each interface is a Rust struct containing `DataSource<T>` objects (from the
-//! `observable_data` crate) and `Action<T>` objects (from the `action` crate).
+//! Each interface is a Rust struct containing `Action<T>` objects (from the `action` crate).
 //! These are not abstract interfaces but concrete structs with methods that
 //! return setters, observers, triggers, and listeners.
 //!
@@ -20,18 +19,10 @@
 //! };
 //!
 //! // Create interfaces (typically done in lib.rs)
-//! let engine_to_model = Rc::new(EngineToModelInterface::new());
 //! let model_to_engine = Rc::new(ModelToEngineInterface::new());
-//!
-//! // Engine layer extracts setters to push data
-//! let audio_setter = engine_to_model.audio_analysis_setter();
-//! let permission_setter = engine_to_model.permission_state_setter();
 //!
 //! // Engine layer extracts listeners to respond to actions
 //! let permission_listener = model_to_engine.request_microphone_permission_listener();
-//!
-//! // Model layer extracts observers to read data
-//! let audio_observer = engine_to_model.audio_analysis_observer();
 //!
 //! // Model layer extracts triggers to send actions
 //! let permission_trigger = model_to_engine.request_microphone_permission_trigger();
@@ -39,9 +30,9 @@
 //!
 //! ## Interface Communication Flow
 //!
-//! - **Engine → Model**: Audio analysis data, errors, permission state
+//! - **Engine → Model**: Data passed via update() return values
 //! - **Model → Engine**: Permission request actions
-//! - **Model → Presentation**: Processed data for visualization  
+//! - **Model → Presentation**: Data passed via update() return values  
 //! - **Presentation → Model**: User actions and configuration changes
 
 pub mod engine_to_model;
@@ -55,9 +46,7 @@ pub mod debug_actions;
 /// Contains all the interfaces needed to connect the three layers
 /// (engine, model, presentation) using the defined communication patterns.
 pub struct ThreeLayerInterfaces {
-    pub engine_to_model: engine_to_model::EngineToModelInterface,
     pub model_to_engine: model_to_engine::ModelToEngineInterface,
-    pub model_to_presentation: model_to_presentation::ModelToPresentationInterface,
     pub presentation_to_model: presentation_to_model::PresentationToModelInterface,
     pub debug_actions: debug_actions::DebugActionsInterface,
 }
@@ -73,9 +62,7 @@ impl ThreeLayerInterfaces {
     /// Returns a ThreeLayerInterfaces struct containing all interface instances.
     pub fn create() -> Self {
         Self {
-            engine_to_model: engine_to_model::EngineToModelInterface::new(),
             model_to_engine: model_to_engine::ModelToEngineInterface::new(),
-            model_to_presentation: model_to_presentation::ModelToPresentationInterface::new(),
             presentation_to_model: presentation_to_model::PresentationToModelInterface::new(),
             debug_actions: debug_actions::DebugActionsInterface::new(),
         }

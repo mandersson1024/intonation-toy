@@ -1,4 +1,7 @@
-use observable_data::DataObserver;
+// TODO: This entire file needs to be updated as part of Task 8 (Update Debug Layer)
+// Temporarily commented out to complete Task 7c
+
+/*
 use crate::engine::audio::{
     AudioPermission,
     AudioDevices,
@@ -62,3 +65,4 @@ impl HybridLiveData {
         AudioPermission::Uninitialized
     }
 }
+*/

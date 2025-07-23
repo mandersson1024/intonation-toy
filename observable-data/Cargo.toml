@@ -1,9 +1,0 @@
-[package]
-name = "observable-data"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.50"
