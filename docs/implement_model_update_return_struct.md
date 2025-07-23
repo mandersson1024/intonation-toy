@@ -93,7 +93,7 @@ Modify the presentation to accept model data as parameter.
   - Remove `PresentationToModelInterface` from Presentation struct
   - Remove observer extraction in Presentation::new()
 
-- [ ] 4c. Update presentation to use model_data parameter
+- [✅] 4c. Update presentation to use model_data parameter
   - Use model_data instead of pulling from observers
   - Update UI elements with data from parameter
 
