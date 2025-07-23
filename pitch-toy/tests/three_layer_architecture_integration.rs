@@ -49,10 +49,7 @@ fn test_all_layers_can_be_created_without_panicking() {
     let _result3 = model.update(100.0, dummy_engine_data);
 
     // Test presentation layer creation
-    let presenter_result = pitch_toy::presentation::Presenter::create(
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let presenter_result = pitch_toy::presentation::Presenter::create();
     assert!(presenter_result.is_ok());
     
     let mut presenter = presenter_result.unwrap();
@@ -316,10 +313,7 @@ fn test_existing_functionality_regression() {
     let model = pitch_toy::model::DataModel::create();
     assert!(model.is_ok());
     
-    let presenter = pitch_toy::presentation::Presenter::create(
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let presenter = pitch_toy::presentation::Presenter::create();
     assert!(presenter.is_ok());
 }
 
@@ -335,10 +329,8 @@ fn test_layer_update_sequence() {
     let mut model = pitch_toy::model::DataModel::create()
         .expect("Model creation should succeed");
     
-    let mut presenter = pitch_toy::presentation::Presenter::create(
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    ).expect("Presenter creation should succeed");
+    let mut presenter = pitch_toy::presentation::Presenter::create()
+        .expect("Presenter creation should succeed");
     
     // Test update sequence for multiple frames
     for frame in 0..10 {
@@ -407,10 +399,7 @@ fn test_render_loop_functionality() {
     assert!(model_result.is_ok());
     let mut model = Some(model_result.unwrap());
     
-    let presenter_result = pitch_toy::presentation::Presenter::create(
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    );
+    let presenter_result = pitch_toy::presentation::Presenter::create();
     assert!(presenter_result.is_ok());
     let mut presenter = Some(presenter_result.unwrap());
     

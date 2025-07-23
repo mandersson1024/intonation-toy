@@ -357,10 +357,7 @@ pub async fn start() {
     };
     
     // Create presentation layer
-    let presenter = match presentation::Presenter::create(
-        model_to_presentation.clone(),
-        presentation_to_model.clone(),
-    ) {
+    let presenter = match presentation::Presenter::create() {
         Ok(presenter) => {
             dev_log!("✓ Presentation layer created successfully");
             // Sprite scene will be initialized on first render to avoid variable shadowing

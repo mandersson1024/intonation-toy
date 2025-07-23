@@ -16,22 +16,11 @@
 //! - Updates UI elements and visualizations based on the provided data
 //! 
 //! ```rust
-//! use std::rc::Rc;
 //! use pitch_toy::presentation::Presenter;
-//! use pitch_toy::module_interfaces::{
-//!     model_to_presentation::{ModelToPresentationInterface, ModelUpdateResult},
-//!     presentation_to_model::PresentationToModelInterface,
-//! };
+//! use pitch_toy::module_interfaces::model_to_presentation::ModelUpdateResult;
 //! 
-//! // Create interfaces (for remaining interface dependencies)
-//! let model_to_presentation = Rc::new(ModelToPresentationInterface::new());
-//! let presentation_to_model = Rc::new(PresentationToModelInterface::new());
-//! 
-//! // Create presenter with interfaces
-//! let mut presenter = Presenter::create(
-//!     model_to_presentation,
-//!     presentation_to_model,
-//! )?;
+//! // Create presenter without interface dependencies
+//! let mut presenter = Presenter::create()?;
 //! 
 //! // Update with model data
 //! let model_data = ModelUpdateResult {
@@ -47,9 +36,9 @@
 //! 
 //! ## Current Status
 //! 
-//! This is a placeholder implementation. The Presenter struct accepts all required
-//! interfaces but does not yet implement any functionality. All methods are stubs
-//! that compile and run without errors.
+//! The Presenter struct operates without interface dependencies and receives
+//! data through method parameters. It provides basic sprite scene rendering
+//! and is ready for enhanced UI implementation.
 //! 
 //! ## Future Implementation
 //! 
@@ -67,52 +56,43 @@ mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::module_interfaces::{
-    model_to_presentation::{ModelToPresentationInterface, ModelUpdateResult},
-    presentation_to_model::PresentationToModelInterface,
-};
+use crate::module_interfaces::model_to_presentation::ModelUpdateResult;
 
 /// Presenter - The presentation layer of the three-layer architecture
 /// 
 /// This struct represents the visual rendering and user interface layer
 /// of the application. It receives processed data from the model layer
-/// and renders visual representations while handling user interactions.
+/// through method parameters and renders visual representations.
 /// 
-/// # Placeholder Implementation
+/// Data flows through method parameters and return values rather than interface dependencies.
 /// 
-/// This is currently a placeholder that:
-/// - Accepts all required interfaces in the constructor
-/// - Stores interfaces with underscore prefixes (unused)
-/// - Provides stub methods that do nothing
-/// - Always returns success (Ok) from fallible operations
+/// # Current Implementation
+/// 
+/// This implementation:
+/// - Operates without observable interface dependencies
+/// - Receives model data through `update()` method parameters
+/// - Provides sprite scene rendering capabilities
+/// - Ready for enhanced UI and visualization features
 /// 
 /// # Example
 /// 
 /// ```no_run
-/// use pitch_toy::module_interfaces::*;
 /// use pitch_toy::presentation::Presenter;
+/// use pitch_toy::module_interfaces::model_to_presentation::ModelUpdateResult;
 /// use three_d::RenderTarget;
 /// 
-/// let model_to_presentation = model_to_presentation::ModelToPresentationInterface::new();
-/// let presentation_to_model = presentation_to_model::PresentationToModelInterface::new();
-/// 
-/// let presenter = Presenter::create(
-///     model_to_presentation,
-///     presentation_to_model,
-/// ).expect("Presenter creation should always succeed");
+/// let mut presenter = Presenter::create()
+///     .expect("Presenter creation should always succeed");
 /// 
 /// // Later in render loop:
+/// // let model_data = get_model_data(); // From model layer
+/// // presenter.update(timestamp, model_data);
 /// // let mut screen = frame_input.screen();
 /// // presenter.render(&mut screen);
 /// ```
 pub struct Presenter {
-    /// Interface for receiving data from the model
-    /// Contains observers for volume, pitch, accuracy, tuning system, errors, and permission state
-    _model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
-    
-    /// Interface for sending actions to the model
-    /// Contains triggers for user actions like tuning system changes and permission requests
-    _presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
+    /// Presentation layer now operates without interface dependencies
+    /// Data flows through method parameters and return values
     
     /// Sprite scene for rendering
     sprite_scene: Option<SpriteScene>,
@@ -122,36 +102,25 @@ pub struct Presenter {
 }
 
 impl Presenter {
-    /// Create a new Presenter with the required interfaces
+    /// Create a new Presenter without interface dependencies
     /// 
-    /// This constructor accepts the interfaces that connect the presentation layer
-    /// to the model layer. The interfaces enable bi-directional communication
-    /// using the Observable Data and Action patterns.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_to_presentation` - Interface for receiving processed data from the model
-    /// * `presentation_to_model` - Interface for sending user actions to the model
+    /// This constructor creates a presentation layer that operates through method parameters
+    /// and return values rather than observable interfaces. Data is received directly
+    /// through the update() method.
     /// 
     /// # Returns
     /// 
-    /// Always returns `Ok(Presenter)` as this placeholder implementation cannot fail.
+    /// Always returns `Ok(Presenter)` as this implementation cannot fail.
     /// 
-    /// # Placeholder Behavior
+    /// # Current Behavior
     /// 
-    /// Currently stores all interfaces but does not use them. Future implementations
-    /// will set up observers and listeners to process data flow between layers.
-    pub fn create(
-        model_to_presentation: std::rc::Rc<ModelToPresentationInterface>,
-        presentation_to_model: std::rc::Rc<PresentationToModelInterface>,
-    ) -> Result<Self, String> {
-        // Placeholder implementation - just store the interfaces
-        // TODO: Set up observers for model data
-        // TODO: Set up action triggers for user interactions
+    /// Creates a basic presenter struct with sprite scene support. Future implementations
+    /// will add comprehensive rendering and UI functionality.
+    pub fn create() -> Result<Self, String> {
+        // Presentation layer initialization without interface dependencies
         // TODO: Initialize rendering state
+        // TODO: Set up sprite scene configuration
         Ok(Self {
-            _model_to_presentation: model_to_presentation,
-            _presentation_to_model: presentation_to_model,
             sprite_scene: None,
             scene_initialized: false,
         })
@@ -264,30 +233,18 @@ mod tests {
         }
     }
 
-    /// Test that Presenter::create() succeeds with all required interfaces
+    /// Test that Presenter::create() succeeds without interface dependencies
     #[wasm_bindgen_test]
     fn test_presenter_create_succeeds() {
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        let result = Presenter::create(
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
-
+        let result = Presenter::create();
         assert!(result.is_ok(), "Presenter::create() should always succeed");
     }
 
     /// Test that update() and render() methods can be called without panicking
     #[wasm_bindgen_test]
     fn test_presenter_update_and_render_no_panic() {
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        let mut presenter = Presenter::create(
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        ).expect("Presenter creation should succeed");
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
 
         // Test that update can be called multiple times without panicking
         let test_data = create_test_model_data();
@@ -309,13 +266,8 @@ mod tests {
     /// Test that render method can be called (basic signature verification)
     #[wasm_bindgen_test]
     fn test_presenter_render_method_exists() {
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        let presenter = Presenter::create(
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        ).expect("Presenter creation should succeed");
+        let presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
 
         // We can't easily create a RenderTarget in unit tests without a full WebGL context
         // But we can verify the method exists and compiles correctly by checking the type
@@ -327,26 +279,19 @@ mod tests {
         assert!(true, "render() method signature is correct");
     }
 
-    /// Verify that struct accepts all required interfaces
+    /// Verify that struct can be created without interface dependencies
     #[wasm_bindgen_test]
-    fn test_presenter_accepts_interfaces() {
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
-
-        // This test verifies that the struct can be constructed with the interfaces
-        // and that the interfaces are properly typed
-        let presenter = Presenter::create(
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
+    fn test_presenter_interface_free_creation() {
+        // This test verifies that the struct can be constructed without interfaces
+        let presenter = Presenter::create();
 
         match presenter {
             Ok(_) => {
-                // Success - all interfaces were accepted
-                assert!(true, "All interfaces were accepted by Presenter");
+                // Success - presenter was created without interface dependencies
+                assert!(true, "Presenter was created without interface dependencies");
             }
             Err(e) => {
-                panic!("Presenter should accept all required interfaces, but got error: {}", e);
+                panic!("Presenter should be creatable without interfaces, but got error: {}", e);
             }
         }
     }
@@ -356,13 +301,8 @@ mod tests {
     fn test_presenter_runtime_safety() {
         // Create multiple instances to test memory safety
         for i in 0..10 {
-            let model_to_presentation = ModelToPresentationInterface::new();
-            let presentation_to_model = PresentationToModelInterface::new();
-
-            let mut presenter = Presenter::create(
-                std::rc::Rc::new(model_to_presentation),
-                std::rc::Rc::new(presentation_to_model),
-            ).expect("Presenter creation should always succeed");
+            let mut presenter = Presenter::create()
+                .expect("Presenter creation should always succeed");
 
             // Test multiple operations
             let test_data = create_test_model_data();
@@ -383,16 +323,10 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_presenter_compilation_safety() {
         // This test exists primarily to ensure the struct compiles correctly
-        // and that all interface types are properly imported and used
-        
-        let model_to_presentation = ModelToPresentationInterface::new();
-        let presentation_to_model = PresentationToModelInterface::new();
+        // without interface dependencies
 
         // Test successful creation
-        let presenter_result = Presenter::create(
-            std::rc::Rc::new(model_to_presentation),
-            std::rc::Rc::new(presentation_to_model),
-        );
+        let presenter_result = Presenter::create();
 
         // Test that the result type is correct
         assert!(presenter_result.is_ok());
@@ -410,20 +344,11 @@ mod tests {
     /// Test interface isolation - different instances should be independent
     #[wasm_bindgen_test]
     fn test_presenter_interface_isolation() {
-        let model_to_presentation1 = ModelToPresentationInterface::new();
-        let presentation_to_model1 = PresentationToModelInterface::new();
-        let model_to_presentation2 = ModelToPresentationInterface::new();
-        let presentation_to_model2 = PresentationToModelInterface::new();
+        let presenter1 = Presenter::create()
+            .expect("Presenter1 creation should succeed");
 
-        let presenter1 = Presenter::create(
-            std::rc::Rc::new(model_to_presentation1),
-            std::rc::Rc::new(presentation_to_model1),
-        ).expect("Presenter1 creation should succeed");
-
-        let presenter2 = Presenter::create(
-            std::rc::Rc::new(model_to_presentation2),
-            std::rc::Rc::new(presentation_to_model2),
-        ).expect("Presenter2 creation should succeed");
+        let presenter2 = Presenter::create()
+            .expect("Presenter2 creation should succeed");
 
         // Both presenters should be independent and work correctly
         // This is mainly a compilation test since they're placeholders

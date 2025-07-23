@@ -88,8 +88,9 @@ Modify the presentation to accept model data as parameter.
   - From: `pub fn update(&mut self, _timestamp: f64)`
   - To: `pub fn update(&mut self, timestamp: f64, model_data: ModelUpdateResult)`
 
-- [ ] 4b. Remove observable_data dependencies from presentation
+- [✅] 4b. Remove observable_data dependencies from presentation
   - Remove `ModelToPresentationInterface` from Presentation struct
+  - Remove `PresentationToModelInterface` from Presentation struct
   - Remove observer extraction in Presentation::new()
 
 - [ ] 4c. Update presentation to use model_data parameter
