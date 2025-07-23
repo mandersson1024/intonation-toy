@@ -113,12 +113,12 @@ Modify the main render loop to pass data between layers.
 ### Task 6: Update Factory and Initialization
 Remove observable_data from factory methods and initialization.
 
-- [ ] 6a. Update factory create methods
+- [✅] 6a. Update factory create methods
   - Remove EngineToModelInterface creation
   - Remove ModelToPresentationInterface creation
   - Remove Rc wrapping and sharing of interfaces
 
-- [ ] 6b. Update layer constructors
+- [✅] 6b. Update layer constructors
   - Remove interface parameters from Engine::new()
   - Remove interface parameters from Model::new()
   - Remove interface parameters from Presentation::new()

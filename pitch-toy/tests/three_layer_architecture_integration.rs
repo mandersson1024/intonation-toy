@@ -144,8 +144,7 @@ fn test_interface_data_flow_between_layers() {
 
 #[wasm_bindgen_test]
 fn test_debug_gui_observational_access() {
-    // Create interfaces
-    let engine_to_model = Rc::new(pitch_toy::module_interfaces::engine_to_model::EngineToModelInterface::new());
+    // Create debug actions interface (still needed for debug panel)
     let debug_actions = pitch_toy::module_interfaces::debug_actions::DebugActionsInterface::new();
     
     // Create debug-specific data sources for testing
@@ -164,9 +163,8 @@ fn test_debug_gui_observational_access() {
     let audioworklet_status_source = DataSource::new(pitch_toy::debug::egui::data_types::AudioWorkletStatus::default());
     let buffer_pool_stats_source = DataSource::new(None::<pitch_toy::engine::audio::message_protocol::BufferPoolStats>);
     
-    // Create HybridLiveData (debug GUI's data source)
+    // Create HybridLiveData (debug GUI's data source) without interface
     let hybrid_live_data = pitch_toy::live_data::HybridLiveData::new(
-        &engine_to_model,
         audio_devices_source.observer(),
         performance_metrics_source.observer(),
         audioworklet_status_source.observer(),
@@ -184,35 +182,22 @@ fn test_debug_gui_observational_access() {
     assert_eq!(performance_metrics.fps, 60.0);
     assert_eq!(performance_metrics.memory_usage, 25.0);
     
-    // Test that debug GUI can observe interface data
-    assert!(hybrid_live_data.get_volume_level().is_none()); // No data set yet
-    assert!(hybrid_live_data.get_pitch_data().is_none()); // No data set yet
+    // Test that debug GUI placeholder methods work (interface-free mode)
+    assert!(hybrid_live_data.get_volume_level().is_none()); // Placeholder returns None
+    assert!(hybrid_live_data.get_pitch_data().is_none()); // Placeholder returns None
     
-    // Set some interface data and verify debug GUI can observe it
-    let audio_analysis_setter = engine_to_model.audio_analysis_setter();
-    let test_analysis = pitch_toy::module_interfaces::engine_to_model::AudioAnalysis {
-        volume_level: pitch_toy::module_interfaces::engine_to_model::Volume {
-            peak: -20.0,
-            rms: -25.0,
-        },
-        pitch: pitch_toy::module_interfaces::engine_to_model::Pitch::Detected(880.0, 0.9),
-        fft_data: None,
-        timestamp: 2.0,
-    };
-    audio_analysis_setter.set(Some(test_analysis));
-    
-    // Verify debug GUI can access this data
-    let volume_level = hybrid_live_data.get_volume_level();
-    assert!(volume_level.is_some());
-    let volume = volume_level.unwrap();
-    assert_eq!(volume.peak_db, -20.0);
-    assert_eq!(volume.rms_db, -25.0);
+    // Verify debug GUI uses placeholder implementations
+    // These will be updated when Task 8 (debug layer update pattern) is implemented
+    let volume_data = hybrid_live_data.get_volume_level();
+    assert!(volume_data.is_none(), "Volume data should be None in placeholder implementation");
     
     let pitch_data = hybrid_live_data.get_pitch_data();
-    assert!(pitch_data.is_some());
-    let pitch = pitch_data.unwrap();
-    assert_eq!(pitch.frequency, 880.0);
-    assert_eq!(pitch.clarity, 0.9);
+    assert!(pitch_data.is_none(), "Pitch data should be None in placeholder implementation");
+    
+    // Verify permission placeholder
+    let permission = hybrid_live_data.get_microphone_permission();
+    assert_eq!(permission, pitch_toy::engine::audio::AudioPermission::Uninitialized, 
+               "Permission should be Uninitialized in placeholder implementation");
     
     // Test debug actions interface (GUI can trigger actions)
     let test_signal_trigger = debug_actions.test_signal_trigger();

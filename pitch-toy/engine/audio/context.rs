@@ -584,131 +584,13 @@ pub struct AudioSystemContext {
     audio_context_manager: std::rc::Rc<std::cell::RefCell<AudioContextManager>>,
     audioworklet_manager: Option<super::worklet::AudioWorkletManager>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
-    volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
-    pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
-    audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
-    buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
     is_initialized: bool,
     initialization_error: Option<String>,
 }
 
 impl AudioSystemContext {
-    /// Create new AudioSystemContext with mandatory data setters
-    pub fn new(
-        volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
-        pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
-        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
-        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
-    ) -> Self {
-        Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
-            audioworklet_manager: None,
-            pitch_analyzer: None,
-            volume_level_setter,
-            pitch_data_setter,
-            audioworklet_status_setter,
-            buffer_pool_stats_setter,
-            is_initialized: false,
-            initialization_error: None,
-        }
-    }
 
-    /// Create new AudioSystemContext with interfaces
-    /// 
-    /// This method creates an AudioSystemContext using the three-layer architecture interfaces.
-    /// Data setters are extracted from the EngineToModelInterface and used internally.
-    /// Action listeners from the ModelToEngineInterface are also set up.
-    /// 
-    /// # Parameters
-    /// - `engine_to_model`: Interface for engine → model data flow
-    /// - `model_to_engine`: Interface for model → engine action handling
-    pub fn with_interfaces(
-        engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
-        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
-    ) -> Self {
-        // Extract setters from engine_to_model interface
-        let audio_analysis_setter = engine_to_model.audio_analysis_setter();
-        let _audio_errors_setter = engine_to_model.audio_errors_setter();
-        let permission_state_setter = engine_to_model.permission_state_setter();
-        
-        // Note: This method is for compatibility with the observable pattern during transition
-        // In the return-based pattern, these adapters are not needed
-        let volume_level_setter = std::rc::Rc::new(PlaceholderVolumeSetter);
-        let pitch_data_setter = std::rc::Rc::new(PlaceholderPitchSetter);
-        
-        // Create a placeholder audioworklet_status_setter and buffer_pool_stats_setter
-        // These will be improved in future iterations
-        let audioworklet_status_setter = std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter);
-        let buffer_pool_stats_setter = std::rc::Rc::new(PlaceholderBufferPoolStatsSetter);
-        
-        let context = Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
-            audioworklet_manager: None,
-            pitch_analyzer: None,
-            volume_level_setter,
-            pitch_data_setter,
-            audioworklet_status_setter,
-            buffer_pool_stats_setter,
-            is_initialized: false,
-            initialization_error: None,
-        };
-        
-        // Set up action listeners from model_to_engine interface
-        context.setup_action_listeners(model_to_engine, permission_state_setter);
-        
-        context
-    }
-
-    /// Create AudioSystemContext with interfaces and debug actions support
-    pub fn with_interfaces_and_debug(
-        engine_to_model: &crate::module_interfaces::engine_to_model::EngineToModelInterface,
-        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
-        debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
-    ) -> Self {
-        // Create context with interfaces first
-        let context = Self::with_interfaces(engine_to_model, model_to_engine);
-        
-        // Set up debug action listeners
-        // Debug action listeners will be set up after context is wrapped in Rc
-        
-        context
-    }
     
-    /// Set up action listeners for model → engine communication
-    /// 
-    /// This method connects action listeners from the ModelToEngineInterface to the audio system.
-    /// Currently handles microphone permission requests.
-    /// 
-    /// Note: This is a placeholder implementation. The actual microphone connection handling
-    /// would need to be implemented after the AudioSystemContext is fully initialized.
-    fn setup_action_listeners(
-        &self,
-        model_to_engine: &crate::module_interfaces::model_to_engine::ModelToEngineInterface,
-        permission_state_setter: observable_data::DataSourceSetter<crate::module_interfaces::engine_to_model::PermissionState>,
-    ) {
-        use crate::common::dev_log;
-        use observable_data::DataSetter;
-        
-        // Set up microphone permission request listener
-        let listener = model_to_engine.request_microphone_permission_listener();
-        
-        listener.listen(move |_action| {
-            dev_log!("Received microphone permission request through interface");
-            
-            // Update permission state to requesting
-            permission_state_setter.set(crate::module_interfaces::engine_to_model::PermissionState::Requested);
-            
-            // TODO: Implement actual microphone connection handling
-            // For now, this is a placeholder that immediately sets the state to granted
-            // In a full implementation, this would:
-            // 1. Request microphone permission from the browser
-            // 2. Connect the microphone to the audio processing pipeline
-            // 3. Update the permission state based on the result
-            
-            dev_log!("TODO: Implement microphone permission handling in interface-based architecture");
-            permission_state_setter.set(crate::module_interfaces::engine_to_model::PermissionState::Granted);
-        });
-    }
 
     /// Set up debug action listeners for debug GUI controls
     /// 
@@ -790,25 +672,6 @@ impl AudioSystemContext {
     }
 
     /// Create new AudioSystemContext with custom AudioContext configuration
-    pub fn with_audio_config(
-        audio_config: AudioContextConfig,
-        volume_level_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::VolumeLevelData>>>,
-        pitch_data_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::data_types::PitchData>>>,
-        audioworklet_status_setter: std::rc::Rc<dyn observable_data::DataSetter<super::data_types::AudioWorkletStatus>>,
-        buffer_pool_stats_setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>>>,
-    ) -> Self {
-        Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
-            audioworklet_manager: None,
-            pitch_analyzer: None,
-            volume_level_setter,
-            pitch_data_setter,
-            audioworklet_status_setter,
-            buffer_pool_stats_setter,
-            is_initialized: false,
-            initialization_error: None,
-        }
-    }
 
     /// Create new AudioSystemContext without setters (return-based pattern)
     /// 
@@ -821,11 +684,6 @@ impl AudioSystemContext {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
             audioworklet_manager: None,
             pitch_analyzer: None,
-            // Use placeholder setters to maintain compatibility during transition
-            volume_level_setter: std::rc::Rc::new(PlaceholderVolumeSetter),
-            pitch_data_setter: std::rc::Rc::new(PlaceholderPitchSetter),
-            audioworklet_status_setter: std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter),
-            buffer_pool_stats_setter: std::rc::Rc::new(PlaceholderBufferPoolStatsSetter),
             is_initialized: false,
             initialization_error: None,
         }
@@ -837,11 +695,6 @@ impl AudioSystemContext {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
             audioworklet_manager: None,
             pitch_analyzer: None,
-            // Use placeholder setters to maintain compatibility during transition
-            volume_level_setter: std::rc::Rc::new(PlaceholderVolumeSetter),
-            pitch_data_setter: std::rc::Rc::new(PlaceholderPitchSetter),
-            audioworklet_status_setter: std::rc::Rc::new(PlaceholderAudioWorkletStatusSetter),
-            buffer_pool_stats_setter: std::rc::Rc::new(PlaceholderBufferPoolStatsSetter),
             is_initialized: false,
             initialization_error: None,
         }
@@ -863,43 +716,21 @@ impl AudioSystemContext {
         }
         dev_log!("✓ AudioContextManager initialized");
 
-        // Step 2: Initialize AudioWorkletManager
-        let mut worklet_manager = super::worklet::AudioWorkletManager::new(
-            self.audioworklet_status_setter.clone(),
-            self.volume_level_setter.clone(),
-            self.buffer_pool_stats_setter.clone(),
-            self.pitch_data_setter.clone()
-        );
-        if let Err(e) = worklet_manager.initialize(&*self.audio_context_manager.borrow()).await {
-            let error_msg = format!("Failed to initialize AudioWorkletManager: {}", e);
-            dev_log!("✗ {}", error_msg);
-            self.initialization_error = Some(error_msg.clone());
-            return Err(error_msg);
-        }
-        
-        // Publish initial status
-        worklet_manager.publish_audioworklet_status();
-        
-        self.audioworklet_manager = Some(worklet_manager);
-        dev_log!("✓ AudioWorkletManager initialized with setters configured");
+        // Step 2: Initialize AudioWorkletManager (simplified for return-based pattern)
+        // TODO: Create return-based AudioWorkletManager constructor when implementing Task 8
+        // For now, AudioWorkletManager initialization is skipped in return-based mode
+        dev_log!("⚠ AudioWorkletManager initialization skipped in return-based mode (placeholder implementation)");
 
-        // Step 3: Initialize PitchAnalyzer
+        // Step 3: Initialize PitchAnalyzer (simplified for return-based pattern)
         let config = super::pitch_detector::PitchDetectorConfig::default();
         let sample_rate = self.audio_context_manager.borrow().config().sample_rate;
         
         match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
             Ok(analyzer) => {
-                let mut analyzer = analyzer;
-                analyzer.set_pitch_data_setter(self.pitch_data_setter.clone());
+                // Create analyzer without setter (return-based pattern)
                 let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
-                
-                // Configure PitchAnalyzer in AudioWorkletManager
-                if let Some(ref mut worklet_manager) = self.audioworklet_manager {
-                    worklet_manager.set_pitch_analyzer(analyzer_rc.clone());
-                }
-                
                 self.pitch_analyzer = Some(analyzer_rc);
-                dev_log!("✓ PitchAnalyzer initialized and configured");
+                dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
             }
             Err(e) => {
                 let error_msg = format!("Failed to initialize PitchAnalyzer: {}", e);

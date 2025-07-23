@@ -132,7 +132,6 @@ pub async fn run_three_d_with_layers(
     buffer_pool_stats_observer: observable_data::DataObserver<Option<engine::audio::message_protocol::BufferPoolStats>>,
     microphone_permission_observer: observable_data::DataObserver<engine::audio::AudioPermission>,
     ui_triggers: UIControlTriggers,
-    legacy_engine_to_model: std::rc::Rc<module_interfaces::engine_to_model::EngineToModelInterface>,
 ) {
     dev_log!("Starting three-d with three-layer architecture");
     
@@ -161,9 +160,8 @@ pub async fn run_three_d_with_layers(
         ui_triggers.background_noise.clone(),
     );
     
-    // Create hybrid live data
+    // Create hybrid live data without legacy interface
     let hybrid_live_data = live_data::HybridLiveData::new(
-        &legacy_engine_to_model,
         audio_devices_observer,
         performance_metrics_observer,
         audioworklet_status_observer,
@@ -303,12 +301,6 @@ pub async fn start() {
 
     web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing three-layer architecture".into());
     
-    // Create shared interfaces using Rc for proper interface sharing
-    use std::rc::Rc;
-    let engine_to_model = Rc::new(module_interfaces::engine_to_model::EngineToModelInterface::new());
-    let model_to_engine = Rc::new(module_interfaces::model_to_engine::ModelToEngineInterface::new());
-    let model_to_presentation = Rc::new(module_interfaces::model_to_presentation::ModelToPresentationInterface::new());
-    let presentation_to_model = Rc::new(module_interfaces::presentation_to_model::PresentationToModelInterface::new());
     let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
     
     // Create data sources for debug GUI only
@@ -401,7 +393,6 @@ pub async fn start() {
         buffer_pool_stats_source.observer(),
         microphone_permission_source.observer(),
         triggers,
-        engine_to_model.clone()
     ).await;
 }
 

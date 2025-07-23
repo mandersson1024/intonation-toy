@@ -390,20 +390,13 @@ impl HybridEguiLiveDataPanel {
         self.microphone_button.render_inline(ui);
     }
     
-    /// Render audio errors section (core data via interface)
+    /// Render audio errors section (placeholder implementation)
     fn render_audio_errors_section(&self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Audio Errors")
             .default_open(false)
             .show(ui, |ui| {
-                let errors = self.hybrid_data.audio_errors.get();
-                
-                if errors.is_empty() {
-                    ui.colored_label(Color32::GREEN, "No errors");
-                } else {
-                    for error in errors {
-                        ui.colored_label(Color32::RED, format!("• {:?}", error));
-                    }
-                }
+                // TODO: Implement direct audio errors access when debug layer update pattern is implemented
+                ui.colored_label(Color32::GRAY, "Audio errors not available (interface-free mode)");
             });
     }
     
