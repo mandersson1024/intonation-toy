@@ -100,13 +100,13 @@ Modify the presentation to accept model data as parameter.
 ### Task 5: Update Main Loop
 Modify the main render loop to pass data between layers.
 
-- [ ] 5a. Update the render loop in lib.rs
+- [✅] 5a. Update the render loop in lib.rs
   - Capture return value from engine.update()
   - Pass engine result to model.update()
   - Capture return value from model.update()
   - Pass model result to presentation.update()
 
-- [ ] 5b. Handle optional model layer
+- [✅] 5b. Handle optional model layer
   - When model is None, skip model update
   - Provide default/empty data to presentation when model is disabled
 
