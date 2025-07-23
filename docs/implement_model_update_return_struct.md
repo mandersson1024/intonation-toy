@@ -75,7 +75,7 @@ Modify the model to accept engine data as parameter and return presentation data
   - Remove `ModelToPresentationInterface` from Model struct
   - Remove observer/setter extraction in Model::new()
 
-- [ ] 3c. Implement model update logic
+- [✅] 3c. Implement model update logic
   - Process engine_data parameter
   - Transform audio analysis to presentation data
   - Calculate pitch, volume, accuracy etc.

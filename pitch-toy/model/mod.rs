@@ -37,8 +37,15 @@
 //! ## Current Status
 //! 
 //! The DataModel struct operates without interface dependencies and processes
-//! data through method parameters and return values. It provides basic audio
-//! data transformation functionality.
+//! data through method parameters and return values. It provides comprehensive
+//! audio data transformation including:
+//! 
+//! - ✅ Pitch detection and musical note identification
+//! - ✅ Accuracy calculation based on frequency deviation from perfect pitch
+//! - ✅ Volume level processing (peak and RMS)
+//! - ✅ Error propagation from engine to presentation layer
+//! - ✅ Permission state management
+//! - ✅ Tuning system support (Equal Temperament)
 //! 
 //! ## Future Implementation
 //! 
@@ -91,6 +98,12 @@ use crate::module_interfaces::{
 pub struct DataModel {
     // Model layer now operates without interface dependencies
     // Data flows through method parameters and return values
+    
+    /// Current tuning system used for pitch calculations
+    tuning_system: TuningSystem,
+    
+    /// Reference frequency for A4 (default 440 Hz)
+    reference_a4: f32,
 }
 
 impl DataModel {
@@ -109,8 +122,10 @@ impl DataModel {
     /// internal state for pitch tracking, tuning systems, and other model functionality.
     pub fn create() -> Result<Self, String> {
         // Model layer initialization without interface dependencies
-        // TODO: Initialize internal state for pitch tracking, tuning systems, etc.
-        Ok(Self {})
+        Ok(Self {
+            tuning_system: TuningSystem::EqualTemperament,
+            reference_a4: 440.0, // Standard A4 frequency
+        })
     }
 
     /// Update the model layer with a new timestamp and engine data
@@ -130,19 +145,20 @@ impl DataModel {
     /// 
     /// # Current Implementation
     /// 
-    /// This is a basic implementation that:
+    /// This implementation:
     /// 1. Processes audio analysis from engine data into volume and pitch information
-    /// 2. Provides placeholder values for accuracy and tuning system
-    /// 3. Passes through errors and permission state
+    /// 2. Calculates musical note identification from detected frequencies
+    /// 3. Computes accuracy metrics based on frequency deviation from perfect pitch
+    /// 4. Applies Equal Temperament tuning system for note calculations
+    /// 5. Propagates errors and permission state from engine to presentation
     /// 
-    /// # Future Enhancement
+    /// # Accuracy Calculation
     /// 
-    /// When fully implemented, this method will:
-    /// 1. Transform frequency data into musical notes
-    /// 2. Update pitch tracking history and patterns
-    /// 3. Calculate accuracy metrics based on pitch stability
-    /// 4. Apply different tuning systems
-    /// 5. Handle complex audio analysis processing
+    /// The accuracy system:
+    /// - Uses MIDI note calculations for precise frequency-to-note mapping
+    /// - Calculates deviation in cents (1/100th of a semitone)
+    /// - Normalizes accuracy to 0.0-1.0 range (0.0 = perfect, 1.0 = 50+ cents off)
+    /// - Returns maximum inaccuracy (1.0) when no pitch is detected
     pub fn update(&mut self, _timestamp: f64, engine_data: EngineUpdateResult) -> ModelUpdateResult {
         // Process audio analysis from engine data
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
@@ -210,18 +226,103 @@ impl DataModel {
             }
         };
         
+        // Calculate accuracy based on detected pitch
+        let accuracy = match pitch {
+            Pitch::Detected(frequency, _clarity) => {
+                let (closest_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
+                let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
+                Accuracy {
+                    closest_note,
+                    accuracy: normalized_accuracy,
+                }
+            }
+            Pitch::NotDetected => {
+                // No pitch detected - return default values
+                Accuracy {
+                    closest_note: Note::A,
+                    accuracy: 1.0, // Maximum inaccuracy when no pitch is detected
+                }
+            }
+        };
+        
         // Return processed model data
         ModelUpdateResult {
             volume,
             pitch,
-            accuracy: Accuracy {
-                closest_note: Note::A,  // Placeholder - would calculate from pitch
-                accuracy: 0.0,         // Placeholder - would calculate based on pitch stability
-            },
-            tuning_system: TuningSystem::EqualTemperament, // Placeholder - would come from user settings
+            accuracy,
+            tuning_system: self.tuning_system.clone(),
             errors,
             permission_state,
         }
+    }
+    
+    /// Convert a frequency to the closest musical note
+    /// Returns the note and accuracy (0.0 = perfect, negative = flat, positive = sharp)
+    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (Note, f32) {
+        if frequency <= 0.0 {
+            return (Note::A, 0.0);
+        }
+        
+        // Calculate MIDI note number from frequency
+        // MIDI note 69 = A4 (440 Hz by default)
+        let midi_note = 69.0 + 12.0 * (frequency / self.reference_a4).log2();
+        let rounded_midi = midi_note.round();
+        let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive
+        
+        // Convert to Note enum
+        let note = match note_index {
+            0 => Note::C,
+            1 => Note::CSharp,
+            2 => Note::D,
+            3 => Note::DSharp,
+            4 => Note::E,
+            5 => Note::F,
+            6 => Note::FSharp,
+            7 => Note::G,
+            8 => Note::GSharp,
+            9 => Note::A,
+            10 => Note::ASharp,
+            11 => Note::B,
+            _ => Note::A, // Fallback
+        };
+        
+        // Calculate accuracy in cents (100 cents = 1 semitone)
+        let accuracy_cents = (midi_note - rounded_midi) * 100.0;
+        
+        (note, accuracy_cents)
+    }
+    
+    /// Calculate expected frequency for a given note
+    fn note_to_frequency(&self, note: &Note, octave: i32) -> f32 {
+        let note_offset = match note {
+            Note::C => 0,
+            Note::CSharp => 1,
+            Note::D => 2,
+            Note::DSharp => 3,
+            Note::E => 4,
+            Note::F => 5,
+            Note::FSharp => 6,
+            Note::G => 7,
+            Note::GSharp => 8,
+            Note::A => 9,
+            Note::ASharp => 10,
+            Note::B => 11,
+        };
+        
+        // Calculate MIDI note number (A4 = 69, octave 4)
+        let midi_note = (octave - 4) * 12 + note_offset + 69 - 9; // A is at index 9
+        
+        // Convert MIDI note to frequency
+        self.reference_a4 * 2.0_f32.powf((midi_note - 69) as f32 / 12.0)
+    }
+    
+    /// Normalize accuracy value to a 0.0-1.0 range
+    /// 0.0 = perfectly in tune, 1.0 = 50 cents (half semitone) or worse
+    fn normalize_accuracy(&self, cents: f32) -> f32 {
+        let abs_cents = cents.abs();
+        // Clamp to max 50 cents for normalization
+        let clamped_cents = abs_cents.min(50.0);
+        clamped_cents / 50.0
     }
 }
 
@@ -332,5 +433,100 @@ mod tests {
         
         // Test completed - all compilation requirements verified
         assert!(true, "DataModel meets all compilation requirements");
+    }
+
+    /// Test pitch accuracy calculation with A4 440Hz (perfect accuracy)
+    #[wasm_bindgen_test]
+    fn test_pitch_accuracy_calculation_perfect_a4() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create engine data with A4 at exactly 440 Hz
+        let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: crate::module_interfaces::engine_to_model::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::module_interfaces::engine_to_model::Pitch::Detected(440.0, 0.95),
+            fft_data: None,
+            timestamp: 1.0,
+        };
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: Some(audio_analysis),
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::Granted,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        
+        // Should detect A note with perfect accuracy (0.0)
+        assert_eq!(result.accuracy.closest_note, Note::A);
+        assert!(result.accuracy.accuracy < 0.01, "Accuracy should be nearly perfect for 440Hz A4, got {}", result.accuracy.accuracy);
+    }
+
+    /// Test pitch accuracy calculation with slightly flat C4
+    #[wasm_bindgen_test]
+    fn test_pitch_accuracy_calculation_flat_c4() {
+        let mut model = DataModel::create().unwrap();
+        
+        // C4 is approximately 261.63 Hz, test with 260 Hz (slightly flat)
+        let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: crate::module_interfaces::engine_to_model::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::module_interfaces::engine_to_model::Pitch::Detected(260.0, 0.90),
+            fft_data: None,
+            timestamp: 1.0,
+        };
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: Some(audio_analysis),
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::Granted,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        
+        // Should detect C note with some inaccuracy (flat)
+        assert_eq!(result.accuracy.closest_note, Note::C);
+        assert!(result.accuracy.accuracy > 0.0, "Accuracy should show flatness for 260Hz (expected ~261.63Hz)");
+        assert!(result.accuracy.accuracy < 1.0, "Accuracy should not be at maximum for a recognizable pitch");
+    }
+
+    /// Test behavior with no pitch detected
+    #[wasm_bindgen_test]
+    fn test_pitch_accuracy_no_pitch_detected() {
+        let mut model = DataModel::create().unwrap();
+        
+        let audio_analysis = crate::module_interfaces::engine_to_model::AudioAnalysis {
+            volume_level: crate::module_interfaces::engine_to_model::Volume { peak: -60.0, rms: -60.0 },
+            pitch: crate::module_interfaces::engine_to_model::Pitch::NotDetected,
+            fft_data: None,
+            timestamp: 1.0,
+        };
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: Some(audio_analysis),
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::Granted,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        
+        // Should have maximum inaccuracy when no pitch is detected
+        assert_eq!(result.accuracy.accuracy, 1.0);
+        assert_eq!(result.pitch, crate::module_interfaces::model_to_presentation::Pitch::NotDetected);
+    }
+
+    /// Test that tuning system is properly returned
+    #[wasm_bindgen_test]
+    fn test_tuning_system_propagation() {
+        let mut model = DataModel::create().unwrap();
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        
+        // Should return the configured tuning system
+        assert_eq!(result.tuning_system, TuningSystem::EqualTemperament);
     }
 }
