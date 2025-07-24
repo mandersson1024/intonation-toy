@@ -19,6 +19,29 @@
 //! // Engine returns data directly from update calls
 //! let result = engine.update(timestamp);
 //! // result contains: audio_analysis, audio_errors, permission_state
+//! 
+//! // Access the aggregated data
+//! if let Some(analysis) = result.audio_analysis {
+//!     println!("Volume: {} dB", analysis.volume_level.peak);
+//!     match analysis.pitch {
+//!         Pitch::Detected(freq, clarity) => {
+//!             println!("Pitch: {} Hz (clarity: {})", freq, clarity);
+//!         }
+//!         Pitch::NotDetected => println!("No pitch detected"),
+//!     }
+//! }
+//! 
+//! // Check for errors
+//! for error in &result.audio_errors {
+//!     eprintln!("Audio error: {:?}", error);
+//! }
+//! 
+//! // Check permission state
+//! match result.permission_state {
+//!     PermissionState::Granted => println!("Microphone access granted"),
+//!     PermissionState::Denied => println!("Microphone access denied"),
+//!     _ => {}
+//! }
 //! ```
 
 pub mod audio;
