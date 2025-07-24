@@ -901,9 +901,15 @@ impl AudioSystemContext {
         // Convert volume data to interface type
         let volume = convert_volume_data(volume_data);
         
-        // Note: Pitch data collection would need to be added when PitchAnalyzer
-        // is updated to support data collection methods
-        let pitch = None;
+        // Collect pitch data from PitchAnalyzer
+        let pitch_data = if let Some(ref analyzer) = self.pitch_analyzer {
+            analyzer.borrow().get_latest_pitch_data()
+        } else {
+            None
+        };
+        
+        // Convert pitch data to interface type
+        let pitch = convert_pitch_data(pitch_data);
         
         // Merge the data into AudioAnalysis
         merge_audio_analysis(volume, pitch, timestamp)

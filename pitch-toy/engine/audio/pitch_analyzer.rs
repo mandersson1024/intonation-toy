@@ -56,7 +56,29 @@ impl Default for PitchPerformanceMetrics {
 
 
 /// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
-/// and returns pitch data through the engine update system
+/// and returns pitch data through the engine update system.
+/// 
+/// ## Data Collection
+/// 
+/// The PitchAnalyzer provides data collection through:
+/// - Analysis methods that return `PitchResult` directly
+/// - `get_latest_pitch_data()` method for retrieving the most recent detection
+/// 
+/// ## Usage Example
+/// 
+/// ```rust,no_run
+/// let mut analyzer = PitchAnalyzer::new(config, sample_rate)?;
+/// 
+/// // Analyze samples and get immediate result
+/// if let Some(result) = analyzer.analyze_samples(&samples)? {
+///     println!("Detected pitch: {} Hz", result.frequency);
+/// }
+/// 
+/// // Get latest detection for data collection
+/// if let Some(pitch_data) = analyzer.get_latest_pitch_data() {
+///     println!("Latest pitch: {} Hz", pitch_data.frequency);
+/// }
+/// ```
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     note_mapper: NoteMapper,
@@ -587,6 +609,9 @@ impl PitchAnalyzer {
     // Private helper methods
 
     fn handle_pitch_detected(&mut self, result: PitchResult) -> Result<(), PitchAnalysisError> {
+        // Store the latest detection result
+        self.last_detection = Some(result.clone());
+        
         // Convert frequency to musical note
         let note = self.note_mapper.frequency_to_note(result.frequency);
 
@@ -604,6 +629,9 @@ impl PitchAnalyzer {
     }
 
     fn handle_pitch_lost(&mut self) -> Result<(), PitchAnalysisError> {
+        // Clear the last detection when pitch is lost
+        self.last_detection = None;
+        
         // Pitch lost state is now communicated by returning None
         // from the analyze methods
         Ok(())
@@ -669,6 +697,23 @@ impl PitchAnalyzer {
     /// Convert frequency to musical note using the internal note mapper
     pub fn frequency_to_note(&self, frequency: f32) -> super::MusicalNote {
         self.note_mapper.frequency_to_note(frequency)
+    }
+    
+    /// Get the latest pitch detection result
+    /// 
+    /// Returns the most recent pitch detection result if available,
+    /// or None if no pitch has been detected yet.
+    pub fn get_latest_pitch_data(&self) -> Option<super::PitchData> {
+        self.last_detection.as_ref().map(|result| {
+            let note = self.note_mapper.frequency_to_note(result.frequency);
+            super::PitchData {
+                frequency: result.frequency,
+                confidence: result.confidence,
+                note,
+                clarity: result.clarity,
+                timestamp: self.get_high_resolution_time(),
+            }
+        })
     }
 }
 
