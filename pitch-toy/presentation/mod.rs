@@ -46,6 +46,7 @@
 //! - ✅ Error state management and user feedback
 //! - ✅ Permission state tracking and UI updates
 //! - ✅ Tuning system display management
+//! - ✅ User action collection system for microphone permission, tuning system changes, and root note adjustments
 //! 
 //! ## Future Implementation
 //! 
@@ -62,7 +63,52 @@ mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::module_interfaces::model_to_presentation::ModelUpdateResult;
+use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
+
+/// Action structs for the new action collection system
+/// 
+/// These structs represent user actions that are collected by the presentation layer
+/// and processed by the main loop. This provides a foundation for the new action flow
+/// that moves away from direct action firing.
+
+/// Request for microphone permission from the user interface
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequestMicrophonePermission;
+
+/// Request to change the tuning system
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChangeTuningSystem {
+    pub tuning_system: TuningSystem,
+}
+
+/// Request to adjust the root note
+#[derive(Debug, Clone, PartialEq)]
+pub struct AdjustRootNote {
+    pub root_note: Note,
+}
+
+/// Container for all collected user actions from the presentation layer
+/// 
+/// This struct is returned by the presentation layer's get_user_actions() method
+/// and contains all user actions that occurred since the last collection.
+/// The main loop retrieves these actions and processes them appropriately.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PresentationLayerActions {
+    pub microphone_permission_requests: Vec<RequestMicrophonePermission>,
+    pub tuning_system_changes: Vec<ChangeTuningSystem>,
+    pub root_note_adjustments: Vec<AdjustRootNote>,
+}
+
+impl PresentationLayerActions {
+    /// Create a new instance with empty action collections
+    pub fn new() -> Self {
+        Self {
+            microphone_permission_requests: Vec::new(),
+            tuning_system_changes: Vec::new(),
+            root_note_adjustments: Vec::new(),
+        }
+    }
+}
 
 /// Presenter - The presentation layer of the three-layer architecture
 /// 
@@ -106,6 +152,13 @@ pub struct Presenter {
     
     /// Flag to track if scene has been initialized
     scene_initialized: bool,
+    
+    /// Collection of pending user actions to be processed by the main loop
+    /// 
+    /// This field stores user actions (like requesting microphone permission,
+    /// changing tuning system, or adjusting root note) until they are retrieved
+    /// by the main loop via get_user_actions().
+    pending_user_actions: PresentationLayerActions,
 }
 
 impl Presenter {
@@ -130,6 +183,7 @@ impl Presenter {
         Ok(Self {
             sprite_scene: None,
             scene_initialized: false,
+            pending_user_actions: PresentationLayerActions::new(),
         })
     }
 
@@ -197,6 +251,58 @@ impl Presenter {
         
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
+    }
+
+    /// Retrieve and clear all pending user actions
+    /// 
+    /// This method is called by the main loop to get all user actions that have
+    /// been collected since the last call. After retrieving the actions, the
+    /// internal collection is cleared to prepare for the next collection cycle.
+    /// 
+    /// # Returns
+    /// 
+    /// A `PresentationLayerActions` struct containing all collected user actions.
+    /// The returned struct will contain empty vectors if no actions were collected.
+    /// 
+    /// # Usage
+    /// 
+    /// This method should be called once per render loop by the main application
+    /// to process user actions that occurred during the previous frame.
+    pub fn get_user_actions(&mut self) -> PresentationLayerActions {
+        std::mem::replace(&mut self.pending_user_actions, PresentationLayerActions::new())
+    }
+
+    /// Handle user request for microphone permission
+    /// 
+    /// This method should be called by UI components when the user clicks
+    /// a button or performs an action that requests microphone access.
+    /// The action will be collected and processed by the main loop.
+    pub fn on_microphone_permission_requested(&mut self) {
+        self.pending_user_actions.microphone_permission_requests.push(RequestMicrophonePermission);
+    }
+
+    /// Handle user request to change the tuning system
+    /// 
+    /// This method should be called by UI components when the user selects
+    /// a different tuning system from a dropdown or control panel.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `tuning_system` - The new tuning system selected by the user
+    pub fn on_tuning_system_changed(&mut self, tuning_system: TuningSystem) {
+        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system });
+    }
+
+    /// Handle user request to adjust the root note
+    /// 
+    /// This method should be called by UI components when the user selects
+    /// a different root note from a control or input field.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `root_note` - The new root note selected by the user
+    pub fn on_root_note_adjusted(&mut self, root_note: Note) {
+        self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
     }
 
     /// Render the presentation layer to the screen
@@ -510,5 +616,132 @@ mod tests {
         // Both presenters should be independent and work correctly
         // This is mainly a compilation test since they're placeholders
         assert!(true, "Multiple Presenter instances are properly isolated");
+    }
+
+    /// Test action collection system - get_user_actions returns empty initially
+    #[wasm_bindgen_test]
+    fn test_get_user_actions_initially_empty() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        let actions = presenter.get_user_actions();
+        
+        assert!(actions.microphone_permission_requests.is_empty());
+        assert!(actions.tuning_system_changes.is_empty());
+        assert!(actions.root_note_adjustments.is_empty());
+    }
+
+    /// Test microphone permission request collection
+    #[wasm_bindgen_test]
+    fn test_microphone_permission_request_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Trigger microphone permission request
+        presenter.on_microphone_permission_requested();
+        
+        let actions = presenter.get_user_actions();
+        assert_eq!(actions.microphone_permission_requests.len(), 1);
+        
+        // After getting actions, they should be cleared
+        let actions2 = presenter.get_user_actions();
+        assert!(actions2.microphone_permission_requests.is_empty());
+    }
+
+    /// Test tuning system change collection
+    #[wasm_bindgen_test]
+    fn test_tuning_system_change_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Trigger tuning system change
+        presenter.on_tuning_system_changed(TuningSystem::JustIntonation);
+        
+        let actions = presenter.get_user_actions();
+        assert_eq!(actions.tuning_system_changes.len(), 1);
+        assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::JustIntonation);
+        
+        // After getting actions, they should be cleared
+        let actions2 = presenter.get_user_actions();
+        assert!(actions2.tuning_system_changes.is_empty());
+    }
+
+    /// Test root note adjustment collection
+    #[wasm_bindgen_test]
+    fn test_root_note_adjustment_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Trigger root note adjustment
+        presenter.on_root_note_adjusted(Note::CSharp);
+        
+        let actions = presenter.get_user_actions();
+        assert_eq!(actions.root_note_adjustments.len(), 1);
+        assert_eq!(actions.root_note_adjustments[0].root_note, Note::CSharp);
+        
+        // After getting actions, they should be cleared
+        let actions2 = presenter.get_user_actions();
+        assert!(actions2.root_note_adjustments.is_empty());
+    }
+
+    /// Test multiple action collection and clearing
+    #[wasm_bindgen_test]
+    fn test_multiple_action_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Trigger multiple actions
+        presenter.on_microphone_permission_requested();
+        presenter.on_tuning_system_changed(TuningSystem::EqualTemperament);
+        presenter.on_root_note_adjusted(Note::G);
+        presenter.on_microphone_permission_requested(); // Second request
+        
+        let actions = presenter.get_user_actions();
+        
+        // Verify all actions were collected
+        assert_eq!(actions.microphone_permission_requests.len(), 2);
+        assert_eq!(actions.tuning_system_changes.len(), 1);
+        assert_eq!(actions.root_note_adjustments.len(), 1);
+        
+        // Verify action data
+        assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
+        assert_eq!(actions.root_note_adjustments[0].root_note, Note::G);
+        
+        // After getting actions, all should be cleared
+        let actions2 = presenter.get_user_actions();
+        assert!(actions2.microphone_permission_requests.is_empty());
+        assert!(actions2.tuning_system_changes.is_empty());
+        assert!(actions2.root_note_adjustments.is_empty());
+    }
+
+    /// Test PresentationLayerActions struct creation and equality
+    #[wasm_bindgen_test]
+    fn test_presentation_layer_actions_struct() {
+        let actions1 = PresentationLayerActions::new();
+        let actions2 = PresentationLayerActions::new();
+        
+        // Test equality
+        assert_eq!(actions1, actions2);
+        
+        // Test that new instances are empty
+        assert!(actions1.microphone_permission_requests.is_empty());
+        assert!(actions1.tuning_system_changes.is_empty());
+        assert!(actions1.root_note_adjustments.is_empty());
+    }
+
+    /// Test action struct creation and equality
+    #[wasm_bindgen_test]
+    fn test_action_struct_creation() {
+        let perm_req1 = RequestMicrophonePermission;
+        let perm_req2 = RequestMicrophonePermission;
+        assert_eq!(perm_req1, perm_req2);
+        
+        let tuning_change1 = ChangeTuningSystem { tuning_system: TuningSystem::JustIntonation };
+        let tuning_change2 = ChangeTuningSystem { tuning_system: TuningSystem::JustIntonation };
+        assert_eq!(tuning_change1, tuning_change2);
+        
+        let root_note1 = AdjustRootNote { root_note: Note::F };
+        let root_note2 = AdjustRootNote { root_note: Note::F };
+        assert_eq!(root_note1, root_note2);
     }
 }
