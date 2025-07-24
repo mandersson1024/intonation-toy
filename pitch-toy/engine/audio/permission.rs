@@ -6,7 +6,7 @@ use super::AudioError;
 use std::fmt;
 
 /// Microphone permission and device states
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AudioPermission {
     /// Initial state, no permission requested yet
     Uninitialized,

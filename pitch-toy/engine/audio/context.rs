@@ -939,7 +939,7 @@ impl AudioSystemContext {
     pub fn collect_permission_state(&self) -> crate::module_interfaces::engine_to_model::PermissionState {
         match self.permission_state.get() {
             super::AudioPermission::Uninitialized => crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
-            super::AudioPermission::Requesting => crate::module_interfaces::engine_to_model::PermissionState::Requesting,
+            super::AudioPermission::Requesting => crate::module_interfaces::engine_to_model::PermissionState::Requested,
             super::AudioPermission::Granted => crate::module_interfaces::engine_to_model::PermissionState::Granted,
             super::AudioPermission::Denied => crate::module_interfaces::engine_to_model::PermissionState::Denied,
             super::AudioPermission::Unavailable => crate::module_interfaces::engine_to_model::PermissionState::Denied,

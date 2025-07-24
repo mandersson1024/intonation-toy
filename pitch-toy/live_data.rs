@@ -80,8 +80,13 @@ impl HybridLiveData {
             // Convert Pitch to PitchData
             self.pitch_data = match &analysis.pitch {
                 crate::module_interfaces::engine_to_model::Pitch::Detected(frequency, clarity) => {
-                    // Create a basic musical note from frequency
-                    let note = crate::engine::audio::MusicalNote::from_frequency(*frequency);
+                    // Create a placeholder musical note (proper note mapping would require NoteMapper instance)
+                    let note = crate::engine::audio::MusicalNote::new(
+                        crate::engine::audio::NoteName::A, // Placeholder note name
+                        4, // Placeholder octave
+                        0.0, // Placeholder cents
+                        *frequency
+                    );
                     Some(PitchData {
                         frequency: *frequency,
                         confidence: *clarity, // Using clarity as confidence
