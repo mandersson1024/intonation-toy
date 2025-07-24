@@ -90,7 +90,7 @@ Update test files to work without observable_data dependencies.
   - Replace `DataSource::new()` usage in tests (lines 153, 157, 163, 164)
   - Update test assertions to verify data through return values
 
-- [ ] 3c. Update engine/audio/mod.rs test functions
+- [x] 3c. Update engine/audio/mod.rs test functions
   - Remove `use observable_data::DataSetter;` imports from test functions (lines 623, 681, 713, 742)
   - Remove `EngineToModelInterface::new()` calls from tests (lines 539, 626, 684, 685, 715, 744, 766)
   - Update tests to use direct component instantiation
@@ -99,7 +99,7 @@ Update test files to work without observable_data dependencies.
 ### Task 4: Remove Legacy Interface References
 Clean up remaining references to removed interface structures.
 
-- [ ] 4a. Update TODO comments
+- [x] 4a. Update TODO comments
   - Remove TODO comment in lib.rs about observable_data dependencies (lines 365-366)
   - Update comments in pitch_analyzer.rs that reference observable_data pattern (lines 59, 70, 100, 1527)
   - Update comments in context.rs about DataSetter placeholders (lines 1000, 1012)

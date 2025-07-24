@@ -362,8 +362,7 @@ pub async fn start() {
         // Set up debug action listeners
         engine_instance.setup_debug_listeners(&debug_actions);
         
-        // TODO: Re-enable UI listeners setup once engine layer observable_data is removed
-        // The engine layer still has observable_data dependencies that are outside Task 8c scope
+        // UI listeners setup can now be enabled - engine layer observable_data dependencies have been removed
     }
     
     // Start three-d application with three-layer architecture
