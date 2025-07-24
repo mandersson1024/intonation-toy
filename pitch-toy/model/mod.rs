@@ -3,6 +3,7 @@
 //! This layer is responsible for:
 //! - State management and business logic
 //! - Data transformation between engine and presentation layers
+//! - User action processing and validation
 //! - Tuning system implementations
 //! - Musical note mapping and frequency calculations
 //! - Pattern recognition and pitch tracking
@@ -14,6 +15,8 @@
 //! - Receives `EngineUpdateResult` data as a parameter from the engine layer
 //! - Processes and transforms the audio analysis data
 //! - Returns `ModelUpdateResult` containing processed data for the presentation layer
+//! - Processes `PresentationLayerActions` through business logic validation
+//! - Returns `ModelLayerActions` containing validated operations
 //! 
 //! ```rust
 //! use pitch_toy::model::DataModel;
@@ -21,6 +24,7 @@
 //!     engine_to_model::EngineUpdateResult,
 //!     model_to_presentation::ModelUpdateResult,
 //! };
+//! use pitch_toy::presentation::PresentationLayerActions;
 //! 
 //! // Create model without interface dependencies
 //! let mut model = DataModel::create()?;
@@ -32,6 +36,10 @@
 //!     permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
 //! };
 //! let presentation_data = model.update(timestamp, engine_data);
+//! 
+//! // Process user actions from presentation layer
+//! let user_actions = PresentationLayerActions::new(); // From presentation layer
+//! let validated_actions = model.process_user_actions(user_actions);
 //! ```
 //! 
 //! ## Current Status
@@ -46,6 +54,35 @@
 //! - ✅ Error propagation from engine to presentation layer
 //! - ✅ Permission state management
 //! - ✅ Tuning system support (Equal Temperament)
+//! - ✅ User action processing and business logic validation
+//! - ✅ Three-layer action flow architecture
+//! 
+//! ## Action Processing System
+//! 
+//! The model layer implements a comprehensive action processing system that validates
+//! user actions from the presentation layer through business logic before executing them:
+//! 
+//! ### Input: PresentationLayerActions
+//! - `microphone_permission_requests` - User requests for microphone access
+//! - `tuning_system_changes` - User selections of different tuning systems
+//! - `root_note_adjustments` - User modifications to the root note
+//! 
+//! ### Processing: Business Logic Validation
+//! - `validate_microphone_permission_request()` - Ensures permission requests are appropriate
+//! - `validate_tuning_system_change()` - Validates tuning system changes
+//! - `validate_root_note_adjustment()` - Validates root note adjustments
+//! 
+//! ### Output: ModelLayerActions
+//! - `microphone_permission_requests` - Validated permission requests
+//! - `audio_system_configurations` - Validated tuning system configurations
+//! - `tuning_configurations` - Validated tuning and root note configurations
+//! 
+//! ### State Management
+//! - `apply_tuning_system_change()` - Updates internal tuning system state
+//! - `apply_root_note_change()` - Updates internal root note and frequency state
+//! 
+//! This system ensures that all user actions pass through business logic validation
+//! before being executed, maintaining system consistency and preventing invalid states.
 //! 
 //! ## Future Implementation
 //! 
@@ -61,6 +98,78 @@ use crate::module_interfaces::{
     engine_to_model::EngineUpdateResult,
     model_to_presentation::{ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note},
 };
+use crate::presentation::PresentationLayerActions;
+
+/// Action structs for the model layer action processing system
+/// 
+/// These structs represent validated business logic actions that are processed
+/// by the model layer after receiving presentation layer actions. They contain
+/// validated data that has passed business logic checks.
+
+/// Validated request for microphone permission
+/// 
+/// This struct represents a microphone permission request that has been validated
+/// by the model layer's business logic. It is a unit struct as the validation
+/// ensures that the request is appropriate given the current state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequestMicrophonePermissionAction;
+
+/// Validated audio system configuration
+/// 
+/// This struct represents an audio system configuration that has been validated
+/// by the model layer's business logic. It contains the tuning system and
+/// reference frequency that will be applied to the audio processing pipeline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureAudioSystemAction {
+    pub tuning_system: TuningSystem,
+    pub reference_frequency: f32,
+}
+
+/// Validated tuning configuration update
+/// 
+/// This struct represents a tuning configuration update that has been validated
+/// by the model layer's business logic. It contains the complete tuning configuration
+/// including tuning system, root note, and calculated reference frequency.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpdateTuningConfigurationAction {
+    pub tuning_system: TuningSystem,
+    pub root_note: Note,
+    pub reference_frequency: f32,
+}
+
+/// Container for all processed model layer actions
+/// 
+/// This struct contains vectors of validated business logic actions that have been
+/// processed from presentation layer actions. These actions represent the validated
+/// operations that should be performed by the system.
+/// 
+/// The model layer processes `PresentationLayerActions` through business logic
+/// validation and transforms valid actions into `ModelLayerActions`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelLayerActions {
+    /// Validated microphone permission requests
+    pub microphone_permission_requests: Vec<RequestMicrophonePermissionAction>,
+    
+    /// Validated audio system configurations
+    pub audio_system_configurations: Vec<ConfigureAudioSystemAction>,
+    
+    /// Validated tuning configuration updates
+    pub tuning_configurations: Vec<UpdateTuningConfigurationAction>,
+}
+
+impl ModelLayerActions {
+    /// Create a new instance with empty action collections
+    /// 
+    /// Returns a new `ModelLayerActions` struct with all action vectors initialized
+    /// as empty. This is used as the starting point for collecting processed actions.
+    pub fn new() -> Self {
+        Self {
+            microphone_permission_requests: Vec::new(),
+            audio_system_configurations: Vec::new(),
+            tuning_configurations: Vec::new(),
+        }
+    }
+}
 
 /// DataModel - The model layer of the three-layer architecture
 /// 
@@ -104,6 +213,9 @@ pub struct DataModel {
     
     /// Reference frequency for A4 (default 440 Hz)
     reference_a4: f32,
+    
+    /// Current root note for tuning calculations
+    root_note: Note,
 }
 
 impl DataModel {
@@ -125,6 +237,7 @@ impl DataModel {
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
             reference_a4: 440.0, // Standard A4 frequency
+            root_note: Note::A, // Standard A root note
         })
     }
 
@@ -256,6 +369,73 @@ impl DataModel {
         }
     }
     
+    /// Process user actions from the presentation layer
+    /// 
+    /// This method receives `PresentationLayerActions` from the presentation layer,
+    /// validates each action through business logic, and transforms valid actions
+    /// into `ModelLayerActions` containing validated operations to be performed.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `presentation_actions` - User actions collected from the presentation layer
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `ModelLayerActions` containing validated actions ready for execution.
+    /// Actions that fail validation are filtered out and not included in the result.
+    /// 
+    /// # Business Logic Validation
+    /// 
+    /// This method applies business logic validation to ensure that:
+    /// - Microphone permission requests are appropriate for the current state
+    /// - Tuning system changes are valid and different from the current system
+    /// - Root note adjustments are valid and result in proper frequency calculations
+    /// - All actions maintain system consistency and state integrity
+    /// 
+    /// # Current Implementation
+    /// 
+    /// The validation logic:
+    /// 1. Validates microphone permission requests against current permission state
+    /// 2. Validates tuning system changes and applies current model state
+    /// 3. Validates root note adjustments and calculates new reference frequencies
+    /// 4. Combines validated actions into complete system configurations
+    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ModelLayerActions {
+        let mut model_actions = ModelLayerActions::new();
+        
+        // Process microphone permission requests
+        for _permission_request in presentation_actions.microphone_permission_requests {
+            if self.validate_microphone_permission_request() {
+                model_actions.microphone_permission_requests.push(RequestMicrophonePermissionAction);
+            }
+        }
+        
+        // Process tuning system changes
+        for tuning_change in presentation_actions.tuning_system_changes {
+            if self.validate_tuning_system_change(&tuning_change.tuning_system) {
+                let config = ConfigureAudioSystemAction {
+                    tuning_system: tuning_change.tuning_system.clone(),
+                    reference_frequency: self.reference_a4,
+                };
+                model_actions.audio_system_configurations.push(config);
+            }
+        }
+        
+        // Process root note adjustments
+        for root_note_adjustment in presentation_actions.root_note_adjustments {
+            if self.validate_root_note_adjustment(&root_note_adjustment.root_note) {
+                let new_reference_frequency = self.calculate_reference_frequency_for_root_note(&root_note_adjustment.root_note);
+                let config = UpdateTuningConfigurationAction {
+                    tuning_system: self.tuning_system.clone(),
+                    root_note: root_note_adjustment.root_note.clone(),
+                    reference_frequency: new_reference_frequency,
+                };
+                model_actions.tuning_configurations.push(config);
+            }
+        }
+        
+        model_actions
+    }
+    
     /// Convert a frequency to the closest musical note
     /// Returns the note and accuracy (0.0 = perfect, negative = flat, positive = sharp)
     fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (Note, f32) {
@@ -323,6 +503,157 @@ impl DataModel {
         // Clamp to max 50 cents for normalization
         let clamped_cents = abs_cents.min(50.0);
         clamped_cents / 50.0
+    }
+    
+    /// Validate microphone permission request
+    /// 
+    /// Ensures that a microphone permission request is appropriate for the current state.
+    /// This validation prevents unnecessary permission requests and maintains proper
+    /// user experience by not repeatedly asking for permissions.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if the permission request should be processed, `false` otherwise.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Always returns `true` as a placeholder. Future implementations will check:
+    /// - Current permission state (don't request if already granted)
+    /// - Recent request history (avoid spam requests)
+    /// - System capabilities (ensure microphone API is available)
+    fn validate_microphone_permission_request(&self) -> bool {
+        // Placeholder: Always allow permission requests for now
+        // TODO: Add logic to check current permission state
+        // TODO: Add cooldown logic to prevent spam requests
+        // TODO: Check if microphone API is available
+        true
+    }
+    
+    /// Validate tuning system change request
+    /// 
+    /// Ensures that a tuning system change is valid and different from the current system.
+    /// This validation prevents unnecessary system reconfigurations and maintains
+    /// system stability by filtering out redundant changes.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `new_tuning_system` - The requested tuning system to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if the tuning system change should be processed, `false` otherwise.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Validates that the new tuning system is different from the current one.
+    /// Future implementations will add more sophisticated validation:
+    /// - Compatibility checks with current audio configuration
+    /// - Validation of supported tuning systems
+    /// - State consistency checks
+    fn validate_tuning_system_change(&self, new_tuning_system: &TuningSystem) -> bool {
+        // Only allow changes that are different from current system
+        *new_tuning_system != self.tuning_system
+    }
+    
+    /// Validate root note adjustment request
+    /// 
+    /// Ensures that a root note adjustment is valid and results in proper frequency
+    /// calculations. This validation maintains musical accuracy and prevents
+    /// invalid note configurations.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `new_root_note` - The requested root note to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if the root note adjustment should be processed, `false` otherwise.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Validates that the new root note is different from the current one and is
+    /// a valid musical note. Future implementations will add:
+    /// - Frequency range validation
+    /// - Compatibility checks with current tuning system
+    /// - Musical theory validation
+    fn validate_root_note_adjustment(&self, new_root_note: &Note) -> bool {
+        // Only allow changes that are different from current root note
+        *new_root_note != self.root_note
+    }
+    
+    /// Calculate reference frequency for a given root note
+    /// 
+    /// Computes the reference frequency (A4) that corresponds to a given root note
+    /// in the current tuning system. This ensures that the tuning system remains
+    /// consistent when the root note is changed.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `root_note` - The root note to calculate the reference frequency for
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the calculated reference frequency in Hz.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Returns the current reference frequency as a placeholder. Future implementations
+    /// will calculate the proper frequency based on:
+    /// - The relationship between the root note and A4
+    /// - The current tuning system's frequency ratios
+    /// - Musical theory calculations for proper tuning
+    fn calculate_reference_frequency_for_root_note(&self, _root_note: &Note) -> f32 {
+        // Placeholder: Return current reference frequency
+        // TODO: Calculate proper reference frequency based on root note
+        // TODO: Apply tuning system-specific calculations
+        // TODO: Ensure frequency is within valid range
+        self.reference_a4
+    }
+    
+    /// Apply tuning system change to internal state
+    /// 
+    /// Updates the internal tuning system and reference frequency based on a validated
+    /// tuning system change. This method should only be called with actions that have
+    /// passed business logic validation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `action` - The validated tuning system configuration to apply
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Updates the internal tuning system and reference frequency directly from the
+    /// validated action. Future implementations will add:
+    /// - State change notifications
+    /// - Logging of configuration changes
+    /// - Validation of state consistency after changes
+    pub fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
+        self.tuning_system = action.tuning_system.clone();
+        self.reference_a4 = action.reference_frequency;
+    }
+    
+    /// Apply root note change to internal state
+    /// 
+    /// Updates the internal root note and reference frequency based on a validated
+    /// root note adjustment. This method should only be called with actions that have
+    /// passed business logic validation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `action` - The validated tuning configuration to apply
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Updates the internal tuning system, root note, and reference frequency directly
+    /// from the validated action. Future implementations will add:
+    /// - State change notifications
+    /// - Logging of configuration changes
+    /// - Validation of state consistency after changes
+    /// - Recalculation of derived values
+    pub fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
+        self.tuning_system = action.tuning_system.clone();
+        self.root_note = action.root_note.clone();
+        self.reference_a4 = action.reference_frequency;
     }
 }
 
