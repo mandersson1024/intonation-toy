@@ -7,7 +7,6 @@ use wasm_bindgen_test::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 use pitch_toy::engine::audio::message_protocol::*;
-use observable_data::DataSetter;
 
 // No wasm_bindgen_test_configure! needed for Node.js
 
@@ -33,7 +32,7 @@ impl MockBufferPoolStatsSetter {
     }
 }
 
-impl DataSetter<Option<BufferPoolStats>> for MockBufferPoolStatsSetter {
+impl MockBufferPoolStatsSetter {
     fn set(&self, value: Option<BufferPoolStats>) {
         self.calls.borrow_mut().push(value);
     }

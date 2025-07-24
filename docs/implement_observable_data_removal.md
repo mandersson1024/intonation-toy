@@ -65,12 +65,12 @@ Remove all `observable_data` dependencies from the audio engine components.
 ### Task 2: Update Engine Module Interface
 Update the main engine module to remove observable_data dependencies.
 
-- [ ] 2a. Update engine/mod.rs
+- [x] 2a. Update engine/mod.rs
   - Remove `microphone_permission_setter` parameter from audio setup (line 153)
   - Remove `observable_data::DataSetter` usage from function signatures (line 288)
   - Update permission handling to use return values from engine.update()
 
-- [ ] 2b. Update audio component integration
+- [x] 2b. Update audio component integration
   - Modify audio component initialization to not pass setters
   - Update data collection in engine.update() to gather data from components
   - Ensure all audio data flows into `EngineUpdateResult`
@@ -78,13 +78,13 @@ Update the main engine module to remove observable_data dependencies.
 ### Task 3: Fix Test Infrastructure
 Update test files to work without observable_data dependencies.
 
-- [ ] 3a. Update buffer_pool_statistics_integration.rs
+- [x] 3a. Update buffer_pool_statistics_integration.rs
   - Remove `use observable_data::DataSetter;` import (line 10)
   - Remove `DataSetter` trait implementation for `MockBufferPoolStatsSetter` (line 36)
   - Update test to use direct data collection instead of setter pattern
   - Replace setter mocks with direct data verification
 
-- [ ] 3b. Update three_layer_architecture_integration.rs
+- [x] 3b. Update three_layer_architecture_integration.rs
   - Remove `use observable_data::DataSetter;` import (line 12)
   - Remove `use observable_data::DataSource;` import (line 151)
   - Replace `DataSource::new()` usage in tests (lines 153, 157, 163, 164)

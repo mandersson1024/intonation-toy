@@ -586,6 +586,8 @@ pub struct AudioSystemContext {
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     is_initialized: bool,
     initialization_error: Option<String>,
+    /// Current microphone permission state
+    permission_state: std::cell::Cell<super::AudioPermission>,
 }
 
 impl AudioSystemContext {
@@ -686,6 +688,7 @@ impl AudioSystemContext {
             pitch_analyzer: None,
             is_initialized: false,
             initialization_error: None,
+            permission_state: std::cell::Cell::new(super::AudioPermission::Uninitialized),
         }
     }
 
@@ -697,6 +700,7 @@ impl AudioSystemContext {
             pitch_analyzer: None,
             is_initialized: false,
             initialization_error: None,
+            permission_state: std::cell::Cell::new(super::AudioPermission::Uninitialized),
         }
     }
 
@@ -856,6 +860,26 @@ impl AudioSystemContext {
         self.audio_context_manager.borrow_mut().resume().await
             .map_err(|e| format!("Failed to resume AudioContext: {}", e))
     }
+    
+    /// Handle microphone connection result
+    pub fn handle_microphone_connection_result(&self, result: Result<(), String>) {
+        match result {
+            Ok(()) => {
+                self.set_permission_state(super::AudioPermission::Granted);
+                dev_log!("Microphone connected successfully - permission granted");
+            }
+            Err(e) => {
+                if e.contains("denied") || e.contains("NotAllowedError") {
+                    self.set_permission_state(super::AudioPermission::Denied);
+                } else if e.contains("NotFoundError") || e.contains("unavailable") {
+                    self.set_permission_state(super::AudioPermission::Unavailable);
+                } else {
+                    self.set_permission_state(super::AudioPermission::Unavailable);
+                }
+                dev_log!("Microphone connection failed: {}", e);
+            }
+        }
+    }
 
     /// Collect current audio analysis data (return-based pattern)
     /// 
@@ -913,13 +937,18 @@ impl AudioSystemContext {
 
     /// Collect current permission state (return-based pattern)
     pub fn collect_permission_state(&self) -> crate::module_interfaces::engine_to_model::PermissionState {
-        // For now, return a basic permission state
-        // This will be enhanced when the full permission handling is implemented
-        if self.is_initialized {
-            crate::module_interfaces::engine_to_model::PermissionState::Granted
-        } else {
-            crate::module_interfaces::engine_to_model::PermissionState::NotRequested
+        match self.permission_state.get() {
+            super::AudioPermission::Uninitialized => crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            super::AudioPermission::Requesting => crate::module_interfaces::engine_to_model::PermissionState::Requesting,
+            super::AudioPermission::Granted => crate::module_interfaces::engine_to_model::PermissionState::Granted,
+            super::AudioPermission::Denied => crate::module_interfaces::engine_to_model::PermissionState::Denied,
+            super::AudioPermission::Unavailable => crate::module_interfaces::engine_to_model::PermissionState::Denied,
         }
+    }
+    
+    /// Set microphone permission state
+    pub fn set_permission_state(&self, state: super::AudioPermission) {
+        self.permission_state.set(state);
     }
 }
 
@@ -1016,7 +1045,6 @@ pub fn merge_audio_analysis(
 mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
-    use crate::engine::audio::data_types;
 
     #[wasm_bindgen_test]
     fn test_audio_context_state_display() {

@@ -9,7 +9,6 @@
 use wasm_bindgen_test::*;
 use std::rc::Rc;
 use std::cell::RefCell;
-use observable_data::DataSetter;
 
 // Integration tests can run in both browser and node environments
 wasm_bindgen_test_configure!(run_in_browser);
@@ -147,21 +146,17 @@ fn test_debug_gui_observational_access() {
     // Create debug actions interface (still needed for debug panel)
     let debug_actions = pitch_toy::module_interfaces::debug_actions::DebugActionsInterface::new();
     
-    // Create debug-specific data sources for testing
-    use observable_data::DataSource;
-    
-    let audio_devices_source = DataSource::new(pitch_toy::engine::audio::AudioDevices {
+    // Create debug-specific test data for testing
+    let test_audio_devices = pitch_toy::engine::audio::AudioDevices {
         input_devices: vec![(String::from("test-input"), String::from("Test Input Device"))],
         output_devices: vec![(String::from("test-output"), String::from("Test Output Device"))],
-    });
-    let performance_metrics_source = DataSource::new(pitch_toy::debug::egui::data_types::PerformanceMetrics {
+    };
+    let test_performance_metrics = pitch_toy::debug::egui::data_types::PerformanceMetrics {
         fps: 60.0,
         memory_usage: 25.0,
         audio_latency: 10.0,
         cpu_usage: 30.0,
-    });
-    let audioworklet_status_source = DataSource::new(pitch_toy::debug::egui::data_types::AudioWorkletStatus::default());
-    let buffer_pool_stats_source = DataSource::new(None::<pitch_toy::engine::audio::message_protocol::BufferPoolStats>);
+    };
     
     // Create HybridLiveData (debug GUI's data source) without interface
     let hybrid_live_data = pitch_toy::live_data::HybridLiveData::new();

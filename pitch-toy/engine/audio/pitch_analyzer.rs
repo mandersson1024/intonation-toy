@@ -1506,7 +1506,7 @@ mod tests {
         // Verify end-to-end pipeline worked
         assert!(detected_frequencies.len() >= 3, "Should detect multiple frequencies");
         
-        // Note: Events are no longer published - we use observable_data pattern instead
+        // Data is now returned directly and collected by Engine::update()
         
         // Verify metrics were updated
         let metrics = analyzer.metrics();

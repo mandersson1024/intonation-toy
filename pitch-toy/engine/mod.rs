@@ -143,6 +143,11 @@ impl AudioEngine {
         }
     }
     
+    /// Get audio context reference for microphone permission handling
+    pub fn get_audio_context(&self) -> Option<&std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>> {
+        self.audio_context.as_ref()
+    }
+    
     /// Set up UI action listeners with the audio system
     /// 
     /// This method configures the engine to listen for UI control actions
@@ -150,12 +155,10 @@ impl AudioEngine {
     pub fn setup_ui_listeners(
         &self,
         ui_listeners: crate::UIControlListeners,
-        microphone_permission_setter: impl observable_data::DataSetter<audio::AudioPermission> + Clone + 'static,
     ) {
         if let Some(ref context) = self.audio_context {
             audio::setup_ui_action_listeners_with_context(
                 ui_listeners,
-                microphone_permission_setter,
                 context.clone(),
             );
         }
