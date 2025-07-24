@@ -810,6 +810,21 @@ impl AudioSystemContext {
     pub fn get_audioworklet_manager(&self) -> Option<&super::worklet::AudioWorkletManager> {
         self.audioworklet_manager.as_ref()
     }
+    
+    /// Get current audio worklet status
+    pub fn get_audioworklet_status(&self) -> Option<super::data_types::AudioWorkletStatus> {
+        self.audioworklet_manager.as_ref().map(|worklet| worklet.get_status())
+    }
+    
+    /// Get current audio devices from context manager
+    pub fn get_audio_devices(&self) -> super::AudioDevices {
+        self.audio_context_manager.borrow().get_cached_devices().clone()
+    }
+    
+    /// Get buffer pool statistics if available
+    pub fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
+        self.audioworklet_manager.as_ref().and_then(|worklet| worklet.get_buffer_pool_statistics())
+    }
 
     /// Get mutable reference to AudioWorkletManager
     pub fn get_audioworklet_manager_mut(&mut self) -> Option<&mut super::worklet::AudioWorkletManager> {
@@ -848,25 +863,26 @@ impl AudioSystemContext {
     /// without using the observable/setter pattern. It's used by the engine layer
     /// to collect data for returning in EngineUpdateResult.
     pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::module_interfaces::engine_to_model::AudioAnalysis> {
-        // For now, this is a placeholder implementation since the full audio
-        // pipeline integration is still in progress. This will be enhanced
-        // as more components are updated to the return-based pattern.
-        
         if !self.is_initialized {
             return None;
         }
 
-        // TODO: Collect actual volume and pitch data from audio components
-        // This will require updating the AudioWorkletManager and related components
-        // to provide data collection methods instead of just pushing to setters.
+        // Collect volume data from AudioWorkletManager
+        let volume_data = if let Some(ref worklet) = self.audioworklet_manager {
+            worklet.get_volume_data()
+        } else {
+            None
+        };
         
-        // Return placeholder data to maintain the interface
-        // In the final implementation, this would collect real data from:
-        // - AudioWorkletManager for volume data
-        // - PitchAnalyzer for pitch data
-        // - Merge the data using the new conversion functions
+        // Convert volume data to interface type
+        let volume = convert_volume_data(volume_data);
         
-        None
+        // Note: Pitch data collection would need to be added when PitchAnalyzer
+        // is updated to support data collection methods
+        let pitch = None;
+        
+        // Merge the data into AudioAnalysis
+        merge_audio_analysis(volume, pitch, timestamp)
     }
 
     /// Collect current audio errors (return-based pattern)
@@ -995,47 +1011,6 @@ pub fn merge_audio_analysis(
     }
 }
 
-/// Placeholder setter for AudioWorkletStatus during interface transition
-/// 
-/// This placeholder implements the DataSetter trait but doesn't actually do anything.
-/// It's used during the transition to interface-based architecture.
-pub struct PlaceholderAudioWorkletStatusSetter;
-
-impl observable_data::DataSetter<super::data_types::AudioWorkletStatus> for PlaceholderAudioWorkletStatusSetter {
-    fn set(&self, _data: super::data_types::AudioWorkletStatus) {
-        // Placeholder - does nothing during interface transition
-    }
-}
-
-/// Placeholder setter for BufferPoolStats during interface transition
-/// 
-/// This placeholder implements the DataSetter trait but doesn't actually do anything.
-/// It's used during the transition to interface-based architecture.
-pub struct PlaceholderBufferPoolStatsSetter;
-
-impl observable_data::DataSetter<Option<super::message_protocol::BufferPoolStats>> for PlaceholderBufferPoolStatsSetter {
-    fn set(&self, _data: Option<super::message_protocol::BufferPoolStats>) {
-        // Placeholder - does nothing during interface transition
-    }
-}
-
-/// Placeholder setter for VolumeLevelData during return-based transition
-pub struct PlaceholderVolumeSetter;
-
-impl observable_data::DataSetter<Option<super::data_types::VolumeLevelData>> for PlaceholderVolumeSetter {
-    fn set(&self, _data: Option<super::data_types::VolumeLevelData>) {
-        // Placeholder - does nothing during return-based transition
-    }
-}
-
-/// Placeholder setter for PitchData during return-based transition
-pub struct PlaceholderPitchSetter;
-
-impl observable_data::DataSetter<Option<super::data_types::PitchData>> for PlaceholderPitchSetter {
-    fn set(&self, _data: Option<super::data_types::PitchData>) {
-        // Placeholder - does nothing during return-based transition
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -1167,74 +1142,6 @@ mod tests {
         // We can't test the actual listener setup in unit tests since it requires browser APIs
     }
 
-    // Mock data setter for testing
-        struct MockVolumeSetter {
-        calls: std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::VolumeLevelData>>>>,
-    }
-
-    impl MockVolumeSetter {
-        fn new() -> Self {
-            Self {
-                calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-            }
-        }
-        
-        fn get_calls(&self) -> std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::VolumeLevelData>>>> {
-            self.calls.clone()
-        }
-    }
-
-    impl observable_data::DataSetter<Option<data_types::VolumeLevelData>> for MockVolumeSetter {
-        fn set(&self, data: Option<data_types::VolumeLevelData>) {
-            self.calls.lock().unwrap().push(data);
-        }
-    }
-
-    // Mock data setter for pitch data
-        struct MockPitchSetter {
-        calls: std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::PitchData>>>>,
-    }
-
-    impl MockPitchSetter {
-        fn new() -> Self {
-            Self {
-                calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-            }
-        }
-        
-        fn get_calls(&self) -> std::sync::Arc<std::sync::Mutex<Vec<Option<data_types::PitchData>>>> {
-            self.calls.clone()
-        }
-    }
-
-    impl observable_data::DataSetter<Option<data_types::PitchData>> for MockPitchSetter {
-        fn set(&self, data: Option<data_types::PitchData>) {
-            self.calls.lock().unwrap().push(data);
-        }
-    }
-
-    // Mock data setter for audioworklet status
-        struct MockAudioWorkletStatusSetter {
-        calls: std::sync::Arc<std::sync::Mutex<Vec<data_types::AudioWorkletStatus>>>,
-    }
-
-    impl MockAudioWorkletStatusSetter {
-        fn new() -> Self {
-            Self {
-                calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-            }
-        }
-        
-        fn get_calls(&self) -> std::sync::Arc<std::sync::Mutex<Vec<data_types::AudioWorkletStatus>>> {
-            self.calls.clone()
-        }
-    }
-
-    impl observable_data::DataSetter<data_types::AudioWorkletStatus> for MockAudioWorkletStatusSetter {
-        fn set(&self, data: data_types::AudioWorkletStatus) {
-            self.calls.lock().unwrap().push(data);
-        }
-    }
 
 
 

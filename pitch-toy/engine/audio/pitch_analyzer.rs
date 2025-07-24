@@ -56,7 +56,7 @@ impl Default for PitchPerformanceMetrics {
 
 
 /// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
-/// and updates pitch data through observable_data pattern
+/// and returns pitch data through the engine update system
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     note_mapper: NoteMapper,
@@ -67,8 +67,6 @@ pub struct PitchAnalyzer {
     analysis_buffer: Vec<f32>,
     // Volume analysis for tracking
     last_volume_analysis: Option<VolumeAnalysis>,
-    // Pitch data setter for observable_data pattern
-    pitch_data_setter: Option<std::rc::Rc<dyn observable_data::DataSetter<Option<super::PitchData>>>>,
 }
 
 impl PitchAnalyzer {
@@ -93,14 +91,9 @@ impl PitchAnalyzer {
             confidence_threshold_for_events: 0.1, // Threshold for confidence change events
             analysis_buffer,
             last_volume_analysis: None,
-            pitch_data_setter: None,
         })
     }
 
-    /// Set the pitch data setter for observable_data pattern
-    pub fn set_pitch_data_setter(&mut self, setter: std::rc::Rc<dyn observable_data::DataSetter<Option<super::PitchData>>>) {
-        self.pitch_data_setter = Some(setter);
-    }
 
     /// Set the confidence threshold for confidence change events
     pub fn set_confidence_threshold(&mut self, threshold: f32) {
@@ -601,17 +594,8 @@ impl PitchAnalyzer {
         let weighted_confidence = result.confidence;
 
 
-        // Update pitch data using setter
-        if let Some(ref setter) = self.pitch_data_setter {
-            let pitch_data = super::PitchData {
-                frequency: result.frequency,
-                confidence: weighted_confidence,
-                note: note.clone(),
-                clarity: result.clarity,
-                timestamp: result.timestamp,
-            };
-            setter.set(Some(pitch_data));
-        }
+        // Pitch data is now returned through the analyze methods
+        // and collected by Engine::update()
 
         // Update average confidence using weighted value
         self.update_average_confidence(weighted_confidence);
@@ -620,10 +604,8 @@ impl PitchAnalyzer {
     }
 
     fn handle_pitch_lost(&mut self) -> Result<(), PitchAnalysisError> {
-        // Clear pitch data using setter
-        if let Some(ref setter) = self.pitch_data_setter {
-            setter.set(None);
-        }
+        // Pitch lost state is now communicated by returning None
+        // from the analyze methods
         Ok(())
     }
 

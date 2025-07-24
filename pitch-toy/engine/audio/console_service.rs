@@ -83,10 +83,6 @@ pub trait ConsoleAudioService {
 pub struct ConsoleAudioServiceImpl {
     /// Audio context manager for context operations
     audio_context_manager: Option<Rc<RefCell<AudioContextManager>>>,
-    /// Setter for audio devices data (optional)
-    audio_devices_setter: Option<Rc<dyn observable_data::DataSetter<AudioDevices>>>,
-    /// Setter for audio worklet status data (optional)
-    audio_worklet_status_setter: Option<Rc<dyn observable_data::DataSetter<super::AudioWorkletStatus>>>,
 }
 
 impl ConsoleAudioServiceImpl {
@@ -94,8 +90,6 @@ impl ConsoleAudioServiceImpl {
     pub fn new() -> Self {
         Self {
             audio_context_manager: None,
-            audio_devices_setter: None,
-            audio_worklet_status_setter: None,
         }
     }
     
@@ -103,8 +97,6 @@ impl ConsoleAudioServiceImpl {
     pub fn with_audio_context_manager(manager: Rc<RefCell<AudioContextManager>>) -> Self {
         Self {
             audio_context_manager: Some(manager),
-            audio_devices_setter: None,
-            audio_worklet_status_setter: None,
         }
     }
     
@@ -117,21 +109,6 @@ impl ConsoleAudioServiceImpl {
         self.setup_device_change_listener();
     }
     
-    /// Set the audio devices setter for direct data updates
-    pub fn set_audio_devices_setter(&mut self, setter: impl observable_data::DataSetter<AudioDevices> + 'static) {
-        self.audio_devices_setter = Some(Rc::new(setter));
-    }
-    
-    /// Set the audio worklet status setter for direct data updates
-    /// Note: This is mainly for console service internal use - prefer constructor injection in AudioSystemContext
-    pub fn set_audio_worklet_status_setter(&mut self, setter: impl observable_data::DataSetter<super::AudioWorkletStatus> + 'static) {
-        let setter_rc = Rc::new(setter);
-        self.audio_worklet_status_setter = Some(setter_rc.clone());
-        
-        // Note: Global setter configuration is deprecated - setters are now configured during AudioSystemContext initialization
-        // If you need to update the setter, recreate the AudioSystemContext with the new setter
-        dev_log!("AudioWorklet status setter configured on console service (global setter call removed)");
-    }
     
     
     /// Get current audio devices from context manager
@@ -190,8 +167,8 @@ impl ConsoleAudioServiceImpl {
                             } else {
                                 dev_log!("Auto device refresh completed successfully");
                                 
-                                // Note: Devices will be updated via setter in refresh_devices method
-                                dev_log!("Auto device refresh completed, devices will be updated via setter");
+                                // Devices are now collected by Engine::update()
+                                dev_log!("Auto device refresh completed");
                             }
                         }
                         Err(_) => {
@@ -265,9 +242,6 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
             
             // Event dispatcher is no longer used for device updates
             
-            // Clone the setter if available
-            let audio_devices_setter = self.audio_devices_setter.clone();
-            
             // Trigger device refresh in background
             // This is a non-blocking operation
             wasm_bindgen_futures::spawn_local(async move {
@@ -277,18 +251,7 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
                             dev_log!("Device refresh failed: {:?}", _e);
                         } else {
                             dev_log!("Device refresh completed successfully");
-                            
-                            // Get the updated device list
-                            let updated_devices = manager.get_cached_devices().clone();
-                            
-                            // Update via setter if available
-                            if let Some(ref setter) = audio_devices_setter {
-                                setter.set(updated_devices);
-                                dev_log!("Updated audio devices via setter");
-                            } else {
-                                dev_log!("Warning: No audio devices setter available for device change");
-                            }
-                            
+                            // Devices are now collected by Engine::update()
                         }
                     }
                     Err(_) => {
@@ -310,6 +273,13 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
         F: Fn(AudioPermission) + 'static,
     {
         PermissionManager::request_permission_with_callback(callback)
+    }
+}
+
+impl ConsoleAudioServiceImpl {
+    /// Get current audio devices for engine data collection
+    pub fn get_audio_devices(&self) -> AudioDevices {
+        self.get_current_devices()
     }
 }
 

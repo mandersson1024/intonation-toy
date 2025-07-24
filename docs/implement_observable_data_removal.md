@@ -32,33 +32,33 @@ The remaining references fall into these categories:
 ### Task 1: Remove Observable Data from Engine Audio Components
 Remove all `observable_data` dependencies from the audio engine components.
 
-- [ ] 1a. Update pitch_analyzer.rs
+- [x] 1a. Update pitch_analyzer.rs
   - Remove `pitch_data_setter` field from `PitchAnalyzer` struct (line 71)
   - Remove `set_pitch_data_setter` method (line 101)
   - Remove setter calls in analysis methods
   - Update constructor to not accept setter parameter
 
-- [ ] 1b. Update worklet.rs  
+- [x] 1b. Update worklet.rs  
   - Remove `volume_level_setter` field from `AudioWorkletSharedData` (line 110)
   - Remove `pitch_data_setter` field from `AudioWorkletSharedData` (line 112)
   - Remove setter parameters from `AudioWorkletSharedData::new()` (lines 118-119)
   - Remove all setter calls in worklet message processing
   - Update data collection to return values instead of calling setters
 
-- [ ] 1c. Update console_service.rs
+- [x] 1c. Update console_service.rs
   - Remove `audio_devices_setter` field from `AudioConsoleService` (line 87)
   - Remove `audio_worklet_status_setter` field from `AudioConsoleService` (line 89)
   - Remove `set_audio_devices_setter` method (line 121)
   - Remove `set_audio_worklet_status_setter` method (line 127)
   - Update methods to return data instead of calling setters
 
-- [ ] 1d. Update context.rs
+- [x] 1d. Update context.rs
   - Remove placeholder `DataSetter` implementations (lines 1004, 1016, 1025, 1034)
   - Remove mock `DataSetter` implementations from tests (lines 1187, 1210, 1233)
   - Update audio context initialization to not use setters
   - Modify adapter connection logic to collect data instead of pushing to setters
 
-- [ ] 1e. Update permission.rs
+- [x] 1e. Update permission.rs
   - Remove `DataSetter` parameter from permission functions (line 232)
   - Update permission handling to return status instead of calling setters
 
