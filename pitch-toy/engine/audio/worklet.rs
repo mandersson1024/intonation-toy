@@ -555,7 +555,6 @@ impl AudioWorkletManager {
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Stopped);
             }
             FromWorkletMessage::AudioDataBatch { data } => {
-                dev_log!("VOLUME_DEBUG: Received AudioDataBatch with {} samples", data.sample_count);
                 Self::handle_typed_audio_data_batch_static(
                     data, 
                     shared_data, 
@@ -663,8 +662,6 @@ impl AudioWorkletManager {
         
         if let Some(mut volume_detector) = volume_detector {
             let volume_analysis = volume_detector.process_buffer(audio_samples);
-            dev_log!("VOLUME_DEBUG: Processed {} samples, RMS: {:.2} dB, Peak: {:.2} dB", 
-                audio_samples.len(), volume_analysis.rms_db, volume_analysis.peak_db);
             
             // Store the volume analysis result in the AudioWorkletManager
             // We need to access the manager instance to store this
@@ -845,13 +842,17 @@ impl AudioWorkletManager {
                 Ok(_) => {
                     dev_log!("VOLUME_DEBUG: ✓ Microphone connected to AudioWorklet successfully");
                     
-                    // Also connect AudioWorklet to destination to ensure audio flows
-                    let audio_context = worklet.context();
-                    dev_log!("VOLUME_DEBUG: Connecting AudioWorklet to destination for audio flow");
-                    if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
-                        dev_log!("VOLUME_DEBUG: Warning: Failed to connect AudioWorklet to destination: {:?}", e);
+                    // Only connect AudioWorklet to destination if output to speakers is enabled
+                    if self.output_to_speakers {
+                        let audio_context = worklet.context();
+                        dev_log!("VOLUME_DEBUG: Connecting AudioWorklet to destination (speakers enabled)");
+                        if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
+                            dev_log!("VOLUME_DEBUG: Warning: Failed to connect AudioWorklet to destination: {:?}", e);
+                        } else {
+                            dev_log!("VOLUME_DEBUG: ✓ AudioWorklet connected to destination");
+                        }
                     } else {
-                        dev_log!("VOLUME_DEBUG: ✓ AudioWorklet connected to destination");
+                        dev_log!("VOLUME_DEBUG: Skipping destination connection (speakers disabled by default)");
                     }
                     
                     Ok(())

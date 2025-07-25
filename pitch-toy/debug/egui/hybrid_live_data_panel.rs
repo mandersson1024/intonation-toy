@@ -316,15 +316,7 @@ impl HybridEguiLiveDataPanel {
                         10.0_f32.powf(volume.peak_db / 20.0)
                     };
                     
-                    // Debug logging
-                    static mut DEBUG_COUNTER: u32 = 0;
-                    unsafe {
-                        DEBUG_COUNTER += 1;
-                        if DEBUG_COUNTER % 60 == 0 {
-                            web_sys::console::log_1(&format!("UI Volume - Peak dB: {:.2}, Amplitude: {:.4}, Normalized: {:.4}", 
-                                volume.peak_db, amplitude, amplitude.clamp(0.0, 1.0)).into());
-                        }
-                    }
+                    // Debug logging removed - functionality is working
                     
                     // Clamp to 0-1 range
                     let normalized = amplitude.clamp(0.0, 1.0);
