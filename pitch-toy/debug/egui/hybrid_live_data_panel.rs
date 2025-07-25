@@ -4,6 +4,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::engine::audio::{
     AudioWorkletState,
+    TestWaveform,
 };
 use crate::live_data::HybridLiveData;
 
@@ -17,11 +18,11 @@ pub struct HybridEguiLiveDataPanel {
     test_signal_enabled: bool,
     test_signal_frequency: f32,
     test_signal_volume: f32,
-    test_signal_waveform: crate::engine::audio::TestWaveform,
+    test_signal_waveform: TestWaveform,
     output_to_speakers_enabled: bool,
     background_noise_enabled: bool,
     background_noise_level: f32,
-    background_noise_type: crate::engine::audio::TestWaveform,
+    background_noise_type: TestWaveform,
 }
 
 impl HybridEguiLiveDataPanel {
@@ -39,11 +40,11 @@ impl HybridEguiLiveDataPanel {
             test_signal_enabled: false,
             test_signal_frequency: 440.0,
             test_signal_volume: 50.0,
-            test_signal_waveform: crate::engine::audio::TestWaveform::Sine,
+            test_signal_waveform: TestWaveform::Sine,
             output_to_speakers_enabled: false,
             background_noise_enabled: false,
             background_noise_level: 0.1,
-            background_noise_type: crate::engine::audio::TestWaveform::WhiteNoise,
+            background_noise_type: TestWaveform::WhiteNoise,
         }
     }
     
@@ -422,10 +423,10 @@ impl HybridEguiLiveDataPanel {
                         .selected_text(format!("{:?}", self.test_signal_waveform))
                         .show_ui(ui, |ui| {
                             let waveforms = [
-                                crate::engine::audio::TestWaveform::Sine,
-                                crate::engine::audio::TestWaveform::Square,
-                                crate::engine::audio::TestWaveform::Triangle,
-                                crate::engine::audio::TestWaveform::Sawtooth,
+                                TestWaveform::Sine,
+                                TestWaveform::Square,
+                                TestWaveform::Triangle,
+                                TestWaveform::Sawtooth,
                             ];
                             
                             for waveform in &waveforms {
@@ -477,8 +478,8 @@ impl HybridEguiLiveDataPanel {
                         .selected_text(format!("{:?}", self.background_noise_type))
                         .show_ui(ui, |ui| {
                             let noise_types = [
-                                crate::engine::audio::TestWaveform::WhiteNoise,
-                                crate::engine::audio::TestWaveform::PinkNoise,
+                                TestWaveform::WhiteNoise,
+                                TestWaveform::PinkNoise,
                             ];
                             
                             for noise_type in &noise_types {
