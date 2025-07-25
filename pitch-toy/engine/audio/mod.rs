@@ -24,9 +24,6 @@
 // 
 // // Connect microphone using context
 // connect_microphone_to_audioworklet_with_context(&context).await?;
-// 
-// // Setup UI action listeners with context
-// setup_ui_action_listeners_with_context(listeners, permission_setter, context);
 // ```
 // 
 // # Migration from Global State
@@ -273,103 +270,6 @@ pub use message_protocol::{
     MessageContext, MessageDirection, SystemState
 };
 
-/// Setup UI action listeners for audio module with AudioSystemContext
-/// 
-/// This function sets up action listeners for audio-related UI controls using dependency injection.
-/// The AudioSystemContext parameter provides access to all audio components needed for configuration.
-/// 
-/// # Parameters
-/// - `listeners`: UI control listeners for audio actions
-/// - `audio_context`: AudioSystemContext instance containing all audio components
-/// 
-pub fn setup_ui_action_listeners_with_context(
-    listeners: crate::UIControlListeners,
-    audio_context: std::rc::Rc<std::cell::RefCell<AudioSystemContext>>,
-) {
-    
-    // Test signal action listener
-    let audio_context_clone = audio_context.clone();
-    listeners.test_signal.listen(move |action| {
-        dev_log!("Received test signal action: {:?}", action);
-        
-        let mut context = audio_context_clone.borrow_mut();
-        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
-            // Convert UI action to audio system config
-            let audio_config = TestSignalGeneratorConfig {
-                enabled: action.enabled,
-                frequency: action.frequency,
-                amplitude: action.volume / 100.0, // Convert percentage to 0-1 range
-                waveform: action.waveform,
-                sample_rate: 48000.0, // Use standard sample rate
-            };
-            
-            worklet_manager.update_test_signal_config(audio_config);
-            dev_log!("✓ Test signal config updated via action");
-        } else {
-            dev_log!("Warning: No AudioWorklet manager available for test signal config");
-        }
-    });
-    
-    // Background noise action listener
-    let audio_context_clone = audio_context.clone();
-    listeners.background_noise.listen(move |action| {
-        dev_log!("Received background noise action: {:?}", action);
-        
-        let mut context = audio_context_clone.borrow_mut();
-        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
-            // Convert UI action to audio system config
-            let audio_config = BackgroundNoiseConfig {
-                enabled: action.enabled,
-                level: action.level,
-                noise_type: action.noise_type,
-            };
-            
-            worklet_manager.update_background_noise_config(audio_config);
-            dev_log!("✓ Background noise config updated via action");
-        } else {
-            dev_log!("Warning: No AudioWorklet manager available for background noise config");
-        }
-    });
-    
-    // Output to speakers action listener
-    let audio_context_clone = audio_context.clone();
-    listeners.output_to_speakers.listen(move |action| {
-        dev_log!("Received output to speakers action: {:?}", action);
-        
-        let mut context = audio_context_clone.borrow_mut();
-        if let Some(worklet_manager) = context.get_audioworklet_manager_mut() {
-            worklet_manager.set_output_to_speakers(action.enabled);
-            dev_log!("✓ Output to speakers setting updated via action");
-        } else {
-            dev_log!("Warning: No AudioWorklet manager available for output to speakers setting");
-        }
-    });
-    
-    // Microphone permission action listener  
-    let audio_context_clone = audio_context.clone();
-    listeners.microphone_permission.listen(move |action| {
-        dev_log!("Received microphone permission action: {:?}", action);
-        
-        if action.request_permission {
-            // Permission state is now tracked through AudioSystemContext
-            wasm_bindgen_futures::spawn_local({
-                let audio_context = audio_context_clone.clone();
-                
-                async move {
-                    // Set requesting state
-                    audio_context.borrow().set_permission_state(AudioPermission::Requesting);
-                    
-                    let result = microphone::connect_microphone_to_audioworklet_with_context(&audio_context).await;
-                    
-                    // Handle the result and update permission state
-                    audio_context.borrow().handle_microphone_connection_result(
-                        result.map_err(|e| e.to_string())
-                    );
-                }
-            });
-        }
-    });
-}
 
 
 #[cfg(test)]

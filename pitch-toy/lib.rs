@@ -24,100 +24,9 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 
 // Import action types for three-layer action processing
-use debug::egui::{EguiDebugControls, HybridEguiLiveDataPanel};
+use debug::egui::HybridEguiLiveDataPanel;
 
 
-// Import action system
-use action::{Action, ActionTrigger, ActionListener};
-
-
-// UI Control Action Types
-#[derive(Debug, Clone)]
-pub struct TestSignalAction {
-    pub enabled: bool,
-    pub waveform: engine::audio::TestWaveform,
-    pub frequency: f32,
-    pub volume: f32,
-}
-
-#[derive(Debug, Clone)]
-pub struct BackgroundNoiseAction {
-    pub enabled: bool,
-    pub level: f32,
-    pub noise_type: engine::audio::TestWaveform,
-}
-
-#[derive(Debug, Clone)]
-pub struct OutputToSpeakersAction {
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct MicrophonePermissionAction {
-    pub request_permission: bool,
-}
-
-/// UI Control Actions - Central action registry for UI controls
-pub struct UIControlActions {
-    pub test_signal: Action<TestSignalAction>,
-    pub background_noise: Action<BackgroundNoiseAction>,
-    pub output_to_speakers: Action<OutputToSpeakersAction>,
-    pub microphone_permission: Action<MicrophonePermissionAction>,
-}
-
-impl Default for UIControlActions {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl UIControlActions {
-    pub fn new() -> Self {
-        Self {
-            test_signal: Action::new(),
-            background_noise: Action::new(),
-            output_to_speakers: Action::new(),
-            microphone_permission: Action::new(),
-        }
-    }
-    
-    /// Get trigger handles for UI components
-    pub fn get_triggers(&self) -> UIControlTriggers {
-        UIControlTriggers {
-            test_signal: self.test_signal.trigger(),
-            background_noise: self.background_noise.trigger(),
-            output_to_speakers: self.output_to_speakers.trigger(),
-            microphone_permission: self.microphone_permission.trigger(),
-        }
-    }
-    
-    /// Get listener handles for audio module
-    pub fn get_listeners(&self) -> UIControlListeners {
-        UIControlListeners {
-            test_signal: self.test_signal.listener(),
-            background_noise: self.background_noise.listener(),
-            output_to_speakers: self.output_to_speakers.listener(),
-            microphone_permission: self.microphone_permission.listener(),
-        }
-    }
-}
-
-/// UI Control Triggers - For UI components to fire actions
-#[derive(Clone)]
-pub struct UIControlTriggers {
-    pub test_signal: ActionTrigger<TestSignalAction>,
-    pub background_noise: ActionTrigger<BackgroundNoiseAction>,
-    pub output_to_speakers: ActionTrigger<OutputToSpeakersAction>,
-    pub microphone_permission: ActionTrigger<MicrophonePermissionAction>,
-}
-
-/// UI Control Listeners - For audio module to respond to actions
-pub struct UIControlListeners {
-    pub test_signal: ActionListener<TestSignalAction>,
-    pub background_noise: ActionListener<BackgroundNoiseAction>,
-    pub output_to_speakers: ActionListener<OutputToSpeakersAction>,
-    pub microphone_permission: ActionListener<MicrophonePermissionAction>,
-}
 
 
 
@@ -139,9 +48,7 @@ pub struct UIControlListeners {
 pub async fn run_three_d_with_layers(
     mut engine: Option<engine::AudioEngine>,
     mut model: Option<model::DataModel>,
-    mut presenter: Option<Rc<RefCell<presentation::Presenter>>>,
-    debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
-    ui_triggers: UIControlTriggers,
+    presenter: Option<Rc<RefCell<presentation::Presenter>>>,
 ) {
     dev_log!("Starting three-d with three-layer architecture");
     
@@ -459,9 +366,6 @@ pub async fn start() {
 
     web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing three-layer architecture".into());
     
-    let debug_actions = module_interfaces::debug_actions::DebugActionsInterface::new();
-    
-    
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
     
@@ -505,27 +409,11 @@ pub async fn start() {
         }
     };
     
-    
-    // Create UI control actions
-    let ui_control_actions = UIControlActions::new();
-    let _listeners = ui_control_actions.get_listeners();
-    let triggers = ui_control_actions.get_triggers();
-    
-    // Set up debug action listeners through the engine
-    if let Some(ref engine_instance) = engine {
-        // Set up debug action listeners
-        engine_instance.setup_debug_listeners(&debug_actions);
-        
-        // UI listeners setup can now be enabled - engine layer observable_data dependencies have been removed
-    }
-    
     // Start three-d application with three-layer architecture
     run_three_d_with_layers(
         engine,
         model,
         presenter,
-        debug_actions,
-        triggers,
     ).await;
 }
 

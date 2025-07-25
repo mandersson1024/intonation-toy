@@ -311,37 +311,6 @@ impl AudioEngine {
         }
     }
     
-    /// Set up UI action listeners with the audio system
-    /// 
-    /// This method configures the engine to listen for UI control actions
-    /// like microphone permission requests, test signals, etc.
-    pub fn setup_ui_listeners(
-        &self,
-        ui_listeners: crate::UIControlListeners,
-    ) {
-        if let Some(ref context) = self.audio_context {
-            audio::setup_ui_action_listeners_with_context(
-                ui_listeners,
-                context.clone(),
-            );
-        }
-    }
-    
-    /// Set up debug action listeners with the audio system
-    /// 
-    /// This method configures the engine to listen for debug actions
-    /// from the debug GUI.
-    pub fn setup_debug_listeners(
-        &self,
-        debug_actions: &crate::module_interfaces::debug_actions::DebugActionsInterface,
-    ) {
-        if let Some(ref context) = self.audio_context {
-            audio::context::AudioSystemContext::setup_debug_action_listeners(
-                context,
-                debug_actions,
-            );
-        }
-    }
     
     /// Get the audio context for async operations
     /// 
