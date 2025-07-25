@@ -627,7 +627,7 @@ impl DataModel {
     /// - State change notifications
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
-    pub fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
+    fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
         self.tuning_system = action.tuning_system.clone();
         self.reference_a4 = action.reference_frequency;
     }
@@ -650,7 +650,7 @@ impl DataModel {
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
     /// - Recalculation of derived values
-    pub fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
+    fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
         self.tuning_system = action.tuning_system.clone();
         self.root_note = action.root_note.clone();
         self.reference_a4 = action.reference_frequency;
