@@ -84,16 +84,14 @@ impl fmt::Display for NoteName {
 
 #[derive(Debug, Clone)]
 pub enum TuningSystem {
-    EqualTemperament { reference_pitch: f32 },
-    JustIntonation { reference_pitch: f32 },
+    EqualTemperament,
+    JustIntonation,
     Custom { frequency_ratios: Vec<f32> },
 }
 
 impl Default for TuningSystem {
     fn default() -> Self {
-        TuningSystem::EqualTemperament {
-            reference_pitch: 440.0,
-        }
+        TuningSystem::EqualTemperament
     }
 }
 
@@ -530,12 +528,11 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_tuning_system_equal_temperament() {
-        let tuning = TuningSystem::EqualTemperament {
-            reference_pitch: 440.0,
-        };
+        let tuning = TuningSystem::EqualTemperament;
         match tuning {
-            TuningSystem::EqualTemperament { reference_pitch } => {
-                assert_eq!(reference_pitch, 440.0);
+            TuningSystem::EqualTemperament => {
+                // Equal temperament uses constant A4=440Hz
+                assert!(true);
             }
             _ => panic!("Expected EqualTemperament"),
         }
@@ -543,12 +540,11 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_tuning_system_just_intonation() {
-        let tuning = TuningSystem::JustIntonation {
-            reference_pitch: 440.0,
-        };
+        let tuning = TuningSystem::JustIntonation;
         match tuning {
-            TuningSystem::JustIntonation { reference_pitch } => {
-                assert_eq!(reference_pitch, 440.0);
+            TuningSystem::JustIntonation => {
+                // Just intonation uses ET notes as root
+                assert!(true);
             }
             _ => panic!("Expected JustIntonation"),
         }
@@ -572,8 +568,9 @@ mod tests {
     fn test_tuning_system_default() {
         let tuning = TuningSystem::default();
         match tuning {
-            TuningSystem::EqualTemperament { reference_pitch } => {
-                assert_eq!(reference_pitch, 440.0);
+            TuningSystem::EqualTemperament => {
+                // Default equal temperament uses constant A4=440Hz
+                assert!(true);
             }
             _ => panic!("Expected EqualTemperament as default"),
         }
@@ -588,8 +585,9 @@ mod tests {
         assert_eq!(config.max_frequency, 2000.0);
         
         match config.tuning_system {
-            TuningSystem::EqualTemperament { reference_pitch } => {
-                assert_eq!(reference_pitch, 440.0);
+            TuningSystem::EqualTemperament => {
+                // Default tuning system uses constant A4=440Hz
+                assert!(true);
             }
             _ => panic!("Expected EqualTemperament as default tuning system"),
         }
@@ -597,9 +595,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_detector_config_custom() {
-        let custom_tuning = TuningSystem::JustIntonation {
-            reference_pitch: 432.0,
-        };
+        let custom_tuning = TuningSystem::JustIntonation;
         let config = PitchDetectorConfig {
             sample_window_size: 2048,
             threshold: 0.2,
@@ -614,8 +610,9 @@ mod tests {
         assert_eq!(config.max_frequency, 4000.0);
         
         match config.tuning_system {
-            TuningSystem::JustIntonation { reference_pitch } => {
-                assert_eq!(reference_pitch, 432.0);
+            TuningSystem::JustIntonation => {
+                // Just intonation uses ET notes as root
+                assert!(true);
             }
             _ => panic!("Expected JustIntonation"),
         }

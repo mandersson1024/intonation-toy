@@ -155,24 +155,22 @@ pub struct RequestMicrophonePermissionAction;
 /// Validated audio system configuration
 /// 
 /// This struct represents an audio system configuration that has been validated
-/// by the model layer's business logic. It contains the tuning system and
-/// reference frequency that will be applied to the audio processing pipeline.
+/// by the model layer's business logic. It contains the tuning system that will
+/// be applied to the audio processing pipeline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureAudioSystemAction {
     pub tuning_system: TuningSystem,
-    pub reference_frequency: f32,
 }
 
 /// Validated tuning configuration update
 /// 
 /// This struct represents a tuning configuration update that has been validated
 /// by the model layer's business logic. It contains the complete tuning configuration
-/// including tuning system, root note, and reference frequency (which remains constant).
+/// including tuning system and root note.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateTuningConfigurationAction {
     pub tuning_system: TuningSystem,
     pub root_note: Note,
-    pub reference_frequency: f32,
 }
 
 /// Container for all processed model layer actions
@@ -249,10 +247,6 @@ pub struct DataModel {
     /// Current tuning system used for pitch calculations
     tuning_system: TuningSystem,
     
-    /// Reference frequency for A4 (default 440 Hz)
-    /// This frequency remains constant regardless of root note changes
-    reference_a4: f32,
-    
     /// Current root note for tuning calculations
     root_note: Note,
 }
@@ -275,7 +269,6 @@ impl DataModel {
         // Model layer initialization without interface dependencies
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
-            reference_a4: 440.0, // Standard A4 frequency
             root_note: Note::A, // Standard A root note
         })
     }
@@ -470,7 +463,6 @@ impl DataModel {
                 Ok(()) => {
                     let config = ConfigureAudioSystemAction {
                         tuning_system: tuning_change.tuning_system.clone(),
-                        reference_frequency: self.reference_a4,
                     };
                     
                     // Apply the state change to internal model state
@@ -490,13 +482,9 @@ impl DataModel {
         for root_note_adjustment in presentation_actions.root_note_adjustments {
             match self.validate_root_note_adjustment_with_error(&root_note_adjustment.root_note) {
                 Ok(()) => {
-                    // Reference frequency remains constant at A4=440Hz regardless of root note selection.
-                    // The root note affects musical relationships but not the fundamental frequency reference.
-                    let new_reference_frequency = self.reference_a4;
                     let config = UpdateTuningConfigurationAction {
                         tuning_system: self.tuning_system.clone(),
                         root_note: root_note_adjustment.root_note.clone(),
-                        reference_frequency: new_reference_frequency,
                     };
                     
                     // Apply the state change to internal model state
@@ -526,8 +514,9 @@ impl DataModel {
         }
         
         // Calculate MIDI note number from frequency
-        // MIDI note 69 = A4 (440 Hz by default)
-        let midi_note = 69.0 + 12.0 * (frequency / self.reference_a4).log2();
+        // MIDI note 69 = A4 (always 440 Hz)
+        const A4_FREQUENCY: f32 = 440.0;
+        let midi_note = 69.0 + 12.0 * (frequency / A4_FREQUENCY).log2();
         let rounded_midi = midi_note.round();
         let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive
         
@@ -662,14 +651,12 @@ impl DataModel {
     /// - Validation of state consistency after changes
     fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
         self.tuning_system = action.tuning_system.clone();
-        self.reference_a4 = action.reference_frequency;
     }
     
     /// Apply root note change to internal state
     /// 
-    /// Updates the internal root note and reference frequency based on a validated
-    /// root note adjustment. This method should only be called with actions that have
-    /// passed business logic validation.
+    /// Updates the internal root note based on a validated root note adjustment.
+    /// This method should only be called with actions that have passed business logic validation.
     /// 
     /// # Arguments
     /// 
@@ -677,8 +664,8 @@ impl DataModel {
     /// 
     /// # Current Implementation
     /// 
-    /// Updates the internal tuning system, root note, and reference frequency directly
-    /// from the validated action. Future implementations will add:
+    /// Updates the internal tuning system and root note directly from the validated action.
+    /// Future implementations will add:
     /// - State change notifications
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
@@ -686,7 +673,6 @@ impl DataModel {
     fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
         self.tuning_system = action.tuning_system.clone();
         self.root_note = action.root_note.clone();
-        self.reference_a4 = action.reference_frequency;
     }
 }
 

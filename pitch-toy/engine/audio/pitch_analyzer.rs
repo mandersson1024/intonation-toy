@@ -727,7 +727,7 @@ mod tests {
         PitchDetectorConfig {
             sample_window_size: 2048, // Updated to match new accuracy-focused default
             threshold: 0.15,
-            tuning_system: TuningSystem::EqualTemperament { reference_pitch: 440.0 },
+            tuning_system: TuningSystem::EqualTemperament,
             min_frequency: 80.0,
             max_frequency: 2000.0,
         }
@@ -1653,9 +1653,8 @@ mod tests {
         
         // Test with different tuning systems
         let tuning_systems = vec![
-            TuningSystem::EqualTemperament { reference_pitch: 440.0 },
-            TuningSystem::EqualTemperament { reference_pitch: 432.0 },
-            TuningSystem::JustIntonation { reference_pitch: 440.0 },
+            TuningSystem::EqualTemperament,
+            TuningSystem::JustIntonation,
         ];
         
         for (i, tuning_system) in tuning_systems.into_iter().enumerate() {
