@@ -352,8 +352,8 @@ pub async fn connect_microphone_to_audioworklet_with_context(
                 let context_borrowed = audio_context.borrow();
                 if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
                     if let Some(volume_data) = worklet_manager.get_volume_data() {
-                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2} dB, Peak: {:.2} dB", 
-                            volume_data.rms_db, volume_data.peak_db);
+                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2}, Peak: {:.2}", 
+                            volume_data.rms_amplitude, volume_data.peak_amplitude);
                     } else {
                         dev_log!("VOLUME_DEBUG: ⚠️ No audio data detected yet after connection");
                     }
@@ -509,8 +509,8 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                 let context_borrowed = audio_context.borrow();
                 if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
                     if let Some(volume_data) = worklet_manager.get_volume_data() {
-                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2} dB, Peak: {:.2} dB", 
-                            volume_data.rms_db, volume_data.peak_db);
+                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2}, Peak: {:.2}", 
+                            volume_data.rms_amplitude, volume_data.peak_amplitude);
                     } else {
                         dev_log!("VOLUME_DEBUG: ⚠️ No audio data detected yet after 200ms - this indicates the race condition!");
                         
@@ -529,8 +529,8 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                         let context_borrowed = audio_context.borrow();
                         if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
                             if let Some(volume_data) = worklet_manager.get_volume_data() {
-                                dev_log!("VOLUME_DEBUG: ✓ Audio data started flowing after 1.2s total - RMS: {:.2} dB, Peak: {:.2} dB", 
-                                    volume_data.rms_db, volume_data.peak_db);
+                                dev_log!("VOLUME_DEBUG: ✓ Audio data started flowing after 1.2s total - RMS: {:.2}, Peak: {:.2}", 
+                                    volume_data.rms_amplitude, volume_data.peak_amplitude);
                             } else {
                                 dev_log!("VOLUME_DEBUG: ❌ No audio data after 1.2s - race condition confirmed!");
                                 dev_log!("VOLUME_DEBUG: 🔍 This suggests the JavaScript AudioWorklet process() method is not being called by the Web Audio API");

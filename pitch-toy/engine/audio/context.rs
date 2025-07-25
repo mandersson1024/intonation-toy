@@ -1026,8 +1026,8 @@ impl AudioAnalysisMerger {
 /// Convert VolumeLevelData to Volume interface type
 pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::module_interfaces::engine_to_model::Volume> {
     volume_data.map(|data| crate::module_interfaces::engine_to_model::Volume {
-        peak: data.peak_db,
-        rms: data.rms_db,
+        peak: data.peak_amplitude,
+        rms: data.rms_amplitude,
     })
 }
 

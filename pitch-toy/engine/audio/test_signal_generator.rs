@@ -211,23 +211,20 @@ impl TestSignalGenerator {
         self.config.frequency >= 20.0 && self.config.frequency <= 20000.0
     }
 
-    /// Get expected RMS level in dB for current configuration
-    pub fn expected_rms_db(&self) -> f32 {
+    /// Get expected RMS level as amplitude for current configuration
+    pub fn expected_rms_amplitude(&self) -> f32 {
         if !self.config.enabled || self.config.amplitude <= 0.0 {
-            return -f32::INFINITY;
+            return 0.0;
         }
 
-        let rms_linear = match self.config.waveform {
+        match self.config.waveform {
             TestWaveform::Sine => self.config.amplitude / 2.0_f32.sqrt(), // RMS of sine wave
             TestWaveform::Square => self.config.amplitude, // RMS of square wave
             TestWaveform::Triangle => self.config.amplitude / 3.0_f32.sqrt(), // RMS of triangle wave
             TestWaveform::Sawtooth => self.config.amplitude / 3.0_f32.sqrt(), // RMS of sawtooth wave
             TestWaveform::WhiteNoise => self.config.amplitude / 3.0_f32.sqrt(), // Approximate RMS of white noise
             TestWaveform::PinkNoise => self.config.amplitude / 4.0_f32.sqrt(), // Approximate RMS of pink noise
-        };
-
-        // Convert to dB
-        20.0 * rms_linear.log10()
+        }
     }
 
     /// Get human-readable description of current signal
@@ -342,11 +339,10 @@ mod tests {
         };
         
         let generator = TestSignalGenerator::new(config);
-        let rms_db = generator.expected_rms_db();
+        let rms_amplitude = generator.expected_rms_amplitude();
         
         // For sine wave with amplitude 0.5, RMS should be 0.5/sqrt(2) ≈ 0.354
-        // In dB: 20 * log10(0.354) ≈ -9.0 dB
-        assert!((rms_db + 9.0).abs() < 1.0); // Within 1 dB
+        assert!((rms_amplitude - 0.354).abs() < 0.01); // Within 0.01 amplitude
     }
 
     #[wasm_bindgen_test]

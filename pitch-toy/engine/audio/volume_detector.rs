@@ -1,18 +1,18 @@
 /// Volume analysis result from processing an audio buffer
 #[derive(Debug, Clone)]
 pub struct VolumeAnalysis {
-    /// RMS (Root Mean Square) level in dB
-    pub rms_db: f32,
-    /// Peak level in dB
-    pub peak_db: f32,
+    /// RMS (Root Mean Square) level as amplitude (0.0 to 1.0)
+    pub rms_amplitude: f32,
+    /// Peak level as amplitude (0.0 to 1.0)
+    pub peak_amplitude: f32,
 }
 
 impl VolumeAnalysis {
     /// Create a new volume analysis result
-    pub fn new(rms_db: f32, peak_db: f32) -> Self {
+    pub fn new(rms_amplitude: f32, peak_amplitude: f32) -> Self {
         Self {
-            rms_db,
-            peak_db,
+            rms_amplitude,
+            peak_amplitude,
         }
     }
 
@@ -100,7 +100,7 @@ impl VolumeDetector {
     /// Process audio buffer and return volume analysis
     pub fn process_buffer(&mut self, samples: &[f32]) -> VolumeAnalysis {
         if samples.is_empty() {
-            return VolumeAnalysis::new(-f32::INFINITY, -f32::INFINITY);
+            return VolumeAnalysis::new(0.0, 0.0);
         }
 
         // Apply input gain
@@ -109,11 +109,11 @@ impl VolumeDetector {
         // Calculate RMS and peak values
         let (rms_linear, peak_linear) = self.calculate_rms_and_peak(samples, gain_linear);
         
-        // Convert to dB
-        let rms_db = self.linear_to_db(rms_linear);
-        let peak_db = self.linear_to_db(peak_linear);
+        // Store as amplitude values
+        let rms_amplitude = rms_linear;
+        let peak_amplitude = peak_linear;
         
-        VolumeAnalysis::new(rms_db, peak_db)
+        VolumeAnalysis::new(rms_amplitude, peak_amplitude)
     }
 
     /// Calculate RMS and peak values from audio samples with zero allocation
@@ -225,19 +225,19 @@ mod tests {
         // Test with silent buffer
         let silent_samples = vec![0.0; 1024];
         let analysis = detector.process_buffer(&silent_samples);
-        assert!(analysis.rms_db.is_finite() || analysis.rms_db == -f32::INFINITY);
+        assert!(analysis.rms_amplitude.is_finite() || analysis.rms_amplitude == -f32::INFINITY);
         
         // Test with optimal level signal
         let optimal_samples: Vec<f32> = (0..1024).map(|i| 0.1 * (i as f32 * 0.01).sin()).collect();
         let analysis = detector.process_buffer(&optimal_samples);
-        assert!(analysis.rms_db.is_finite());
+        assert!(analysis.rms_amplitude.is_finite());
         
         // Test with high level signal - use smaller amplitude to stay in optimal range
         let high_samples: Vec<f32> = (0..1024).map(|i| 0.3 * (i as f32 * 0.01).sin()).collect();
         let analysis = detector.process_buffer(&high_samples);
         // The RMS of a sine wave is amplitude / sqrt(2), so 0.3 / sqrt(2) ≈ 0.21
         // In dB: 20 * log10(0.21) ≈ -13.6 dB
-        assert!(analysis.rms_db.is_finite());
+        assert!(analysis.rms_amplitude.is_finite());
     }
 
     #[wasm_bindgen_test]
@@ -253,7 +253,7 @@ mod tests {
         let analysis2 = detector.process_buffer(&low_samples);
         
         // Peak should decay
-        assert!(analysis2.peak_db < analysis1.peak_db);
+        assert!(analysis2.peak_amplitude < analysis1.peak_amplitude);
         // Note: Fast peak might not always be less than slow peak depending on timing
     }
 
@@ -261,8 +261,8 @@ mod tests {
     fn test_empty_buffer_handling() {
         let mut detector = VolumeDetector::new_default();
         let analysis = detector.process_buffer(&[]);
-        assert_eq!(analysis.rms_db, -f32::INFINITY);
-        assert_eq!(analysis.peak_db, -f32::INFINITY);
+        assert_eq!(analysis.rms_amplitude, 0.0);
+        assert_eq!(analysis.peak_amplitude, 0.0);
     }
 
     #[wasm_bindgen_test]
@@ -274,8 +274,8 @@ mod tests {
         let analysis = detector.process_buffer(&samples);
         
         // Should handle gracefully and process valid samples
-        assert!(analysis.rms_db.is_finite());
-        assert!(analysis.peak_db.is_finite());
+        assert!(analysis.rms_amplitude.is_finite());
+        assert!(analysis.peak_amplitude.is_finite());
     }
 
     #[wasm_bindgen_test]
@@ -304,6 +304,6 @@ mod tests {
         
         // Next processing should start from clean state
         let analysis = detector.process_buffer(&samples);
-        assert!(analysis.peak_db.is_finite());
+        assert!(analysis.peak_amplitude.is_finite());
     }
 }

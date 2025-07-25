@@ -71,10 +71,10 @@ impl HybridLiveData {
         // Update volume and pitch data from engine analysis
         if let Some(analysis) = &engine_result.audio_analysis {
             // Convert Volume to VolumeLevelData
-            // Note: This conversion assumes peak/rms are in dB format
+            // Note: both peak and rms are amplitude values (0.0-1.0)
             self.volume_level = Some(VolumeLevelData {
-                peak_db: analysis.volume_level.peak,
-                rms_db: analysis.volume_level.rms,
+                peak_amplitude: analysis.volume_level.peak,
+                rms_amplitude: analysis.volume_level.rms,
             });
             
             // Convert Pitch to PitchData

@@ -465,8 +465,8 @@ impl Presenter {
     fn process_volume_data(&mut self, volume: &crate::module_interfaces::model_to_presentation::Volume) {
         // Store volume data for visualization
         // Future: Update volume meter displays, audio wave visualizations
-        let _peak_db = volume.peak;
-        let _rms_db = volume.rms;
+        let _peak_amplitude = volume.peak;
+        let _rms_amplitude = volume.rms;
         
         // Placeholder: Log significant volume changes for debugging
         if volume.peak > -20.0 {

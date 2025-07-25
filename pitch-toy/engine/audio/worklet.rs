@@ -1232,8 +1232,8 @@ impl AudioWorkletManager {
         if let Some(ref shared_data) = self.shared_data {
             if let Some(ref analysis) = shared_data.borrow().last_volume_analysis {
                 return Some(super::VolumeLevelData {
-                    rms_db: analysis.rms_db,
-                    peak_db: analysis.peak_db,
+                    rms_amplitude: analysis.rms_amplitude,
+                    peak_amplitude: analysis.peak_amplitude,
                 });
             }
         }
@@ -1241,8 +1241,8 @@ impl AudioWorkletManager {
         // Fall back to the instance's last_volume_analysis
         self.last_volume_analysis.as_ref().map(|analysis| {
             super::VolumeLevelData {
-                rms_db: analysis.rms_db,
-                peak_db: analysis.peak_db,
+                rms_amplitude: analysis.rms_amplitude,
+                peak_amplitude: analysis.peak_amplitude,
             }
         })
     }
@@ -1292,9 +1292,9 @@ impl AudioWorkletManager {
                 } else {
                     processed_samples[..processed_samples.len().min(10)].to_vec()
                 };
-                web_sys::console::log_1(&format!("Volume analysis - RMS: {:.2} dB, Peak: {:.2} dB, Samples (len={}): {:?}", 
-                    volume_analysis.rms_db, 
-                    volume_analysis.peak_db,
+                web_sys::console::log_1(&format!("Volume analysis - RMS: {:.2}, Peak: {:.2}, Samples (len={}): {:?}", 
+                    volume_analysis.rms_amplitude, 
+                    volume_analysis.peak_amplitude,
                     processed_samples.len(),
                     sample_preview
                 ).into());

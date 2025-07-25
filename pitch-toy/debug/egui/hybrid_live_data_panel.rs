@@ -297,11 +297,11 @@ impl HybridEguiLiveDataPanel {
             .show(ui, |ui| {
                 // Always reserve space for consistent height
                 if let Some(volume) = self.hybrid_data.get_volume_level() {
-                    ui.label(format!("RMS: {:.1} dB", volume.rms_db));
-                    ui.label(format!("Peak: {:.1} dB", volume.peak_db));
+                    ui.label(format!("RMS: {:.3}", volume.rms_amplitude));
+                    ui.label(format!("Peak: {:.1}", volume.peak_amplitude));
                 } else {
-                    ui.label("RMS: -- dB");
-                    ui.label("Peak: -- dB");
+                    ui.label("RMS: --");
+                    ui.label("Peak: --");
                 }
                 
                 // Volume bar visualization (always present)
@@ -309,14 +309,8 @@ impl HybridEguiLiveDataPanel {
                 let bar_height = 20.0;
                 
                 let (normalized, bar_color) = if let Some(volume) = self.hybrid_data.get_volume_level() {
-                    // Convert dB back to linear amplitude
-                    let amplitude = if volume.peak_db <= -60.0 {
-                        0.0
-                    } else {
-                        10.0_f32.powf(volume.peak_db / 20.0)
-                    };
-                    
-                    // Debug logging removed - functionality is working
+                    // Use peak amplitude directly (0.0 to 1.0)
+                    let amplitude = volume.peak_amplitude;
                     
                     // Clamp to 0-1 range
                     let normalized = amplitude.clamp(0.0, 1.0);

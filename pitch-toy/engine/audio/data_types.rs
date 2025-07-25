@@ -7,8 +7,8 @@ use super::{AudioWorkletState, MusicalNote};
 /// Volume level data for external consumption
 #[derive(Debug, Clone, PartialEq)]
 pub struct VolumeLevelData {
-    pub rms_db: f32,
-    pub peak_db: f32,
+    pub rms_amplitude: f32,
+    pub peak_amplitude: f32,
 }
 
 /// Pitch detection data for external consumption

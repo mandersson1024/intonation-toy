@@ -440,8 +440,8 @@ mod tests {
     fn test_interface_adapter_volume_data_conversion() {
         // Test volume data conversion using new conversion functions
         let volume_data = data_types::VolumeLevelData {
-            peak_db: -10.0,
-            rms_db: -20.0,
+            peak_amplitude: 0.3,
+            rms_amplitude: 0.2,
         };
         
         // Test the conversion function
@@ -449,8 +449,8 @@ mod tests {
         assert!(converted.is_some());
         
         let volume = converted.unwrap();
-        assert_eq!(volume.peak, -10.0);
-        assert_eq!(volume.rms, -20.0);
+        assert_eq!(volume.peak, 0.3);
+        assert_eq!(volume.rms, 0.2);
         
         // Test with None input
         let converted_none = context::convert_volume_data(None);

@@ -26,8 +26,8 @@ impl Default for PerformanceMetrics {
 /// Volume level data for display
 #[derive(Debug, Clone, PartialEq)]
 pub struct VolumeLevelData {
-    pub rms_db: f32,
-    pub peak_db: f32,
+    pub rms_amplitude: f32,
+    pub peak_amplitude: f32,
 }
 
 /// Pitch detection data for display
@@ -66,8 +66,8 @@ impl Default for AudioWorkletStatus {
 impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
     fn from(audio_data: crate::engine::audio::VolumeLevelData) -> Self {
         Self {
-            rms_db: audio_data.rms_db,
-            peak_db: audio_data.peak_db,
+            rms_amplitude: audio_data.rms_amplitude,
+            peak_amplitude: audio_data.peak_amplitude,
         }
     }
 }
