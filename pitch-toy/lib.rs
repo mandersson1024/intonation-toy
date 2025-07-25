@@ -22,7 +22,7 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 
 // Import action types for three-layer action processing
-use debug::egui::{EguiMicrophoneButton, HybridEguiLiveDataPanel};
+use debug::egui::{EguiDebugControls, HybridEguiLiveDataPanel};
 
 
 // Import action system
