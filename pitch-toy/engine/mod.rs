@@ -727,11 +727,27 @@ impl AudioEngine {
             
             // Direct privileged access to test signal generation
             if let Some(ref audio_context) = self.audio_context {
-                // TODO: Implement direct test signal control in audio worklet
-                // For now, log the privileged operation
-                crate::common::dev_log!(
-                    "[DEBUG] PRIVILEGED: Direct test signal control - bypassing normal validation"
-                );
+                let mut borrowed_context = audio_context.borrow_mut();
+                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
+                    // Convert debug action to audio system config
+                    let audio_config = crate::engine::audio::TestSignalGeneratorConfig {
+                        enabled: config.enabled,
+                        frequency: config.frequency,
+                        amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
+                        waveform: config.waveform.clone(),
+                        sample_rate: 48000.0, // Use standard sample rate
+                    };
+                    
+                    worklet_manager.update_test_signal_config(audio_config);
+                    crate::common::dev_log!(
+                        "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
+                        config.enabled, config.frequency, config.volume
+                    );
+                } else {
+                    crate::common::dev_log!(
+                        "[DEBUG] ⚠ AudioWorkletManager not available for test signal control"
+                    );
+                }
                 
                 // Record the executed action
                 debug_engine_actions.test_signal_executions.push(ExecuteTestSignalConfiguration {
