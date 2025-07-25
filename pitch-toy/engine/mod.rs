@@ -49,7 +49,7 @@ pub mod platform;
 
 use crate::module_interfaces::engine_to_model::EngineUpdateResult;
 use crate::module_interfaces::model_to_presentation::{TuningSystem, Note};
-use crate::model::{ModelLayerActions, RequestMicrophonePermissionAction, ConfigureAudioSystemAction, UpdateTuningConfigurationAction};
+use crate::model::{ModelLayerActions};
 
 // Debug-only imports
 #[cfg(debug_assertions)]
@@ -110,9 +110,6 @@ pub struct UpdateTuningConfiguration {
 /// as `EngineLayerActions` for logging and feedback purposes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineLayerActions {
-    /// Executed microphone permission requests
-    pub microphone_permission_requests: Vec<ExecuteMicrophonePermissionRequest>,
-    
     /// Executed audio system configurations
     pub audio_system_configurations: Vec<ConfigureAudioSystem>,
     
@@ -127,7 +124,6 @@ impl EngineLayerActions {
     /// as empty. This is used as the starting point for collecting executed actions.
     pub fn new() -> Self {
         Self {
-            microphone_permission_requests: Vec::new(),
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
         }
@@ -376,42 +372,6 @@ impl AudioEngine {
         }
     }
     
-    /// Execute non-permission actions synchronously
-    /// 
-    /// This method executes all non-permission actions (audio system configurations
-    /// and tuning configurations) synchronously. Permission requests should be
-    /// handled separately using has_permission_actions() and execute_permission_async().
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_actions` - Validated actions from the model layer to execute
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<EngineLayerActions, String>` containing the successfully
-    /// executed non-permission actions or an error message if execution failed.
-    pub fn execute_sync_actions(&mut self, model_actions: &ModelLayerActions) -> Result<EngineLayerActions, String> {
-        // Log only non-permission actions
-        let sync_actions = model_actions.audio_system_configurations.len() + 
-                          model_actions.tuning_configurations.len();
-        
-        if sync_actions > 0 {
-            crate::common::dev_log!("Engine layer executing {} synchronous actions", sync_actions);
-        }
-        
-        let mut engine_actions = EngineLayerActions::new();
-        
-        // Execute synchronous actions (these are currently placeholders)
-        self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
-        self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
-        
-        if sync_actions > 0 {
-            self.log_execution_completion(&engine_actions);
-        }
-        
-        Ok(engine_actions)
-    }
-    
     /// Execute model layer actions and return executed actions for logging/feedback
     /// 
     /// This method receives validated actions from the model layer, transforms them
@@ -443,14 +403,13 @@ impl AudioEngine {
     /// The engine layer calculates appropriate root frequencies based on the tuning system
     /// and root note specified in the model actions. Model actions contain only the musical
     /// parameters (tuning system, root note) while the engine determines the actual frequencies.
-    pub async fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<EngineLayerActions, String> {
+    pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<EngineLayerActions, String> {
         self.log_execution_start(&model_actions);
         
         let mut engine_actions = EngineLayerActions::new();
         
-        self.execute_microphone_permission_actions(&model_actions, &mut engine_actions).await?;
-        self.execute_audio_system_configuration_actions(&model_actions, &mut engine_actions).await?;
-        self.execute_tuning_configuration_actions(&model_actions, &mut engine_actions).await?;
+        self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
         
         self.log_execution_completion(&engine_actions);
         
@@ -466,8 +425,7 @@ impl AudioEngine {
     /// 
     /// * `model_actions` - The model layer actions to be executed
     fn log_execution_start(&self, model_actions: &ModelLayerActions) {
-        let total_actions = model_actions.microphone_permission_requests.len() + 
-                          model_actions.audio_system_configurations.len() + 
+        let total_actions = model_actions.audio_system_configurations.len() + 
                           model_actions.tuning_configurations.len();
         
         crate::common::dev_log!("Engine layer executing {} model actions", total_actions);
@@ -482,271 +440,10 @@ impl AudioEngine {
     /// 
     /// * `engine_actions` - The successfully executed engine layer actions
     fn log_execution_completion(&self, engine_actions: &EngineLayerActions) {
-        let total_executed = engine_actions.microphone_permission_requests.len() + 
-                           engine_actions.audio_system_configurations.len() + 
+        let total_executed = engine_actions.audio_system_configurations.len() + 
                            engine_actions.tuning_configurations.len();
         
         crate::common::dev_log!("✓ Engine layer successfully executed {} total actions", total_executed);
-    }
-    
-    /// Execute microphone permission actions and handle results
-    /// 
-    /// This helper method executes microphone permission requests and handles
-    /// the results, including error management and result aggregation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_actions` - The model layer actions containing permission requests
-    /// * `engine_actions` - The engine actions container to populate with results
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure of execution
-    async fn execute_microphone_permission_actions(
-        &self,
-        model_actions: &ModelLayerActions,
-        engine_actions: &mut EngineLayerActions
-    ) -> Result<(), String> {
-        let mic_results = self.execute_microphone_permission_requests(
-            &model_actions.microphone_permission_requests
-        ).await;
-        
-        match mic_results {
-            Ok(executed_requests) => {
-                engine_actions.microphone_permission_requests = executed_requests;
-                crate::common::dev_log!("✓ Executed {} microphone permission requests", 
-                    engine_actions.microphone_permission_requests.len());
-                Ok(())
-            }
-            Err(e) => {
-                crate::common::dev_log!("✗ Failed to execute microphone permission requests: {}", e);
-                Err(format!("Microphone permission execution failed: {}", e))
-            }
-        }
-    }
-    
-    /// Execute audio system configuration actions and handle results
-    /// 
-    /// This helper method executes audio system configurations and handles
-    /// the results, including error management and result aggregation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_actions` - The model layer actions containing system configurations
-    /// * `engine_actions` - The engine actions container to populate with results
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure of execution
-    async fn execute_audio_system_configuration_actions(
-        &self,
-        model_actions: &ModelLayerActions,
-        engine_actions: &mut EngineLayerActions
-    ) -> Result<(), String> {
-        let audio_results = self.execute_audio_system_configurations(
-            &model_actions.audio_system_configurations
-        ).await;
-        
-        match audio_results {
-            Ok(executed_configs) => {
-                engine_actions.audio_system_configurations = executed_configs;
-                crate::common::dev_log!("✓ Executed {} audio system configurations", 
-                    engine_actions.audio_system_configurations.len());
-                Ok(())
-            }
-            Err(e) => {
-                crate::common::dev_log!("✗ Failed to execute audio system configurations: {}", e);
-                Err(format!("Audio system configuration failed: {}", e))
-            }
-        }
-    }
-    
-    /// Execute tuning configuration actions and handle results
-    /// 
-    /// This helper method executes tuning configurations and handles
-    /// the results, including error management and result aggregation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_actions` - The model layer actions containing tuning configurations
-    /// * `engine_actions` - The engine actions container to populate with results
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure of execution
-    async fn execute_tuning_configuration_actions(
-        &self,
-        model_actions: &ModelLayerActions,
-        engine_actions: &mut EngineLayerActions
-    ) -> Result<(), String> {
-        let tuning_results = self.execute_tuning_configurations(
-            &model_actions.tuning_configurations
-        ).await;
-        
-        match tuning_results {
-            Ok(executed_tunings) => {
-                engine_actions.tuning_configurations = executed_tunings;
-                crate::common::dev_log!("✓ Executed {} tuning configurations", 
-                    engine_actions.tuning_configurations.len());
-                Ok(())
-            }
-            Err(e) => {
-                crate::common::dev_log!("✗ Failed to execute tuning configurations: {}", e);
-                Err(format!("Tuning configuration failed: {}", e))
-            }
-        }
-    }
-    
-    /// Execute microphone permission requests using existing microphone functionality
-    /// 
-    /// This method processes validated microphone permission requests from the model layer
-    /// and executes them using the existing `connect_microphone_to_audioworklet_with_context()`
-    /// functionality from the microphone module.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `permission_requests` - Vector of validated permission requests to execute
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<Vec<ExecuteMicrophonePermissionRequest>, String>` containing
-    /// either the successfully executed permission requests or an error message.
-    async fn execute_microphone_permission_requests(
-        &self,
-        permission_requests: &[RequestMicrophonePermissionAction]
-    ) -> Result<Vec<ExecuteMicrophonePermissionRequest>, String> {
-        let mut executed_requests = Vec::new();
-        
-        for _request in permission_requests {
-            if let Some(ref audio_context) = self.audio_context {
-                crate::common::dev_log!("Executing microphone permission request using connect_microphone_to_audioworklet_with_context()");
-                
-                match audio::microphone::connect_microphone_to_audioworklet_with_context(audio_context).await {
-                    Ok(_) => {
-                        executed_requests.push(ExecuteMicrophonePermissionRequest);
-                        crate::common::dev_log!("✓ Microphone permission request executed successfully");
-                    }
-                    Err(e) => {
-                        crate::common::dev_log!("✗ Microphone permission execution failed: {}", e);
-                        return Err(format!("Microphone connection failed: {}", e));
-                    }
-                }
-            } else {
-                crate::common::dev_log!("✗ No audio context available for microphone permission execution");
-                return Err("Audio system not initialized".to_string());
-            }
-        }
-        
-        Ok(executed_requests)
-    }
-    
-    /// Execute audio system configurations with tuning system and root frequency
-    /// 
-    /// This method processes validated audio system configurations from the model layer
-    /// and configures the audio worklet with the specified tuning system and root frequency
-    /// for the tonic note.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `system_configs` - Vector of validated system configurations to execute
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<Vec<ConfigureAudioSystem>, String>` containing either the
-    /// successfully executed configurations or an error message.
-    async fn execute_audio_system_configurations(
-        &self,
-        system_configs: &[ConfigureAudioSystemAction]
-    ) -> Result<Vec<ConfigureAudioSystem>, String> {
-        let mut executed_configs = Vec::new();
-        
-        for config in system_configs {
-            // Transform model action to engine action by calculating the root frequency
-            // Note: For now we use a default root frequency of 440Hz (A4) as a placeholder
-            // Future implementations will calculate the proper root frequency based on the tuning system
-            let root_frequency = self.calculate_root_frequency_for_tuning_system(&config.tuning_system);
-            
-            let engine_config = ConfigureAudioSystem {
-                tuning_system: config.tuning_system.clone(),
-                root_frequency,
-            };
-            
-            crate::common::dev_log!("Configuring audio system with tuning: {:?}, root frequency: {} Hz", 
-                engine_config.tuning_system, engine_config.root_frequency);
-            
-            // Execute the configuration using audio system context
-            if let Some(ref audio_context) = self.audio_context {
-                match self.configure_audio_worklet_with_tuning(&engine_config, audio_context).await {
-                    Ok(_) => {
-                        executed_configs.push(engine_config);
-                        crate::common::dev_log!("✓ Audio system configuration executed successfully");
-                    }
-                    Err(e) => {
-                        crate::common::dev_log!("✗ Audio system configuration failed: {}", e);
-                        return Err(format!("Audio worklet configuration failed: {}", e));
-                    }
-                }
-            } else {
-                crate::common::dev_log!("✗ No audio context available for audio system configuration");
-                return Err("Audio system not initialized".to_string());
-            }
-        }
-        
-        Ok(executed_configs)
-    }
-    
-    /// Execute tuning configurations with root note and root frequency
-    /// 
-    /// This method processes validated tuning configurations from the model layer
-    /// and updates the audio system's tuning configuration with the specified root note
-    /// and calculates the appropriate root frequency for that note.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `tuning_configs` - Vector of validated tuning configurations to execute
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<Vec<UpdateTuningConfiguration>, String>` containing either the
-    /// successfully executed configurations or an error message.
-    async fn execute_tuning_configurations(
-        &self,
-        tuning_configs: &[UpdateTuningConfigurationAction]
-    ) -> Result<Vec<UpdateTuningConfiguration>, String> {
-        let mut executed_configs = Vec::new();
-        
-        for config in tuning_configs {
-            // Calculate the root frequency for the specified root note
-            let root_frequency = self.calculate_root_frequency_for_note(&config.root_note);
-            
-            let engine_config = UpdateTuningConfiguration {
-                tuning_system: config.tuning_system.clone(),
-                root_note: config.root_note.clone(),
-                root_frequency,
-            };
-            
-            crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}, root frequency: {} Hz", 
-                engine_config.tuning_system, engine_config.root_note, engine_config.root_frequency);
-            
-            // Execute the tuning update using audio system context
-            if let Some(ref audio_context) = self.audio_context {
-                match self.update_audio_worklet_tuning(&engine_config, audio_context).await {
-                    Ok(_) => {
-                        executed_configs.push(engine_config);
-                        crate::common::dev_log!("✓ Tuning configuration executed successfully");
-                    }
-                    Err(e) => {
-                        crate::common::dev_log!("✗ Tuning configuration failed: {}", e);
-                        return Err(format!("Audio worklet tuning update failed: {}", e));
-                    }
-                }
-            } else {
-                crate::common::dev_log!("✗ No audio context available for tuning configuration");
-                return Err("Audio system not initialized".to_string());
-            }
-        }
-        
-        Ok(executed_configs)
     }
     
     /// Execute audio system configurations synchronously
@@ -984,7 +681,7 @@ impl AudioEngine {
     /// - Speaker output: Direct manipulation of speaker output routing
     /// - Background noise: Direct injection of noise into the audio pipeline
     #[cfg(debug_assertions)]
-    pub async fn execute_debug_actions(&mut self, debug_actions: DebugLayerActions) -> Result<DebugEngineActions, String> {
+    pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<DebugEngineActions, String> {
         crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
         
         let mut debug_engine_actions = DebugEngineActions::new();
@@ -1014,6 +711,24 @@ impl AudioEngine {
         crate::common::dev_log!("[DEBUG] ✓ Engine layer successfully executed {} debug actions", total_executed);
         
         Ok(debug_engine_actions)
+    }
+    
+    /// Execute debug actions asynchronously (async wrapper for compatibility)
+    ///
+    /// This method provides backward compatibility for async callers while internally
+    /// using the synchronous implementation since debug actions don't require async operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `debug_actions` - Debug actions to execute
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<DebugEngineActions, String>` containing the executed debug actions
+    /// or an error message if execution failed.
+    #[cfg(debug_assertions)]
+    pub async fn execute_debug_actions(&mut self, debug_actions: DebugLayerActions) -> Result<DebugEngineActions, String> {
+        self.execute_debug_actions_sync(debug_actions)
     }
     
     /// Execute test signal configurations with privileged engine access (debug builds only)

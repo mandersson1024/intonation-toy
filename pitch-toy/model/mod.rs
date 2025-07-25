@@ -183,9 +183,6 @@ pub struct UpdateTuningConfigurationAction {
 /// validation and transforms valid actions into `ModelLayerActions`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelLayerActions {
-    /// Validated microphone permission requests
-    pub microphone_permission_requests: Vec<RequestMicrophonePermissionAction>,
-    
     /// Validated audio system configurations
     pub audio_system_configurations: Vec<ConfigureAudioSystemAction>,
     
@@ -200,7 +197,6 @@ impl ModelLayerActions {
     /// as empty. This is used as the starting point for collecting processed actions.
     pub fn new() -> Self {
         Self {
-            microphone_permission_requests: Vec::new(),
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
         }
@@ -443,20 +439,6 @@ impl DataModel {
         let mut model_actions = ModelLayerActions::new();
         let mut validation_errors = Vec::new();
         
-        // Process microphone permission requests
-        for _permission_request in presentation_actions.microphone_permission_requests {
-            match self.validate_microphone_permission_request_with_error() {
-                Ok(()) => {
-                    model_actions.microphone_permission_requests.push(RequestMicrophonePermissionAction);
-                }
-                Err(error) => {
-                    // Log validation failure for debugging
-                    // TODO: Add proper logging when log crate is integrated
-                    validation_errors.push(error);
-                }
-            }
-        }
-        
         // Process tuning system changes
         for tuning_change in presentation_actions.tuning_system_changes {
             match self.validate_tuning_system_change_with_error(&tuning_change.tuning_system) {
@@ -563,12 +545,6 @@ impl DataModel {
     /// # Returns
     /// 
     /// Always returns `Ok(())` as microphone permission validation is handled by the engine layer.
-    fn validate_microphone_permission_request_with_error(&self) -> Result<(), ValidationError> {
-        // No model-layer validation needed - engine handles microphone permission logic
-        Ok(())
-    }
-    
-    
     /// Validate tuning system change request with detailed error reporting
     /// 
     /// Ensures that a tuning system change is valid and different from the current system.
@@ -935,7 +911,6 @@ mod tests {
         
         // Create presentation actions with valid changes
         let mut actions = PresentationLayerActions::new();
-        actions.microphone_permission_requests.push(crate::presentation::RequestMicrophonePermission);
         actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
             tuning_system: TuningSystem::JustIntonation,
         });
@@ -946,7 +921,6 @@ mod tests {
         let result = model.process_user_actions(actions);
         
         // Should have successful actions
-        assert_eq!(result.actions.microphone_permission_requests.len(), 1);
         assert_eq!(result.actions.audio_system_configurations.len(), 1);
         assert_eq!(result.actions.tuning_configurations.len(), 1);
         
@@ -965,9 +939,6 @@ mod tests {
         
         // Create presentation actions with some valid and some invalid changes
         let mut actions = PresentationLayerActions::new();
-        
-        // Valid: permission request
-        actions.microphone_permission_requests.push(crate::presentation::RequestMicrophonePermission);
         
         // Invalid: same tuning system
         actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
@@ -992,7 +963,6 @@ mod tests {
         let result = model.process_user_actions(actions);
         
         // Should have successful actions
-        assert_eq!(result.actions.microphone_permission_requests.len(), 1);
         assert_eq!(result.actions.audio_system_configurations.len(), 1);
         assert_eq!(result.actions.tuning_configurations.len(), 1);
         

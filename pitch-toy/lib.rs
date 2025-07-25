@@ -270,13 +270,11 @@ pub async fn run_three_d_with_layers(
             let user_actions = presenter.get_user_actions();
             
             // Only process if there are actions to handle
-            let has_user_actions = !user_actions.microphone_permission_requests.is_empty() ||
-                                  !user_actions.tuning_system_changes.is_empty() ||
+            let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
                                   !user_actions.root_note_adjustments.is_empty();
             
             if has_user_actions {
                 dev_log!("Processing {} user actions", 
-                    user_actions.microphone_permission_requests.len() + 
                     user_actions.tuning_system_changes.len() + 
                     user_actions.root_note_adjustments.len()
                 );
@@ -290,30 +288,26 @@ pub async fn run_three_d_with_layers(
                 }
                 
                 // Execute validated actions in engine layer
-                let has_model_actions = !processed_actions.actions.microphone_permission_requests.is_empty() ||
-                                       !processed_actions.actions.audio_system_configurations.is_empty() ||
+                let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
                                        !processed_actions.actions.tuning_configurations.is_empty();
                 
                 if has_model_actions {
-                    dev_log!("Actions ready for execution: {} microphone, {} audio system, {} tuning", 
-                        processed_actions.actions.microphone_permission_requests.len(),
+                    dev_log!("Actions ready for execution: {} audio system, {} tuning", 
                         processed_actions.actions.audio_system_configurations.len(),
                         processed_actions.actions.tuning_configurations.len()
                     );
                     
-                    // Microphone permission is handled by first click overlay - no action needed here
-                    
-                    // Execute non-permission actions synchronously
-                    match engine.execute_sync_actions(&processed_actions.actions) {
+                    // Execute actions synchronously
+                    match engine.execute_actions(processed_actions.actions) {
                         Ok(executed_actions) => {
                             let total_sync = executed_actions.audio_system_configurations.len() + 
                                            executed_actions.tuning_configurations.len();
                             if total_sync > 0 {
-                                dev_log!("✓ Executed {} synchronous actions", total_sync);
+                                dev_log!("✓ Executed {} actions", total_sync);
                             }
                         }
                         Err(e) => {
-                            dev_log!("✗ Synchronous action execution failed: {}", e);
+                            dev_log!("✗ Action execution failed: {}", e);
                         }
                     }
                 }
@@ -356,19 +350,20 @@ pub async fn run_three_d_with_layers(
                         debug_actions.background_noise_configurations.len()
                     );
                     
-                    // TODO: Execute debug actions synchronously or implement proper async handling
-                    // The current engine.execute_debug_actions() is async, which cannot be directly
-                    // called in the render loop. This requires the same architectural changes as
-                    // regular action execution.
-                    
-                    dev_log!("[DEBUG] Debug actions ready for execution: {} test signal, {} speaker output, {} background noise", 
-                        debug_actions.test_signal_configurations.len(),
-                        debug_actions.speaker_output_configurations.len(),
-                        debug_actions.background_noise_configurations.len()
-                    );
-                    
-                    // Placeholder: Debug actions would be executed here once async handling is resolved
-                    // engine.execute_debug_actions(debug_actions).await
+                    // Execute debug actions synchronously
+                    match _engine.execute_debug_actions_sync(debug_actions) {
+                        Ok(executed_debug_actions) => {
+                            let total_debug = executed_debug_actions.test_signal_executions.len() + 
+                                            executed_debug_actions.speaker_output_executions.len() + 
+                                            executed_debug_actions.background_noise_executions.len();
+                            if total_debug > 0 {
+                                dev_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
+                            }
+                        }
+                        Err(e) => {
+                            dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
+                        }
+                    }
                 }
             } else {
                 // Log if debug action processing is skipped due to missing layers

@@ -122,7 +122,6 @@ pub struct ConfigureBackgroundNoise {
 /// The main loop retrieves these actions and processes them appropriately.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PresentationLayerActions {
-    pub microphone_permission_requests: Vec<RequestMicrophonePermission>,
     pub tuning_system_changes: Vec<ChangeTuningSystem>,
     pub root_note_adjustments: Vec<AdjustRootNote>,
 }
@@ -131,7 +130,6 @@ impl PresentationLayerActions {
     /// Create a new instance with empty action collections
     pub fn new() -> Self {
         Self {
-            microphone_permission_requests: Vec::new(),
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
         }
@@ -332,15 +330,6 @@ impl Presenter {
     /// to process user actions that occurred during the previous frame.
     pub fn get_user_actions(&mut self) -> PresentationLayerActions {
         std::mem::replace(&mut self.pending_user_actions, PresentationLayerActions::new())
-    }
-
-    /// Handle user request for microphone permission
-    /// 
-    /// This method should be called by UI components when the user clicks
-    /// a button or performs an action that requests microphone access.
-    /// The action will be collected and processed by the main loop.
-    pub fn on_microphone_permission_requested(&mut self) {
-        self.pending_user_actions.microphone_permission_requests.push(RequestMicrophonePermission);
     }
 
     /// Handle user request to change the tuning system
@@ -763,27 +752,10 @@ mod tests {
 
         let actions = presenter.get_user_actions();
         
-        assert!(actions.microphone_permission_requests.is_empty());
         assert!(actions.tuning_system_changes.is_empty());
         assert!(actions.root_note_adjustments.is_empty());
     }
 
-    /// Test microphone permission request collection
-    #[wasm_bindgen_test]
-    fn test_microphone_permission_request_collection() {
-        let mut presenter = Presenter::create()
-            .expect("Presenter creation should succeed");
-
-        // Trigger microphone permission request
-        presenter.on_microphone_permission_requested();
-        
-        let actions = presenter.get_user_actions();
-        assert_eq!(actions.microphone_permission_requests.len(), 1);
-        
-        // After getting actions, they should be cleared
-        let actions2 = presenter.get_user_actions();
-        assert!(actions2.microphone_permission_requests.is_empty());
-    }
 
     /// Test tuning system change collection
     #[wasm_bindgen_test]
@@ -828,25 +800,23 @@ mod tests {
             .expect("Presenter creation should succeed");
 
         // Trigger multiple actions
-        presenter.on_microphone_permission_requested();
         presenter.on_tuning_system_changed(TuningSystem::EqualTemperament);
         presenter.on_root_note_adjusted(Note::G);
-        presenter.on_microphone_permission_requested(); // Second request
+        presenter.on_tuning_system_changed(TuningSystem::JustIntonation); // Second change
         
         let actions = presenter.get_user_actions();
         
         // Verify all actions were collected
-        assert_eq!(actions.microphone_permission_requests.len(), 2);
-        assert_eq!(actions.tuning_system_changes.len(), 1);
+        assert_eq!(actions.tuning_system_changes.len(), 2);
         assert_eq!(actions.root_note_adjustments.len(), 1);
         
         // Verify action data
         assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
+        assert_eq!(actions.tuning_system_changes[1].tuning_system, TuningSystem::JustIntonation);
         assert_eq!(actions.root_note_adjustments[0].root_note, Note::G);
         
         // After getting actions, all should be cleared
         let actions2 = presenter.get_user_actions();
-        assert!(actions2.microphone_permission_requests.is_empty());
         assert!(actions2.tuning_system_changes.is_empty());
         assert!(actions2.root_note_adjustments.is_empty());
     }
@@ -861,7 +831,6 @@ mod tests {
         assert_eq!(actions1, actions2);
         
         // Test that new instances are empty
-        assert!(actions1.microphone_permission_requests.is_empty());
         assert!(actions1.tuning_system_changes.is_empty());
         assert!(actions1.root_note_adjustments.is_empty());
     }
