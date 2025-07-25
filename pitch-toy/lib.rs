@@ -20,6 +20,12 @@ use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
+
+// Import action types for three-layer action processing
+// Note: Some imports are commented out until async execution is resolved
+// use presentation::{PresentationLayerActions, DebugLayerActions};
+// use model::{ProcessedActions, ModelLayerActions};
+// use engine::{EngineLayerActions, DebugEngineActions};
 use debug::egui::{EguiMicrophoneButton, HybridEguiLiveDataPanel};
 
 
@@ -120,6 +126,18 @@ pub struct UIControlListeners {
 // Legacy run_three_d function removed - using hybrid architecture only
 
 /// Run three-d with three-layer architecture
+/// 
+/// This function orchestrates the three-layer architecture with the following sequence:
+/// 1. Three-layer update (engine → model → presenter)
+/// 2. User action processing (presenter → model → engine)
+/// 3. Debug action processing (presenter → engine, debug builds only)
+/// 4. GUI update and rendering
+///
+/// Action processing ensures proper validation and separation of concerns:
+/// - User actions are collected from the presentation layer
+/// - Actions are validated in the model layer
+/// - Validated actions are executed in the engine layer
+/// - Debug actions bypass validation for testing purposes
 pub async fn run_three_d_with_layers(
     mut engine: Option<engine::AudioEngine>,
     mut model: Option<model::DataModel>,
@@ -182,7 +200,7 @@ pub async fn run_three_d_with_layers(
             last_fps_update = current_time;
             
             // Update performance metrics
-            let metrics = debug::egui::data_types::PerformanceMetrics {
+            let _metrics = debug::egui::data_types::PerformanceMetrics {
                 fps,
                 memory_usage: 0.0, // Placeholder
                 audio_latency: 0.0, // Placeholder
@@ -244,6 +262,125 @@ pub async fn run_three_d_with_layers(
         if let Some(ref mut presenter) = presenter {
             presenter.update(timestamp, model_data);
             presenter.update_viewport(frame_input.viewport);
+        }
+        
+        // Process user actions through three-layer validation and execution
+        if let (Some(presenter), Some(model), Some(_engine)) = (&mut presenter, &mut model, &mut engine) {
+            // Collect user actions from presentation layer
+            let user_actions = presenter.get_user_actions();
+            
+            // Only process if there are actions to handle
+            let has_user_actions = !user_actions.microphone_permission_requests.is_empty() ||
+                                  !user_actions.tuning_system_changes.is_empty() ||
+                                  !user_actions.root_note_adjustments.is_empty();
+            
+            if has_user_actions {
+                dev_log!("Processing {} user actions", 
+                    user_actions.microphone_permission_requests.len() + 
+                    user_actions.tuning_system_changes.len() + 
+                    user_actions.root_note_adjustments.len()
+                );
+                
+                // Process and validate actions in model layer
+                let processed_actions = model.process_user_actions(user_actions);
+                
+                // Log validation errors if any
+                for error in &processed_actions.validation_errors {
+                    dev_log!("Action validation error: {:?}", error);
+                }
+                
+                // Execute validated actions in engine layer
+                let has_model_actions = !processed_actions.actions.microphone_permission_requests.is_empty() ||
+                                       !processed_actions.actions.audio_system_configurations.is_empty() ||
+                                       !processed_actions.actions.tuning_configurations.is_empty();
+                
+                if has_model_actions {
+                    // TODO: Execute actions synchronously or implement proper async handling
+                    // The current engine.execute_actions() is async, which cannot be directly
+                    // called in the render loop. This requires architectural changes to either:
+                    // 1. Make action execution synchronous where possible
+                    // 2. Queue actions for processing outside the render loop
+                    // 3. Use a state machine to track async operations across frames
+                    
+                    dev_log!("Actions ready for execution: {} microphone, {} audio system, {} tuning", 
+                        processed_actions.actions.microphone_permission_requests.len(),
+                        processed_actions.actions.audio_system_configurations.len(),
+                        processed_actions.actions.tuning_configurations.len()
+                    );
+                    
+                    // Placeholder: Actions would be executed here once async handling is resolved
+                    // engine.execute_actions(processed_actions.actions).await
+                }
+            }
+        } else {
+            // Log if action processing is skipped due to missing layers
+            if presenter.is_none() || model.is_none() || engine.is_none() {
+                let missing = vec![
+                    if presenter.is_none() { "presenter" } else { "" },
+                    if model.is_none() { "model" } else { "" },
+                    if engine.is_none() { "engine" } else { "" },
+                ]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(", ");
+                
+                if !missing.is_empty() {
+                    dev_log!("Skipping user action processing - missing layers: {}", missing);
+                }
+            }
+        }
+        
+        // Process debug actions with privileged access (debug builds only)
+        #[cfg(debug_assertions)]
+        {
+            if let (Some(presenter), Some(_engine)) = (&mut presenter, &mut engine) {
+                // Collect debug actions from presentation layer
+                let debug_actions = presenter.get_debug_actions();
+                
+                // Only process if there are debug actions to handle
+                let has_debug_actions = !debug_actions.test_signal_configurations.is_empty() ||
+                                       !debug_actions.speaker_output_configurations.is_empty() ||
+                                       !debug_actions.background_noise_configurations.is_empty();
+                
+                if has_debug_actions {
+                    dev_log!("[DEBUG] Processing {} debug actions", 
+                        debug_actions.test_signal_configurations.len() + 
+                        debug_actions.speaker_output_configurations.len() + 
+                        debug_actions.background_noise_configurations.len()
+                    );
+                    
+                    // TODO: Execute debug actions synchronously or implement proper async handling
+                    // The current engine.execute_debug_actions() is async, which cannot be directly
+                    // called in the render loop. This requires the same architectural changes as
+                    // regular action execution.
+                    
+                    dev_log!("[DEBUG] Debug actions ready for execution: {} test signal, {} speaker output, {} background noise", 
+                        debug_actions.test_signal_configurations.len(),
+                        debug_actions.speaker_output_configurations.len(),
+                        debug_actions.background_noise_configurations.len()
+                    );
+                    
+                    // Placeholder: Debug actions would be executed here once async handling is resolved
+                    // engine.execute_debug_actions(debug_actions).await
+                }
+            } else {
+                // Log if debug action processing is skipped due to missing layers
+                if presenter.is_none() || engine.is_none() {
+                    let missing = vec![
+                        if presenter.is_none() { "presenter" } else { "" },
+                        if engine.is_none() { "engine" } else { "" },
+                    ]
+                    .into_iter()
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                    
+                    if !missing.is_empty() {
+                        dev_log!("[DEBUG] Skipping debug action processing - missing layers: {}", missing);
+                    }
+                }
+            }
         }
         
         // Extract needed values before borrowing screen
@@ -354,7 +491,7 @@ pub async fn start() {
     
     // Create UI control actions
     let ui_control_actions = UIControlActions::new();
-    let listeners = ui_control_actions.get_listeners();
+    let _listeners = ui_control_actions.get_listeners();
     let triggers = ui_control_actions.get_triggers();
     
     // Set up debug action listeners through the engine
