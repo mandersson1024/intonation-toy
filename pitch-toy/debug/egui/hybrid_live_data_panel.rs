@@ -7,11 +7,13 @@ use crate::engine::audio::{
     TestWaveform,
 };
 use crate::live_data::HybridLiveData;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
 pub struct HybridEguiLiveDataPanel {
     hybrid_data: HybridLiveData,
-    presenter: *mut crate::presentation::Presenter,
+    presenter: Rc<RefCell<crate::presentation::Presenter>>,
     last_metrics_update: f64,
     
     // UI state for debug controls
@@ -29,7 +31,7 @@ impl HybridEguiLiveDataPanel {
     /// Create new Hybrid EGUI Live Data Panel
     pub fn new(
         hybrid_data: HybridLiveData,
-        presenter: *mut crate::presentation::Presenter,
+        presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
         Self {
             hybrid_data,
@@ -498,37 +500,31 @@ impl HybridEguiLiveDataPanel {
     
     #[cfg(debug_assertions)]
     fn send_test_signal_action(&self) {
-        unsafe {
-            if let Some(presenter) = self.presenter.as_mut() {
-                presenter.on_test_signal_configured(
-                    self.test_signal_enabled,
-                    self.test_signal_frequency,
-                    self.test_signal_volume,
-                    self.test_signal_waveform.clone(),
-                );
-            }
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_test_signal_configured(
+                self.test_signal_enabled,
+                self.test_signal_frequency,
+                self.test_signal_volume,
+                self.test_signal_waveform.clone(),
+            );
         }
     }
     
     #[cfg(debug_assertions)]
     fn send_output_to_speakers_action(&self) {
-        unsafe {
-            if let Some(presenter) = self.presenter.as_mut() {
-                presenter.on_output_to_speakers_configured(self.output_to_speakers_enabled);
-            }
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_output_to_speakers_configured(self.output_to_speakers_enabled);
         }
     }
     
     #[cfg(debug_assertions)]
     fn send_background_noise_action(&self) {
-        unsafe {
-            if let Some(presenter) = self.presenter.as_mut() {
-                presenter.on_background_noise_configured(
-                    self.background_noise_enabled,
-                    self.background_noise_level,
-                    self.background_noise_type.clone(),
-                );
-            }
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_background_noise_configured(
+                self.background_noise_enabled,
+                self.background_noise_level,
+                self.background_noise_type.clone(),
+            );
         }
     }
 }

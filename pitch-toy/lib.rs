@@ -1,4 +1,6 @@
 use three_d::{self, *};
+use std::rc::Rc;
+use std::cell::RefCell;
 use three_d::egui::Color32;
 
 // Three-layer architecture modules
@@ -137,7 +139,7 @@ pub struct UIControlListeners {
 pub async fn run_three_d_with_layers(
     mut engine: Option<engine::AudioEngine>,
     mut model: Option<model::DataModel>,
-    mut presenter: Option<presentation::Presenter>,
+    mut presenter: Option<Rc<RefCell<presentation::Presenter>>>,
     debug_actions: module_interfaces::debug_actions::DebugActionsInterface,
     ui_triggers: UIControlTriggers,
 ) {
@@ -159,22 +161,15 @@ pub async fn run_three_d_with_layers(
 
     let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
     
-    // Create microphone button
-    let microphone_button = EguiMicrophoneButton::new(
-        ui_triggers.microphone_permission.clone(),
-        ui_triggers.output_to_speakers.clone(),
-        ui_triggers.test_signal.clone(),
-        ui_triggers.background_noise.clone(),
-    );
     
     // Create hybrid live data without legacy interface
     let hybrid_live_data = live_data::HybridLiveData::new();
     
     // Create hybrid debug panel
-    let mut hybrid_live_data_panel = if let Some(ref mut presenter_ref) = presenter {
+    let mut hybrid_live_data_panel = if let Some(ref presenter_ref) = presenter {
         Some(HybridEguiLiveDataPanel::new(
             hybrid_live_data,
-            presenter_ref as *mut presentation::Presenter,
+            presenter_ref.clone(),
         ))
     } else {
         None
@@ -266,15 +261,21 @@ pub async fn run_three_d_with_layers(
         }
         
         // Update presentation layer with model data
-        if let Some(ref mut presenter) = presenter {
-            presenter.update(timestamp, model_data);
-            presenter.update_viewport(frame_input.viewport);
+        if let Some(ref presenter) = presenter {
+            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.update(timestamp, model_data);
+                presenter_ref.update_viewport(frame_input.viewport);
+            }
         }
         
         // Process user actions through three-layer validation and execution
-        if let (Some(presenter), Some(model), Some(engine)) = (&mut presenter, &mut model, &mut engine) {
+        if let (Some(presenter), Some(model), Some(engine)) = (&presenter, &mut model, &mut engine) {
             // Collect user actions from presentation layer
-            let user_actions = presenter.get_user_actions();
+            let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.get_user_actions()
+            } else {
+                presentation::PresentationLayerActions::new()
+            };
             
             // Only process if there are actions to handle
             let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
@@ -341,9 +342,13 @@ pub async fn run_three_d_with_layers(
         // Process debug actions with privileged access (debug builds only)
         #[cfg(debug_assertions)]
         {
-            if let (Some(presenter), Some(_engine)) = (&mut presenter, &mut engine) {
+            if let (Some(presenter), Some(_engine)) = (&presenter, &mut engine) {
                 // Collect debug actions from presentation layer
-                let debug_actions = presenter.get_debug_actions();
+                let debug_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                    presenter_ref.get_debug_actions()
+                } else {
+                    presentation::DebugLayerActions::new()
+                };
                 
                 // Only process if there are debug actions to handle
                 let has_debug_actions = !debug_actions.test_signal_configurations.is_empty() ||
@@ -419,8 +424,10 @@ pub async fn run_three_d_with_layers(
         screen.clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0));
         
         // Render presentation layer
-        if let Some(ref mut presenter) = presenter {
-            presenter.render(&context, &mut screen);
+        if let Some(ref presenter) = presenter {
+            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.render(&context, &mut screen);
+            }
         }
         
         let _ = gui.render();
@@ -489,7 +496,7 @@ pub async fn start() {
         Ok(presenter) => {
             dev_log!("✓ Presentation layer created successfully");
             // Sprite scene will be initialized on first render to avoid variable shadowing
-            Some(presenter)
+            Some(Rc::new(RefCell::new(presenter)))
         }
         Err(e) => {
             dev_log!("✗ Presentation layer creation failed: {}", e);
