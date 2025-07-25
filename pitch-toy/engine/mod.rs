@@ -851,11 +851,25 @@ impl AudioEngine {
             
             // Direct privileged access to background noise generation
             if let Some(ref audio_context) = self.audio_context {
-                // TODO: Implement direct background noise injection
-                // For now, log the privileged operation
-                crate::common::dev_log!(
-                    "[DEBUG] PRIVILEGED: Direct background noise injection - bypassing audio processing pipeline"
-                );
+                let mut borrowed_context = audio_context.borrow_mut();
+                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
+                    // Convert debug action to audio system config
+                    let audio_config = crate::engine::audio::BackgroundNoiseConfig {
+                        enabled: config.enabled,
+                        level: config.level,
+                        noise_type: config.noise_type.clone(),
+                    };
+                    
+                    worklet_manager.update_background_noise_config(audio_config);
+                    crate::common::dev_log!(
+                        "[DEBUG] ✓ Background noise control updated - enabled: {}, level: {}", 
+                        config.enabled, config.level
+                    );
+                } else {
+                    crate::common::dev_log!(
+                        "[DEBUG] ⚠ AudioWorkletManager not available for background noise control"
+                    );
+                }
                 
                 // Record the executed action
                 debug_engine_actions.background_noise_executions.push(ExecuteBackgroundNoiseConfiguration {
