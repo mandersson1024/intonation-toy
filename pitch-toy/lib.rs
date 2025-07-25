@@ -22,10 +22,9 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 
 // Import action types for three-layer action processing
-// Note: Some imports are commented out until async execution is resolved
-// use presentation::{PresentationLayerActions, DebugLayerActions};
-// use model::{ProcessedActions, ModelLayerActions};
-// use engine::{EngineLayerActions, DebugEngineActions};
+use presentation::{PresentationLayerActions, DebugLayerActions};
+use model::{ProcessedActions, ModelLayerActions};
+use engine::{EngineLayerActions, DebugEngineActions};
 use debug::egui::{EguiMicrophoneButton, HybridEguiLiveDataPanel};
 
 
