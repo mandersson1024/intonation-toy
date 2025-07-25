@@ -779,11 +779,18 @@ impl AudioEngine {
             
             // Direct privileged access to speaker output control
             if let Some(ref audio_context) = self.audio_context {
-                // TODO: Implement direct speaker output control
-                // For now, log the privileged operation
-                crate::common::dev_log!(
-                    "[DEBUG] PRIVILEGED: Direct speaker output control - bypassing permission checks"
-                );
+                let mut borrowed_context = audio_context.borrow_mut();
+                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
+                    worklet_manager.set_output_to_speakers(config.enabled);
+                    crate::common::dev_log!(
+                        "[DEBUG] ✓ Speaker output control updated - enabled: {}", 
+                        config.enabled
+                    );
+                } else {
+                    crate::common::dev_log!(
+                        "[DEBUG] ⚠ AudioWorkletManager not available for speaker output control"
+                    );
+                }
                 
                 // Record the executed action
                 debug_engine_actions.speaker_output_executions.push(ExecuteOutputToSpeakersConfiguration {
