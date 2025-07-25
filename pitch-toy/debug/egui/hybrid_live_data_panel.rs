@@ -6,16 +6,11 @@ use crate::engine::audio::{
     AudioWorkletState,
 };
 use crate::live_data::HybridLiveData;
-use crate::module_interfaces::debug_actions::{
-    DebugActionsInterface, TestSignalAction, OutputToSpeakersAction, BackgroundNoiseAction
-};
-use crate::debug::egui::EguiMicrophoneButton;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
 pub struct HybridEguiLiveDataPanel {
     hybrid_data: HybridLiveData,
-    debug_actions: DebugActionsInterface,
-    microphone_button: EguiMicrophoneButton,
+    presenter: *mut crate::presentation::Presenter,
     last_metrics_update: f64,
     
     // UI state for debug controls
@@ -33,13 +28,11 @@ impl HybridEguiLiveDataPanel {
     /// Create new Hybrid EGUI Live Data Panel
     pub fn new(
         hybrid_data: HybridLiveData,
-        debug_actions: DebugActionsInterface,
-        microphone_button: EguiMicrophoneButton,
+        presenter: *mut crate::presentation::Presenter,
     ) -> Self {
         Self {
             hybrid_data,
-            debug_actions,
-            microphone_button,
+            presenter,
             last_metrics_update: 0.0,
             
             // Initialize UI state
@@ -114,9 +107,6 @@ impl HybridEguiLiveDataPanel {
                 self.render_pitch_detection_section(ui);
                 ui.separator();
                 
-                // Permission State Section (core data via interface)
-                self.render_permission_state_section(ui);
-                ui.separator();
                 
                 // Audio Errors Section (core data via interface)
                 self.render_audio_errors_section(ui);
@@ -386,30 +376,6 @@ impl HybridEguiLiveDataPanel {
             });
     }
     
-    /// Render permission state section (core data via interface)
-    fn render_permission_state_section(&mut self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("Permission State")
-            .default_open(true)
-            .show(ui, |ui| {
-                let permission = self.hybrid_data.get_microphone_permission();
-                
-                ui.horizontal(|ui| {
-                    ui.label("Microphone Permission:");
-                    let (color, text) = match permission {
-                        crate::engine::audio::AudioPermission::Uninitialized => (Color32::GRAY, "Not Requested"),
-                        crate::engine::audio::AudioPermission::Requesting => (Color32::YELLOW, "Requesting"),
-                        crate::engine::audio::AudioPermission::Granted => (Color32::GREEN, "Granted"),
-                        crate::engine::audio::AudioPermission::Denied => (Color32::RED, "Denied"),
-                        crate::engine::audio::AudioPermission::Unavailable => (Color32::RED, "Unavailable"),
-                    };
-                    ui.colored_label(color, text);
-                });
-            });
-        
-        // Render microphone button outside the collapsing header to avoid click conflicts
-        let permission_state = self.hybrid_data.get_microphone_permission();
-        self.microphone_button.render_inline(ui, permission_state);
-    }
     
     /// Render audio errors section (placeholder implementation)
     fn render_audio_errors_section(&self, ui: &mut Ui) {
@@ -529,32 +495,39 @@ impl HybridEguiLiveDataPanel {
     
     // Debug action helper methods
     
+    #[cfg(debug_assertions)]
     fn send_test_signal_action(&self) {
-        let action = TestSignalAction {
-            enabled: self.test_signal_enabled,
-            frequency: self.test_signal_frequency,
-            volume: self.test_signal_volume,
-            waveform: self.test_signal_waveform.clone(),
-        };
-        
-        self.debug_actions.test_signal_trigger().fire(action);
+        unsafe {
+            if let Some(presenter) = self.presenter.as_mut() {
+                presenter.on_test_signal_configured(
+                    self.test_signal_enabled,
+                    self.test_signal_frequency,
+                    self.test_signal_volume,
+                    self.test_signal_waveform.clone(),
+                );
+            }
+        }
     }
     
+    #[cfg(debug_assertions)]
     fn send_output_to_speakers_action(&self) {
-        let action = OutputToSpeakersAction {
-            enabled: self.output_to_speakers_enabled,
-        };
-        
-        self.debug_actions.output_to_speakers_trigger().fire(action);
+        unsafe {
+            if let Some(presenter) = self.presenter.as_mut() {
+                presenter.on_output_to_speakers_configured(self.output_to_speakers_enabled);
+            }
+        }
     }
     
+    #[cfg(debug_assertions)]
     fn send_background_noise_action(&self) {
-        let action = BackgroundNoiseAction {
-            enabled: self.background_noise_enabled,
-            level: self.background_noise_level,
-            noise_type: self.background_noise_type.clone(),
-        };
-        
-        self.debug_actions.background_noise_trigger().fire(action);
+        unsafe {
+            if let Some(presenter) = self.presenter.as_mut() {
+                presenter.on_background_noise_configured(
+                    self.background_noise_enabled,
+                    self.background_noise_level,
+                    self.background_noise_type.clone(),
+                );
+            }
+        }
     }
 }

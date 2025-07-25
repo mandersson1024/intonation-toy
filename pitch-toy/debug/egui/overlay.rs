@@ -24,77 +24,68 @@ impl Default for TestSignalConfig {
     }
 }
 
-/// EGUI microphone button wrapper for three-d + egui rendering
-pub struct EguiMicrophoneButton {
-    microphone_trigger: action::ActionTrigger<crate::MicrophonePermissionAction>,
+/// EGUI debug controls wrapper for three-d + egui rendering
+pub struct EguiDebugControls {
     output_to_speakers: bool,
-    output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
     test_signal_config: TestSignalConfig,
     prev_test_signal_config: TestSignalConfig,
     background_noise_config: BackgroundNoiseConfig,
     prev_background_noise_config: BackgroundNoiseConfig,
-    test_signal_trigger: action::ActionTrigger<crate::TestSignalAction>,
-    background_noise_trigger: action::ActionTrigger<crate::BackgroundNoiseAction>,
 }
 
-impl EguiMicrophoneButton {
-    /// Create new EGUI microphone button with action triggers
-    pub fn new(
-        microphone_trigger: action::ActionTrigger<crate::MicrophonePermissionAction>,
-        output_to_speakers_trigger: action::ActionTrigger<crate::OutputToSpeakersAction>,
-        test_signal_trigger: action::ActionTrigger<crate::TestSignalAction>,
-        background_noise_trigger: action::ActionTrigger<crate::BackgroundNoiseAction>,
-    ) -> Self {
+impl EguiDebugControls {
+    /// Create new EGUI debug controls
+    pub fn new() -> Self {
         let test_signal_config = TestSignalConfig::default();
         let background_noise_config = BackgroundNoiseConfig::default();
         
         Self {
-            microphone_trigger,
             output_to_speakers: false,
-            output_to_speakers_trigger,
             test_signal_config: test_signal_config.clone(),
             prev_test_signal_config: test_signal_config,
             background_noise_config: background_noise_config.clone(),
             prev_background_noise_config: background_noise_config,
-            test_signal_trigger,
-            background_noise_trigger,
         }
     }
     
     /// Apply test signal configuration to audio system
-    fn apply_test_signal_config(&self, config: &TestSignalConfig) {
-        let action = crate::TestSignalAction {
-            enabled: config.enabled,
-            waveform: config.waveform.clone(),
-            frequency: config.frequency,
-            volume: config.volume,
-        };
-        self.test_signal_trigger.fire(action);
+    #[cfg(debug_assertions)]
+    fn apply_test_signal_config(&self, config: &TestSignalConfig, presenter: &mut crate::presentation::Presenter) {
+        presenter.on_test_signal_configured(
+            config.enabled,
+            config.frequency,
+            config.volume,
+            config.waveform.clone(),
+        );
     }
     
     /// Apply background noise configuration to audio system
-    fn apply_background_noise_config(&self, config: &BackgroundNoiseConfig) {
-        let action = crate::BackgroundNoiseAction {
-            enabled: config.enabled,
-            level: config.level,
-            noise_type: config.noise_type.clone(),
-        };
-        self.background_noise_trigger.fire(action);
+    #[cfg(debug_assertions)]
+    fn apply_background_noise_config(&self, config: &BackgroundNoiseConfig, presenter: &mut crate::presentation::Presenter) {
+        presenter.on_background_noise_configured(
+            config.enabled,
+            config.level,
+            config.noise_type.clone(),
+        );
     }
     
     /// Check for configuration changes and apply them
-    fn check_and_apply_changes(&mut self) {
+    #[cfg(debug_assertions)]
+    fn check_and_apply_changes(&mut self, presenter: &mut crate::presentation::Presenter) {
         // Check test signal config changes
         if self.test_signal_config != self.prev_test_signal_config {
-            self.apply_test_signal_config(&self.test_signal_config);
+            self.apply_test_signal_config(&self.test_signal_config, presenter);
             self.prev_test_signal_config = self.test_signal_config.clone();
         }
         
         // Check background noise config changes
         if self.background_noise_config != self.prev_background_noise_config {
-            self.apply_background_noise_config(&self.background_noise_config);
+            self.apply_background_noise_config(&self.background_noise_config, presenter);
             self.prev_background_noise_config = self.background_noise_config.clone();
         }
+        
+        // Check output to speakers changes
+        // Note: This would need to be handled elsewhere as we don't track previous state
     }
     
     /// Render test signal controls section
@@ -146,30 +137,18 @@ impl EguiMicrophoneButton {
         });
     }
     
-    /// Render the microphone button inline within an existing UI context
-    pub fn render_inline(&mut self, ui: &mut egui::Ui, permission_state: AudioPermission) {
-        // Render microphone permission button inline
+    /// Render debug controls inline within an existing UI context
+    #[cfg(debug_assertions)]
+    pub fn render_inline(&mut self, ui: &mut egui::Ui, presenter: &mut crate::presentation::Presenter) {
+        // Render debug controls (test signal, background noise, output to speakers)
         
-        let button_text = match permission_state {
-            AudioPermission::Uninitialized => "Request Permission",
-            AudioPermission::Requesting => "Requesting...",
-            AudioPermission::Granted => "✓ Permission Granted",
-            AudioPermission::Denied => "Permission Denied",
-            AudioPermission::Unavailable => "Microphone Unavailable",
-        };
-        
-        let button_enabled = matches!(permission_state, AudioPermission::Uninitialized | AudioPermission::Denied);
-        
-        ui.add_enabled_ui(button_enabled, |ui| {
-            if ui.button(button_text).clicked() {
-                let action = crate::MicrophonePermissionAction {
-                    request_permission: true,
-                };
-                self.microphone_trigger.fire(action);
+        ui.horizontal(|ui| {
+            if ui.checkbox(&mut self.output_to_speakers, "Output to Speakers").changed() {
+                presenter.on_output_to_speakers_configured(self.output_to_speakers);
             }
         });
         
         // Check and apply any configuration changes
-        self.check_and_apply_changes();
+        self.check_and_apply_changes(presenter);
     }
 }
