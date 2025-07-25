@@ -742,7 +742,14 @@ impl AudioSystemContext {
             Ok(analyzer) => {
                 // Create analyzer without setter (return-based pattern)
                 let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
-                self.pitch_analyzer = Some(analyzer_rc);
+                self.pitch_analyzer = Some(analyzer_rc.clone());
+                
+                // Connect the pitch analyzer to the AudioWorkletManager so it receives audio data
+                if let Some(ref mut worklet_manager) = self.audioworklet_manager {
+                    worklet_manager.set_pitch_analyzer(analyzer_rc);
+                    dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
+                }
+                
                 dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
             }
             Err(e) => {
