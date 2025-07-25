@@ -171,11 +171,14 @@ pub async fn run_three_d_with_layers(
     let hybrid_live_data = live_data::HybridLiveData::new();
     
     // Create hybrid debug panel
-    let mut hybrid_live_data_panel = HybridEguiLiveDataPanel::new(
-        hybrid_live_data,
-        debug_actions,
-        microphone_button,
-    );
+    let mut hybrid_live_data_panel = if let Some(ref mut presenter_ref) = presenter {
+        Some(HybridEguiLiveDataPanel::new(
+            hybrid_live_data,
+            presenter_ref as *mut presentation::Presenter,
+        ))
+    } else {
+        None
+    };
 
     dev_log!("Starting three-d + egui render loop with three-layer architecture");
     
@@ -242,7 +245,9 @@ pub async fn run_three_d_with_layers(
         };
         
         // Update debug panel data with engine and model results
-        hybrid_live_data_panel.update_data(&engine_data, Some(&model_data));
+        if let Some(ref mut panel) = hybrid_live_data_panel {
+            panel.update_data(&engine_data, Some(&model_data));
+        }
         
         // Update debug panel data with performance metrics
         let performance_metrics = debug::egui::data_types::PerformanceMetrics {
@@ -251,12 +256,14 @@ pub async fn run_three_d_with_layers(
             audio_latency: 0.0, // Placeholder
             cpu_usage: 0.0, // Placeholder
         };
-        hybrid_live_data_panel.update_debug_data(
-            None, // audio_devices - not updated in main loop
-            Some(performance_metrics),
-            None, // audioworklet_status - not updated in main loop
-            None, // buffer_pool_stats - not updated in main loop
-        );
+        if let Some(ref mut panel) = hybrid_live_data_panel {
+            panel.update_debug_data(
+                None, // audio_devices - not updated in main loop
+                Some(performance_metrics),
+                None, // audioworklet_status - not updated in main loop
+                None, // buffer_pool_stats - not updated in main loop
+            );
+        }
         
         // Update presentation layer with model data
         if let Some(ref mut presenter) = presenter {
@@ -402,7 +409,9 @@ pub async fn run_three_d_with_layers(
                 });
                 
                 dev_console.render(gui_context);
-                hybrid_live_data_panel.render(gui_context);
+                if let Some(ref mut panel) = hybrid_live_data_panel {
+                    panel.render(gui_context);
+                }
             }
         );
         
