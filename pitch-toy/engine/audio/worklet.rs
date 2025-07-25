@@ -223,6 +223,37 @@ impl AudioWorkletManager {
         }
     }
     
+    /// Creates a new AudioWorkletManager using the return-based pattern.
+    /// 
+    /// This constructor is specifically designed for the return-based data flow pattern
+    /// where components are created without setters and data is collected through getter
+    /// methods rather than pushed to setters. The manager is initialized with default
+    /// configuration and settings optimized for the return-based architecture.
+    /// 
+    /// # Default Settings
+    /// - Uses `AudioWorkletConfig::default()` for configuration
+    /// - Enables ping-pong buffer recycling by default
+    /// - Initializes without external dependencies or setters
+    /// 
+    /// # Example
+    /// ```
+    /// let worklet_manager = AudioWorkletManager::new_return_based();
+    /// // Data is collected through getter methods rather than pushed via setters
+    /// ```
+    pub fn new_return_based() -> Self {
+        Self {
+            config: AudioWorkletConfig::default(),
+            worklet_node: None,
+            processor_registration_handler: None,
+            state: AudioWorkletState::Uninitialized,
+            return_messages: VecDeque::new(),
+            audio_context_manager: None,
+            pitch_analyzer: None,
+            message_factory: AudioWorkletMessageFactory::new(),
+            ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
+        }
+    }
+    
     /// Get current AudioWorklet state
     fn state(&self) -> &AudioWorkletState {
         &self.state
