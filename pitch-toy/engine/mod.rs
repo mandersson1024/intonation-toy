@@ -51,6 +51,12 @@ use crate::module_interfaces::engine_to_model::EngineUpdateResult;
 use crate::module_interfaces::model_to_presentation::{TuningSystem, Note};
 use crate::model::{ModelLayerActions, RequestMicrophonePermissionAction, ConfigureAudioSystemAction, UpdateTuningConfigurationAction};
 
+// Debug-only imports
+#[cfg(debug_assertions)]
+use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise};
+#[cfg(debug_assertions)]
+use self::audio::TestWaveform;
+
 /// Execution action for microphone permission requests
 /// 
 /// This unit struct represents the execution of a microphone permission request 
@@ -124,6 +130,70 @@ impl EngineLayerActions {
             microphone_permission_requests: Vec::new(),
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
+        }
+    }
+}
+
+// Debug execution action structs (only available in debug builds)
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecuteTestSignalConfiguration {
+    pub enabled: bool,
+    pub frequency: f32,
+    pub volume: f32,
+    pub waveform: TestWaveform,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecuteOutputToSpeakersConfiguration {
+    pub enabled: bool,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecuteBackgroundNoiseConfiguration {
+    pub enabled: bool,
+    pub level: f32,
+    pub noise_type: TestWaveform,
+}
+
+/// Container for all executed debug layer actions (debug builds only)
+/// 
+/// This struct contains vectors of privileged debug execution actions that have been
+/// processed by the engine layer. These actions represent direct operations on the
+/// audio system that bypass normal validation and safety checks.
+/// 
+/// Debug actions provide privileged access to engine internals for testing purposes:
+/// - Direct test signal generation control
+/// - Direct speaker output manipulation
+/// - Direct background noise injection
+/// 
+/// These actions should only be used for debugging and testing purposes.
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DebugEngineActions {
+    /// Executed test signal configurations
+    pub test_signal_executions: Vec<ExecuteTestSignalConfiguration>,
+    
+    /// Executed speaker output configurations
+    pub speaker_output_executions: Vec<ExecuteOutputToSpeakersConfiguration>,
+    
+    /// Executed background noise configurations
+    pub background_noise_executions: Vec<ExecuteBackgroundNoiseConfiguration>,
+}
+
+#[cfg(debug_assertions)]
+impl DebugEngineActions {
+    /// Create a new instance with empty debug action collections
+    /// 
+    /// Returns a new `DebugEngineActions` struct with all action vectors initialized
+    /// as empty. This is used as the starting point for collecting executed debug actions.
+    pub fn new() -> Self {
+        Self {
+            test_signal_executions: Vec::new(),
+            speaker_output_executions: Vec::new(),
+            background_noise_executions: Vec::new(),
         }
     }
 }
@@ -750,6 +820,216 @@ impl AudioEngine {
             config.tuning_system, config.root_note, config.root_frequency);
         
         // For now, always succeed to demonstrate the action execution flow
+        Ok(())
+    }
+    
+    /// Execute debug actions with privileged engine access (debug builds only)
+    /// 
+    /// This method processes debug actions from the presentation layer that provide
+    /// direct, privileged access to engine operations. These actions bypass normal
+    /// validation and safety checks and should only be used for testing and debugging.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `debug_actions` - Debug actions from the presentation layer to execute
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<DebugEngineActions, String>` containing either the successfully
+    /// executed debug actions or an error message if execution failed.
+    /// 
+    /// # Safety
+    /// 
+    /// Debug actions provide direct access to engine internals and bypass normal
+    /// safety checks. They should only be used in debug builds for testing purposes.
+    /// 
+    /// # Privileged Operations
+    /// 
+    /// - Test signal generation: Direct control over audio worklet test signals
+    /// - Speaker output: Direct manipulation of speaker output routing
+    /// - Background noise: Direct injection of noise into the audio pipeline
+    #[cfg(debug_assertions)]
+    pub async fn execute_debug_actions(&mut self, debug_actions: DebugLayerActions) -> Result<DebugEngineActions, String> {
+        crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
+        
+        let mut debug_engine_actions = DebugEngineActions::new();
+        
+        // Execute test signal configurations with privileged access
+        self.execute_test_signal_configurations(
+            &debug_actions.test_signal_configurations,
+            &mut debug_engine_actions
+        )?;
+        
+        // Execute speaker output configurations with privileged access
+        self.execute_speaker_output_configurations(
+            &debug_actions.speaker_output_configurations,
+            &mut debug_engine_actions
+        )?;
+        
+        // Execute background noise configurations with privileged access
+        self.execute_background_noise_configurations(
+            &debug_actions.background_noise_configurations,
+            &mut debug_engine_actions
+        )?;
+        
+        let total_executed = debug_engine_actions.test_signal_executions.len() + 
+                           debug_engine_actions.speaker_output_executions.len() + 
+                           debug_engine_actions.background_noise_executions.len();
+        
+        crate::common::dev_log!("[DEBUG] ✓ Engine layer successfully executed {} debug actions", total_executed);
+        
+        Ok(debug_engine_actions)
+    }
+    
+    /// Execute test signal configurations with privileged engine access (debug builds only)
+    /// 
+    /// This method provides direct control over test signal generation in the audio
+    /// worklet, bypassing normal validation checks.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `test_signal_configs` - Test signal configurations to execute
+    /// * `debug_engine_actions` - Container to store executed actions
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    fn execute_test_signal_configurations(
+        &self,
+        test_signal_configs: &[ConfigureTestSignal],
+        debug_engine_actions: &mut DebugEngineActions
+    ) -> Result<(), String> {
+        for config in test_signal_configs {
+            crate::common::dev_log!(
+                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%, waveform: {:?}",
+                config.enabled, config.frequency, config.volume, config.waveform
+            );
+            
+            // Direct privileged access to test signal generation
+            if let Some(ref audio_context) = self.audio_context {
+                // TODO: Implement direct test signal control in audio worklet
+                // For now, log the privileged operation
+                crate::common::dev_log!(
+                    "[DEBUG] PRIVILEGED: Direct test signal control - bypassing normal validation"
+                );
+                
+                // Record the executed action
+                debug_engine_actions.test_signal_executions.push(ExecuteTestSignalConfiguration {
+                    enabled: config.enabled,
+                    frequency: config.frequency,
+                    volume: config.volume,
+                    waveform: config.waveform.clone(),
+                });
+            } else {
+                return Err("[DEBUG] Audio context not available for test signal execution".to_string());
+            }
+        }
+        
+        crate::common::dev_log!(
+            "[DEBUG] ✓ Executed {} test signal configurations with privileged access",
+            test_signal_configs.len()
+        );
+        Ok(())
+    }
+    
+    /// Execute speaker output configurations with privileged engine access (debug builds only)
+    /// 
+    /// This method provides direct control over speaker output routing, bypassing
+    /// normal permission checks and safety validations.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `speaker_configs` - Speaker output configurations to execute
+    /// * `debug_engine_actions` - Container to store executed actions
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    fn execute_speaker_output_configurations(
+        &self,
+        speaker_configs: &[ConfigureOutputToSpeakers],
+        debug_engine_actions: &mut DebugEngineActions
+    ) -> Result<(), String> {
+        for config in speaker_configs {
+            crate::common::dev_log!(
+                "[DEBUG] Executing privileged speaker output configuration - enabled: {}",
+                config.enabled
+            );
+            
+            // Direct privileged access to speaker output control
+            if let Some(ref audio_context) = self.audio_context {
+                // TODO: Implement direct speaker output control
+                // For now, log the privileged operation
+                crate::common::dev_log!(
+                    "[DEBUG] PRIVILEGED: Direct speaker output control - bypassing permission checks"
+                );
+                
+                // Record the executed action
+                debug_engine_actions.speaker_output_executions.push(ExecuteOutputToSpeakersConfiguration {
+                    enabled: config.enabled,
+                });
+            } else {
+                return Err("[DEBUG] Audio context not available for speaker output execution".to_string());
+            }
+        }
+        
+        crate::common::dev_log!(
+            "[DEBUG] ✓ Executed {} speaker output configurations with privileged access",
+            speaker_configs.len()
+        );
+        Ok(())
+    }
+    
+    /// Execute background noise configurations with privileged engine access (debug builds only)
+    /// 
+    /// This method provides direct control over background noise generation in the
+    /// audio pipeline, useful for testing noise cancellation and signal processing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `noise_configs` - Background noise configurations to execute
+    /// * `debug_engine_actions` - Container to store executed actions
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    fn execute_background_noise_configurations(
+        &self,
+        noise_configs: &[ConfigureBackgroundNoise],
+        debug_engine_actions: &mut DebugEngineActions
+    ) -> Result<(), String> {
+        for config in noise_configs {
+            crate::common::dev_log!(
+                "[DEBUG] Executing privileged background noise configuration - enabled: {}, level: {}, type: {:?}",
+                config.enabled, config.level, config.noise_type
+            );
+            
+            // Direct privileged access to background noise generation
+            if let Some(ref audio_context) = self.audio_context {
+                // TODO: Implement direct background noise injection
+                // For now, log the privileged operation
+                crate::common::dev_log!(
+                    "[DEBUG] PRIVILEGED: Direct background noise injection - bypassing audio processing pipeline"
+                );
+                
+                // Record the executed action
+                debug_engine_actions.background_noise_executions.push(ExecuteBackgroundNoiseConfiguration {
+                    enabled: config.enabled,
+                    level: config.level,
+                    noise_type: config.noise_type.clone(),
+                });
+            } else {
+                return Err("[DEBUG] Audio context not available for background noise execution".to_string());
+            }
+        }
+        
+        crate::common::dev_log!(
+            "[DEBUG] ✓ Executed {} background noise configurations with privileged access",
+            noise_configs.len()
+        );
         Ok(())
     }
 }

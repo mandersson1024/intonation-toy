@@ -65,6 +65,10 @@ pub use sprite_scene::SpriteScene;
 use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
 
+// Debug-only imports
+#[cfg(debug_assertions)]
+use crate::engine::audio::TestWaveform;
+
 /// Action structs for the new action collection system
 /// 
 /// These structs represent user actions that are collected by the presentation layer
@@ -87,6 +91,30 @@ pub struct AdjustRootNote {
     pub root_note: Note,
 }
 
+// Debug action structs (only available in debug builds)
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureTestSignal {
+    pub enabled: bool,
+    pub frequency: f32,
+    pub volume: f32,
+    pub waveform: TestWaveform,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureOutputToSpeakers {
+    pub enabled: bool,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureBackgroundNoise {
+    pub enabled: bool,
+    pub level: f32,
+    pub noise_type: TestWaveform,
+}
+
 /// Container for all collected user actions from the presentation layer
 /// 
 /// This struct is returned by the presentation layer's get_user_actions() method
@@ -106,6 +134,31 @@ impl PresentationLayerActions {
             microphone_permission_requests: Vec::new(),
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
+        }
+    }
+}
+
+/// Container for all collected debug actions from the presentation layer
+/// 
+/// This struct is only available in debug builds and contains actions that
+/// provide privileged access to engine operations for testing and debugging.
+/// These actions bypass normal validation and safety checks.
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DebugLayerActions {
+    pub test_signal_configurations: Vec<ConfigureTestSignal>,
+    pub speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
+    pub background_noise_configurations: Vec<ConfigureBackgroundNoise>,
+}
+
+#[cfg(debug_assertions)]
+impl DebugLayerActions {
+    /// Create a new instance with empty debug action collections
+    pub fn new() -> Self {
+        Self {
+            test_signal_configurations: Vec::new(),
+            speaker_output_configurations: Vec::new(),
+            background_noise_configurations: Vec::new(),
         }
     }
 }
@@ -159,6 +212,13 @@ pub struct Presenter {
     /// changing tuning system, or adjusting root note) until they are retrieved
     /// by the main loop via get_user_actions().
     pending_user_actions: PresentationLayerActions,
+    
+    /// Collection of pending debug actions (debug builds only)
+    /// 
+    /// This field stores debug actions that provide privileged engine access
+    /// for testing and debugging purposes. These actions bypass normal validation.
+    #[cfg(debug_assertions)]
+    pending_debug_actions: DebugLayerActions,
 }
 
 impl Presenter {
@@ -184,6 +244,8 @@ impl Presenter {
             sprite_scene: None,
             scene_initialized: false,
             pending_user_actions: PresentationLayerActions::new(),
+            #[cfg(debug_assertions)]
+            pending_debug_actions: DebugLayerActions::new(),
         })
     }
 
@@ -303,6 +365,81 @@ impl Presenter {
     /// * `root_note` - The new root note selected by the user
     pub fn on_root_note_adjusted(&mut self, root_note: Note) {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
+    }
+
+    /// Retrieve and clear all pending debug actions (debug builds only)
+    /// 
+    /// This method is called by the main loop to get all debug actions that have
+    /// been collected since the last call. These actions provide privileged access
+    /// to engine operations for testing and debugging purposes.
+    /// 
+    /// # Returns
+    /// 
+    /// A `DebugLayerActions` struct containing all collected debug actions.
+    /// The returned struct will contain empty vectors if no actions were collected.
+    /// 
+    /// # Safety
+    /// 
+    /// Debug actions bypass normal validation and can directly manipulate engine
+    /// internals. They should only be used for testing and debugging.
+    #[cfg(debug_assertions)]
+    pub fn get_debug_actions(&mut self) -> DebugLayerActions {
+        std::mem::replace(&mut self.pending_debug_actions, DebugLayerActions::new())
+    }
+
+    /// Handle debug request to configure test signal generation (debug builds only)
+    /// 
+    /// This method should be called by debug UI components to configure test
+    /// signal generation for testing audio processing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether test signal generation should be enabled
+    /// * `frequency` - The frequency of the test signal in Hz
+    /// * `volume` - The volume of the test signal (0-100)
+    /// * `waveform` - The waveform type to generate
+    #[cfg(debug_assertions)]
+    pub fn on_test_signal_configured(&mut self, enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) {
+        self.pending_debug_actions.test_signal_configurations.push(ConfigureTestSignal {
+            enabled,
+            frequency,
+            volume,
+            waveform,
+        });
+    }
+
+    /// Handle debug request to configure speaker output (debug builds only)
+    /// 
+    /// This method should be called by debug UI components to enable or disable
+    /// direct speaker output for debugging audio processing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether speaker output should be enabled
+    #[cfg(debug_assertions)]
+    pub fn on_output_to_speakers_configured(&mut self, enabled: bool) {
+        self.pending_debug_actions.speaker_output_configurations.push(ConfigureOutputToSpeakers {
+            enabled,
+        });
+    }
+
+    /// Handle debug request to configure background noise generation (debug builds only)
+    /// 
+    /// This method should be called by debug UI components to configure background
+    /// noise generation for testing noise cancellation and signal processing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether background noise generation should be enabled
+    /// * `level` - The level of background noise
+    /// * `noise_type` - The type of noise to generate
+    #[cfg(debug_assertions)]
+    pub fn on_background_noise_configured(&mut self, enabled: bool, level: f32, noise_type: TestWaveform) {
+        self.pending_debug_actions.background_noise_configurations.push(ConfigureBackgroundNoise {
+            enabled,
+            level,
+            noise_type,
+        });
     }
 
     /// Render the presentation layer to the screen
@@ -743,5 +880,153 @@ mod tests {
         let root_note1 = AdjustRootNote { root_note: Note::F };
         let root_note2 = AdjustRootNote { root_note: Note::F };
         assert_eq!(root_note1, root_note2);
+    }
+
+    // Debug action tests (only run in debug builds)
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_debug_actions_initially_empty() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        let debug_actions = presenter.get_debug_actions();
+        
+        assert!(debug_actions.test_signal_configurations.is_empty());
+        assert!(debug_actions.speaker_output_configurations.is_empty());
+        assert!(debug_actions.background_noise_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_test_signal_configuration_collection() {
+        use crate::engine::audio::TestWaveform;
+        
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Configure test signal
+        presenter.on_test_signal_configured(true, 440.0, 50.0, TestWaveform::Sine);
+        
+        let debug_actions = presenter.get_debug_actions();
+        assert_eq!(debug_actions.test_signal_configurations.len(), 1);
+        assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
+        assert_eq!(debug_actions.test_signal_configurations[0].frequency, 440.0);
+        assert_eq!(debug_actions.test_signal_configurations[0].volume, 50.0);
+        assert_eq!(debug_actions.test_signal_configurations[0].waveform, TestWaveform::Sine);
+        
+        // After getting actions, they should be cleared
+        let debug_actions2 = presenter.get_debug_actions();
+        assert!(debug_actions2.test_signal_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_speaker_output_configuration_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Configure speaker output
+        presenter.on_output_to_speakers_configured(true);
+        
+        let debug_actions = presenter.get_debug_actions();
+        assert_eq!(debug_actions.speaker_output_configurations.len(), 1);
+        assert_eq!(debug_actions.speaker_output_configurations[0].enabled, true);
+        
+        // After getting actions, they should be cleared
+        let debug_actions2 = presenter.get_debug_actions();
+        assert!(debug_actions2.speaker_output_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_background_noise_configuration_collection() {
+        use crate::engine::audio::TestWaveform;
+        
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Configure background noise
+        presenter.on_background_noise_configured(true, 0.1, TestWaveform::WhiteNoise);
+        
+        let debug_actions = presenter.get_debug_actions();
+        assert_eq!(debug_actions.background_noise_configurations.len(), 1);
+        assert_eq!(debug_actions.background_noise_configurations[0].enabled, true);
+        assert_eq!(debug_actions.background_noise_configurations[0].level, 0.1);
+        assert_eq!(debug_actions.background_noise_configurations[0].noise_type, TestWaveform::WhiteNoise);
+        
+        // After getting actions, they should be cleared
+        let debug_actions2 = presenter.get_debug_actions();
+        assert!(debug_actions2.background_noise_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_multiple_debug_action_collection() {
+        use crate::engine::audio::TestWaveform;
+        
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Trigger multiple debug actions
+        presenter.on_test_signal_configured(true, 880.0, 75.0, TestWaveform::Square);
+        presenter.on_output_to_speakers_configured(false);
+        presenter.on_background_noise_configured(true, 0.2, TestWaveform::PinkNoise);
+        presenter.on_test_signal_configured(false, 220.0, 25.0, TestWaveform::Triangle); // Second test signal config
+        
+        let debug_actions = presenter.get_debug_actions();
+        
+        // Verify all actions were collected
+        assert_eq!(debug_actions.test_signal_configurations.len(), 2);
+        assert_eq!(debug_actions.speaker_output_configurations.len(), 1);
+        assert_eq!(debug_actions.background_noise_configurations.len(), 1);
+        
+        // Verify first test signal config
+        assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
+        assert_eq!(debug_actions.test_signal_configurations[0].frequency, 880.0);
+        assert_eq!(debug_actions.test_signal_configurations[0].waveform, TestWaveform::Square);
+        
+        // Verify second test signal config
+        assert_eq!(debug_actions.test_signal_configurations[1].enabled, false);
+        assert_eq!(debug_actions.test_signal_configurations[1].frequency, 220.0);
+        assert_eq!(debug_actions.test_signal_configurations[1].waveform, TestWaveform::Triangle);
+        
+        // After getting actions, all should be cleared
+        let debug_actions2 = presenter.get_debug_actions();
+        assert!(debug_actions2.test_signal_configurations.is_empty());
+        assert!(debug_actions2.speaker_output_configurations.is_empty());
+        assert!(debug_actions2.background_noise_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_debug_layer_actions_struct() {
+        let actions1 = DebugLayerActions::new();
+        let actions2 = DebugLayerActions::new();
+        
+        // Test equality
+        assert_eq!(actions1, actions2);
+        
+        // Test that new instances are empty
+        assert!(actions1.test_signal_configurations.is_empty());
+        assert!(actions1.speaker_output_configurations.is_empty());
+        assert!(actions1.background_noise_configurations.is_empty());
+    }
+
+    #[cfg(debug_assertions)]
+    #[wasm_bindgen_test]
+    fn test_debug_action_struct_creation() {
+        use crate::engine::audio::TestWaveform;
+        
+        let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
+        let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
+        assert_eq!(test_signal1, test_signal2);
+        
+        let speaker1 = ConfigureOutputToSpeakers { enabled: true };
+        let speaker2 = ConfigureOutputToSpeakers { enabled: true };
+        assert_eq!(speaker1, speaker2);
+        
+        let noise1 = ConfigureBackgroundNoise { enabled: false, level: 0.5, noise_type: TestWaveform::PinkNoise };
+        let noise2 = ConfigureBackgroundNoise { enabled: false, level: 0.5, noise_type: TestWaveform::PinkNoise };
+        assert_eq!(noise1, noise2);
     }
 }
