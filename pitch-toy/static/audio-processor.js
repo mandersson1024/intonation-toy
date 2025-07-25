@@ -904,8 +904,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         try {
             switch (actualMessage.type) {
                 case ToWorkletMessageType.START_PROCESSING:
+                    console.log('VOLUME_DEBUG: JS processor received START_PROCESSING, setting isProcessing = true');
                     this.isProcessing = true;
                     const startedMessage = this.messageProtocol.createProcessingStartedMessage();
+                    console.log('VOLUME_DEBUG: JS processor sending ProcessingStarted message');
                     this.port.postMessage(startedMessage);
                     break;
                 
@@ -1158,7 +1160,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
         const processStartTime = getCurrentTime();
         
-        // Debug logging removed
+        // Debug logging - only log every 100th call to avoid spam
+        if (this.chunkCounter % 100 === 0) {
+            console.log('VOLUME_DEBUG: JS process() called, chunk', this.chunkCounter, 'isProcessing:', this.isProcessing, 'inputs.length:', inputs.length);
+        }
         
         const input = inputs[0];
         const output = outputs[0];
@@ -1232,6 +1237,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Accumulate processed audio data for batching
         // Debug logging removed to reduce spam
         if (this.isProcessing) {
+            // Only log every 100th chunk to avoid spam
+            if (this.chunkCounter % 100 === 0) {
+                console.log('VOLUME_DEBUG: JS processor processing audio, chunk', this.chunkCounter);
+            }
             try {
                 // Debug: Check buffer state at start of each process call
                 

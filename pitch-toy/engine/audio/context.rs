@@ -706,7 +706,7 @@ impl AudioSystemContext {
 
     /// Initialize all audio components with proper dependency order
     pub async fn initialize(&mut self) -> Result<(), String> {
-        dev_log!("Initializing AudioSystemContext");
+        dev_log!("VOLUME_DEBUG: Initializing AudioSystemContext");
         
         // Clear any previous initialization error
         self.initialization_error = None;
@@ -759,6 +759,16 @@ impl AudioSystemContext {
         // Configure VolumeDetector in AudioWorkletManager
         if let Some(ref mut worklet_manager) = self.audioworklet_manager {
             worklet_manager.set_volume_detector(volume_detector);
+            
+            // Setup message handling now that volume detector is configured
+            dev_log!("VOLUME_DEBUG: About to setup message handling");
+            if let Err(e) = worklet_manager.setup_message_handling() {
+                let error_msg = format!("Failed to setup message handling: {:?}", e);
+                dev_log!("✗ {}", error_msg);
+                self.initialization_error = Some(error_msg.clone());
+                return Err(error_msg);
+            }
+            dev_log!("VOLUME_DEBUG: Message handling setup completed");
         }
         
         dev_log!("✓ VolumeDetector initialized and configured");
