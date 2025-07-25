@@ -489,7 +489,9 @@ impl DataModel {
         for root_note_adjustment in presentation_actions.root_note_adjustments {
             match self.validate_root_note_adjustment_with_error(&root_note_adjustment.root_note) {
                 Ok(()) => {
-                    match self.calculate_reference_frequency_for_root_note_safe(&root_note_adjustment.root_note) {
+                    // Reference frequency is constant and doesn't change with root note
+                    let reference_frequency = self.reference_a4;
+                    match Ok(reference_frequency) {
                         Ok(new_reference_frequency) => {
                             let config = UpdateTuningConfigurationAction {
                                 tuning_system: self.tuning_system.clone(),
@@ -634,10 +636,8 @@ impl DataModel {
     /// - Recent request history (avoid spam requests)
     /// - System capabilities (ensure microphone API is available)
     fn validate_microphone_permission_request_with_error(&self) -> Result<(), ValidationError> {
-        // Placeholder: Always allow permission requests for now
-        // TODO: Add logic to check current permission state
-        // TODO: Add cooldown logic to prevent spam requests
-        // TODO: Check if microphone API is available
+        // TODO: Remove this function. The engine should be the one to decide whether microphone requests are valid
+
         Ok(())
     }
     
@@ -753,65 +753,7 @@ impl DataModel {
         }
     }
     
-    /// Calculate reference frequency for a given root note
-    /// 
-    /// Computes the reference frequency (A4) that corresponds to a given root note
-    /// in the current tuning system. This ensures that the tuning system remains
-    /// consistent when the root note is changed.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `root_note` - The root note to calculate the reference frequency for
-    /// 
-    /// # Returns
-    /// 
-    /// Returns the calculated reference frequency in Hz.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Returns the current reference frequency as a placeholder. Future implementations
-    /// will calculate the proper frequency based on:
-    /// - The relationship between the root note and A4
-    /// - The current tuning system's frequency ratios
-    /// - Musical theory calculations for proper tuning
-    fn calculate_reference_frequency_for_root_note(&self, _root_note: &Note) -> f32 {
-        // Placeholder: Return current reference frequency
-        // TODO: Calculate proper reference frequency based on root note
-        // TODO: Apply tuning system-specific calculations
-        // TODO: Ensure frequency is within valid range
-        self.reference_a4
-    }
     
-    /// Calculate reference frequency for a given root note with error handling
-    /// 
-    /// Computes the reference frequency (A4) that corresponds to a given root note
-    /// in the current tuning system. This ensures that the tuning system remains
-    /// consistent when the root note is changed.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `root_note` - The root note to calculate the reference frequency for
-    /// 
-    /// # Returns
-    /// 
-    /// Returns the calculated reference frequency in Hz, or a `ValidationError` if
-    /// the calculation fails or produces an invalid frequency.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Returns the current reference frequency as a placeholder. Future implementations
-    /// will calculate the proper frequency based on:
-    /// - The relationship between the root note and A4
-    /// - The current tuning system's frequency ratios
-    /// - Musical theory calculations for proper tuning
-    /// - Validation that the resulting frequency is within audible range
-    fn calculate_reference_frequency_for_root_note_safe(&self, _root_note: &Note) -> Result<f32, ValidationError> {
-        // Placeholder: Return current reference frequency
-        // TODO: Calculate proper reference frequency based on root note
-        // TODO: Apply tuning system-specific calculations
-        // TODO: Ensure frequency is within valid range
-        Ok(self.reference_a4)
-    }
     
     /// Apply tuning system change to internal state
     /// 
