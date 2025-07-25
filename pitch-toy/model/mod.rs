@@ -68,9 +68,9 @@
 //! - `root_note_adjustments` - User modifications to the root note
 //! 
 //! ### Processing: Business Logic Validation
-//! - `validate_microphone_permission_request()` - Ensures permission requests are appropriate
-//! - `validate_tuning_system_change()` - Validates tuning system changes
-//! - `validate_root_note_adjustment()` - Validates root note adjustments
+//! - `validate_microphone_permission_request_with_error()` - Ensures permission requests are appropriate
+//! - `validate_tuning_system_change_with_error()` - Validates tuning system changes
+//! - `validate_root_note_adjustment_with_error()` - Validates root note adjustments
 //! 
 //! ### Output: ModelLayerActions
 //! - `microphone_permission_requests` - Validated permission requests
@@ -554,29 +554,6 @@ impl DataModel {
         (note, accuracy_cents)
     }
     
-    /// Calculate expected frequency for a given note
-    fn note_to_frequency(&self, note: &Note, octave: i32) -> f32 {
-        let note_offset = match note {
-            Note::C => 0,
-            Note::CSharp => 1,
-            Note::D => 2,
-            Note::DSharp => 3,
-            Note::E => 4,
-            Note::F => 5,
-            Note::FSharp => 6,
-            Note::G => 7,
-            Note::GSharp => 8,
-            Note::A => 9,
-            Note::ASharp => 10,
-            Note::B => 11,
-        };
-        
-        // Calculate MIDI note number (A4 = 69, octave 4)
-        let midi_note = (octave - 4) * 12 + note_offset + 69 - 9; // A is at index 9
-        
-        // Convert MIDI note to frequency
-        self.reference_a4 * 2.0_f32.powf((midi_note - 69) as f32 / 12.0)
-    }
     
     /// Normalize accuracy value to a 0.0-1.0 range
     /// 0.0 = perfectly in tune, 1.0 = 50 cents (half semitone) or worse
@@ -587,29 +564,6 @@ impl DataModel {
         clamped_cents / 50.0
     }
     
-    /// Validate microphone permission request
-    /// 
-    /// Ensures that a microphone permission request is appropriate for the current state.
-    /// This validation prevents unnecessary permission requests and maintains proper
-    /// user experience by not repeatedly asking for permissions.
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `true` if the permission request should be processed, `false` otherwise.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Always returns `true` as a placeholder. Future implementations will check:
-    /// - Current permission state (don't request if already granted)
-    /// - Recent request history (avoid spam requests)
-    /// - System capabilities (ensure microphone API is available)
-    fn validate_microphone_permission_request(&self) -> bool {
-        // Placeholder: Always allow permission requests for now
-        // TODO: Add logic to check current permission state
-        // TODO: Add cooldown logic to prevent spam requests
-        // TODO: Check if microphone API is available
-        true
-    }
     
     /// Validate microphone permission request with detailed error reporting
     /// 
@@ -634,31 +588,6 @@ impl DataModel {
         Ok(())
     }
     
-    /// Validate tuning system change request
-    /// 
-    /// Ensures that a tuning system change is valid and different from the current system.
-    /// This validation prevents unnecessary system reconfigurations and maintains
-    /// system stability by filtering out redundant changes.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `new_tuning_system` - The requested tuning system to validate
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `true` if the tuning system change should be processed, `false` otherwise.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Validates that the new tuning system is different from the current one.
-    /// Future implementations will add more sophisticated validation:
-    /// - Compatibility checks with current audio configuration
-    /// - Validation of supported tuning systems
-    /// - State consistency checks
-    fn validate_tuning_system_change(&self, new_tuning_system: &TuningSystem) -> bool {
-        // Only allow changes that are different from current system
-        *new_tuning_system != self.tuning_system
-    }
     
     /// Validate tuning system change request with detailed error reporting
     /// 
@@ -690,31 +619,6 @@ impl DataModel {
         }
     }
     
-    /// Validate root note adjustment request
-    /// 
-    /// Ensures that a root note adjustment is valid and results in proper frequency
-    /// calculations. This validation maintains musical accuracy and prevents
-    /// invalid note configurations.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `new_root_note` - The requested root note to validate
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `true` if the root note adjustment should be processed, `false` otherwise.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Validates that the new root note is different from the current one and is
-    /// a valid musical note. Future implementations will add:
-    /// - Frequency range validation
-    /// - Compatibility checks with current tuning system
-    /// - Musical theory validation
-    fn validate_root_note_adjustment(&self, new_root_note: &Note) -> bool {
-        // Only allow changes that are different from current root note
-        *new_root_note != self.root_note
-    }
     
     /// Validate root note adjustment request with detailed error reporting
     /// 
