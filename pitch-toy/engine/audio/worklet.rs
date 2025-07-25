@@ -242,12 +242,18 @@ impl AudioWorkletManager {
     /// ```
     pub fn new_return_based() -> Self {
         Self {
-            config: AudioWorkletConfig::default(),
             worklet_node: None,
-            processor_registration_handler: None,
             state: AudioWorkletState::Uninitialized,
-            return_messages: VecDeque::new(),
-            audio_context_manager: None,
+            config: AudioWorkletConfig::default(),
+            volume_detector: None,
+            last_volume_analysis: None,
+            test_signal_generator: None,
+            background_noise_config: BackgroundNoiseConfig::default(),
+            chunk_counter: 0,
+            _message_closure: None,
+            audio_context: None,
+            output_to_speakers: false,
+            shared_data: None,
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default

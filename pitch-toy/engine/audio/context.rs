@@ -721,17 +721,9 @@ impl AudioSystemContext {
         dev_log!("✓ AudioContextManager initialized");
 
         // Step 2: Initialize AudioWorkletManager (simplified for return-based pattern)
-        let mut worklet_manager = super::worklet::AudioWorkletManager::new_return_based();
+        let worklet_manager = super::worklet::AudioWorkletManager::new_return_based();
         
-        // Initialize with audio context manager
-        if let Err(e) = worklet_manager.initialize_with_context(&self.audio_context_manager) {
-            let error_msg = format!("Failed to initialize AudioWorkletManager: {:?}", e);
-            dev_log!("✗ {}", error_msg);
-            self.initialization_error = Some(error_msg.clone());
-            return Err(error_msg);
-        }
-        
-        self.audioworklet_manager = Some(std::rc::Rc::new(std::cell::RefCell::new(worklet_manager)));
+        self.audioworklet_manager = Some(worklet_manager);
         dev_log!("✓ AudioWorkletManager initialized for return-based pattern");
 
         // Step 3: Initialize PitchAnalyzer (simplified for return-based pattern)
