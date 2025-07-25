@@ -315,11 +315,6 @@ impl AudioEngine {
         }
     }
     
-    /// Get audio context reference for microphone permission handling
-    pub fn get_audio_context(&self) -> Option<&std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>> {
-        self.audio_context.as_ref()
-    }
-    
     /// Set up UI action listeners with the audio system
     /// 
     /// This method configures the engine to listen for UI control actions
@@ -350,6 +345,71 @@ impl AudioEngine {
                 debug_actions,
             );
         }
+    }
+    
+    /// Get the audio context for async operations
+    /// 
+    /// Returns a clone of the Rc<RefCell<AudioSystemContext>> if available.
+    /// This is used for async operations that need access to the audio context
+    /// outside of the main engine instance.
+    pub fn get_audio_context(&self) -> Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>> {
+        self.audio_context.clone()
+    }
+    
+    /// Connect an existing MediaStream to the audio processing pipeline
+    /// 
+    /// This method accepts a MediaStream that was obtained through user gesture
+    /// and connects it directly to the AudioWorklet for processing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `media_stream` - The MediaStream to connect (should contain audio tracks)
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure of the connection.
+    pub async fn connect_mediastream(&self, media_stream: web_sys::MediaStream) -> Result<(), String> {
+        if let Some(ref audio_context) = self.audio_context {
+            audio::microphone::connect_existing_mediastream_to_audioworklet(media_stream, audio_context).await
+        } else {
+            Err("Audio system not initialized".to_string())
+        }
+    }
+    
+    /// Execute non-permission actions synchronously
+    /// 
+    /// This method executes all non-permission actions (audio system configurations
+    /// and tuning configurations) synchronously. Permission requests should be
+    /// handled separately using has_permission_actions() and execute_permission_async().
+    /// 
+    /// # Arguments
+    /// 
+    /// * `model_actions` - Validated actions from the model layer to execute
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<EngineLayerActions, String>` containing the successfully
+    /// executed non-permission actions or an error message if execution failed.
+    pub fn execute_sync_actions(&mut self, model_actions: &ModelLayerActions) -> Result<EngineLayerActions, String> {
+        // Log only non-permission actions
+        let sync_actions = model_actions.audio_system_configurations.len() + 
+                          model_actions.tuning_configurations.len();
+        
+        if sync_actions > 0 {
+            crate::common::dev_log!("Engine layer executing {} synchronous actions", sync_actions);
+        }
+        
+        let mut engine_actions = EngineLayerActions::new();
+        
+        // Execute synchronous actions (these are currently placeholders)
+        self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        
+        if sync_actions > 0 {
+            self.log_execution_completion(&engine_actions);
+        }
+        
+        Ok(engine_actions)
     }
     
     /// Execute model layer actions and return executed actions for logging/feedback
@@ -687,6 +747,81 @@ impl AudioEngine {
         }
         
         Ok(executed_configs)
+    }
+    
+    /// Execute audio system configurations synchronously
+    /// 
+    /// Synchronous version of execute_audio_system_configurations for use in the render loop.
+    fn execute_audio_system_configuration_actions_sync(
+        &self,
+        model_actions: &ModelLayerActions,
+        engine_actions: &mut EngineLayerActions
+    ) -> Result<(), String> {
+        for config in &model_actions.audio_system_configurations {
+            let root_frequency = self.calculate_root_frequency_for_tuning_system(&config.tuning_system);
+            
+            let engine_config = ConfigureAudioSystem {
+                tuning_system: config.tuning_system.clone(),
+                root_frequency,
+            };
+            
+            crate::common::dev_log!("Configuring audio system with tuning: {:?}, root frequency: {} Hz", 
+                engine_config.tuning_system, engine_config.root_frequency);
+            
+            // Since configure_audio_worklet_with_tuning is just a placeholder that returns Ok(()),
+            // we can execute it synchronously
+            if let Some(ref audio_context) = self.audio_context {
+                // Placeholder implementation - always succeeds
+                crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?} and root frequency {} Hz",
+                    engine_config.tuning_system, engine_config.root_frequency);
+                
+                engine_actions.audio_system_configurations.push(engine_config);
+                crate::common::dev_log!("✓ Audio system configuration executed successfully");
+            } else {
+                crate::common::dev_log!("✗ No audio context available for audio system configuration");
+                return Err("Audio system not initialized".to_string());
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Execute tuning configurations synchronously
+    /// 
+    /// Synchronous version of execute_tuning_configurations for use in the render loop.
+    fn execute_tuning_configuration_actions_sync(
+        &self,
+        model_actions: &ModelLayerActions,
+        engine_actions: &mut EngineLayerActions
+    ) -> Result<(), String> {
+        for config in &model_actions.tuning_configurations {
+            let root_frequency = self.calculate_root_frequency_for_note(&config.root_note);
+            
+            let engine_config = UpdateTuningConfiguration {
+                tuning_system: config.tuning_system.clone(),
+                root_note: config.root_note.clone(),
+                root_frequency,
+            };
+            
+            crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}, root frequency: {} Hz", 
+                engine_config.tuning_system, engine_config.root_note, engine_config.root_frequency);
+            
+            // Since update_audio_worklet_tuning is just a placeholder that returns Ok(()),
+            // we can execute it synchronously
+            if let Some(ref _audio_context) = self.audio_context {
+                // Placeholder implementation - always succeeds
+                crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}, root frequency: {} Hz",
+                    engine_config.tuning_system, engine_config.root_note, engine_config.root_frequency);
+                
+                engine_actions.tuning_configurations.push(engine_config);
+                crate::common::dev_log!("✓ Tuning configuration executed successfully");
+            } else {
+                crate::common::dev_log!("✗ No audio context available for tuning configuration");
+                return Err("Audio system not initialized".to_string());
+            }
+        }
+        
+        Ok(())
     }
     
     /// Calculate root frequency for a tuning system

@@ -310,6 +310,112 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     }
 }
 
+/// Connect an existing MediaStream to the AudioWorklet
+/// 
+/// This function takes a MediaStream that was already obtained (e.g., from a user gesture)
+/// and connects it to the AudioWorklet for processing. This bypasses the permission request
+/// since the stream is already available.
+/// 
+/// # Arguments
+/// 
+/// * `media_stream` - The MediaStream to connect (should contain audio tracks)
+/// * `audio_context` - The audio system context for managing the connection
+/// 
+/// # Returns
+/// 
+/// Returns `Result<(), String>` indicating success or failure of the connection.
+pub async fn connect_existing_mediastream_to_audioworklet(
+    media_stream: web_sys::MediaStream,
+    audio_context: &std::cell::RefCell<super::context::AudioSystemContext>
+) -> Result<(), String> {
+    use crate::common::dev_log;
+    
+    dev_log!("Connecting existing MediaStream to AudioWorklet");
+    
+    // Check if stream has active tracks
+    let tracks = media_stream.get_tracks();
+    dev_log!("MediaStream has {} tracks", tracks.length());
+    
+    if tracks.length() == 0 {
+        return Err("MediaStream has no tracks".to_string());
+    }
+    
+    for i in 0..tracks.length() {
+        if let Some(track) = tracks.get(i).dyn_ref::<web_sys::MediaStreamTrack>() {
+            dev_log!("Track {}: kind={}, enabled={}, ready_state={:?}", 
+                i, track.kind(), track.enabled(), track.ready_state());
+        }
+    }
+    
+    // Create media source from the stream
+    let source = {
+        let audio_system_context = audio_context.borrow();
+        let audio_context_manager = audio_system_context.get_audio_context_manager();
+        let audio_ctx_borrowed = audio_context_manager.borrow();
+        
+        if let Some(context) = audio_ctx_borrowed.get_context() {
+            match context.create_media_stream_source(&media_stream) {
+                Ok(source) => {
+                    dev_log!("✓ Created MediaStreamAudioSourceNode from existing stream");
+                    source
+                }
+                Err(e) => {
+                    dev_log!("✗ Failed to create MediaStreamAudioSourceNode: {:?}", e);
+                    return Err(format!("Failed to create audio source: {:?}", e));
+                }
+            }
+        } else {
+            dev_log!("✗ No audio context available");
+            return Err("Audio context not available".to_string());
+        }
+    };
+    
+    dev_log!("DEBUG: Connecting existing microphone source to AudioWorklet");
+    
+    // Connect to AudioWorklet manager
+    let result = {
+        let mut context_borrowed = audio_context.borrow_mut();
+        if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+            worklet_manager.connect_microphone(source.as_ref())
+        } else {
+            return Err("AudioWorklet manager not available in context".to_string());
+        }
+    };
+    
+    match result {
+        Ok(_) => {
+            dev_log!("✓ Existing MediaStream successfully connected to AudioWorklet");
+            
+            // Ensure processing is active after connection
+            let mut context_borrowed = audio_context.borrow_mut();
+            if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+                dev_log!("Found worklet manager, checking if processing: {}", worklet_manager.is_processing());
+                if !worklet_manager.is_processing() {
+                    dev_log!("Starting AudioWorklet processing after microphone connection...");
+                    match worklet_manager.start_processing() {
+                        Ok(_) => {
+                            dev_log!("AudioWorklet processing started - audio pipeline active");
+                        }
+                        Err(e) => {
+                            dev_log!("Failed to start processing after microphone connection: {:?}", e);
+                        }
+                    }
+                } else {
+                    dev_log!("AudioWorklet already processing - audio pipeline active");
+                }
+            } else {
+                dev_log!("No AudioWorklet manager available");
+            }
+            
+            Ok(())
+        }
+        Err(e) => {
+            dev_log!("✗ Failed to connect existing MediaStream to AudioWorklet: {:?}", e);
+            Err(format!("Failed to connect microphone: {:?}", e))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
