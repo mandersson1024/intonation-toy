@@ -167,7 +167,7 @@ pub struct ConfigureAudioSystemAction {
 /// 
 /// This struct represents a tuning configuration update that has been validated
 /// by the model layer's business logic. It contains the complete tuning configuration
-/// including tuning system, root note, and calculated reference frequency.
+/// including tuning system, root note, and reference frequency (which remains constant).
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateTuningConfigurationAction {
     pub tuning_system: TuningSystem,
@@ -250,6 +250,7 @@ pub struct DataModel {
     tuning_system: TuningSystem,
     
     /// Reference frequency for A4 (default 440 Hz)
+    /// This frequency remains constant regardless of root note changes
     reference_a4: f32,
     
     /// Current root note for tuning calculations
@@ -489,27 +490,19 @@ impl DataModel {
         for root_note_adjustment in presentation_actions.root_note_adjustments {
             match self.validate_root_note_adjustment_with_error(&root_note_adjustment.root_note) {
                 Ok(()) => {
-                    // Reference frequency is constant and doesn't change with root note
-                    let reference_frequency = self.reference_a4;
-                    match Ok(reference_frequency) {
-                        Ok(new_reference_frequency) => {
-                            let config = UpdateTuningConfigurationAction {
-                                tuning_system: self.tuning_system.clone(),
-                                root_note: root_note_adjustment.root_note.clone(),
-                                reference_frequency: new_reference_frequency,
-                            };
-                            
-                            // Apply the state change to internal model state
-                            self.apply_root_note_change(&config);
-                            
-                            model_actions.tuning_configurations.push(config);
-                        }
-                        Err(error) => {
-                            // Log validation failure for debugging
-                            // TODO: Add proper logging when log crate is integrated
-                            validation_errors.push(error);
-                        }
-                    }
+                    // Reference frequency remains constant at A4=440Hz regardless of root note selection.
+                    // The root note affects musical relationships but not the fundamental frequency reference.
+                    let new_reference_frequency = self.reference_a4;
+                    let config = UpdateTuningConfigurationAction {
+                        tuning_system: self.tuning_system.clone(),
+                        root_note: root_note_adjustment.root_note.clone(),
+                        reference_frequency: new_reference_frequency,
+                    };
+                    
+                    // Apply the state change to internal model state
+                    self.apply_root_note_change(&config);
+                    
+                    model_actions.tuning_configurations.push(config);
                 }
                 Err(error) => {
                     // Log validation failure for debugging
