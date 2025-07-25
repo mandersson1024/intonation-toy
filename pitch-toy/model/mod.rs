@@ -567,24 +567,15 @@ impl DataModel {
     
     /// Validate microphone permission request with detailed error reporting
     /// 
-    /// Ensures that a microphone permission request is appropriate for the current state.
-    /// This validation prevents unnecessary permission requests and maintains proper
-    /// user experience by not repeatedly asking for permissions.
+    /// No model-layer validation is required for microphone permission requests.
+    /// The engine layer is responsible for handling microphone API state, permissions,
+    /// and hardware availability checks.
     /// 
     /// # Returns
     /// 
-    /// Returns `Ok(())` if the permission request should be processed, or a specific
-    /// `ValidationError` describing why the request was rejected.
-    /// 
-    /// # Current Implementation
-    /// 
-    /// Always returns `Ok(())` as a placeholder. Future implementations will check:
-    /// - Current permission state (don't request if already granted)
-    /// - Recent request history (avoid spam requests)
-    /// - System capabilities (ensure microphone API is available)
+    /// Always returns `Ok(())` as microphone permission validation is handled by the engine layer.
     fn validate_microphone_permission_request_with_error(&self) -> Result<(), ValidationError> {
-        // TODO: Remove this function. The engine should be the one to decide whether microphone requests are valid
-
+        // No model-layer validation needed - engine handles microphone permission logic
         Ok(())
     }
     
