@@ -533,12 +533,19 @@ impl AudioEngine {
         Ok(executed_configs)
     }
     
-    /// Calculate root frequency for a tuning system (placeholder implementation)
+    /// Calculate root frequency for a tuning system
+    /// 
+    /// **⚠️ TEMPORARY PLACEHOLDER IMPLEMENTATION ⚠️**
     /// 
     /// This method calculates the appropriate root frequency for the tonic note
-    /// of a given tuning system. This is a placeholder implementation that uses
-    /// standard frequencies. Future implementations will provide proper calculation
-    /// based on tuning system characteristics.
+    /// of a given tuning system. This is currently a temporary placeholder implementation
+    /// that returns fixed frequencies and does NOT implement proper frequency calculation
+    /// logic based on tuning system characteristics.
+    /// 
+    /// **TODO: Replace with proper frequency calculation logic that:**
+    /// - Calculates frequencies based on actual tuning system mathematics
+    /// - Handles different temperaments and their specific frequency ratios
+    /// - Provides accurate tonic frequencies for each tuning system
     /// 
     /// # Arguments
     /// 
@@ -547,20 +554,30 @@ impl AudioEngine {
     /// # Returns
     /// 
     /// Returns the root frequency in Hz for the tonic note of the tuning system
+    /// (currently returns placeholder values)
     fn calculate_root_frequency_for_tuning_system(&self, tuning_system: &TuningSystem) -> f32 {
-        // Placeholder implementation - returns A4 (440Hz) for all tuning systems
-        // TODO: Implement proper frequency calculation based on tuning system characteristics
+        // **TEMPORARY PLACEHOLDER**: Returns A4 (440Hz) for all tuning systems
+        // This does NOT implement proper frequency calculation logic!
         match tuning_system {
             TuningSystem::EqualTemperament => 440.0, // A4 in Equal Temperament
             TuningSystem::JustIntonation => 440.0,   // A4 in Just Intonation (placeholder)
         }
     }
     
-    /// Calculate root frequency for a specific note (placeholder implementation)
+    /// Calculate root frequency for a specific note
+    /// 
+    /// **⚠️ TEMPORARY PLACEHOLDER IMPLEMENTATION ⚠️**
     /// 
     /// This method calculates the frequency for a specific note when it serves
-    /// as the root/tonic of the current tuning system. This is a placeholder
-    /// implementation using Equal Temperament calculations.
+    /// as the root/tonic of the current tuning system. This is currently a temporary
+    /// placeholder implementation that only uses Equal Temperament calculations and
+    /// does NOT implement proper frequency calculation logic for different tuning systems.
+    /// 
+    /// **TODO: Replace with proper frequency calculation logic that:**
+    /// - Calculates frequencies based on the current tuning system context
+    /// - Handles Just Intonation, Equal Temperament, and other systems correctly
+    /// - Provides accurate root frequencies for each note in each tuning system
+    /// - Takes into account the relationship between the note and the tuning system
     /// 
     /// # Arguments
     /// 
@@ -569,10 +586,11 @@ impl AudioEngine {
     /// # Returns
     /// 
     /// Returns the frequency in Hz for the note when serving as the tonic
+    /// (currently returns Equal Temperament calculations only)
     fn calculate_root_frequency_for_note(&self, note: &Note) -> f32 {
-        // Placeholder implementation using Equal Temperament calculations
+        // **TEMPORARY PLACEHOLDER**: Only uses Equal Temperament calculations
         // Base frequency: A4 = 440Hz (MIDI note 69)
-        // TODO: Implement proper calculation based on current tuning system
+        // This does NOT implement proper calculation based on current tuning system!
         
         let midi_note_offset = match note {
             Note::C => -9,      // C4 is 9 semitones below A4
