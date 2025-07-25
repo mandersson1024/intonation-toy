@@ -396,9 +396,15 @@ impl DataModel {
     /// 
     /// The validation logic:
     /// 1. Validates microphone permission requests against current permission state
-    /// 2. Validates tuning system changes and applies current model state
-    /// 3. Validates root note adjustments and calculates new reference frequencies
+    /// 2. Validates tuning system changes and updates internal state when valid
+    /// 3. Validates root note adjustments and updates internal state when valid
     /// 4. Combines validated actions into complete system configurations
+    /// 
+    /// # State Updates
+    /// 
+    /// When actions pass validation, the model's internal state is immediately updated
+    /// using `apply_tuning_system_change()` and `apply_root_note_change()` methods.
+    /// This ensures the model's state remains synchronized with validated user actions.
     pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ModelLayerActions {
         let mut model_actions = ModelLayerActions::new();
         
@@ -416,6 +422,10 @@ impl DataModel {
                     tuning_system: tuning_change.tuning_system.clone(),
                     reference_frequency: self.reference_a4,
                 };
+                
+                // Apply the state change to internal model state
+                self.apply_tuning_system_change(&config);
+                
                 model_actions.audio_system_configurations.push(config);
             }
         }
@@ -429,6 +439,10 @@ impl DataModel {
                     root_note: root_note_adjustment.root_note.clone(),
                     reference_frequency: new_reference_frequency,
                 };
+                
+                // Apply the state change to internal model state
+                self.apply_root_note_change(&config);
+                
                 model_actions.tuning_configurations.push(config);
             }
         }
