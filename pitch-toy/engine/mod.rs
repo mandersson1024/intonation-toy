@@ -300,19 +300,19 @@ impl AudioEngine {
     /// 
     /// # Execution Process
     /// 
-    /// 1. Transforms model actions into engine execution actions (mapping reference_frequency to root_frequency)
+    /// 1. Transforms model actions into engine execution actions
     /// 2. Executes each action type using existing engine functionality:
     ///    - Microphone permission requests use `connect_microphone_to_audioworklet_with_context()`
-    ///    - Audio system configurations configure the audio worklet with tuning system and root frequency
-    ///    - Tuning configurations update the audio system with root note and root frequency
+    ///    - Audio system configurations configure the audio worklet with tuning system and calculated root frequency
+    ///    - Tuning configurations update the audio system with root note and calculated root frequency
     /// 3. Collects executed actions for logging and feedback
     /// 4. Provides comprehensive error handling with detailed logging
     /// 
-    /// # Root Frequency vs Reference Frequency
+    /// # Frequency Calculation
     /// 
-    /// The engine layer uses "root_frequency" terminology to reflect that we're setting
-    /// the frequency for a specific tonic note rather than changing absolute tuning standards.
-    /// The model layer's "reference_frequency" is mapped to "root_frequency" during transformation.
+    /// The engine layer calculates appropriate root frequencies based on the tuning system
+    /// and root note specified in the model actions. Model actions contain only the musical
+    /// parameters (tuning system, root note) while the engine determines the actual frequencies.
     pub async fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<EngineLayerActions, String> {
         self.log_execution_start(&model_actions);
         
@@ -531,7 +531,7 @@ impl AudioEngine {
         let mut executed_configs = Vec::new();
         
         for config in system_configs {
-            // Transform model action to engine action, mapping reference_frequency to root_frequency
+            // Transform model action to engine action by calculating the root frequency
             // Note: For now we use a default root frequency of 440Hz (A4) as a placeholder
             // Future implementations will calculate the proper root frequency based on the tuning system
             let root_frequency = self.calculate_root_frequency_for_tuning_system(&config.tuning_system);
