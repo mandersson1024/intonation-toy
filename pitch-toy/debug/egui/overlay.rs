@@ -27,6 +27,7 @@ impl Default for TestSignalConfig {
 /// EGUI debug controls wrapper for three-d + egui rendering
 pub struct EguiDebugControls {
     output_to_speakers: bool,
+    prev_output_to_speakers: bool,
     test_signal_config: TestSignalConfig,
     prev_test_signal_config: TestSignalConfig,
     background_noise_config: BackgroundNoiseConfig,
@@ -41,6 +42,7 @@ impl EguiDebugControls {
         
         Self {
             output_to_speakers: false,
+            prev_output_to_speakers: false,
             test_signal_config: test_signal_config.clone(),
             prev_test_signal_config: test_signal_config,
             background_noise_config: background_noise_config.clone(),
@@ -85,7 +87,10 @@ impl EguiDebugControls {
         }
         
         // Check output to speakers changes
-        // Note: This would need to be handled elsewhere as we don't track previous state
+        if self.output_to_speakers != self.prev_output_to_speakers {
+            presenter.on_output_to_speakers_configured(self.output_to_speakers);
+            self.prev_output_to_speakers = self.output_to_speakers;
+        }
     }
     
     /// Render test signal controls section
@@ -143,9 +148,7 @@ impl EguiDebugControls {
         // Render debug controls (test signal, background noise, output to speakers)
         
         ui.horizontal(|ui| {
-            if ui.checkbox(&mut self.output_to_speakers, "Output to Speakers").changed() {
-                presenter.on_output_to_speakers_configured(self.output_to_speakers);
-            }
+            ui.checkbox(&mut self.output_to_speakers, "Output to Speakers");
         });
         
         // Check and apply any configuration changes
