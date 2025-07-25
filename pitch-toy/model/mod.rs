@@ -100,6 +100,44 @@ use crate::module_interfaces::{
 };
 use crate::presentation::PresentationLayerActions;
 
+/// Validation error types for action processing
+/// 
+/// These error types represent specific validation failures that can occur
+/// when processing presentation layer actions. They provide detailed information
+/// about why an action was rejected by business logic validation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValidationError {
+    /// Microphone permission already granted
+    PermissionAlreadyGranted,
+    /// Microphone permission already denied
+    PermissionAlreadyDenied,
+    /// Microphone permission request already pending
+    PermissionRequestPending,
+    /// Microphone API not available on this platform
+    MicrophoneApiUnavailable,
+    /// Tuning system is already active
+    TuningSystemAlreadyActive(TuningSystem),
+    /// Unsupported tuning system requested
+    UnsupportedTuningSystem(String),
+    /// Root note is already set to requested value
+    RootNoteAlreadySet(Note),
+    /// Invalid frequency calculation for root note
+    InvalidFrequencyCalculation { note: Note, reason: String },
+}
+
+/// Result of processing user actions with validation information
+/// 
+/// This struct contains both the successfully validated actions and any
+/// validation errors that occurred during processing. This allows the
+/// presentation layer to understand what succeeded and what failed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessedActions {
+    /// Successfully validated actions ready for execution
+    pub actions: ModelLayerActions,
+    /// Validation errors for actions that failed business logic checks
+    pub validation_errors: Vec<ValidationError>,
+}
+
 /// Action structs for the model layer action processing system
 /// 
 /// These structs represent validated business logic actions that are processed
@@ -381,8 +419,9 @@ impl DataModel {
     /// 
     /// # Returns
     /// 
-    /// Returns `ModelLayerActions` containing validated actions ready for execution.
-    /// Actions that fail validation are filtered out and not included in the result.
+    /// Returns `ProcessedActions` containing both validated actions ready for execution
+    /// and validation errors for actions that failed business logic checks. This allows
+    /// the presentation layer to provide feedback about why certain actions were rejected.
     /// 
     /// # Business Logic Validation
     /// 
@@ -399,55 +438,89 @@ impl DataModel {
     /// 2. Validates tuning system changes and updates internal state when valid
     /// 3. Validates root note adjustments and updates internal state when valid
     /// 4. Combines validated actions into complete system configurations
+    /// 5. Collects validation errors for failed actions
     /// 
     /// # State Updates
     /// 
     /// When actions pass validation, the model's internal state is immediately updated
     /// using `apply_tuning_system_change()` and `apply_root_note_change()` methods.
     /// This ensures the model's state remains synchronized with validated user actions.
-    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ModelLayerActions {
+    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
         let mut model_actions = ModelLayerActions::new();
+        let mut validation_errors = Vec::new();
         
         // Process microphone permission requests
         for _permission_request in presentation_actions.microphone_permission_requests {
-            if self.validate_microphone_permission_request() {
-                model_actions.microphone_permission_requests.push(RequestMicrophonePermissionAction);
+            match self.validate_microphone_permission_request_with_error() {
+                Ok(()) => {
+                    model_actions.microphone_permission_requests.push(RequestMicrophonePermissionAction);
+                }
+                Err(error) => {
+                    // Log validation failure for debugging
+                    // TODO: Add proper logging when log crate is integrated
+                    validation_errors.push(error);
+                }
             }
         }
         
         // Process tuning system changes
         for tuning_change in presentation_actions.tuning_system_changes {
-            if self.validate_tuning_system_change(&tuning_change.tuning_system) {
-                let config = ConfigureAudioSystemAction {
-                    tuning_system: tuning_change.tuning_system.clone(),
-                    reference_frequency: self.reference_a4,
-                };
-                
-                // Apply the state change to internal model state
-                self.apply_tuning_system_change(&config);
-                
-                model_actions.audio_system_configurations.push(config);
+            match self.validate_tuning_system_change_with_error(&tuning_change.tuning_system) {
+                Ok(()) => {
+                    let config = ConfigureAudioSystemAction {
+                        tuning_system: tuning_change.tuning_system.clone(),
+                        reference_frequency: self.reference_a4,
+                    };
+                    
+                    // Apply the state change to internal model state
+                    self.apply_tuning_system_change(&config);
+                    
+                    model_actions.audio_system_configurations.push(config);
+                }
+                Err(error) => {
+                    // Log validation failure for debugging
+                    // TODO: Add proper logging when log crate is integrated
+                    validation_errors.push(error);
+                }
             }
         }
         
         // Process root note adjustments
         for root_note_adjustment in presentation_actions.root_note_adjustments {
-            if self.validate_root_note_adjustment(&root_note_adjustment.root_note) {
-                let new_reference_frequency = self.calculate_reference_frequency_for_root_note(&root_note_adjustment.root_note);
-                let config = UpdateTuningConfigurationAction {
-                    tuning_system: self.tuning_system.clone(),
-                    root_note: root_note_adjustment.root_note.clone(),
-                    reference_frequency: new_reference_frequency,
-                };
-                
-                // Apply the state change to internal model state
-                self.apply_root_note_change(&config);
-                
-                model_actions.tuning_configurations.push(config);
+            match self.validate_root_note_adjustment_with_error(&root_note_adjustment.root_note) {
+                Ok(()) => {
+                    match self.calculate_reference_frequency_for_root_note_safe(&root_note_adjustment.root_note) {
+                        Ok(new_reference_frequency) => {
+                            let config = UpdateTuningConfigurationAction {
+                                tuning_system: self.tuning_system.clone(),
+                                root_note: root_note_adjustment.root_note.clone(),
+                                reference_frequency: new_reference_frequency,
+                            };
+                            
+                            // Apply the state change to internal model state
+                            self.apply_root_note_change(&config);
+                            
+                            model_actions.tuning_configurations.push(config);
+                        }
+                        Err(error) => {
+                            // Log validation failure for debugging
+                            // TODO: Add proper logging when log crate is integrated
+                            validation_errors.push(error);
+                        }
+                    }
+                }
+                Err(error) => {
+                    // Log validation failure for debugging
+                    // TODO: Add proper logging when log crate is integrated
+                    validation_errors.push(error);
+                }
             }
         }
         
-        model_actions
+        ProcessedActions {
+            actions: model_actions,
+            validation_errors,
+        }
     }
     
     /// Convert a frequency to the closest musical note
@@ -543,6 +616,31 @@ impl DataModel {
         true
     }
     
+    /// Validate microphone permission request with detailed error reporting
+    /// 
+    /// Ensures that a microphone permission request is appropriate for the current state.
+    /// This validation prevents unnecessary permission requests and maintains proper
+    /// user experience by not repeatedly asking for permissions.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if the permission request should be processed, or a specific
+    /// `ValidationError` describing why the request was rejected.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Always returns `Ok(())` as a placeholder. Future implementations will check:
+    /// - Current permission state (don't request if already granted)
+    /// - Recent request history (avoid spam requests)
+    /// - System capabilities (ensure microphone API is available)
+    fn validate_microphone_permission_request_with_error(&self) -> Result<(), ValidationError> {
+        // Placeholder: Always allow permission requests for now
+        // TODO: Add logic to check current permission state
+        // TODO: Add cooldown logic to prevent spam requests
+        // TODO: Check if microphone API is available
+        Ok(())
+    }
+    
     /// Validate tuning system change request
     /// 
     /// Ensures that a tuning system change is valid and different from the current system.
@@ -569,6 +667,36 @@ impl DataModel {
         *new_tuning_system != self.tuning_system
     }
     
+    /// Validate tuning system change request with detailed error reporting
+    /// 
+    /// Ensures that a tuning system change is valid and different from the current system.
+    /// This validation prevents unnecessary system reconfigurations and maintains
+    /// system stability by filtering out redundant changes.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `new_tuning_system` - The requested tuning system to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if the tuning system change should be processed, or a specific
+    /// `ValidationError` describing why the change was rejected.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Validates that the new tuning system is different from the current one.
+    /// Future implementations will add more sophisticated validation:
+    /// - Compatibility checks with current audio configuration
+    /// - Validation of supported tuning systems
+    /// - State consistency checks
+    fn validate_tuning_system_change_with_error(&self, new_tuning_system: &TuningSystem) -> Result<(), ValidationError> {
+        if *new_tuning_system == self.tuning_system {
+            Err(ValidationError::TuningSystemAlreadyActive(new_tuning_system.clone()))
+        } else {
+            Ok(())
+        }
+    }
+    
     /// Validate root note adjustment request
     /// 
     /// Ensures that a root note adjustment is valid and results in proper frequency
@@ -593,6 +721,36 @@ impl DataModel {
     fn validate_root_note_adjustment(&self, new_root_note: &Note) -> bool {
         // Only allow changes that are different from current root note
         *new_root_note != self.root_note
+    }
+    
+    /// Validate root note adjustment request with detailed error reporting
+    /// 
+    /// Ensures that a root note adjustment is valid and results in proper frequency
+    /// calculations. This validation maintains musical accuracy and prevents
+    /// invalid note configurations.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `new_root_note` - The requested root note to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if the root note adjustment should be processed, or a specific
+    /// `ValidationError` describing why the adjustment was rejected.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Validates that the new root note is different from the current one and is
+    /// a valid musical note. Future implementations will add:
+    /// - Frequency range validation
+    /// - Compatibility checks with current tuning system
+    /// - Musical theory validation
+    fn validate_root_note_adjustment_with_error(&self, new_root_note: &Note) -> Result<(), ValidationError> {
+        if *new_root_note == self.root_note {
+            Err(ValidationError::RootNoteAlreadySet(new_root_note.clone()))
+        } else {
+            Ok(())
+        }
     }
     
     /// Calculate reference frequency for a given root note
@@ -622,6 +780,37 @@ impl DataModel {
         // TODO: Apply tuning system-specific calculations
         // TODO: Ensure frequency is within valid range
         self.reference_a4
+    }
+    
+    /// Calculate reference frequency for a given root note with error handling
+    /// 
+    /// Computes the reference frequency (A4) that corresponds to a given root note
+    /// in the current tuning system. This ensures that the tuning system remains
+    /// consistent when the root note is changed.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `root_note` - The root note to calculate the reference frequency for
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the calculated reference frequency in Hz, or a `ValidationError` if
+    /// the calculation fails or produces an invalid frequency.
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Returns the current reference frequency as a placeholder. Future implementations
+    /// will calculate the proper frequency based on:
+    /// - The relationship between the root note and A4
+    /// - The current tuning system's frequency ratios
+    /// - Musical theory calculations for proper tuning
+    /// - Validation that the resulting frequency is within audible range
+    fn calculate_reference_frequency_for_root_note_safe(&self, _root_note: &Note) -> Result<f32, ValidationError> {
+        // Placeholder: Return current reference frequency
+        // TODO: Calculate proper reference frequency based on root note
+        // TODO: Apply tuning system-specific calculations
+        // TODO: Ensure frequency is within valid range
+        Ok(self.reference_a4)
     }
     
     /// Apply tuning system change to internal state
@@ -873,5 +1062,133 @@ mod tests {
         
         // Should return the configured tuning system
         assert_eq!(result.tuning_system, TuningSystem::EqualTemperament);
+    }
+
+    /// Test validation error when tuning system is already active
+    #[wasm_bindgen_test]
+    fn test_tuning_system_already_active_error() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with the same tuning system as current
+        let mut actions = PresentationLayerActions::new();
+        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
+            tuning_system: TuningSystem::EqualTemperament, // Same as default
+        });
+        
+        let result = model.process_user_actions(actions);
+        
+        // Should have no successful actions
+        assert_eq!(result.actions.audio_system_configurations.len(), 0);
+        
+        // Should have one validation error
+        assert_eq!(result.validation_errors.len(), 1);
+        assert_eq!(
+            result.validation_errors[0],
+            ValidationError::TuningSystemAlreadyActive(TuningSystem::EqualTemperament)
+        );
+    }
+
+    /// Test validation error when root note is already set
+    #[wasm_bindgen_test]
+    fn test_root_note_already_set_error() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with the same root note as current
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::A, // Same as default
+        });
+        
+        let result = model.process_user_actions(actions);
+        
+        // Should have no successful actions
+        assert_eq!(result.actions.tuning_configurations.len(), 0);
+        
+        // Should have one validation error
+        assert_eq!(result.validation_errors.len(), 1);
+        assert_eq!(
+            result.validation_errors[0],
+            ValidationError::RootNoteAlreadySet(Note::A)
+        );
+    }
+
+    /// Test successful validation with different values
+    #[wasm_bindgen_test]
+    fn test_successful_action_processing() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with valid changes
+        let mut actions = PresentationLayerActions::new();
+        actions.microphone_permission_requests.push(crate::presentation::RequestMicrophonePermission);
+        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
+            tuning_system: TuningSystem::JustIntonation,
+        });
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::C,
+        });
+        
+        let result = model.process_user_actions(actions);
+        
+        // Should have successful actions
+        assert_eq!(result.actions.microphone_permission_requests.len(), 1);
+        assert_eq!(result.actions.audio_system_configurations.len(), 1);
+        assert_eq!(result.actions.tuning_configurations.len(), 1);
+        
+        // Should have no validation errors
+        assert_eq!(result.validation_errors.len(), 0);
+        
+        // Verify model state was updated
+        assert_eq!(model.tuning_system, TuningSystem::JustIntonation);
+        assert_eq!(model.root_note, Note::C);
+    }
+
+    /// Test mixed success and failure cases
+    #[wasm_bindgen_test]
+    fn test_mixed_validation_results() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with some valid and some invalid changes
+        let mut actions = PresentationLayerActions::new();
+        
+        // Valid: permission request
+        actions.microphone_permission_requests.push(crate::presentation::RequestMicrophonePermission);
+        
+        // Invalid: same tuning system
+        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
+            tuning_system: TuningSystem::EqualTemperament,
+        });
+        
+        // Valid: different tuning system
+        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
+            tuning_system: TuningSystem::JustIntonation,
+        });
+        
+        // Invalid: same root note
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::A,
+        });
+        
+        // Valid: different root note
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::D,
+        });
+        
+        let result = model.process_user_actions(actions);
+        
+        // Should have successful actions
+        assert_eq!(result.actions.microphone_permission_requests.len(), 1);
+        assert_eq!(result.actions.audio_system_configurations.len(), 1);
+        assert_eq!(result.actions.tuning_configurations.len(), 1);
+        
+        // Should have validation errors for failed actions
+        assert_eq!(result.validation_errors.len(), 2);
+        
+        // Verify specific errors
+        assert!(result.validation_errors.contains(&ValidationError::TuningSystemAlreadyActive(TuningSystem::EqualTemperament)));
+        assert!(result.validation_errors.contains(&ValidationError::RootNoteAlreadySet(Note::A)));
+        
+        // Verify model state was updated only for valid actions
+        assert_eq!(model.tuning_system, TuningSystem::JustIntonation);
+        assert_eq!(model.root_note, Note::D);
     }
 }
