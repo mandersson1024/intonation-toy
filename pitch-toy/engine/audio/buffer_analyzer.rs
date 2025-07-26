@@ -3,6 +3,43 @@
 
 use super::buffer::{CircularBuffer, validate_buffer_size};
 
+/// Processing strategy for buffer analysis
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ProcessingStrategy {
+    /// Sequential processing without overlap (current implementation)
+    Sequential,
+    /// Sliding window processing with configurable overlap
+    SlidingWindow { overlap_ratio: f32 },
+}
+
+/// Result of buffer processing operation
+#[derive(Debug, PartialEq)]
+pub enum ProcessingResult {
+    /// Block was successfully processed
+    BlockReady(Vec<f32>),
+    /// Insufficient data for processing
+    InsufficientData,
+    /// Processing completed (no more data)
+    Completed,
+}
+
+/// Abstract buffer processor trait for different processing strategies
+pub trait BufferProcessor {
+    /// Process the next available data
+    fn process_next(&mut self) -> ProcessingResult;
+    
+    /// Zero-allocation variant that fills a pre-allocated buffer
+    fn process_next_into(&mut self, output: &mut [f32]) -> bool;
+    
+    /// Check if processor can produce a block
+    fn can_process(&self) -> bool;
+    
+    /// Get the block size this processor produces
+    fn block_size(&self) -> usize;
+    
+    /// Get the processing strategy being used
+    fn strategy(&self) -> ProcessingStrategy;
+}
 
 /// Supported windowing functions for spectral analysis
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -145,7 +182,188 @@ impl<'a> BufferAnalyzer<'a> {
     }
 }
 
+impl<'a> BufferProcessor for BufferAnalyzer<'a> {
+    fn process_next(&mut self) -> ProcessingResult {
+        match self.next_block() {
+            Some(block) => ProcessingResult::BlockReady(block),
+            None => ProcessingResult::InsufficientData,
+        }
+    }
+    
+    fn process_next_into(&mut self, output: &mut [f32]) -> bool {
+        self.next_block_into(output)
+    }
+    
+    fn can_process(&self) -> bool {
+        self.buffer.len() >= self.block_size
+    }
+    
+    fn block_size(&self) -> usize {
+        self.block_size
+    }
+    
+    fn strategy(&self) -> ProcessingStrategy {
+        ProcessingStrategy::Sequential
+    }
+}
 
+/// Sliding window buffer processor for overlapping analysis
+/// Maintains internal state for sliding window position and overlap management
+pub struct SlidingWindowProcessor<'a> {
+    buffer: &'a CircularBuffer<f32>,
+    block_size: usize,
+    overlap_ratio: f32,
+    hop_size: usize,
+    window_fn: WindowFunction,
+    window_coeffs: Vec<f32>,
+    current_offset: usize,
+    processed_samples: usize,
+}
+
+impl<'a> SlidingWindowProcessor<'a> {
+    /// Create a new SlidingWindowProcessor
+    ///
+    /// * `buffer` - reference to an existing CircularBuffer
+    /// * `block_size` - size of each analysis block (must be multiple of 128)
+    /// * `overlap_ratio` - fraction of overlap between windows (0.0 to 0.75)
+    /// * `window_fn` - windowing function to apply
+    pub fn new(
+        buffer: &'a CircularBuffer<f32>,
+        block_size: usize,
+        overlap_ratio: f32,
+        window_fn: WindowFunction,
+    ) -> Result<Self, String> {
+        // Validate parameters
+        validate_buffer_size(block_size)?;
+        if block_size > buffer.capacity() {
+            return Err("Block size cannot exceed buffer capacity".to_string());
+        }
+        if overlap_ratio < 0.0 || overlap_ratio >= 1.0 {
+            return Err("Overlap ratio must be between 0.0 and 1.0".to_string());
+        }
+        
+        // Calculate hop size ensuring it's a multiple of 128 for AudioWorklet compatibility
+        let ideal_hop_size = (block_size as f32 * (1.0 - overlap_ratio)) as usize;
+        let hop_size = if ideal_hop_size >= 128 {
+            (ideal_hop_size / 128) * 128
+        } else {
+            // For small block sizes or high overlap ratios, use smaller hop sizes
+            // Find the largest divisor of 128 that's <= ideal_hop_size
+            let divisors = [64, 32, 16, 8, 4, 2, 1];
+            divisors.iter()
+                .find(|&&d| d <= ideal_hop_size)
+                .copied()
+                .unwrap_or(1)
+        };
+        
+        if hop_size == 0 || hop_size >= block_size {
+            return Err("Invalid hop size calculation".to_string());
+        }
+        
+        let window_coeffs = generate_window(block_size, window_fn);
+        
+        Ok(SlidingWindowProcessor {
+            buffer,
+            block_size,
+            overlap_ratio,
+            hop_size,
+            window_fn,
+            window_coeffs,
+            current_offset: 0,
+            processed_samples: 0,
+        })
+    }
+    
+    /// Reset the processor to start from the beginning
+    pub fn reset(&mut self) {
+        self.current_offset = 0;
+        self.processed_samples = 0;
+    }
+    
+    /// Get the current window position
+    pub fn current_offset(&self) -> usize {
+        self.current_offset
+    }
+    
+    /// Get the hop size (distance between window starts)
+    pub fn hop_size(&self) -> usize {
+        self.hop_size
+    }
+}
+
+impl<'a> BufferProcessor for SlidingWindowProcessor<'a> {
+    fn process_next(&mut self) -> ProcessingResult {
+        if !self.can_process() {
+            return ProcessingResult::InsufficientData;
+        }
+        
+        // Get the windowed block
+        let mut block = self.buffer.peek_chunk_vec(self.current_offset, self.block_size);
+        
+        // Apply windowing function
+        match self.window_fn {
+            WindowFunction::None => {},
+            _ => {
+                for (sample, coeff) in block.iter_mut().zip(self.window_coeffs.iter()) {
+                    *sample *= *coeff;
+                }
+            }
+        }
+        
+        // Advance window position
+        self.current_offset += self.hop_size;
+        self.processed_samples += self.hop_size;
+        
+        ProcessingResult::BlockReady(block)
+    }
+    
+    fn process_next_into(&mut self, output: &mut [f32]) -> bool {
+        if output.len() != self.block_size {
+            panic!("output slice length {} does not match processor block_size {}", 
+                   output.len(), self.block_size);
+        }
+        
+        if !self.can_process() {
+            return false;
+        }
+        
+        // Read samples into output buffer
+        let read = self.buffer.peek_chunk(self.current_offset, output);
+        if read != self.block_size {
+            return false;
+        }
+        
+        // Apply windowing function
+        match self.window_fn {
+            WindowFunction::None => {},
+            _ => {
+                for (sample, coeff) in output.iter_mut().zip(self.window_coeffs.iter()) {
+                    *sample *= *coeff;
+                }
+            }
+        }
+        
+        // Advance window position
+        self.current_offset += self.hop_size;
+        self.processed_samples += self.hop_size;
+        
+        true
+    }
+    
+    fn can_process(&self) -> bool {
+        self.buffer.can_read_window(self.current_offset, self.block_size)
+    }
+    
+    fn block_size(&self) -> usize {
+        self.block_size
+    }
+    
+    fn strategy(&self) -> ProcessingStrategy {
+        ProcessingStrategy::SlidingWindow { 
+            overlap_ratio: self.overlap_ratio 
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -222,4 +440,158 @@ mod tests {
         assert!(!analyzer.next_block_into(&mut output));
     }
 
+    #[wasm_bindgen_test]
+    fn test_buffer_processor_trait_for_sequential() {
+        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        for i in 0..256 {
+            circ.write(i as f32);
+        }
+
+        let mut analyzer = BufferAnalyzer::new(&mut circ, 128, WindowFunction::None).unwrap();
+        
+        // Test trait methods
+        assert_eq!(analyzer.strategy(), ProcessingStrategy::Sequential);
+        assert_eq!(analyzer.block_size(), 128);
+        assert!(analyzer.can_process());
+        
+        // Test process_next
+        match analyzer.process_next() {
+            ProcessingResult::BlockReady(block) => {
+                assert_eq!(block.len(), 128);
+                assert_eq!(block[0], 0.0);
+                assert_eq!(block[127], 127.0);
+            }
+            _ => panic!("Expected BlockReady result"),
+        }
+        
+        // Test process_next_into
+        let mut output = vec![0.0; 128];
+        assert!(analyzer.process_next_into(&mut output));
+        assert_eq!(output[0], 128.0);
+        assert_eq!(output[127], 255.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_sliding_window_processor_creation() {
+        let circ = CircularBuffer::<f32>::new(512).unwrap();
+        
+        // Valid parameters
+        let processor = SlidingWindowProcessor::new(&circ, 256, 0.5, WindowFunction::None);
+        assert!(processor.is_ok());
+        let processor = processor.unwrap();
+        assert_eq!(processor.block_size(), 256);
+        assert_eq!(processor.hop_size(), 128); // 50% overlap = 128 hop size
+        
+        // Invalid overlap ratio
+        assert!(SlidingWindowProcessor::new(&circ, 256, 1.0, WindowFunction::None).is_err());
+        assert!(SlidingWindowProcessor::new(&circ, 256, -0.1, WindowFunction::None).is_err());
+        
+        // Invalid block size
+        assert!(SlidingWindowProcessor::new(&circ, 1000, 0.5, WindowFunction::None).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_sliding_window_processor_overlapping_windows() {
+        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        // Fill with sequential values
+        for i in 0..400 {
+            circ.write(i as f32);
+        }
+        
+        let mut processor = SlidingWindowProcessor::new(&circ, 256, 0.5, WindowFunction::None).unwrap();
+        
+        // Test trait methods
+        assert_eq!(processor.strategy(), ProcessingStrategy::SlidingWindow { overlap_ratio: 0.5 });
+        assert_eq!(processor.block_size(), 256);
+        assert_eq!(processor.hop_size(), 128);
+        assert!(processor.can_process());
+        
+        // First window: samples 0-255
+        match processor.process_next() {
+            ProcessingResult::BlockReady(block) => {
+                assert_eq!(block.len(), 256);
+                assert_eq!(block[0], 0.0);
+                assert_eq!(block[255], 255.0);
+            }
+            _ => panic!("Expected BlockReady result"),
+        }
+        
+        // Second window: samples 128-383 (50% overlap)
+        match processor.process_next() {
+            ProcessingResult::BlockReady(block) => {
+                assert_eq!(block.len(), 256);
+                assert_eq!(block[0], 128.0);
+                assert_eq!(block[255], 383.0);
+            }
+            _ => panic!("Expected BlockReady result"),
+        }
+        
+        // Third window: samples 256-511, but we only have up to 399
+        assert_eq!(processor.process_next(), ProcessingResult::InsufficientData);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_sliding_window_processor_zero_allocation() {
+        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        for i in 0..300 {
+            circ.write(i as f32);
+        }
+        
+        let mut processor = SlidingWindowProcessor::new(&circ, 128, 0.5, WindowFunction::None).unwrap();
+        let mut output = vec![0.0; 128];
+        
+        // First window
+        assert!(processor.process_next_into(&mut output));
+        assert_eq!(output[0], 0.0);
+        assert_eq!(output[127], 127.0);
+        
+        // Second window (64 samples forward due to 50% overlap)
+        assert!(processor.process_next_into(&mut output));
+        assert_eq!(output[0], 64.0);
+        assert_eq!(output[127], 191.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_sliding_window_processor_reset() {
+        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        for i in 0..200 {
+            circ.write(i as f32);
+        }
+        
+        let mut processor = SlidingWindowProcessor::new(&circ, 128, 0.5, WindowFunction::None).unwrap();
+        
+        // Process one window
+        assert!(processor.can_process());
+        let _ = processor.process_next();
+        assert_eq!(processor.current_offset(), 64); // hop size for 50% overlap with 128 samples
+        
+        // Reset and verify
+        processor.reset();
+        assert_eq!(processor.current_offset(), 0);
+        
+        // Should be able to process from beginning again
+        match processor.process_next() {
+            ProcessingResult::BlockReady(block) => {
+                assert_eq!(block[0], 0.0);
+                assert_eq!(block[127], 127.0);
+            }
+            _ => panic!("Expected BlockReady result"),
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_audioworklet_compatibility() {
+        let circ = CircularBuffer::<f32>::new(512).unwrap();
+        
+        // Test that hop sizes are multiples of 128 for AudioWorklet compatibility
+        let processor = SlidingWindowProcessor::new(&circ, 512, 0.5, WindowFunction::None).unwrap();
+        assert_eq!(processor.hop_size(), 256); // 512 * 0.5 = 256 (multiple of 128)
+        
+        let processor = SlidingWindowProcessor::new(&circ, 384, 0.5, WindowFunction::None).unwrap();
+        assert_eq!(processor.hop_size(), 128); // 384 * 0.5 = 192, rounded down to 128
+        
+        // Test with 75% overlap
+        let processor = SlidingWindowProcessor::new(&circ, 512, 0.75, WindowFunction::None).unwrap();
+        assert_eq!(processor.hop_size(), 128); // 512 * 0.25 = 128
+    }
 } 
