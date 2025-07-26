@@ -60,7 +60,7 @@
 // PLACEHOLDER: Import temporary sprite scene for development/testing
 // TODO: Remove this import and sprite_scene.rs when proper visualization is implemented
 mod sprite_scene;
-pub use sprite_scene::SpriteScene;
+pub(crate) use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
@@ -77,7 +77,7 @@ use crate::engine::audio::TestWaveform;
 
 /// Request for microphone permission from the user interface
 #[derive(Debug, Clone, PartialEq)]
-pub struct RequestMicrophonePermission;
+pub(crate) struct RequestMicrophonePermission;
 
 /// Request to change the tuning system
 #[derive(Debug, Clone, PartialEq)]
@@ -128,7 +128,7 @@ pub struct PresentationLayerActions {
 
 impl PresentationLayerActions {
     /// Create a new instance with empty action collections
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
@@ -152,7 +152,7 @@ pub struct DebugLayerActions {
 #[cfg(debug_assertions)]
 impl DebugLayerActions {
     /// Create a new instance with empty debug action collections
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),

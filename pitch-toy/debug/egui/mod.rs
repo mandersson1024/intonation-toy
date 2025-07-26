@@ -5,9 +5,9 @@
 // Debug controls use the new presenter action collection system
 // All debug functionality is only available in debug builds
 
-pub mod overlay;
-pub mod hybrid_live_data_panel;
-pub mod data_types;
+pub(crate) mod overlay;
+pub(crate) mod hybrid_live_data_panel;
+pub(crate) mod data_types;
 
-pub use overlay::EguiDebugControls;
-pub use hybrid_live_data_panel::HybridEguiLiveDataPanel;
+pub(crate) use overlay::EguiDebugControls;
+pub(crate) use hybrid_live_data_panel::HybridEguiLiveDataPanel;

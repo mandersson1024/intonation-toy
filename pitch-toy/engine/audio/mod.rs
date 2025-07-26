@@ -245,30 +245,13 @@ pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, Au
 pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
 pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 pub use permission::PermissionManager;
-pub use buffer::{CircularBuffer, BufferState, PRODUCTION_BUFFER_SIZE, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX, DEV_BUFFER_SIZE_DEFAULT, AUDIO_CHUNK_SIZE, get_buffer_size, validate_buffer_size, validate_buffer_size_for_creation};
-pub use buffer_analyzer::{BufferAnalyzer, WindowFunction};
-// Note: BufferPool re-export removed - using direct processing with transferable buffers
-pub use console_service::{ConsoleAudioService, ConsoleAudioServiceImpl, AudioStatus};
-pub use commands::register_audio_commands;
+pub(crate) use commands::register_audio_commands;
 pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
 pub use note_mapper::NoteMapper;
 pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
-pub use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
+pub(crate) use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
-pub use message_protocol::{
-    ToWorkletMessage, FromWorkletMessage, ToWorkletEnvelope, FromWorkletEnvelope,
-    AudioDataBatch, ProcessorStatus, BatchConfig, WorkletError, WorkletErrorCode,
-    ErrorContext, MemoryUsage, MessageEnvelope, 
-    SerializationResult, SerializationError, ToJsMessage, FromJsMessage, MessageValidator,
-    MessageSerializer, MessageDeserializer,
-    MessageConstructionResult, MessageConstructionError, MessageIdGenerator,
-    MessageBuilder, AudioWorkletMessageFactory, generate_unique_message_id,
-    get_high_resolution_timestamp,
-    // Enhanced error handling types
-    MessageProtocolError, ValidationError, TransferError, MessageProtocolResult, ValidationResult, TransferResult,
-    MessageContext, MessageDirection, SystemState
-};
 
 
 

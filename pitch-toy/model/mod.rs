@@ -106,7 +106,7 @@ use crate::presentation::PresentationLayerActions;
 /// when processing presentation layer actions. They provide detailed information
 /// about why an action was rejected by business logic validation.
 #[derive(Debug, Clone, PartialEq)]
-pub enum ValidationError {
+pub(crate) enum ValidationError {
     /// Microphone permission already granted
     PermissionAlreadyGranted,
     /// Microphone permission already denied
@@ -131,7 +131,7 @@ pub enum ValidationError {
 /// validation errors that occurred during processing. This allows the
 /// presentation layer to understand what succeeded and what failed.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ProcessedActions {
+pub(crate) struct ProcessedActions {
     /// Successfully validated actions ready for execution
     pub actions: ModelLayerActions,
     /// Validation errors for actions that failed business logic checks
@@ -150,7 +150,7 @@ pub struct ProcessedActions {
 /// by the model layer's business logic. It is a unit struct as the validation
 /// ensures that the request is appropriate given the current state.
 #[derive(Debug, Clone, PartialEq)]
-pub struct RequestMicrophonePermissionAction;
+pub(crate) struct RequestMicrophonePermissionAction;
 
 /// Validated audio system configuration
 /// 
@@ -435,7 +435,7 @@ impl DataModel {
     /// When actions pass validation, the model's internal state is immediately updated
     /// using `apply_tuning_system_change()` and `apply_root_note_change()` methods.
     /// This ensures the model's state remains synchronized with validated user actions.
-    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
+    pub(crate) fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
         let mut model_actions = ModelLayerActions::new();
         let mut validation_errors = Vec::new();
         

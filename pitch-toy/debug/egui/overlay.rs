@@ -2,7 +2,7 @@
 // Manages microphone button rendering in three-d + egui context
 
 use three_d::egui;
-use crate::engine::audio::{AudioPermission, TestWaveform, test_signal_generator::BackgroundNoiseConfig};
+use crate::engine::audio::{TestWaveform, test_signal_generator::BackgroundNoiseConfig};
 
 /// Test signal configuration
 #[derive(Debug, Clone, PartialEq)]

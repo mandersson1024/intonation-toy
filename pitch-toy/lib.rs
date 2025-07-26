@@ -10,12 +10,12 @@ pub mod presentation;
 
 // Module interfaces
 #[path = "module-interfaces/mod.rs"]
-pub mod module_interfaces;
+pub(crate) mod module_interfaces;
 
 // Supporting modules
-pub mod common;
-pub mod debug;
-pub mod live_data;
+pub(crate) mod common;
+pub(crate) mod debug;
+pub(crate) mod live_data;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
@@ -236,10 +236,10 @@ pub async fn run_three_d_with_layers(
                     );
                     
                     // Execute actions synchronously
+                    let total_sync = processed_actions.actions.audio_system_configurations.len() + 
+                                   processed_actions.actions.tuning_configurations.len();
                     match engine.execute_actions(processed_actions.actions) {
-                        Ok(executed_actions) => {
-                            let total_sync = executed_actions.audio_system_configurations.len() + 
-                                           executed_actions.tuning_configurations.len();
+                        Ok(()) => {
                             if total_sync > 0 {
                                 dev_log!("✓ Executed {} actions", total_sync);
                             }

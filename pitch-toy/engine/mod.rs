@@ -45,7 +45,7 @@
 //! ```
 
 pub mod audio;
-pub mod platform;
+pub(crate) mod platform;
 
 use crate::module_interfaces::engine_to_model::EngineUpdateResult;
 use crate::module_interfaces::model_to_presentation::{TuningSystem, Note};
@@ -65,7 +65,7 @@ use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPool
 /// at the engine layer. It contains no additional data as the execution process
 /// is handled entirely by the existing microphone connection functionality.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExecuteMicrophonePermissionRequest;
+pub(crate) struct ExecuteMicrophonePermissionRequest;
 
 /// Execution action for audio system configuration
 /// 
@@ -76,7 +76,7 @@ pub struct ExecuteMicrophonePermissionRequest;
 /// The `root_frequency` represents the frequency assigned to the tonic (first degree) of the
 /// current tuning system, not an absolute tuning reference.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureAudioSystem {
+pub(crate) struct ConfigureAudioSystem {
     /// The tuning system to configure in the audio processing pipeline
     pub tuning_system: TuningSystem,
     /// The frequency (in Hz) assigned to the tonic note of the tuning system
@@ -92,7 +92,7 @@ pub struct ConfigureAudioSystem {
 /// The `root_frequency` is the frequency assigned to the specified `root_note` when it
 /// functions as the tonic (first degree) of the scale.
 #[derive(Debug, Clone, PartialEq)]
-pub struct UpdateTuningConfiguration {
+pub(crate) struct UpdateTuningConfiguration {
     /// The tuning system being used
     pub tuning_system: TuningSystem,
     /// The root note that will serve as the tonic
@@ -111,7 +111,7 @@ pub struct UpdateTuningConfiguration {
 /// them into executable operations, performs the execution, and returns the results
 /// as `EngineLayerActions` for logging and feedback purposes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EngineLayerActions {
+pub(crate) struct EngineLayerActions {
     /// Executed audio system configurations
     pub audio_system_configurations: Vec<ConfigureAudioSystem>,
     
@@ -124,7 +124,7 @@ impl EngineLayerActions {
     /// 
     /// Returns a new `EngineLayerActions` struct with all action vectors initialized
     /// as empty. This is used as the starting point for collecting executed actions.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
@@ -389,7 +389,7 @@ impl AudioEngine {
     /// The engine layer calculates appropriate root frequencies based on the tuning system
     /// and root note specified in the model actions. Model actions contain only the musical
     /// parameters (tuning system, root note) while the engine determines the actual frequencies.
-    pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<EngineLayerActions, String> {
+    pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
         self.log_execution_start(&model_actions);
         
         let mut engine_actions = EngineLayerActions::new();
@@ -399,7 +399,7 @@ impl AudioEngine {
         
         self.log_execution_completion(&engine_actions);
         
-        Ok(engine_actions)
+        Ok(())
     }
     
     /// Log the start of action execution with count information
