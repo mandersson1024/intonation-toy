@@ -57,7 +57,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeDetectorConfig, VolumeAnalysis, TestSignalGenerator, TestSignalGeneratorConfig, BackgroundNoiseConfig};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, TestSignalGeneratorConfig, BackgroundNoiseConfig};
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 
 /// AudioWorklet processor states
@@ -164,7 +164,6 @@ pub struct AudioWorkletManager {
     config: AudioWorkletConfig,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
-    test_signal_generator: Option<TestSignalGenerator>,
     background_noise_config: BackgroundNoiseConfig,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -191,7 +190,6 @@ impl AudioWorkletManager {
             config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
-            test_signal_generator: None,
             background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
@@ -228,7 +226,6 @@ impl AudioWorkletManager {
             config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
-            test_signal_generator: None,
             background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
@@ -903,13 +900,6 @@ impl AudioWorkletManager {
     
     /// Update test signal generator configuration
     pub fn update_test_signal_config(&mut self, config: TestSignalGeneratorConfig) {
-        if let Some(generator) = &mut self.test_signal_generator {
-            generator.update_config(config.clone());
-        } else {
-            // Create new generator if none exists
-            self.test_signal_generator = Some(TestSignalGenerator::new(config.clone()));
-        }
-        
         // Send configuration to AudioWorklet processor
         if let Err(e) = self.send_test_signal_config_to_worklet(&config) {
             dev_log!("Warning: Failed to send test signal config to worklet: {}", e);

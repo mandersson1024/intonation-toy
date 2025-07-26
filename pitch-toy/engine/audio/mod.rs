@@ -258,7 +258,6 @@ use pitch_detector::{PitchResult, PitchDetectorConfig, PitchDetector, PitchDetec
 use note_mapper::NoteMapper;
 use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
-use test_signal_generator::TestSignalGenerator;
 
 
 
