@@ -16,10 +16,10 @@
 - Never claim tasks are "complete" when they contain placeholders or todos
 
 ### Avoid evolutionary language
-- Describe only the current state of the system, not the relation to what it used to be
-- Write as if the current state has always existed
-- Avoid words like: `evolved`, `improved`, `enhanced`, `upgraded`, `modernized`, `optimized`, `refactored`, `migrated`
-- Apply this rule to all documentation, comments, and variable names
+- Apply this rule to comments and variable names
+- Describe only the current state of the system and write as if the current state has always existed
+- Don't mention was used to be
+- Avoid words like: `evolved`, `improved`, `enhanced`, `upgraded`, `modernized`, `optimized`, `refactored`, `migrated`, `removed`, etc
 - Instead of "enhanced error handling", write "error handling handles X, Y, Z cases"
 - Instead of "improved performance", write "processes N items per second"
 - Instead of "newConfig", use "appConfig" or "systemConfig"
