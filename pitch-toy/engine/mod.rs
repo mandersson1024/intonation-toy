@@ -67,35 +67,23 @@ pub(crate) struct ExecuteMicrophonePermissionRequest;
 /// Execution action for audio system configuration
 /// 
 /// This struct represents the execution of audio system configuration at the engine layer.
-/// It configures the audio worklet with a specific tuning system and sets the root frequency
-/// for the tonic note (the first note of the scale).
-/// 
-/// The `root_frequency` represents the frequency assigned to the tonic (first degree) of the
-/// current tuning system, not an absolute tuning reference.
+/// It configures the audio worklet with a specific tuning system.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ConfigureAudioSystem {
     /// The tuning system to configure in the audio processing pipeline
     pub tuning_system: TuningSystem,
-    /// The frequency (in Hz) assigned to the tonic note of the tuning system
-    pub root_frequency: f32,
 }
 
 /// Execution action for tuning configuration updates
 /// 
 /// This struct represents the execution of tuning configuration updates at the engine layer.
-/// It updates the audio system's tuning configuration with a specific root note and assigns
-/// the appropriate root frequency for that note.
-/// 
-/// The `root_frequency` is the frequency assigned to the specified `root_note` when it
-/// functions as the tonic (first degree) of the scale.
+/// It updates the audio system's tuning configuration with a specific root note.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UpdateTuningConfiguration {
     /// The tuning system being used
     pub tuning_system: TuningSystem,
     /// The root note that will serve as the tonic
     pub root_note: Note,
-    /// The frequency (in Hz) assigned to the root note as the tonic
-    pub root_frequency: f32,
 }
 
 /// Container for all executed engine layer actions
@@ -364,16 +352,10 @@ impl AudioEngine {
     /// 1. Transforms model actions into engine execution actions
     /// 2. Executes each action type using existing engine functionality:
     ///    - Microphone permission requests use `connect_microphone_to_audioworklet_with_context()`
-    ///    - Audio system configurations configure the audio worklet with tuning system and calculated root frequency
-    ///    - Tuning configurations update the audio system with root note and calculated root frequency
+    ///    - Audio system configurations configure the audio worklet with tuning system
+    ///    - Tuning configurations update the audio system with root note
     /// 3. Collects executed actions for logging and feedback
     /// 4. Provides comprehensive error handling with detailed logging
-    /// 
-    /// # Frequency Calculation
-    /// 
-    /// The engine layer calculates appropriate root frequencies based on the tuning system
-    /// and root note specified in the model actions. Model actions contain only the musical
-    /// parameters (tuning system, root note) while the engine determines the actual frequencies.
     pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
         self.log_execution_start(&model_actions);
         
@@ -426,22 +408,19 @@ impl AudioEngine {
         engine_actions: &mut EngineLayerActions
     ) -> Result<(), String> {
         for config in &model_actions.audio_system_configurations {
-            let root_frequency = self.calculate_root_frequency_for_tuning_system(&config.tuning_system);
-            
             let engine_config = ConfigureAudioSystem {
                 tuning_system: config.tuning_system.clone(),
-                root_frequency,
             };
             
-            crate::common::dev_log!("Configuring audio system with tuning: {:?}, root frequency: {} Hz", 
-                engine_config.tuning_system, engine_config.root_frequency);
+            crate::common::dev_log!("Configuring audio system with tuning: {:?}", 
+                engine_config.tuning_system);
             
             // Since configure_audio_worklet_with_tuning is just a placeholder that returns Ok(()),
             // we can execute it synchronously
             if let Some(ref audio_context) = self.audio_context {
                 // Placeholder implementation - always succeeds
-                crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?} and root frequency {} Hz",
-                    engine_config.tuning_system, engine_config.root_frequency);
+                crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
+                    engine_config.tuning_system);
                 
                 engine_actions.audio_system_configurations.push(engine_config);
                 crate::common::dev_log!("✓ Audio system configuration executed successfully");
@@ -463,23 +442,20 @@ impl AudioEngine {
         engine_actions: &mut EngineLayerActions
     ) -> Result<(), String> {
         for config in &model_actions.tuning_configurations {
-            let root_frequency = self.calculate_root_frequency_for_note(&config.root_note);
-            
             let engine_config = UpdateTuningConfiguration {
                 tuning_system: config.tuning_system.clone(),
                 root_note: config.root_note.clone(),
-                root_frequency,
             };
             
-            crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}, root frequency: {} Hz", 
-                engine_config.tuning_system, engine_config.root_note, engine_config.root_frequency);
+            crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}", 
+                engine_config.tuning_system, engine_config.root_note);
             
             // Since update_audio_worklet_tuning is just a placeholder that returns Ok(()),
             // we can execute it synchronously
             if let Some(ref _audio_context) = self.audio_context {
                 // Placeholder implementation - always succeeds
-                crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}, root frequency: {} Hz",
-                    engine_config.tuning_system, engine_config.root_note, engine_config.root_frequency);
+                crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
+                    engine_config.tuning_system, engine_config.root_note);
                 
                 engine_actions.tuning_configurations.push(engine_config);
                 crate::common::dev_log!("✓ Tuning configuration executed successfully");
@@ -590,9 +566,9 @@ impl AudioEngine {
         _audio_context: &std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>
     ) -> Result<(), String> {
         // Placeholder implementation - logs the configuration that would be applied
-        // TODO: Implement actual audio worklet configuration with tuning system and root frequency
-        crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?} and root frequency {} Hz",
-            config.tuning_system, config.root_frequency);
+        // TODO: Implement actual audio worklet configuration with tuning system
+        crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
+            config.tuning_system);
         
         // For now, always succeed to demonstrate the action execution flow
         Ok(())
@@ -618,9 +594,9 @@ impl AudioEngine {
         _audio_context: &std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>
     ) -> Result<(), String> {
         // Placeholder implementation - logs the configuration that would be applied
-        // TODO: Implement actual audio worklet tuning update with root note and frequency
-        crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}, root frequency: {} Hz",
-            config.tuning_system, config.root_note, config.root_frequency);
+        // TODO: Implement actual audio worklet tuning update with root note
+        crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
+            config.tuning_system, config.root_note);
         
         // For now, always succeed to demonstrate the action execution flow
         Ok(())
