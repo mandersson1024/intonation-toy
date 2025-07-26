@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 - Never run the server automatically. Instead tell the user to start the server using `trunk serve` and ask for manual testing. Be specific about what to test and what you expect in response.
-- Brower console logs are engouraged for tricky debugging scenarios. Add a distinct prefix to the relevant log lines so the user can filter on them
-- For volume data, the internal representation is always amplitude, not dB
+- You are allowed to use `cargo build` and `cargo check` to look for errors and warnings.
+- Browers console logs are engouraged for tricky debugging scenarios. Add a distinct prefix to the relevant log lines so the user can filter on them.
+- For volume data, the internal representation is always amplitude, not dB.
 
