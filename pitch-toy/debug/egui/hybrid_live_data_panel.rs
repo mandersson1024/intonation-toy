@@ -53,8 +53,8 @@ impl HybridEguiLiveDataPanel {
     /// Update the hybrid data with engine and model results
     pub fn update_data(
         &mut self,
-        engine_result: &crate::module_interfaces::engine_to_model::EngineUpdateResult,
-        model_result: Option<&crate::module_interfaces::model_to_presentation::ModelUpdateResult>,
+        engine_result: &crate::shared_types::engine_to_model::EngineUpdateResult,
+        model_result: Option<&crate::shared_types::model_to_presentation::ModelUpdateResult>,
     ) {
         self.hybrid_data.update_from_layers(engine_result, model_result);
     }

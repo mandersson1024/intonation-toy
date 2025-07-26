@@ -8,8 +8,8 @@ pub mod model;
 pub mod presentation;
 
 // Module interfaces
-#[path = "module-interfaces/mod.rs"]
-pub(crate) mod module_interfaces;
+#[path = "shared-types/mod.rs"]
+pub(crate) mod shared_types;
 
 // Supporting modules
 pub(crate) mod common;
@@ -120,10 +120,10 @@ pub async fn run_three_d_with_layers(
             engine.update(timestamp)
         } else {
             // Provide default engine data when engine is not available
-            crate::module_interfaces::engine_to_model::EngineUpdateResult {
+            crate::shared_types::engine_to_model::EngineUpdateResult {
                 audio_analysis: None,
                 audio_errors: Vec::new(),
-                permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+                permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
             }
         };
         
@@ -132,16 +132,16 @@ pub async fn run_three_d_with_layers(
             model.update(timestamp, engine_data.clone())
         } else {
             // Provide default model data when model is not available
-            crate::module_interfaces::model_to_presentation::ModelUpdateResult {
-                volume: crate::module_interfaces::model_to_presentation::Volume { peak: -60.0, rms: -60.0 },
-                pitch: crate::module_interfaces::model_to_presentation::Pitch::NotDetected,
-                accuracy: crate::module_interfaces::model_to_presentation::Accuracy {
-                    closest_note: crate::module_interfaces::model_to_presentation::Note::A,
+            crate::shared_types::model_to_presentation::ModelUpdateResult {
+                volume: crate::shared_types::model_to_presentation::Volume { peak: -60.0, rms: -60.0 },
+                pitch: crate::shared_types::model_to_presentation::Pitch::NotDetected,
+                accuracy: crate::shared_types::model_to_presentation::Accuracy {
+                    closest_note: crate::shared_types::model_to_presentation::Note::A,
                     accuracy: 1.0,
                 },
-                tuning_system: crate::module_interfaces::model_to_presentation::TuningSystem::EqualTemperament,
+                tuning_system: crate::shared_types::model_to_presentation::TuningSystem::EqualTemperament,
                 errors: Vec::new(),
-                permission_state: crate::module_interfaces::model_to_presentation::PermissionState::NotRequested,
+                permission_state: crate::shared_types::model_to_presentation::PermissionState::NotRequested,
             }
         };
         
