@@ -134,7 +134,7 @@ impl HybridEguiLiveDataPanel {
         let devices = &self.hybrid_data.audio_devices;
         
         egui::CollapsingHeader::new("Audio Devices")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
                 ui.label(format!("Input Devices: {}", devices.input_devices.len()));
                 for device in &devices.input_devices {

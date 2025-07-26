@@ -545,6 +545,26 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                 dev_log!("No AudioWorklet manager available");
             }
             
+            // Refresh audio devices now that permission is granted
+            {
+                let context_borrowed = audio_context.borrow();
+                let manager_rc = context_borrowed.get_audio_context_manager_rc();
+                drop(context_borrowed);
+
+                wasm_bindgen_futures::spawn_local(async move {
+                    match manager_rc.try_borrow_mut() {
+                        Ok(mut manager) => {
+                            if let Err(_) = manager.refresh_audio_devices().await {
+                                // Handle error if needed
+                            }
+                        }
+                        Err(_) => {
+                            // AudioContextManager busy, skip refresh
+                        }
+                    }
+                });
+            }
+            
             Ok(())
         }
         Err(e) => {

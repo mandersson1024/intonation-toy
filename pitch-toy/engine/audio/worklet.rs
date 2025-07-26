@@ -929,16 +929,9 @@ impl AudioWorkletManager {
     fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
         match &self.shared_data {
             Some(shared_data) => {
-                let stats = shared_data.borrow().buffer_pool_stats.clone();
-                if stats.is_some() {
-                    dev_log!("✓ get_buffer_pool_stats returning stats");
-                } else {
-                    dev_log!("✗ get_buffer_pool_stats: no stats available in shared_data");
-                }
-                stats
+                shared_data.borrow().buffer_pool_stats.clone()
             }
             None => {
-                dev_log!("✗ get_buffer_pool_stats: no shared_data available");
                 None
             }
         }
