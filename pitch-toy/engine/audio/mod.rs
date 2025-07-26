@@ -45,7 +45,7 @@ pub mod pitch_detector;
 pub mod note_mapper;
 pub mod pitch_analyzer;
 pub mod volume_detector;
-pub mod test_signal_generator;
+pub mod signal_generator;
 pub mod message_protocol;
 pub mod data_types;
 
@@ -244,7 +244,7 @@ pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, m
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
 pub use pitch_detector::{MusicalNote, TuningSystem, NoteName};
-pub use test_signal_generator::{TestWaveform, BackgroundNoiseConfig, TestSignalGeneratorConfig};
+pub use signal_generator::{TestWaveform, BackgroundNoiseConfig, SignalGeneratorConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
 

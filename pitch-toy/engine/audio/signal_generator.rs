@@ -11,7 +11,7 @@ pub enum TestWaveform {
 
 /// Configuration for test signal generation
 #[derive(Debug, Clone, PartialEq)]
-pub struct TestSignalGeneratorConfig {
+pub struct SignalGeneratorConfig {
     /// Whether test signal is enabled
     pub enabled: bool,
     /// Signal frequency in Hz (for tonal signals)
@@ -35,7 +35,7 @@ pub struct BackgroundNoiseConfig {
     pub noise_type: TestWaveform, // Reuse TestWaveform for WhiteNoise, PinkNoise
 }
 
-impl Default for TestSignalGeneratorConfig {
+impl Default for SignalGeneratorConfig {
     fn default() -> Self {
         Self {
             enabled: false,

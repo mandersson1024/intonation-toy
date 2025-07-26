@@ -13,7 +13,7 @@
 //   let serializer = MessageSerializer::new();
 //   let js_message = serializer.serialize_envelope(&return_msg)?;
 
-use crate::engine::audio::test_signal_generator::{TestSignalGeneratorConfig, BackgroundNoiseConfig};
+use crate::engine::audio::signal_generator::{SignalGeneratorConfig, BackgroundNoiseConfig};
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -28,7 +28,7 @@ pub enum ToWorkletMessage {
     
     /// Update test signal configuration
     UpdateTestSignalConfig {
-        config: TestSignalGeneratorConfig,
+        config: SignalGeneratorConfig,
     },
     
     /// Update batch processing configuration
@@ -810,7 +810,7 @@ impl FromJsMessage for ToWorkletMessage {
                     .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
                     .dyn_into::<Object>()
                     .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                let config = TestSignalGeneratorConfig::from_js_object(&config_obj)?;
+                let config = SignalGeneratorConfig::from_js_object(&config_obj)?;
                 Ok(ToWorkletMessage::UpdateTestSignalConfig { config })
             }
             "updateBatchConfig" => {
@@ -1467,7 +1467,7 @@ impl MessageValidator for BatchConfig {
 }
 
 // Configuration type implementations
-impl ToJsMessage for TestSignalGeneratorConfig {
+impl ToJsMessage for SignalGeneratorConfig {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
         
@@ -1481,12 +1481,12 @@ impl ToJsMessage for TestSignalGeneratorConfig {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
         
         let waveform_str = match self.waveform {
-            crate::engine::audio::test_signal_generator::TestWaveform::Sine => "sine",
-            crate::engine::audio::test_signal_generator::TestWaveform::Square => "square",
-            crate::engine::audio::test_signal_generator::TestWaveform::Sawtooth => "sawtooth",
-            crate::engine::audio::test_signal_generator::TestWaveform::Triangle => "triangle",
-            crate::engine::audio::test_signal_generator::TestWaveform::WhiteNoise => "whiteNoise",
-            crate::engine::audio::test_signal_generator::TestWaveform::PinkNoise => "pinkNoise",
+            crate::engine::audio::signal_generator::TestWaveform::Sine => "sine",
+            crate::engine::audio::signal_generator::TestWaveform::Square => "square",
+            crate::engine::audio::signal_generator::TestWaveform::Sawtooth => "sawtooth",
+            crate::engine::audio::signal_generator::TestWaveform::Triangle => "triangle",
+            crate::engine::audio::signal_generator::TestWaveform::WhiteNoise => "whiteNoise",
+            crate::engine::audio::signal_generator::TestWaveform::PinkNoise => "pinkNoise",
         };
         Reflect::set(&obj, &"waveform".into(), &waveform_str.into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set waveform: {:?}", e)))?;
@@ -1495,7 +1495,7 @@ impl ToJsMessage for TestSignalGeneratorConfig {
     }
 }
 
-impl FromJsMessage for TestSignalGeneratorConfig {
+impl FromJsMessage for SignalGeneratorConfig {
     fn from_js_object(obj: &Object) -> SerializationResult<Self> {
         let enabled = Reflect::get(obj, &"enabled".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get enabled: {:?}", e)))?
@@ -1526,16 +1526,16 @@ impl FromJsMessage for TestSignalGeneratorConfig {
             .ok_or_else(|| SerializationError::InvalidPropertyType("waveform must be string".to_string()))?;
         
         let waveform = match waveform_str.as_str() {
-            "sine" => crate::engine::audio::test_signal_generator::TestWaveform::Sine,
-            "square" => crate::engine::audio::test_signal_generator::TestWaveform::Square,
-            "sawtooth" => crate::engine::audio::test_signal_generator::TestWaveform::Sawtooth,
-            "triangle" => crate::engine::audio::test_signal_generator::TestWaveform::Triangle,
-            "whiteNoise" => crate::engine::audio::test_signal_generator::TestWaveform::WhiteNoise,
-            "pinkNoise" => crate::engine::audio::test_signal_generator::TestWaveform::PinkNoise,
+            "sine" => crate::engine::audio::signal_generator::TestWaveform::Sine,
+            "square" => crate::engine::audio::signal_generator::TestWaveform::Square,
+            "sawtooth" => crate::engine::audio::signal_generator::TestWaveform::Sawtooth,
+            "triangle" => crate::engine::audio::signal_generator::TestWaveform::Triangle,
+            "whiteNoise" => crate::engine::audio::signal_generator::TestWaveform::WhiteNoise,
+            "pinkNoise" => crate::engine::audio::signal_generator::TestWaveform::PinkNoise,
             _ => return Err(SerializationError::InvalidPropertyType(format!("Unknown waveform: {}", waveform_str))),
         };
         
-        Ok(TestSignalGeneratorConfig {
+        Ok(SignalGeneratorConfig {
             enabled,
             frequency,
             amplitude,
@@ -1545,7 +1545,7 @@ impl FromJsMessage for TestSignalGeneratorConfig {
     }
 }
 
-impl MessageValidator for TestSignalGeneratorConfig {
+impl MessageValidator for SignalGeneratorConfig {
     fn validate(&self) -> SerializationResult<()> {
         if self.frequency <= 0.0 {
             return Err(SerializationError::ValidationFailed("frequency must be positive".to_string()));
@@ -1570,8 +1570,8 @@ impl ToJsMessage for BackgroundNoiseConfig {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set level: {:?}", e)))?;
         
         let noise_type_str = match self.noise_type {
-            crate::engine::audio::test_signal_generator::TestWaveform::WhiteNoise => "whiteNoise",
-            crate::engine::audio::test_signal_generator::TestWaveform::PinkNoise => "pinkNoise",
+            crate::engine::audio::signal_generator::TestWaveform::WhiteNoise => "whiteNoise",
+            crate::engine::audio::signal_generator::TestWaveform::PinkNoise => "pinkNoise",
             _ => "whiteNoise", // Default to white noise for non-noise types
         };
         Reflect::set(&obj, &"noiseType".into(), &noise_type_str.into())
@@ -1600,9 +1600,9 @@ impl FromJsMessage for BackgroundNoiseConfig {
             .ok_or_else(|| SerializationError::InvalidPropertyType("noiseType must be string".to_string()))?;
         
         let noise_type = match noise_type_str.as_str() {
-            "whiteNoise" => crate::engine::audio::test_signal_generator::TestWaveform::WhiteNoise,
-            "pinkNoise" => crate::engine::audio::test_signal_generator::TestWaveform::PinkNoise,
-            _ => crate::engine::audio::test_signal_generator::TestWaveform::WhiteNoise, // Default to white noise
+            "whiteNoise" => crate::engine::audio::signal_generator::TestWaveform::WhiteNoise,
+            "pinkNoise" => crate::engine::audio::signal_generator::TestWaveform::PinkNoise,
+            _ => crate::engine::audio::signal_generator::TestWaveform::WhiteNoise, // Default to white noise
         };
         
         Ok(BackgroundNoiseConfig {
@@ -2180,7 +2180,7 @@ impl ToWorkletMessage {
     }
     
     /// Create an update test signal config message
-    pub fn update_test_signal_config(config: TestSignalGeneratorConfig) -> MessageConstructionResult<Self> {
+    pub fn update_test_signal_config(config: SignalGeneratorConfig) -> MessageConstructionResult<Self> {
         config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(Self::UpdateTestSignalConfig { config })
     }
@@ -2509,13 +2509,13 @@ impl SystemState {
 
 }
 
-impl TestSignalGeneratorConfig {
+impl SignalGeneratorConfig {
     /// Create a new test signal generator config
     pub fn new(
         enabled: bool,
         frequency: f32,
         amplitude: f32,
-        waveform: crate::engine::audio::test_signal_generator::TestWaveform,
+        waveform: crate::engine::audio::signal_generator::TestWaveform,
         sample_rate: f32,
     ) -> MessageConstructionResult<Self> {
         let config = Self {
@@ -2536,7 +2536,7 @@ impl BackgroundNoiseConfig {
     pub fn new(
         enabled: bool,
         level: f32,
-        noise_type: crate::engine::audio::test_signal_generator::TestWaveform,
+        noise_type: crate::engine::audio::signal_generator::TestWaveform,
     ) -> MessageConstructionResult<Self> {
         let config = Self {
             enabled,
@@ -2607,7 +2607,7 @@ impl AudioWorkletMessageFactory {
     }
     
     /// Create an update test signal config message envelope
-    pub fn update_test_signal_config(&self, config: TestSignalGeneratorConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
+    pub fn update_test_signal_config(&self, config: SignalGeneratorConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
         let message = ToWorkletMessage::update_test_signal_config(config)?;
         Ok(MessageEnvelope {
             message_id: self.generate_id(),
@@ -2740,10 +2740,10 @@ impl AudioWorkletMessageFactory {
         enabled: bool,
         frequency: f32,
         amplitude: f32,
-        waveform: crate::engine::audio::test_signal_generator::TestWaveform,
+        waveform: crate::engine::audio::signal_generator::TestWaveform,
         sample_rate: f32
     ) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let config = TestSignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
+        let config = SignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
         self.update_test_signal_config(config)
     }
     
@@ -2751,7 +2751,7 @@ impl AudioWorkletMessageFactory {
     pub fn create_background_noise_config(&self,
         enabled: bool,
         level: f32,
-        noise_type: crate::engine::audio::test_signal_generator::TestWaveform
+        noise_type: crate::engine::audio::signal_generator::TestWaveform
     ) -> MessageConstructionResult<ToWorkletEnvelope> {
         let config = BackgroundNoiseConfig::new(enabled, level, noise_type)?;
         self.update_background_noise_config(config)
@@ -3010,9 +3010,9 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_test_signal_config_serialization() {
-        use crate::engine::audio::test_signal_generator::TestWaveform;
+        use crate::engine::audio::signal_generator::TestWaveform;
         
-        let config = TestSignalGeneratorConfig {
+        let config = SignalGeneratorConfig {
             enabled: true,
             frequency: 440.0,
             amplitude: 0.5,
@@ -3021,7 +3021,7 @@ mod tests {
         };
         
         let obj = config.to_js_object().unwrap();
-        let deserialized = TestSignalGeneratorConfig::from_js_object(&obj).unwrap();
+        let deserialized = SignalGeneratorConfig::from_js_object(&obj).unwrap();
         
         assert_eq!(config, deserialized);
     }
@@ -3084,10 +3084,10 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_constructor_validation() {
-        use crate::engine::audio::test_signal_generator::TestWaveform;
+        use crate::engine::audio::signal_generator::TestWaveform;
         
         // Test valid construction
-        let valid_config = TestSignalGeneratorConfig::new(
+        let valid_config = SignalGeneratorConfig::new(
             true,
             440.0,
             0.5,
@@ -3097,7 +3097,7 @@ mod tests {
         assert!(valid_config.is_ok());
         
         // Test invalid construction
-        let invalid_config = TestSignalGeneratorConfig::new(
+        let invalid_config = SignalGeneratorConfig::new(
             true,
             -440.0, // Invalid frequency
             0.5,

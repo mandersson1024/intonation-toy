@@ -57,7 +57,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, TestSignalGeneratorConfig, BackgroundNoiseConfig};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig, BackgroundNoiseConfig};
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 
 /// AudioWorklet processor states
@@ -717,7 +717,7 @@ impl AudioWorkletManager {
     }
 
     /// Send test signal configuration to AudioWorklet processor
-    fn send_test_signal_config_to_worklet(&self, config: &TestSignalGeneratorConfig) -> Result<(), AudioError> {
+    fn send_test_signal_config_to_worklet(&self, config: &SignalGeneratorConfig) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
             let envelope = self.message_factory.update_test_signal_config(config.clone())
                 .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
@@ -899,7 +899,7 @@ impl AudioWorkletManager {
     }
     
     /// Update test signal generator configuration
-    pub fn update_test_signal_config(&mut self, config: TestSignalGeneratorConfig) {
+    pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
         // Send configuration to AudioWorklet processor
         if let Err(e) = self.send_test_signal_config_to_worklet(&config) {
             dev_log!("Warning: Failed to send test signal config to worklet: {}", e);

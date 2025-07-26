@@ -732,7 +732,7 @@ impl AudioEngine {
                 let mut borrowed_context = audio_context.borrow_mut();
                 if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
                     // Convert debug action to audio system config
-                    let audio_config = crate::engine::audio::TestSignalGeneratorConfig {
+                    let audio_config = crate::engine::audio::SignalGeneratorConfig {
                         enabled: config.enabled,
                         frequency: config.frequency,
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
