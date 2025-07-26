@@ -159,11 +159,34 @@ pub async fn run_three_d_with_layers(
             cpu_usage: 0.0, // Placeholder
         };
         if let Some(ref mut panel) = hybrid_live_data_panel {
+            // Collect real debug data from the engine
+            #[cfg(debug_assertions)]
+            let (audio_devices, audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
+                let devices = engine.get_debug_audio_devices();
+                let status = engine.get_debug_audioworklet_status().map(|s| {
+                    // Convert from engine AudioWorkletStatus to debug AudioWorkletStatus
+                    debug::egui::data_types::AudioWorkletStatus {
+                        state: s.state,
+                        processor_loaded: s.processor_loaded,
+                        chunk_size: s.chunk_size,
+                        chunks_processed: s.chunks_processed,
+                        last_update: s.last_update,
+                    }
+                });
+                let stats = engine.get_debug_buffer_pool_stats();
+                (devices, status, stats)
+            } else {
+                (None, None, None)
+            };
+            
+            #[cfg(not(debug_assertions))]
+            let (audio_devices, audioworklet_status, buffer_pool_stats) = (None, None, None);
+            
             panel.update_debug_data(
-                None, // audio_devices - not updated in main loop
+                audio_devices,
                 Some(performance_metrics),
-                None, // audioworklet_status - not updated in main loop
-                None, // buffer_pool_stats - not updated in main loop
+                audioworklet_status,
+                buffer_pool_stats,
             );
         }
         

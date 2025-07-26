@@ -1,4 +1,4 @@
-## Coding Guidelines
+## General Coding Guidelines
 
 ### Keep it simple
 - Follow the YAGNI principle
@@ -13,8 +13,6 @@
 
 ### Be upfront about placeholders and todos
 - Distinguish clearly between working functionality and placeholders
-- When coding in Rust, always add placeholder!(...) along with placeholder comments 
-- When coding in Rust, always add todo!(...) along with todo comments 
 - Never claim tasks are "complete" when they contain placeholders or todos
 
 ### Avoid evolutionary language

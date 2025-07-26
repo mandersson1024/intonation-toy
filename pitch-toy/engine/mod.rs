@@ -56,6 +56,8 @@ use crate::model::{ModelLayerActions};
 use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise};
 #[cfg(debug_assertions)]
 use self::audio::TestWaveform;
+#[cfg(debug_assertions)]
+use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
 /// Execution action for microphone permission requests
 /// 
@@ -309,6 +311,21 @@ impl AudioEngine {
             // No audio context available
             crate::module_interfaces::engine_to_model::PermissionState::NotRequested
         }
+    }
+    
+    #[cfg(debug_assertions)]
+    pub fn get_debug_audio_devices(&self) -> Option<AudioDevices> {
+        self.audio_context.as_ref().map(|ctx| ctx.borrow().get_audio_devices())
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
+        self.audio_context.as_ref()?.borrow().get_audioworklet_status()
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
+        self.audio_context.as_ref()?.borrow().get_buffer_pool_stats()
     }
     
     
