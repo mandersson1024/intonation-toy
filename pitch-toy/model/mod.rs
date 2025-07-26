@@ -79,7 +79,7 @@
 //! 
 //! ### State Management
 //! - `apply_tuning_system_change()` - Updates internal tuning system state
-//! - `apply_root_note_change()` - Updates internal root note and frequency state
+//! - `apply_root_note_change()` - Updates internal root note state
 //! 
 //! This system ensures that all user actions pass through business logic validation
 //! before being executed, maintaining system consistency and preventing invalid states.
@@ -118,8 +118,6 @@ pub(crate) enum ValidationError {
     UnsupportedTuningSystem(String),
     /// Root note is already set to requested value
     RootNoteAlreadySet(Note),
-    /// Invalid frequency calculation for root note
-    InvalidFrequencyCalculation { note: Note, reason: String },
 }
 
 /// Result of processing user actions with validation information
@@ -592,7 +590,6 @@ impl DataModel {
     /// 
     /// Validates that the new root note is different from the current one and is
     /// a valid musical note. Future implementations will add:
-    /// - Frequency range validation
     /// - Compatibility checks with current tuning system
     /// - Musical theory validation
     fn validate_root_note_adjustment_with_error(&self, new_root_note: &Note) -> Result<(), ValidationError> {
@@ -617,8 +614,8 @@ impl DataModel {
     /// 
     /// # Current Implementation
     /// 
-    /// Updates the internal tuning system and reference frequency directly from the
-    /// validated action. Future implementations will add:
+    /// Updates the internal tuning system based on a validated tuning system change.
+    /// Future implementations will add:
     /// - State change notifications
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
