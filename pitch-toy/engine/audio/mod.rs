@@ -464,7 +464,7 @@ mod tests {
         
         let pitch = converted.unwrap();
         match pitch {
-            crate::shared_types::engine_to_model::Pitch::Detected(freq, clarity) => {
+            crate::shared_types::Pitch::Detected(freq, clarity) => {
                 assert_eq!(freq, 440.0);
                 assert_eq!(clarity, 0.8);
             }
@@ -488,7 +488,7 @@ mod tests {
         assert!(converted_zero.is_some());
         
         match converted_zero.unwrap() {
-            crate::shared_types::engine_to_model::Pitch::NotDetected => {
+            crate::shared_types::Pitch::NotDetected => {
                 // Expected
             }
             _ => panic!("Expected NotDetected pitch for zero frequency"),

@@ -3,8 +3,7 @@ use crate::engine::audio::{
     AudioDevices,
 };
 use crate::debug::egui::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
-use crate::shared_types::engine_to_model::{EngineUpdateResult, PermissionState};
-use crate::shared_types::model_to_presentation::ModelUpdateResult;
+use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult};
 
 /// HybridLiveData structure that holds actual data instead of observers
 /// Updated for Task 8a to work with the new update return struct pattern
@@ -20,7 +19,7 @@ pub struct HybridLiveData {
     pub volume_level: Option<VolumeLevelData>,
     pub pitch_data: Option<PitchData>,
     pub microphone_permission: AudioPermission,
-    pub audio_errors: Vec<crate::shared_types::engine_to_model::AudioError>,
+    pub audio_errors: Vec<crate::shared_types::Error>,
 }
 
 impl Default for HybridLiveData {
@@ -79,7 +78,7 @@ impl HybridLiveData {
             
             // Convert Pitch to PitchData
             self.pitch_data = match &analysis.pitch {
-                crate::shared_types::engine_to_model::Pitch::Detected(frequency, clarity) => {
+                crate::shared_types::Pitch::Detected(frequency, clarity) => {
                     // Create a placeholder musical note (proper note mapping would require NoteMapper instance)
                     let note = crate::engine::audio::MusicalNote::new(
                         crate::engine::audio::NoteName::A, // Placeholder note name
@@ -95,7 +94,7 @@ impl HybridLiveData {
                         timestamp: analysis.timestamp,
                     })
                 },
-                crate::shared_types::engine_to_model::Pitch::NotDetected => None,
+                crate::shared_types::Pitch::NotDetected => None,
             };
         } else {
             self.volume_level = None;
@@ -141,7 +140,7 @@ impl HybridLiveData {
     }
     
     /// Get audio errors
-    pub fn get_audio_errors(&self) -> &[crate::shared_types::engine_to_model::AudioError] {
+    pub fn get_audio_errors(&self) -> &[crate::shared_types::Error] {
         &self.audio_errors
     }
 }

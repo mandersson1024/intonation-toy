@@ -17,19 +17,19 @@
 //! 
 //! ```rust
 //! use pitch_toy::presentation::Presenter;
-//! use pitch_toy::shared_types::model_to_presentation::ModelUpdateResult;
+//! use pitch_toy::shared_types::ModelUpdateResult;
 //! 
 //! // Create presenter without interface dependencies
 //! let mut presenter = Presenter::create()?;
 //! 
 //! // Update with model data
 //! let model_data = ModelUpdateResult {
-//!     volume: pitch_toy::shared_types::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
-//!     pitch: pitch_toy::shared_types::model_to_presentation::Pitch::Detected(440.0, 0.95),
-//!     accuracy: pitch_toy::shared_types::model_to_presentation::Accuracy { closest_note: pitch_toy::shared_types::model_to_presentation::Note::A, accuracy: 0.05 },
-//!     tuning_system: pitch_toy::shared_types::model_to_presentation::TuningSystem::EqualTemperament,
+//!     volume: pitch_toy::shared_types::Volume { peak: -10.0, rms: -15.0 },
+//!     pitch: pitch_toy::shared_types::Pitch::Detected(440.0, 0.95),
+//!     accuracy: pitch_toy::shared_types::Accuracy { closest_note: pitch_toy::shared_types::Note::A, accuracy: 0.05 },
+//!     tuning_system: pitch_toy::shared_types::TuningSystem::EqualTemperament,
 //!     errors: Vec::new(),
-//!     permission_state: pitch_toy::shared_types::model_to_presentation::PermissionState::Granted,
+//!     permission_state: pitch_toy::shared_types::PermissionState::Granted,
 //! };
 //! presenter.update(timestamp, model_data);
 //! ```
@@ -64,7 +64,7 @@ mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, Note};
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -449,7 +449,7 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `volume` - Volume data containing peak and RMS levels in dB
-    fn process_volume_data(&mut self, volume: &crate::shared_types::model_to_presentation::Volume) {
+    fn process_volume_data(&mut self, volume: &crate::shared_types::Volume) {
         // Store volume data for visualization
         // Future: Update volume meter displays, audio wave visualizations
         let _peak_amplitude = volume.peak;
@@ -468,9 +468,9 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `pitch` - Pitch detection result from the model layer
-    fn process_pitch_data(&mut self, pitch: &crate::shared_types::model_to_presentation::Pitch) {
+    fn process_pitch_data(&mut self, pitch: &crate::shared_types::Pitch) {
         match pitch {
-            crate::shared_types::model_to_presentation::Pitch::Detected(frequency, clarity) => {
+            crate::shared_types::Pitch::Detected(frequency, clarity) => {
                 // Pitch detected - update note display
                 let _freq = *frequency;
                 let _clarity = *clarity;
@@ -478,7 +478,7 @@ impl Presenter {
                 // Future: Update pitch display, note name, frequency readout
                 // Future: Update visual tuning indicators
             }
-            crate::shared_types::model_to_presentation::Pitch::NotDetected => {
+            crate::shared_types::Pitch::NotDetected => {
                 // No pitch detected - clear pitch displays
                 // Future: Dim pitch indicators, show "listening" state
             }
@@ -492,7 +492,7 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `accuracy` - Accuracy metrics containing closest note and deviation
-    fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::model_to_presentation::Accuracy) {
+    fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::Accuracy) {
         let _closest_note = &accuracy.closest_note;
         let _accuracy_value = accuracy.accuracy;
         
@@ -514,7 +514,7 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `errors` - Vector of error conditions from the model layer
-    fn process_error_states(&mut self, errors: &Vec<crate::shared_types::model_to_presentation::Error>) {
+    fn process_error_states(&mut self, errors: &Vec<crate::shared_types::Error>) {
         if errors.is_empty() {
             // No errors - clear error displays
             return;
@@ -523,22 +523,22 @@ impl Presenter {
         // Process each error type
         for error in errors {
             match error {
-                crate::shared_types::model_to_presentation::Error::MicrophonePermissionDenied => {
+                crate::shared_types::Error::MicrophonePermissionDenied => {
                     // Show microphone permission denied message
                 }
-                crate::shared_types::model_to_presentation::Error::MicrophoneNotAvailable => {
+                crate::shared_types::Error::MicrophoneNotAvailable => {
                     // Show microphone not available message
                 }
-                crate::shared_types::model_to_presentation::Error::BrowserApiNotSupported => {
+                crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
                 }
-                crate::shared_types::model_to_presentation::Error::AudioContextInitFailed => {
+                crate::shared_types::Error::AudioContextInitFailed => {
                     // Show audio initialization failure message
                 }
-                crate::shared_types::model_to_presentation::Error::AudioContextSuspended => {
+                crate::shared_types::Error::AudioContextSuspended => {
                     // Show audio context suspended message
                 }
-                crate::shared_types::model_to_presentation::Error::ProcessingError(_msg) => {
+                crate::shared_types::Error::ProcessingError(_msg) => {
                     // Show general processing error
                 }
             }
@@ -552,18 +552,18 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `permission_state` - Current microphone permission state
-    fn process_permission_state(&mut self, permission_state: &crate::shared_types::model_to_presentation::PermissionState) {
+    fn process_permission_state(&mut self, permission_state: &crate::shared_types::PermissionState) {
         match permission_state {
-            crate::shared_types::model_to_presentation::PermissionState::NotRequested => {
+            crate::shared_types::PermissionState::NotRequested => {
                 // Show "Click to start" or permission request button
             }
-            crate::shared_types::model_to_presentation::PermissionState::Requested => {
+            crate::shared_types::PermissionState::Requested => {
                 // Show "Requesting permission..." status
             }
-            crate::shared_types::model_to_presentation::PermissionState::Granted => {
+            crate::shared_types::PermissionState::Granted => {
                 // Show active/listening state
             }
-            crate::shared_types::model_to_presentation::PermissionState::Denied => {
+            crate::shared_types::PermissionState::Denied => {
                 // Show permission denied message with instructions
             }
         }
@@ -576,12 +576,12 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `tuning_system` - Current tuning system from the model layer
-    fn process_tuning_system(&mut self, tuning_system: &crate::shared_types::model_to_presentation::TuningSystem) {
+    fn process_tuning_system(&mut self, tuning_system: &crate::shared_types::TuningSystem) {
         match tuning_system {
-            crate::shared_types::model_to_presentation::TuningSystem::EqualTemperament => {
+            crate::shared_types::TuningSystem::EqualTemperament => {
                 // Update UI to show Equal Temperament tuning
             }
-            crate::shared_types::model_to_presentation::TuningSystem::JustIntonation => {
+            crate::shared_types::TuningSystem::JustIntonation => {
                 // Update UI to show Just Intonation tuning
             }
         }
@@ -597,15 +597,15 @@ mod tests {
     /// Create test model data for testing purposes
     fn create_test_model_data() -> ModelUpdateResult {
         ModelUpdateResult {
-            volume: crate::shared_types::model_to_presentation::Volume { peak: -10.0, rms: -15.0 },
-            pitch: crate::shared_types::model_to_presentation::Pitch::NotDetected,
-            accuracy: crate::shared_types::model_to_presentation::Accuracy {
-                closest_note: crate::shared_types::model_to_presentation::Note::A,
+            volume: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::shared_types::Pitch::NotDetected,
+            accuracy: crate::shared_types::Accuracy {
+                closest_note: crate::shared_types::Note::A,
                 accuracy: 1.0,
             },
-            tuning_system: crate::shared_types::model_to_presentation::TuningSystem::EqualTemperament,
+            tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
             errors: Vec::new(),
-            permission_state: crate::shared_types::model_to_presentation::PermissionState::NotRequested,
+            permission_state: crate::shared_types::PermissionState::NotRequested,
         }
     }
 

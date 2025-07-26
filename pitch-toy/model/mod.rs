@@ -21,8 +21,8 @@
 //! ```rust
 //! use pitch_toy::model::DataModel;
 //! use pitch_toy::shared_types::{
-//!     engine_to_model::EngineUpdateResult,
-//!     model_to_presentation::ModelUpdateResult,
+//!     EngineUpdateResult,
+//!     ModelUpdateResult,
 //! };
 //! use pitch_toy::presentation::PresentationLayerActions;
 //! 
@@ -33,7 +33,7 @@
 //! let engine_data = EngineUpdateResult {
 //!     audio_analysis: None,
 //!     audio_errors: Vec::new(),
-//!     permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+//!     permission_state: crate::shared_types::PermissionState::NotRequested,
 //! };
 //! let presentation_data = model.update(timestamp, engine_data);
 //! 
@@ -94,8 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::engine_to_model::EngineUpdateResult;
-use crate::shared_types::model_to_presentation::{ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note};
 use crate::presentation::PresentationLayerActions;
 
 /// Validation error types for action processing
@@ -221,7 +220,7 @@ impl ModelLayerActions {
 /// 
 /// ```no_run
 /// use pitch_toy::model::DataModel;
-/// use pitch_toy::shared_types::engine_to_model::EngineUpdateResult;
+/// use pitch_toy::shared_types::EngineUpdateResult;
 /// 
 /// let mut model = DataModel::create()
 ///     .expect("DataModel creation should always succeed");
@@ -229,7 +228,7 @@ impl ModelLayerActions {
 /// let engine_data = EngineUpdateResult {
 ///     audio_analysis: None,
 ///     audio_errors: Vec::new(),
-///     permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+///     permission_state: crate::shared_types::PermissionState::NotRequested,
 /// };
 /// 
 /// let presentation_data = model.update(0.0, engine_data);
@@ -308,10 +307,10 @@ impl DataModel {
             };
             
             let pitch = match audio_analysis.pitch {
-                crate::shared_types::engine_to_model::Pitch::Detected(frequency, clarity) => {
+                crate::shared_types::Pitch::Detected(frequency, clarity) => {
                     Pitch::Detected(frequency, clarity)
                 }
-                crate::shared_types::engine_to_model::Pitch::NotDetected => {
+                crate::shared_types::Pitch::NotDetected => {
                     Pitch::NotDetected
                 }
             };
@@ -328,22 +327,22 @@ impl DataModel {
         // Convert engine errors to model errors
         let errors: Vec<Error> = engine_data.audio_errors.into_iter().map(|engine_error| {
             match engine_error {
-                crate::shared_types::engine_to_model::AudioError::ProcessingError(msg) => {
+                crate::shared_types::Error::ProcessingError(msg) => {
                     Error::ProcessingError(msg)
                 }
-                crate::shared_types::engine_to_model::AudioError::MicrophonePermissionDenied => {
+                crate::shared_types::Error::MicrophonePermissionDenied => {
                     Error::MicrophonePermissionDenied
                 }
-                crate::shared_types::engine_to_model::AudioError::MicrophoneNotAvailable => {
+                crate::shared_types::Error::MicrophoneNotAvailable => {
                     Error::MicrophoneNotAvailable
                 }
-                crate::shared_types::engine_to_model::AudioError::BrowserApiNotSupported => {
+                crate::shared_types::Error::BrowserApiNotSupported => {
                     Error::BrowserApiNotSupported
                 }
-                crate::shared_types::engine_to_model::AudioError::AudioContextInitFailed => {
+                crate::shared_types::Error::AudioContextInitFailed => {
                     Error::AudioContextInitFailed
                 }
-                crate::shared_types::engine_to_model::AudioError::AudioContextSuspended => {
+                crate::shared_types::Error::AudioContextSuspended => {
                     Error::AudioContextSuspended
                 }
             }
@@ -351,16 +350,16 @@ impl DataModel {
         
         // Convert engine permission state to model permission state
         let permission_state = match engine_data.permission_state {
-            crate::shared_types::engine_to_model::PermissionState::NotRequested => {
+            crate::shared_types::PermissionState::NotRequested => {
                 PermissionState::NotRequested
             }
-            crate::shared_types::engine_to_model::PermissionState::Requested => {
+            crate::shared_types::PermissionState::Requested => {
                 PermissionState::Requested
             }
-            crate::shared_types::engine_to_model::PermissionState::Granted => {
+            crate::shared_types::PermissionState::Granted => {
                 PermissionState::Granted
             }
-            crate::shared_types::engine_to_model::PermissionState::Denied => {
+            crate::shared_types::PermissionState::Denied => {
                 PermissionState::Denied
             }
         };
@@ -672,7 +671,7 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: None,
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+            permission_state: crate::shared_types::PermissionState::NotRequested,
         };
 
         // Test that update can be called multiple times without panicking
@@ -714,7 +713,7 @@ mod tests {
             let engine_data = EngineUpdateResult {
                 audio_analysis: None,
                 audio_errors: Vec::new(),
-                permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+                permission_state: crate::shared_types::PermissionState::NotRequested,
             };
 
             // Test multiple operations
@@ -749,7 +748,7 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: None,
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+            permission_state: crate::shared_types::PermissionState::NotRequested,
         };
         
         // Test that update signature is correct
@@ -765,9 +764,9 @@ mod tests {
         let mut model = DataModel::create().unwrap();
         
         // Create engine data with A4 at exactly 440 Hz
-        let audio_analysis = crate::shared_types::engine_to_model::AudioAnalysis {
-            volume_level: crate::shared_types::engine_to_model::Volume { peak: -10.0, rms: -15.0 },
-            pitch: crate::shared_types::engine_to_model::Pitch::Detected(440.0, 0.95),
+        let audio_analysis = crate::shared_types::AudioAnalysis {
+            volume_level: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::shared_types::Pitch::Detected(440.0, 0.95),
             fft_data: None,
             timestamp: 1.0,
         };
@@ -775,7 +774,7 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::Granted,
+            permission_state: crate::shared_types::PermissionState::Granted,
         };
         
         let result = model.update(1.0, engine_data);
@@ -791,9 +790,9 @@ mod tests {
         let mut model = DataModel::create().unwrap();
         
         // C4 is approximately 261.63 Hz, test with 260 Hz (slightly flat)
-        let audio_analysis = crate::shared_types::engine_to_model::AudioAnalysis {
-            volume_level: crate::shared_types::engine_to_model::Volume { peak: -10.0, rms: -15.0 },
-            pitch: crate::shared_types::engine_to_model::Pitch::Detected(260.0, 0.90),
+        let audio_analysis = crate::shared_types::AudioAnalysis {
+            volume_level: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            pitch: crate::shared_types::Pitch::Detected(260.0, 0.90),
             fft_data: None,
             timestamp: 1.0,
         };
@@ -801,7 +800,7 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::Granted,
+            permission_state: crate::shared_types::PermissionState::Granted,
         };
         
         let result = model.update(1.0, engine_data);
@@ -817,9 +816,9 @@ mod tests {
     fn test_pitch_accuracy_no_pitch_detected() {
         let mut model = DataModel::create().unwrap();
         
-        let audio_analysis = crate::shared_types::engine_to_model::AudioAnalysis {
-            volume_level: crate::shared_types::engine_to_model::Volume { peak: -60.0, rms: -60.0 },
-            pitch: crate::shared_types::engine_to_model::Pitch::NotDetected,
+        let audio_analysis = crate::shared_types::AudioAnalysis {
+            volume_level: crate::shared_types::Volume { peak: -60.0, rms: -60.0 },
+            pitch: crate::shared_types::Pitch::NotDetected,
             fft_data: None,
             timestamp: 1.0,
         };
@@ -827,14 +826,14 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::Granted,
+            permission_state: crate::shared_types::PermissionState::Granted,
         };
         
         let result = model.update(1.0, engine_data);
         
         // Should have maximum inaccuracy when no pitch is detected
         assert_eq!(result.accuracy.accuracy, 1.0);
-        assert_eq!(result.pitch, crate::shared_types::model_to_presentation::Pitch::NotDetected);
+        assert_eq!(result.pitch, crate::shared_types::Pitch::NotDetected);
     }
 
     /// Test that tuning system is properly returned
@@ -845,7 +844,7 @@ mod tests {
         let engine_data = EngineUpdateResult {
             audio_analysis: None,
             audio_errors: Vec::new(),
-            permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+            permission_state: crate::shared_types::PermissionState::NotRequested,
         };
         
         let result = model.update(1.0, engine_data);

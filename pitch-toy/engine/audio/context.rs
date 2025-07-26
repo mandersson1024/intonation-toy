@@ -862,7 +862,7 @@ impl AudioSystemContext {
     /// This method retrieves the current audio analysis data from the audio system
     /// without using the observable/setter pattern. It's used by the engine layer
     /// to collect data for returning in EngineUpdateResult.
-    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::shared_types::engine_to_model::AudioAnalysis> {
+    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::shared_types::AudioAnalysis> {
         if !self.is_initialized {
             return None;
         }
@@ -895,12 +895,12 @@ impl AudioSystemContext {
     }
 
     /// Collect current audio errors (return-based pattern)
-    pub fn collect_audio_errors(&self) -> Vec<crate::shared_types::engine_to_model::AudioError> {
+    pub fn collect_audio_errors(&self) -> Vec<crate::shared_types::Error> {
         let mut errors = Vec::new();
         
         // Check for initialization errors
         if let Some(error_msg) = self.initialization_error.as_ref() {
-            errors.push(crate::shared_types::engine_to_model::AudioError::ProcessingError(error_msg.clone()));
+            errors.push(crate::shared_types::Error::ProcessingError(error_msg.clone()));
         }
         
         // Check AudioContext manager state
@@ -914,10 +914,10 @@ impl AudioSystemContext {
         if !context_manager.is_running() {
             match context_manager.state() {
                 AudioContextState::Closed => {
-                    errors.push(crate::shared_types::engine_to_model::AudioError::ProcessingError("AudioContext is closed".to_string()));
+                    errors.push(crate::shared_types::Error::ProcessingError("AudioContext is closed".to_string()));
                 }
                 AudioContextState::Suspended => {
-                    errors.push(crate::shared_types::engine_to_model::AudioError::ProcessingError("AudioContext is suspended".to_string()));
+                    errors.push(crate::shared_types::Error::ProcessingError("AudioContext is suspended".to_string()));
                 }
                 _ => {}
             }
@@ -927,13 +927,13 @@ impl AudioSystemContext {
     }
 
     /// Collect current permission state (return-based pattern)
-    pub fn collect_permission_state(&self) -> crate::shared_types::engine_to_model::PermissionState {
+    pub fn collect_permission_state(&self) -> crate::shared_types::PermissionState {
         match self.permission_state.get() {
-            super::AudioPermission::Uninitialized => crate::shared_types::engine_to_model::PermissionState::NotRequested,
-            super::AudioPermission::Requesting => crate::shared_types::engine_to_model::PermissionState::Requested,
-            super::AudioPermission::Granted => crate::shared_types::engine_to_model::PermissionState::Granted,
-            super::AudioPermission::Denied => crate::shared_types::engine_to_model::PermissionState::Denied,
-            super::AudioPermission::Unavailable => crate::shared_types::engine_to_model::PermissionState::Denied,
+            super::AudioPermission::Uninitialized => crate::shared_types::PermissionState::NotRequested,
+            super::AudioPermission::Requesting => crate::shared_types::PermissionState::Requested,
+            super::AudioPermission::Granted => crate::shared_types::PermissionState::Granted,
+            super::AudioPermission::Denied => crate::shared_types::PermissionState::Denied,
+            super::AudioPermission::Unavailable => crate::shared_types::PermissionState::Denied,
         }
     }
     
@@ -949,33 +949,33 @@ impl AudioSystemContext {
 /// structure. It stores the current state and provides methods to update individual
 /// components and retrieve the merged result.
 struct AudioAnalysisMerger {
-    current_volume: std::cell::RefCell<crate::shared_types::engine_to_model::Volume>,
-    current_pitch: std::cell::RefCell<crate::shared_types::engine_to_model::Pitch>,
+    current_volume: std::cell::RefCell<crate::shared_types::Volume>,
+    current_pitch: std::cell::RefCell<crate::shared_types::Pitch>,
     last_timestamp: std::cell::Cell<f64>,
 }
 
 impl AudioAnalysisMerger {
     fn new() -> Self {
         Self {
-            current_volume: std::cell::RefCell::new(crate::shared_types::engine_to_model::Volume { peak: -60.0, rms: -60.0 }),
-            current_pitch: std::cell::RefCell::new(crate::shared_types::engine_to_model::Pitch::NotDetected),
+            current_volume: std::cell::RefCell::new(crate::shared_types::Volume { peak: -60.0, rms: -60.0 }),
+            current_pitch: std::cell::RefCell::new(crate::shared_types::Pitch::NotDetected),
             last_timestamp: std::cell::Cell::new(0.0),
         }
     }
     
-    fn update_volume(&self, volume: crate::shared_types::engine_to_model::Volume) {
+    fn update_volume(&self, volume: crate::shared_types::Volume) {
         *self.current_volume.borrow_mut() = volume;
     }
     
-    fn update_pitch(&self, pitch: crate::shared_types::engine_to_model::Pitch, timestamp: f64) {
+    fn update_pitch(&self, pitch: crate::shared_types::Pitch, timestamp: f64) {
         *self.current_pitch.borrow_mut() = pitch;
         self.last_timestamp.set(timestamp);
     }
     
     
     /// Get current audio analysis data
-    fn get_current_analysis(&self) -> crate::shared_types::engine_to_model::AudioAnalysis {
-        crate::shared_types::engine_to_model::AudioAnalysis {
+    fn get_current_analysis(&self) -> crate::shared_types::AudioAnalysis {
+        crate::shared_types::AudioAnalysis {
             volume_level: self.current_volume.borrow().clone(),
             pitch: self.current_pitch.borrow().clone(),
             fft_data: None,
@@ -990,20 +990,20 @@ impl AudioAnalysisMerger {
 /// without using the observable/setter pattern.
 
 /// Convert VolumeLevelData to Volume interface type
-pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::shared_types::engine_to_model::Volume> {
-    volume_data.map(|data| crate::shared_types::engine_to_model::Volume {
+pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::shared_types::Volume> {
+    volume_data.map(|data| crate::shared_types::Volume {
         peak: data.peak_amplitude,
         rms: data.rms_amplitude,
     })
 }
 
 /// Convert PitchData to Pitch interface type
-pub fn convert_pitch_data(pitch_data: Option<super::data_types::PitchData>) -> Option<crate::shared_types::engine_to_model::Pitch> {
+pub fn convert_pitch_data(pitch_data: Option<super::data_types::PitchData>) -> Option<crate::shared_types::Pitch> {
     pitch_data.map(|data| {
         if data.frequency > 0.0 {
-            crate::shared_types::engine_to_model::Pitch::Detected(data.frequency, data.clarity)
+            crate::shared_types::Pitch::Detected(data.frequency, data.clarity)
         } else {
-            crate::shared_types::engine_to_model::Pitch::NotDetected
+            crate::shared_types::Pitch::NotDetected
         }
     })
 }
@@ -1014,15 +1014,15 @@ pub fn convert_pitch_data(pitch_data: Option<super::data_types::PitchData>) -> O
 /// AudioAnalysis structure, similar to how AudioAnalysisMerger works but
 /// as a pure function without state.
 pub fn merge_audio_analysis(
-    volume: Option<crate::shared_types::engine_to_model::Volume>,
-    pitch: Option<crate::shared_types::engine_to_model::Pitch>,
+    volume: Option<crate::shared_types::Volume>,
+    pitch: Option<crate::shared_types::Pitch>,
     timestamp: f64
-) -> Option<crate::shared_types::engine_to_model::AudioAnalysis> {
+) -> Option<crate::shared_types::AudioAnalysis> {
     // Only create AudioAnalysis if we have at least some data
     if volume.is_some() || pitch.is_some() {
-        Some(crate::shared_types::engine_to_model::AudioAnalysis {
-            volume_level: volume.unwrap_or(crate::shared_types::engine_to_model::Volume { peak: -60.0, rms: -60.0 }),
-            pitch: pitch.unwrap_or(crate::shared_types::engine_to_model::Pitch::NotDetected),
+        Some(crate::shared_types::AudioAnalysis {
+            volume_level: volume.unwrap_or(crate::shared_types::Volume { peak: -60.0, rms: -60.0 }),
+            pitch: pitch.unwrap_or(crate::shared_types::Pitch::NotDetected),
             fft_data: None,
             timestamp: timestamp.max(js_sys::Date::now()),
         })

@@ -47,8 +47,7 @@
 pub mod audio;
 pub(crate) mod platform;
 
-use crate::shared_types::engine_to_model::EngineUpdateResult;
-use crate::shared_types::model_to_presentation::{TuningSystem, Note};
+use crate::shared_types::{EngineUpdateResult, TuningSystem, Note};
 use crate::model::ModelLayerActions;
 
 // Debug-only imports for conditional compilation
@@ -278,8 +277,8 @@ impl AudioEngine {
             // No audio context available
             EngineUpdateResult {
                 audio_analysis: None,
-                audio_errors: vec![crate::shared_types::engine_to_model::AudioError::ProcessingError("Audio system not initialized".to_string())],
-                permission_state: crate::shared_types::engine_to_model::PermissionState::NotRequested,
+                audio_errors: vec![crate::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
+                permission_state: crate::shared_types::PermissionState::NotRequested,
             }
         }
     }
