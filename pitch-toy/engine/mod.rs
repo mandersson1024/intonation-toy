@@ -352,8 +352,8 @@ impl AudioEngine {
     /// 1. Transforms model actions into engine execution actions
     /// 2. Executes each action type using existing engine functionality:
     ///    - Microphone permission requests use `connect_microphone_to_audioworklet_with_context()`
-    ///    - Audio system configurations configure the audio worklet with tuning system
-    ///    - Tuning configurations update the audio system with root note
+    ///    - Audio system configurations apply tuning system settings
+    ///    - Tuning configurations apply root note settings
     /// 3. Collects executed actions for logging and feedback
     /// 4. Provides comprehensive error handling with detailed logging
     pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
@@ -415,8 +415,7 @@ impl AudioEngine {
             crate::common::dev_log!("Configuring audio system with tuning: {:?}", 
                 engine_config.tuning_system);
             
-            // Since configure_audio_worklet_with_tuning is just a placeholder that returns Ok(()),
-            // we can execute it synchronously
+            // Placeholder implementation - always succeeds with inline configuration
             if let Some(ref audio_context) = self.audio_context {
                 // Placeholder implementation - always succeeds
                 crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
@@ -450,8 +449,7 @@ impl AudioEngine {
             crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}", 
                 engine_config.tuning_system, engine_config.root_note);
             
-            // Since update_audio_worklet_tuning is just a placeholder that returns Ok(()),
-            // we can execute it synchronously
+            // Placeholder implementation - always succeeds with inline tuning update
             if let Some(ref _audio_context) = self.audio_context {
                 // Placeholder implementation - always succeeds
                 crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
@@ -469,59 +467,7 @@ impl AudioEngine {
     }
     
     
-    /// Configure audio worklet with tuning system (placeholder implementation)
-    /// 
-    /// This method configures the audio worklet with a specific tuning system.
-    /// This is a placeholder implementation that demonstrates the architecture.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `config` - The audio system configuration to apply
-    /// * `audio_context` - The audio system context to configure
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure of configuration
-    async fn configure_audio_worklet_with_tuning(
-        &self,
-        config: &ConfigureAudioSystem,
-        _audio_context: &std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>
-    ) -> Result<(), String> {
-        // Placeholder implementation - logs the configuration that would be applied
-        // TODO: Implement actual audio worklet configuration with tuning system
-        crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
-            config.tuning_system);
-        
-        // For now, always succeed to demonstrate the action execution flow
-        Ok(())
-    }
     
-    /// Update audio worklet tuning configuration (placeholder implementation)
-    /// 
-    /// This method updates the audio worklet's tuning configuration with a specific
-    /// root note. This is a placeholder implementation that demonstrates the architecture.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `config` - The tuning configuration to apply
-    /// * `audio_context` - The audio system context to update
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure of the update
-    async fn update_audio_worklet_tuning(
-        &self,
-        config: &UpdateTuningConfiguration,
-        _audio_context: &std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>
-    ) -> Result<(), String> {
-        // Placeholder implementation - logs the configuration that would be applied
-        // TODO: Implement actual audio worklet tuning update with root note
-        crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
-            config.tuning_system, config.root_note);
-        
-        // For now, always succeed to demonstrate the action execution flow
-        Ok(())
-    }
     
     /// Execute debug actions with privileged engine access (debug builds only)
     /// 
