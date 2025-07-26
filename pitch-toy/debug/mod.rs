@@ -4,4 +4,4 @@
 // - EguiMicrophoneButton: Standalone microphone permission management
 // - HybridEguiLiveDataPanel: Real-time data visualization and monitoring
 
-pub mod egui;
+pub mod debug_panel;

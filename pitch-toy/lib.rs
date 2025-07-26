@@ -22,7 +22,7 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 
 // Import action types for three-layer action processing
-use debug::egui::HybridEguiLiveDataPanel;
+use debug::debug_panel::DebugPanel;
 
 
 
@@ -72,7 +72,7 @@ pub async fn run_three_d_with_layers(
     
     // Create hybrid debug panel
     let mut hybrid_live_data_panel = if let Some(ref presenter_ref) = presenter {
-        Some(HybridEguiLiveDataPanel::new(
+        Some(DebugPanel::new(
             hybrid_live_data,
             presenter_ref.clone(),
         ))
@@ -103,7 +103,7 @@ pub async fn run_three_d_with_layers(
             last_fps_update = current_time;
             
             // Update performance metrics
-            let _metrics = debug::egui::data_types::PerformanceMetrics {
+            let _metrics = debug::debug_panel::data_types::PerformanceMetrics {
                 fps,
                 memory_usage: 0.0, // Placeholder
                 audio_latency: 0.0, // Placeholder
@@ -150,7 +150,7 @@ pub async fn run_three_d_with_layers(
         }
         
         // Update debug panel data with performance metrics
-        let performance_metrics = debug::egui::data_types::PerformanceMetrics {
+        let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
             fps,
             memory_usage: 0.0, // Placeholder
             audio_latency: 0.0, // Placeholder
@@ -163,7 +163,7 @@ pub async fn run_three_d_with_layers(
                 let devices = engine.get_debug_audio_devices();
                 let status = engine.get_debug_audioworklet_status().map(|s| {
                     // Convert from engine AudioWorkletStatus to debug AudioWorkletStatus
-                    debug::egui::data_types::AudioWorkletStatus {
+                    debug::debug_panel::data_types::AudioWorkletStatus {
                         state: s.state,
                         processor_loaded: s.processor_loaded,
                         chunk_size: s.chunk_size,

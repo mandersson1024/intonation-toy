@@ -11,7 +11,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
-pub struct HybridEguiLiveDataPanel {
+pub struct DebugPanel {
     hybrid_data: DebugData,
     presenter: Rc<RefCell<crate::presentation::Presenter>>,
     last_metrics_update: f64,
@@ -27,7 +27,7 @@ pub struct HybridEguiLiveDataPanel {
     background_noise_type: TestWaveform,
 }
 
-impl HybridEguiLiveDataPanel {
+impl DebugPanel {
     /// Create new Hybrid EGUI Live Data Panel
     pub fn new(
         hybrid_data: DebugData,
@@ -63,8 +63,8 @@ impl HybridEguiLiveDataPanel {
     pub fn update_debug_data(
         &mut self,
         audio_devices: Option<crate::engine::audio::AudioDevices>,
-        performance_metrics: Option<crate::debug::egui::data_types::PerformanceMetrics>,
-        audioworklet_status: Option<crate::debug::egui::data_types::AudioWorkletStatus>,
+        performance_metrics: Option<crate::debug::debug_panel::data_types::PerformanceMetrics>,
+        audioworklet_status: Option<crate::debug::debug_panel::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
         self.hybrid_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
