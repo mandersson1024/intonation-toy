@@ -65,7 +65,7 @@ pub(crate) use sprite_scene::SpriteScene;
 use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
 
-// Debug-only imports
+// Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
 use crate::engine::audio::TestWaveform;
 

@@ -238,20 +238,27 @@ pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImp
 // Note: initialize_buffer_pool removed - using direct processing with transferable buffers
 
 
-// Re-export public API
-pub use microphone::{MicrophoneManager, AudioStreamInfo, AudioError, connect_microphone_to_audioworklet_with_context};
-pub use permission::{AudioPermission, connect_microphone_with_context};
-pub use context::{AudioContextManager, AudioContextState, AudioContextConfig, AudioDevices, AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis};
-pub use worklet::{AudioWorkletManager, AudioWorkletState, AudioWorkletConfig};
-pub use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
-pub use permission::PermissionManager;
+// Re-export public API for external usage
+pub use microphone::{connect_microphone_to_audioworklet_with_context, MicrophoneManager};
+pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
+pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
-pub use pitch_detector::{PitchResult, PitchDetectorConfig, MusicalNote, NoteName, TuningSystem, PitchDetector, PitchDetectionError};
-pub use note_mapper::NoteMapper;
-pub use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
-pub use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
-pub(crate) use test_signal_generator::{TestSignalGenerator, TestSignalGeneratorConfig, TestWaveform, BackgroundNoiseConfig};
+pub use pitch_detector::{MusicalNote, TuningSystem, NoteName};
+pub use test_signal_generator::{TestWaveform, BackgroundNoiseConfig, TestSignalGeneratorConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
+pub use permission::AudioPermission;
+
+// Private re-exports for internal module use only
+use microphone::{AudioStreamInfo, AudioError};
+use permission::{connect_microphone_with_context, PermissionManager};
+use context::{AudioContextManager, AudioContextState, AudioContextConfig};
+use worklet::{AudioWorkletManager, AudioWorkletConfig};
+use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
+use pitch_detector::{PitchResult, PitchDetectorConfig, PitchDetector, PitchDetectionError};
+use note_mapper::NoteMapper;
+use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
+use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
+use test_signal_generator::TestSignalGenerator;
 
 
 

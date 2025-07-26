@@ -1,7 +1,6 @@
-use three_d::{self, *};
+use three_d::{self, Window, WindowSettings, GUI, ClearState, FrameOutput, egui, egui::Color32};
 use std::rc::Rc;
 use std::cell::RefCell;
-use three_d::egui::Color32;
 
 // Three-layer architecture modules
 pub mod engine;

@@ -94,10 +94,8 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::module_interfaces::{
-    engine_to_model::EngineUpdateResult,
-    model_to_presentation::{ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note},
-};
+use crate::module_interfaces::engine_to_model::EngineUpdateResult;
+use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note};
 use crate::presentation::PresentationLayerActions;
 
 /// Validation error types for action processing

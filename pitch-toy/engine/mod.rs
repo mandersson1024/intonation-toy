@@ -49,15 +49,13 @@ pub(crate) mod platform;
 
 use crate::module_interfaces::engine_to_model::EngineUpdateResult;
 use crate::module_interfaces::model_to_presentation::{TuningSystem, Note};
-use crate::model::{ModelLayerActions};
+use crate::model::ModelLayerActions;
 
-// Debug-only imports
+// Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
 use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise};
 #[cfg(debug_assertions)]
-use self::audio::TestWaveform;
-#[cfg(debug_assertions)]
-use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
+use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
 /// Execution action for microphone permission requests
 /// 
@@ -264,52 +262,25 @@ impl AudioEngine {
     /// 
     /// Returns `EngineUpdateResult` containing audio analysis data, errors, and permission state
     pub fn update(&mut self, timestamp: f64) -> EngineUpdateResult {
-        // Collect audio analysis data
-        let audio_analysis = self.collect_audio_analysis(timestamp);
-        
-        // Collect audio errors
-        let audio_errors = self.collect_audio_errors();
-        
-        // Collect permission state
-        let permission_state = self.collect_permission_state();
-        
-        EngineUpdateResult {
-            audio_analysis,
-            audio_errors,
-            permission_state,
-        }
-    }
-    
-    /// Collect current audio analysis data from the audio system
-    fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::module_interfaces::engine_to_model::AudioAnalysis> {
         if let Some(ref context) = self.audio_context {
+            // Borrow once and collect all data to avoid multiple borrows
             let borrowed_context = context.borrow();
-            borrowed_context.collect_audio_analysis(timestamp)
+            let audio_analysis = borrowed_context.collect_audio_analysis(timestamp);
+            let audio_errors = borrowed_context.collect_audio_errors();
+            let permission_state = borrowed_context.collect_permission_state();
+            
+            EngineUpdateResult {
+                audio_analysis,
+                audio_errors,
+                permission_state,
+            }
         } else {
             // No audio context available
-            None
-        }
-    }
-    
-    /// Collect current audio errors from the audio system
-    fn collect_audio_errors(&self) -> Vec<crate::module_interfaces::engine_to_model::AudioError> {
-        if let Some(ref context) = self.audio_context {
-            let borrowed_context = context.borrow();
-            borrowed_context.collect_audio_errors()
-        } else {
-            // No audio context available - return appropriate error
-            vec![crate::module_interfaces::engine_to_model::AudioError::ProcessingError("Audio system not initialized".to_string())]
-        }
-    }
-    
-    /// Collect current permission state from the audio system
-    fn collect_permission_state(&self) -> crate::module_interfaces::engine_to_model::PermissionState {
-        if let Some(ref context) = self.audio_context {
-            let borrowed_context = context.borrow();
-            borrowed_context.collect_permission_state()
-        } else {
-            // No audio context available
-            crate::module_interfaces::engine_to_model::PermissionState::NotRequested
+            EngineUpdateResult {
+                audio_analysis: None,
+                audio_errors: vec![crate::module_interfaces::engine_to_model::AudioError::ProcessingError("Audio system not initialized".to_string())],
+                permission_state: crate::module_interfaces::engine_to_model::PermissionState::NotRequested,
+            }
         }
     }
     
