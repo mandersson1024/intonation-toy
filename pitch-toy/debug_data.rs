@@ -8,7 +8,7 @@ use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult
 /// HybridLiveData structure that holds actual data instead of observers
 /// Updated for Task 8a to work with the new update return struct pattern
 #[derive(Clone)]
-pub struct HybridLiveData {
+pub struct DebugData {
     // Debug-specific data (direct access)
     pub audio_devices: AudioDevices,
     pub performance_metrics: PerformanceMetrics,
@@ -22,13 +22,13 @@ pub struct HybridLiveData {
     pub audio_errors: Vec<crate::shared_types::Error>,
 }
 
-impl Default for HybridLiveData {
+impl Default for DebugData {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl HybridLiveData {
+impl DebugData {
     /// Create new HybridLiveData with default values
     pub fn new() -> Self {
         Self {

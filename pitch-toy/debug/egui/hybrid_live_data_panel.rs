@@ -6,13 +6,13 @@ use crate::engine::audio::{
     AudioWorkletState,
     TestWaveform,
 };
-use crate::live_data::HybridLiveData;
+use crate::debug_data::DebugData;
 use std::rc::Rc;
 use std::cell::RefCell;
 
 /// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
 pub struct HybridEguiLiveDataPanel {
-    hybrid_data: HybridLiveData,
+    hybrid_data: DebugData,
     presenter: Rc<RefCell<crate::presentation::Presenter>>,
     last_metrics_update: f64,
     
@@ -30,7 +30,7 @@ pub struct HybridEguiLiveDataPanel {
 impl HybridEguiLiveDataPanel {
     /// Create new Hybrid EGUI Live Data Panel
     pub fn new(
-        hybrid_data: HybridLiveData,
+        hybrid_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
         Self {
