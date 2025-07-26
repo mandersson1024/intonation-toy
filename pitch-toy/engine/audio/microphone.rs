@@ -228,52 +228,57 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     };
     
     // Resume AudioContext if suspended (required for processing to start)
-    {
+    dev_log!("VOLUME_DEBUG: Resuming AudioContext");
+    let resume_result = {
         let mut context_borrowed = audio_context.borrow_mut();
-        dev_log!("VOLUME_DEBUG: Resuming AudioContext");
-        if let Err(e) = context_borrowed.resume_if_suspended().await {
+        context_borrowed.resume_if_suspended().await
+    };
+    if let Err(e) = resume_result {
             dev_log!("VOLUME_DEBUG: ⚠️ Failed to resume AudioContext: {:?}", e);
         } else {
             dev_log!("VOLUME_DEBUG: ✓ AudioContext resume called successfully");
         }
-        
-        // Wait for AudioContext to actually be running
-        let audio_context_ref = context_borrowed.get_audio_context_manager();
-        
-        // Wait up to 500ms for AudioContext to be running
-        let mut attempts = 0;
-        const MAX_ATTEMPTS: u32 = 50;
-        
-        loop {
+    
+    // Wait for AudioContext to actually be running  
+    let audio_context_ref = {
+        let context_borrowed = audio_context.borrow();
+        context_borrowed.get_audio_context_manager().clone()
+    };
+    
+    // Wait up to 500ms for AudioContext to be running
+    let mut attempts = 0;
+    const MAX_ATTEMPTS: u32 = 50;
+    
+    loop {
+        let state = {
             let context_manager = audio_context_ref.borrow();
             let context = context_manager.get_context()
                 .ok_or_else(|| "AudioContext not available after resume".to_string())?;
-            
-            let state = context.state();
-            if state == web_sys::AudioContextState::Running || attempts >= MAX_ATTEMPTS {
-                if state == web_sys::AudioContextState::Running {
-                    dev_log!("VOLUME_DEBUG: ✓ AudioContext is now running after {} attempts", attempts);
-                } else {
-                    dev_log!("VOLUME_DEBUG: ⚠️ AudioContext still not running after {} attempts, state: {:?}", attempts, state);
-                }
-                break;
+            context.state()
+        };
+        
+        if state == web_sys::AudioContextState::Running || attempts >= MAX_ATTEMPTS {
+            if state == web_sys::AudioContextState::Running {
+                dev_log!("VOLUME_DEBUG: ✓ AudioContext is now running after {} attempts", attempts);
+            } else {
+                dev_log!("VOLUME_DEBUG: ⚠️ AudioContext still not running after {} attempts, state: {:?}", attempts, state);
             }
-            
-            dev_log!("VOLUME_DEBUG: AudioContext state: {:?}, waiting... (attempt {})", state, attempts);
-            drop(context_manager); // Release the borrow before async delay
-            
-            // Simple delay using setTimeout equivalent
-            let promise = js_sys::Promise::new(&mut |resolve, _| {
-                let window = web_sys::window().unwrap();
-                window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 10).unwrap();
-            });
-            
-            if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                // If delay fails, just continue
-            }
-            
-            attempts += 1;
+            break;
         }
+        
+        dev_log!("VOLUME_DEBUG: AudioContext state: {:?}, waiting... (attempt {})", state, attempts);
+        
+        // Simple delay using setTimeout equivalent
+        let promise = js_sys::Promise::new(&mut |resolve, _| {
+            let window = web_sys::window().unwrap();
+            window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 10).unwrap();
+        });
+        
+        if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
+            // If delay fails, just continue
+        }
+        
+        attempts += 1;
     }
     
     dev_log!("DEBUG: Getting AudioWorklet manager from context");
@@ -412,8 +417,8 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         }
     }
     
-    // Create media source from the stream
-    let source = {
+    // Check if AudioContext needs resume and extract resume promise
+    let resume_promise = {
         let audio_system_context = audio_context.borrow();
         let audio_context_manager = audio_system_context.get_audio_context_manager();
         let audio_ctx_borrowed = audio_context_manager.borrow();
@@ -421,24 +426,43 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         if let Some(context) = audio_ctx_borrowed.get_context() {
             dev_log!("VOLUME_DEBUG: AudioContext state before creating media source: {:?}", context.state());
             
-            // Ensure AudioContext is resumed with user gesture
+            // Check if resume is needed
             if context.state() == web_sys::AudioContextState::Suspended {
                 dev_log!("VOLUME_DEBUG: AudioContext is suspended, attempting to resume...");
                 match context.resume() {
                     Ok(promise) => {
                         dev_log!("VOLUME_DEBUG: AudioContext resume promise created, awaiting...");
-                        if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                            dev_log!("VOLUME_DEBUG: ✓ AudioContext resumed successfully");
-                        } else {
-                            dev_log!("VOLUME_DEBUG: ⚠️ AudioContext resume promise failed");
-                        }
+                        Some(promise)
                     }
                     Err(e) => {
                         dev_log!("VOLUME_DEBUG: ⚠️ Failed to create AudioContext resume promise: {:?}", e);
+                        None
                     }
                 }
+            } else {
+                None
             }
-            
+        } else {
+            None
+        }
+    };
+    
+    // Await resume promise if needed (borrows are dropped here)
+    if let Some(promise) = resume_promise {
+        if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
+            dev_log!("VOLUME_DEBUG: ✓ AudioContext resumed successfully");
+        } else {
+            dev_log!("VOLUME_DEBUG: ⚠️ AudioContext resume promise failed");
+        }
+    }
+    
+    // Create media source (new borrow after async operation)
+    let source = {
+        let audio_system_context = audio_context.borrow();
+        let audio_context_manager = audio_system_context.get_audio_context_manager();
+        let audio_ctx_borrowed = audio_context_manager.borrow();
+        
+        if let Some(context) = audio_ctx_borrowed.get_context() {
             dev_log!("VOLUME_DEBUG: AudioContext state after resume attempt: {:?}", context.state());
             
             match context.create_media_stream_source(&media_stream) {

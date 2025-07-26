@@ -286,17 +286,32 @@ impl AudioEngine {
     
     #[cfg(debug_assertions)]
     pub fn get_debug_audio_devices(&self) -> Option<AudioDevices> {
-        self.audio_context.as_ref().map(|ctx| ctx.borrow().get_audio_devices())
+        self.audio_context.as_ref().map(|ctx| {
+            match ctx.try_borrow() {
+                Ok(borrowed) => borrowed.get_audio_devices(),
+                Err(_) => AudioDevices { input_devices: Vec::new(), output_devices: Vec::new() }
+            }
+        })
     }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        self.audio_context.as_ref()?.borrow().get_audioworklet_status()
+        self.audio_context.as_ref().and_then(|ctx| {
+            match ctx.try_borrow() {
+                Ok(borrowed) => borrowed.get_audioworklet_status(),
+                Err(_) => None
+            }
+        })
     }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
-        self.audio_context.as_ref()?.borrow().get_buffer_pool_stats()
+        self.audio_context.as_ref().and_then(|ctx| {
+            match ctx.try_borrow() {
+                Ok(borrowed) => borrowed.get_buffer_pool_stats(),
+                Err(_) => None
+            }
+        })
     }
     
     

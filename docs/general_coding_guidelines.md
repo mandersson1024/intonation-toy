@@ -18,7 +18,7 @@
 ### Avoid evolutionary language
 - Variable names are not meant to keep a changelog
 - Code comments are not meant to keep a changelog
-- Avoid words like: `evolved`, `improved`, `enhanced`, `upgraded`, `modernized`, `optimized`, `refactored`, `migrated`, `removed`, etc
+- Avoid words like: `evolved`, `improved`, `enhanced`, `upgraded`, `modernized`, `optimized`, `refactored`, `migrated`, `removed`, `simplified`, etc
 
 ### Avoid selling language
 - Write for developers, not customers

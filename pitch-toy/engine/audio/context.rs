@@ -626,13 +626,19 @@ impl AudioSystemContext {
 
     /// Initialize all audio components with proper dependency order
     pub async fn initialize(&mut self) -> Result<(), String> {
+        use crate::common::dev_log;
+        
         dev_log!("VOLUME_DEBUG: Initializing AudioSystemContext");
         
         // Clear any previous initialization error
         self.initialization_error = None;
         
         // Step 1: Initialize AudioContextManager
-        if let Err(e) = self.audio_context_manager.borrow_mut().initialize().await {
+        let init_result = {
+            let mut manager = self.audio_context_manager.borrow_mut();
+            manager.initialize().await
+        };
+        if let Err(e) = init_result {
             let error_msg = format!("Failed to initialize AudioContextManager: {}", e);
             dev_log!("✗ {}", error_msg);
             self.initialization_error = Some(error_msg.clone());
@@ -644,7 +650,11 @@ impl AudioSystemContext {
         let mut worklet_manager = super::worklet::AudioWorkletManager::new_return_based();
         
         // Initialize the worklet with the audio context
-        if let Err(e) = worklet_manager.initialize(&*self.audio_context_manager.borrow()).await {
+        let worklet_init_result = {
+            let manager = self.audio_context_manager.borrow();
+            worklet_manager.initialize(&*manager).await
+        };
+        if let Err(e) = worklet_init_result {
             let error_msg = format!("Failed to initialize AudioWorkletManager: {:?}", e);
             dev_log!("✗ {}", error_msg);
             self.initialization_error = Some(error_msg.clone());
@@ -656,7 +666,10 @@ impl AudioSystemContext {
 
         // Step 3: Initialize PitchAnalyzer (simplified for return-based pattern)
         let config = super::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = self.audio_context_manager.borrow().config().sample_rate;
+        let sample_rate = {
+            let borrowed = self.audio_context_manager.borrow();
+            borrowed.config().sample_rate
+        };
         
         match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
             Ok(analyzer) => {
@@ -724,7 +737,11 @@ impl AudioSystemContext {
         self.pitch_analyzer = None;
         
         // Close AudioContextManager
-        if let Err(e) = self.audio_context_manager.borrow_mut().close().await {
+        let close_result = {
+            let mut manager = self.audio_context_manager.borrow_mut();
+            manager.close().await
+        };
+        if let Err(e) = close_result {
             dev_log!("Warning: AudioContextManager close failed: {}", e);
         }
         
@@ -735,10 +752,14 @@ impl AudioSystemContext {
 
     /// Check if the audio system is ready for operation
     pub fn is_ready(&self) -> bool {
-        self.is_initialized && 
-        self.audioworklet_manager.is_some() && 
-        self.pitch_analyzer.is_some() && 
-        self.audio_context_manager.borrow().is_running()
+        if !self.is_initialized || self.audioworklet_manager.is_none() || self.pitch_analyzer.is_none() {
+            return false;
+        }
+        
+        match self.audio_context_manager.try_borrow() {
+            Ok(borrowed) => borrowed.is_running(),
+            Err(_) => false
+        }
     }
 
     /// Get the last initialization error if any
@@ -768,7 +789,10 @@ impl AudioSystemContext {
     
     /// Get current audio devices from context manager
     pub fn get_audio_devices(&self) -> super::AudioDevices {
-        self.audio_context_manager.borrow().get_cached_devices().clone()
+        match self.audio_context_manager.try_borrow() {
+            Ok(borrowed) => borrowed.get_cached_devices().clone(),
+            Err(_) => super::AudioDevices { input_devices: Vec::new(), output_devices: Vec::new() }
+        }
     }
     
     /// Get buffer pool statistics if available
@@ -798,13 +822,19 @@ impl AudioSystemContext {
 
     /// Get current AudioContext configuration
     pub fn get_audio_config(&self) -> AudioContextConfig {
-        self.audio_context_manager.borrow().config().clone()
+        match self.audio_context_manager.try_borrow() {
+            Ok(borrowed) => borrowed.config().clone(),
+            Err(_) => AudioContextConfig::default()
+        }
     }
 
     /// Resume audio context if suspended
     pub async fn resume_if_suspended(&mut self) -> Result<(), String> {
-        self.audio_context_manager.borrow_mut().resume().await
-            .map_err(|e| format!("Failed to resume AudioContext: {}", e))
+        let resume_result = {
+            let mut manager = self.audio_context_manager.borrow_mut();
+            manager.resume().await
+        };
+        resume_result.map_err(|e| format!("Failed to resume AudioContext: {}", e))
     }
     
     /// Handle microphone connection result
@@ -849,7 +879,10 @@ impl AudioSystemContext {
         
         // Collect pitch data from PitchAnalyzer
         let pitch_data = if let Some(ref analyzer) = self.pitch_analyzer {
-            analyzer.borrow().get_latest_pitch_data()
+            match analyzer.try_borrow() {
+                Ok(borrowed) => borrowed.get_latest_pitch_data(),
+                Err(_) => None
+            }
         } else {
             None
         };
@@ -871,7 +904,13 @@ impl AudioSystemContext {
         }
         
         // Check AudioContext manager state
-        let context_manager = self.audio_context_manager.borrow();
+        let context_manager = match self.audio_context_manager.try_borrow() {
+            Ok(borrowed) => borrowed,
+            Err(_) => {
+                // Audio context manager busy - skip state check to avoid panic
+                return errors;
+            }
+        };
         if !context_manager.is_running() {
             match context_manager.state() {
                 AudioContextState::Closed => {
