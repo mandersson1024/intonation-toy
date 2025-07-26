@@ -58,6 +58,11 @@
 //! - Complete screen layout and UI element management
 
 
+// PLACEHOLDER: Import temporary sprite scene for development/testing
+// TODO: Remove this import and sprite_scene.rs when proper visualization is implemented
+mod sprite_scene;
+pub use sprite_scene::SpriteScene;
+
 use three_d::{RenderTarget, Context, Viewport};
 use crate::module_interfaces::model_to_presentation::{ModelUpdateResult, TuningSystem, Note};
 
@@ -194,6 +199,9 @@ pub struct Presenter {
     /// Presentation layer now operates without interface dependencies
     /// Data flows through method parameters and return values
     
+    /// Sprite scene for rendering
+    sprite_scene: Option<SpriteScene>,
+    
     /// Flag to track if scene has been initialized
     scene_initialized: bool,
     
@@ -232,6 +240,7 @@ impl Presenter {
         // TODO: Initialize rendering state
         // TODO: Set up sprite scene configuration
         Ok(Self {
+            sprite_scene: None,
             scene_initialized: false,
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
@@ -245,9 +254,11 @@ impl Presenter {
     /// 
     /// # Arguments
     /// 
-    /// * `_viewport` - The new viewport dimensions (currently unused)
-    pub fn update_viewport(&mut self, _viewport: Viewport) {
-        // TODO: Update viewport when actual rendering is implemented
+    /// * `viewport` - The new viewport dimensions
+    pub fn update_viewport(&mut self, viewport: Viewport) {
+        if let Some(ref mut scene) = self.sprite_scene {
+            scene.update_viewport(viewport);
+        }
     }
 
     /// Update the presentation layer with a new timestamp and model data
@@ -416,15 +427,18 @@ impl Presenter {
     /// 
     /// * `_context` - The WebGL context for rendering (currently unused)
     /// * `screen` - The render target to draw to
-    pub fn render(&mut self, _context: &Context, screen: &mut RenderTarget) {
-        // Mark scene as initialized on first render
+    pub fn render(&mut self, context: &Context, screen: &mut RenderTarget) {
+        // Initialize scene on first render if not already done
         if !self.scene_initialized {
+            let viewport = screen.viewport();
+            self.sprite_scene = Some(SpriteScene::new(context, viewport));
             self.scene_initialized = true;
         }
         
-        // TODO: Implement actual rendering when visualization components are ready
-        // For now, just clear the screen
-        screen.clear(three_d::ClearState::color_and_depth(0.2, 0.2, 0.2, 1.0, 1.0));
+        // Render the scene if available
+        if let Some(ref scene) = self.sprite_scene {
+            scene.render(screen);
+        }
     }
     
     /// Process volume data for audio level visualization
