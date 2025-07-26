@@ -1,3 +1,3 @@
 [workspace]
-members = ["pitch-toy", "dev-console", "action"]
+members = ["pitch-toy", "dev-console"]
 resolver = "2"
