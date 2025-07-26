@@ -1210,11 +1210,19 @@ impl AudioWorkletManager {
         #[cfg(not(target_arch = "wasm32"))]
         let timestamp = 0.0;
         
+        // Get chunks processed from shared data (updated by message handler) 
+        // instead of local chunk_counter which is only updated by feed_input_chunk
+        let chunks_processed = if let Some(ref shared_data) = self.shared_data {
+            shared_data.borrow().chunks_processed
+        } else {
+            self.chunk_counter // Fallback to local counter if shared data not available
+        };
+        
         super::AudioWorkletStatus {
             state: self.state.clone(),
             processor_loaded: self.worklet_node.is_some(),
             chunk_size: self.config.chunk_size,
-            chunks_processed: self.chunk_counter,
+            chunks_processed,
             last_update: timestamp,
         }
     }
