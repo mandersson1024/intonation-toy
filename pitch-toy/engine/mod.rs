@@ -468,89 +468,11 @@ impl AudioEngine {
         Ok(())
     }
     
-    /// Calculate root frequency for a tuning system
-    /// 
-    /// **⚠️ TEMPORARY PLACEHOLDER IMPLEMENTATION ⚠️**
-    /// 
-    /// This method calculates the appropriate root frequency for the tonic note
-    /// of a given tuning system. This is currently a temporary placeholder implementation
-    /// that returns fixed frequencies and does NOT implement proper frequency calculation
-    /// logic based on tuning system characteristics.
-    /// 
-    /// **TODO: Replace with proper frequency calculation logic that:**
-    /// - Calculates frequencies based on actual tuning system mathematics
-    /// - Handles different temperaments and their specific frequency ratios
-    /// - Provides accurate tonic frequencies for each tuning system
-    /// 
-    /// # Arguments
-    /// 
-    /// * `tuning_system` - The tuning system to calculate root frequency for
-    /// 
-    /// # Returns
-    /// 
-    /// Returns the root frequency in Hz for the tonic note of the tuning system
-    /// (currently returns placeholder values)
-    fn calculate_root_frequency_for_tuning_system(&self, tuning_system: &TuningSystem) -> f32 {
-        // **TEMPORARY PLACEHOLDER**: Returns A4 (440Hz) for all tuning systems
-        // This does NOT implement proper frequency calculation logic!
-        match tuning_system {
-            TuningSystem::EqualTemperament => 440.0, // A4 in Equal Temperament
-            TuningSystem::JustIntonation => 440.0,   // A4 in Just Intonation (placeholder)
-        }
-    }
     
-    /// Calculate root frequency for a specific note
+    /// Configure audio worklet with tuning system (placeholder implementation)
     /// 
-    /// **⚠️ TEMPORARY PLACEHOLDER IMPLEMENTATION ⚠️**
-    /// 
-    /// This method calculates the frequency for a specific note when it serves
-    /// as the root/tonic of the current tuning system. This is currently a temporary
-    /// placeholder implementation that only uses Equal Temperament calculations and
-    /// does NOT implement proper frequency calculation logic for different tuning systems.
-    /// 
-    /// **TODO: Replace with proper frequency calculation logic that:**
-    /// - Calculates frequencies based on the current tuning system context
-    /// - Handles Just Intonation, Equal Temperament, and other systems correctly
-    /// - Provides accurate root frequencies for each note in each tuning system
-    /// - Takes into account the relationship between the note and the tuning system
-    /// 
-    /// # Arguments
-    /// 
-    /// * `note` - The note to calculate frequency for as the root
-    /// 
-    /// # Returns
-    /// 
-    /// Returns the frequency in Hz for the note when serving as the tonic
-    /// (currently returns Equal Temperament calculations only)
-    fn calculate_root_frequency_for_note(&self, note: &Note) -> f32 {
-        // **TEMPORARY PLACEHOLDER**: Only uses Equal Temperament calculations
-        // Base frequency: A4 = 440Hz (MIDI note 69)
-        // This does NOT implement proper calculation based on current tuning system!
-        
-        let midi_note_offset = match note {
-            Note::C => -9,      // C4 is 9 semitones below A4
-            Note::DFlat => -8,  // Db4 is 8 semitones below A4
-            Note::D => -7,      // D4 is 7 semitones below A4
-            Note::EFlat => -6,  // Eb4 is 6 semitones below A4
-            Note::E => -5,      // E4 is 5 semitones below A4
-            Note::F => -4,      // F4 is 4 semitones below A4
-            Note::FSharp => -3, // F#4 is 3 semitones below A4
-            Note::G => -2,      // G4 is 2 semitones below A4
-            Note::AFlat => -1,  // Ab4 is 1 semitone below A4
-            Note::A => 0,       // A4 is the root note
-            Note::BFlat => 1,   // Bb4 is 1 semitone above A4
-            Note::B => 2,       // B4 is 2 semitones above A4
-        };
-        
-        // Calculate frequency using Equal Temperament formula: f = 440 * 2^(n/12)
-        440.0 * (2.0_f32).powf(midi_note_offset as f32 / 12.0)
-    }
-    
-    /// Configure audio worklet with tuning system and root frequency (placeholder implementation)
-    /// 
-    /// This method configures the audio worklet with a specific tuning system and
-    /// root frequency for the tonic note. This is a placeholder implementation that
-    /// demonstrates the architecture.
+    /// This method configures the audio worklet with a specific tuning system.
+    /// This is a placeholder implementation that demonstrates the architecture.
     /// 
     /// # Arguments
     /// 
@@ -577,8 +499,7 @@ impl AudioEngine {
     /// Update audio worklet tuning configuration (placeholder implementation)
     /// 
     /// This method updates the audio worklet's tuning configuration with a specific
-    /// root note and root frequency. This is a placeholder implementation that
-    /// demonstrates the architecture.
+    /// root note. This is a placeholder implementation that demonstrates the architecture.
     /// 
     /// # Arguments
     /// 
