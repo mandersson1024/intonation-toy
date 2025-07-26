@@ -302,8 +302,8 @@ impl DataModel {
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
             // Extract volume and pitch from audio analysis
             let volume = Volume {
-                peak: audio_analysis.volume_level.peak,
-                rms: audio_analysis.volume_level.rms,
+                peak_amplitude: audio_analysis.volume_level.peak_amplitude,
+                rms_amplitude: audio_analysis.volume_level.rms_amplitude,
             };
             
             let pitch = match audio_analysis.pitch {
@@ -319,7 +319,7 @@ impl DataModel {
         } else {
             // No audio analysis available - return defaults
             (
-                Volume { peak: -60.0, rms: -60.0 }, // Silent levels
+                Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }, // Silent levels
                 Pitch::NotDetected
             )
         };
@@ -502,16 +502,16 @@ impl DataModel {
         // Convert to Note enum
         let note = match note_index {
             0 => Note::C,
-            1 => Note::CSharp,
+            1 => Note::DFlat,
             2 => Note::D,
-            3 => Note::DSharp,
+            3 => Note::EFlat,
             4 => Note::E,
             5 => Note::F,
             6 => Note::FSharp,
             7 => Note::G,
-            8 => Note::GSharp,
+            8 => Note::AFlat,
             9 => Note::A,
-            10 => Note::ASharp,
+            10 => Note::BFlat,
             11 => Note::B,
             _ => Note::A, // Fallback
         };
@@ -765,7 +765,7 @@ mod tests {
         
         // Create engine data with A4 at exactly 440 Hz
         let audio_analysis = crate::shared_types::AudioAnalysis {
-            volume_level: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            volume_level: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::Detected(440.0, 0.95),
             fft_data: None,
             timestamp: 1.0,
@@ -791,7 +791,7 @@ mod tests {
         
         // C4 is approximately 261.63 Hz, test with 260 Hz (slightly flat)
         let audio_analysis = crate::shared_types::AudioAnalysis {
-            volume_level: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            volume_level: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::Detected(260.0, 0.90),
             fft_data: None,
             timestamp: 1.0,
@@ -817,7 +817,7 @@ mod tests {
         let mut model = DataModel::create().unwrap();
         
         let audio_analysis = crate::shared_types::AudioAnalysis {
-            volume_level: crate::shared_types::Volume { peak: -60.0, rms: -60.0 },
+            volume_level: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
             fft_data: None,
             timestamp: 1.0,

@@ -72,8 +72,8 @@ impl DebugData {
             // Convert Volume to VolumeLevelData
             // Note: both peak and rms are amplitude values (0.0-1.0)
             self.volume_level = Some(VolumeLevelData {
-                peak_amplitude: analysis.volume_level.peak,
-                rms_amplitude: analysis.volume_level.rms,
+                peak_amplitude: analysis.volume_level.peak_amplitude,
+                rms_amplitude: analysis.volume_level.rms_amplitude,
             });
             
             // Convert Pitch to PitchData

@@ -957,7 +957,7 @@ struct AudioAnalysisMerger {
 impl AudioAnalysisMerger {
     fn new() -> Self {
         Self {
-            current_volume: std::cell::RefCell::new(crate::shared_types::Volume { peak: -60.0, rms: -60.0 }),
+            current_volume: std::cell::RefCell::new(crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }),
             current_pitch: std::cell::RefCell::new(crate::shared_types::Pitch::NotDetected),
             last_timestamp: std::cell::Cell::new(0.0),
         }
@@ -992,8 +992,8 @@ impl AudioAnalysisMerger {
 /// Convert VolumeLevelData to Volume interface type
 pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::shared_types::Volume> {
     volume_data.map(|data| crate::shared_types::Volume {
-        peak: data.peak_amplitude,
-        rms: data.rms_amplitude,
+        peak_amplitude: data.peak_amplitude,
+        rms_amplitude: data.rms_amplitude,
     })
 }
 
@@ -1021,7 +1021,7 @@ pub fn merge_audio_analysis(
     // Only create AudioAnalysis if we have at least some data
     if volume.is_some() || pitch.is_some() {
         Some(crate::shared_types::AudioAnalysis {
-            volume_level: volume.unwrap_or(crate::shared_types::Volume { peak: -60.0, rms: -60.0 }),
+            volume_level: volume.unwrap_or(crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }),
             pitch: pitch.unwrap_or(crate::shared_types::Pitch::NotDetected),
             fft_data: None,
             timestamp: timestamp.max(js_sys::Date::now()),

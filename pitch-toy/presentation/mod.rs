@@ -452,11 +452,11 @@ impl Presenter {
     fn process_volume_data(&mut self, volume: &crate::shared_types::Volume) {
         // Store volume data for visualization
         // Future: Update volume meter displays, audio wave visualizations
-        let _peak_amplitude = volume.peak;
-        let _rms_amplitude = volume.rms;
+        let _peak_amplitude = volume.peak_amplitude;
+        let _rms_amplitude = volume.rms_amplitude;
         
         // Placeholder: Log significant volume changes for debugging
-        if volume.peak > -20.0 {
+        if volume.peak_amplitude > -20.0 {
             // Loud audio detected - could trigger visual feedback
         }
     }
@@ -597,7 +597,7 @@ mod tests {
     /// Create test model data for testing purposes
     fn create_test_model_data() -> ModelUpdateResult {
         ModelUpdateResult {
-            volume: crate::shared_types::Volume { peak: -10.0, rms: -15.0 },
+            volume: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
             accuracy: crate::shared_types::Accuracy {
                 closest_note: crate::shared_types::Note::A,
@@ -769,11 +769,11 @@ mod tests {
             .expect("Presenter creation should succeed");
 
         // Trigger root note adjustment
-        presenter.on_root_note_adjusted(Note::CSharp);
+        presenter.on_root_note_adjusted(Note::DFlat);
         
         let actions = presenter.get_user_actions();
         assert_eq!(actions.root_note_adjustments.len(), 1);
-        assert_eq!(actions.root_note_adjustments[0].root_note, Note::CSharp);
+        assert_eq!(actions.root_note_adjustments[0].root_note, Note::DFlat);
         
         // After getting actions, they should be cleared
         let actions2 = presenter.get_user_actions();

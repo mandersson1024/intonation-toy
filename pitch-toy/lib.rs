@@ -131,7 +131,7 @@ pub async fn run_three_d_with_layers(
         } else {
             // Provide default model data when model is not available
             crate::shared_types::ModelUpdateResult {
-                volume: crate::shared_types::Volume { peak: -60.0, rms: -60.0 },
+                volume: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
                 pitch: crate::shared_types::Pitch::NotDetected,
                 accuracy: crate::shared_types::Accuracy {
                     closest_note: crate::shared_types::Note::A,

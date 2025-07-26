@@ -553,16 +553,16 @@ impl AudioEngine {
         
         let midi_note_offset = match note {
             Note::C => -9,      // C4 is 9 semitones below A4
-            Note::CSharp => -8, // C#4 is 8 semitones below A4
+            Note::DFlat => -8,  // Db4 is 8 semitones below A4
             Note::D => -7,      // D4 is 7 semitones below A4
-            Note::DSharp => -6, // D#4 is 6 semitones below A4
+            Note::EFlat => -6,  // Eb4 is 6 semitones below A4
             Note::E => -5,      // E4 is 5 semitones below A4
             Note::F => -4,      // F4 is 4 semitones below A4
             Note::FSharp => -3, // F#4 is 3 semitones below A4
             Note::G => -2,      // G4 is 2 semitones below A4
-            Note::GSharp => -1, // G#4 is 1 semitone below A4
-            Note::A => 0,       // A4 is the reference
-            Note::ASharp => 1,  // A#4 is 1 semitone above A4
+            Note::AFlat => -1,  // Ab4 is 1 semitone below A4
+            Note::A => 0,       // A4 is the root note
+            Note::BFlat => 1,   // Bb4 is 1 semitone above A4
             Note::B => 2,       // B4 is 2 semitones above A4
         };
         

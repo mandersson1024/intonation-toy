@@ -438,8 +438,8 @@ mod tests {
         assert!(converted.is_some());
         
         let volume = converted.unwrap();
-        assert_eq!(volume.peak, 0.3);
-        assert_eq!(volume.rms, 0.2);
+        assert_eq!(volume.peak_amplitude, 0.3);
+        assert_eq!(volume.rms_amplitude, 0.2);
         
         // Test with None input
         let converted_none = context::convert_volume_data(None);

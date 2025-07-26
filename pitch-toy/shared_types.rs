@@ -10,8 +10,8 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Volume {
-    pub peak: f32,
-    pub rms: f32,
+    pub peak_amplitude: f32,
+    pub rms_amplitude: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +42,7 @@ pub enum TuningSystem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Note {
-    C, CSharp, D, DSharp, E, F, FSharp, G, GSharp, A, ASharp, B,
+    C, DFlat, D, EFlat, E, F, FSharp, G, AFlat, A, BFlat, B,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,7 +89,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_engine_update_result_creation() {
         let test_analysis = AudioAnalysis {
-            volume_level: Volume { peak: 0.5, rms: 0.3 },
+            volume_level: Volume { peak_amplitude: 0.5, rms_amplitude: 0.3 },
             pitch: Pitch::Detected(440.0, 0.9),
             fft_data: None,
             timestamp: 123.456,
@@ -110,7 +110,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_model_update_result_creation() {
-        let test_volume = Volume { peak: 0.8, rms: 0.6 };
+        let test_volume = Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 };
         let test_pitch = Pitch::Detected(440.0, 0.9);
         let test_accuracy = Accuracy {
             closest_note: Note::A,
@@ -137,9 +137,9 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_volume_creation() {
-        let volume = Volume { peak: 1.0, rms: 0.7 };
-        assert_eq!(volume.peak, 1.0);
-        assert_eq!(volume.rms, 0.7);
+        let volume = Volume { peak_amplitude: 1.0, rms_amplitude: 0.7 };
+        assert_eq!(volume.peak_amplitude, 1.0);
+        assert_eq!(volume.rms_amplitude, 0.7);
     }
 
     #[wasm_bindgen_test]
@@ -192,9 +192,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_note_variants() {
         let notes = vec![
-            Note::C, Note::CSharp, Note::D, Note::DSharp,
+            Note::C, Note::DFlat, Note::D, Note::EFlat,
             Note::E, Note::F, Note::FSharp, Note::G,
-            Note::GSharp, Note::A, Note::ASharp, Note::B,
+            Note::AFlat, Note::A, Note::BFlat, Note::B,
         ];
         
         assert_eq!(notes.len(), 12);
@@ -222,14 +222,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_analysis_creation() {
         let analysis = AudioAnalysis {
-            volume_level: Volume { peak: 0.8, rms: 0.6 },
+            volume_level: Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 },
             pitch: Pitch::Detected(440.0, 0.9),
             fft_data: Some(vec![0.1, 0.2, 0.3]),
             timestamp: 123.456,
         };
         
-        assert_eq!(analysis.volume_level.peak, 0.8);
-        assert_eq!(analysis.volume_level.rms, 0.6);
+        assert_eq!(analysis.volume_level.peak_amplitude, 0.8);
+        assert_eq!(analysis.volume_level.rms_amplitude, 0.6);
         assert_eq!(analysis.timestamp, 123.456);
         assert!(analysis.fft_data.is_some());
     }
