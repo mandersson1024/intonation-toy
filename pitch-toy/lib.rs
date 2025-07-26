@@ -13,7 +13,6 @@ pub(crate) mod shared_types;
 // Supporting modules
 pub(crate) mod common;
 pub(crate) mod debug;
-pub(crate) mod debug_data;
 
 use common::dev_log;
 use wasm_bindgen::prelude::*;
@@ -68,7 +67,7 @@ pub async fn run_three_d_with_layers(
     
     
     // Create hybrid live data without legacy interface
-    let hybrid_live_data = debug_data::DebugData::new();
+    let hybrid_live_data = debug::debug_data::DebugData::new();
     
     // Create hybrid debug panel
     let mut hybrid_live_data_panel = if let Some(ref presenter_ref) = presenter {

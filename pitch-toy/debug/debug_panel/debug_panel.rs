@@ -6,7 +6,7 @@ use crate::engine::audio::{
     AudioWorkletState,
     TestWaveform,
 };
-use crate::debug_data::DebugData;
+use crate::debug::debug_data::DebugData;
 use std::rc::Rc;
 use std::cell::RefCell;
 

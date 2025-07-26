@@ -5,3 +5,4 @@
 // - HybridEguiLiveDataPanel: Real-time data visualization and monitoring
 
 pub mod debug_panel;
+pub mod debug_data;
