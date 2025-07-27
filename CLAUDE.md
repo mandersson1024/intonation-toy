@@ -3,8 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Coding guidelines
-- Read docs/general_coding_guidelines.md
-- Read docs/rust_coding_guidelines.md
+- IMPORTANT: Read docs/general_coding_guidelines.md
+- IMPORTANT: Read docs/rust_coding_guidelines.md
 
 ## Building and testing
 - The main language is Rust compiled to WASM, with some JavaScript for the audio worklet
@@ -27,6 +27,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Presentation layer
 - Responsible for user input and visualization of data processed by the model
 - The visualization is rendered using the three_d crate
+- UI action from the presentation layers include:
+  - set root note
+  - set tuning system
 
 ### Debug layer
 - Has priviliged access to data from all systems
