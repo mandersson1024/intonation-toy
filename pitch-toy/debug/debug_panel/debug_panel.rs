@@ -419,7 +419,7 @@ impl DebugPanel {
     /// Render background noise controls (debug actions)
     fn render_background_noise_controls(&mut self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Background Noise Controls")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.background_noise_enabled, "Enable Background Noise").changed() {
