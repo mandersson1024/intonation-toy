@@ -625,16 +625,16 @@ impl Presenter {
     /// 
     /// * `accuracy` - Accuracy metrics containing closest note and deviation
     fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::Accuracy) {
-        let _closest_note = &accuracy.closest_note;
-        let _accuracy_value = accuracy.accuracy;
+        let _closest_note = &accuracy.midi_note;
+        let _cents_offset = accuracy.cents_offset;
         
         // Future: Update tuning needle/indicator position
         // Future: Change colors based on accuracy (green=good, red=off)
         // Future: Display note name and cents deviation
         
-        if accuracy.accuracy < 0.1 {
+        if accuracy.cents_offset.abs() < 10.0 {
             // Very accurate - could show green indicator
-        } else if accuracy.accuracy > 0.8 {
+        } else if accuracy.cents_offset.abs() > 30.0 {
             // Very inaccurate - could show red indicator  
         }
     }
