@@ -10,6 +10,26 @@ pub mod presentation;
 // Module interfaces
 pub mod shared_types;
 
+// Re-export types for test usage
+#[cfg(test)]
+pub use shared_types::{Note, TuningSystem, TestWaveform};
+#[cfg(test)]
+pub use presentation::{
+    RequestMicrophonePermission, ChangeTuningSystem, AdjustRootNote,
+    PresentationLayerActions,
+};
+#[cfg(all(debug_assertions, test))]
+pub use presentation::{
+    ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise,
+    DebugLayerActions,
+};
+#[cfg(test)]
+pub use model::{ProcessedActions, ModelLayerActions};
+#[cfg(test)]
+pub use presentation::{PresentationLayerActionsBuilder};
+#[cfg(all(debug_assertions, test))]
+pub use presentation::{DebugLayerActionsBuilder};
+
 // Supporting modules
 pub(crate) mod common;
 pub(crate) mod debug;

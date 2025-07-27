@@ -80,16 +80,37 @@ use crate::engine::audio::TestWaveform;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RequestMicrophonePermission;
 
+#[cfg(test)]
+impl RequestMicrophonePermission {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// Request to change the tuning system
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChangeTuningSystem {
     pub tuning_system: TuningSystem,
 }
 
+#[cfg(test)]
+impl ChangeTuningSystem {
+    pub fn new(tuning_system: TuningSystem) -> Self {
+        Self { tuning_system }
+    }
+}
+
 /// Request to adjust the root note
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdjustRootNote {
     pub root_note: Note,
+}
+
+#[cfg(test)]
+impl AdjustRootNote {
+    pub fn new(root_note: Note) -> Self {
+        Self { root_note }
+    }
 }
 
 // Debug action structs (only available in debug builds)
@@ -102,10 +123,24 @@ pub struct ConfigureTestSignal {
     pub waveform: TestWaveform,
 }
 
+#[cfg(all(debug_assertions, test))]
+impl ConfigureTestSignal {
+    pub fn new(enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) -> Self {
+        Self { enabled, frequency, volume, waveform }
+    }
+}
+
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureOutputToSpeakers {
     pub enabled: bool,
+}
+
+#[cfg(all(debug_assertions, test))]
+impl ConfigureOutputToSpeakers {
+    pub fn new(enabled: bool) -> Self {
+        Self { enabled }
+    }
 }
 
 #[cfg(debug_assertions)]
@@ -114,6 +149,13 @@ pub struct ConfigureBackgroundNoise {
     pub enabled: bool,
     pub level: f32,
     pub noise_type: TestWaveform,
+}
+
+#[cfg(all(debug_assertions, test))]
+impl ConfigureBackgroundNoise {
+    pub fn new(enabled: bool, level: f32, noise_type: TestWaveform) -> Self {
+        Self { enabled, level, noise_type }
+    }
 }
 
 /// Container for all collected user actions from the presentation layer
@@ -133,6 +175,47 @@ impl PresentationLayerActions {
         Self {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+impl PresentationLayerActions {
+    /// Builder pattern for creating test instances
+    pub fn builder() -> PresentationLayerActionsBuilder {
+        PresentationLayerActionsBuilder::new()
+    }
+}
+
+#[cfg(test)]
+pub struct PresentationLayerActionsBuilder {
+    tuning_system_changes: Vec<ChangeTuningSystem>,
+    root_note_adjustments: Vec<AdjustRootNote>,
+}
+
+#[cfg(test)]
+impl PresentationLayerActionsBuilder {
+    pub fn new() -> Self {
+        Self {
+            tuning_system_changes: Vec::new(),
+            root_note_adjustments: Vec::new(),
+        }
+    }
+    
+    pub fn with_tuning_change(mut self, tuning_system: TuningSystem) -> Self {
+        self.tuning_system_changes.push(ChangeTuningSystem::new(tuning_system));
+        self
+    }
+    
+    pub fn with_root_note_adjustment(mut self, root_note: Note) -> Self {
+        self.root_note_adjustments.push(AdjustRootNote::new(root_note));
+        self
+    }
+    
+    pub fn build(self) -> PresentationLayerActions {
+        PresentationLayerActions {
+            tuning_system_changes: self.tuning_system_changes,
+            root_note_adjustments: self.root_note_adjustments,
         }
     }
 }
@@ -158,6 +241,55 @@ impl DebugLayerActions {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
             background_noise_configurations: Vec::new(),
+        }
+    }
+}
+
+#[cfg(all(debug_assertions, test))]
+impl DebugLayerActions {
+    /// Builder pattern for creating test instances with debug actions
+    pub fn builder() -> DebugLayerActionsBuilder {
+        DebugLayerActionsBuilder::new()
+    }
+}
+
+#[cfg(all(debug_assertions, test))]
+pub struct DebugLayerActionsBuilder {
+    test_signal_configurations: Vec<ConfigureTestSignal>,
+    speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
+    background_noise_configurations: Vec<ConfigureBackgroundNoise>,
+}
+
+#[cfg(all(debug_assertions, test))]
+impl DebugLayerActionsBuilder {
+    pub fn new() -> Self {
+        Self {
+            test_signal_configurations: Vec::new(),
+            speaker_output_configurations: Vec::new(),
+            background_noise_configurations: Vec::new(),
+        }
+    }
+    
+    pub fn with_test_signal(mut self, enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) -> Self {
+        self.test_signal_configurations.push(ConfigureTestSignal::new(enabled, frequency, volume, waveform));
+        self
+    }
+    
+    pub fn with_speaker_output(mut self, enabled: bool) -> Self {
+        self.speaker_output_configurations.push(ConfigureOutputToSpeakers::new(enabled));
+        self
+    }
+    
+    pub fn with_background_noise(mut self, enabled: bool, level: f32, noise_type: TestWaveform) -> Self {
+        self.background_noise_configurations.push(ConfigureBackgroundNoise::new(enabled, level, noise_type));
+        self
+    }
+    
+    pub fn build(self) -> DebugLayerActions {
+        DebugLayerActions {
+            test_signal_configurations: self.test_signal_configurations,
+            speaker_output_configurations: self.speaker_output_configurations,
+            background_noise_configurations: self.background_noise_configurations,
         }
     }
 }
