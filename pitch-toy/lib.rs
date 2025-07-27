@@ -238,7 +238,7 @@ pub async fn run_three_d_with_layers(
                 volume: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
                 pitch: crate::shared_types::Pitch::NotDetected,
                 accuracy: crate::shared_types::Accuracy {
-                    midi_note: 69,
+                    closest_midi_note: 69,
                     cents_offset: 0.0,
                 },
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,

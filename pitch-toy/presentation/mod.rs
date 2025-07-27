@@ -625,7 +625,7 @@ impl Presenter {
     /// 
     /// * `accuracy` - Accuracy metrics containing closest note and deviation
     fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::Accuracy) {
-        let _midi_note = accuracy.midi_note;
+        let _midi_note = accuracy.closest_midi_note;
         let _cents_offset = accuracy.cents_offset;
         
         // Future: Update tuning needle/indicator position
@@ -732,7 +732,7 @@ mod tests {
             volume: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
             accuracy: crate::shared_types::Accuracy {
-                midi_note: 69,
+                closest_midi_note: 69,
                 cents_offset: 0.0,
             },
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,

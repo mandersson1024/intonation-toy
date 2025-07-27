@@ -79,7 +79,7 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result = model.update(1.0, engine_data.clone());
     
     // Verify model added musical interpretation
-    assert_eq!(model_result.accuracy.midi_note, 69);
+    assert_eq!(model_result.accuracy.closest_midi_note, 69);
     assert!(model_result.accuracy.cents_offset.abs() < 1.0, "440Hz should be perfectly in tune with A");
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
@@ -94,7 +94,7 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result_c = model.update(2.0, engine_data);
     
     // Verify same frequency has different musical interpretation
-    assert_eq!(model_result_c.accuracy.midi_note, 69);
+    assert_eq!(model_result_c.accuracy.closest_midi_note, 69);
     assert!(model_result_c.accuracy.cents_offset.abs() > 10.0, 
         "440Hz should show inaccuracy with C root - got cents offset: {}", 
         model_result_c.accuracy.cents_offset);
@@ -134,7 +134,7 @@ async fn test_complete_data_flow_pipeline() {
                 assert!(raw_frequency > 0.0, "Engine should provide raw frequency");
                 
                 // Model transformed it to musical data
-                assert!(model_result.accuracy.midi_note != 69 || 
+                assert!(model_result.accuracy.closest_midi_note != 69 || 
                        model_result.accuracy.cents_offset.abs() < 100.0,
                        "Model should provide musical interpretation");
                 
@@ -178,7 +178,7 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Get initial model result with A root
     let result_before = model.update(1.0, engine_data.clone());
-    assert_eq!(result_before.accuracy.midi_note, 69);
+    assert_eq!(result_before.accuracy.closest_midi_note, 69);
     let cents_offset_before = result_before.accuracy.cents_offset;
     
     // Change root note in model
@@ -195,7 +195,7 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Model should interpret same frequency differently with new root
     let result_after = model.update(2.0, engine_data);
-    assert_eq!(result_after.accuracy.midi_note, 69); // Still detected as A
+    assert_eq!(result_after.accuracy.closest_midi_note, 69); // Still detected as A
     let cents_offset_after = result_after.accuracy.cents_offset;
     
     // Cents offset should be different with different root note
@@ -230,7 +230,7 @@ fn test_layer_separation_boundaries() {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
         pitch: Pitch::Detected(440.0, 0.95),
         accuracy: Accuracy {
-            midi_note: 69,
+            closest_midi_note: 69,
             cents_offset: 1.0,
         },
         tuning_system: TuningSystem::EqualTemperament,
@@ -239,7 +239,7 @@ fn test_layer_separation_boundaries() {
     };
     
     // Model result has musical fields - verified by type system
-    assert_eq!(model_result.accuracy.midi_note, 69);
+    assert_eq!(model_result.accuracy.closest_midi_note, 69);
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Presentation layer receives fully processed data
@@ -351,7 +351,7 @@ fn test_sequential_tuning_context_changes() {
         let result = model.update(1.0, engine_data.clone());
         
         // Verify note detection is consistent (absolute pitch)
-        assert_eq!(result.accuracy.midi_note, 72, 
+        assert_eq!(result.accuracy.closest_midi_note, 72, 
             "C5 should always be detected as C regardless of root");
         
         // Verify cents offset changes with root note (relative accuracy)

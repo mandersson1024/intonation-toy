@@ -77,7 +77,7 @@ pub enum TuningSystem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Accuracy {
-    pub midi_note: MidiNote,
+    pub closest_midi_note: MidiNote,
     pub cents_offset: f32, // Distance in cents from the closest note (negative = flat, positive = sharp)
 }
 
@@ -163,7 +163,7 @@ mod tests {
     fn test_model_update_result_creation() {
         let test_volume = Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 };
         let test_pitch = Pitch::Detected(440.0, 0.9);
-        let test_accuracy = Accuracy { midi_note: 69, cents_offset: -10.0 };
+        let test_accuracy = Accuracy { closest_midi_note: 69, cents_offset: -10.0 };
         let test_tuning_system = TuningSystem::EqualTemperament;
         let test_errors = vec![Error::ProcessingError("Test error".to_string())];
 
