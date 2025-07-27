@@ -40,7 +40,7 @@ pub enum NoteName {
 pub type MidiNote = u8;
 
 /// Check if a value is a valid MIDI note number (0-127).
-pub fn is_valid_midi_note(value: u8) -> bool {
+pub fn is_valid_midi_note(value: MidiNote) -> bool {
     value <= 127
 }
 
