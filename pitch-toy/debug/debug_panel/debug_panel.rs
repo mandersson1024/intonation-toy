@@ -139,6 +139,10 @@ impl DebugPanel {
                 self.render_pitch_detection_section(ui);
                 ui.separator();
                 
+                // Accuracy Section (core data via interface)
+                self.render_accuracy_section(ui);
+                ui.separator();
+                
                 // User Actions Section (debug actions)
                 self.render_user_actions_section(ui);
                 ui.separator();
@@ -359,6 +363,38 @@ impl DebugPanel {
                 } else {
                     ui.label("Frequency: -- Hz");
                     ui.label("Clarity: --");
+                }
+            });
+    }
+    
+    /// Render accuracy section (core data via interface)
+    fn render_accuracy_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Accuracy")
+            .default_open(true)
+            .show(ui, |ui| {
+                // Always reserve space for consistent height
+                if let Some(accuracy) = self.hybrid_data.get_accuracy_data() {
+                    // Display closest MIDI note
+                    let note_name = midi_note_to_display_name(accuracy.closest_midi_note);
+                    let octave = (accuracy.closest_midi_note as i16 / 12) - 1;
+                    ui.label(format!("Closest Note: {}{}", note_name, octave));
+                    
+                    // Display cents offset with color coding
+                    ui.horizontal(|ui| {
+                        ui.label("Cents Offset:");
+                        let cents = accuracy.cents_offset;
+                        let (color, display_text) = if cents.abs() <= 5.0 {
+                            (Color32::GREEN, format!("{:+.1}", cents))
+                        } else if cents.abs() <= 20.0 {
+                            (Color32::YELLOW, format!("{:+.1}", cents))
+                        } else {
+                            (Color32::RED, format!("{:+.1}", cents))
+                        };
+                        ui.colored_label(color, display_text);
+                    });
+                } else {
+                    ui.label("Closest Note: --");
+                    ui.label("Cents Offset: --");
                 }
             });
     }

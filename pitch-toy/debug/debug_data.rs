@@ -3,7 +3,7 @@ use crate::engine::audio::{
     AudioDevices,
 };
 use crate::debug::debug_panel::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
-use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult};
+use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, Accuracy};
 
 /// HybridLiveData structure that holds actual data instead of observers
 /// Updated for Task 8a to work with the new update return struct pattern
@@ -18,6 +18,7 @@ pub struct DebugData {
     // Core data from engine and model layers
     pub volume_level: Option<VolumeLevelData>,
     pub pitch_data: Option<PitchData>,
+    pub accuracy_data: Option<Accuracy>,
     pub microphone_permission: AudioPermission,
     pub audio_errors: Vec<crate::shared_types::Error>,
 }
@@ -44,6 +45,7 @@ impl DebugData {
             // Core data
             volume_level: None,
             pitch_data: None,
+            accuracy_data: None,
             microphone_permission: AudioPermission::Uninitialized,
             audio_errors: Vec::new(),
         }
@@ -91,6 +93,11 @@ impl DebugData {
             self.volume_level = None;
             self.pitch_data = None;
         }
+        
+        // Update accuracy data from model result if available
+        if let Some(model) = model_result {
+            self.accuracy_data = Some(model.accuracy.clone());
+        }
     }
     
     /// Update debug-specific data (called separately by debug systems)
@@ -133,5 +140,10 @@ impl DebugData {
     /// Get audio errors
     pub fn get_audio_errors(&self) -> &[crate::shared_types::Error] {
         &self.audio_errors
+    }
+    
+    /// Get accuracy data
+    pub fn get_accuracy_data(&self) -> Option<Accuracy> {
+        self.accuracy_data.clone()
     }
 }
