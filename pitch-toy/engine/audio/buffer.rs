@@ -7,25 +7,6 @@ pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed ch
 pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096 - IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
 
 
-/// Validates that buffer size is a multiple of 128
-pub fn validate_buffer_size(size: usize) -> Result<(), String> {
-    if size % AUDIO_CHUNK_SIZE != 0 {
-        return Err(format!("Buffer size {} must be a multiple of {}", size, AUDIO_CHUNK_SIZE));
-    }
-    
-    Ok(())
-}
-
-/// Validates buffer size for the buffer creation with recommended limits
-pub fn validate_buffer_size_for_creation(size: usize) -> Result<(), String> {
-    validate_buffer_size(size)?;
-    
-    if size != BUFFER_SIZE {
-        return Err(format!("Buffer size {} must be {}", size, BUFFER_SIZE));
-    }
-    
-    Ok(())
-}
 
 /// Buffer state tracking for efficient processing
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,26 +58,19 @@ impl<T> CircularBuffer<T>
 where
     T: Clone + Default,
 {
-    /// Create a new circular buffer with specified capacity
-    /// Capacity must be a multiple of 128 for AudioWorklet compatibility
-    pub fn new(capacity: usize) -> Result<Self, String> {
-        validate_buffer_size_for_creation(capacity)?;
-        
-        Ok(CircularBuffer {
-            buffer: VecDeque::with_capacity(capacity),
-            capacity,
+    /// Create a new circular buffer with fixed BUFFER_SIZE capacity
+    pub fn new() -> Self {
+        CircularBuffer {
+            buffer: VecDeque::with_capacity(BUFFER_SIZE),
+            capacity: BUFFER_SIZE,
             state: BufferState::Empty,
             write_pos: 0,
             read_pos: 0,
             has_wrapped: false,
             overflow_count: 0,
-        })
+        }
     }
 
-    /// Create a new circular buffer with default capacity
-    pub fn new_default() -> Result<Self, String> {
-        Self::new(BUFFER_SIZE)
-    }
 
     /// Get the current buffer state
     pub fn state(&self) -> BufferState {
@@ -309,7 +283,7 @@ where
     T: Clone + Default,
 {
     fn default() -> Self {
-        Self::new_default().expect("Default buffer size should be valid")
+        Self::new()
     }
 }
 
@@ -343,34 +317,14 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_buffer_size_validation() {
-        // Valid sizes (multiples of 128)
-        assert!(validate_buffer_size(128).is_ok());
-        assert!(validate_buffer_size(256).is_ok());
-        assert!(validate_buffer_size(1024).is_ok());
-        
-        // Invalid sizes (not multiples of 128)
-        assert!(validate_buffer_size(100).is_err());
-        assert!(validate_buffer_size(200).is_err());
-        assert!(validate_buffer_size(1000).is_err());
+    fn test_buffer_creation() {
+        // Buffer creation should always work with fixed size
+        let buffer = CircularBuffer::<f32>::new();
+        assert_eq!(buffer.capacity(), BUFFER_SIZE);
+        assert_eq!(buffer.len(), 0);
+        assert!(buffer.is_empty());
     }
 
-    #[wasm_bindgen_test]
-    fn test_buffer_size_validation_for_creation() {
-        // Only the exact BUFFER_SIZE is valid for creation
-        assert!(validate_buffer_size_for_creation(BUFFER_SIZE).is_ok());
-        
-        // All other sizes should fail
-        assert!(validate_buffer_size_for_creation(256).is_err());
-        assert!(validate_buffer_size_for_creation(512).is_err());
-        assert!(validate_buffer_size_for_creation(1024).is_err());
-        assert!(validate_buffer_size_for_creation(8192).is_err());
-        
-        // Invalid sizes (not multiples of 128)
-        assert!(validate_buffer_size_for_creation(100).is_err());
-        assert!(validate_buffer_size_for_creation(200).is_err());
-        assert!(validate_buffer_size_for_creation(1000).is_err());
-    }
 
     #[wasm_bindgen_test]
     fn test_buffer_state_display() {
@@ -383,7 +337,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_creation() {
-        let buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let buffer = CircularBuffer::<f32>::new();
         assert_eq!(buffer.capacity(), 256);
         assert_eq!(buffer.len(), 0);
         assert!(buffer.is_empty());
@@ -391,16 +345,10 @@ mod tests {
         assert_eq!(buffer.state(), BufferState::Empty);
     }
 
-    #[wasm_bindgen_test]
-    fn test_circular_buffer_invalid_size() {
-        let result = CircularBuffer::<f32>::new(100);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("must be a multiple of 128"));
-    }
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_write_read() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         assert!(buffer.write(1.0));
@@ -422,7 +370,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_overflow() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Fill buffer to capacity
         for i in 0..256 {
@@ -444,7 +392,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_chunk_operations() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write a chunk
         let input = vec![1.0, 2.0, 3.0, 4.0, 5.0];
@@ -462,7 +410,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         buffer.write(1.0);
@@ -481,7 +429,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_sequential_block() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         for i in 0..10 {
@@ -499,7 +447,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_clear() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         buffer.write(1.0);
@@ -527,7 +475,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_overflow_count_and_reset() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
 
         // Trigger two overflows
         for _ in 0..(256 + 10) {
@@ -548,7 +496,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek_chunk() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         for i in 0..10 {
@@ -576,7 +524,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_peek_chunk_vec() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         for i in 0..10 {
@@ -599,7 +547,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_circular_buffer_can_read_window() {
-        let mut buffer = CircularBuffer::<f32>::new(256).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write some samples
         for i in 0..10 {
@@ -619,7 +567,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_sliding_window_simulation() {
-        let mut buffer = CircularBuffer::<f32>::new(1024).unwrap();
+        let mut buffer = CircularBuffer::<f32>::new();
         
         // Write 800 samples (less than window size to fit in buffer)
         for i in 0..800 {

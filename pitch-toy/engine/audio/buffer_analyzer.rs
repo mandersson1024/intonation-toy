@@ -1,7 +1,7 @@
 // Audio buffer analyzer for sequential block processing without overlap
 // Supports optional windowing functions (Hamming, Blackman)
 
-use super::buffer::{CircularBuffer, validate_buffer_size};
+use super::buffer::{CircularBuffer, BUFFER_SIZE};
 
 /// Processing strategy for buffer analysis
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -98,8 +98,10 @@ impl<'a> BufferAnalyzer<'a> {
         block_size: usize,
         window_fn: WindowFunction,
     ) -> Result<Self, String> {
-        // Ensure block_size is valid and compatible with AudioWorklet chunk size
-        validate_buffer_size(block_size)?;
+        // Ensure block_size matches the fixed buffer size
+        if block_size != BUFFER_SIZE {
+            return Err(format!("Block size {} must be {}", block_size, BUFFER_SIZE));
+        }
         if block_size > buffer.capacity() {
             return Err("Block size cannot exceed buffer capacity".to_string());
         }
@@ -234,7 +236,9 @@ impl<'a> SlidingWindowProcessor<'a> {
         window_fn: WindowFunction,
     ) -> Result<Self, String> {
         // Validate parameters
-        validate_buffer_size(block_size)?;
+        if block_size != BUFFER_SIZE {
+            return Err(format!("Block size {} must be {}", block_size, BUFFER_SIZE));
+        }
         if block_size > buffer.capacity() {
             return Err("Block size cannot exceed buffer capacity".to_string());
         }
@@ -381,7 +385,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_analyzer_sequential_blocks_no_overlap() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         // Fill buffer with 256 samples (0.0 .. 255.0)
         for i in 0..256 {
             circ.write(i as f32);
@@ -404,7 +408,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_windowing_application() {
-        let mut circ = CircularBuffer::<f32>::new(256).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         // Fill buffer with 128 samples of value 1.0
         for _ in 0..128 {
             circ.write(1.0);
@@ -419,7 +423,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_zero_allocation_next_block_into() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         // Fill with 256 samples of value 1.0
         for _ in 0..256 {
             circ.write(1.0);
@@ -442,7 +446,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_buffer_processor_trait_for_sequential() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         for i in 0..256 {
             circ.write(i as f32);
         }
@@ -473,7 +477,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_sliding_window_processor_creation() {
-        let circ = CircularBuffer::<f32>::new(512).unwrap();
+        let circ = CircularBuffer::<f32>::new();
         
         // Valid parameters
         let processor = SlidingWindowProcessor::new(&circ, 256, 0.5, WindowFunction::None);
@@ -492,7 +496,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_sliding_window_processor_overlapping_windows() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         // Fill with sequential values
         for i in 0..400 {
             circ.write(i as f32);
@@ -532,7 +536,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_sliding_window_processor_zero_allocation() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         for i in 0..300 {
             circ.write(i as f32);
         }
@@ -553,7 +557,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_sliding_window_processor_reset() {
-        let mut circ = CircularBuffer::<f32>::new(512).unwrap();
+        let mut circ = CircularBuffer::<f32>::new();
         for i in 0..200 {
             circ.write(i as f32);
         }
@@ -581,7 +585,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_audioworklet_compatibility() {
-        let circ = CircularBuffer::<f32>::new(512).unwrap();
+        let circ = CircularBuffer::<f32>::new();
         
         // Test that hop sizes are multiples of 128 for AudioWorklet compatibility
         let processor = SlidingWindowProcessor::new(&circ, 512, 0.5, WindowFunction::None).unwrap();
