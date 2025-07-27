@@ -34,7 +34,7 @@ pub use presentation::{DebugLayerActionsBuilder};
 pub(crate) mod common;
 pub(crate) mod debug;
 
-use common::dev_log;
+use common::{dev_log, trace_log, separation_log};
 use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
@@ -110,9 +110,14 @@ pub async fn run_three_d_with_layers(
     let mut last_fps_update = 0.0;
     let mut fps = 0.0;
     
+    // Separation verification logging frequency control
+    let mut separation_log_frame_count = 0u32;
+    const SEPARATION_LOG_FREQUENCY: u32 = 10; // Log every 10th frame
+    
     window.render_loop(move |mut frame_input| {
         // Update FPS counter
         frame_count += 1;
+        separation_log_frame_count += 1;
         let current_time = frame_input.accumulated_time;
         
         // Update FPS every second
@@ -137,15 +142,16 @@ pub async fn run_three_d_with_layers(
         let engine_data = if let Some(ref mut engine) = engine {
             let result = engine.update(timestamp);
             
-            // Verification logging: Engine returns raw frequency data
-            #[cfg(debug_assertions)]
-            if let Some(ref audio_analysis) = result.audio_analysis {
-                match audio_analysis.pitch {
-                    crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                        dev_log!("[SEPARATION] Engine -> Raw frequency: {}Hz, clarity: {}", frequency, clarity);
-                    }
-                    crate::shared_types::Pitch::NotDetected => {
-                        dev_log!("[SEPARATION] Engine -> No pitch detected");
+            // Verification logging: Engine returns raw frequency data (reduced frequency)
+            if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
+                if let Some(ref audio_analysis) = result.audio_analysis {
+                    match audio_analysis.pitch {
+                        crate::shared_types::Pitch::Detected(frequency, clarity) => {
+                            separation_log!("[SEPARATION] Engine -> Raw frequency: {}Hz, clarity: {}", frequency, clarity);
+                        }
+                        crate::shared_types::Pitch::NotDetected => {
+                            separation_log!("[SEPARATION] Engine -> No pitch detected");
+                        }
                     }
                 }
             }
@@ -164,19 +170,18 @@ pub async fn run_three_d_with_layers(
         let model_data = if let Some(ref mut model) = model {
             let result = model.update(timestamp, engine_data.clone());
             
-            // Verification logging: Model applies tuning context to raw frequency
-            #[cfg(debug_assertions)]
-            {
+            // Verification logging: Model applies tuning context to raw frequency (reduced frequency)
+            if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
                 match result.pitch {
                     crate::shared_types::Pitch::Detected(frequency, _) => {
-                        dev_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, accuracy: {:.2}% (tuning: {:?})",
+                        separation_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, accuracy: {:.2}% (tuning: {:?})",
                             result.accuracy.closest_note,
                             (1.0 - result.accuracy.accuracy) * 100.0,
                             result.tuning_system
                         );
                     }
                     crate::shared_types::Pitch::NotDetected => {
-                        dev_log!("[SEPARATION] Model -> No pitch to interpret");
+                        separation_log!("[SEPARATION] Model -> No pitch to interpret");
                     }
                 }
             }
@@ -244,17 +249,16 @@ pub async fn run_three_d_with_layers(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                // Verification logging: Presentation receives pre-processed musical data
-                #[cfg(debug_assertions)]
-                {
-                    dev_log!("[SEPARATION] Presentation <- Receives musical data (no calculation needed)");
+                // Verification logging: Presentation receives pre-processed musical data (reduced frequency)
+                if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
+                    separation_log!("[SEPARATION] Presentation <- Receives musical data (no calculation needed)");
                     // Verify separation: Engine result contains only raw data
                     if engine_data.audio_analysis.is_some() {
                         // EngineUpdateResult type enforces no musical fields
-                        dev_log!("[SEPARATION] ✓ Engine data contains only raw frequency (no note/accuracy fields)");
+                        separation_log!("[SEPARATION] ✓ Engine data contains only raw frequency (no note/accuracy fields)");
                     }
                     // Verify separation: Model result contains musical interpretation
-                    dev_log!("[SEPARATION] ✓ Model data contains musical interpretation (note: {:?}, tuning: {:?})",
+                    separation_log!("[SEPARATION] ✓ Model data contains musical interpretation (note: {:?}, tuning: {:?})",
                         model_data.accuracy.closest_note, model_data.tuning_system);
                 }
                 
@@ -277,7 +281,7 @@ pub async fn run_three_d_with_layers(
                                   !user_actions.root_note_adjustments.is_empty();
             
             if has_user_actions {
-                dev_log!("Processing {} user actions", 
+                trace_log!("Processing {} user actions", 
                     user_actions.tuning_system_changes.len() + 
                     user_actions.root_note_adjustments.len()
                 );
@@ -291,12 +295,11 @@ pub async fn run_three_d_with_layers(
                 }
                 
                 // Verification logging: Show how tuning changes affect frequency interpretation
-                #[cfg(debug_assertions)]
                 if !processed_actions.actions.tuning_configurations.is_empty() {
                     for config in &processed_actions.actions.tuning_configurations {
-                        dev_log!("[SEPARATION] Tuning context changed -> system: {:?}, root: {:?}", 
+                        separation_log!("[SEPARATION] Tuning context changed -> system: {:?}, root: {:?}", 
                             config.tuning_system, config.root_note);
-                        dev_log!("[SEPARATION] Same raw frequencies will now be interpreted differently");
+                        separation_log!("[SEPARATION] Same raw frequencies will now be interpreted differently");
                     }
                 }
                 
@@ -305,7 +308,7 @@ pub async fn run_three_d_with_layers(
                                        !processed_actions.actions.tuning_configurations.is_empty();
                 
                 if has_model_actions {
-                    dev_log!("Actions ready for execution: {} audio system, {} tuning", 
+                    trace_log!("Actions ready for execution: {} audio system, {} tuning", 
                         processed_actions.actions.audio_system_configurations.len(),
                         processed_actions.actions.tuning_configurations.len()
                     );
@@ -316,7 +319,7 @@ pub async fn run_three_d_with_layers(
                     match engine.execute_actions(processed_actions.actions) {
                         Ok(()) => {
                             if total_sync > 0 {
-                                dev_log!("✓ Executed {} actions", total_sync);
+                                trace_log!("✓ Executed {} actions", total_sync);
                             }
                         }
                         Err(e) => {
@@ -339,7 +342,7 @@ pub async fn run_three_d_with_layers(
                 .join(", ");
                 
                 if !missing.is_empty() {
-                    dev_log!("Skipping user action processing - missing layers: {}", missing);
+                    trace_log!("Skipping user action processing - missing layers: {}", missing);
                 }
             }
         }
@@ -361,7 +364,7 @@ pub async fn run_three_d_with_layers(
                                        !debug_actions.background_noise_configurations.is_empty();
                 
                 if has_debug_actions {
-                    dev_log!("[DEBUG] Processing {} debug actions", 
+                    trace_log!("[DEBUG] Processing {} debug actions", 
                         debug_actions.test_signal_configurations.len() + 
                         debug_actions.speaker_output_configurations.len() + 
                         debug_actions.background_noise_configurations.len()
@@ -374,7 +377,7 @@ pub async fn run_three_d_with_layers(
                                             executed_debug_actions.speaker_output_executions.len() + 
                                             executed_debug_actions.background_noise_executions.len();
                             if total_debug > 0 {
-                                dev_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
+                                trace_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
                             }
                         }
                         Err(e) => {
@@ -395,7 +398,7 @@ pub async fn run_three_d_with_layers(
                     .join(", ");
                     
                     if !missing.is_empty() {
-                        dev_log!("[DEBUG] Skipping debug action processing - missing layers: {}", missing);
+                        trace_log!("[DEBUG] Skipping debug action processing - missing layers: {}", missing);
                     }
                 }
             }

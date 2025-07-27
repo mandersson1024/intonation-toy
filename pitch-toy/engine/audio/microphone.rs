@@ -193,7 +193,6 @@ pub async fn connect_microphone_to_audioworklet_with_context(
 ) -> Result<(), String> {
     use crate::common::dev_log;
     
-    dev_log!("VOLUME_DEBUG: Starting connect_microphone_to_audioworklet_with_context");
     dev_log!("Requesting microphone permission and connecting to AudioWorklet");
     
     // Request microphone permission and get stream
@@ -228,15 +227,12 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     };
     
     // Resume AudioContext if suspended (required for processing to start)
-    dev_log!("VOLUME_DEBUG: Resuming AudioContext");
     let resume_result = {
         let mut context_borrowed = audio_context.borrow_mut();
         context_borrowed.resume_if_suspended().await
     };
     if let Err(e) = resume_result {
-            dev_log!("VOLUME_DEBUG: ⚠️ Failed to resume AudioContext: {:?}", e);
         } else {
-            dev_log!("VOLUME_DEBUG: ✓ AudioContext resume called successfully");
         }
     
     // Wait for AudioContext to actually be running  
@@ -259,14 +255,11 @@ pub async fn connect_microphone_to_audioworklet_with_context(
         
         if state == web_sys::AudioContextState::Running || attempts >= MAX_ATTEMPTS {
             if state == web_sys::AudioContextState::Running {
-                dev_log!("VOLUME_DEBUG: ✓ AudioContext is now running after {} attempts", attempts);
             } else {
-                dev_log!("VOLUME_DEBUG: ⚠️ AudioContext still not running after {} attempts, state: {:?}", attempts, state);
             }
             break;
         }
         
-        dev_log!("VOLUME_DEBUG: AudioContext state: {:?}, waiting... (attempt {})", state, attempts);
         
         // Simple delay using setTimeout equivalent
         let promise = js_sys::Promise::new(&mut |resolve, _| {
@@ -324,47 +317,12 @@ pub async fn connect_microphone_to_audioworklet_with_context(
             // Ensure processing is active after connection
             let mut context_borrowed = audio_context.borrow_mut();
             if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
-                dev_log!("VOLUME_DEBUG: Found worklet manager, checking if processing: {}", worklet_manager.is_processing());
                 if !worklet_manager.is_processing() {
-                    dev_log!("VOLUME_DEBUG: Starting AudioWorklet processing after microphone connection...");
-                    match worklet_manager.start_processing() {
-                        Ok(_) => {
-                            dev_log!("VOLUME_DEBUG: AudioWorklet processing started - audio pipeline active");
-                        }
-                        Err(e) => {
-                            dev_log!("VOLUME_DEBUG: Failed to start processing after microphone connection: {:?}", e);
-                        }
+                    if let Err(_) = worklet_manager.start_processing() {
+                        // Processing start failed - AudioWorklet will handle error reporting
                     }
-                } else {
-                    dev_log!("VOLUME_DEBUG: AudioWorklet already processing - audio pipeline active");
                 }
                 
-                // Add a small delay to allow audio data to start flowing
-                dev_log!("VOLUME_DEBUG: Waiting for audio data to start flowing...");
-                drop(context_borrowed); // Release the borrow before async delay
-                
-                // Wait a bit for audio data to start flowing
-                let promise = js_sys::Promise::new(&mut |resolve, _| {
-                    let window = web_sys::window().unwrap();
-                    window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 100).unwrap();
-                });
-                
-                if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                    // If delay fails, just continue
-                }
-                
-                // Check if audio data is now flowing
-                let context_borrowed = audio_context.borrow();
-                if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
-                    if let Some(volume_data) = worklet_manager.get_volume_data() {
-                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2}, Peak: {:.2}", 
-                            volume_data.rms_amplitude, volume_data.peak_amplitude);
-                    } else {
-                        dev_log!("VOLUME_DEBUG: ⚠️ No audio data detected yet after connection");
-                    }
-                } else {
-                    dev_log!("VOLUME_DEBUG: No AudioWorklet manager available for data check");
-                }
             } else {
                 dev_log!("No AudioWorklet manager available");
             }
@@ -424,18 +382,14 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         let audio_ctx_borrowed = audio_context_manager.borrow();
         
         if let Some(context) = audio_ctx_borrowed.get_context() {
-            dev_log!("VOLUME_DEBUG: AudioContext state before creating media source: {:?}", context.state());
             
             // Check if resume is needed
             if context.state() == web_sys::AudioContextState::Suspended {
-                dev_log!("VOLUME_DEBUG: AudioContext is suspended, attempting to resume...");
                 match context.resume() {
                     Ok(promise) => {
-                        dev_log!("VOLUME_DEBUG: AudioContext resume promise created, awaiting...");
                         Some(promise)
                     }
                     Err(e) => {
-                        dev_log!("VOLUME_DEBUG: ⚠️ Failed to create AudioContext resume promise: {:?}", e);
                         None
                     }
                 }
@@ -450,9 +404,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
     // Await resume promise if needed (borrows are dropped here)
     if let Some(promise) = resume_promise {
         if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-            dev_log!("VOLUME_DEBUG: ✓ AudioContext resumed successfully");
         } else {
-            dev_log!("VOLUME_DEBUG: ⚠️ AudioContext resume promise failed");
         }
     }
     
@@ -463,7 +415,6 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         let audio_ctx_borrowed = audio_context_manager.borrow();
         
         if let Some(context) = audio_ctx_borrowed.get_context() {
-            dev_log!("VOLUME_DEBUG: AudioContext state after resume attempt: {:?}", context.state());
             
             match context.create_media_stream_source(&media_stream) {
                 Ok(source) => {
@@ -498,76 +449,19 @@ pub async fn connect_existing_mediastream_to_audioworklet(
             dev_log!("✓ Existing MediaStream successfully connected to AudioWorklet");
             
             // Ensure processing is active after connection
-            let mut context_borrowed = audio_context.borrow_mut();
-            if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
-                dev_log!("VOLUME_DEBUG: Found worklet manager, checking if processing: {}", worklet_manager.is_processing());
-                if !worklet_manager.is_processing() {
-                    dev_log!("VOLUME_DEBUG: Starting AudioWorklet processing after microphone connection...");
-                    match worklet_manager.start_processing() {
-                        Ok(_) => {
-                            dev_log!("VOLUME_DEBUG: AudioWorklet processing started - audio pipeline active");
-                        }
-                        Err(e) => {
-                            dev_log!("VOLUME_DEBUG: Failed to start processing after microphone connection: {:?}", e);
+            {
+                let mut context_borrowed = audio_context.borrow_mut();
+                if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
+                    if !worklet_manager.is_processing() {
+                        if let Err(_) = worklet_manager.start_processing() {
+                            // Processing start failed - AudioWorklet will handle error reporting
                         }
                     }
+                    
                 } else {
-                    dev_log!("VOLUME_DEBUG: AudioWorklet already processing - audio pipeline active");
+                    dev_log!("No AudioWorklet manager available");
                 }
-                
-                // Add a small delay to allow audio data to start flowing
-                dev_log!("VOLUME_DEBUG: Waiting for audio data to start flowing...");
-                drop(context_borrowed); // Release the borrow before async delay
-                
-                // Wait a bit for audio data to start flowing
-                let promise = js_sys::Promise::new(&mut |resolve, _| {
-                    let window = web_sys::window().unwrap();
-                    window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 200).unwrap();
-                });
-                
-                if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                    // If delay fails, just continue
-                }
-                
-                // Check if audio data is now flowing
-                let context_borrowed = audio_context.borrow();
-                if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
-                    if let Some(volume_data) = worklet_manager.get_volume_data() {
-                        dev_log!("VOLUME_DEBUG: ✓ Audio data is flowing - RMS: {:.2}, Peak: {:.2}", 
-                            volume_data.rms_amplitude, volume_data.peak_amplitude);
-                    } else {
-                        dev_log!("VOLUME_DEBUG: ⚠️ No audio data detected yet after 200ms - this indicates the race condition!");
-                        
-                        // Try one more longer wait
-                        drop(context_borrowed);
-                        let promise = js_sys::Promise::new(&mut |resolve, _| {
-                            let window = web_sys::window().unwrap();
-                            window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 1000).unwrap();
-                        });
-                        
-                        if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                            // If delay fails, just continue
-                        }
-                        
-                        // Final check
-                        let context_borrowed = audio_context.borrow();
-                        if let Some(worklet_manager) = context_borrowed.get_audioworklet_manager() {
-                            if let Some(volume_data) = worklet_manager.get_volume_data() {
-                                dev_log!("VOLUME_DEBUG: ✓ Audio data started flowing after 1.2s total - RMS: {:.2}, Peak: {:.2}", 
-                                    volume_data.rms_amplitude, volume_data.peak_amplitude);
-                            } else {
-                                dev_log!("VOLUME_DEBUG: ❌ No audio data after 1.2s - race condition confirmed!");
-                                dev_log!("VOLUME_DEBUG: 🔍 This suggests the JavaScript AudioWorklet process() method is not being called by the Web Audio API");
-                                dev_log!("VOLUME_DEBUG: 🔍 The difference from hot-reload indicates an initialization state problem");
-                            }
-                        }
-                    }
-                } else {
-                    dev_log!("VOLUME_DEBUG: No AudioWorklet manager available for data check");
-                }
-            } else {
-                dev_log!("No AudioWorklet manager available");
-            }
+            } // Drop mutable borrow here
             
             // Refresh audio devices now that permission is granted
             {

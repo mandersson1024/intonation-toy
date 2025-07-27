@@ -96,6 +96,7 @@
 
 use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, Note};
 use crate::presentation::PresentationLayerActions;
+use crate::common::trace_log;
 
 /// Validation error types for action processing
 /// 
@@ -365,11 +366,10 @@ impl DataModel {
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
             Pitch::Detected(frequency, clarity) => {
-                #[cfg(debug_assertions)]
-                web_sys::console::log_1(&format!(
+                trace_log!(
                     "[MODEL] Processing detected pitch: {}Hz with clarity {} using {:?} tuning, root {:?}",
                     frequency, clarity, self.tuning_system, self.root_note
-                ).into());
+                );
                 
                 // Apply tuning-aware frequency to note conversion
                 let (closest_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
@@ -377,11 +377,10 @@ impl DataModel {
                 // Apply tuning-aware accuracy normalization
                 let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
                 
-                #[cfg(debug_assertions)]
-                web_sys::console::log_1(&format!(
+                trace_log!(
                     "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
                     closest_note, normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
-                ).into());
+                );
                 
                 Accuracy {
                     closest_note,
@@ -390,8 +389,7 @@ impl DataModel {
             }
             Pitch::NotDetected => {
                 // No pitch detected - return default values
-                #[cfg(debug_assertions)]
-                web_sys::console::log_1(&"[MODEL] No pitch detected, returning default accuracy".into());
+                trace_log!("[MODEL] No pitch detected, returning default accuracy");
                 
                 Accuracy {
                     closest_note: self.root_note.clone(), // Use root note as default
@@ -562,11 +560,10 @@ impl DataModel {
         // This is the key to tuning-aware processing
         let reference_freq = self.get_reference_frequency();
         
-        #[cfg(debug_assertions)]
-        web_sys::console::log_1(&format!(
+        trace_log!(
             "[MODEL] Converting frequency {}Hz with tuning {:?}, root {:?}, reference {}Hz",
             frequency, self.tuning_system, self.root_note, reference_freq
-        ).into());
+        );
         
         // Calculate MIDI note number from frequency using tuning-specific formula
         let midi_note = match self.tuning_system {
@@ -609,11 +606,10 @@ impl DataModel {
         // Positive = sharp, Negative = flat
         let accuracy_cents = (midi_note - rounded_midi) * 100.0;
         
-        #[cfg(debug_assertions)]
-        web_sys::console::log_1(&format!(
+        trace_log!(
             "[MODEL] Frequency {}Hz -> Note {:?} with accuracy {} cents",
             frequency, note, accuracy_cents
-        ).into());
+        );
         
         (note, accuracy_cents)
     }
@@ -671,11 +667,10 @@ impl DataModel {
         let clamped_cents = abs_cents.min(max_cents);
         let normalized = clamped_cents / max_cents;
         
-        #[cfg(debug_assertions)]
-        web_sys::console::log_1(&format!(
+        trace_log!(
             "[MODEL] Normalized accuracy: {} cents -> {} (using {:?} threshold {})",
             cents, normalized, self.tuning_system, max_cents
-        ).into());
+        );
         
         normalized
     }
@@ -724,11 +719,10 @@ impl DataModel {
                 // f = f0 * 2^(n/12) where n is semitone distance
                 let reference_freq = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
                 
-                #[cfg(debug_assertions)]
-                web_sys::console::log_1(&format!(
+                trace_log!(
                     "[MODEL] Reference frequency for {:?} in {:?}: {}Hz (MIDI {} -> {})",
                     self.root_note, self.tuning_system, reference_freq, A4_MIDI, root_midi
-                ).into());
+                );
                 
                 reference_freq
             }

@@ -372,7 +372,6 @@ impl AudioWorkletManager {
     
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
-        dev_log!("VOLUME_DEBUG: Setting up message handling, current state: {}", self.state);
         if let Some(worklet) = &self.worklet_node {
             // Create shared data for the message handler
             let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
@@ -506,14 +505,11 @@ impl AudioWorkletManager {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
                 if let Some(size) = batch_size {
-                    dev_log!("VOLUME_DEBUG: AudioWorklet processor ready with batch size: {} samples", size);
                 } else {
-                    dev_log!("VOLUME_DEBUG: AudioWorklet processor ready");
                 }
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Ready);
             }
             FromWorkletMessage::ProcessingStarted => {
-                dev_log!("VOLUME_DEBUG: AudioWorklet processing started");
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Processing);
             }
             FromWorkletMessage::ProcessingStopped => {
@@ -634,7 +630,6 @@ impl AudioWorkletManager {
             // This is done through a separate method call after processing
             shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
         } else {
-            dev_log!("VOLUME_DEBUG: No volume detector available for processing");
         }
         
         // Perform pitch analysis
@@ -742,44 +737,34 @@ impl AudioWorkletManager {
     /// Connect microphone input to audio worklet
     pub fn connect_microphone(&self, microphone_source: &AudioNode) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
-            dev_log!("VOLUME_DEBUG: Connecting microphone source to AudioWorklet node");
             match microphone_source.connect_with_audio_node(worklet) {
                 Ok(_) => {
-                    dev_log!("VOLUME_DEBUG: ✓ Microphone connected to AudioWorklet successfully");
                     
                     // Only connect AudioWorklet to destination if output to speakers is enabled
                     if self.output_to_speakers {
                         let audio_context = worklet.context();
-                        dev_log!("VOLUME_DEBUG: Connecting AudioWorklet to destination (speakers enabled)");
                         if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
-                            dev_log!("VOLUME_DEBUG: Warning: Failed to connect AudioWorklet to destination: {:?}", e);
                         } else {
-                            dev_log!("VOLUME_DEBUG: ✓ AudioWorklet connected to destination");
                         }
                     } else {
-                        dev_log!("VOLUME_DEBUG: Skipping destination connection (speakers disabled by default)");
                     }
                     
                     Ok(())
                 }
                 Err(e) => {
-                    dev_log!("VOLUME_DEBUG: ✗ Failed to connect microphone to AudioWorklet: {:?}", e);
                     Err(AudioError::Generic(
                         format!("Failed to connect microphone to AudioWorklet: {:?}", e)
                     ))
                 }
             }
         } else {
-            dev_log!("VOLUME_DEBUG: ✗ No AudioWorklet node available for microphone connection");
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
         }
     }
     
     /// Start audio processing
     pub fn start_processing(&mut self) -> Result<(), AudioError> {
-        dev_log!("VOLUME_DEBUG: start_processing called, current state: {}", self.state);
         if self.state != AudioWorkletState::Ready {
-            dev_log!("VOLUME_DEBUG: Cannot start processing, state is {} but need Ready", self.state);
             return Err(AudioError::Generic(
                 format!("Cannot start processing in state: {}", self.state)
             ));
@@ -841,7 +826,6 @@ impl AudioWorkletManager {
     pub fn is_processing(&self) -> bool {
         let is_proc = matches!(self.state, AudioWorkletState::Processing);
         if !is_proc {
-            dev_log!("VOLUME_DEBUG: is_processing() = false, current state: {}", self.state);
         }
         is_proc
     }

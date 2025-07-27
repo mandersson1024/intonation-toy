@@ -74,6 +74,10 @@ gloo-timers = "0.3"
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
 
+[features]
+default = []
+separation-logging = []
+
 [lib]
 name = "pitch_toy"
 path = "lib.rs"
