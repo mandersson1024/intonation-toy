@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, NoteName, MidiNote, from_midi_note, to_midi_note, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::trace_log;
 
@@ -1228,13 +1228,13 @@ mod tests {
         // Test C4 frequency (261.63 Hz)
         let c4_freq = 261.63;
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(c4_freq);
-        assert_eq!(from_midi_note(midi_note), NoteName::C);
+        assert_eq!(midi_note, 60);
         assert!(cents.abs() < 1.0, "C4 should be nearly perfect");
         
         // Test frequencies between notes
         let between_c_and_csharp = 269.0; // Between C4 (261.63) and C#4 (277.18)
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(between_c_and_csharp);
-        assert_eq!(from_midi_note(midi_note), NoteName::C, "269Hz should be closer to C than C#");
+        assert_eq!(midi_note, 60, "269Hz should be closer to C than C#");
         assert!(cents > 0.0, "Should be sharp relative to C");
         assert!(cents < 50.0, "Should be less than 50 cents sharp");
         
@@ -1247,7 +1247,7 @@ mod tests {
         
         // Same frequency should still map to same note but with different reference
         let (midi_note_d_root, cents_d_root) = model.frequency_to_note_and_accuracy(c4_freq);
-        assert_eq!(from_midi_note(midi_note_d_root), NoteName::C, "Note identification should be absolute");
+        assert_eq!(midi_note_d_root, 60, "Note identification should be absolute");
         // Cents calculation will be relative to D root
     }
 
@@ -1297,23 +1297,23 @@ mod tests {
         
         // Test with other roots
         let test_roots = vec![
-            (NoteName::D, 293.66),
-            (NoteName::E, 329.63),
-            (NoteName::F, 349.23),
-            (NoteName::G, 392.00),
-            (NoteName::B, 493.88),
+            (62, 293.66),
+            (64, 329.63),
+            (65, 349.23),
+            (67, 392.00),
+            (71, 493.88),
         ];
         
         for (root_note, expected_freq) in test_roots {
             let mut actions = PresentationLayerActions::new();
             actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-                root_note: to_midi_note(root_note.clone(), 4).unwrap(),
+                root_note: root_note,
             });
             model.process_user_actions(actions);
             
             let ref_freq = model.get_reference_frequency();
             assert!((ref_freq - expected_freq).abs() < 0.5, 
-                "Root {:?} should give ~{}Hz reference, got {}Hz", 
+                "Root {} should give ~{}Hz reference, got {}Hz", 
                 root_note, expected_freq, ref_freq);
         }
     }
@@ -1325,18 +1325,18 @@ mod tests {
         
         // Test zero frequency
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(0.0);
-        assert_eq!(from_midi_note(midi_note), NoteName::A);
+        assert_eq!(midi_note, 69);
         assert_eq!(cents, 0.0);
         
         // Test negative frequency
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(-100.0);
-        assert_eq!(from_midi_note(midi_note), NoteName::A);
+        assert_eq!(midi_note, 69);
         assert_eq!(cents, 0.0);
         
         // Test very low frequency (below hearing range)
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(10.0);
         // Should still process but might be inaccurate
-        assert!(from_midi_note(midi_note) != NoteName::A || cents != 0.0, "Should process very low frequency");
+        assert!(midi_note != 69 || cents != 0.0, "Should process very low frequency");
         
         // Test very high frequency (above musical range)
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(10000.0);

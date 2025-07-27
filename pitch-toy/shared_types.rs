@@ -14,21 +14,6 @@ pub struct Volume {
     pub rms_amplitude: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum NoteName {
-    C,
-    DFlat,
-    D,
-    EFlat,
-    E,
-    F,
-    FSharp,
-    G,
-    AFlat,
-    A,
-    BFlat,
-    B,
-}
 
 /// MIDI note number type (0-127).
 /// 
@@ -44,75 +29,7 @@ pub fn is_valid_midi_note(value: MidiNote) -> bool {
     value <= 127
 }
 
-/// Convert a MIDI note number to a NoteName.
-/// 
-/// Extracts the note class from the MIDI note using modulo 12.
-/// 
-/// # Examples
-/// ```
-/// use pitch_toy::shared_types::{from_midi_note, NoteName};
-/// 
-/// assert_eq!(from_midi_note(60), NoteName::C);  // C4
-/// assert_eq!(from_midi_note(69), NoteName::A);  // A4
-/// assert_eq!(from_midi_note(127), NoteName::G); // G9
-/// ```
-pub fn from_midi_note(midi_note: MidiNote) -> NoteName {
-    match midi_note % 12 {
-        0 => NoteName::C,
-        1 => NoteName::DFlat,
-        2 => NoteName::D,
-        3 => NoteName::EFlat,
-        4 => NoteName::E,
-        5 => NoteName::F,
-        6 => NoteName::FSharp,
-        7 => NoteName::G,
-        8 => NoteName::AFlat,
-        9 => NoteName::A,
-        10 => NoteName::BFlat,
-        11 => NoteName::B,
-        _ => unreachable!(),
-    }
-}
 
-/// Convert a NoteName and octave to a MIDI note number.
-/// 
-/// Uses MIDI octave numbering where C4 = 60 (middle C).
-/// Returns None if the resulting MIDI note would be outside the valid range (0-127).
-/// 
-/// # Examples
-/// ```
-/// use pitch_toy::shared_types::{to_midi_note, NoteName};
-/// 
-/// assert_eq!(to_midi_note(NoteName::C, 4), Some(60));    // C4
-/// assert_eq!(to_midi_note(NoteName::A, 4), Some(69));    // A4
-/// assert_eq!(to_midi_note(NoteName::B, 4), Some(71));    // B4
-/// assert_eq!(to_midi_note(NoteName::C, 10), None);       // C10 is out of range
-/// ```
-pub fn to_midi_note(note_name: NoteName, octave: i8) -> Option<MidiNote> {
-    let note_offset = match note_name {
-        NoteName::C => 0,
-        NoteName::DFlat => 1,
-        NoteName::D => 2,
-        NoteName::EFlat => 3,
-        NoteName::E => 4,
-        NoteName::F => 5,
-        NoteName::FSharp => 6,
-        NoteName::G => 7,
-        NoteName::AFlat => 8,
-        NoteName::A => 9,
-        NoteName::BFlat => 10,
-        NoteName::B => 11,
-    };
-    
-    // MIDI octave -1 starts at note 0
-    let midi_note = (octave + 1) as i16 * 12 + note_offset as i16;
-    
-    if midi_note >= 0 && midi_note <= 127 {
-        Some(midi_note as MidiNote)
-    } else {
-        None
-    }
-}
 
 /// Safely increment a MIDI note number.
 /// 
@@ -346,41 +263,8 @@ mod tests {
         assert!(!is_valid_midi_note(255));
     }
 
-    #[wasm_bindgen_test]
-    fn test_from_midi_note() {
-        assert_eq!(from_midi_note(60), NoteName::C);    // C4
-        assert_eq!(from_midi_note(61), NoteName::DFlat); // C#4
-        assert_eq!(from_midi_note(69), NoteName::A);    // A4
-        assert_eq!(from_midi_note(71), NoteName::B);    // B4
-        assert_eq!(from_midi_note(127), NoteName::G);   // G9
-        assert_eq!(from_midi_note(0), NoteName::C);     // C-1
-    }
 
-    #[wasm_bindgen_test]
-    fn test_to_midi_note() {
-        assert_eq!(to_midi_note(NoteName::C, 4), Some(60));    // C4
-        assert_eq!(to_midi_note(NoteName::DFlat, 4), Some(61)); // C#4
-        assert_eq!(to_midi_note(NoteName::A, 4), Some(69));    // A4
-        assert_eq!(to_midi_note(NoteName::B, 4), Some(71));    // B4
-        
-        // Test boundary cases
-        assert_eq!(to_midi_note(NoteName::C, -1), Some(0));    // C-1
-        assert_eq!(to_midi_note(NoteName::G, 9), Some(127));   // G9
-        
-        // Test out of range
-        assert_eq!(to_midi_note(NoteName::C, 10), None);       // C10 is out of range
-        assert_eq!(to_midi_note(NoteName::A, -2), None);       // A-2 is out of range
-    }
 
-    #[wasm_bindgen_test]
-    fn test_midi_note_bidirectional_conversion() {
-        // Test that converting back and forth preserves the note name
-        for midi_note in 0..=127 {
-            let note_name = from_midi_note(midi_note);
-            let octave = (midi_note as i16 / 12) - 1;
-            assert_eq!(to_midi_note(note_name, octave as i8), Some(midi_note));
-        }
-    }
 
     #[wasm_bindgen_test]
     fn test_increment_midi_note() {
@@ -398,38 +282,5 @@ mod tests {
         assert_eq!(decrement_midi_note(0), None);       // Cannot decrement min value
     }
 
-    #[wasm_bindgen_test]
-    fn test_midi_note_octave_calculation() {
-        // Test specific octave mappings
-        assert_eq!(to_midi_note(NoteName::C, 0), Some(12));   // C0
-        assert_eq!(to_midi_note(NoteName::C, 1), Some(24));   // C1
-        assert_eq!(to_midi_note(NoteName::C, 2), Some(36));   // C2
-        assert_eq!(to_midi_note(NoteName::C, 3), Some(48));   // C3
-        assert_eq!(to_midi_note(NoteName::C, 4), Some(60));   // C4 (middle C)
-        assert_eq!(to_midi_note(NoteName::C, 5), Some(72));   // C5
-    }
 
-    #[wasm_bindgen_test]
-    fn test_midi_note_all_note_names() {
-        // Test all note names in octave 4
-        let expected_midi_notes = vec![
-            (NoteName::C, 60),
-            (NoteName::DFlat, 61),
-            (NoteName::D, 62),
-            (NoteName::EFlat, 63),
-            (NoteName::E, 64),
-            (NoteName::F, 65),
-            (NoteName::FSharp, 66),
-            (NoteName::G, 67),
-            (NoteName::AFlat, 68),
-            (NoteName::A, 69),
-            (NoteName::BFlat, 70),
-            (NoteName::B, 71),
-        ];
-
-        for (note_name, expected_midi) in expected_midi_notes {
-            assert_eq!(to_midi_note(note_name.clone(), 4), Some(expected_midi));
-            assert_eq!(from_midi_note(expected_midi), note_name);
-        }
-    }
 }

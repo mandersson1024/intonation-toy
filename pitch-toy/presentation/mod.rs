@@ -64,7 +64,7 @@ mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, NoteName, MidiNote};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote};
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]

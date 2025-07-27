@@ -8,7 +8,26 @@ use crate::engine::audio::{
     buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
-use crate::shared_types::{NoteName, TuningSystem, MidiNote, from_midi_note, increment_midi_note, decrement_midi_note};
+use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+
+/// Convert MIDI note to display name for debugging
+fn midi_note_to_display_name(midi_note: MidiNote) -> &'static str {
+    match midi_note % 12 {
+        0 => "C",
+        1 => "C#",
+        2 => "D",
+        3 => "D#",
+        4 => "E",
+        5 => "F",
+        6 => "F#",
+        7 => "G",
+        8 => "G#",
+        9 => "A",
+        10 => "A#",
+        11 => "B",
+        _ => unreachable!(),
+    }
+}
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -500,7 +519,7 @@ impl DebugPanel {
                     }
                     
                     // Current note display
-                    ui.label(format!("{:?}", from_midi_note(self.selected_root_note)));
+                    ui.label(format!("{}{}", midi_note_to_display_name(self.selected_root_note), (self.selected_root_note as i16 / 12) - 1));
                     
                     // Increment button
                     if ui.add_enabled(self.selected_root_note < 127, egui::Button::new("+")).clicked() {

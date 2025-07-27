@@ -13,7 +13,7 @@ pub mod shared_types;
 
 // Re-export types for test usage
 #[cfg(test)]
-pub use shared_types::{NoteName, MidiNote, TuningSystem};
+pub use shared_types::{MidiNote, TuningSystem};
 #[cfg(test)]
 pub use presentation::{
     ChangeTuningSystem, AdjustRootNote,

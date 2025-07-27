@@ -11,7 +11,7 @@ use pitch_toy::model::DataModel;
 use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
-    PermissionState, TuningSystem, NoteName, Accuracy, MidiNote, to_midi_note
+    PermissionState, TuningSystem, Accuracy, MidiNote
 };
 use pitch_toy::presentation::PresentationLayerActions;
 use wasm_bindgen_test::*;
@@ -134,7 +134,7 @@ async fn test_complete_data_flow_pipeline() {
                 assert!(raw_frequency > 0.0, "Engine should provide raw frequency");
                 
                 // Model transformed it to musical data
-                assert!(model_result.accuracy.closest_note != NoteName::A || 
+                assert!(model_result.accuracy.closest_note != 69 || 
                        model_result.accuracy.accuracy < 1.0,
                        "Model should provide musical interpretation");
                 
@@ -230,7 +230,7 @@ fn test_layer_separation_boundaries() {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
         pitch: Pitch::Detected(440.0, 0.95),
         accuracy: Accuracy {
-            closest_note: NoteName::A,
+            closest_note: 69,
             accuracy: 0.01,
         },
         tuning_system: TuningSystem::EqualTemperament,
@@ -239,7 +239,7 @@ fn test_layer_separation_boundaries() {
     };
     
     // Model result has musical fields - verified by type system
-    assert_eq!(model_result.accuracy.closest_note, NoteName::A);
+    assert_eq!(model_result.accuracy.closest_note, 69);
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Presentation layer receives fully processed data
@@ -331,10 +331,10 @@ fn test_sequential_tuning_context_changes() {
     
     // Test with different root notes in sequence
     let root_notes = vec![
-        (NoteName::A, "A root"),
-        (NoteName::C, "C root"), 
-        (NoteName::E, "E root"),
-        (NoteName::G, "G root"),
+        (69, "A root"),
+        (60, "C root"), 
+        (64, "E root"),
+        (67, "G root"),
     ];
     
     let mut previous_accuracy = None;
@@ -343,7 +343,7 @@ fn test_sequential_tuning_context_changes() {
         // Change root note
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
-            root_note: to_midi_note(root_note.clone(), 4).unwrap(),
+            root_note: root_note,
         });
         let _ = model.process_user_actions(actions);
         
