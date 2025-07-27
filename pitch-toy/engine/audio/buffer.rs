@@ -3,9 +3,8 @@
 
 use std::collections::VecDeque;
 
-/// Buffer size constants as multiples of 128-sample AudioWorklet chunks
-pub const BUFFER_SIZE: usize = 4096;  // 32 chunks - sufficient for pitch detection
-pub const AUDIO_CHUNK_SIZE: usize = 128;         // AudioWorklet fixed chunk size
+pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed chunk size
+pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096
 
 
 /// Validates that buffer size is a multiple of 128
