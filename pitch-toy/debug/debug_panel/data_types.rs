@@ -1,7 +1,7 @@
 // Debug-specific data types for EGUI display
 // These are display-oriented versions of engine data types
 
-use crate::engine::audio::{MusicalNote, AudioWorkletState};
+use crate::engine::audio::AudioWorkletState;
 
 /// Performance metrics for display
 #[derive(Debug, Clone, PartialEq)]
@@ -35,7 +35,6 @@ pub struct VolumeLevelData {
 pub struct PitchData {
     pub frequency: f32,
     pub confidence: f32,
-    pub note: MusicalNote,
     pub clarity: f32,
     pub timestamp: f64,
 }
@@ -77,7 +76,6 @@ impl From<crate::engine::audio::PitchData> for PitchData {
         Self {
             frequency: audio_data.frequency,
             confidence: audio_data.confidence,
-            note: audio_data.note,
             clarity: audio_data.clarity,
             timestamp: audio_data.timestamp,
         }

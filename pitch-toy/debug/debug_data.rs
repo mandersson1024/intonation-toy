@@ -79,17 +79,9 @@ impl DebugData {
             // Convert Pitch to PitchData
             self.pitch_data = match &analysis.pitch {
                 crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                    // Create a placeholder musical note (proper note mapping would require NoteMapper instance)
-                    let note = crate::engine::audio::MusicalNote::new(
-                        crate::engine::audio::NoteName::A, // Placeholder note name
-                        4, // Placeholder octave
-                        0.0, // Placeholder cents
-                        *frequency
-                    );
                     Some(PitchData {
                         frequency: *frequency,
                         confidence: *clarity, // Using clarity as confidence
-                        note,
                         clarity: *clarity,
                         timestamp: analysis.timestamp,
                     })

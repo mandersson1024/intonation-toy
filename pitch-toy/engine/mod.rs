@@ -47,7 +47,7 @@
 pub mod audio;
 pub(crate) mod platform;
 
-use crate::shared_types::{EngineUpdateResult, TuningSystem, Note};
+use crate::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 
 // Debug-only imports for conditional compilation
@@ -67,24 +67,24 @@ pub(crate) struct ExecuteMicrophonePermissionRequest;
 /// Execution action for audio system configuration
 /// 
 /// This struct represents the execution of audio system configuration at the engine layer.
-/// It configures the audio worklet with a specific tuning system.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ConfigureAudioSystem {
-    /// The tuning system to configure in the audio processing pipeline
-    pub tuning_system: TuningSystem,
-}
+/// Temporarily disabled as tuning system handling is being moved to model layer.
+/// #[derive(Debug, Clone, PartialEq)]
+/// pub(crate) struct ConfigureAudioSystem {
+///     /// The tuning system to configure in the audio processing pipeline
+///     pub tuning_system: TuningSystem,
+/// }
 
 /// Execution action for tuning configuration updates
 /// 
 /// This struct represents the execution of tuning configuration updates at the engine layer.
-/// It updates the audio system's tuning configuration with a specific root note.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct UpdateTuningConfiguration {
-    /// The tuning system being used
-    pub tuning_system: TuningSystem,
-    /// The root note that will serve as the tonic
-    pub root_note: Note,
-}
+/// Temporarily disabled as tuning system handling is being moved to model layer.
+/// #[derive(Debug, Clone, PartialEq)]
+/// pub(crate) struct UpdateTuningConfiguration {
+///     /// The tuning system being used
+///     pub tuning_system: TuningSystem,
+///     /// The root note that will serve as the tonic
+///     pub root_note: Note,
+/// }
 
 /// Container for all executed engine layer actions
 /// 
@@ -95,13 +95,16 @@ pub(crate) struct UpdateTuningConfiguration {
 /// The engine layer receives `ModelLayerActions` from the model layer, transforms
 /// them into executable operations, performs the execution, and returns the results
 /// as `EngineLayerActions` for logging and feedback purposes.
+/// 
+/// Temporarily simplified as tuning system handling is being moved to model layer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct EngineLayerActions {
-    /// Executed audio system configurations
-    pub audio_system_configurations: Vec<ConfigureAudioSystem>,
+    // Placeholder for future action types
+    // Executed audio system configurations
+    // pub audio_system_configurations: Vec<ConfigureAudioSystem>,
     
-    /// Executed tuning configuration updates  
-    pub tuning_configurations: Vec<UpdateTuningConfiguration>,
+    // Executed tuning configuration updates  
+    // pub tuning_configurations: Vec<UpdateTuningConfiguration>,
 }
 
 impl EngineLayerActions {
@@ -109,10 +112,11 @@ impl EngineLayerActions {
     /// 
     /// Returns a new `EngineLayerActions` struct with all action vectors initialized
     /// as empty. This is used as the starting point for collecting executed actions.
+    /// Temporarily simplified as tuning system handling is being moved to model layer.
     pub(crate) fn new() -> Self {
         Self {
-            audio_system_configurations: Vec::new(),
-            tuning_configurations: Vec::new(),
+            // audio_system_configurations: Vec::new(),
+            // tuning_configurations: Vec::new(),
         }
     }
 }
@@ -359,10 +363,13 @@ impl AudioEngine {
     pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
         self.log_execution_start(&model_actions);
         
-        let mut engine_actions = EngineLayerActions::new();
+        let engine_actions = EngineLayerActions::new();
         
-        self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
-        self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        // Temporarily disabled as tuning system handling is being moved to model layer
+        // self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        // self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
+        
+        crate::common::dev_log!("PLACEHOLDER: Model actions execution disabled during engine layer refactoring");
         
         self.log_execution_completion(&engine_actions);
         
@@ -378,8 +385,10 @@ impl AudioEngine {
     /// 
     /// * `model_actions` - The model layer actions to be executed
     fn log_execution_start(&self, model_actions: &ModelLayerActions) {
-        let total_actions = model_actions.audio_system_configurations.len() + 
-                          model_actions.tuning_configurations.len();
+        // Temporarily disabled as tuning system handling is being moved to model layer
+        // let total_actions = model_actions.audio_system_configurations.len() + 
+        //                   model_actions.tuning_configurations.len();
+        let total_actions = 0; // Placeholder
         
         crate::common::dev_log!("Engine layer executing {} model actions", total_actions);
     }
@@ -393,78 +402,82 @@ impl AudioEngine {
     /// 
     /// * `engine_actions` - The successfully executed engine layer actions
     fn log_execution_completion(&self, engine_actions: &EngineLayerActions) {
-        let total_executed = engine_actions.audio_system_configurations.len() + 
-                           engine_actions.tuning_configurations.len();
+        // Temporarily disabled as tuning system handling is being moved to model layer
+        // let total_executed = engine_actions.audio_system_configurations.len() + 
+        //                    engine_actions.tuning_configurations.len();
+        let total_executed = 0; // Placeholder
         
         crate::common::dev_log!("✓ Engine layer successfully executed {} total actions", total_executed);
     }
     
-    /// Execute audio system configurations synchronously
-    /// 
-    /// Synchronous version of execute_audio_system_configurations for use in the render loop.
-    fn execute_audio_system_configuration_actions_sync(
-        &self,
-        model_actions: &ModelLayerActions,
-        engine_actions: &mut EngineLayerActions
-    ) -> Result<(), String> {
-        for config in &model_actions.audio_system_configurations {
-            let engine_config = ConfigureAudioSystem {
-                tuning_system: config.tuning_system.clone(),
-            };
-            
-            crate::common::dev_log!("Configuring audio system with tuning: {:?}", 
-                engine_config.tuning_system);
-            
-            // Placeholder implementation - always succeeds with inline configuration
-            if let Some(ref audio_context) = self.audio_context {
-                // Placeholder implementation - always succeeds
-                crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
-                    engine_config.tuning_system);
-                
-                engine_actions.audio_system_configurations.push(engine_config);
-                crate::common::dev_log!("✓ Audio system configuration executed successfully");
-            } else {
-                crate::common::dev_log!("✗ No audio context available for audio system configuration");
-                return Err("Audio system not initialized".to_string());
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Execute tuning configurations synchronously
-    /// 
-    /// Synchronous version of execute_tuning_configurations for use in the render loop.
-    fn execute_tuning_configuration_actions_sync(
-        &self,
-        model_actions: &ModelLayerActions,
-        engine_actions: &mut EngineLayerActions
-    ) -> Result<(), String> {
-        for config in &model_actions.tuning_configurations {
-            let engine_config = UpdateTuningConfiguration {
-                tuning_system: config.tuning_system.clone(),
-                root_note: config.root_note.clone(),
-            };
-            
-            crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}", 
-                engine_config.tuning_system, engine_config.root_note);
-            
-            // Placeholder implementation - always succeeds with inline tuning update
-            if let Some(ref _audio_context) = self.audio_context {
-                // Placeholder implementation - always succeeds
-                crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
-                    engine_config.tuning_system, engine_config.root_note);
-                
-                engine_actions.tuning_configurations.push(engine_config);
-                crate::common::dev_log!("✓ Tuning configuration executed successfully");
-            } else {
-                crate::common::dev_log!("✗ No audio context available for tuning configuration");
-                return Err("Audio system not initialized".to_string());
-            }
-        }
-        
-        Ok(())
-    }
+    // Temporarily disabled as tuning system handling is being moved to model layer
+    // 
+    // /// Execute audio system configurations synchronously
+    // /// 
+    // /// Synchronous version of execute_audio_system_configurations for use in the render loop.
+    // fn execute_audio_system_configuration_actions_sync(
+    //     &self,
+    //     model_actions: &ModelLayerActions,
+    //     engine_actions: &mut EngineLayerActions
+    // ) -> Result<(), String> {
+    //     for config in &model_actions.audio_system_configurations {
+    //         let engine_config = ConfigureAudioSystem {
+    //             tuning_system: config.tuning_system.clone(),
+    //         };
+    //         
+    //         crate::common::dev_log!("Configuring audio system with tuning: {:?}", 
+    //             engine_config.tuning_system);
+    //         
+    //         // Placeholder implementation - always succeeds with inline configuration
+    //         if let Some(ref audio_context) = self.audio_context {
+    //             // Placeholder implementation - always succeeds
+    //             crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
+    //                 engine_config.tuning_system);
+    //             
+    //             engine_actions.audio_system_configurations.push(engine_config);
+    //             crate::common::dev_log!("✓ Audio system configuration executed successfully");
+    //         } else {
+    //             crate::common::dev_log!("✗ No audio context available for audio system configuration");
+    //             return Err("Audio system not initialized".to_string());
+    //         }
+    //     }
+    //     
+    //     Ok(())
+    // }
+    // 
+    // /// Execute tuning configurations synchronously
+    // /// 
+    // /// Synchronous version of execute_tuning_configurations for use in the render loop.
+    // fn execute_tuning_configuration_actions_sync(
+    //     &self,
+    //     model_actions: &ModelLayerActions,
+    //     engine_actions: &mut EngineLayerActions
+    // ) -> Result<(), String> {
+    //     for config in &model_actions.tuning_configurations {
+    //         let engine_config = UpdateTuningConfiguration {
+    //             tuning_system: config.tuning_system.clone(),
+    //             root_note: config.root_note.clone(),
+    //         };
+    //         
+    //         crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}", 
+    //             engine_config.tuning_system, engine_config.root_note);
+    //         
+    //         // Placeholder implementation - always succeeds with inline tuning update
+    //         if let Some(ref _audio_context) = self.audio_context {
+    //             // Placeholder implementation - always succeeds
+    //             crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
+    //                 engine_config.tuning_system, engine_config.root_note);
+    //             
+    //             engine_actions.tuning_configurations.push(engine_config);
+    //             crate::common::dev_log!("✓ Tuning configuration executed successfully");
+    //         } else {
+    //             crate::common::dev_log!("✗ No audio context available for tuning configuration");
+    //             return Err("Audio system not initialized".to_string());
+    //         }
+    //     }
+    //     
+    //     Ok(())
+    // }
     
     
     

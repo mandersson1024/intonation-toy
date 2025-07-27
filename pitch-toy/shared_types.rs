@@ -28,22 +28,6 @@ pub struct AudioAnalysis {
     pub timestamp: f64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Accuracy {
-    pub closest_note: Note,
-    pub accuracy: f32,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TuningSystem {
-    EqualTemperament,
-    JustIntonation,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Note {
-    C, DFlat, D, EFlat, E, F, FSharp, G, AFlat, A, BFlat, B,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
@@ -74,8 +58,6 @@ pub struct EngineUpdateResult {
 pub struct ModelUpdateResult {
     pub volume: Volume,
     pub pitch: Pitch,
-    pub accuracy: Accuracy,
-    pub tuning_system: TuningSystem,
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
 }
@@ -112,25 +94,17 @@ mod tests {
     fn test_model_update_result_creation() {
         let test_volume = Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 };
         let test_pitch = Pitch::Detected(440.0, 0.9);
-        let test_accuracy = Accuracy {
-            closest_note: Note::A,
-            accuracy: 0.95,
-        };
         let test_errors = vec![Error::ProcessingError("Test error".to_string())];
 
         let update_result = ModelUpdateResult {
             volume: test_volume.clone(),
             pitch: test_pitch.clone(),
-            accuracy: test_accuracy.clone(),
-            tuning_system: TuningSystem::EqualTemperament,
             errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
         };
 
         assert_eq!(update_result.volume, test_volume);
         assert_eq!(update_result.pitch, test_pitch);
-        assert_eq!(update_result.accuracy, test_accuracy);
-        assert_eq!(update_result.tuning_system, TuningSystem::EqualTemperament);
         assert_eq!(update_result.errors, test_errors);
         assert_eq!(update_result.permission_state, PermissionState::Granted);
     }
@@ -189,35 +163,6 @@ mod tests {
         assert_eq!(errors.len(), 6);
     }
 
-    #[wasm_bindgen_test]
-    fn test_note_variants() {
-        let notes = vec![
-            Note::C, Note::DFlat, Note::D, Note::EFlat,
-            Note::E, Note::F, Note::FSharp, Note::G,
-            Note::AFlat, Note::A, Note::BFlat, Note::B,
-        ];
-        
-        assert_eq!(notes.len(), 12);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_tuning_system_variants() {
-        let equal = TuningSystem::EqualTemperament;
-        let just = TuningSystem::JustIntonation;
-        
-        assert_ne!(equal, just);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_accuracy_creation() {
-        let accuracy = Accuracy {
-            closest_note: Note::A,
-            accuracy: 0.95,
-        };
-        
-        assert_eq!(accuracy.closest_note, Note::A);
-        assert_eq!(accuracy.accuracy, 0.95);
-    }
 
     #[wasm_bindgen_test]
     fn test_audio_analysis_creation() {

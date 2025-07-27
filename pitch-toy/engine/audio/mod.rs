@@ -42,7 +42,6 @@ pub mod buffer_analyzer;
 pub mod console_service;
 pub mod commands;
 pub mod pitch_detector;
-pub mod note_mapper;
 pub mod pitch_analyzer;
 pub mod volume_detector;
 pub mod signal_generator;
@@ -243,7 +242,6 @@ pub use microphone::{connect_microphone_to_audioworklet_with_context, Microphone
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
-pub use pitch_detector::{MusicalNote, TuningSystem, NoteName};
 pub use signal_generator::{TestWaveform, BackgroundNoiseConfig, SignalGeneratorConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
@@ -255,7 +253,6 @@ use context::{AudioContextManager, AudioContextState, AudioContextConfig};
 use worklet::{AudioWorkletManager, AudioWorkletConfig};
 use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
 use pitch_detector::{PitchResult, PitchDetectorConfig, PitchDetector, PitchDetectionError};
-use note_mapper::NoteMapper;
 use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
 use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
 
@@ -452,7 +449,6 @@ mod tests {
         let pitch_data = data_types::PitchData {
             frequency: 440.0,
             confidence: 0.9,
-            note: pitch_detector::MusicalNote::new(pitch_detector::NoteName::A, 4, 0.0, 440.0),
             clarity: 0.8,
             timestamp: 12345.0,
         };
@@ -478,7 +474,6 @@ mod tests {
         let pitch_data_zero = data_types::PitchData {
             frequency: 0.0,
             confidence: 0.0,
-            note: pitch_detector::MusicalNote::new(pitch_detector::NoteName::A, 4, 0.0, 440.0),
             clarity: 0.0,
             timestamp: 12345.0,
         };

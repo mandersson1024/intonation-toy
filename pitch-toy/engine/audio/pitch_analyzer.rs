@@ -1,5 +1,4 @@
 use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
-use super::note_mapper::NoteMapper;
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
@@ -81,7 +80,6 @@ impl Default for PitchPerformanceMetrics {
 /// ```
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
-    note_mapper: NoteMapper,
     metrics: PitchPerformanceMetrics,
     last_detection: Option<PitchResult>,
     confidence_threshold_for_events: f32,
@@ -100,14 +98,11 @@ impl PitchAnalyzer {
         let pitch_detector = PitchDetector::new(config.clone(), sample_rate)
             .map_err(|e| format!("Failed to create pitch detector: {}", e))?;
         
-        let note_mapper = NoteMapper::new(config.tuning_system.clone());
-        
         // Pre-allocate buffer for zero-allocation processing
         let analysis_buffer = vec![0.0; config.sample_window_size];
         
         Ok(Self {
             pitch_detector,
-            note_mapper,
             metrics: PitchPerformanceMetrics::default(),
             last_detection: None,
             confidence_threshold_for_events: 0.1, // Threshold for confidence change events
@@ -253,7 +248,6 @@ impl PitchAnalyzer {
                 let config = super::pitch_detector::PitchDetectorConfig {
                     sample_window_size: window_size,
                     threshold: 0.15,
-                    tuning_system: super::pitch_detector::TuningSystem::default(),
                     min_frequency: 80.0,
                     max_frequency: 2000.0,
                 };
@@ -377,8 +371,6 @@ impl PitchAnalyzer {
         self.pitch_detector.update_config(config.clone())
             .map_err(|e| format!("Failed to update pitch detector config: {}", e))?;
         
-        // Update note mapper tuning system
-        self.note_mapper.set_tuning_system(config.tuning_system);
         
         // Resize analysis buffer if needed
         if config.sample_window_size != self.analysis_buffer.len() {
@@ -612,9 +604,6 @@ impl PitchAnalyzer {
         // Store the latest detection result
         self.last_detection = Some(result.clone());
         
-        // Convert frequency to musical note
-        let note = self.note_mapper.frequency_to_note(result.frequency);
-
         // Use the detector's raw confidence
         let weighted_confidence = result.confidence;
 
@@ -694,22 +683,15 @@ impl PitchAnalyzer {
         }
     }
 
-    /// Convert frequency to musical note using the internal note mapper
-    pub fn frequency_to_note(&self, frequency: f32) -> super::MusicalNote {
-        self.note_mapper.frequency_to_note(frequency)
-    }
-    
     /// Get the latest pitch detection result
     /// 
     /// Returns the most recent pitch detection result if available,
     /// or None if no pitch has been detected yet.
     pub fn get_latest_pitch_data(&self) -> Option<super::PitchData> {
         self.last_detection.as_ref().map(|result| {
-            let note = self.note_mapper.frequency_to_note(result.frequency);
             super::PitchData {
                 frequency: result.frequency,
                 confidence: result.confidence,
-                note,
                 clarity: result.clarity,
                 timestamp: self.get_high_resolution_time(),
             }
@@ -721,13 +703,12 @@ impl PitchAnalyzer {
 mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
-   use crate::engine::audio::{TuningSystem, PitchDetectorConfig};
+   use crate::engine::audio::PitchDetectorConfig;
 
     fn create_test_config() -> PitchDetectorConfig {
         PitchDetectorConfig {
             sample_window_size: 2048, // Updated to match new accuracy-focused default
             threshold: 0.15,
-            tuning_system: TuningSystem::EqualTemperament,
             min_frequency: 80.0,
             max_frequency: 2000.0,
         }
@@ -1589,17 +1570,17 @@ mod tests {
                 .collect();
             
             if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
-                let note = analyzer.note_mapper.frequency_to_note(result.frequency);
-                scale_results.push((result.frequency, note.note, note.octave));
+                scale_results.push(result.frequency);
             }
         }
         
         // Should detect most notes in the scale
         assert!(scale_results.len() >= 6, "Should detect most notes in the scale");
         
-        // Verify octave progression makes sense
-        let octaves: Vec<i32> = scale_results.iter().map(|(_, _, octave)| *octave).collect();
-        assert!(octaves.iter().all(|&o| o == 4 || o == 5), "Octaves should be 4 or 5");
+        // Verify frequencies are in expected ranges
+        for frequency in &scale_results {
+            assert!(*frequency >= 260.0 && *frequency <= 530.0, "Frequency {} should be in C4-C5 range", frequency);
+        }
     }
 
     #[wasm_bindgen_test]
@@ -1638,10 +1619,8 @@ mod tests {
 
 
     #[wasm_bindgen_test]
-    fn test_end_to_end_tuning_system_switching() {
-        // Test switching tuning systems during operation
-        use crate::engine::audio::{TuningSystem, PitchDetectorConfig};
-        
+    fn test_end_to_end_basic_pitch_detection() {
+        // Test basic pitch detection consistency
         let frequency = 440.0; // A4
         let sample_rate = 48000.0;
         let samples: Vec<f32> = (0..2048)
@@ -1651,31 +1630,20 @@ mod tests {
             })
             .collect();
         
-        // Test with different tuning systems
-        let tuning_systems = vec![
-            TuningSystem::EqualTemperament,
-            TuningSystem::JustIntonation,
-        ];
+        let config = PitchDetectorConfig {
+            sample_window_size: 2048,
+            threshold: 0.15,
+            min_frequency: 80.0,
+            max_frequency: 2000.0,
+        };
         
-        for (i, tuning_system) in tuning_systems.into_iter().enumerate() {
-            let config = PitchDetectorConfig {
-                sample_window_size: 2048,
-                threshold: 0.15,
-                tuning_system,
-                min_frequency: 80.0,
-                max_frequency: 2000.0,
-            };
-            
-            let mut analyzer = PitchAnalyzer::new(config, sample_rate).unwrap();
-            let result = analyzer.analyze_samples(&samples);
-            
-            assert!(result.is_ok(), "Tuning system {} failed", i);
-            
-            if let Some(pitch_result) = result.unwrap() {
-                let note = analyzer.note_mapper.frequency_to_note(pitch_result.frequency);
-                assert_eq!(note.note, crate::engine::audio::NoteName::A, "Should detect A note in tuning system {}", i);
-                assert_eq!(note.octave, 4, "Should detect octave 4 in tuning system {}", i);
-            }
+        let mut analyzer = PitchAnalyzer::new(config, sample_rate).unwrap();
+        let result = analyzer.analyze_samples(&samples);
+        
+        assert!(result.is_ok(), "Pitch detection failed");
+        
+        if let Some(pitch_result) = result.unwrap() {
+            assert!((pitch_result.frequency - 440.0).abs() < 20.0, "Should detect 440Hz accurately");
         }
     }
 }

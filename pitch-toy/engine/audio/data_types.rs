@@ -2,7 +2,7 @@
 // These structures allow the audio module to remain independent
 // while still providing data to other modules that may need it
 
-use super::{AudioWorkletState, MusicalNote};
+use super::AudioWorkletState;
 
 /// Volume level data for external consumption
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +16,6 @@ pub struct VolumeLevelData {
 pub struct PitchData {
     pub frequency: f32,
     pub confidence: f32,
-    pub note: MusicalNote,
     pub clarity: f32,
     pub timestamp: f64,
 }
