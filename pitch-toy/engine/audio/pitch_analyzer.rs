@@ -824,14 +824,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_integration() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer and fill it with test data
-        let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
         
         // Generate 440Hz sine wave
         let frequency = 440.0;
@@ -864,14 +864,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_insufficient_data() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with insufficient data
-        let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
         let samples = vec![0.0; 1024]; // Less than required 2048
         buffer.write_chunk(&samples);
 
@@ -886,14 +886,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_size_mismatch() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer
-        let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
         let samples = vec![0.0; 2048];
         buffer.write_chunk(&samples);
 
@@ -908,14 +908,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_continuous_processing() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with multiple blocks of data
-        let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
         
         // Generate enough data for 3 blocks (need extra to ensure buffer has enough)
         let frequency = 440.0;
@@ -953,14 +953,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_circular_buffer_integration() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with test data
-        let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
         
         // Generate 440Hz sine wave for 2 blocks (with extra to ensure enough data)
         let frequency = 440.0;
@@ -990,7 +990,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_windowing_functions() {
-        use crate::engine::audio::buffer::{CircularBuffer, DEV_BUFFER_SIZE_MAX};
+        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
@@ -1001,7 +1001,7 @@ mod tests {
 
         for window_fn in window_functions.iter() {
             // Create fresh buffer for each test
-            let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
+            let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
             
             // Generate test signal
             let frequency = 440.0;

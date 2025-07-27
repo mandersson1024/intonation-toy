@@ -4,20 +4,9 @@
 use std::collections::VecDeque;
 
 /// Buffer size constants as multiples of 128-sample AudioWorklet chunks
-pub const PRODUCTION_BUFFER_SIZE: usize = 4096;  // 32 chunks - sufficient for pitch detection
-pub const DEV_BUFFER_SIZE_MIN: usize = 256;      // 2 chunks of 128 samples each  
-pub const DEV_BUFFER_SIZE_MAX: usize = 4096;     // 32 chunks - accommodate pitch detection window
-pub const DEV_BUFFER_SIZE_DEFAULT: usize = 4096; // Default to max for pitch detection accuracy
+pub const BUFFER_SIZE: usize = 4096;  // 32 chunks - sufficient for pitch detection
 pub const AUDIO_CHUNK_SIZE: usize = 128;         // AudioWorklet fixed chunk size
 
-/// Determines the buffer size based on build configuration
-pub fn get_buffer_size() -> usize {
-    if cfg!(debug_assertions) {
-        DEV_BUFFER_SIZE_DEFAULT
-    } else {
-        PRODUCTION_BUFFER_SIZE
-    }
-}
 
 /// Validates that buffer size is a multiple of 128
 pub fn validate_buffer_size(size: usize) -> Result<(), String> {
@@ -32,13 +21,8 @@ pub fn validate_buffer_size(size: usize) -> Result<(), String> {
 pub fn validate_buffer_size_for_creation(size: usize) -> Result<(), String> {
     validate_buffer_size(size)?;
     
-    if cfg!(debug_assertions) {
-        if size < DEV_BUFFER_SIZE_MIN || size > DEV_BUFFER_SIZE_MAX {
-            return Err(format!("Development buffer size {} must be between {} and {}", 
-                size, DEV_BUFFER_SIZE_MIN, DEV_BUFFER_SIZE_MAX));
-        }
-    } else if size != PRODUCTION_BUFFER_SIZE {
-        return Err(format!("Production buffer size must be {}", PRODUCTION_BUFFER_SIZE));
+    if size != BUFFER_SIZE {
+        return Err(format!("Buffer size {} must be {}", size, BUFFER_SIZE));
     }
     
     Ok(())
@@ -110,9 +94,9 @@ where
         })
     }
 
-    /// Create a new circular buffer with default capacity based on build configuration
+    /// Create a new circular buffer with default capacity
     pub fn new_default() -> Result<Self, String> {
-        Self::new(get_buffer_size())
+        Self::new(BUFFER_SIZE)
     }
 
     /// Get the current buffer state
@@ -395,18 +379,6 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_get_buffer_size() {
-        let size = get_buffer_size();
-        assert!(validate_buffer_size(size).is_ok());
-        
-        if cfg!(debug_assertions) {
-            assert_eq!(size, DEV_BUFFER_SIZE_DEFAULT);
-        } else {
-            assert_eq!(size, PRODUCTION_BUFFER_SIZE);
-        }
-    }
-
-    #[wasm_bindgen_test]
     fn test_buffer_state_display() {
         assert_eq!(BufferState::Empty.to_string(), "Empty");
         assert_eq!(BufferState::Filling.to_string(), "Filling");
@@ -554,7 +526,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_circular_buffer_default() {
         let buffer = CircularBuffer::<f32>::default();
-        assert_eq!(buffer.capacity(), get_buffer_size());
+        assert_eq!(buffer.capacity(), BUFFER_SIZE);
         assert_eq!(buffer.len(), 0);
         assert_eq!(buffer.state(), BufferState::Empty);
     }
