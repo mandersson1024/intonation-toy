@@ -6,16 +6,14 @@ pub type PitchDetectionError = String;
 #[derive(Debug, Clone)]
 pub struct PitchResult {
     pub frequency: f32,
-    pub confidence: f32,
     pub timestamp: f64,
     pub clarity: f32,
 }
 
 impl PitchResult {
-    pub fn new(frequency: f32, confidence: f32, timestamp: f64, clarity: f32) -> Self {
+    pub fn new(frequency: f32, timestamp: f64, clarity: f32) -> Self {
         Self {
             frequency,
-            confidence,
             timestamp,
             clarity,
         }
@@ -157,18 +155,10 @@ impl PitchDetector {
                     return Ok(None);
                 }
 
-                let confidence = self.normalize_confidence(clarity);
-
-                // Early exit on low confidence
-                if confidence < 0.5 {
-                    return Ok(None);
-                }
-
                 let timestamp = self.get_current_timestamp();
                 
                 Ok(Some(PitchResult {
                     frequency,
-                    confidence,
                     timestamp,
                     clarity,
                 }))
@@ -377,10 +367,6 @@ impl PitchDetector {
         Ok(())
     }
 
-    fn normalize_confidence(&self, clarity: f32) -> f32 {
-        let normalized = 1.0 - clarity.min(1.0).max(0.0);
-        normalized.min(1.0).max(0.0)
-    }
 
     fn get_current_timestamp(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
@@ -411,9 +397,8 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_result_creation() {
-        let result = PitchResult::new(440.0, 0.9, 1000.0, 0.8);
+        let result = PitchResult::new(440.0, 1000.0, 0.8);
         assert_eq!(result.frequency, 440.0);
-        assert_eq!(result.confidence, 0.9);
         assert_eq!(result.timestamp, 1000.0);
         assert_eq!(result.clarity, 0.8);
     }
@@ -586,7 +571,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to 440Hz
             assert!((pitch_result.frequency - 440.0).abs() < 50.0);
-            assert!(pitch_result.confidence > 0.5);
             assert!(pitch_result.clarity <= 1.0); // YIN clarity should be <= 1.0
             assert!(pitch_result.timestamp >= 0.0);
         }
@@ -651,20 +635,6 @@ mod tests {
         assert_eq!(detector.config().sample_window_size, 1024);
     }
 
-    #[wasm_bindgen_test]
-    fn test_confidence_normalization() {
-        let config = PitchDetectorConfig::default();
-        let detector = PitchDetector::new(config, 48000.0).unwrap();
-        
-        // Test confidence normalization (1.0 - clarity)
-        assert_eq!(detector.normalize_confidence(0.0), 1.0);
-        assert_eq!(detector.normalize_confidence(1.0), 0.0);
-        assert_eq!(detector.normalize_confidence(0.5), 0.5);
-        
-        // Test bounds
-        assert_eq!(detector.normalize_confidence(-1.0), 1.0);
-        assert_eq!(detector.normalize_confidence(2.0), 0.0);
-    }
 
     #[wasm_bindgen_test]
     fn test_pitch_detector_window_sizes() {
@@ -730,7 +700,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect very close to 440Hz for standard tuning reference
             assert!((pitch_result.frequency - 440.0).abs() < 10.0);
-            assert!(pitch_result.confidence > 0.7);
         }
     }
 
@@ -755,7 +724,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to C4 frequency
             assert!((pitch_result.frequency - 261.63).abs() < 15.0);
-            assert!(pitch_result.confidence > 0.6);
         }
     }
 
@@ -780,7 +748,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to E4 frequency
             assert!((pitch_result.frequency - 329.63).abs() < 15.0);
-            assert!(pitch_result.confidence > 0.6);
         }
     }
 
@@ -805,7 +772,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to G4 frequency
             assert!((pitch_result.frequency - 392.0).abs() < 15.0);
-            assert!(pitch_result.confidence > 0.6);
         }
     }
 
@@ -835,8 +801,6 @@ mod tests {
                 assert!((pitch_result.frequency - frequency).abs() < tolerance, 
                     "Frequency detection failed for {}Hz: detected {}Hz", 
                     frequency, pitch_result.frequency);
-                assert!(pitch_result.confidence > 0.4, 
-                    "Low confidence for {}Hz: {}", frequency, pitch_result.confidence);
             }
         }
     }
@@ -865,7 +829,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect fundamental frequency despite harmonics
             assert!((pitch_result.frequency - fundamental).abs() < 20.0);
-            assert!(pitch_result.confidence > 0.5);
         }
     }
 }

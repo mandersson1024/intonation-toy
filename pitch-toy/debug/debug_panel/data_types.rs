@@ -34,7 +34,6 @@ pub struct VolumeLevelData {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PitchData {
     pub frequency: f32,
-    pub confidence: f32,
     pub clarity: f32,
     pub timestamp: f64,
 }
@@ -75,7 +74,6 @@ impl From<crate::engine::audio::PitchData> for PitchData {
     fn from(audio_data: crate::engine::audio::PitchData) -> Self {
         Self {
             frequency: audio_data.frequency,
-            confidence: audio_data.confidence,
             clarity: audio_data.clarity,
             timestamp: audio_data.timestamp,
         }

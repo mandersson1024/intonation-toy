@@ -15,7 +15,6 @@ pub struct VolumeLevelData {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PitchData {
     pub frequency: f32,
-    pub confidence: f32,
     pub clarity: f32,
     pub timestamp: f64,
 }

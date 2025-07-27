@@ -22,8 +22,6 @@ pub struct PitchPerformanceMetrics {
     pub successful_detections: u64,
     /// Number of failed or no-pitch detections
     pub failed_detections: u64,
-    /// Average confidence over recent detections
-    pub average_confidence: f32,
     /// Current memory usage for zero-allocation validation
     pub memory_usage_bytes: usize,
     /// Number of samples exceeding 50ms processing time
@@ -44,7 +42,6 @@ impl Default for PitchPerformanceMetrics {
             analysis_cycles: 0,
             successful_detections: 0,
             failed_detections: 0,
-            average_confidence: 0.0,
             memory_usage_bytes: 0,
             latency_violations: 0,
             success_rate: 0.0,
@@ -82,7 +79,6 @@ pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     metrics: PitchPerformanceMetrics,
     last_detection: Option<PitchResult>,
-    confidence_threshold_for_events: f32,
     // Pre-allocated buffer for zero-allocation processing
     analysis_buffer: Vec<f32>,
     // Volume analysis for tracking
@@ -105,17 +101,12 @@ impl PitchAnalyzer {
             pitch_detector,
             metrics: PitchPerformanceMetrics::default(),
             last_detection: None,
-            confidence_threshold_for_events: 0.1, // Threshold for confidence change events
             analysis_buffer,
             last_volume_analysis: None,
         })
     }
 
 
-    /// Set the confidence threshold for confidence change events
-    pub fn set_confidence_threshold(&mut self, threshold: f32) {
-        self.confidence_threshold_for_events = threshold.clamp(0.0, 1.0);
-    }
 
 
     /// Update volume analysis for confidence weighting
@@ -604,15 +595,8 @@ impl PitchAnalyzer {
         // Store the latest detection result
         self.last_detection = Some(result.clone());
         
-        // Use the detector's raw confidence
-        let weighted_confidence = result.confidence;
-
-
         // Pitch data is now returned through the analyze methods
         // and collected by Engine::update()
-
-        // Update average confidence using weighted value
-        self.update_average_confidence(weighted_confidence);
 
         Ok(())
     }
@@ -652,15 +636,6 @@ impl PitchAnalyzer {
         }
     }
 
-    fn update_average_confidence(&mut self, new_confidence: f32) {
-        // Simple exponential moving average
-        let alpha = 0.1; // Smoothing factor
-        if self.metrics.average_confidence == 0.0 {
-            self.metrics.average_confidence = new_confidence;
-        } else {
-            self.metrics.average_confidence = alpha * new_confidence + (1.0 - alpha) * self.metrics.average_confidence;
-        }
-    }
 
     fn get_high_resolution_time(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
@@ -691,7 +666,6 @@ impl PitchAnalyzer {
         self.last_detection.as_ref().map(|result| {
             super::PitchData {
                 frequency: result.frequency,
-                confidence: result.confidence,
                 clarity: result.clarity,
                 timestamp: self.get_high_resolution_time(),
             }
@@ -788,7 +762,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to 440Hz
             assert!((pitch_result.frequency - 440.0).abs() < 50.0);
-            assert!(pitch_result.confidence > 0.5);
             
             // Check metrics were updated
             assert_eq!(analyzer.metrics().analysis_cycles, 1);
@@ -797,22 +770,6 @@ mod tests {
         }
     }
 
-    #[wasm_bindgen_test]
-    fn test_pitch_analyzer_confidence_threshold() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-
-        // Test setting confidence threshold
-        analyzer.set_confidence_threshold(0.2);
-        assert_eq!(analyzer.confidence_threshold_for_events, 0.2);
-
-        // Test clamping
-        analyzer.set_confidence_threshold(-0.5);
-        assert_eq!(analyzer.confidence_threshold_for_events, 0.0);
-
-        analyzer.set_confidence_threshold(1.5);
-        assert_eq!(analyzer.confidence_threshold_for_events, 1.0);
-    }
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_metrics_reset() {
@@ -842,7 +799,6 @@ mod tests {
         assert_eq!(metrics.analysis_cycles, 0);
         assert_eq!(metrics.successful_detections, 0);
         assert_eq!(metrics.failed_detections, 0);
-        assert_eq!(metrics.average_confidence, 0.0);
         assert_eq!(metrics.memory_usage_bytes, 0);
         assert_eq!(metrics.latency_violations, 0);
         assert_eq!(metrics.success_rate, 0.0);
@@ -869,7 +825,6 @@ mod tests {
 
         // Check metrics accumulated
         assert_eq!(analyzer.metrics().analysis_cycles, 5);
-        assert!(analyzer.metrics().average_confidence > 0.0);
     }
 
     #[wasm_bindgen_test]
@@ -906,7 +861,6 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to 440Hz
             assert!((pitch_result.frequency - 440.0).abs() < 50.0);
-            assert!(pitch_result.confidence > 0.5);
         }
 
         // Check metrics were updated
@@ -995,7 +949,6 @@ mod tests {
         // Check that all results are valid
         for result in &pitch_results {
             assert!((result.frequency - 440.0).abs() < 50.0);
-            assert!(result.confidence > 0.5);
         }
 
         // Check metrics (should match number of results)
@@ -1037,7 +990,6 @@ mod tests {
         // Check that results are valid
         for result in &pitch_results {
             assert!((result.frequency - 440.0).abs() < 50.0);
-            assert!(result.confidence > 0.5);
         }
     }
 
@@ -1297,198 +1249,6 @@ mod tests {
 
     // Confidence Scoring Accuracy and Consistency Tests (Task 8 Requirements)
     
-    #[wasm_bindgen_test]
-    fn test_confidence_scoring_consistency() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        // Generate consistent 440Hz sine wave
-        let frequency = 440.0;
-        let sample_rate = 48000.0;
-        let samples: Vec<f32> = (0..2048)
-            .map(|i| {
-                let t = i as f32 / sample_rate;
-                (2.0 * std::f32::consts::PI * frequency * t).sin()
-            })
-            .collect();
-        
-        // Analyze the same signal multiple times
-        let mut confidences = Vec::new();
-        for _ in 0..5 {
-            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
-                confidences.push(result.confidence);
-            }
-        }
-        
-        // Confidence should be consistent across runs
-        assert!(confidences.len() >= 3, "Should get consistent detections");
-        
-        let avg_confidence = confidences.iter().sum::<f32>() / confidences.len() as f32;
-        for &confidence in &confidences {
-            assert!((confidence - avg_confidence).abs() < 0.1, 
-                "Confidence inconsistency: {} vs avg {}", confidence, avg_confidence);
-        }
-        
-        // High-quality sine wave should have high confidence
-        assert!(avg_confidence > 0.7, "Clean sine wave should have high confidence: {}", avg_confidence);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_confidence_scoring_with_noise() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        // Generate 440Hz sine wave with varying noise levels
-        let frequency = 440.0;
-        let sample_rate = 48000.0;
-        let noise_levels = [0.0, 0.1, 0.2, 0.3, 0.5];
-        
-        let mut confidences = Vec::new();
-        
-        for &noise_level in &noise_levels {
-            let samples: Vec<f32> = (0..2048)
-                .map(|i| {
-                    let t = i as f32 / sample_rate;
-                    let clean_signal = (2.0 * std::f32::consts::PI * frequency * t).sin();
-                    let noise = (i as f32 * 0.1).sin() * noise_level; // Simple noise
-                    clean_signal + noise
-                })
-                .collect();
-            
-            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
-                confidences.push((noise_level, result.confidence));
-            }
-        }
-        
-        // Confidence should generally decrease as noise increases
-        assert!(confidences.len() >= 3, "Should detect pitch in most noise conditions");
-        
-        // Clean signal should have higher confidence than noisy signal
-        let clean_confidence = confidences.iter().find(|(noise, _)| *noise == 0.0);
-        let noisy_confidence = confidences.iter().find(|(noise, _)| *noise >= 0.3);
-        
-        if let (Some((_, clean)), Some((_, noisy))) = (clean_confidence, noisy_confidence) {
-            // Allow for the possibility that confidence is very high for both
-            assert!(*clean >= *noisy * 0.8, "Clean signal confidence {} should be at least 80% of noisy {}", clean, noisy);
-        }
-    }
-
-    #[wasm_bindgen_test]
-    fn test_confidence_scoring_amplitude_dependency() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        // Test confidence with different amplitudes
-        let frequency = 440.0;
-        let sample_rate = 48000.0;
-        let amplitudes = [0.1, 0.3, 0.5, 0.7, 1.0];
-        
-        let mut amplitude_confidences = Vec::new();
-        
-        for &amplitude in &amplitudes {
-            let samples: Vec<f32> = (0..2048)
-                .map(|i| {
-                    let t = i as f32 / sample_rate;
-                    amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
-                })
-                .collect();
-            
-            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
-                amplitude_confidences.push((amplitude, result.confidence));
-            }
-        }
-        
-        // Should detect pitch at various amplitudes
-        assert!(amplitude_confidences.len() >= 3, "Should detect pitch at various amplitudes");
-        
-        // All detected pitches should have reasonable confidence
-        for &(amplitude, confidence) in &amplitude_confidences {
-            assert!(confidence > 0.3, "Amplitude {} should produce confidence > 0.3, got {}", amplitude, confidence);
-            assert!(confidence <= 1.0, "Confidence should not exceed 1.0: {}", confidence);
-        }
-    }
-
-    #[wasm_bindgen_test]
-    fn test_confidence_scoring_frequency_accuracy() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        // Test confidence correlation with frequency accuracy
-        let test_frequencies = [220.0, 440.0, 880.0, 1000.0];
-        let sample_rate = 48000.0;
-        
-        for &target_frequency in &test_frequencies {
-            let samples: Vec<f32> = (0..2048)
-                .map(|i| {
-                    let t = i as f32 / sample_rate;
-                    (2.0 * std::f32::consts::PI * target_frequency * t).sin()
-                })
-                .collect();
-            
-            if let Ok(Some(result)) = analyzer.analyze_samples(&samples) {
-                // Frequency accuracy should correlate with confidence
-                let frequency_error = (result.frequency - target_frequency).abs();
-                let frequency_error_percentage = frequency_error / target_frequency * 100.0;
-                
-                if frequency_error_percentage < 2.0 {
-                    // Very accurate frequency should have high confidence
-                    assert!(result.confidence > 0.6, 
-                        "Accurate frequency detection ({}Hz -> {}Hz, {}% error) should have high confidence: {}", 
-                        target_frequency, result.frequency, frequency_error_percentage, result.confidence);
-                }
-                
-                // Confidence should be reasonable for all detections
-                assert!(result.confidence > 0.3, 
-                    "Frequency {}Hz detection should have confidence > 0.3: {}", 
-                    target_frequency, result.confidence);
-            }
-        }
-    }
-
-    #[wasm_bindgen_test]
-    fn test_confidence_scoring_edge_cases() {
-        let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
-        
-        // Test silence - should not detect or have low confidence
-        let silence: Vec<f32> = vec![0.0; 2048];
-        let silence_result = analyzer.analyze_samples(&silence);
-        assert!(silence_result.is_ok());
-        if let Some(result) = silence_result.unwrap() {
-            assert!(result.confidence < 0.5, "Silence should not have high confidence: {}", result.confidence);
-        }
-        
-        // Test very low amplitude signal
-        let frequency = 440.0;
-        let sample_rate = 48000.0;
-        let low_amplitude_samples: Vec<f32> = (0..2048)
-            .map(|i| {
-                let t = i as f32 / sample_rate;
-                0.01 * (2.0 * std::f32::consts::PI * frequency * t).sin()
-            })
-            .collect();
-        
-        let low_amplitude_result = analyzer.analyze_samples(&low_amplitude_samples);
-        assert!(low_amplitude_result.is_ok());
-        // May or may not detect, but if it does, confidence should reflect the low amplitude
-        
-        // Test frequency at edge of range
-        let edge_frequency = 100.0; // Near lower limit
-        let edge_samples: Vec<f32> = (0..2048)
-            .map(|i| {
-                let t = i as f32 / sample_rate;
-                (2.0 * std::f32::consts::PI * edge_frequency * t).sin()
-            })
-            .collect();
-        
-        let edge_result = analyzer.analyze_samples(&edge_samples);
-        assert!(edge_result.is_ok());
-        if let Some(result) = edge_result.unwrap() {
-            // Edge frequencies might have lower confidence
-            assert!(result.confidence > 0.2, "Edge frequency detection should have some confidence: {}", result.confidence);
-            assert!(result.confidence <= 1.0, "Confidence should not exceed 1.0: {}", result.confidence);
-        }
-    }
 
     // End-to-End Tests with Simulated Audio Input (Task 8 Requirements)
     
@@ -1612,8 +1372,6 @@ mod tests {
             // Should still detect fundamental frequency despite interference
             assert!((pitch_result.frequency - fundamental).abs() < 30.0, 
                 "Should detect fundamental despite polyphonic interference");
-            assert!(pitch_result.confidence > 0.4, 
-                "Should have reasonable confidence despite complexity");
         }
     }
 

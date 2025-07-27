@@ -1,14 +1,13 @@
 ## General Coding Guidelines
 
 ### Keep it simple
+- Don't implement support for speculative future use-cases
 - Follow the YAGNI principle
 - Follow the KISS principles
-- Don't implement support for hypothetic use-cases
 
-### Make breaking changes
-- Breaking changes are encouraged to improve architecture
-- No one outside of this repository depends on our code
-- Do not maintain compatibility with unused APIs
+### Breaking changes are allowed
+- Don't maintain API compatibility when refactoring
+- This is not a library that will be used by external code
 - Remove deprecated code paths rather than preserving them
 
 ### Be upfront about placeholders and todos

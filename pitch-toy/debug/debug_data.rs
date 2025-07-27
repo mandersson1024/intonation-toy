@@ -81,7 +81,6 @@ impl DebugData {
                 crate::shared_types::Pitch::Detected(frequency, clarity) => {
                     Some(PitchData {
                         frequency: *frequency,
-                        confidence: *clarity, // Using clarity as confidence
                         clarity: *clarity,
                         timestamp: analysis.timestamp,
                     })

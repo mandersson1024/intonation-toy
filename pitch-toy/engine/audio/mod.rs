@@ -448,7 +448,6 @@ mod tests {
         // Test pitch data conversion using new conversion functions
         let pitch_data = data_types::PitchData {
             frequency: 440.0,
-            confidence: 0.9,
             clarity: 0.8,
             timestamp: 12345.0,
         };
@@ -473,7 +472,6 @@ mod tests {
         // Test with zero frequency (should be NotDetected)
         let pitch_data_zero = data_types::PitchData {
             frequency: 0.0,
-            confidence: 0.0,
             clarity: 0.0,
             timestamp: 12345.0,
         };

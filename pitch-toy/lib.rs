@@ -12,10 +12,10 @@ pub mod shared_types;
 
 // Re-export types for test usage
 #[cfg(test)]
-pub use shared_types::{Note, TuningSystem, TestWaveform};
+pub use shared_types::{Note, TuningSystem};
 #[cfg(test)]
 pub use presentation::{
-    RequestMicrophonePermission, ChangeTuningSystem, AdjustRootNote,
+    ChangeTuningSystem, AdjustRootNote,
     PresentationLayerActions,
 };
 #[cfg(all(debug_assertions, test))]
