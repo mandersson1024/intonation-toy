@@ -336,17 +336,6 @@ impl DebugPanel {
             });
     }
     
-    
-    /// Render audio errors section (placeholder implementation)
-    fn render_audio_errors_section(&self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("Audio Errors")
-            .default_open(false)
-            .show(ui, |ui| {
-                // TODO: Implement direct audio errors access when debug layer update pattern is implemented
-                ui.colored_label(Color32::GRAY, "Audio errors not available (interface-free mode)");
-            });
-    }
-    
     /// Render test signal controls (debug actions)
     fn render_test_signal_controls(&mut self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Test Signal Controls")
