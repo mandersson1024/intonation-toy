@@ -528,7 +528,7 @@ impl DataModel {
     /// raw frequency data into musical note identification. The conversion process:
     /// 
     /// 1. Validates the input frequency (must be positive)
-    /// 2. Calculates a reference frequency based on tuning system and root note
+    /// 2. Calculates a root pitch frequency based on tuning system and root note
     /// 3. Converts frequency to MIDI note space using tuning-specific formulas
     /// 4. Maps MIDI note to the closest musical note
     /// 5. Calculates accuracy in cents (1/100th of a semitone)
@@ -542,7 +542,7 @@ impl DataModel {
     /// # Root Note Context
     /// 
     /// The root note determines the reference point for all calculations:
-    /// - Changes the reference frequency used for MIDI conversion
+    /// - Changes the root pitch frequency used for MIDI conversion
     /// - Affects which frequencies are considered "in tune"
     /// - Allows the same frequency to map to different accuracy values
     /// 
@@ -573,26 +573,26 @@ impl DataModel {
             // Still process but warn in debug mode
         }
         
-        // Get reference frequency based on current tuning system and root note
+        // Get root pitch frequency based on current tuning system and root note
         // This is the key to tuning-aware processing
-        let reference_freq = self.get_reference_frequency();
+        let root_pitch = self.get_root_pitch();
         
         trace_log!(
-            "[MODEL] Converting frequency {}Hz with tuning {:?}, root {:?}, reference {}Hz",
-            frequency, self.tuning_system, self.root_note, reference_freq
+            "[MODEL] Converting frequency {}Hz with tuning {:?}, root {:?}, root pitch {}Hz",
+            frequency, self.tuning_system, self.root_note, root_pitch
         );
         
         // Calculate MIDI note number from frequency using tuning-specific formula
         let midi_note = match self.tuning_system {
             TuningSystem::EqualTemperament => {
                 // Equal temperament: logarithmic relationship between frequency and pitch
-                // Formula: MIDI = root_midi + 12 * log2(frequency / reference_frequency)
-                self.root_note as f32 + 12.0 * (frequency / reference_freq).log2()
+                // Formula: MIDI = root_midi + 12 * log2(frequency / root_pitch_frequency)
+                self.root_note as f32 + 12.0 * (frequency / root_pitch).log2()
             }
             TuningSystem::JustIntonation => {
                 // For now, use equal temperament formula as placeholder
                 // TODO: Implement proper just intonation calculations
-                self.root_note as f32 + 12.0 * (frequency / reference_freq).log2()
+                self.root_note as f32 + 12.0 * (frequency / root_pitch).log2()
             }
         };
         
@@ -623,15 +623,15 @@ impl DataModel {
     
     
     
-    /// Get the reference frequency for the current root note and tuning system
+    /// Get the root pitch frequency for the current root note and tuning system
     /// 
-    /// This method calculates the reference frequency that serves as the basis for
-    /// all frequency-to-note conversions. The reference frequency depends on both
+    /// This method calculates the root pitch frequency that serves as the basis for
+    /// all frequency-to-note conversions. The root pitch frequency depends on both
     /// the tuning system and the selected root note.
     /// 
-    /// # Reference Frequency Calculation
+    /// # Root Pitch Calculation
     /// 
-    /// The reference frequency is calculated differently for each tuning system:
+    /// The root pitch frequency is calculated differently for each tuning system:
     /// 
     /// ## Equal Temperament
     /// - Uses A4 = 440Hz as the standard reference
@@ -646,10 +646,10 @@ impl DataModel {
     /// # Root Note Impact
     /// 
     /// The root note changes which frequency is considered the "tonic":
-    /// - If root is A, then A4 = 440Hz is the reference
-    /// - If root is C, then C4 = 261.63Hz becomes the reference
-    /// - All other frequencies are calculated relative to this reference
-    fn get_reference_frequency(&self) -> f32 {
+    /// - If root is A, then A4 = 440Hz is the root pitch
+    /// - If root is C, then C4 = 261.63Hz becomes the root pitch
+    /// - All other frequencies are calculated relative to this root pitch
+    fn get_root_pitch(&self) -> f32 {
         // Base frequency is A4 = 440Hz in standard tuning
         const A4_FREQUENCY: f32 = 440.0;
         const A4_MIDI: i32 = 69; // MIDI note number for A4
@@ -657,21 +657,21 @@ impl DataModel {
         match self.tuning_system {
             TuningSystem::EqualTemperament => {
                 // Equal temperament: fixed ratio of 2^(1/12) between semitones
-                // Calculate reference frequency based on root note
+                // Calculate root pitch frequency based on root note
                 
                 // Use the root note directly as MIDI number
                 let midi_diff = self.root_note as i32 - A4_MIDI;
                 
                 // Calculate frequency using equal temperament formula
                 // f = f0 * 2^(n/12) where n is semitone distance
-                let reference_freq = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
+                let root_pitch = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
                 
                 trace_log!(
-                    "[MODEL] Reference frequency for MIDI {} in {:?}: {}Hz (diff from A4: {})",
-                    self.root_note, self.tuning_system, reference_freq, midi_diff
+                    "[MODEL] Root pitch frequency for MIDI {} in {:?}: {}Hz (diff from A4: {})",
+                    self.root_note, self.tuning_system, root_pitch, midi_diff
                 );
                 
-                reference_freq
+                root_pitch
             }
             TuningSystem::JustIntonation => {
                 // For now, use the same calculation as equal temperament
@@ -755,7 +755,7 @@ impl DataModel {
     
     /// Apply tuning system change to internal state
     /// 
-    /// Updates the internal tuning system and reference frequency based on a validated
+    /// Updates the internal tuning system and root pitch frequency based on a validated
     /// tuning system change. This method should only be called with actions that have
     /// passed business logic validation.
     /// 
@@ -1208,14 +1208,14 @@ mod tests {
     }
 
 
-    /// Test get_reference_frequency for different root notes
+    /// Test get_root_pitch for different root notes
     #[wasm_bindgen_test]
-    fn test_reference_frequency_calculation() {
+    fn test_root_pitch_calculation() {
         let mut model = DataModel::create().unwrap();
         
         // Test with A root (default)
-        let a_ref = model.get_reference_frequency();
-        assert!((a_ref - 440.0).abs() < 0.01, "A root should give 440Hz reference");
+        let a_root_pitch = model.get_root_pitch();
+        assert!((a_root_pitch - 440.0).abs() < 0.01, "A root should give 440Hz root pitch");
         
         // Test with C root
         let mut actions = PresentationLayerActions::new();
@@ -1224,8 +1224,8 @@ mod tests {
         });
         model.process_user_actions(actions);
         
-        let c_ref = model.get_reference_frequency();
-        assert!((c_ref - 261.63).abs() < 0.01, "C root should give ~261.63Hz reference");
+        let c_root_pitch = model.get_root_pitch();
+        assert!((c_root_pitch - 261.63).abs() < 0.01, "C root should give ~261.63Hz root pitch");
         
         // Test with other roots
         let test_roots = vec![
@@ -1243,10 +1243,10 @@ mod tests {
             });
             model.process_user_actions(actions);
             
-            let ref_freq = model.get_reference_frequency();
-            assert!((ref_freq - expected_freq).abs() < 0.5, 
-                "Root {} should give ~{}Hz reference, got {}Hz", 
-                root_note, expected_freq, ref_freq);
+            let root_pitch = model.get_root_pitch();
+            assert!((root_pitch - expected_freq).abs() < 0.5, 
+                "Root {} should give ~{}Hz root pitch, got {}Hz", 
+                root_note, expected_freq, root_pitch);
         }
     }
 
