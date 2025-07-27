@@ -490,53 +490,53 @@ impl DebugPanel {
                 // Root Note Selection
                 ui.horizontal(|ui| {
                     ui.label("Root Note:");
-                    egui::ComboBox::from_label("root_note_combo")
-                        .selected_text(format!("{:?}", self.selected_root_note))
-                        .show_ui(ui, |ui| {
-                            let notes = [
-                                Note::C,
-                                Note::DFlat,
-                                Note::D,
-                                Note::EFlat,
-                                Note::E,
-                                Note::F,
-                                Note::FSharp,
-                                Note::G,
-                                Note::AFlat,
-                                Note::A,
-                                Note::BFlat,
-                                Note::B,
-                            ];
-                            
-                            for note in &notes {
-                                ui.selectable_value(&mut self.selected_root_note, note.clone(), format!("{:?}", note));
-                            }
+                    ui.push_id("note", |ui| {
+                        egui::ComboBox::from_label("")
+                            .selected_text(format!("{:?}", self.selected_root_note))
+                            .show_ui(ui, |ui| {
+                                let notes = [
+                                    Note::C,
+                                    Note::DFlat,
+                                    Note::D,
+                                    Note::EFlat,
+                                    Note::E,
+                                    Note::F,
+                                    Note::FSharp,
+                                    Note::G,
+                                    Note::AFlat,
+                                    Note::A,
+                                    Note::BFlat,
+                                    Note::B,
+                                ];
+                                
+                                for note in &notes {
+                                    if ui.selectable_value(&mut self.selected_root_note, note.clone(), format!("{:?}", note)).clicked() {
+                                        self.send_root_note_action();
+                                    }
+                                }
+                            })
                         });
-                    
-                    if ui.button("Set Root Note").clicked() {
-                        self.send_root_note_action();
-                    }
                 });
                 
                 // Tuning System Selection
                 ui.horizontal(|ui| {
                     ui.label("Tuning System:");
-                    egui::ComboBox::from_label("tuning_system_combo")
-                        .selected_text(format!("{:?}", self.selected_tuning_system))
-                        .show_ui(ui, |ui| {
-                            let tuning_systems = [
-                                TuningSystem::EqualTemperament,
-                                TuningSystem::JustIntonation,
-                            ];
-                            
-                            for system in &tuning_systems {
-                                ui.selectable_value(&mut self.selected_tuning_system, system.clone(), format!("{:?}", system));
-                            }
+                    ui.push_id("tuning", |ui| {
+                        egui::ComboBox::from_label("")
+                            .selected_text(format!("{:?}", self.selected_tuning_system))
+                            .show_ui(ui, |ui| {
+                                let tuning_systems = [
+                                    TuningSystem::EqualTemperament,
+                                    TuningSystem::JustIntonation,
+                                ];
+                                
+                                for system in &tuning_systems {
+                                    if ui.selectable_value(&mut self.selected_tuning_system, system.clone(), format!("{:?}", system)).clicked() {
+                                        self.send_tuning_system_action();
+                                    }
+                                }
+                            })
                         });
-                    
-                    if ui.button("Set Tuning System").clicked() {
-                        self.send_tuning_system_action();
-                    }
                 });
             });
     }
