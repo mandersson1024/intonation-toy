@@ -238,6 +238,7 @@ pub async fn run_three_d_with_layers(
             #[cfg(not(debug_assertions))]
             let (audio_devices, audioworklet_status, buffer_pool_stats) = (None, None, None);
             
+            // Update debug-specific data
             panel.update_debug_data(
                 audio_devices,
                 Some(performance_metrics),

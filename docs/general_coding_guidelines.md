@@ -1,5 +1,12 @@
 ## General Coding Guidelines
 
+### The very basics
+- When you are using a constant, then refer to the name and never copy the value and hard-code it
+  - Example:
+  - `let PI = 3.14`
+  - `let pi_squared = PI**2;   // correct`
+  - `let pi_squared = 3.14**2; // wrong`
+
 ### Keep it simple
 - Don't implement support for speculative future use-cases
 - Follow the YAGNI principle
