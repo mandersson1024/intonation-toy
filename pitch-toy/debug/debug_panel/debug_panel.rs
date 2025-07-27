@@ -220,14 +220,6 @@ impl DebugPanel {
                                else { Color32::RED };
                     ui.colored_label(color, format!("{:.1}ms", metrics.audio_latency));
                 });
-                
-                ui.horizontal(|ui| {
-                    ui.label("CPU:");
-                    let color = if metrics.cpu_usage < 50.0 { Color32::GREEN } 
-                               else if metrics.cpu_usage < 80.0 { Color32::YELLOW } 
-                               else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1}%", metrics.cpu_usage));
-                });
             });
     }
     

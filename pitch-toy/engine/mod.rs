@@ -628,4 +628,22 @@ impl AudioEngine {
         );
         Ok(())
     }
+    
+    /// Get pitch analyzer performance metrics for monitoring
+    /// 
+    /// Returns the latest performance metrics from the pitch analyzer, including
+    /// audio latency measurements. Used for performance monitoring in the debug panel.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Option<audio::PitchPerformanceMetrics>` containing latency and
+    /// processing metrics, or None if the audio context is not available.
+    pub fn get_pitch_analyzer_metrics(&self) -> Option<audio::pitch_analyzer::PitchPerformanceMetrics> {
+        self.audio_context.as_ref().and_then(|ctx| {
+            match ctx.try_borrow() {
+                Ok(borrowed) => borrowed.get_pitch_analyzer_metrics(),
+                Err(_) => None
+            }
+        })
+    }
 }

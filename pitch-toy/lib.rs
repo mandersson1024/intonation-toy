@@ -1,6 +1,7 @@
 use three_d::{self, Window, WindowSettings, GUI, ClearState, FrameOutput, egui, egui::Color32};
 use std::rc::Rc;
 use std::cell::RefCell;
+use wasm_bindgen::JsCast;
 
 // Three-layer architecture modules
 pub mod engine;
@@ -48,6 +49,40 @@ use debug::debug_panel::DebugPanel;
 
 
 // Legacy run_three_d function removed - using hybrid architecture only
+
+/// Sample memory usage from the browser's Performance API
+/// 
+/// Uses the web-sys Performance API to get JavaScript heap memory information.
+/// Includes feature detection and graceful fallbacks for browsers that don't
+/// support the memory API (like Firefox).
+/// 
+/// # Returns
+/// 
+/// Returns `Option<f64>` containing memory usage in MB, or None if the API
+/// is unavailable or fails.
+fn sample_memory_usage() -> Option<f64> {
+    use wasm_bindgen::JsValue;
+    
+    let window = web_sys::window()?;
+    let performance = window.performance()?;
+    
+    // Try to get memory information (not available in all browsers)
+    let memory = js_sys::Reflect::get(&performance, &JsValue::from_str("memory")).ok()?;
+    if memory.is_undefined() || memory.is_null() {
+        return None;
+    }
+    
+    let memory_obj = memory.dyn_into::<web_sys::js_sys::Object>().ok()?;
+    let used_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("usedJSHeapSize")).ok()?;
+    
+    if used_heap_size.is_undefined() || used_heap_size.is_null() {
+        return None;
+    }
+    
+    // Convert from bytes to MB
+    let bytes = used_heap_size.as_f64()?;
+    Some(bytes / (1024.0 * 1024.0))
+}
 
 /// Run three-d with three-layer architecture
 /// 
@@ -126,13 +161,7 @@ pub async fn run_three_d_with_layers(
             frame_count = 0;
             last_fps_update = current_time;
             
-            // Update performance metrics
-            let _metrics = debug::debug_panel::data_types::PerformanceMetrics {
-                fps,
-                memory_usage: 0.0, // Placeholder
-                audio_latency: 0.0, // Placeholder
-                cpu_usage: 0.0, // Placeholder
-            };
+            // Performance metrics update happens later in the debug panel section
         }
         
         // Three-layer update sequence (engine → model → presenter)
@@ -208,11 +237,19 @@ pub async fn run_three_d_with_layers(
         }
         
         // Update debug panel data with performance metrics
+        let memory_usage = sample_memory_usage().unwrap_or(0.0);
+        let audio_latency = if let Some(ref engine) = engine {
+            engine.get_pitch_analyzer_metrics()
+                .map(|metrics| metrics.average_latency_ms)
+                .unwrap_or(0.0)
+        } else {
+            0.0
+        };
+        
         let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
             fps,
-            memory_usage: 0.0, // Placeholder
-            audio_latency: 0.0, // Placeholder
-            cpu_usage: 0.0, // Placeholder
+            memory_usage,
+            audio_latency,
         };
         if let Some(ref mut panel) = hybrid_live_data_panel {
             // Collect real debug data from the engine
