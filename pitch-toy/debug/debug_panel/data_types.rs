@@ -2,6 +2,7 @@
 // These are display-oriented versions of engine data types
 
 use crate::engine::audio::AudioWorkletState;
+use crate::engine::audio::buffer::AUDIO_CHUNK_SIZE;
 
 /// Performance metrics for display
 #[derive(Debug, Clone, PartialEq)]
@@ -53,7 +54,7 @@ impl Default for AudioWorkletStatus {
         Self {
             state: AudioWorkletState::Uninitialized,
             processor_loaded: false,
-            chunk_size: 128,
+            chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: 1024,
             batches_processed: 0,
         }

@@ -59,6 +59,7 @@ use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig, BackgroundNoiseConfig};
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
+use super::buffer::AUDIO_CHUNK_SIZE;
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -95,8 +96,6 @@ impl fmt::Display for AudioWorkletState {
 /// AudioWorklet configuration
 #[derive(Debug, Clone)]
 pub struct AudioWorkletConfig {
-    /// Fixed processing chunk size (Web Audio API standard)
-    pub chunk_size: u32,
     /// Number of input channels
     pub input_channels: u32,
     /// Number of output channels  
@@ -129,7 +128,6 @@ impl AudioWorkletSharedData {
 impl Default for AudioWorkletConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 128,      // Web Audio API standard
             input_channels: 1,    // Mono input for pitch detection
             output_channels: 1,   // Mono output
         }
@@ -989,14 +987,14 @@ impl AudioWorkletManager {
             (data.batches_processed, data.batch_size)
         } else {
             // Fallback: estimate batches from chunks
-            let batches = if self.batch_size > 0 { self.chunk_counter / (self.batch_size / 128) } else { 0 };
+            let batches = if self.batch_size > 0 { self.chunk_counter / (self.batch_size / AUDIO_CHUNK_SIZE as u32) } else { 0 };
             (batches, self.batch_size)
         };
         
         super::AudioWorkletStatus {
             state: self.state.clone(),
             processor_loaded: self.worklet_node.is_some(),
-            chunk_size: self.config.chunk_size,
+            chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size,
             batches_processed,
         }
@@ -1073,7 +1071,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_worklet_config_default() {
         let config = AudioWorkletConfig::default();
-        assert_eq!(config.chunk_size, 128);
+        // Chunk size is now a constant, no need to assert
         assert_eq!(config.input_channels, 1);
         assert_eq!(config.output_channels, 1);
     }

@@ -5,6 +5,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::engine::audio::{
     AudioWorkletState,
     TestWaveform,
+    buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
 use std::rc::Rc;
@@ -178,8 +179,7 @@ impl DebugPanel {
                     ui.colored_label(color, status.processor_loaded.to_string());
                 });
                 
-                ui.label(format!("Batch Size: {} samples", status.batch_size));
-                ui.label(format!("Chunks per Batch: {}", status.batch_size / 128));
+                ui.label(format!("Batch Size: {} samples ({} chunks of {})", status.batch_size, status.batch_size / AUDIO_CHUNK_SIZE as u32, AUDIO_CHUNK_SIZE));
                 ui.label(format!("Batches Processed: {}", status.batches_processed));
             });
     }

@@ -3,6 +3,7 @@
 // while still providing data to other modules that may need it
 
 use super::AudioWorkletState;
+use super::buffer::AUDIO_CHUNK_SIZE;
 
 /// Volume level data for external consumption
 #[derive(Debug, Clone, PartialEq)]
@@ -34,7 +35,7 @@ impl Default for AudioWorkletStatus {
         Self {
             state: AudioWorkletState::Uninitialized,
             processor_loaded: false,
-            chunk_size: 128,
+            chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: 1024,
             batches_processed: 0,
         }
