@@ -852,6 +852,10 @@ impl DataModel {
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
     fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
+        crate::common::dev_log!(
+            "Model layer: Tuning system changed from {:?} to {:?}",
+            self.tuning_system, action.tuning_system
+        );
         self.tuning_system = action.tuning_system.clone();
     }
     
@@ -873,6 +877,10 @@ impl DataModel {
     /// - Validation of state consistency after changes
     /// - Recalculation of derived values
     fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
+        crate::common::dev_log!(
+            "Model layer: Root note changed from {:?} to {:?}",
+            self.root_note, action.root_note
+        );
         self.tuning_system = action.tuning_system.clone();
         self.root_note = action.root_note.clone();
     }
