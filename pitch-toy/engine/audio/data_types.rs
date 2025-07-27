@@ -26,7 +26,6 @@ pub struct AudioWorkletStatus {
     pub processor_loaded: bool,
     pub chunk_size: u32,
     pub chunks_processed: u32,
-    pub last_update: f64,
 }
 
 impl Default for AudioWorkletStatus {
@@ -36,7 +35,6 @@ impl Default for AudioWorkletStatus {
             processor_loaded: false,
             chunk_size: 128,
             chunks_processed: 0,
-            last_update: 0.0,
         }
     }
 }

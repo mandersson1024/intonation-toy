@@ -226,7 +226,6 @@ pub async fn run_three_d_with_layers(
                         processor_loaded: s.processor_loaded,
                         chunk_size: s.chunk_size,
                         chunks_processed: s.chunks_processed,
-                        last_update: s.last_update,
                     }
                 });
                 let stats = engine.get_debug_buffer_pool_stats();

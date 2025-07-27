@@ -180,12 +180,6 @@ impl DebugPanel {
                 
                 ui.label(format!("Chunk Size: {} samples", status.chunk_size));
                 ui.label(format!("Chunks Processed: {}", status.chunks_processed));
-                
-                if status.last_update > 0.0 {
-                    let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
-                    let age = now - status.last_update;
-                    ui.label(format!("Last Update: {:.1}s ago", age));
-                }
             });
     }
     
