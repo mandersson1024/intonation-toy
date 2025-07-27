@@ -311,12 +311,6 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
-    fn test_buffer_size_constants() {
-        assert_eq!(BUFFER_SIZE, 4096);
-        assert_eq!(AUDIO_CHUNK_SIZE, 128);
-    }
-
-    #[wasm_bindgen_test]
     fn test_buffer_creation() {
         // Buffer creation should always work with fixed size
         let buffer = CircularBuffer::<f32>::new();

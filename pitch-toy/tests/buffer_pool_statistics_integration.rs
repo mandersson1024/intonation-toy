@@ -93,9 +93,6 @@ impl MockAudioWorkletMessageGenerator {
             pool_efficiency: 85.0 + (iteration as f32 * 0.1),
             buffer_utilization_percent: 50.0 + (iteration as f32 * 0.5),
             total_megabytes_transferred: (iteration as f32 * 0.1),
-            avg_acquisition_time_ms: 5.0 + (iteration as f32 * 0.01),
-            fastest_acquisition_time_ms: 1.0,
-            slowest_acquisition_time_ms: 10.0 + (iteration as f32 * 0.02),
         };
         
         self.create_status_message(stats)
@@ -160,9 +157,6 @@ async fn test_buffer_pool_statistics_integration() {
         pool_efficiency: 85.0,
         buffer_utilization_percent: 25.0,
         total_megabytes_transferred: 0.5,
-        avg_acquisition_time_ms: 5.0,
-        fastest_acquisition_time_ms: 1.0,
-        slowest_acquisition_time_ms: 10.0,
     };
     
     let message = worklet_message_generator.create_status_message(initial_stats.clone());
@@ -217,9 +211,6 @@ async fn test_buffer_pool_statistics_gui_display() {
         pool_efficiency: 95.0,
         buffer_utilization_percent: 25.0,
         total_megabytes_transferred: 12.5,
-        avg_acquisition_time_ms: 5.0,
-        fastest_acquisition_time_ms: 1.0,
-        slowest_acquisition_time_ms: 15.0,
     };
     
     let message = worklet_message_generator.create_status_message(realistic_stats.clone());
@@ -271,9 +262,6 @@ async fn test_buffer_pool_statistics_error_scenarios() {
         pool_efficiency: 50.0,
         buffer_utilization_percent: 87.5,
         total_megabytes_transferred: 2.0,
-        avg_acquisition_time_ms: 50.0,
-        fastest_acquisition_time_ms: 1.0,
-        slowest_acquisition_time_ms: 100.0,
     };
     
     let message = worklet_message_generator.create_status_message(error_stats.clone());
@@ -286,7 +274,6 @@ async fn test_buffer_pool_statistics_error_scenarios() {
     assert_eq!(received_stats.consecutive_pool_failures, 15);
     assert!(received_stats.pool_hit_rate < 70.0); // Poor hit rate
     assert!(received_stats.pool_efficiency < 60.0); // Poor efficiency
-    assert!(received_stats.avg_acquisition_time_ms > 30.0); // High acquisition time
     assert_eq!(received_stats.available_buffers, 1); // Pool nearly exhausted
     assert_eq!(received_stats.in_use_buffers, 7); // Most buffers in use
     
@@ -322,9 +309,6 @@ async fn test_buffer_pool_statistics_realistic_patterns() {
             pool_efficiency: 90.0 + (i as f32 * 0.1), // Improving efficiency
             buffer_utilization_percent: 40.0 + (i as f32 * 0.5), // Increasing utilization
             total_megabytes_transferred: (i as f32 * 0.5), // Accumulating data
-            avg_acquisition_time_ms: 15.0 - (i as f32 * 0.2), // Improving acquisition time
-            fastest_acquisition_time_ms: 1.0,
-            slowest_acquisition_time_ms: 20.0 + (i as f32 * 0.1),
         };
         
         let message = worklet_message_generator.create_status_message(stats);
@@ -341,7 +325,6 @@ async fn test_buffer_pool_statistics_realistic_patterns() {
     assert!(last_stats.acquire_count > first_stats.acquire_count);
     assert!(last_stats.transfer_count > first_stats.transfer_count);
     assert!(last_stats.pool_hit_rate > first_stats.pool_hit_rate);
-    assert!(last_stats.avg_acquisition_time_ms < first_stats.avg_acquisition_time_ms);
     
     // Calculate throughput metrics
     let final_stats = last_stats;
@@ -374,9 +357,6 @@ async fn test_buffer_pool_statistics_edge_cases() {
         pool_efficiency: 0.0,
         buffer_utilization_percent: 0.0,
         total_megabytes_transferred: 0.0,
-        avg_acquisition_time_ms: 0.0,
-        fastest_acquisition_time_ms: 0.0,
-        slowest_acquisition_time_ms: 0.0,
     };
     
     let message = worklet_message_generator.create_status_message(zero_stats);
@@ -403,9 +383,6 @@ async fn test_buffer_pool_statistics_edge_cases() {
         pool_efficiency: 99.5,
         buffer_utilization_percent: 100.0,
         total_megabytes_transferred: 1000.0,
-        avg_acquisition_time_ms: 1000.0,
-        fastest_acquisition_time_ms: 1.0,
-        slowest_acquisition_time_ms: 5000.0,
     };
     
     let message = worklet_message_generator.create_status_message(max_stats);

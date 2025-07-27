@@ -806,7 +806,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 
                 // Create buffer pool statistics to include with the audio data
                 const poolStats = this.bufferPool.getStats();
-                const poolPerfMetrics = this.bufferPool.getPerformanceMetrics();
                 const bufferPoolStats = {
                     pool_size: this.bufferPool.poolSize,
                     available_buffers: poolStats.availableBuffers,
@@ -821,10 +820,7 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     pool_efficiency: poolStats.transferCount > 0 ? 
                         (poolStats.transferCount / (poolStats.transferCount + poolStats.poolExhaustedCount)) * 100 : 0.0,
                     buffer_utilization_percent: this.bufferStats.averageBufferUtilization * 100,
-                    total_megabytes_transferred: this.bufferStats.totalBytesTransferred / 1024 / 1024,
-                    avg_acquisition_time_ms: poolPerfMetrics.averageAcquisitionTime || 0.0,
-                    fastest_acquisition_time_ms: poolPerfMetrics.fastestAcquisitionTime || 0.0,
-                    slowest_acquisition_time_ms: poolPerfMetrics.slowestAcquisitionTime || 0.0
+                    total_megabytes_transferred: this.bufferStats.totalBytesTransferred / 1024 / 1024
                 };
                 
                 // Create typed message for audio data batch

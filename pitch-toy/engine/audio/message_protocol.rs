@@ -175,16 +175,6 @@ pub struct BufferPoolStats {
     
     /// Total megabytes transferred
     pub total_megabytes_transferred: f32,
-    
-    /// Average acquisition time in milliseconds
-    pub avg_acquisition_time_ms: f32,
-    
-    /// Fastest acquisition time in milliseconds
-    pub fastest_acquisition_time_ms: f32,
-    
-    /// Slowest acquisition time in milliseconds
-    pub slowest_acquisition_time_ms: f32,
-    
 }
 
 /// Batch processing configuration
@@ -1260,12 +1250,6 @@ impl ToJsMessage for BufferPoolStats {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set buffer_utilization_percent: {:?}", e)))?;
         Reflect::set(&obj, &"total_megabytes_transferred".into(), &(self.total_megabytes_transferred as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set total_megabytes_transferred: {:?}", e)))?;
-        Reflect::set(&obj, &"avg_acquisition_time_ms".into(), &(self.avg_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set avg_acquisition_time_ms: {:?}", e)))?;
-        Reflect::set(&obj, &"fastest_acquisition_time_ms".into(), &(self.fastest_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set fastest_acquisition_time_ms: {:?}", e)))?;
-        Reflect::set(&obj, &"slowest_acquisition_time_ms".into(), &(self.slowest_acquisition_time_ms as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set slowest_acquisition_time_ms: {:?}", e)))?;
         
         Ok(obj)
     }
@@ -1345,25 +1329,6 @@ impl FromJsMessage for BufferPoolStats {
             .ok_or_else(|| SerializationError::InvalidPropertyType("total_megabytes_transferred must be number".to_string()))?
             as f32;
         
-        let avg_acquisition_time_ms = Reflect::get(obj, &"avg_acquisition_time_ms".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get avg_acquisition_time_ms: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("avg_acquisition_time_ms must be number".to_string()))?
-            as f32;
-        
-        let fastest_acquisition_time_ms = Reflect::get(obj, &"fastest_acquisition_time_ms".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get fastest_acquisition_time_ms: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("fastest_acquisition_time_ms must be number".to_string()))?
-            as f32;
-        
-        let slowest_acquisition_time_ms = Reflect::get(obj, &"slowest_acquisition_time_ms".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get slowest_acquisition_time_ms: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("slowest_acquisition_time_ms must be number".to_string()))?
-            as f32;
-        
-        
         Ok(BufferPoolStats {
             pool_size,
             available_buffers,
@@ -1377,9 +1342,6 @@ impl FromJsMessage for BufferPoolStats {
             pool_efficiency,
             buffer_utilization_percent,
             total_megabytes_transferred,
-            avg_acquisition_time_ms,
-            fastest_acquisition_time_ms,
-            slowest_acquisition_time_ms,
         })
     }
 }
