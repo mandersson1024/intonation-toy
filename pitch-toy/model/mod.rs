@@ -379,7 +379,7 @@ impl DataModel {
                 
                 trace_log!(
                     "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
-                    from_midi_note(closest_midi_note), normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
+                    closest_midi_note, normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
                 );
                 
                 Accuracy {
