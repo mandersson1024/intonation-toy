@@ -573,7 +573,12 @@ impl DataModel {
                 let root_midi = self.note_to_midi_number(self.root_note.clone());
                 root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
             }
-            // Future tuning systems will have different formulas here
+            TuningSystem::JustIntonation => {
+                // For now, use equal temperament formula as placeholder
+                // TODO: Implement proper just intonation calculations
+                let root_midi = self.note_to_midi_number(self.root_note.clone());
+                root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
+            }
         };
         
         // Round to nearest MIDI note for note identification
@@ -650,9 +655,10 @@ impl DataModel {
                 // This represents being halfway to the next semitone
                 50.0
             }
-            // Future tuning systems will have their own thresholds:
-            // - Just Intonation might use 35 cents for stricter pure intervals
-            // - Pythagorean might use different thresholds for different intervals
+            TuningSystem::JustIntonation => {
+                // Just Intonation: stricter threshold for pure intervals
+                35.0
+            }
         };
         
         #[cfg(debug_assertions)]
@@ -726,10 +732,13 @@ impl DataModel {
                 
                 reference_freq
             }
-            // Future tuning systems will calculate differently:
-            // - Just Intonation: Based on frequency ratios (3:2, 5:4, etc.)
-            // - Pythagorean: Based on perfect fifth stacking
-            // - Meantone: Tempered fifths for better thirds
+            TuningSystem::JustIntonation => {
+                // For now, use the same calculation as equal temperament
+                // TODO: Implement proper just intonation frequency ratios
+                let root_midi = self.note_to_midi_number(self.root_note.clone());
+                let midi_diff = root_midi - A4_MIDI;
+                A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0)
+            }
         }
     }
     

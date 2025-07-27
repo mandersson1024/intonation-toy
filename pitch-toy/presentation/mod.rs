@@ -713,6 +713,9 @@ impl Presenter {
             crate::shared_types::TuningSystem::EqualTemperament => {
                 // Update UI to show Equal Temperament tuning
             }
+            crate::shared_types::TuningSystem::JustIntonation => {
+                // Update UI to show Just Intonation tuning
+            }
         }
     }
 }

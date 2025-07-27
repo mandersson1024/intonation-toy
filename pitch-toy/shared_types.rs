@@ -33,7 +33,7 @@ pub enum Note {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TuningSystem {
     EqualTemperament,
-    // Room for future tuning systems like JustIntonation, Pythagorean, etc.
+    JustIntonation,
 }
 
 #[derive(Debug, Clone, PartialEq)]

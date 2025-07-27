@@ -526,6 +526,7 @@ impl DebugPanel {
                         .show_ui(ui, |ui| {
                             let tuning_systems = [
                                 TuningSystem::EqualTemperament,
+                                TuningSystem::JustIntonation,
                             ];
                             
                             for system in &tuning_systems {
