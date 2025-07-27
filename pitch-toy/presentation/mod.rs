@@ -581,9 +581,6 @@ impl Presenter {
             crate::shared_types::TuningSystem::EqualTemperament => {
                 // Update UI to show Equal Temperament tuning
             }
-            crate::shared_types::TuningSystem::JustIntonation => {
-                // Update UI to show Just Intonation tuning
-            }
         }
     }
 }
@@ -751,11 +748,11 @@ mod tests {
             .expect("Presenter creation should succeed");
 
         // Trigger tuning system change
-        presenter.on_tuning_system_changed(TuningSystem::JustIntonation);
+        presenter.on_tuning_system_changed(TuningSystem::EqualTemperament);
         
         let actions = presenter.get_user_actions();
         assert_eq!(actions.tuning_system_changes.len(), 1);
-        assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::JustIntonation);
+        assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
         
         // After getting actions, they should be cleared
         let actions2 = presenter.get_user_actions();
@@ -789,18 +786,18 @@ mod tests {
         // Trigger multiple actions
         presenter.on_tuning_system_changed(TuningSystem::EqualTemperament);
         presenter.on_root_note_adjusted(Note::G);
-        presenter.on_tuning_system_changed(TuningSystem::JustIntonation); // Second change
+        presenter.on_root_note_adjusted(Note::D); // Second root note change
         
         let actions = presenter.get_user_actions();
         
         // Verify all actions were collected
-        assert_eq!(actions.tuning_system_changes.len(), 2);
-        assert_eq!(actions.root_note_adjustments.len(), 1);
+        assert_eq!(actions.tuning_system_changes.len(), 1);
+        assert_eq!(actions.root_note_adjustments.len(), 2);
         
         // Verify action data
         assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
-        assert_eq!(actions.tuning_system_changes[1].tuning_system, TuningSystem::JustIntonation);
         assert_eq!(actions.root_note_adjustments[0].root_note, Note::G);
+        assert_eq!(actions.root_note_adjustments[1].root_note, Note::D);
         
         // After getting actions, all should be cleared
         let actions2 = presenter.get_user_actions();
@@ -829,8 +826,8 @@ mod tests {
         let perm_req2 = RequestMicrophonePermission;
         assert_eq!(perm_req1, perm_req2);
         
-        let tuning_change1 = ChangeTuningSystem { tuning_system: TuningSystem::JustIntonation };
-        let tuning_change2 = ChangeTuningSystem { tuning_system: TuningSystem::JustIntonation };
+        let tuning_change1 = ChangeTuningSystem { tuning_system: TuningSystem::EqualTemperament };
+        let tuning_change2 = ChangeTuningSystem { tuning_system: TuningSystem::EqualTemperament };
         assert_eq!(tuning_change1, tuning_change2);
         
         let root_note1 = AdjustRootNote { root_note: Note::F };

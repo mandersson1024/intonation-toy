@@ -490,10 +490,18 @@ impl DataModel {
             return (Note::A, 0.0);
         }
         
-        // Calculate MIDI note number from frequency
-        // MIDI note 69 = A4 (always 440 Hz)
-        const A4_FREQUENCY: f32 = 440.0;
-        let midi_note = 69.0 + 12.0 * (frequency / A4_FREQUENCY).log2();
+        // Get reference frequency based on tuning system and root note
+        let reference_freq = self.get_reference_frequency();
+        
+        // Calculate MIDI note number from frequency using the tuning system reference
+        let midi_note = match self.tuning_system {
+            TuningSystem::EqualTemperament => {
+                // In equal temperament, use standard MIDI calculation
+                let root_midi = self.note_to_midi_number(self.root_note.clone());
+                root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
+            }
+        };
+        
         let rounded_midi = midi_note.round();
         let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive
         
@@ -525,9 +533,55 @@ impl DataModel {
     /// 0.0 = perfectly in tune, 1.0 = 50 cents (half semitone) or worse
     fn normalize_accuracy(&self, cents: f32) -> f32 {
         let abs_cents = cents.abs();
-        // Clamp to max 50 cents for normalization
-        let clamped_cents = abs_cents.min(50.0);
-        clamped_cents / 50.0
+        
+        // Apply tuning-system specific thresholds
+        let max_cents = match self.tuning_system {
+            TuningSystem::EqualTemperament => 50.0, // Standard 50 cents for equal temperament
+            // Future tuning systems might have different tolerance thresholds
+        };
+        
+        // Clamp to max cents for normalization
+        let clamped_cents = abs_cents.min(max_cents);
+        clamped_cents / max_cents
+    }
+    
+    /// Get the reference frequency for the current root note and tuning system
+    fn get_reference_frequency(&self) -> f32 {
+        // Base frequency is A4 = 440Hz in standard tuning
+        const A4_FREQUENCY: f32 = 440.0;
+        
+        match self.tuning_system {
+            TuningSystem::EqualTemperament => {
+                // Calculate reference frequency based on root note
+                // Get the MIDI number difference from A4 (MIDI 69)
+                let root_midi = self.note_to_midi_number(self.root_note.clone());
+                let midi_diff = root_midi - 69; // A4 is MIDI note 69
+                
+                // Calculate frequency using equal temperament formula
+                // Each semitone is 2^(1/12) ratio
+                A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0)
+            }
+        }
+    }
+    
+    /// Convert a Note to its MIDI number (using C4 = 60 convention)
+    fn note_to_midi_number(&self, note: Note) -> i32 {
+        // Assuming we're working in the 4th octave (middle C = C4 = MIDI 60)
+        // This can be extended to support multiple octaves in the future
+        match note {
+            Note::C => 60,
+            Note::DFlat => 61,
+            Note::D => 62,
+            Note::EFlat => 63,
+            Note::E => 64,
+            Note::F => 65,
+            Note::FSharp => 66,
+            Note::G => 67,
+            Note::AFlat => 68,
+            Note::A => 69,
+            Note::BFlat => 70,
+            Note::B => 71,
+        }
     }
     
     
@@ -905,9 +959,7 @@ mod tests {
         
         // Create presentation actions with valid changes
         let mut actions = PresentationLayerActions::new();
-        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
-            tuning_system: TuningSystem::JustIntonation,
-        });
+        // Since we only have EqualTemperament, we'll test by changing root note only
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
             root_note: Note::C,
         });
@@ -915,14 +967,13 @@ mod tests {
         let result = model.process_user_actions(actions);
         
         // Should have successful actions
-        assert_eq!(result.actions.audio_system_configurations.len(), 1);
         assert_eq!(result.actions.tuning_configurations.len(), 1);
         
         // Should have no validation errors
         assert_eq!(result.validation_errors.len(), 0);
         
         // Verify model state was updated
-        assert_eq!(model.tuning_system, TuningSystem::JustIntonation);
+        assert_eq!(model.tuning_system, TuningSystem::EqualTemperament);
         assert_eq!(model.root_note, Note::C);
     }
 
@@ -939,11 +990,6 @@ mod tests {
             tuning_system: TuningSystem::EqualTemperament,
         });
         
-        // Valid: different tuning system
-        actions.tuning_system_changes.push(crate::presentation::ChangeTuningSystem {
-            tuning_system: TuningSystem::JustIntonation,
-        });
-        
         // Invalid: same root note
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
             root_note: Note::A,
@@ -956,8 +1002,8 @@ mod tests {
         
         let result = model.process_user_actions(actions);
         
-        // Should have successful actions
-        assert_eq!(result.actions.audio_system_configurations.len(), 1);
+        // Should have successful actions for the valid root note change
+        assert_eq!(result.actions.audio_system_configurations.len(), 0);
         assert_eq!(result.actions.tuning_configurations.len(), 1);
         
         // Should have validation errors for failed actions
@@ -968,7 +1014,7 @@ mod tests {
         assert!(result.validation_errors.contains(&ValidationError::RootNoteAlreadySet(Note::A)));
         
         // Verify model state was updated only for valid actions
-        assert_eq!(model.tuning_system, TuningSystem::JustIntonation);
+        assert_eq!(model.tuning_system, TuningSystem::EqualTemperament);
         assert_eq!(model.root_note, Note::D);
     }
 }

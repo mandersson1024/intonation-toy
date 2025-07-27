@@ -15,6 +15,34 @@ pub struct Volume {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Note {
+    C,
+    DFlat,
+    D,
+    EFlat,
+    E,
+    F,
+    FSharp,
+    G,
+    AFlat,
+    A,
+    BFlat,
+    B,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TuningSystem {
+    EqualTemperament,
+    // Room for future tuning systems like JustIntonation, Pythagorean, etc.
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Accuracy {
+    pub closest_note: Note,
+    pub accuracy: f32, // 0.0 = perfect, 1.0 = maximum deviation
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Pitch {
     Detected(f32, f32), // frequency, clarity
     NotDetected,
@@ -58,6 +86,8 @@ pub struct EngineUpdateResult {
 pub struct ModelUpdateResult {
     pub volume: Volume,
     pub pitch: Pitch,
+    pub accuracy: Accuracy,
+    pub tuning_system: TuningSystem,
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
 }
@@ -94,17 +124,23 @@ mod tests {
     fn test_model_update_result_creation() {
         let test_volume = Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 };
         let test_pitch = Pitch::Detected(440.0, 0.9);
+        let test_accuracy = Accuracy { closest_note: Note::A, accuracy: 0.1 };
+        let test_tuning_system = TuningSystem::EqualTemperament;
         let test_errors = vec![Error::ProcessingError("Test error".to_string())];
 
         let update_result = ModelUpdateResult {
             volume: test_volume.clone(),
             pitch: test_pitch.clone(),
+            accuracy: test_accuracy.clone(),
+            tuning_system: test_tuning_system.clone(),
             errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
         };
 
         assert_eq!(update_result.volume, test_volume);
         assert_eq!(update_result.pitch, test_pitch);
+        assert_eq!(update_result.accuracy, test_accuracy);
+        assert_eq!(update_result.tuning_system, test_tuning_system);
         assert_eq!(update_result.errors, test_errors);
         assert_eq!(update_result.permission_state, PermissionState::Granted);
     }
