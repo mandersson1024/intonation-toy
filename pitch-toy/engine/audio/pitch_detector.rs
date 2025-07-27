@@ -1,4 +1,3 @@
-use std::fmt;
 use pitch_detection::detector::{yin::YINDetector, PitchDetector as PitchDetectorTrait};
 
 pub type PitchDetectionError = String;
@@ -44,13 +43,6 @@ pub struct PitchDetector {
     config: PitchDetectorConfig,
     yin_detector: YINDetector<f32>,
     sample_rate: u32,
-    // Performance optimization flags
-    power_of_2_optimized: bool,
-    early_exit_enabled: bool,
-    // Pre-computed values for performance
-    nyquist_frequency: f32,
-    min_period_samples: usize,
-    max_period_samples: usize,
 }
 
 impl PitchDetector {
@@ -93,24 +85,11 @@ impl PitchDetector {
 
         let yin_detector = YINDetector::new(config.sample_window_size, 0);
 
-        // Pre-compute performance values
-        let nyquist_frequency = sample_rate as f32 / 2.0;
-        let min_period_samples = (sample_rate as f32 / config.max_frequency).ceil() as usize;
-        let max_period_samples = (sample_rate as f32 / config.min_frequency).floor() as usize;
-        
-        // Enable optimizations for better performance
-        let power_of_2_optimized = config.sample_window_size.is_power_of_two();
-        let early_exit_enabled = true; // Always enable early exit for performance
 
         Ok(Self {
             config,
             yin_detector,
             sample_rate,
-            power_of_2_optimized,
-            early_exit_enabled,
-            nyquist_frequency,
-            min_period_samples,
-            max_period_samples,
         })
     }
 
@@ -123,21 +102,8 @@ impl PitchDetector {
             ));
         }
 
-        // Early exit optimization: Check for sufficient signal energy
-        if self.early_exit_enabled {
-            if !self.has_sufficient_energy(samples) {
-                return Ok(None);
-            }
-        }
-
-        // Use optimized YIN analysis based on window size characteristics
-        let result = if self.power_of_2_optimized {
-            // Use optimized parameters for power-of-2 window sizes
-            self.yin_detector.get_pitch(samples, self.sample_rate as usize, 0.0, self.config.threshold)
-        } else {
-            // Standard analysis for non-power-of-2 sizes
-            self.yin_detector.get_pitch(samples, self.sample_rate as usize, 0.0, self.config.threshold)
-        };
+        // Use YIN analysis
+        let result = self.yin_detector.get_pitch(samples, self.sample_rate as usize, 0.0, self.config.threshold);
         
 
         match result {
@@ -147,11 +113,6 @@ impl PitchDetector {
 
                 // Fast frequency range check using pre-computed values
                 if frequency < self.config.min_frequency || frequency > self.config.max_frequency {
-                    return Ok(None);
-                }
-
-                // Additional optimization: Check if frequency is within Nyquist limit
-                if frequency > self.nyquist_frequency {
                     return Ok(None);
                 }
 
@@ -167,22 +128,6 @@ impl PitchDetector {
         }
     }
 
-    /// Check if the input signal has sufficient energy for pitch detection
-    /// This is an optimization to avoid running YIN on silence or very low signals
-    fn has_sufficient_energy(&self, samples: &[f32]) -> bool {
-        // Calculate RMS energy
-        let mut energy_sum = 0.0f32;
-        for &sample in samples {
-            energy_sum += sample * sample;
-        }
-        
-        let rms_energy = (energy_sum / samples.len() as f32).sqrt();
-        
-        // Threshold for minimum signal energy (adjust based on your needs)
-        // This prevents processing of silence or very quiet signals
-        const ENERGY_THRESHOLD: f32 = 0.001; // -60dB approximately
-        rms_energy > ENERGY_THRESHOLD
-    }
 
     /// Get optimal window size recommendation balancing accuracy and latency
     pub fn get_optimal_window_size_for_latency(target_latency_ms: f32, sample_rate: u32) -> usize {
@@ -223,20 +168,7 @@ impl PitchDetector {
         }
     }
 
-    /// Enable or disable early exit optimizations
-    pub fn set_early_exit_enabled(&mut self, enabled: bool) {
-        self.early_exit_enabled = enabled;
-    }
 
-    /// Check if early exit optimization is enabled
-    pub fn early_exit_enabled(&self) -> bool {
-        self.early_exit_enabled
-    }
-
-    /// Check if the detector is using power-of-2 optimizations
-    pub fn is_power_of_2_optimized(&self) -> bool {
-        self.power_of_2_optimized
-    }
 
     /// Get performance characteristics of current configuration
     pub fn get_performance_characteristics(&self) -> (f32, &'static str) {
@@ -318,10 +250,6 @@ impl PitchDetector {
             self.yin_detector = YINDetector::new(new_config.sample_window_size, 0);
         }
 
-        // Recalculate optimization parameters
-        self.power_of_2_optimized = new_config.sample_window_size.is_power_of_two();
-        self.min_period_samples = (self.sample_rate as f32 / new_config.max_frequency).ceil() as usize;
-        self.max_period_samples = (self.sample_rate as f32 / new_config.min_frequency).floor() as usize;
 
         self.config = new_config;
         Ok(())
@@ -360,9 +288,6 @@ impl PitchDetector {
             ));
         }
         
-        if !self.power_of_2_optimized {
-            return Ok(()); // Warning but not error
-        }
         
         Ok(())
     }

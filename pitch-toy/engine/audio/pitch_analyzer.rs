@@ -324,9 +324,6 @@ impl PitchAnalyzer {
             self.update_config(new_config)?;
         }
         
-        // For accuracy optimization, be more conservative with early exit
-        // Only enable if target is very strict (< 25ms)
-        self.pitch_detector.set_early_exit_enabled(target_latency_ms < 25.0);
         
         Ok(())
     }
@@ -345,8 +342,6 @@ impl PitchAnalyzer {
             self.update_config(new_config)?;
         }
         
-        // Disable early exit for maximum accuracy
-        self.pitch_detector.set_early_exit_enabled(false);
         
         Ok(())
     }
@@ -1219,8 +1214,6 @@ mod tests {
         assert!(optimal_size >= 128); // Should be at least minimum
         assert!(optimal_size % 128 == 0); // Should be multiple of 128
         
-        // Test power-of-2 optimization detection
-        assert!(detector.is_power_of_2_optimized()); // 1024 is power of 2
     }
 
     #[wasm_bindgen_test]
@@ -1240,11 +1233,10 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
         
-        // Disable early exit and try again
-        detector.set_early_exit_enabled(false);
+        // Test analysis without early exit optimization
         let result = detector.analyze(&silence);
         assert!(result.is_ok());
-        // Should still return None for silence, but now due to YIN algorithm
+        // Should still return None for silence due to YIN algorithm
     }
 
     // Confidence Scoring Accuracy and Consistency Tests (Task 8 Requirements)
