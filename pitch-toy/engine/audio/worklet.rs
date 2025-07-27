@@ -120,7 +120,7 @@ impl AudioWorkletSharedData {
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
-            batch_size: 1024, // Default batch size
+            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
         }
     }
 }
@@ -201,7 +201,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: 1024, // Default batch size
+            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
         }
     }
     
@@ -238,7 +238,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: 1024, // Default batch size
+            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
         }
     }
     

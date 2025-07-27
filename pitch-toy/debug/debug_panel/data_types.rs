@@ -55,7 +55,7 @@ impl Default for AudioWorkletStatus {
             state: AudioWorkletState::Uninitialized,
             processor_loaded: false,
             chunk_size: AUDIO_CHUNK_SIZE as u32,
-            batch_size: 1024,
+            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32,
             batches_processed: 0,
         }
     }

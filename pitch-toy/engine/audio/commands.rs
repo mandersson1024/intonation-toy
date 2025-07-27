@@ -154,7 +154,9 @@ impl ConsoleCommand for PoolConfigCommand {
             outputs.push(ConsoleOutput::success("🔧 Buffer Pool Configuration"));
             outputs.push(ConsoleOutput::info("Current Settings:"));
             outputs.push(ConsoleOutput::info("  Pool Size: 16 buffers"));
-            outputs.push(ConsoleOutput::info("  Buffer Size: 4096 bytes (1024 samples)"));
+            outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} bytes ({} samples)", 
+                crate::engine::audio::buffer::BUFFER_SIZE * 4, 
+                crate::engine::audio::buffer::BUFFER_SIZE)));
             outputs.push(ConsoleOutput::info("  Timeout: 5000ms"));
             outputs.push(ConsoleOutput::info("  GC Detection: Enabled (50ms threshold)"));
             outputs.push(ConsoleOutput::info("  Validation: Enabled"));

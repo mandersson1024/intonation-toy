@@ -7,7 +7,7 @@
  * 
  * Key Features:
  * - Fixed 128-sample chunk processing (Web Audio API standard)
- * - Batched audio data transfer (default: 1024 samples / 8 chunks)
+ * - Batched audio data transfer (default: 4096 samples / 32 chunks)
  * - Transferable ArrayBuffers for zero-copy message passing
  * - Configurable batch size and timeout for low-latency scenarios
  * - Buffer pool management with ping-pong recycling pattern
@@ -37,6 +37,10 @@
  * ```
  */
 
+// Buffer size constants - IMPORTANT: Must match Rust BUFFER_SIZE constant in engine/audio/buffer.rs
+const AUDIO_CHUNK_SIZE = 128;  // Fixed AudioWorklet chunk size
+const BUFFER_SIZE = AUDIO_CHUNK_SIZE * 32;  // 4096 samples - matches Rust constant
+
 // AudioWorklet compatibility helpers
 // Note: performance and other APIs are not available in AudioWorklet context
 function getCurrentTime() {
@@ -46,7 +50,7 @@ function getCurrentTime() {
 // TransferableBufferPool class (inlined for AudioWorklet compatibility)
 // Note: importScripts is not available in AudioWorklet context
 class TransferableBufferPool {
-    constructor(poolSize = 4, bufferCapacity = 1024, options = {}) {
+    constructor(poolSize = 4, bufferCapacity = BUFFER_SIZE, options = {}) {
         this.poolSize = poolSize;
         this.bufferCapacity = bufferCapacity;
         this.buffers = [];
@@ -405,8 +409,8 @@ class AudioWorkletMessageProtocol {
             timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSOR_READY,
-                chunkSize: options.chunkSize || 128,
-                batchSize: options.batchSize || 1024,
+                chunkSize: options.chunkSize || AUDIO_CHUNK_SIZE,
+                batchSize: options.batchSize || BUFFER_SIZE,
                 bufferPoolSize: options.bufferPoolSize || 4,
                 sampleRate: options.sampleRate || 44100
             }
@@ -627,10 +631,10 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.messageProtocol = new AudioWorkletMessageProtocol();
         
         // Fixed chunk size as per Web Audio API specification
-        this.chunkSize = 128;
+        this.chunkSize = AUDIO_CHUNK_SIZE;
         
         // Batch configuration for transferable buffers
-        this.batchSize = 1024; // 8 chunks of 128 samples
+        this.batchSize = BUFFER_SIZE; // 32 chunks of 128 samples
         this.chunksPerBatch = this.batchSize / this.chunkSize;
         
         // Initialize buffer pool for ping-pong recycling

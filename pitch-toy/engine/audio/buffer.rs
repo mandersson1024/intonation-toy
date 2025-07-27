@@ -4,7 +4,7 @@
 use std::collections::VecDeque;
 
 pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed chunk size
-pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096
+pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096 - IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
 
 
 /// Validates that buffer size is a multiple of 128
@@ -338,10 +338,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_buffer_size_constants() {
-        assert_eq!(PRODUCTION_BUFFER_SIZE, 4096);
-        assert_eq!(DEV_BUFFER_SIZE_MIN, 256);
-        assert_eq!(DEV_BUFFER_SIZE_MAX, 4096);
-        assert_eq!(DEV_BUFFER_SIZE_DEFAULT, 4096);
+        assert_eq!(BUFFER_SIZE, 4096);
         assert_eq!(AUDIO_CHUNK_SIZE, 128);
     }
 
@@ -360,16 +357,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_buffer_size_validation_for_creation() {
-        // Valid sizes for creation in debug mode
-        assert!(validate_buffer_size_for_creation(256).is_ok());
-        assert!(validate_buffer_size_for_creation(512).is_ok());
-        assert!(validate_buffer_size_for_creation(1024).is_ok());
+        // Only the exact BUFFER_SIZE is valid for creation
+        assert!(validate_buffer_size_for_creation(BUFFER_SIZE).is_ok());
         
-        // Invalid sizes for creation in debug mode (too small or too large)
-        if cfg!(debug_assertions) {
-            assert!(validate_buffer_size_for_creation(128).is_err()); // Too small (< 256)
-            assert!(validate_buffer_size_for_creation(8192).is_err()); // Too large (> 4096)
-        }
+        // All other sizes should fail
+        assert!(validate_buffer_size_for_creation(256).is_err());
+        assert!(validate_buffer_size_for_creation(512).is_err());
+        assert!(validate_buffer_size_for_creation(1024).is_err());
+        assert!(validate_buffer_size_for_creation(8192).is_err());
         
         // Invalid sizes (not multiples of 128)
         assert!(validate_buffer_size_for_creation(100).is_err());
