@@ -604,59 +604,6 @@ impl DataModel {
     }
     
     
-    /// Normalize accuracy value to a 0.0-1.0 range with tuning system awareness
-    /// 
-    /// This method converts raw cent values into a normalized accuracy score that
-    /// accounts for different tuning systems' tolerance thresholds. Different tuning
-    /// systems may have different acceptable ranges of deviation.
-    /// 
-    /// # Tuning System Specific Thresholds
-    /// 
-    /// - Equal Temperament: 50 cents threshold (standard half-semitone)
-    /// - Future Just Intonation: May use tighter thresholds for pure intervals
-    /// - Future Pythagorean: May have different thresholds for different intervals
-    /// 
-    /// # Normalization Process
-    /// 
-    /// 1. Takes absolute value of cents (direction doesn't matter for accuracy)
-    /// 2. Applies tuning-specific maximum threshold
-    /// 3. Clamps to threshold to prevent values > 1.0
-    /// 4. Normalizes to 0.0-1.0 range
-    /// 
-    /// # Returns
-    /// 
-    /// - 0.0 = Perfectly in tune
-    /// - 0.5 = Half of maximum acceptable deviation
-    /// - 1.0 = At or beyond maximum acceptable deviation
-    fn normalize_accuracy(&self, cents: f32) -> f32 {
-        let abs_cents = cents.abs();
-        
-        // Apply tuning-system specific thresholds
-        // Different tuning systems have different concepts of "acceptable" intonation
-        let max_cents = match self.tuning_system {
-            TuningSystem::EqualTemperament => {
-                // Equal temperament: 50 cents is the standard threshold
-                // This represents being halfway to the next semitone
-                50.0
-            }
-            TuningSystem::JustIntonation => {
-                // Just Intonation: stricter threshold for pure intervals
-                35.0
-            }
-        };
-        
-        
-        // Clamp to max cents for normalization (ensures 0.0-1.0 range)
-        let clamped_cents = abs_cents.min(max_cents);
-        let normalized = clamped_cents / max_cents;
-        
-        trace_log!(
-            "[MODEL] Normalized accuracy: {} cents -> {} (using {:?} threshold {})",
-            cents, normalized, self.tuning_system, max_cents
-        );
-        
-        normalized
-    }
     
     /// Get the reference frequency for the current root note and tuning system
     /// 
@@ -1248,30 +1195,6 @@ mod tests {
         // Cents calculation will be relative to D root
     }
 
-    /// Test normalize_accuracy with tuning-specific thresholds
-    #[wasm_bindgen_test]
-    fn test_normalize_accuracy_with_tuning_awareness() {
-        let model = DataModel::create().unwrap();
-        
-        // Test perfect tuning
-        assert_eq!(model.normalize_accuracy(0.0), 0.0, "Perfect tuning should be 0.0");
-        
-        // Test within threshold
-        assert_eq!(model.normalize_accuracy(25.0), 0.5, "25 cents should be 0.5 (halfway to threshold)");
-        assert_eq!(model.normalize_accuracy(-25.0), 0.5, "Negative cents should use absolute value");
-        
-        // Test at threshold
-        assert_eq!(model.normalize_accuracy(50.0), 1.0, "50 cents should be 1.0 (at threshold)");
-        assert_eq!(model.normalize_accuracy(-50.0), 1.0, "Negative threshold should also be 1.0");
-        
-        // Test beyond threshold
-        assert_eq!(model.normalize_accuracy(75.0), 1.0, "Beyond threshold should clamp to 1.0");
-        assert_eq!(model.normalize_accuracy(100.0), 1.0, "Way beyond threshold should still be 1.0");
-        
-        // Test small deviations
-        assert!(model.normalize_accuracy(5.0) < 0.15, "5 cents should be minor inaccuracy");
-        assert!(model.normalize_accuracy(10.0) < 0.25, "10 cents should be noticeable but small");
-    }
 
     /// Test get_reference_frequency for different root notes
     #[wasm_bindgen_test]

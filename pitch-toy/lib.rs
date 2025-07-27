@@ -219,9 +219,9 @@ pub async fn run_three_d_with_layers(
             if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
                 match result.pitch {
                     crate::shared_types::Pitch::Detected(frequency, _) => {
-                        separation_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, accuracy: {:.2}% (tuning: {:?})",
-                            result.accuracy.closest_note,
-                            (1.0 - result.accuracy.accuracy) * 100.0,
+                        separation_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, cents offset: {:.2} (tuning: {:?})",
+                            result.accuracy.midi_note,
+                            result.accuracy.cents_offset,
                             result.tuning_system
                         );
                     }

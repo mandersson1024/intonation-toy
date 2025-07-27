@@ -79,8 +79,8 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result = model.update(1.0, engine_data.clone());
     
     // Verify model added musical interpretation
-    assert_eq!(model_result.accuracy.closest_note, 69);
-    assert!(model_result.accuracy.accuracy < 0.01, "440Hz should be perfectly in tune with A");
+    assert_eq!(model_result.accuracy.midi_note, 69);
+    assert!(model_result.accuracy.cents_offset.abs() < 1.0, "440Hz should be perfectly in tune with A");
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Change root note to C
@@ -94,10 +94,10 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result_c = model.update(2.0, engine_data);
     
     // Verify same frequency has different musical interpretation
-    assert_eq!(model_result_c.accuracy.closest_note, 69);
-    assert!(model_result_c.accuracy.accuracy > 0.01, 
-        "440Hz should show inaccuracy with C root - got accuracy: {}", 
-        model_result_c.accuracy.accuracy);
+    assert_eq!(model_result_c.accuracy.midi_note, 69);
+    assert!(model_result_c.accuracy.cents_offset.abs() > 10.0, 
+        "440Hz should show inaccuracy with C root - got cents offset: {}", 
+        model_result_c.accuracy.cents_offset);
 }
 
 /// Test complete data flow from engine through model to presentation
@@ -134,8 +134,8 @@ async fn test_complete_data_flow_pipeline() {
                 assert!(raw_frequency > 0.0, "Engine should provide raw frequency");
                 
                 // Model transformed it to musical data
-                assert!(model_result.accuracy.closest_note != 69 || 
-                       model_result.accuracy.accuracy < 1.0,
+                assert!(model_result.accuracy.midi_note != 69 || 
+                       model_result.accuracy.cents_offset.abs() < 100.0,
                        "Model should provide musical interpretation");
                 
                 // Model included tuning system
@@ -144,7 +144,7 @@ async fn test_complete_data_flow_pipeline() {
             Pitch::NotDetected => {
                 // Valid case - ensure model handles it properly
                 assert_eq!(model_result.pitch, Pitch::NotDetected);
-                assert_eq!(model_result.accuracy.accuracy, 1.0);
+                assert_eq!(model_result.accuracy.cents_offset, 0.0);
             }
         }
     }
@@ -178,8 +178,8 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Get initial model result with A root
     let result_before = model.update(1.0, engine_data.clone());
-    assert_eq!(result_before.accuracy.closest_note, 69);
-    let accuracy_before = result_before.accuracy.accuracy;
+    assert_eq!(result_before.accuracy.midi_note, 69);
+    let cents_offset_before = result_before.accuracy.cents_offset;
     
     // Change root note in model
     let mut actions = PresentationLayerActions::new();
@@ -195,12 +195,12 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Model should interpret same frequency differently with new root
     let result_after = model.update(2.0, engine_data);
-    assert_eq!(result_after.accuracy.closest_note, 69); // Still detected as A
-    let accuracy_after = result_after.accuracy.accuracy;
+    assert_eq!(result_after.accuracy.midi_note, 69); // Still detected as A
+    let cents_offset_after = result_after.accuracy.cents_offset;
     
-    // Accuracy should be different with different root note
-    assert_ne!(accuracy_before, accuracy_after,
-        "Same frequency should have different accuracy with different root notes");
+    // Cents offset should be different with different root note
+    assert_ne!(cents_offset_before, cents_offset_after,
+        "Same frequency should have different cents offset with different root notes");
 }
 
 /// Test separation boundaries - ensure layers don't perform wrong calculations
@@ -223,15 +223,15 @@ fn test_layer_separation_boundaries() {
     // Engine result has no accuracy or note fields - verified by type system
     // The following would not compile:
     // let _ = engine_result.accuracy; // Error: no field `accuracy`
-    // let _ = engine_result.closest_note; // Error: no field `closest_note`
+    // let _ = engine_result.midi_note; // Error: no field `midi_note`
     
     // Model result includes musical interpretation
     let model_result = ModelUpdateResult {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
         pitch: Pitch::Detected(440.0, 0.95),
         accuracy: Accuracy {
-            closest_note: 69,
-            accuracy: 0.01,
+            midi_note: 69,
+            cents_offset: 1.0,
         },
         tuning_system: TuningSystem::EqualTemperament,
         errors: Vec::new(),
@@ -239,7 +239,7 @@ fn test_layer_separation_boundaries() {
     };
     
     // Model result has musical fields - verified by type system
-    assert_eq!(model_result.accuracy.closest_note, 69);
+    assert_eq!(model_result.accuracy.midi_note, 69);
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Presentation layer receives fully processed data
@@ -275,7 +275,7 @@ fn test_error_propagation_through_layers() {
     
     // Verify model provides sensible defaults when no audio data
     assert_eq!(model_result.pitch, Pitch::NotDetected);
-    assert_eq!(model_result.accuracy.accuracy, 1.0); // Maximum inaccuracy
+    assert_eq!(model_result.accuracy.cents_offset, 0.0); // No offset when no pitch detected
 }
 
 /// Test that volume data flows through layers without musical interpretation
@@ -351,16 +351,16 @@ fn test_sequential_tuning_context_changes() {
         let result = model.update(1.0, engine_data.clone());
         
         // Verify note detection is consistent (absolute pitch)
-        assert_eq!(result.accuracy.closest_note, 72, 
+        assert_eq!(result.accuracy.midi_note, 72, 
             "C5 should always be detected as C regardless of root");
         
-        // Verify accuracy changes with root note (relative accuracy)
+        // Verify cents offset changes with root note (relative accuracy)
         if let Some(prev) = previous_accuracy {
-            // Most root changes should result in different accuracy
+            // Most root changes should result in different cents offset
             // (except in special cases like octaves)
-            println!("{}: accuracy = {}", description, result.accuracy.accuracy);
+            println!("{}: cents_offset = {}", description, result.accuracy.cents_offset);
         }
         
-        previous_accuracy = Some(result.accuracy.accuracy);
+        previous_accuracy = Some(result.accuracy.cents_offset);
     }
 }

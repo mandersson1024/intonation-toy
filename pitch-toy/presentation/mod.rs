@@ -26,7 +26,7 @@
 //! let model_data = ModelUpdateResult {
 //!     volume: pitch_toy::shared_types::Volume { peak: -10.0, rms: -15.0 },
 //!     pitch: pitch_toy::shared_types::Pitch::Detected(440.0, 0.95),
-//!     accuracy: pitch_toy::shared_types::Accuracy { closest_note: pitch_toy::shared_types::Note::A, accuracy: 0.05 },
+//!     accuracy: pitch_toy::shared_types::Accuracy { midi_note: 69, cents_offset: 5.0 },
 //!     tuning_system: pitch_toy::shared_types::TuningSystem::EqualTemperament,
 //!     errors: Vec::new(),
 //!     permission_state: pitch_toy::shared_types::PermissionState::Granted,
@@ -625,7 +625,7 @@ impl Presenter {
     /// 
     /// * `accuracy` - Accuracy metrics containing closest note and deviation
     fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::Accuracy) {
-        let _closest_note = &accuracy.midi_note;
+        let _midi_note = accuracy.midi_note;
         let _cents_offset = accuracy.cents_offset;
         
         // Future: Update tuning needle/indicator position
@@ -732,8 +732,8 @@ mod tests {
             volume: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
             accuracy: crate::shared_types::Accuracy {
-                closest_note: 69,
-                accuracy: 1.0,
+                midi_note: 69,
+                cents_offset: 0.0,
             },
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
             errors: Vec::new(),
