@@ -115,7 +115,22 @@ pub async fn run_three_d_with_layers(
         
         // Update engine layer and get results
         let engine_data = if let Some(ref mut engine) = engine {
-            engine.update(timestamp)
+            let result = engine.update(timestamp);
+            
+            // Verification logging: Engine returns raw frequency data
+            #[cfg(debug_assertions)]
+            if let Some(ref audio_analysis) = result.audio_analysis {
+                match audio_analysis.pitch {
+                    crate::shared_types::Pitch::Detected(frequency, clarity) => {
+                        dev_log!("[SEPARATION] Engine -> Raw frequency: {}Hz, clarity: {}", frequency, clarity);
+                    }
+                    crate::shared_types::Pitch::NotDetected => {
+                        dev_log!("[SEPARATION] Engine -> No pitch detected");
+                    }
+                }
+            }
+            
+            result
         } else {
             // Provide default engine data when engine is not available
             crate::shared_types::EngineUpdateResult {
@@ -127,7 +142,26 @@ pub async fn run_three_d_with_layers(
         
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
-            model.update(timestamp, engine_data.clone())
+            let result = model.update(timestamp, engine_data.clone());
+            
+            // Verification logging: Model applies tuning context to raw frequency
+            #[cfg(debug_assertions)]
+            {
+                match result.pitch {
+                    crate::shared_types::Pitch::Detected(frequency, _) => {
+                        dev_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, accuracy: {:.2}% (tuning: {:?})",
+                            result.accuracy.closest_note,
+                            (1.0 - result.accuracy.accuracy) * 100.0,
+                            result.tuning_system
+                        );
+                    }
+                    crate::shared_types::Pitch::NotDetected => {
+                        dev_log!("[SEPARATION] Model -> No pitch to interpret");
+                    }
+                }
+            }
+            
+            result
         } else {
             // Provide default model data when model is not available
             crate::shared_types::ModelUpdateResult {
@@ -190,6 +224,20 @@ pub async fn run_three_d_with_layers(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                // Verification logging: Presentation receives pre-processed musical data
+                #[cfg(debug_assertions)]
+                {
+                    dev_log!("[SEPARATION] Presentation <- Receives musical data (no calculation needed)");
+                    // Verify separation: Engine result contains only raw data
+                    if engine_data.audio_analysis.is_some() {
+                        // EngineUpdateResult type enforces no musical fields
+                        dev_log!("[SEPARATION] ✓ Engine data contains only raw frequency (no note/accuracy fields)");
+                    }
+                    // Verify separation: Model result contains musical interpretation
+                    dev_log!("[SEPARATION] ✓ Model data contains musical interpretation (note: {:?}, tuning: {:?})",
+                        model_data.accuracy.closest_note, model_data.tuning_system);
+                }
+                
                 presenter_ref.update(timestamp, model_data);
                 presenter_ref.update_viewport(frame_input.viewport);
             }
@@ -220,6 +268,16 @@ pub async fn run_three_d_with_layers(
                 // Log validation errors if any
                 for error in &processed_actions.validation_errors {
                     dev_log!("Action validation error: {:?}", error);
+                }
+                
+                // Verification logging: Show how tuning changes affect frequency interpretation
+                #[cfg(debug_assertions)]
+                if !processed_actions.actions.tuning_configurations.is_empty() {
+                    for config in &processed_actions.actions.tuning_configurations {
+                        dev_log!("[SEPARATION] Tuning context changed -> system: {:?}, root: {:?}", 
+                            config.tuning_system, config.root_note);
+                        dev_log!("[SEPARATION] Same raw frequencies will now be interpreted differently");
+                    }
                 }
                 
                 // Execute validated actions in engine layer

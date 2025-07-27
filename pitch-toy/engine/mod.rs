@@ -64,60 +64,25 @@ use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protoc
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ExecuteMicrophonePermissionRequest;
 
-/// Execution action for audio system configuration
-/// 
-/// This struct represents the execution of audio system configuration at the engine layer.
-/// Temporarily disabled as tuning system handling is being moved to model layer.
-/// #[derive(Debug, Clone, PartialEq)]
-/// pub(crate) struct ConfigureAudioSystem {
-///     /// The tuning system to configure in the audio processing pipeline
-///     pub tuning_system: TuningSystem,
-/// }
-
-/// Execution action for tuning configuration updates
-/// 
-/// This struct represents the execution of tuning configuration updates at the engine layer.
-/// Temporarily disabled as tuning system handling is being moved to model layer.
-/// #[derive(Debug, Clone, PartialEq)]
-/// pub(crate) struct UpdateTuningConfiguration {
-///     /// The tuning system being used
-///     pub tuning_system: TuningSystem,
-///     /// The root note that will serve as the tonic
-///     pub root_note: Note,
-/// }
 
 /// Container for all executed engine layer actions
 /// 
-/// This struct contains vectors of low-level execution actions that have been
-/// processed by the engine layer. These actions represent the actual operations
-/// performed on the audio system hardware and processing pipeline.
-/// 
-/// The engine layer receives `ModelLayerActions` from the model layer, transforms
-/// them into executable operations, performs the execution, and returns the results
-/// as `EngineLayerActions` for logging and feedback purposes.
-/// 
-/// Temporarily simplified as tuning system handling is being moved to model layer.
+/// This struct is reserved for future engine-specific actions. The engine layer
+/// focuses solely on raw audio processing and hardware interface operations,
+/// while all musical interpretation (including tuning systems) is handled by
+/// the model layer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct EngineLayerActions {
-    // Placeholder for future action types
-    // Executed audio system configurations
-    // pub audio_system_configurations: Vec<ConfigureAudioSystem>,
-    
-    // Executed tuning configuration updates  
-    // pub tuning_configurations: Vec<UpdateTuningConfiguration>,
+    // Reserved for future engine-specific action types
 }
 
 impl EngineLayerActions {
     /// Create a new instance with empty action collections
     /// 
-    /// Returns a new `EngineLayerActions` struct with all action vectors initialized
-    /// as empty. This is used as the starting point for collecting executed actions.
-    /// Temporarily simplified as tuning system handling is being moved to model layer.
+    /// Returns a new `EngineLayerActions` struct. Currently empty as all
+    /// musical interpretation has been moved to the model layer.
     pub(crate) fn new() -> Self {
-        Self {
-            // audio_system_configurations: Vec::new(),
-            // tuning_configurations: Vec::new(),
-        }
+        Self {}
     }
 }
 
@@ -360,126 +325,16 @@ impl AudioEngine {
     ///    - Tuning configurations apply root note settings
     /// 3. Collects executed actions for logging and feedback
     /// 4. Provides comprehensive error handling with detailed logging
-    pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
-        self.log_execution_start(&model_actions);
+    pub fn execute_actions(&mut self, _model_actions: ModelLayerActions) -> Result<(), String> {
+        // The engine layer no longer processes tuning-related actions.
+        // All musical interpretation including tuning systems and root notes
+        // is handled exclusively by the model layer.
+        // This method is retained for future engine-specific actions.
         
-        let engine_actions = EngineLayerActions::new();
-        
-        // Temporarily disabled as tuning system handling is being moved to model layer
-        // self.execute_audio_system_configuration_actions_sync(&model_actions, &mut engine_actions)?;
-        // self.execute_tuning_configuration_actions_sync(&model_actions, &mut engine_actions)?;
-        
-        crate::common::dev_log!("PLACEHOLDER: Model actions execution disabled during engine layer refactoring");
-        
-        self.log_execution_completion(&engine_actions);
+        crate::common::dev_log!("Engine layer: No engine-specific actions to execute");
         
         Ok(())
     }
-    
-    /// Log the start of action execution with count information
-    /// 
-    /// This helper method logs the beginning of action execution, providing
-    /// visibility into the number of actions being processed.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `model_actions` - The model layer actions to be executed
-    fn log_execution_start(&self, model_actions: &ModelLayerActions) {
-        // Temporarily disabled as tuning system handling is being moved to model layer
-        // let total_actions = model_actions.audio_system_configurations.len() + 
-        //                   model_actions.tuning_configurations.len();
-        let total_actions = 0; // Placeholder
-        
-        crate::common::dev_log!("Engine layer executing {} model actions", total_actions);
-    }
-    
-    /// Log the completion of action execution with result information
-    /// 
-    /// This helper method logs the successful completion of action execution,
-    /// providing visibility into the number of actions that were executed.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `engine_actions` - The successfully executed engine layer actions
-    fn log_execution_completion(&self, engine_actions: &EngineLayerActions) {
-        // Temporarily disabled as tuning system handling is being moved to model layer
-        // let total_executed = engine_actions.audio_system_configurations.len() + 
-        //                    engine_actions.tuning_configurations.len();
-        let total_executed = 0; // Placeholder
-        
-        crate::common::dev_log!("✓ Engine layer successfully executed {} total actions", total_executed);
-    }
-    
-    // Temporarily disabled as tuning system handling is being moved to model layer
-    // 
-    // /// Execute audio system configurations synchronously
-    // /// 
-    // /// Synchronous version of execute_audio_system_configurations for use in the render loop.
-    // fn execute_audio_system_configuration_actions_sync(
-    //     &self,
-    //     model_actions: &ModelLayerActions,
-    //     engine_actions: &mut EngineLayerActions
-    // ) -> Result<(), String> {
-    //     for config in &model_actions.audio_system_configurations {
-    //         let engine_config = ConfigureAudioSystem {
-    //             tuning_system: config.tuning_system.clone(),
-    //         };
-    //         
-    //         crate::common::dev_log!("Configuring audio system with tuning: {:?}", 
-    //             engine_config.tuning_system);
-    //         
-    //         // Placeholder implementation - always succeeds with inline configuration
-    //         if let Some(ref audio_context) = self.audio_context {
-    //             // Placeholder implementation - always succeeds
-    //             crate::common::dev_log!("PLACEHOLDER: Configuring audio worklet with tuning system {:?}",
-    //                 engine_config.tuning_system);
-    //             
-    //             engine_actions.audio_system_configurations.push(engine_config);
-    //             crate::common::dev_log!("✓ Audio system configuration executed successfully");
-    //         } else {
-    //             crate::common::dev_log!("✗ No audio context available for audio system configuration");
-    //             return Err("Audio system not initialized".to_string());
-    //         }
-    //     }
-    //     
-    //     Ok(())
-    // }
-    // 
-    // /// Execute tuning configurations synchronously
-    // /// 
-    // /// Synchronous version of execute_tuning_configurations for use in the render loop.
-    // fn execute_tuning_configuration_actions_sync(
-    //     &self,
-    //     model_actions: &ModelLayerActions,
-    //     engine_actions: &mut EngineLayerActions
-    // ) -> Result<(), String> {
-    //     for config in &model_actions.tuning_configurations {
-    //         let engine_config = UpdateTuningConfiguration {
-    //             tuning_system: config.tuning_system.clone(),
-    //             root_note: config.root_note.clone(),
-    //         };
-    //         
-    //         crate::common::dev_log!("Updating tuning configuration - tuning: {:?}, root note: {:?}", 
-    //             engine_config.tuning_system, engine_config.root_note);
-    //         
-    //         // Placeholder implementation - always succeeds with inline tuning update
-    //         if let Some(ref _audio_context) = self.audio_context {
-    //             // Placeholder implementation - always succeeds
-    //             crate::common::dev_log!("PLACEHOLDER: Updating audio worklet tuning - system: {:?}, root note: {:?}",
-    //                 engine_config.tuning_system, engine_config.root_note);
-    //             
-    //             engine_actions.tuning_configurations.push(engine_config);
-    //             crate::common::dev_log!("✓ Tuning configuration executed successfully");
-    //         } else {
-    //             crate::common::dev_log!("✗ No audio context available for tuning configuration");
-    //             return Err("Audio system not initialized".to_string());
-    //         }
-    //     }
-    //     
-    //     Ok(())
-    // }
-    
-    
     
     
     /// Execute debug actions with privileged engine access (debug builds only)

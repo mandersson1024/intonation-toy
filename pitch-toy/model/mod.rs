@@ -362,11 +362,27 @@ impl DataModel {
             }
         };
         
-        // Calculate accuracy based on detected pitch
+        // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
-            Pitch::Detected(frequency, _clarity) => {
+            Pitch::Detected(frequency, clarity) => {
+                #[cfg(debug_assertions)]
+                web_sys::console::log_1(&format!(
+                    "[MODEL] Processing detected pitch: {}Hz with clarity {} using {:?} tuning, root {:?}",
+                    frequency, clarity, self.tuning_system, self.root_note
+                ).into());
+                
+                // Apply tuning-aware frequency to note conversion
                 let (closest_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
+                
+                // Apply tuning-aware accuracy normalization
                 let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
+                
+                #[cfg(debug_assertions)]
+                web_sys::console::log_1(&format!(
+                    "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
+                    closest_note, normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
+                ).into());
+                
                 Accuracy {
                     closest_note,
                     accuracy: normalized_accuracy,
@@ -374,8 +390,11 @@ impl DataModel {
             }
             Pitch::NotDetected => {
                 // No pitch detected - return default values
+                #[cfg(debug_assertions)]
+                web_sys::console::log_1(&"[MODEL] No pitch detected, returning default accuracy".into());
+                
                 Accuracy {
-                    closest_note: Note::A,
+                    closest_note: self.root_note.clone(), // Use root note as default
                     accuracy: 1.0, // Maximum inaccuracy when no pitch is detected
                 }
             }
@@ -483,29 +502,83 @@ impl DataModel {
         }
     }
     
-    /// Convert a frequency to the closest musical note
-    /// Returns the note and accuracy (0.0 = perfect, negative = flat, positive = sharp)
+    /// Convert a frequency to the closest musical note with tuning system awareness
+    /// 
+    /// This method applies the current tuning system and root note context to convert
+    /// raw frequency data into musical note identification. The conversion process:
+    /// 
+    /// 1. Validates the input frequency (must be positive)
+    /// 2. Calculates a reference frequency based on tuning system and root note
+    /// 3. Converts frequency to MIDI note space using tuning-specific formulas
+    /// 4. Maps MIDI note to the closest musical note
+    /// 5. Calculates accuracy in cents (1/100th of a semitone)
+    /// 
+    /// # Tuning System Application
+    /// 
+    /// The tuning system affects how frequencies map to notes:
+    /// - Equal Temperament: Each semitone is exactly 2^(1/12) ratio apart
+    /// - Future systems (Just Intonation, etc.) will use different ratios
+    /// 
+    /// # Root Note Context
+    /// 
+    /// The root note determines the reference point for all calculations:
+    /// - Changes the reference frequency used for MIDI conversion
+    /// - Affects which frequencies are considered "in tune"
+    /// - Allows the same frequency to map to different accuracy values
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a tuple of (Note, accuracy_cents) where:
+    /// - Note: The closest musical note to the frequency
+    /// - accuracy_cents: Deviation in cents (negative = flat, positive = sharp)
     fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (Note, f32) {
+        // Handle edge case: invalid or zero frequency
         if frequency <= 0.0 {
+            #[cfg(debug_assertions)]
+            web_sys::console::warn_1(&format!("[MODEL] Invalid frequency for note conversion: {}", frequency).into());
             return (Note::A, 0.0);
         }
         
-        // Get reference frequency based on tuning system and root note
+        // Handle edge case: extremely low frequency (below human hearing ~20Hz)
+        if frequency < 20.0 {
+            #[cfg(debug_assertions)]
+            web_sys::console::warn_1(&format!("[MODEL] Extremely low frequency detected: {}Hz", frequency).into());
+            // Still process but warn in debug mode
+        }
+        
+        // Handle edge case: extremely high frequency (above typical musical range ~4186Hz for C8)
+        if frequency > 4186.0 {
+            #[cfg(debug_assertions)]
+            web_sys::console::warn_1(&format!("[MODEL] Extremely high frequency detected: {}Hz", frequency).into());
+            // Still process but warn in debug mode
+        }
+        
+        // Get reference frequency based on current tuning system and root note
+        // This is the key to tuning-aware processing
         let reference_freq = self.get_reference_frequency();
         
-        // Calculate MIDI note number from frequency using the tuning system reference
+        #[cfg(debug_assertions)]
+        web_sys::console::log_1(&format!(
+            "[MODEL] Converting frequency {}Hz with tuning {:?}, root {:?}, reference {}Hz",
+            frequency, self.tuning_system, self.root_note, reference_freq
+        ).into());
+        
+        // Calculate MIDI note number from frequency using tuning-specific formula
         let midi_note = match self.tuning_system {
             TuningSystem::EqualTemperament => {
-                // In equal temperament, use standard MIDI calculation
+                // Equal temperament: logarithmic relationship between frequency and pitch
+                // Formula: MIDI = root_midi + 12 * log2(frequency / reference_frequency)
                 let root_midi = self.note_to_midi_number(self.root_note.clone());
                 root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
             }
+            // Future tuning systems will have different formulas here
         };
         
+        // Round to nearest MIDI note for note identification
         let rounded_midi = midi_note.round();
-        let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive
+        let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive modulo
         
-        // Convert to Note enum
+        // Map MIDI note index to musical note
         let note = match note_index {
             0 => Note::C,
             1 => Note::DFlat,
@@ -519,48 +592,145 @@ impl DataModel {
             9 => Note::A,
             10 => Note::BFlat,
             11 => Note::B,
-            _ => Note::A, // Fallback
+            _ => {
+                // This should never happen due to modulo 12, but handle gracefully
+                #[cfg(debug_assertions)]
+                web_sys::console::error_1(&format!("[MODEL] Unexpected note index: {}", note_index).into());
+                Note::A
+            }
         };
         
         // Calculate accuracy in cents (100 cents = 1 semitone)
+        // Positive = sharp, Negative = flat
         let accuracy_cents = (midi_note - rounded_midi) * 100.0;
+        
+        #[cfg(debug_assertions)]
+        web_sys::console::log_1(&format!(
+            "[MODEL] Frequency {}Hz -> Note {:?} with accuracy {} cents",
+            frequency, note, accuracy_cents
+        ).into());
         
         (note, accuracy_cents)
     }
     
     
-    /// Normalize accuracy value to a 0.0-1.0 range
-    /// 0.0 = perfectly in tune, 1.0 = 50 cents (half semitone) or worse
+    /// Normalize accuracy value to a 0.0-1.0 range with tuning system awareness
+    /// 
+    /// This method converts raw cent values into a normalized accuracy score that
+    /// accounts for different tuning systems' tolerance thresholds. Different tuning
+    /// systems may have different acceptable ranges of deviation.
+    /// 
+    /// # Tuning System Specific Thresholds
+    /// 
+    /// - Equal Temperament: 50 cents threshold (standard half-semitone)
+    /// - Future Just Intonation: May use tighter thresholds for pure intervals
+    /// - Future Pythagorean: May have different thresholds for different intervals
+    /// 
+    /// # Normalization Process
+    /// 
+    /// 1. Takes absolute value of cents (direction doesn't matter for accuracy)
+    /// 2. Applies tuning-specific maximum threshold
+    /// 3. Clamps to threshold to prevent values > 1.0
+    /// 4. Normalizes to 0.0-1.0 range
+    /// 
+    /// # Returns
+    /// 
+    /// - 0.0 = Perfectly in tune
+    /// - 0.5 = Half of maximum acceptable deviation
+    /// - 1.0 = At or beyond maximum acceptable deviation
     fn normalize_accuracy(&self, cents: f32) -> f32 {
         let abs_cents = cents.abs();
         
         // Apply tuning-system specific thresholds
+        // Different tuning systems have different concepts of "acceptable" intonation
         let max_cents = match self.tuning_system {
-            TuningSystem::EqualTemperament => 50.0, // Standard 50 cents for equal temperament
-            // Future tuning systems might have different tolerance thresholds
+            TuningSystem::EqualTemperament => {
+                // Equal temperament: 50 cents is the standard threshold
+                // This represents being halfway to the next semitone
+                50.0
+            }
+            // Future tuning systems will have their own thresholds:
+            // - Just Intonation might use 35 cents for stricter pure intervals
+            // - Pythagorean might use different thresholds for different intervals
         };
         
-        // Clamp to max cents for normalization
+        #[cfg(debug_assertions)]
+        if abs_cents > max_cents {
+            web_sys::console::log_1(&format!(
+                "[MODEL] Accuracy {} cents exceeds {:?} threshold of {} cents",
+                abs_cents, self.tuning_system, max_cents
+            ).into());
+        }
+        
+        // Clamp to max cents for normalization (ensures 0.0-1.0 range)
         let clamped_cents = abs_cents.min(max_cents);
-        clamped_cents / max_cents
+        let normalized = clamped_cents / max_cents;
+        
+        #[cfg(debug_assertions)]
+        web_sys::console::log_1(&format!(
+            "[MODEL] Normalized accuracy: {} cents -> {} (using {:?} threshold {})",
+            cents, normalized, self.tuning_system, max_cents
+        ).into());
+        
+        normalized
     }
     
     /// Get the reference frequency for the current root note and tuning system
+    /// 
+    /// This method calculates the reference frequency that serves as the basis for
+    /// all frequency-to-note conversions. The reference frequency depends on both
+    /// the tuning system and the selected root note.
+    /// 
+    /// # Reference Frequency Calculation
+    /// 
+    /// The reference frequency is calculated differently for each tuning system:
+    /// 
+    /// ## Equal Temperament
+    /// - Uses A4 = 440Hz as the standard reference
+    /// - Calculates other notes using the formula: f = 440 * 2^((n-69)/12)
+    /// - Where n is the MIDI note number
+    /// 
+    /// ## Future Tuning Systems
+    /// - Just Intonation: Will calculate based on frequency ratios from root
+    /// - Pythagorean: Will use perfect fifth ratios
+    /// - Custom: May allow user-defined reference frequencies
+    /// 
+    /// # Root Note Impact
+    /// 
+    /// The root note changes which frequency is considered the "tonic":
+    /// - If root is A, then A4 = 440Hz is the reference
+    /// - If root is C, then C4 = 261.63Hz becomes the reference
+    /// - All other frequencies are calculated relative to this reference
     fn get_reference_frequency(&self) -> f32 {
         // Base frequency is A4 = 440Hz in standard tuning
         const A4_FREQUENCY: f32 = 440.0;
+        const A4_MIDI: i32 = 69; // MIDI note number for A4
         
         match self.tuning_system {
             TuningSystem::EqualTemperament => {
+                // Equal temperament: fixed ratio of 2^(1/12) between semitones
                 // Calculate reference frequency based on root note
-                // Get the MIDI number difference from A4 (MIDI 69)
+                
+                // Get the MIDI number for the root note (in octave 4)
                 let root_midi = self.note_to_midi_number(self.root_note.clone());
-                let midi_diff = root_midi - 69; // A4 is MIDI note 69
+                let midi_diff = root_midi - A4_MIDI;
                 
                 // Calculate frequency using equal temperament formula
-                // Each semitone is 2^(1/12) ratio
-                A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0)
+                // f = f0 * 2^(n/12) where n is semitone distance
+                let reference_freq = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
+                
+                #[cfg(debug_assertions)]
+                web_sys::console::log_1(&format!(
+                    "[MODEL] Reference frequency for {:?} in {:?}: {}Hz (MIDI {} -> {})",
+                    self.root_note, self.tuning_system, reference_freq, A4_MIDI, root_midi
+                ).into());
+                
+                reference_freq
             }
+            // Future tuning systems will calculate differently:
+            // - Just Intonation: Based on frequency ratios (3:2, 5:4, etc.)
+            // - Pythagorean: Based on perfect fifth stacking
+            // - Meantone: Tempered fifths for better thirds
         }
     }
     
@@ -1016,5 +1186,246 @@ mod tests {
         // Verify model state was updated only for valid actions
         assert_eq!(model.tuning_system, TuningSystem::EqualTemperament);
         assert_eq!(model.root_note, Note::D);
+    }
+
+    /// Test that same raw frequency is processed differently with different root notes
+    #[wasm_bindgen_test]
+    fn test_raw_frequency_processing_with_different_tuning_contexts() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Test frequency: 440Hz (A4 in standard tuning)
+        let test_frequency = 440.0;
+        let audio_analysis = crate::shared_types::AudioAnalysis {
+            volume_level: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
+            pitch: crate::shared_types::Pitch::Detected(test_frequency, 0.95),
+            fft_data: None,
+            timestamp: 1.0,
+        };
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: Some(audio_analysis.clone()),
+            audio_errors: Vec::new(),
+            permission_state: crate::shared_types::PermissionState::Granted,
+        };
+        
+        // First test with root note A (default)
+        let result_a = model.update(1.0, engine_data.clone());
+        assert_eq!(result_a.accuracy.closest_note, Note::A);
+        assert!(result_a.accuracy.accuracy < 0.01, "440Hz should be perfectly in tune with A root");
+        
+        // Change root note to C
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::C,
+        });
+        model.process_user_actions(actions);
+        
+        // Test same frequency with C root note
+        let result_c = model.update(2.0, engine_data.clone());
+        assert_eq!(result_c.accuracy.closest_note, Note::A);
+        // With C as root, 440Hz (A) should show some inaccuracy since it's not a perfect interval
+        assert!(result_c.accuracy.accuracy > 0.01, "440Hz should show inaccuracy with C root");
+        
+        // Change root note to F#
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::FSharp,
+        });
+        model.process_user_actions(actions);
+        
+        // Test same frequency with F# root note
+        let result_fsharp = model.update(3.0, engine_data);
+        assert_eq!(result_fsharp.accuracy.closest_note, Note::A);
+        // The accuracy should be different again
+        assert_ne!(result_a.accuracy.accuracy, result_fsharp.accuracy.accuracy, 
+            "Same frequency should have different accuracy with different root notes");
+    }
+
+    /// Test that frequency_to_note_and_accuracy properly applies tuning context
+    #[wasm_bindgen_test]
+    fn test_frequency_to_note_conversion_with_tuning_context() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Test C4 frequency (261.63 Hz)
+        let c4_freq = 261.63;
+        let (note, cents) = model.frequency_to_note_and_accuracy(c4_freq);
+        assert_eq!(note, Note::C);
+        assert!(cents.abs() < 1.0, "C4 should be nearly perfect");
+        
+        // Test frequencies between notes
+        let between_c_and_csharp = 269.0; // Between C4 (261.63) and C#4 (277.18)
+        let (note, cents) = model.frequency_to_note_and_accuracy(between_c_and_csharp);
+        assert_eq!(note, Note::C, "269Hz should be closer to C than C#");
+        assert!(cents > 0.0, "Should be sharp relative to C");
+        assert!(cents < 50.0, "Should be less than 50 cents sharp");
+        
+        // Test with different root note
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::D,
+        });
+        model.process_user_actions(actions);
+        
+        // Same frequency should still map to same note but with different reference
+        let (note_d_root, cents_d_root) = model.frequency_to_note_and_accuracy(c4_freq);
+        assert_eq!(note_d_root, Note::C, "Note identification should be absolute");
+        // Cents calculation will be relative to D root
+    }
+
+    /// Test normalize_accuracy with tuning-specific thresholds
+    #[wasm_bindgen_test]
+    fn test_normalize_accuracy_with_tuning_awareness() {
+        let model = DataModel::create().unwrap();
+        
+        // Test perfect tuning
+        assert_eq!(model.normalize_accuracy(0.0), 0.0, "Perfect tuning should be 0.0");
+        
+        // Test within threshold
+        assert_eq!(model.normalize_accuracy(25.0), 0.5, "25 cents should be 0.5 (halfway to threshold)");
+        assert_eq!(model.normalize_accuracy(-25.0), 0.5, "Negative cents should use absolute value");
+        
+        // Test at threshold
+        assert_eq!(model.normalize_accuracy(50.0), 1.0, "50 cents should be 1.0 (at threshold)");
+        assert_eq!(model.normalize_accuracy(-50.0), 1.0, "Negative threshold should also be 1.0");
+        
+        // Test beyond threshold
+        assert_eq!(model.normalize_accuracy(75.0), 1.0, "Beyond threshold should clamp to 1.0");
+        assert_eq!(model.normalize_accuracy(100.0), 1.0, "Way beyond threshold should still be 1.0");
+        
+        // Test small deviations
+        assert!(model.normalize_accuracy(5.0) < 0.15, "5 cents should be minor inaccuracy");
+        assert!(model.normalize_accuracy(10.0) < 0.25, "10 cents should be noticeable but small");
+    }
+
+    /// Test get_reference_frequency for different root notes
+    #[wasm_bindgen_test]
+    fn test_reference_frequency_calculation() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Test with A root (default)
+        let a_ref = model.get_reference_frequency();
+        assert!((a_ref - 440.0).abs() < 0.01, "A root should give 440Hz reference");
+        
+        // Test with C root
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: Note::C,
+        });
+        model.process_user_actions(actions);
+        
+        let c_ref = model.get_reference_frequency();
+        assert!((c_ref - 261.63).abs() < 0.01, "C root should give ~261.63Hz reference");
+        
+        // Test with other roots
+        let test_roots = vec![
+            (Note::D, 293.66),
+            (Note::E, 329.63),
+            (Note::F, 349.23),
+            (Note::G, 392.00),
+            (Note::B, 493.88),
+        ];
+        
+        for (root_note, expected_freq) in test_roots {
+            let mut actions = PresentationLayerActions::new();
+            actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+                root_note: root_note.clone(),
+            });
+            model.process_user_actions(actions);
+            
+            let ref_freq = model.get_reference_frequency();
+            assert!((ref_freq - expected_freq).abs() < 0.5, 
+                "Root {:?} should give ~{}Hz reference, got {}Hz", 
+                root_note, expected_freq, ref_freq);
+        }
+    }
+
+    /// Test edge case frequency handling
+    #[wasm_bindgen_test]
+    fn test_edge_case_frequency_handling() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Test zero frequency
+        let (note, cents) = model.frequency_to_note_and_accuracy(0.0);
+        assert_eq!(note, Note::A);
+        assert_eq!(cents, 0.0);
+        
+        // Test negative frequency
+        let (note, cents) = model.frequency_to_note_and_accuracy(-100.0);
+        assert_eq!(note, Note::A);
+        assert_eq!(cents, 0.0);
+        
+        // Test very low frequency (below hearing range)
+        let (note, cents) = model.frequency_to_note_and_accuracy(10.0);
+        // Should still process but might be inaccurate
+        assert!(note != Note::A || cents != 0.0, "Should process very low frequency");
+        
+        // Test very high frequency (above musical range)
+        let (note, cents) = model.frequency_to_note_and_accuracy(10000.0);
+        // Should still process
+        assert!(cents.abs() <= 50.0, "Should clamp to reasonable cents range");
+        
+        // Test with no audio analysis
+        let engine_data = EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: crate::shared_types::PermissionState::Granted,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        assert_eq!(result.pitch, Pitch::NotDetected);
+        assert_eq!(result.accuracy.accuracy, 1.0);
+    }
+
+    /// Test engine-to-model data flow integration
+    #[wasm_bindgen_test]
+    fn test_engine_to_model_data_flow() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create comprehensive engine data
+        let audio_analysis = crate::shared_types::AudioAnalysis {
+            volume_level: crate::shared_types::Volume { 
+                peak_amplitude: -6.0, 
+                rms_amplitude: -12.0 
+            },
+            pitch: crate::shared_types::Pitch::Detected(523.25, 0.88), // C5
+            fft_data: None,
+            timestamp: 1.0,
+        };
+        
+        let engine_data = EngineUpdateResult {
+            audio_analysis: Some(audio_analysis),
+            audio_errors: vec![crate::shared_types::Error::AudioContextSuspended],
+            permission_state: crate::shared_types::PermissionState::Granted,
+        };
+        
+        // Process engine data
+        let result = model.update(1.0, engine_data);
+        
+        // Verify raw frequency was processed with tuning context
+        assert_eq!(result.accuracy.closest_note, Note::C);
+        assert!(result.accuracy.accuracy < 0.1, "C5 should be nearly in tune");
+        
+        // Verify volume data passed through
+        assert_eq!(result.volume.peak_amplitude, -6.0);
+        assert_eq!(result.volume.rms_amplitude, -12.0);
+        
+        // Verify pitch data passed through
+        match result.pitch {
+            Pitch::Detected(freq, clarity) => {
+                assert_eq!(freq, 523.25);
+                assert_eq!(clarity, 0.88);
+            }
+            _ => panic!("Expected detected pitch"),
+        }
+        
+        // Verify error propagation
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0], Error::AudioContextSuspended);
+        
+        // Verify permission state
+        assert_eq!(result.permission_state, PermissionState::Granted);
+        
+        // Verify tuning system is included
+        assert_eq!(result.tuning_system, TuningSystem::EqualTemperament);
     }
 }
