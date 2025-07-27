@@ -236,6 +236,10 @@ fn test_layer_separation_boundaries() {
         tuning_system: TuningSystem::EqualTemperament,
         errors: Vec::new(),
         permission_state: PermissionState::Granted,
+        closest_midi_note: 69,
+        cents_offset: 1.0,
+        interval_semitones: 0,
+        root_note: 69,
     };
     
     // Model result has musical fields - verified by type system

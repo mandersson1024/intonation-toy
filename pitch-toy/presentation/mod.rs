@@ -738,6 +738,10 @@ mod tests {
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
             errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::NotRequested,
+            closest_midi_note: 69,
+            cents_offset: 0.0,
+            interval_semitones: 0,
+            root_note: 69,
         }
     }
 
