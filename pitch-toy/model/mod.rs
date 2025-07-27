@@ -374,17 +374,14 @@ impl DataModel {
                 // Apply tuning-aware frequency to note conversion
                 let (closest_midi_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
                 
-                // Apply tuning-aware accuracy normalization
-                let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
-                
                 trace_log!(
-                    "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
-                    closest_midi_note, normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
+                    "[MODEL] Result: Note {:?}, cents offset {} ({}Hz)",
+                    closest_midi_note, accuracy_cents, frequency
                 );
                 
                 Accuracy {
-                    closest_note: closest_midi_note,
-                    accuracy: normalized_accuracy,
+                    midi_note: closest_midi_note,
+                    cents_offset: accuracy_cents,
                 }
             }
             Pitch::NotDetected => {
@@ -392,8 +389,8 @@ impl DataModel {
                 trace_log!("[MODEL] No pitch detected, returning default accuracy");
                 
                 Accuracy {
-                    closest_note: self.root_note, // Use MidiNote directly
-                    accuracy: 1.0, // Maximum inaccuracy when no pitch is detected
+                    midi_note: self.root_note, // Use MidiNote directly
+                    cents_offset: 0.0, // No offset when no pitch is detected
                 }
             }
         };
@@ -979,9 +976,9 @@ mod tests {
         
         let result = model.update(1.0, engine_data);
         
-        // Should detect A note with perfect accuracy (0.0)
-        assert_eq!(result.accuracy.closest_note, 69);
-        assert!(result.accuracy.accuracy < 0.01, "Accuracy should be nearly perfect for 440Hz A4, got {}", result.accuracy.accuracy);
+        // Should detect A note with perfect accuracy (0.0 cents)
+        assert_eq!(result.accuracy.midi_note, 69);
+        assert!(result.accuracy.cents_offset.abs() < 1.0, "Cents offset should be nearly zero for 440Hz A4, got {}", result.accuracy.cents_offset);
     }
 
     /// Test pitch accuracy calculation with slightly flat C4
@@ -1006,9 +1003,9 @@ mod tests {
         let result = model.update(1.0, engine_data);
         
         // Should detect C note with some inaccuracy (flat)
-        assert_eq!(result.accuracy.closest_note, 60);
-        assert!(result.accuracy.accuracy > 0.0, "Accuracy should show flatness for 260Hz (expected ~261.63Hz)");
-        assert!(result.accuracy.accuracy < 1.0, "Accuracy should not be at maximum for a recognizable pitch");
+        assert_eq!(result.accuracy.midi_note, 60);
+        assert!(result.accuracy.cents_offset < 0.0, "Cents offset should be negative (flat) for 260Hz (expected ~261.63Hz)");
+        assert!(result.accuracy.cents_offset.abs() < 50.0, "Cents offset should be within reasonable range for a recognizable pitch");
     }
 
     /// Test behavior with no pitch detected
@@ -1031,8 +1028,8 @@ mod tests {
         
         let result = model.update(1.0, engine_data);
         
-        // Should have maximum inaccuracy when no pitch is detected
-        assert_eq!(result.accuracy.accuracy, 1.0);
+        // Should have zero cents offset when no pitch is detected
+        assert_eq!(result.accuracy.cents_offset, 0.0);
         assert_eq!(result.pitch, crate::shared_types::Pitch::NotDetected);
     }
 
@@ -1189,8 +1186,8 @@ mod tests {
         
         // First test with root note A (default)
         let result_a = model.update(1.0, engine_data.clone());
-        assert_eq!(result_a.accuracy.closest_note, 69);
-        assert!(result_a.accuracy.accuracy < 0.01, "440Hz should be perfectly in tune with A root");
+        assert_eq!(result_a.accuracy.midi_note, 69);
+        assert!(result_a.accuracy.cents_offset.abs() < 1.0, "440Hz should be perfectly in tune with A root");
         
         // Change root note to C
         let mut actions = PresentationLayerActions::new();
@@ -1201,9 +1198,9 @@ mod tests {
         
         // Test same frequency with C root note
         let result_c = model.update(2.0, engine_data.clone());
-        assert_eq!(result_c.accuracy.closest_note, 69);
-        // With C as root, 440Hz (A) should show some inaccuracy since it's not a perfect interval
-        assert!(result_c.accuracy.accuracy > 0.01, "440Hz should show inaccuracy with C root");
+        assert_eq!(result_c.accuracy.midi_note, 69);
+        // With C as root, 440Hz (A) should show some cents deviation since it's not a perfect interval
+        assert!(result_c.accuracy.cents_offset.abs() > 1.0, "440Hz should show cents deviation with C root");
         
         // Change root note to F#
         let mut actions = PresentationLayerActions::new();
@@ -1214,10 +1211,10 @@ mod tests {
         
         // Test same frequency with F# root note
         let result_fsharp = model.update(3.0, engine_data);
-        assert_eq!(result_fsharp.accuracy.closest_note, 69);
-        // The accuracy should be different again
-        assert_ne!(result_a.accuracy.accuracy, result_fsharp.accuracy.accuracy, 
-            "Same frequency should have different accuracy with different root notes");
+        assert_eq!(result_fsharp.accuracy.midi_note, 69);
+        // The cents offset should be different again
+        assert_ne!(result_a.accuracy.cents_offset, result_fsharp.accuracy.cents_offset, 
+            "Same frequency should have different cents offset with different root notes");
     }
 
     /// Test that frequency_to_note_and_accuracy properly applies tuning context
@@ -1352,7 +1349,7 @@ mod tests {
         
         let result = model.update(1.0, engine_data);
         assert_eq!(result.pitch, Pitch::NotDetected);
-        assert_eq!(result.accuracy.accuracy, 1.0);
+        assert_eq!(result.accuracy.cents_offset, 0.0);
     }
 
     /// Test engine-to-model data flow integration
@@ -1381,8 +1378,8 @@ mod tests {
         let result = model.update(1.0, engine_data);
         
         // Verify raw frequency was processed with tuning context
-        assert_eq!(result.accuracy.closest_note, 72);
-        assert!(result.accuracy.accuracy < 0.1, "C5 should be nearly in tune");
+        assert_eq!(result.accuracy.midi_note, 72);
+        assert!(result.accuracy.cents_offset.abs() < 5.0, "C5 should be nearly in tune");
         
         // Verify volume data passed through
         assert_eq!(result.volume.peak_amplitude, -6.0);
