@@ -1,7 +1,6 @@
 use three_d::{self, Window, WindowSettings, GUI, ClearState, FrameOutput, egui, egui::Color32};
 use std::rc::Rc;
 use std::cell::RefCell;
-use wasm_bindgen::JsCast;
 
 // Three-layer architecture modules
 pub mod engine;
@@ -45,60 +44,6 @@ use egui_dev_console::ConsoleCommandRegistry;
 use engine::platform::{Platform, PlatformValidationResult};
 
 use debug::debug_panel::DebugPanel;
-
-
-
-
-
-/// Sample memory usage from the browser's Performance API
-/// 
-/// Uses the web-sys Performance API to get JavaScript heap memory information.
-/// Includes feature detection and graceful fallbacks for browsers that don't
-/// support the memory API (like Firefox).
-/// 
-/// # Returns
-/// 
-/// Returns `Option<(f64, f64)>` containing (memory_mb, memory_percent), or None if the API
-/// is unavailable or fails.
-fn sample_memory_usage() -> Option<(f64, f64)> {
-    use wasm_bindgen::JsValue;
-    
-    let window = web_sys::window()?;
-    let performance = window.performance()?;
-    
-    // Try to get memory information (not available in all browsers)
-    let memory = js_sys::Reflect::get(&performance, &JsValue::from_str("memory")).ok()?;
-    if memory.is_undefined() || memory.is_null() {
-        return None;
-    }
-    
-    let memory_obj = memory.dyn_into::<web_sys::js_sys::Object>().ok()?;
-    
-    // Get used heap size
-    let used_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("usedJSHeapSize")).ok()?;
-    if used_heap_size.is_undefined() || used_heap_size.is_null() {
-        return None;
-    }
-    
-    // Get total heap size
-    let total_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("totalJSHeapSize")).ok()?;
-    if total_heap_size.is_undefined() || total_heap_size.is_null() {
-        return None;
-    }
-    
-    // Convert from bytes to MB and calculate percentage
-    let used_bytes = used_heap_size.as_f64()?;
-    let total_bytes = total_heap_size.as_f64()?;
-    
-    let memory_mb = used_bytes / (1024.0 * 1024.0);
-    let memory_percent = if total_bytes > 0.0 {
-        (used_bytes / total_bytes) * 100.0
-    } else {
-        0.0
-    };
-    
-    Some((memory_mb, memory_percent))
-}
 
 /// Run three-d with three-layer architecture
 /// 
@@ -220,7 +165,7 @@ pub async fn start_render_loop(
         }
         
         // Update debug panel data with performance metrics
-        let (memory_usage_mb, memory_usage_percent) = sample_memory_usage().unwrap_or((0.0, 0.0));
+        let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
         let audio_latency = if let Some(ref engine) = engine {
             engine.get_pitch_analyzer_metrics()
                 .map(|metrics| metrics.average_latency_ms)
