@@ -251,34 +251,21 @@ impl DebugPanel {
                                                               stats.pool_size));
                     });
                     
-                    // Pool efficiency metrics
+                    // Pool allocation failures
                     ui.horizontal(|ui| {
-                        ui.label("Hit Rate:");
-                        let hit_rate_color = if stats.pool_hit_rate > 90.0 {
+                        ui.label("Allocation Failures:");
+                        let fail_color = if stats.pool_exhausted_count == 0 {
                             Color32::GREEN
-                        } else if stats.pool_hit_rate > 75.0 {
+                        } else if stats.pool_exhausted_count < 10 {
                             Color32::YELLOW
                         } else {
                             Color32::RED
                         };
-                        ui.colored_label(hit_rate_color, format!("{:.1}%", stats.pool_hit_rate));
-                    });
-                    
-                    ui.horizontal(|ui| {
-                        ui.label("Efficiency:");
-                        let efficiency_color = if stats.pool_efficiency > 90.0 {
-                            Color32::GREEN
-                        } else if stats.pool_efficiency > 75.0 {
-                            Color32::YELLOW
-                        } else {
-                            Color32::RED
-                        };
-                        ui.colored_label(efficiency_color, format!("{:.1}%", stats.pool_efficiency));
+                        ui.colored_label(fail_color, format!("{}", stats.pool_exhausted_count));
                     });
                     
                     // Additional stats
                     ui.label(format!("Data Transferred: {:.2} MB", stats.total_megabytes_transferred));
-                    ui.label(format!("Utilization: {:.1}%", stats.buffer_utilization_percent));
                 } else {
                     ui.label("No buffer pool statistics available");
                 }
