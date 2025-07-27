@@ -129,6 +129,123 @@ pub struct ModelUpdateResult {
     pub tuning_system: TuningSystem,
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
+    // Flattened intonation data fields for easier access
+    pub closest_midi_note: MidiNote,
+    pub cents_offset: f32,
+    pub interval_semitones: i32,
+    pub root_note: MidiNote,
+}
+
+/// Converts a semitone interval to a musical interval name.
+/// 
+/// This function takes the number of semitones between two notes and returns
+/// a descriptive name for the musical interval. It handles both ascending
+/// (positive) and descending (negative) intervals, as well as intervals
+/// larger than an octave.
+/// 
+/// # Musical Theory Background
+/// 
+/// In Western music theory, intervals are classified by:
+/// - **Size**: The number of letter names spanned (unison, 2nd, 3rd, etc.)
+/// - **Quality**: Perfect, major, minor, augmented, diminished
+/// 
+/// The basic intervals within an octave are:
+/// - 0 semitones: Perfect Unison
+/// - 1 semitone: Minor Second
+/// - 2 semitones: Major Second
+/// - 3 semitones: Minor Third
+/// - 4 semitones: Major Third
+/// - 5 semitones: Perfect Fourth
+/// - 6 semitones: Tritone (Augmented Fourth/Diminished Fifth)
+/// - 7 semitones: Perfect Fifth
+/// - 8 semitones: Minor Sixth
+/// - 9 semitones: Major Sixth
+/// - 10 semitones: Minor Seventh
+/// - 11 semitones: Major Seventh
+/// - 12 semitones: Perfect Octave
+/// 
+/// # Arguments
+/// 
+/// * `semitones` - The number of semitones in the interval. Can be positive
+///   (ascending) or negative (descending). Values beyond ±12 are handled
+///   by calculating the octave displacement and interval within an octave.
+/// 
+/// # Returns
+/// 
+/// A string describing the interval. For intervals larger than an octave,
+/// the format is "Interval + N Octave(s)" where N is the number of octaves.
+/// 
+/// # Examples
+/// 
+/// ```
+/// use pitch_toy::shared_types::interval_name_from_semitones;
+/// 
+/// // Basic intervals
+/// assert_eq!(interval_name_from_semitones(0), "Perfect Unison");
+/// assert_eq!(interval_name_from_semitones(4), "Major Third");
+/// assert_eq!(interval_name_from_semitones(7), "Perfect Fifth");
+/// assert_eq!(interval_name_from_semitones(12), "Perfect Octave");
+/// 
+/// // Intervals larger than an octave
+/// assert_eq!(interval_name_from_semitones(16), "Major Third + Octave");
+/// assert_eq!(interval_name_from_semitones(24), "2 Octaves");
+/// 
+/// // Descending intervals
+/// assert_eq!(interval_name_from_semitones(-4), "Major Third (descending)");
+/// assert_eq!(interval_name_from_semitones(-16), "Major Third + Octave (descending)");
+/// ```
+pub fn interval_name_from_semitones(semitones: i32) -> String {
+    if semitones == 0 {
+        return "Perfect Unison".to_string();
+    }
+    
+    let is_descending = semitones < 0;
+    let abs_semitones = semitones.abs();
+    
+    // Calculate octaves and remaining semitones
+    let octaves = abs_semitones / 12;
+    let remainder = abs_semitones % 12;
+    
+    // Get the base interval name
+    let base_interval = match remainder {
+        0 => "Perfect Unison",
+        1 => "Minor Second",
+        2 => "Major Second", 
+        3 => "Minor Third",
+        4 => "Major Third",
+        5 => "Perfect Fourth",
+        6 => "Tritone",
+        7 => "Perfect Fifth",
+        8 => "Minor Sixth",
+        9 => "Major Sixth",
+        10 => "Minor Seventh",
+        11 => "Major Seventh",
+        _ => unreachable!("Remainder should be 0-11"),
+    };
+    
+    // Handle different cases
+    let result = match (octaves, remainder) {
+        // Exact octaves
+        (n, 0) if n > 0 => {
+            if n == 1 {
+                "Perfect Octave".to_string()
+            } else {
+                format!("{} Octaves", n)
+            }
+        },
+        // Intervals within one octave
+        (0, _) => base_interval.to_string(),
+        // Intervals with octave displacement
+        (1, _) => format!("{} + Octave", base_interval),
+        (n, _) => format!("{} + {} Octaves", base_interval, n),
+    };
+    
+    // Add descending notation if needed
+    if is_descending {
+        format!("{} (descending)", result)
+    } else {
+        result
+    }
 }
 
 
@@ -174,6 +291,10 @@ mod tests {
             tuning_system: test_tuning_system.clone(),
             errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
+            closest_midi_note: 69,
+            cents_offset: -10.0,
+            interval_semitones: 0,
+            root_note: 69,
         };
 
         assert_eq!(update_result.volume, test_volume);
@@ -182,6 +303,10 @@ mod tests {
         assert_eq!(update_result.tuning_system, test_tuning_system);
         assert_eq!(update_result.errors, test_errors);
         assert_eq!(update_result.permission_state, PermissionState::Granted);
+        assert_eq!(update_result.closest_midi_note, 69);
+        assert_eq!(update_result.cents_offset, -10.0);
+        assert_eq!(update_result.interval_semitones, 0);
+        assert_eq!(update_result.root_note, 69);
     }
 
     #[wasm_bindgen_test]
@@ -280,6 +405,37 @@ mod tests {
         assert_eq!(decrement_midi_note(69), Some(68));  // A4 to G#4
         assert_eq!(decrement_midi_note(1), Some(0));
         assert_eq!(decrement_midi_note(0), None);       // Cannot decrement min value
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interval_name_from_semitones() {
+        // Test basic intervals
+        assert_eq!(interval_name_from_semitones(0), "Perfect Unison");
+        assert_eq!(interval_name_from_semitones(1), "Minor Second");
+        assert_eq!(interval_name_from_semitones(2), "Major Second");
+        assert_eq!(interval_name_from_semitones(3), "Minor Third");
+        assert_eq!(interval_name_from_semitones(4), "Major Third");
+        assert_eq!(interval_name_from_semitones(5), "Perfect Fourth");
+        assert_eq!(interval_name_from_semitones(6), "Tritone");
+        assert_eq!(interval_name_from_semitones(7), "Perfect Fifth");
+        assert_eq!(interval_name_from_semitones(8), "Minor Sixth");
+        assert_eq!(interval_name_from_semitones(9), "Major Sixth");
+        assert_eq!(interval_name_from_semitones(10), "Minor Seventh");
+        assert_eq!(interval_name_from_semitones(11), "Major Seventh");
+        assert_eq!(interval_name_from_semitones(12), "Perfect Octave");
+        
+        // Test intervals larger than an octave
+        assert_eq!(interval_name_from_semitones(13), "Minor Second + Octave");
+        assert_eq!(interval_name_from_semitones(16), "Major Third + Octave");
+        assert_eq!(interval_name_from_semitones(24), "2 Octaves");
+        assert_eq!(interval_name_from_semitones(36), "3 Octaves");
+        
+        // Test descending intervals
+        assert_eq!(interval_name_from_semitones(-1), "Minor Second (descending)");
+        assert_eq!(interval_name_from_semitones(-4), "Major Third (descending)");
+        assert_eq!(interval_name_from_semitones(-12), "Perfect Octave (descending)");
+        assert_eq!(interval_name_from_semitones(-16), "Major Third + Octave (descending)");
+        assert_eq!(interval_name_from_semitones(-24), "2 Octaves (descending)");
     }
 
 

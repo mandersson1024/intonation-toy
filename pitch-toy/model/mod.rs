@@ -395,14 +395,32 @@ impl DataModel {
             }
         };
         
-        // Return processed model data
+        // Calculate interval semitones between detected note and root note
+        let interval_semitones = match pitch {
+            Pitch::Detected(_, _) => {
+                (accuracy.closest_midi_note as i32) - (self.root_note as i32)
+            }
+            Pitch::NotDetected => 0, // No interval when no pitch detected
+        };
+
+        trace_log!(
+            "[MODEL] Interval calculation: detected MIDI {} - root MIDI {} = {} semitones",
+            accuracy.closest_midi_note, self.root_note, interval_semitones
+        );
+
+        // Return processed model data with both legacy and flattened fields
         ModelUpdateResult {
             volume,
             pitch,
-            accuracy,
+            accuracy: accuracy.clone(), // Keep for backward compatibility
             tuning_system: self.tuning_system.clone(),
             errors,
             permission_state,
+            // New flattened fields for easier access
+            closest_midi_note: accuracy.closest_midi_note,
+            cents_offset: accuracy.cents_offset,
+            interval_semitones,
+            root_note: self.root_note,
         }
     }
     

@@ -244,6 +244,11 @@ pub async fn run_three_d_with_layers(
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
                 errors: Vec::new(),
                 permission_state: crate::shared_types::PermissionState::NotRequested,
+                // New flattened fields with default values
+                closest_midi_note: 69,
+                cents_offset: 0.0,
+                interval_semitones: 0,
+                root_note: 69,
             }
         };
         
