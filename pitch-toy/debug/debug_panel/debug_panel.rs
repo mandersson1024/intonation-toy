@@ -8,7 +8,7 @@ use crate::engine::audio::{
     buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
-use crate::shared_types::{NoteName, TuningSystem, MidiNote, from_midi_note};
+use crate::shared_types::{NoteName, TuningSystem, MidiNote, from_midi_note, increment_midi_note, decrement_midi_note};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -490,32 +490,25 @@ impl DebugPanel {
                 // Root Note Selection
                 ui.horizontal(|ui| {
                     ui.label("Root Note:");
-                    ui.push_id("note", |ui| {
-                        egui::ComboBox::from_label("")
-                            .selected_text(format!("{:?}", from_midi_note(self.selected_root_note)))
-                            .show_ui(ui, |ui| {
-                                let notes = [
-                                    60, // C4
-                                    61, // C#4/DFlat4
-                                    62, // D4
-                                    63, // D#4/EFlat4
-                                    64, // E4
-                                    65, // F4
-                                    66, // F#4/FSharp4
-                                    67, // G4
-                                    68, // G#4/AFlat4
-                                    69, // A4
-                                    70, // A#4/BFlat4
-                                    71, // B4
-                                ];
-                                
-                                for note in &notes {
-                                    if ui.selectable_value(&mut self.selected_root_note, *note, format!("{:?}", from_midi_note(*note))).clicked() {
-                                        self.send_root_note_action();
-                                    }
-                                }
-                            })
-                        });
+                    
+                    // Decrement button
+                    if ui.add_enabled(self.selected_root_note > 0, egui::Button::new("-")).clicked() {
+                        if let Some(new_note) = decrement_midi_note(self.selected_root_note) {
+                            self.selected_root_note = new_note;
+                            self.send_root_note_action();
+                        }
+                    }
+                    
+                    // Current note display
+                    ui.label(format!("{:?}", from_midi_note(self.selected_root_note)));
+                    
+                    // Increment button
+                    if ui.add_enabled(self.selected_root_note < 127, egui::Button::new("+")).clicked() {
+                        if let Some(new_note) = increment_midi_note(self.selected_root_note) {
+                            self.selected_root_note = new_note;
+                            self.send_root_note_action();
+                        }
+                    }
                 });
                 
                 // Tuning System Selection
