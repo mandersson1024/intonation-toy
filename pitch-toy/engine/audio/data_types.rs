@@ -25,6 +25,7 @@ pub struct AudioWorkletStatus {
     pub state: AudioWorkletState,
     pub processor_loaded: bool,
     pub chunk_size: u32,
+    pub batch_size: u32,
     pub chunks_processed: u32,
 }
 
@@ -34,6 +35,7 @@ impl Default for AudioWorkletStatus {
             state: AudioWorkletState::Uninitialized,
             processor_loaded: false,
             chunk_size: 128,
+            batch_size: 1024,
             chunks_processed: 0,
         }
     }

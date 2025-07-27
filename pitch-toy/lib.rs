@@ -225,6 +225,7 @@ pub async fn run_three_d_with_layers(
                         state: s.state,
                         processor_loaded: s.processor_loaded,
                         chunk_size: s.chunk_size,
+                        batch_size: s.batch_size,
                         chunks_processed: s.chunks_processed,
                     }
                 });

@@ -178,7 +178,8 @@ impl DebugPanel {
                     ui.colored_label(color, status.processor_loaded.to_string());
                 });
                 
-                ui.label(format!("Chunk Size: {} samples", status.chunk_size));
+                ui.label(format!("Batch Size: {} samples", status.batch_size));
+                ui.label(format!("Chunks per Batch: {}", status.batch_size / 128));
                 ui.label(format!("Chunks Processed: {}", status.chunks_processed));
             });
     }

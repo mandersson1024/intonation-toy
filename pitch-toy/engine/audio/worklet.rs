@@ -110,6 +110,7 @@ struct AudioWorkletSharedData {
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
+    batch_size: u32,
 }
 
 impl AudioWorkletSharedData {
@@ -120,6 +121,7 @@ impl AudioWorkletSharedData {
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
+            batch_size: 1024, // Default batch size
         }
     }
 }
@@ -179,6 +181,8 @@ pub struct AudioWorkletManager {
     message_factory: AudioWorkletMessageFactory,
     // Configuration for ping-pong buffer recycling
     ping_pong_enabled: bool,
+    // Batch size for audio processing (received from AudioWorklet processor)
+    batch_size: u32,
 }
 
 impl AudioWorkletManager {
@@ -199,6 +203,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
+            batch_size: 1024, // Default batch size
         }
     }
     
@@ -235,6 +240,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
+            batch_size: 1024, // Default batch size
         }
     }
     
@@ -505,7 +511,10 @@ impl AudioWorkletManager {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
                 if let Some(size) = batch_size {
+                    dev_log!("AudioWorklet processor ready with batch size: {}", size);
+                    shared_data.borrow_mut().batch_size = size as u32;
                 } else {
+                    dev_log!("AudioWorklet processor ready (no batch size specified)");
                 }
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Ready);
             }
@@ -975,18 +984,20 @@ impl AudioWorkletManager {
 
     /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {
-        // Get chunks processed from shared data (updated by message handler) 
+        // Get chunks processed and batch size from shared data (updated by message handler) 
         // instead of local chunk_counter which is only updated by feed_input_chunk
-        let chunks_processed = if let Some(ref shared_data) = self.shared_data {
-            shared_data.borrow().chunks_processed
+        let (chunks_processed, batch_size) = if let Some(ref shared_data) = self.shared_data {
+            let data = shared_data.borrow();
+            (data.chunks_processed, data.batch_size)
         } else {
-            self.chunk_counter // Fallback to local counter if shared data not available
+            (self.chunk_counter, self.batch_size) // Fallback to local values if shared data not available
         };
         
         super::AudioWorkletStatus {
             state: self.state.clone(),
             processor_loaded: self.worklet_node.is_some(),
             chunk_size: self.config.chunk_size,
+            batch_size,
             chunks_processed,
         }
     }
