@@ -45,7 +45,7 @@ pub struct AudioWorkletStatus {
     pub processor_loaded: bool,
     pub chunk_size: u32,
     pub batch_size: u32,
-    pub chunks_processed: u32,
+    pub batches_processed: u32,
 }
 
 impl Default for AudioWorkletStatus {
@@ -55,7 +55,7 @@ impl Default for AudioWorkletStatus {
             processor_loaded: false,
             chunk_size: 128,
             batch_size: 1024,
-            chunks_processed: 0,
+            batches_processed: 0,
         }
     }
 }
@@ -87,7 +87,7 @@ impl From<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatus {
             processor_loaded: audio_data.processor_loaded,
             chunk_size: audio_data.chunk_size,
             batch_size: audio_data.batch_size,
-            chunks_processed: audio_data.chunks_processed,
+            batches_processed: audio_data.batches_processed,
         }
     }
 }

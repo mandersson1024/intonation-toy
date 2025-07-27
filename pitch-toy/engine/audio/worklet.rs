@@ -106,7 +106,7 @@ pub struct AudioWorkletConfig {
 /// Shared data for AudioWorklet message handling
 struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
-    chunks_processed: u32,
+    batches_processed: u32,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
@@ -117,7 +117,7 @@ impl AudioWorkletSharedData {
     fn new() -> Self {
         Self {
             volume_detector: None,
-            chunks_processed: 0,
+            batches_processed: 0,
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
@@ -611,11 +611,10 @@ impl AudioWorkletManager {
             dev_log!("Warning: Could not extract payload object");
         }
         
-        // Update chunks processed count (batched)
-        let chunk_count = (data.sample_count + 127) / 128; // Round up to nearest chunk
+        // Update batches processed count
         {
             let mut shared_data_mut = shared_data.borrow_mut();
-            shared_data_mut.chunks_processed += chunk_count as u32;
+            shared_data_mut.batches_processed += 1;
         }
         
         // Note: Status updates are handled elsewhere, no need to call publish_status_update here
@@ -626,7 +625,7 @@ impl AudioWorkletManager {
         audio_samples: &[f32],
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
     ) {
-        let chunks_processed = shared_data.borrow().chunks_processed;
+        let batches_processed = shared_data.borrow().batches_processed;
         
         // Perform volume analysis
         let volume_detector = shared_data.borrow().volume_detector.clone();
@@ -652,12 +651,12 @@ impl AudioWorkletManager {
                 }
                 Ok(None) => {
                     // No pitch detected, which is normal for silence or noise
-                    if chunks_processed <= 5 {
+                    if batches_processed <= 5 {
                         dev_log!("No pitch detected in this batch");
                     }
                 }
                 Err(e) => {
-                    if chunks_processed <= 5 {
+                    if batches_processed <= 5 {
                         dev_log!("Pitch analysis error: {}", e);
                     }
                 }
@@ -984,13 +983,14 @@ impl AudioWorkletManager {
 
     /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {
-        // Get chunks processed and batch size from shared data (updated by message handler) 
-        // instead of local chunk_counter which is only updated by feed_input_chunk
-        let (chunks_processed, batch_size) = if let Some(ref shared_data) = self.shared_data {
+        // Get batches processed and batch size from shared data (updated by message handler) 
+        let (batches_processed, batch_size) = if let Some(ref shared_data) = self.shared_data {
             let data = shared_data.borrow();
-            (data.chunks_processed, data.batch_size)
+            (data.batches_processed, data.batch_size)
         } else {
-            (self.chunk_counter, self.batch_size) // Fallback to local values if shared data not available
+            // Fallback: estimate batches from chunks
+            let batches = if self.batch_size > 0 { self.chunk_counter / (self.batch_size / 128) } else { 0 };
+            (batches, self.batch_size)
         };
         
         super::AudioWorkletStatus {
@@ -998,7 +998,7 @@ impl AudioWorkletManager {
             processor_loaded: self.worklet_node.is_some(),
             chunk_size: self.config.chunk_size,
             batch_size,
-            chunks_processed,
+            batches_processed,
         }
     }
     
