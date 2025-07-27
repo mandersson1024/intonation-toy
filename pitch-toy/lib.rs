@@ -8,7 +8,7 @@ pub mod model;
 pub mod presentation;
 
 // Module interfaces
-pub(crate) mod shared_types;
+pub mod shared_types;
 
 // Supporting modules
 pub(crate) mod common;

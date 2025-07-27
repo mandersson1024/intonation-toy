@@ -126,7 +126,7 @@ pub(crate) enum ValidationError {
 /// validation errors that occurred during processing. This allows the
 /// presentation layer to understand what succeeded and what failed.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ProcessedActions {
+pub struct ProcessedActions {
     /// Successfully validated actions ready for execution
     pub actions: ModelLayerActions,
     /// Validation errors for actions that failed business logic checks
@@ -449,7 +449,7 @@ impl DataModel {
     /// When actions pass validation, the model's internal state is immediately updated
     /// using `apply_tuning_system_change()` and `apply_root_note_change()` methods.
     /// This ensures the model's state remains synchronized with validated user actions.
-    pub(crate) fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
+    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
         let mut model_actions = ModelLayerActions::new();
         let mut validation_errors = Vec::new();
         

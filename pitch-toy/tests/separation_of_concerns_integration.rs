@@ -8,7 +8,7 @@
 
 use pitch_toy::engine::AudioEngine;
 use pitch_toy::model::DataModel;
-use pitch_toy::presentation::UserInterface;
+use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
     PermissionState, TuningSystem, Note, Accuracy
@@ -88,7 +88,7 @@ fn test_model_processes_frequency_with_tuning_context() {
     actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
         root_note: Note::C,
     });
-    model.process_user_actions(actions);
+    let _ = model.process_user_actions(actions);
     
     // Process same raw frequency with new tuning context
     let model_result_c = model.update(2.0, engine_data);
@@ -111,7 +111,7 @@ async fn test_complete_data_flow_pipeline() {
     let mut model = DataModel::create()
         .expect("Model creation should succeed");
     
-    let ui = UserInterface::create()
+    let mut ui = Presenter::create()
         .expect("UI creation should succeed");
     
     // Simulate data flow with a test timestamp
@@ -186,7 +186,7 @@ async fn test_tuning_changes_affect_only_model() {
     actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
         root_note: Note::D,
     });
-    model.process_user_actions(actions);
+    let _ = model.process_user_actions(actions);
     
     // Engine should return same raw frequency (unaffected by tuning change)
     let engine_result_after = engine.update(2.0);
@@ -345,7 +345,7 @@ fn test_sequential_tuning_context_changes() {
         actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
             root_note: root_note.clone(),
         });
-        model.process_user_actions(actions);
+        let _ = model.process_user_actions(actions);
         
         // Process same frequency with new context
         let result = model.update(1.0, engine_data.clone());

@@ -129,7 +129,7 @@ pub struct PresentationLayerActions {
 
 impl PresentationLayerActions {
     /// Create a new instance with empty action collections
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
