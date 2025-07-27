@@ -661,13 +661,6 @@ impl DataModel {
             }
         };
         
-        #[cfg(debug_assertions)]
-        if abs_cents > max_cents {
-            web_sys::console::log_1(&format!(
-                "[MODEL] Accuracy {} cents exceeds {:?} threshold of {} cents",
-                abs_cents, self.tuning_system, max_cents
-            ).into());
-        }
         
         // Clamp to max cents for normalization (ensures 0.0-1.0 range)
         let clamped_cents = abs_cents.min(max_cents);
