@@ -412,7 +412,7 @@ impl DebugPanel {
                 
                 ui.horizontal(|ui| {
                     ui.label("Frequency:");
-                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 50.0..=8000.0).suffix(" Hz")).changed() {
+                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 200.0..=800.0).suffix(" Hz")).changed() {
                         if self.test_signal_enabled {
                             self.send_test_signal_action();
                         }
