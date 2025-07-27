@@ -249,6 +249,10 @@ pub struct DataModel {
 /// for Equal Temperament tuning. A4 = 440Hz serves as the baseline from which all
 /// other note frequencies are calculated in Equal Temperament.
 /// 
+/// **Important**: This constant is different from the root pitch frequency returned
+/// by `get_root_pitch()`. While this constant is always 440.0Hz regardless of
+/// configuration, the root pitch varies based on the selected root note.
+/// 
 /// # Standard Reference
 /// 
 /// - Established by ISO 16:1975 and reaffirmed by various music organizations
@@ -644,25 +648,18 @@ impl DataModel {
     
     
     
-    /// Get the root pitch frequency for the current root note and tuning system
+    /// Get the root pitch frequency for the current root note
     /// 
-    /// This method calculates the root pitch frequency that serves as the basis for
-    /// all frequency-to-note conversions. The root pitch frequency depends on both
-    /// the tuning system and the selected root note.
+    /// Root pitch is always calculated using Equal Temperament regardless of the 
+    /// active tuning system. This is distinct from the `REFERENCE_FREQUENCY` 
+    /// constant which always represents A4 = 440Hz.
     /// 
     /// # Root Pitch Calculation
-    /// 
-    /// The root pitch frequency is calculated differently for each tuning system:
-    /// 
-    /// ## Equal Temperament
     /// - Uses A4 = 440Hz as the standard reference
-    /// - Calculates other notes using the formula: f = 440 * 2^((n-69)/12)
-    /// - Where n is the MIDI note number
+    /// - Calculates other notes using Equal Temperament formula
     /// 
-    /// ## Future Tuning Systems
-    /// - Just Intonation: Will calculate based on frequency ratios from root
-    /// - Pythagorean: Will use perfect fifth ratios
-    /// - Custom: May allow user-defined root pitch calculations
+    /// This ensures consistent frequency mapping regardless of which tuning system
+    /// is used for interval calculations in other parts of the application.
     /// 
     /// # Root Note Impact
     /// 
@@ -671,36 +668,22 @@ impl DataModel {
     /// - If root is C, then C4 = 261.63Hz becomes the root pitch
     /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
-        // Base frequency is A4 = 440Hz in standard tuning
-        const A4_FREQUENCY: f32 = 440.0;
+        // Always calculate root pitch using Equal Temperament regardless of tuning system
         const A4_MIDI: i32 = 69; // MIDI note number for A4
         
-        match self.tuning_system {
-            TuningSystem::EqualTemperament => {
-                // Equal temperament: fixed ratio of 2^(1/12) between semitones
-                // Calculate root pitch frequency based on root note
-                
-                // Use the root note directly as MIDI number
-                let midi_diff = self.root_note as i32 - A4_MIDI;
-                
-                // Calculate frequency using equal temperament formula
-                // f = f0 * 2^(n/12) where n is semitone distance
-                let root_pitch = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
-                
-                trace_log!(
-                    "[MODEL] Root pitch frequency for MIDI {} in {:?}: {}Hz (diff from A4: {})",
-                    self.root_note, self.tuning_system, root_pitch, midi_diff
-                );
-                
-                root_pitch
-            }
-            TuningSystem::JustIntonation => {
-                // For now, use the same calculation as equal temperament
-                // TODO: Implement proper just intonation frequency ratios
-                let midi_diff = self.root_note as i32 - A4_MIDI;
-                A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0)
-            }
-        }
+        // Use the root note directly as MIDI number
+        let midi_diff = self.root_note as i32 - A4_MIDI;
+        
+        // Calculate frequency using equal temperament formula
+        // f = f0 * 2^(n/12) where n is semitone distance
+        let root_pitch = REFERENCE_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
+        
+        trace_log!(
+            "[MODEL] Root pitch frequency for MIDI {}: {}Hz (diff from A4: {})",
+            self.root_note, root_pitch, midi_diff
+        );
+        
+        root_pitch
     }
     
     /// Validate microphone permission request with detailed error reporting
