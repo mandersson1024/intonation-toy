@@ -37,7 +37,7 @@ pub use presentation::{DebugLayerActionsBuilder};
 pub(crate) mod common;
 pub(crate) mod debug;
 
-use common::{dev_log, trace_log};
+use common::{dev_log, trace_log, log, error_log};
 use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
@@ -396,21 +396,21 @@ pub async fn start() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
     
-    web_sys::console::log_1(&"DEBUG: Starting Pitch Toy application".into());
+    log!("Starting Pitch Toy application");
     dev_log!("Build configuration: {}", if cfg!(debug_assertions) { "Development" } else { "Production" });
     dev_log!("{}", Platform::get_platform_info());
     
     // Validate critical platform APIs before proceeding
-    web_sys::console::log_1(&"DEBUG: Checking platform feature support...".into());
+    dev_log!("Checking platform feature support...");
     if let PlatformValidationResult::MissingCriticalApis(missing_apis) = Platform::check_feature_support() {
         let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
-        web_sys::console::error_1(&format!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", ")).into());
-        web_sys::console::error_1(&"✗ Application cannot start. Please upgrade your browser or use a supported browser:".into());
+        error_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
+        error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
         // TODO: Add error screen rendering in future story when UI requirements are defined
         return;
     }
 
-    web_sys::console::log_1(&"DEBUG: ✓ Platform validation passed - initializing three-layer architecture".into());
+    log!("✓ Platform validation passed - initializing three-layer architecture");
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");

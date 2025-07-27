@@ -96,7 +96,7 @@
 
 use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
-use crate::common::trace_log;
+use crate::common::{trace_log, warn_log};
 
 /// Validation error types for action processing
 /// 
@@ -579,22 +579,19 @@ impl DataModel {
     fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (MidiNote, f32) {
         // Handle edge case: invalid or zero frequency
         if frequency <= 0.0 {
-            #[cfg(debug_assertions)]
-            web_sys::console::warn_1(&format!("[MODEL] Invalid frequency for note conversion: {}", frequency).into());
+            warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
             return (69, 0.0); // Return A4 (MIDI 69) as default
         }
         
         // Handle edge case: extremely low frequency (below human hearing ~20Hz)
         if frequency < 20.0 {
-            #[cfg(debug_assertions)]
-            web_sys::console::warn_1(&format!("[MODEL] Extremely low frequency detected: {}Hz", frequency).into());
+            warn_log!("[MODEL] Extremely low frequency detected: {}Hz", frequency);
             // Still process but warn in debug mode
         }
         
         // Handle edge case: extremely high frequency (above typical musical range ~4186Hz for C8)
         if frequency > 4186.0 {
-            #[cfg(debug_assertions)]
-            web_sys::console::warn_1(&format!("[MODEL] Extremely high frequency detected: {}Hz", frequency).into());
+            warn_log!("[MODEL] Extremely high frequency detected: {}Hz", frequency);
             // Still process but warn in debug mode
         }
         

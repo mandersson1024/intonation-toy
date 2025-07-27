@@ -4,6 +4,7 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{MediaStream, MediaStreamConstraints};
 use super::AudioError;
 use std::fmt;
+use crate::common::{log, error_log, warn_log};
 
 /// Microphone permission and device states
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -180,13 +181,13 @@ impl PermissionManager {
     where
         F: Fn(AudioPermission) + 'static,
     {
-        web_sys::console::log_1(&"Requesting microphone permission...".into());
+        log!("Requesting microphone permission...");
         
         match Self::request_microphone_permission().await {
             Ok(stream) => {
                 // Permission granted - stop the stream immediately since we just needed permission
                 Self::stop_media_stream(&stream);
-                web_sys::console::log_1(&"✅ Microphone permission granted".into());
+                log!("✅ Microphone permission granted");
                 callback(AudioPermission::Granted);
                 AudioPermission::Granted
             }
@@ -195,13 +196,13 @@ impl PermissionManager {
                 // Log permission denial/unavailability
                 match permission_state {
                     AudioPermission::Denied => {
-                        web_sys::console::warn_1(&"❌ Microphone permission denied".into());
+                        warn_log!("❌ Microphone permission denied");
                     }
                     AudioPermission::Unavailable => {
-                        web_sys::console::warn_1(&"❌ Microphone not available".into());
+                        warn_log!("❌ Microphone not available");
                     }
                     _ => {
-                        web_sys::console::warn_1(&format!("⚠️ Microphone permission issue: {:?}", error).into());
+                        warn_log!("⚠️ Microphone permission issue: {:?}", error);
                     }
                 }
                 callback(permission_state.clone());
@@ -237,12 +238,12 @@ pub async fn connect_microphone_with_context(
     crate::common::dev_log!("Calling connect_microphone_to_audioworklet_with_context");
     match super::connect_microphone_to_audioworklet_with_context(audio_context).await {
         Ok(_) => {
-            web_sys::console::log_1(&"✓ Microphone connected successfully".into());
+            log!("✓ Microphone connected successfully");
             crate::common::dev_log!("Microphone connected successfully to AudioWorklet");
             AudioPermission::Granted
         }
         Err(e) => {
-            web_sys::console::error_1(&format!("✗ Microphone connection failed: {}", e).into());
+            error_log!("✗ Microphone connection failed: {}", e);
             crate::common::dev_log!("Microphone connection failed: {}", e);
             
             // Map error to permission state

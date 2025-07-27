@@ -2,6 +2,7 @@ use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
+use crate::common::dev_log;
 
 pub type PitchAnalysisError = String;
 
@@ -611,12 +612,12 @@ impl PitchAnalyzer {
         if self.metrics.analysis_cycles % 1000 == 0 {
             #[cfg(target_arch = "wasm32")]
             {
-                web_sys::console::log_1(&format!(
+                dev_log!(
                     "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
                     self.metrics.processing_latency_ms, 
                     self.metrics.analysis_cycles,
                     self.metrics.successful_detections
-                ).into());
+                );
             }
             
             #[cfg(not(target_arch = "wasm32"))]
