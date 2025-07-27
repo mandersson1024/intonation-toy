@@ -8,7 +8,7 @@ use crate::engine::audio::{
     buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
-use crate::shared_types::{Note, TuningSystem};
+use crate::shared_types::{NoteName, TuningSystem};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -29,7 +29,7 @@ pub struct DebugPanel {
     background_noise_type: TestWaveform,
     
     // UI state for user actions
-    selected_root_note: Note,
+    selected_root_note: NoteName,
     selected_tuning_system: TuningSystem,
 }
 
@@ -55,7 +55,7 @@ impl DebugPanel {
             background_noise_type: TestWaveform::WhiteNoise,
             
             // Initialize user action state
-            selected_root_note: Note::A,
+            selected_root_note: NoteName::A,
             selected_tuning_system: TuningSystem::EqualTemperament,
         }
     }
@@ -495,18 +495,18 @@ impl DebugPanel {
                             .selected_text(format!("{:?}", self.selected_root_note))
                             .show_ui(ui, |ui| {
                                 let notes = [
-                                    Note::C,
-                                    Note::DFlat,
-                                    Note::D,
-                                    Note::EFlat,
-                                    Note::E,
-                                    Note::F,
-                                    Note::FSharp,
-                                    Note::G,
-                                    Note::AFlat,
-                                    Note::A,
-                                    Note::BFlat,
-                                    Note::B,
+                                    NoteName::C,
+                                    NoteName::DFlat,
+                                    NoteName::D,
+                                    NoteName::EFlat,
+                                    NoteName::E,
+                                    NoteName::F,
+                                    NoteName::FSharp,
+                                    NoteName::G,
+                                    NoteName::AFlat,
+                                    NoteName::A,
+                                    NoteName::BFlat,
+                                    NoteName::B,
                                 ];
                                 
                                 for note in &notes {

@@ -15,7 +15,7 @@ pub struct Volume {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Note {
+pub enum NoteName {
     C,
     DFlat,
     D,
@@ -38,7 +38,7 @@ pub enum TuningSystem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Accuracy {
-    pub closest_note: Note,
+    pub closest_note: NoteName,
     pub accuracy: f32, // 0.0 = perfect, 1.0 = maximum deviation
 }
 
@@ -124,7 +124,7 @@ mod tests {
     fn test_model_update_result_creation() {
         let test_volume = Volume { peak_amplitude: 0.8, rms_amplitude: 0.6 };
         let test_pitch = Pitch::Detected(440.0, 0.9);
-        let test_accuracy = Accuracy { closest_note: Note::A, accuracy: 0.1 };
+        let test_accuracy = Accuracy { closest_note: NoteName::A, accuracy: 0.1 };
         let test_tuning_system = TuningSystem::EqualTemperament;
         let test_errors = vec![Error::ProcessingError("Test error".to_string())];
 

@@ -11,7 +11,7 @@ use pitch_toy::model::DataModel;
 use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
-    PermissionState, TuningSystem, Note, Accuracy
+    PermissionState, TuningSystem, NoteName, Accuracy
 };
 use pitch_toy::presentation::PresentationLayerActions;
 use wasm_bindgen_test::*;
@@ -79,14 +79,14 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result = model.update(1.0, engine_data.clone());
     
     // Verify model added musical interpretation
-    assert_eq!(model_result.accuracy.closest_note, Note::A);
+    assert_eq!(model_result.accuracy.closest_note, NoteName::A);
     assert!(model_result.accuracy.accuracy < 0.01, "440Hz should be perfectly in tune with A");
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Change root note to C
     let mut actions = PresentationLayerActions::new();
     actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
-        root_note: Note::C,
+        root_note: NoteName::C,
     });
     let _ = model.process_user_actions(actions);
     
@@ -94,7 +94,7 @@ fn test_model_processes_frequency_with_tuning_context() {
     let model_result_c = model.update(2.0, engine_data);
     
     // Verify same frequency has different musical interpretation
-    assert_eq!(model_result_c.accuracy.closest_note, Note::A);
+    assert_eq!(model_result_c.accuracy.closest_note, NoteName::A);
     assert!(model_result_c.accuracy.accuracy > 0.01, 
         "440Hz should show inaccuracy with C root - got accuracy: {}", 
         model_result_c.accuracy.accuracy);
@@ -134,7 +134,7 @@ async fn test_complete_data_flow_pipeline() {
                 assert!(raw_frequency > 0.0, "Engine should provide raw frequency");
                 
                 // Model transformed it to musical data
-                assert!(model_result.accuracy.closest_note != Note::A || 
+                assert!(model_result.accuracy.closest_note != NoteName::A || 
                        model_result.accuracy.accuracy < 1.0,
                        "Model should provide musical interpretation");
                 
@@ -178,13 +178,13 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Get initial model result with A root
     let result_before = model.update(1.0, engine_data.clone());
-    assert_eq!(result_before.accuracy.closest_note, Note::A);
+    assert_eq!(result_before.accuracy.closest_note, NoteName::A);
     let accuracy_before = result_before.accuracy.accuracy;
     
     // Change root note in model
     let mut actions = PresentationLayerActions::new();
     actions.root_note_adjustments.push(pitch_toy::presentation::AdjustRootNote {
-        root_note: Note::D,
+        root_note: NoteName::D,
     });
     let _ = model.process_user_actions(actions);
     
@@ -195,7 +195,7 @@ async fn test_tuning_changes_affect_only_model() {
     
     // Model should interpret same frequency differently with new root
     let result_after = model.update(2.0, engine_data);
-    assert_eq!(result_after.accuracy.closest_note, Note::A); // Still detected as A
+    assert_eq!(result_after.accuracy.closest_note, NoteName::A); // Still detected as A
     let accuracy_after = result_after.accuracy.accuracy;
     
     // Accuracy should be different with different root note
@@ -230,7 +230,7 @@ fn test_layer_separation_boundaries() {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
         pitch: Pitch::Detected(440.0, 0.95),
         accuracy: Accuracy {
-            closest_note: Note::A,
+            closest_note: NoteName::A,
             accuracy: 0.01,
         },
         tuning_system: TuningSystem::EqualTemperament,
@@ -239,7 +239,7 @@ fn test_layer_separation_boundaries() {
     };
     
     // Model result has musical fields - verified by type system
-    assert_eq!(model_result.accuracy.closest_note, Note::A);
+    assert_eq!(model_result.accuracy.closest_note, NoteName::A);
     assert_eq!(model_result.tuning_system, TuningSystem::EqualTemperament);
     
     // Presentation layer receives fully processed data
@@ -331,10 +331,10 @@ fn test_sequential_tuning_context_changes() {
     
     // Test with different root notes in sequence
     let root_notes = vec![
-        (Note::A, "A root"),
-        (Note::C, "C root"), 
-        (Note::E, "E root"),
-        (Note::G, "G root"),
+        (NoteName::A, "A root"),
+        (NoteName::C, "C root"), 
+        (NoteName::E, "E root"),
+        (NoteName::G, "G root"),
     ];
     
     let mut previous_accuracy = None;
@@ -351,7 +351,7 @@ fn test_sequential_tuning_context_changes() {
         let result = model.update(1.0, engine_data.clone());
         
         // Verify note detection is consistent (absolute pitch)
-        assert_eq!(result.accuracy.closest_note, Note::C, 
+        assert_eq!(result.accuracy.closest_note, NoteName::C, 
             "C5 should always be detected as C regardless of root");
         
         // Verify accuracy changes with root note (relative accuracy)
