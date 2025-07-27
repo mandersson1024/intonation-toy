@@ -13,7 +13,7 @@ pub mod shared_types;
 
 // Re-export types for test usage
 #[cfg(test)]
-pub use shared_types::{NoteName, TuningSystem};
+pub use shared_types::{NoteName, MidiNote, TuningSystem};
 #[cfg(test)]
 pub use presentation::{
     ChangeTuningSystem, AdjustRootNote,
@@ -238,7 +238,7 @@ pub async fn run_three_d_with_layers(
                 volume: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
                 pitch: crate::shared_types::Pitch::NotDetected,
                 accuracy: crate::shared_types::Accuracy {
-                    closest_note: crate::shared_types::NoteName::A,
+                    closest_note: 69,
                     accuracy: 1.0,
                 },
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,

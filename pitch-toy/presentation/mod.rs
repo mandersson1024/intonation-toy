@@ -64,7 +64,7 @@ mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, NoteName};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, NoteName, MidiNote};
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -103,12 +103,12 @@ impl ChangeTuningSystem {
 /// Request to adjust the root note
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdjustRootNote {
-    pub root_note: NoteName,
+    pub root_note: MidiNote,
 }
 
 #[cfg(test)]
 impl AdjustRootNote {
-    pub fn new(root_note: NoteName) -> Self {
+    pub fn new(root_note: MidiNote) -> Self {
         Self { root_note }
     }
 }
@@ -207,7 +207,7 @@ impl PresentationLayerActionsBuilder {
         self
     }
     
-    pub fn with_root_note_adjustment(mut self, root_note: NoteName) -> Self {
+    pub fn with_root_note_adjustment(mut self, root_note: MidiNote) -> Self {
         self.root_note_adjustments.push(AdjustRootNote::new(root_note));
         self
     }
@@ -472,7 +472,7 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `root_note` - The new root note selected by the user
-    pub fn on_root_note_adjusted(&mut self, root_note: NoteName) {
+    pub fn on_root_note_adjusted(&mut self, root_note: MidiNote) {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
     }
 
@@ -732,7 +732,7 @@ mod tests {
             volume: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
             accuracy: crate::shared_types::Accuracy {
-                closest_note: crate::shared_types::NoteName::A,
+                closest_note: 69,
                 accuracy: 1.0,
             },
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
@@ -901,11 +901,11 @@ mod tests {
             .expect("Presenter creation should succeed");
 
         // Trigger root note adjustment
-        presenter.on_root_note_adjusted(NoteName::DFlat);
+        presenter.on_root_note_adjusted(61);
         
         let actions = presenter.get_user_actions();
         assert_eq!(actions.root_note_adjustments.len(), 1);
-        assert_eq!(actions.root_note_adjustments[0].root_note, NoteName::DFlat);
+        assert_eq!(actions.root_note_adjustments[0].root_note, 61);
         
         // After getting actions, they should be cleared
         let actions2 = presenter.get_user_actions();
@@ -920,8 +920,8 @@ mod tests {
 
         // Trigger multiple actions
         presenter.on_tuning_system_changed(TuningSystem::EqualTemperament);
-        presenter.on_root_note_adjusted(NoteName::G);
-        presenter.on_root_note_adjusted(NoteName::D); // Second root note change
+        presenter.on_root_note_adjusted(67);
+        presenter.on_root_note_adjusted(62); // Second root note change
         
         let actions = presenter.get_user_actions();
         
@@ -931,8 +931,8 @@ mod tests {
         
         // Verify action data
         assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
-        assert_eq!(actions.root_note_adjustments[0].root_note, NoteName::G);
-        assert_eq!(actions.root_note_adjustments[1].root_note, NoteName::D);
+        assert_eq!(actions.root_note_adjustments[0].root_note, 67);
+        assert_eq!(actions.root_note_adjustments[1].root_note, 62);
         
         // After getting actions, all should be cleared
         let actions2 = presenter.get_user_actions();
@@ -965,8 +965,8 @@ mod tests {
         let tuning_change2 = ChangeTuningSystem { tuning_system: TuningSystem::EqualTemperament };
         assert_eq!(tuning_change1, tuning_change2);
         
-        let root_note1 = AdjustRootNote { root_note: NoteName::F };
-        let root_note2 = AdjustRootNote { root_note: NoteName::F };
+        let root_note1 = AdjustRootNote { root_note: 65 };
+        let root_note2 = AdjustRootNote { root_note: 65 };
         assert_eq!(root_note1, root_note2);
     }
 

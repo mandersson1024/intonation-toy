@@ -377,16 +377,13 @@ impl DataModel {
                 // Apply tuning-aware accuracy normalization
                 let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
                 
-                // Convert MidiNote to NoteName for Accuracy struct compatibility
-                let closest_note = from_midi_note(closest_midi_note);
-                
                 trace_log!(
                     "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
-                    closest_note, normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
+                    from_midi_note(closest_midi_note), normalized_accuracy, (1.0 - normalized_accuracy) * 100.0
                 );
                 
                 Accuracy {
-                    closest_note,
+                    closest_note: closest_midi_note,
                     accuracy: normalized_accuracy,
                 }
             }
@@ -395,7 +392,7 @@ impl DataModel {
                 trace_log!("[MODEL] No pitch detected, returning default accuracy");
                 
                 Accuracy {
-                    closest_note: from_midi_note(self.root_note), // Convert MidiNote to NoteName for default
+                    closest_note: self.root_note, // Use MidiNote directly
                     accuracy: 1.0, // Maximum inaccuracy when no pitch is detected
                 }
             }
@@ -477,9 +474,9 @@ impl DataModel {
         
         // Process root note adjustments
         for root_note_adjustment in presentation_actions.root_note_adjustments {
-            // Convert NoteName to MidiNote using octave 4 (middle octave)
-            if let Some(midi_note) = to_midi_note(root_note_adjustment.root_note.clone(), 4) {
-                match self.validate_root_note_adjustment_with_error(&midi_note) {
+            // root_note is already a MidiNote
+            let midi_note = root_note_adjustment.root_note;
+            match self.validate_root_note_adjustment_with_error(&midi_note) {
                     Ok(()) => {
                         let config = UpdateTuningConfigurationAction {
                             tuning_system: self.tuning_system.clone(),
@@ -497,11 +494,6 @@ impl DataModel {
                         validation_errors.push(error);
                     }
                 }
-            } else {
-                // MIDI note conversion failed - this should not happen for valid NoteName values
-                #[cfg(debug_assertions)]
-                web_sys::console::warn_1(&format!("[MODEL] Failed to convert {:?} to MIDI note", root_note_adjustment.root_note).into());
-            }
         }
         
         ProcessedActions {
@@ -988,7 +980,7 @@ mod tests {
         let result = model.update(1.0, engine_data);
         
         // Should detect A note with perfect accuracy (0.0)
-        assert_eq!(result.accuracy.closest_note, NoteName::A);
+        assert_eq!(result.accuracy.closest_note, 69);
         assert!(result.accuracy.accuracy < 0.01, "Accuracy should be nearly perfect for 440Hz A4, got {}", result.accuracy.accuracy);
     }
 
@@ -1014,7 +1006,7 @@ mod tests {
         let result = model.update(1.0, engine_data);
         
         // Should detect C note with some inaccuracy (flat)
-        assert_eq!(result.accuracy.closest_note, NoteName::C);
+        assert_eq!(result.accuracy.closest_note, 60);
         assert!(result.accuracy.accuracy > 0.0, "Accuracy should show flatness for 260Hz (expected ~261.63Hz)");
         assert!(result.accuracy.accuracy < 1.0, "Accuracy should not be at maximum for a recognizable pitch");
     }
@@ -1093,7 +1085,7 @@ mod tests {
         // Create presentation actions with the same root note as current
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::A, // Same as default (MIDI 69)
+            root_note: 69, // A4 as MIDI note
         });
         
         let result = model.process_user_actions(actions);
@@ -1118,7 +1110,7 @@ mod tests {
         let mut actions = PresentationLayerActions::new();
         // Since we only have EqualTemperament, we'll test by changing root note only
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::C,
+            root_note: 60,
         });
         
         let result = model.process_user_actions(actions);
@@ -1149,12 +1141,12 @@ mod tests {
         
         // Invalid: same root note
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::A, // MIDI 69
+            root_note: 69, // A4
         });
         
         // Valid: different root note
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::D,
+            root_note: 62, // D4
         });
         
         let result = model.process_user_actions(actions);
@@ -1197,32 +1189,32 @@ mod tests {
         
         // First test with root note A (default)
         let result_a = model.update(1.0, engine_data.clone());
-        assert_eq!(result_a.accuracy.closest_note, NoteName::A);
+        assert_eq!(result_a.accuracy.closest_note, 69);
         assert!(result_a.accuracy.accuracy < 0.01, "440Hz should be perfectly in tune with A root");
         
         // Change root note to C
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::C,
+            root_note: 60,
         });
         model.process_user_actions(actions);
         
         // Test same frequency with C root note
         let result_c = model.update(2.0, engine_data.clone());
-        assert_eq!(result_c.accuracy.closest_note, NoteName::A);
+        assert_eq!(result_c.accuracy.closest_note, 69);
         // With C as root, 440Hz (A) should show some inaccuracy since it's not a perfect interval
         assert!(result_c.accuracy.accuracy > 0.01, "440Hz should show inaccuracy with C root");
         
         // Change root note to F#
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::FSharp,
+            root_note: 66,
         });
         model.process_user_actions(actions);
         
         // Test same frequency with F# root note
         let result_fsharp = model.update(3.0, engine_data);
-        assert_eq!(result_fsharp.accuracy.closest_note, NoteName::A);
+        assert_eq!(result_fsharp.accuracy.closest_note, 69);
         // The accuracy should be different again
         assert_ne!(result_a.accuracy.accuracy, result_fsharp.accuracy.accuracy, 
             "Same frequency should have different accuracy with different root notes");
@@ -1249,7 +1241,7 @@ mod tests {
         // Test with different root note
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::D,
+            root_note: 62,
         });
         model.process_user_actions(actions);
         
@@ -1296,7 +1288,7 @@ mod tests {
         // Test with C root
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::C,
+            root_note: 60,
         });
         model.process_user_actions(actions);
         
@@ -1315,7 +1307,7 @@ mod tests {
         for (root_note, expected_freq) in test_roots {
             let mut actions = PresentationLayerActions::new();
             actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-                root_note: root_note.clone(),
+                root_note: to_midi_note(root_note.clone(), 4).unwrap(),
             });
             model.process_user_actions(actions);
             
@@ -1389,7 +1381,7 @@ mod tests {
         let result = model.update(1.0, engine_data);
         
         // Verify raw frequency was processed with tuning context
-        assert_eq!(result.accuracy.closest_note, NoteName::C);
+        assert_eq!(result.accuracy.closest_note, 72);
         assert!(result.accuracy.accuracy < 0.1, "C5 should be nearly in tune");
         
         // Verify volume data passed through
