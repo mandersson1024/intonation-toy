@@ -18,7 +18,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Model layer
 - Responsible for the tuning system and root note
-- The root note is always a note in standard tuning and represents the tonic pitch, from which intervals are calculated
 
 ### Presentation layer
 - Responsible for user input and visualization of data processed by the model
@@ -28,10 +27,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Conditionally compiled under cfg(debug_assertions)
 
 ## Functional requirements and general information
-- The application is all about analyzing the relation of audio input to the root note; in musical terms: **intonation**
+- The application is all about analyzing the relation of audio input to the root note; in musical terms - intonation
 - We visualize the intonation by realtime graphic rendering to the screen
-- The tuning systems we use are **EqualTemperament** and **JustIntonation**
-- The **root note** is always one of the notes in standard tuning. Standard tuning meaning just intonation where A4=440Hz
+- The tuning systems we use are equal temperament and just intonation
+- The root note is always a note in standard tuning and represents the tonic pitch, from which intervals are calculated
+- Standard tuning means equal temperament where A4=440Hz
 - The notes of just intonation are not fixed, but relative to the selected root note.
 - For volume data, the internal representation is always amplitude, not dB.
 - We don't adapt algorithms on the fly to adapt for performace. We always hardcode the parameters affecting performance
