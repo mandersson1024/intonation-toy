@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, NoteName};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, NoteName, MidiNote, from_midi_note, to_midi_note, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::trace_log;
 
@@ -118,7 +118,7 @@ pub(crate) enum ValidationError {
     /// Unsupported tuning system requested
     UnsupportedTuningSystem(String),
     /// Root note is already set to requested value
-    RootNoteAlreadySet(NoteName),
+    RootNoteAlreadySet(MidiNote),
 }
 
 /// Result of processing user actions with validation information
@@ -166,7 +166,7 @@ pub struct ConfigureAudioSystemAction {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateTuningConfigurationAction {
     pub tuning_system: TuningSystem,
-    pub root_note: NoteName,
+    pub root_note: MidiNote,
 }
 
 /// Container for all processed model layer actions
@@ -240,7 +240,7 @@ pub struct DataModel {
     tuning_system: TuningSystem,
     
     /// Current root note for tuning calculations
-    root_note: NoteName,
+    root_note: MidiNote,
 }
 
 impl DataModel {
@@ -261,7 +261,7 @@ impl DataModel {
         // Model layer initialization without interface dependencies
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
-            root_note: NoteName::A, // Standard A root note
+            root_note: 69, // Standard A4 root note (MIDI 69)
         })
     }
 
@@ -372,10 +372,13 @@ impl DataModel {
                 );
                 
                 // Apply tuning-aware frequency to note conversion
-                let (closest_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
+                let (closest_midi_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
                 
                 // Apply tuning-aware accuracy normalization
                 let normalized_accuracy = self.normalize_accuracy(accuracy_cents);
+                
+                // Convert MidiNote to NoteName for Accuracy struct compatibility
+                let closest_note = from_midi_note(closest_midi_note);
                 
                 trace_log!(
                     "[MODEL] Result: Note {:?}, accuracy {} ({}% in tune)",
@@ -392,7 +395,7 @@ impl DataModel {
                 trace_log!("[MODEL] No pitch detected, returning default accuracy");
                 
                 Accuracy {
-                    closest_note: self.root_note.clone(), // Use root note as default
+                    closest_note: from_midi_note(self.root_note), // Convert MidiNote to NoteName for default
                     accuracy: 1.0, // Maximum inaccuracy when no pitch is detected
                 }
             }
@@ -474,23 +477,30 @@ impl DataModel {
         
         // Process root note adjustments
         for root_note_adjustment in presentation_actions.root_note_adjustments {
-            match self.validate_root_note_adjustment_with_error(&root_note_adjustment.root_note) {
-                Ok(()) => {
-                    let config = UpdateTuningConfigurationAction {
-                        tuning_system: self.tuning_system.clone(),
-                        root_note: root_note_adjustment.root_note.clone(),
-                    };
-                    
-                    // Apply the state change to internal model state
-                    self.apply_root_note_change(&config);
-                    
-                    model_actions.tuning_configurations.push(config);
+            // Convert NoteName to MidiNote using octave 4 (middle octave)
+            if let Some(midi_note) = to_midi_note(root_note_adjustment.root_note.clone(), 4) {
+                match self.validate_root_note_adjustment_with_error(&midi_note) {
+                    Ok(()) => {
+                        let config = UpdateTuningConfigurationAction {
+                            tuning_system: self.tuning_system.clone(),
+                            root_note: midi_note,
+                        };
+                        
+                        // Apply the state change to internal model state
+                        self.apply_root_note_change(&config);
+                        
+                        model_actions.tuning_configurations.push(config);
+                    }
+                    Err(error) => {
+                        // Log validation failure for debugging
+                        // TODO: Add proper logging when log crate is integrated
+                        validation_errors.push(error);
+                    }
                 }
-                Err(error) => {
-                    // Log validation failure for debugging
-                    // TODO: Add proper logging when log crate is integrated
-                    validation_errors.push(error);
-                }
+            } else {
+                // MIDI note conversion failed - this should not happen for valid NoteName values
+                #[cfg(debug_assertions)]
+                web_sys::console::warn_1(&format!("[MODEL] Failed to convert {:?} to MIDI note", root_note_adjustment.root_note).into());
             }
         }
         
@@ -534,12 +544,12 @@ impl DataModel {
     /// Returns a tuple of (Note, accuracy_cents) where:
     /// - Note: The closest musical note to the frequency
     /// - accuracy_cents: Deviation in cents (negative = flat, positive = sharp)
-    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (NoteName, f32) {
+    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (MidiNote, f32) {
         // Handle edge case: invalid or zero frequency
         if frequency <= 0.0 {
             #[cfg(debug_assertions)]
             web_sys::console::warn_1(&format!("[MODEL] Invalid frequency for note conversion: {}", frequency).into());
-            return (NoteName::A, 0.0);
+            return (69, 0.0); // Return A4 (MIDI 69) as default
         }
         
         // Handle edge case: extremely low frequency (below human hearing ~20Hz)
@@ -570,41 +580,26 @@ impl DataModel {
             TuningSystem::EqualTemperament => {
                 // Equal temperament: logarithmic relationship between frequency and pitch
                 // Formula: MIDI = root_midi + 12 * log2(frequency / reference_frequency)
-                let root_midi = self.note_to_midi_number(self.root_note.clone());
-                root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
+                self.root_note as f32 + 12.0 * (frequency / reference_freq).log2()
             }
             TuningSystem::JustIntonation => {
                 // For now, use equal temperament formula as placeholder
                 // TODO: Implement proper just intonation calculations
-                let root_midi = self.note_to_midi_number(self.root_note.clone());
-                root_midi as f32 + 12.0 * (frequency / reference_freq).log2()
+                self.root_note as f32 + 12.0 * (frequency / reference_freq).log2()
             }
         };
         
         // Round to nearest MIDI note for note identification
         let rounded_midi = midi_note.round();
-        let note_index = (rounded_midi as i32 % 12 + 12) % 12; // Ensure positive modulo
         
-        // Map MIDI note index to musical note
-        let note = match note_index {
-            0 => NoteName::C,
-            1 => NoteName::DFlat,
-            2 => NoteName::D,
-            3 => NoteName::EFlat,
-            4 => NoteName::E,
-            5 => NoteName::F,
-            6 => NoteName::FSharp,
-            7 => NoteName::G,
-            8 => NoteName::AFlat,
-            9 => NoteName::A,
-            10 => NoteName::BFlat,
-            11 => NoteName::B,
-            _ => {
-                // This should never happen due to modulo 12, but handle gracefully
-                #[cfg(debug_assertions)]
-                web_sys::console::error_1(&format!("[MODEL] Unexpected note index: {}", note_index).into());
-                NoteName::A
-            }
+        // Clamp to valid MIDI range (0-127)
+        let clamped_midi = rounded_midi.max(0.0).min(127.0) as u8;
+        
+        // Validate using the utility function
+        let final_midi_note = if is_valid_midi_note(clamped_midi) {
+            clamped_midi
+        } else {
+            69 // Default to A4 if validation fails
         };
         
         // Calculate accuracy in cents (100 cents = 1 semitone)
@@ -612,11 +607,11 @@ impl DataModel {
         let accuracy_cents = (midi_note - rounded_midi) * 100.0;
         
         trace_log!(
-            "[MODEL] Frequency {}Hz -> Note {:?} with accuracy {} cents",
-            frequency, note, accuracy_cents
+            "[MODEL] Frequency {}Hz -> MIDI note {} with accuracy {} cents",
+            frequency, final_midi_note, accuracy_cents
         );
         
-        (note, accuracy_cents)
+        (final_midi_note, accuracy_cents)
     }
     
     
@@ -710,17 +705,16 @@ impl DataModel {
                 // Equal temperament: fixed ratio of 2^(1/12) between semitones
                 // Calculate reference frequency based on root note
                 
-                // Get the MIDI number for the root note (in octave 4)
-                let root_midi = self.note_to_midi_number(self.root_note.clone());
-                let midi_diff = root_midi - A4_MIDI;
+                // Use the root note directly as MIDI number
+                let midi_diff = self.root_note as i32 - A4_MIDI;
                 
                 // Calculate frequency using equal temperament formula
                 // f = f0 * 2^(n/12) where n is semitone distance
                 let reference_freq = A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
                 
                 trace_log!(
-                    "[MODEL] Reference frequency for {:?} in {:?}: {}Hz (MIDI {} -> {})",
-                    self.root_note, self.tuning_system, reference_freq, A4_MIDI, root_midi
+                    "[MODEL] Reference frequency for MIDI {} in {:?}: {}Hz (diff from A4: {})",
+                    self.root_note, self.tuning_system, reference_freq, midi_diff
                 );
                 
                 reference_freq
@@ -728,31 +722,15 @@ impl DataModel {
             TuningSystem::JustIntonation => {
                 // For now, use the same calculation as equal temperament
                 // TODO: Implement proper just intonation frequency ratios
-                let root_midi = self.note_to_midi_number(self.root_note.clone());
-                let midi_diff = root_midi - A4_MIDI;
+                let midi_diff = self.root_note as i32 - A4_MIDI;
                 A4_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0)
             }
         }
     }
     
-    /// Convert a Note to its MIDI number (using C4 = 60 convention)
-    fn note_to_midi_number(&self, note: NoteName) -> i32 {
-        // Assuming we're working in the 4th octave (middle C = C4 = MIDI 60)
-        // This can be extended to support multiple octaves in the future
-        match note {
-            NoteName::C => 60,
-            NoteName::DFlat => 61,
-            NoteName::D => 62,
-            NoteName::EFlat => 63,
-            NoteName::E => 64,
-            NoteName::F => 65,
-            NoteName::FSharp => 66,
-            NoteName::G => 67,
-            NoteName::AFlat => 68,
-            NoteName::A => 69,
-            NoteName::BFlat => 70,
-            NoteName::B => 71,
-        }
+    /// Convert MidiNote to i32 for calculations
+    fn note_to_midi_number(&self, midi_note: MidiNote) -> i32 {
+        midi_note as i32
     }
     
     
@@ -817,9 +795,9 @@ impl DataModel {
     /// a valid musical note. Future implementations will add:
     /// - Compatibility checks with current tuning system
     /// - Musical theory validation
-    fn validate_root_note_adjustment_with_error(&self, new_root_note: &NoteName) -> Result<(), ValidationError> {
+    fn validate_root_note_adjustment_with_error(&self, new_root_note: &MidiNote) -> Result<(), ValidationError> {
         if *new_root_note == self.root_note {
-            Err(ValidationError::RootNoteAlreadySet(new_root_note.clone()))
+            Err(ValidationError::RootNoteAlreadySet(*new_root_note))
         } else {
             Ok(())
         }
@@ -871,11 +849,11 @@ impl DataModel {
     /// - Recalculation of derived values
     fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
         crate::common::dev_log!(
-            "Model layer: Root note changed from {:?} to {:?}",
+            "Model layer: Root note changed from {} to {}",
             self.root_note, action.root_note
         );
         self.tuning_system = action.tuning_system.clone();
-        self.root_note = action.root_note.clone();
+        self.root_note = action.root_note;
     }
 }
 
@@ -1115,7 +1093,7 @@ mod tests {
         // Create presentation actions with the same root note as current
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::A, // Same as default
+            root_note: NoteName::A, // Same as default (MIDI 69)
         });
         
         let result = model.process_user_actions(actions);
@@ -1127,7 +1105,7 @@ mod tests {
         assert_eq!(result.validation_errors.len(), 1);
         assert_eq!(
             result.validation_errors[0],
-            ValidationError::RootNoteAlreadySet(NoteName::A)
+            ValidationError::RootNoteAlreadySet(69) // A4 = MIDI 69
         );
     }
 
@@ -1153,7 +1131,7 @@ mod tests {
         
         // Verify model state was updated
         assert_eq!(model.tuning_system, TuningSystem::EqualTemperament);
-        assert_eq!(model.root_note, NoteName::C);
+        assert_eq!(model.root_note, 60); // C4 = MIDI 60
     }
 
     /// Test mixed success and failure cases
@@ -1171,7 +1149,7 @@ mod tests {
         
         // Invalid: same root note
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
-            root_note: NoteName::A,
+            root_note: NoteName::A, // MIDI 69
         });
         
         // Valid: different root note
@@ -1190,11 +1168,11 @@ mod tests {
         
         // Verify specific errors
         assert!(result.validation_errors.contains(&ValidationError::TuningSystemAlreadyActive(TuningSystem::EqualTemperament)));
-        assert!(result.validation_errors.contains(&ValidationError::RootNoteAlreadySet(NoteName::A)));
+        assert!(result.validation_errors.contains(&ValidationError::RootNoteAlreadySet(69))); // A4 = MIDI 69
         
         // Verify model state was updated only for valid actions
         assert_eq!(model.tuning_system, TuningSystem::EqualTemperament);
-        assert_eq!(model.root_note, NoteName::D);
+        assert_eq!(model.root_note, 62); // D4 = MIDI 62
     }
 
     /// Test that same raw frequency is processed differently with different root notes
@@ -1257,14 +1235,14 @@ mod tests {
         
         // Test C4 frequency (261.63 Hz)
         let c4_freq = 261.63;
-        let (note, cents) = model.frequency_to_note_and_accuracy(c4_freq);
-        assert_eq!(note, NoteName::C);
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(c4_freq);
+        assert_eq!(from_midi_note(midi_note), NoteName::C);
         assert!(cents.abs() < 1.0, "C4 should be nearly perfect");
         
         // Test frequencies between notes
         let between_c_and_csharp = 269.0; // Between C4 (261.63) and C#4 (277.18)
-        let (note, cents) = model.frequency_to_note_and_accuracy(between_c_and_csharp);
-        assert_eq!(note, NoteName::C, "269Hz should be closer to C than C#");
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(between_c_and_csharp);
+        assert_eq!(from_midi_note(midi_note), NoteName::C, "269Hz should be closer to C than C#");
         assert!(cents > 0.0, "Should be sharp relative to C");
         assert!(cents < 50.0, "Should be less than 50 cents sharp");
         
@@ -1276,8 +1254,8 @@ mod tests {
         model.process_user_actions(actions);
         
         // Same frequency should still map to same note but with different reference
-        let (note_d_root, cents_d_root) = model.frequency_to_note_and_accuracy(c4_freq);
-        assert_eq!(note_d_root, NoteName::C, "Note identification should be absolute");
+        let (midi_note_d_root, cents_d_root) = model.frequency_to_note_and_accuracy(c4_freq);
+        assert_eq!(from_midi_note(midi_note_d_root), NoteName::C, "Note identification should be absolute");
         // Cents calculation will be relative to D root
     }
 
@@ -1354,22 +1332,22 @@ mod tests {
         let mut model = DataModel::create().unwrap();
         
         // Test zero frequency
-        let (note, cents) = model.frequency_to_note_and_accuracy(0.0);
-        assert_eq!(note, NoteName::A);
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(0.0);
+        assert_eq!(from_midi_note(midi_note), NoteName::A);
         assert_eq!(cents, 0.0);
         
         // Test negative frequency
-        let (note, cents) = model.frequency_to_note_and_accuracy(-100.0);
-        assert_eq!(note, NoteName::A);
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(-100.0);
+        assert_eq!(from_midi_note(midi_note), NoteName::A);
         assert_eq!(cents, 0.0);
         
         // Test very low frequency (below hearing range)
-        let (note, cents) = model.frequency_to_note_and_accuracy(10.0);
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(10.0);
         // Should still process but might be inaccurate
-        assert!(note != NoteName::A || cents != 0.0, "Should process very low frequency");
+        assert!(from_midi_note(midi_note) != NoteName::A || cents != 0.0, "Should process very low frequency");
         
         // Test very high frequency (above musical range)
-        let (note, cents) = model.frequency_to_note_and_accuracy(10000.0);
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(10000.0);
         // Should still process
         assert!(cents.abs() <= 50.0, "Should clamp to reasonable cents range");
         
