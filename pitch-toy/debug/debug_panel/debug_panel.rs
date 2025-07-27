@@ -329,14 +329,9 @@ impl DebugPanel {
                 if let Some(pitch) = self.hybrid_data.get_pitch_data() {
                     ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
                     ui.label(format!("Clarity: {:.2}", pitch.clarity));
-                    
-                    let now = js_sys::Date::now() / 1000.0;
-                    let age = now - pitch.timestamp;
-                    ui.label(format!("Age: {:.1}s", age));
                 } else {
                     ui.label("Frequency: -- Hz");
                     ui.label("Clarity: --");
-                    ui.label("Age: --");
                 }
             });
     }
