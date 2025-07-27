@@ -43,7 +43,7 @@ impl Default for PitchDetectorConfig {
 pub struct PitchDetector {
     config: PitchDetectorConfig,
     yin_detector: YINDetector<f32>,
-    sample_rate: f32,
+    sample_rate: u32,
     // Performance optimization flags
     power_of_2_optimized: bool,
     early_exit_enabled: bool,
@@ -54,7 +54,7 @@ pub struct PitchDetector {
 }
 
 impl PitchDetector {
-    pub fn new(config: PitchDetectorConfig, sample_rate: f32) -> Result<Self, PitchDetectionError> {
+    pub fn new(config: PitchDetectorConfig, sample_rate: u32) -> Result<Self, PitchDetectionError> {
         if config.sample_window_size % 128 != 0 {
             return Err(format!(
                 "Sample window size must be a multiple of 128, got {}",
@@ -66,7 +66,7 @@ impl PitchDetector {
             return Err("Sample window size cannot be zero".to_string());
         }
 
-        if sample_rate <= 0.0 {
+        if sample_rate == 0 {
             return Err(format!("Sample rate must be positive, got {}", sample_rate));
         }
 
@@ -94,9 +94,9 @@ impl PitchDetector {
         let yin_detector = YINDetector::new(config.sample_window_size, 0);
 
         // Pre-compute performance values
-        let nyquist_frequency = sample_rate / 2.0;
-        let min_period_samples = (sample_rate / config.max_frequency).ceil() as usize;
-        let max_period_samples = (sample_rate / config.min_frequency).floor() as usize;
+        let nyquist_frequency = sample_rate as f32 / 2.0;
+        let min_period_samples = (sample_rate as f32 / config.max_frequency).ceil() as usize;
+        let max_period_samples = (sample_rate as f32 / config.min_frequency).floor() as usize;
         
         // Enable optimizations for better performance
         let power_of_2_optimized = config.sample_window_size.is_power_of_two();
@@ -185,10 +185,10 @@ impl PitchDetector {
     }
 
     /// Get optimal window size recommendation balancing accuracy and latency
-    pub fn get_optimal_window_size_for_latency(target_latency_ms: f32, sample_rate: f32) -> usize {
+    pub fn get_optimal_window_size_for_latency(target_latency_ms: f32, sample_rate: u32) -> usize {
         // Calculate maximum samples we can process within the target latency
         // Assuming YIN takes about 2-3x the window size in operations
-        let max_samples = (target_latency_ms / 1000.0 * sample_rate / 3.0) as usize;
+        let max_samples = (target_latency_ms / 1000.0 * sample_rate as f32 / 3.0) as usize;
         
         // Prioritize accuracy - use larger windows when possible within latency constraints
         let preferred_sizes = [4096, 2048, 1024, 512, 256]; // Accuracy-first order
@@ -204,9 +204,9 @@ impl PitchDetector {
     }
 
     /// Get recommended window size for optimal accuracy
-    pub fn get_accuracy_optimized_window_size(sample_rate: f32, min_frequency: f32) -> usize {
+    pub fn get_accuracy_optimized_window_size(sample_rate: u32, min_frequency: f32) -> usize {
         // For best accuracy, window should contain at least 2-3 periods of the lowest frequency
-        let min_period_samples = sample_rate / min_frequency;
+        let min_period_samples = sample_rate as f32 / min_frequency;
         let recommended_size = (min_period_samples * 3.0) as usize;
         
         // Round up to next power of 2 that's a multiple of 128
@@ -271,7 +271,7 @@ impl PitchDetector {
     /// Get accuracy characteristics of current configuration
     pub fn get_accuracy_characteristics(&self) -> (f32, &'static str) {
         // Calculate frequency resolution based on window size and sample rate
-        let frequency_resolution = self.sample_rate / self.config.sample_window_size as f32;
+        let frequency_resolution = self.sample_rate as f32 / self.config.sample_window_size as f32;
         
         let accuracy_grade = match self.config.sample_window_size {
             256 => "Basic",      // ~187Hz resolution at 48kHz
@@ -320,8 +320,8 @@ impl PitchDetector {
 
         // Recalculate optimization parameters
         self.power_of_2_optimized = new_config.sample_window_size.is_power_of_two();
-        self.min_period_samples = (self.sample_rate / new_config.max_frequency).ceil() as usize;
-        self.max_period_samples = (self.sample_rate / new_config.min_frequency).floor() as usize;
+        self.min_period_samples = (self.sample_rate as f32 / new_config.max_frequency).ceil() as usize;
+        self.max_period_samples = (self.sample_rate as f32 / new_config.min_frequency).floor() as usize;
 
         self.config = new_config;
         Ok(())
@@ -331,7 +331,7 @@ impl PitchDetector {
         &self.config
     }
 
-    pub fn sample_rate(&self) -> f32 {
+    pub fn sample_rate(&self) -> u32 {
         self.sample_rate
     }
 
@@ -431,11 +431,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_creation() {
         let config = PitchDetectorConfig::default();
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_ok());
         
         let detector = detector.unwrap();
-        assert_eq!(detector.sample_rate(), 48000.0);
+        assert_eq!(detector.sample_rate(), 48000);
         assert_eq!(detector.config().sample_window_size, 1024); // Updated for AudioWorklet batch size
         assert_eq!(detector.config().threshold, 0.1);            // Updated for better detection sensitivity
     }
@@ -445,7 +445,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.sample_window_size = 1000; // Not multiple of 128
         
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("multiple of 128")),
@@ -458,7 +458,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.sample_window_size = 0;
         
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("cannot be zero")),
@@ -470,19 +470,15 @@ mod tests {
     fn test_pitch_detector_invalid_sample_rate() {
         let config = PitchDetectorConfig::default();
         
-        let detector = PitchDetector::new(config.clone(), 0.0);
+        let detector = PitchDetector::new(config.clone(), 0);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("must be positive")),
             Ok(_) => panic!("Expected error"),
         }
         
-        let detector = PitchDetector::new(config, -1000.0);
-        assert!(detector.is_err());
-        match detector {
-            Err(err) => assert!(err.contains("must be positive")),
-            Ok(_) => panic!("Expected error"),
-        }
+        // Note: u32 can't be negative, so this test is now redundant
+        // Testing with 0 is sufficient for boundary validation
     }
 
     #[wasm_bindgen_test]
@@ -490,7 +486,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.threshold = -0.1;
         
-        let detector = PitchDetector::new(config.clone(), 48000.0);
+        let detector = PitchDetector::new(config.clone(), 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("between 0.0 and 1.0")),
@@ -498,7 +494,7 @@ mod tests {
         }
         
         config.threshold = 1.1;
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("between 0.0 and 1.0")),
@@ -511,7 +507,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.min_frequency = -10.0;
         
-        let detector = PitchDetector::new(config.clone(), 48000.0);
+        let detector = PitchDetector::new(config.clone(), 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("must be positive")),
@@ -520,7 +516,7 @@ mod tests {
         
         config.min_frequency = 100.0;
         config.max_frequency = 50.0; // Max less than min
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("must be greater than minimum")),
@@ -531,7 +527,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_wrong_size() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         let samples = vec![0.0; 512]; // Wrong size, expected 1024
         let result = detector.analyze(&samples);
@@ -542,7 +538,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_silence() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         let samples = vec![0.0; 1024]; // Silence
         let result = detector.analyze(&samples);
@@ -553,14 +549,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_analyze_sine_wave() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate 440Hz sine wave
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -582,14 +578,14 @@ mod tests {
         config.min_frequency = 400.0;
         config.max_frequency = 500.0;
         
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate 300Hz sine wave (below range)
         let frequency = 300.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -602,7 +598,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_update_config() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         let mut new_config = PitchDetectorConfig::default();
         new_config.threshold = 0.2;
@@ -619,7 +615,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_update_config_invalid() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         let mut invalid_config = PitchDetectorConfig::default();
         invalid_config.sample_window_size = 1000; // Not multiple of 128
@@ -638,7 +634,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_detector_window_sizes() {
-        let sample_rates = [44100.0, 48000.0];
+        let sample_rates = [44100, 48000];
         let window_sizes = [256, 512, 1024, 2048];
         
         for &sample_rate in &sample_rates {
@@ -667,7 +663,7 @@ mod tests {
         config.min_frequency = 80.0; // Vocal/instrumental range
         config.max_frequency = 2000.0;
         
-        let detector = PitchDetector::new(config, 48000.0);
+        let detector = PitchDetector::new(config, 48000);
         assert!(detector.is_ok());
         
         let detector = detector.unwrap();
@@ -682,14 +678,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_a4_standard_tuning() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate A4 (440Hz) - Standard tuning reference
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -706,14 +702,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_c4_middle_c() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate C4 (261.63Hz) - Middle C for note mapping validation
         let frequency = 261.63;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -730,14 +726,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_e4_major_third() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate E4 (329.63Hz) - Major third for tuning system testing
         let frequency = 329.63;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -754,14 +750,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_g4_perfect_fifth() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate G4 (392.00Hz) - Perfect fifth for harmonic validation
         let frequency = 392.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -778,16 +774,16 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_frequency_sweep() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Test frequency sweep: 100Hz-1000Hz for range validation
         let test_frequencies = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0];
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         
         for &frequency in &test_frequencies {
             let samples: Vec<f32> = (0..1024)
                 .map(|i| {
-                    let t = i as f32 / sample_rate;
+                    let t = i as f32 / sample_rate as f32;
                     (2.0 * std::f32::consts::PI * frequency * t).sin()
                 })
                 .collect();
@@ -808,14 +804,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_harmonic_content() {
         let config = PitchDetectorConfig::default();
-        let mut detector = PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         // Generate complex signal with fundamental + harmonics for algorithm robustness
         let fundamental = 220.0; // A3
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..1024)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 let fundamental_sin = (2.0 * std::f32::consts::PI * fundamental * t).sin();
                 let second_harmonic = 0.5 * (2.0 * std::f32::consts::PI * fundamental * 2.0 * t).sin();
                 let third_harmonic = 0.25 * (2.0 * std::f32::consts::PI * fundamental * 3.0 * t).sin();

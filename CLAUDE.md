@@ -41,3 +41,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The notes of just intonation are not fixed, but relative to the selected root note.
 - For volume data, the internal representation is always amplitude, not dB.
 - We don't adapt algorithms on the fly to adapt for performace. We always hardcode the parameters affecting performance
+- The default sample rate should be 44100Hz. This is the most common standard on consumer devices

@@ -62,7 +62,7 @@ impl MockAudioWorkletMessageGenerator {
         
         // Use AudioDataBatch instead of StatusUpdate since we now bundle buffer stats with audio data
         let audio_data = AudioDataBatch {
-            sample_rate: 48000.0,
+            sample_rate: 48000,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp,

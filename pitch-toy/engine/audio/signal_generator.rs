@@ -21,7 +21,7 @@ pub struct SignalGeneratorConfig {
     /// Waveform type
     pub waveform: TestWaveform,
     /// Sample rate for generation
-    pub sample_rate: f32,
+    pub sample_rate: u32,
 }
 
 /// Configuration for background noise generation
@@ -42,7 +42,7 @@ impl Default for SignalGeneratorConfig {
             frequency: 440.0,
             amplitude: 0.3,
             waveform: TestWaveform::Sine,
-            sample_rate: 48000.0,
+            sample_rate: 48000,
         }
     }
 }

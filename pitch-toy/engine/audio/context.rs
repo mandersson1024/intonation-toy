@@ -88,7 +88,7 @@ impl fmt::Display for AudioContextState {
 #[derive(Debug, Clone)]
 pub struct AudioContextConfig {
     /// Preferred sample rate (44.1kHz or 48kHz standard)
-    pub sample_rate: f32,
+    pub sample_rate: u32,
     /// Buffer size for audio processing
     pub buffer_size: u32,
     /// Maximum number of recreation attempts
@@ -98,7 +98,7 @@ pub struct AudioContextConfig {
 impl Default for AudioContextConfig {
     fn default() -> Self {
         Self {
-            sample_rate: 48000.0, // 48kHz default (most common)
+            sample_rate: 44100,
             buffer_size: 1024,    // Production buffer size
             max_recreation_attempts: 3,
         }
@@ -109,7 +109,7 @@ impl AudioContextConfig {
     /// Create configuration with 44.1kHz sample rate
     pub fn with_44_1khz() -> Self {
         Self {
-            sample_rate: 44100.0,
+            sample_rate: 44100,
             ..Default::default()
         }
     }
@@ -117,13 +117,13 @@ impl AudioContextConfig {
     /// Create configuration with 48kHz sample rate
     pub fn with_48khz() -> Self {
         Self {
-            sample_rate: 48000.0,
+            sample_rate: 48000,
             ..Default::default()
         }
     }
     
     /// Create configuration with custom sample rate
-    pub fn with_sample_rate(sample_rate: f32) -> Self {
+    pub fn with_sample_rate(sample_rate: u32) -> Self {
         Self {
             sample_rate,
             ..Default::default()
@@ -223,7 +223,7 @@ impl AudioContextManager {
         
         // Create AudioContext options
         let options = AudioContextOptions::new();
-        options.set_sample_rate(self.config.sample_rate);
+        options.set_sample_rate(self.config.sample_rate as f32);
         
         // Create AudioContext
         match AudioContext::new_with_context_options(&options) {
@@ -350,8 +350,8 @@ impl AudioContextManager {
     }
     
     /// Get actual sample rate from AudioContext
-    pub fn actual_sample_rate(&self) -> Option<f32> {
-        self.context.as_ref().map(|ctx| ctx.sample_rate())
+    pub fn actual_sample_rate(&self) -> Option<u32> {
+        self.context.as_ref().map(|ctx| ctx.sample_rate() as u32)
     }
     
     /// Check if AudioContext is active and running
@@ -670,7 +670,7 @@ impl AudioSystemContext {
             borrowed.config().sample_rate
         };
         
-        match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
+        match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate as u32) {
             Ok(analyzer) => {
                 // Create analyzer without setter (return-based pattern)
                 let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
@@ -1047,7 +1047,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
-        assert_eq!(config.sample_rate, 48000.0);
+        assert_eq!(config.sample_rate, 48000);
         assert_eq!(config.buffer_size, 1024);
         assert_eq!(config.max_recreation_attempts, 3);
     }
@@ -1055,13 +1055,13 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_context_config_builders() {
         let config_44_1 = AudioContextConfig::with_44_1khz();
-        assert_eq!(config_44_1.sample_rate, 44100.0);
+        assert_eq!(config_44_1.sample_rate, 44100);
         
         let config_48 = AudioContextConfig::with_48khz();
-        assert_eq!(config_48.sample_rate, 48000.0);
+        assert_eq!(config_48.sample_rate, 48000);
         
-        let config_custom = AudioContextConfig::with_sample_rate(96000.0);
-        assert_eq!(config_custom.sample_rate, 96000.0);
+        let config_custom = AudioContextConfig::with_sample_rate(96000);
+        assert_eq!(config_custom.sample_rate, 96000);
         
         let config_buffer = AudioContextConfig::default().with_buffer_size(2048);
         assert_eq!(config_buffer.buffer_size, 2048);
@@ -1083,7 +1083,7 @@ mod tests {
         let manager = AudioContextManager::with_config(config.clone());
         
         assert_eq!(*manager.state(), AudioContextState::Uninitialized);
-        assert_eq!(manager.config().sample_rate, 44100.0);
+        assert_eq!(manager.config().sample_rate, 44100);
         assert_eq!(manager.config().buffer_size, 512);
     }
 
@@ -1094,7 +1094,7 @@ mod tests {
         
         // Store the config without calling update_config to avoid web API calls in tests
         manager.config = new_config;
-        assert_eq!(manager.config().sample_rate, 44100.0);
+        assert_eq!(manager.config().sample_rate, 44100);
     }
 
     #[wasm_bindgen_test]

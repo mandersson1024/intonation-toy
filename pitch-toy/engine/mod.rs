@@ -475,7 +475,7 @@ impl AudioEngine {
                         frequency: config.frequency,
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
                         waveform: config.waveform.clone(),
-                        sample_rate: 48000.0, // Use standard sample rate
+                        sample_rate: 48000, // Use standard sample rate
                     };
                     
                     worklet_manager.update_test_signal_config(audio_config);

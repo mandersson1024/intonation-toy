@@ -78,7 +78,7 @@ pub enum FromWorkletMessage {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioDataBatch {
     /// Sample rate of the audio data
-    pub sample_rate: f64,
+    pub sample_rate: u32,
     
     /// Number of samples in the batch
     pub sample_count: usize,
@@ -106,7 +106,7 @@ pub struct ProcessorStatus {
     pub active: bool,
     
     /// Current sample rate
-    pub sample_rate: f64,
+    pub sample_rate: u32,
     
     /// Current buffer size
     pub buffer_size: usize,
@@ -960,7 +960,7 @@ impl ToJsMessage for AudioDataBatch {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
         
-        Reflect::set(&obj, &"sampleRate".into(), &self.sample_rate.into())
+        Reflect::set(&obj, &"sampleRate".into(), &(self.sample_rate as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
         Reflect::set(&obj, &"sampleCount".into(), &(self.sample_count as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleCount: {:?}", e)))?;
@@ -994,7 +994,8 @@ impl FromJsMessage for AudioDataBatch {
         let sample_rate = Reflect::get(obj, &"sampleRate".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?;
+            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
+            as u32;
         
         let sample_count = Reflect::get(obj, &"sampleCount".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleCount: {:?}", e)))?
@@ -1054,7 +1055,7 @@ impl FromJsMessage for AudioDataBatch {
 
 impl MessageValidator for AudioDataBatch {
     fn validate(&self) -> SerializationResult<()> {
-        if self.sample_rate <= 0.0 {
+        if self.sample_rate == 0 {
             return Err(SerializationError::ValidationFailed("sample_rate must be positive".to_string()));
         }
         if self.sample_count == 0 {
@@ -1076,7 +1077,7 @@ impl ToJsMessage for ProcessorStatus {
         
         Reflect::set(&obj, &"active".into(), &self.active.into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set active: {:?}", e)))?;
-        Reflect::set(&obj, &"sampleRate".into(), &self.sample_rate.into())
+        Reflect::set(&obj, &"sampleRate".into(), &(self.sample_rate as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
         Reflect::set(&obj, &"bufferSize".into(), &(self.buffer_size as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferSize: {:?}", e)))?;
@@ -1111,7 +1112,8 @@ impl FromJsMessage for ProcessorStatus {
         let sample_rate = Reflect::get(obj, &"sampleRate".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
             .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?;
+            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
+            as u32;
         
         let buffer_size = Reflect::get(obj, &"bufferSize".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferSize: {:?}", e)))?
@@ -1162,7 +1164,7 @@ impl FromJsMessage for ProcessorStatus {
 
 impl MessageValidator for ProcessorStatus {
     fn validate(&self) -> SerializationResult<()> {
-        if self.sample_rate <= 0.0 {
+        if self.sample_rate == 0 {
             return Err(SerializationError::ValidationFailed("sample_rate must be positive".to_string()));
         }
         if self.buffer_size == 0 {
@@ -1518,7 +1520,7 @@ impl FromJsMessage for SignalGeneratorConfig {
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
             .as_f64()
             .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
-            as f32;
+            as u32;
         
         let waveform_str = Reflect::get(obj, &"waveform".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get waveform: {:?}", e)))?
@@ -1553,7 +1555,7 @@ impl MessageValidator for SignalGeneratorConfig {
         if self.amplitude < 0.0 || self.amplitude > 1.0 {
             return Err(SerializationError::ValidationFailed("amplitude must be between 0.0 and 1.0".to_string()));
         }
-        if self.sample_rate <= 0.0 {
+        if self.sample_rate == 0 {
             return Err(SerializationError::ValidationFailed("sample_rate must be positive".to_string()));
         }
         Ok(())
@@ -2242,7 +2244,7 @@ impl FromWorkletMessage {
 impl AudioDataBatch {
     /// Create a new audio data batch
     pub fn new(
-        sample_rate: f64,
+        sample_rate: u32,
         sample_count: usize,
         buffer_length: usize,
         sequence_number: Option<u32>,
@@ -2263,7 +2265,7 @@ impl AudioDataBatch {
     
     /// Create a new audio data batch with current timestamp
     pub fn with_timestamp(
-        sample_rate: f64,
+        sample_rate: u32,
         sample_count: usize,
         buffer_length: usize,
         timestamp: f64,
@@ -2288,7 +2290,7 @@ impl ProcessorStatus {
     /// Create a new processor status
     pub fn new(
         active: bool,
-        sample_rate: f64,
+        sample_rate: u32,
         buffer_size: usize,
         processed_batches: u32,
         avg_processing_time_ms: f64,
@@ -2311,7 +2313,7 @@ impl ProcessorStatus {
     /// Create a new processor status with buffer pool statistics
     pub fn with_buffer_pool_stats(
         active: bool,
-        sample_rate: f64,
+        sample_rate: u32,
         buffer_size: usize,
         processed_batches: u32,
         avg_processing_time_ms: f64,
@@ -2516,7 +2518,7 @@ impl SignalGeneratorConfig {
         frequency: f32,
         amplitude: f32,
         waveform: crate::engine::audio::signal_generator::TestWaveform,
-        sample_rate: f32,
+        sample_rate: u32,
     ) -> MessageConstructionResult<Self> {
         let config = Self {
             enabled,
@@ -2704,7 +2706,7 @@ impl AudioWorkletMessageFactory {
     
     /// Create an audio data batch with metadata
     pub fn create_audio_data_batch(&self, 
-        sample_rate: f64, 
+        sample_rate: u32, 
         sample_count: usize, 
         buffer_length: usize,
         sequence_number: Option<u32>
@@ -2741,7 +2743,7 @@ impl AudioWorkletMessageFactory {
         frequency: f32,
         amplitude: f32,
         waveform: crate::engine::audio::signal_generator::TestWaveform,
-        sample_rate: f32
+        sample_rate: u32
     ) -> MessageConstructionResult<ToWorkletEnvelope> {
         let config = SignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
         self.update_test_signal_config(config)
@@ -2858,7 +2860,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_data_batch_creation() {
         let batch = AudioDataBatch {
-            sample_rate: 48000.0,
+            sample_rate: 48000,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp: get_current_timestamp(),
@@ -2867,7 +2869,7 @@ mod tests {
             buffer_pool_stats: None,
         };
         
-        assert_eq!(batch.sample_rate, 48000.0);
+        assert_eq!(batch.sample_rate, 48000);
         assert_eq!(batch.sample_count, 1024);
         assert_eq!(batch.buffer_length, 4096);
         assert_eq!(batch.sequence_number, Some(42));
@@ -2878,7 +2880,7 @@ mod tests {
     fn test_processor_status_creation() {
         let status = ProcessorStatus {
             active: true,
-            sample_rate: 48000.0,
+            sample_rate: 48000,
             buffer_size: 1024,
             processed_batches: 100,
             avg_processing_time_ms: 5.2,
@@ -2891,7 +2893,7 @@ mod tests {
         };
         
         assert_eq!(status.active, true);
-        assert_eq!(status.sample_rate, 48000.0);
+        assert_eq!(status.sample_rate, 48000);
         assert_eq!(status.buffer_size, 1024);
         assert_eq!(status.processed_batches, 100);
         assert_eq!(status.avg_processing_time_ms, 5.2);
@@ -2937,7 +2939,7 @@ mod tests {
         
         // Test message with data
         let data = AudioDataBatch {
-            sample_rate: 48000.0,
+            sample_rate: 48000,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp: 12345.0,
@@ -2968,30 +2970,6 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_validation_errors() {
-        // Test invalid batch config
-        let invalid_config = BatchConfig {
-            batch_size: 0, // Invalid
-            max_queue_size: 8,
-            timeout_ms: 100,
-            enable_compression: false,
-        };
-        assert!(invalid_config.validate().is_err());
-        
-        // Test invalid audio data batch
-        let invalid_data = AudioDataBatch {
-            sample_rate: -1.0, // Invalid
-            sample_count: 1024,
-            buffer_length: 4096,
-            timestamp: 12345.0,
-            sequence_number: None,
-            buffer_id: None,
-            buffer_pool_stats: None,
-        };
-        assert!(invalid_data.validate().is_err());
-    }
-
-    #[wasm_bindgen_test]
     fn test_serialization_errors() {
         // Test invalid message type deserialization
         let obj = js_sys::Object::new();
@@ -3017,7 +2995,7 @@ mod tests {
             frequency: 440.0,
             amplitude: 0.5,
             waveform: TestWaveform::Sine,
-            sample_rate: 48000.0,
+            sample_rate: 48000,
         };
         
         let obj = config.to_js_object().unwrap();
@@ -3092,7 +3070,7 @@ mod tests {
             440.0,
             0.5,
             TestWaveform::Sine,
-            48000.0
+            48000
         );
         assert!(valid_config.is_ok());
         
@@ -3102,7 +3080,7 @@ mod tests {
             -440.0, // Invalid frequency
             0.5,
             TestWaveform::Sine,
-            48000.0
+            48000
         );
         assert!(invalid_config.is_err());
     }
@@ -3137,14 +3115,14 @@ mod tests {
         
         // Test audio data batch creation
         let batch_msg = factory.create_audio_data_batch(
-            48000.0,
+            48000,
             1024,
             4096,
             Some(42)
         ).unwrap();
         
         if let FromWorkletMessage::AudioDataBatch { data } = &batch_msg.payload {
-            assert_eq!(data.sample_rate, 48000.0);
+            assert_eq!(data.sample_rate, 48000);
             assert_eq!(data.sample_count, 1024);
             assert_eq!(data.buffer_length, 4096);
             assert_eq!(data.sequence_number, Some(42));

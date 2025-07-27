@@ -89,7 +89,7 @@ impl PitchAnalyzer {
     /// Create a new PitchAnalyzer
     pub fn new(
         config: PitchDetectorConfig,
-        sample_rate: f32,
+        sample_rate: u32,
     ) -> Result<Self, PitchAnalysisError> {
         let pitch_detector = PitchDetector::new(config.clone(), sample_rate)
             .map_err(|e| format!("Failed to create pitch detector: {}", e))?;
@@ -213,7 +213,7 @@ impl PitchAnalyzer {
     }
 
     /// Get performance benchmark for different window sizes
-    pub fn benchmark_window_sizes(&mut self, sample_rate: f32) -> Vec<(usize, f64, f64)> {
+    pub fn benchmark_window_sizes(&mut self, sample_rate: u32) -> Vec<(usize, f64, f64)> {
         let window_sizes = vec![256, 512, 1024, 2048, 4096];
         let mut results = Vec::new();
         
@@ -222,7 +222,7 @@ impl PitchAnalyzer {
         for &window_size in &window_sizes {
             let test_samples: Vec<f32> = (0..window_size)
                 .map(|i| {
-                    let t = i as f32 / sample_rate;
+                    let t = i as f32 / sample_rate as f32;
                     (2.0 * std::f32::consts::PI * test_frequency * t).sin()
                 })
                 .collect();
@@ -243,7 +243,7 @@ impl PitchAnalyzer {
                     max_frequency: 2000.0,
                 };
                 
-                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate) {
+                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate as u32) {
                     let _ = detector.analyze(&test_samples);
                 }
                 
@@ -691,7 +691,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_creation() {
         let config = create_test_config();
-        let analyzer = PitchAnalyzer::new(config, 48000.0);
+        let analyzer = PitchAnalyzer::new(config, 48000);
         assert!(analyzer.is_ok());
 
         let analyzer = analyzer.unwrap();
@@ -702,7 +702,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_config_update() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         let mut new_config = create_test_config();
         new_config.sample_window_size = 2048;
@@ -717,7 +717,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_invalid_sample_size() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Try to analyze with wrong sample size
         let samples = vec![0.0; 512]; // Wrong size, expected 2048
@@ -729,7 +729,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_silence() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         let samples = vec![0.0; 2048]; // Silence
         let result = analyzer.analyze_samples(&samples);
@@ -744,14 +744,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_sine_wave() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Generate 440Hz sine wave
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -774,7 +774,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_metrics_reset() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Generate some metrics
         let samples = vec![0.0; 2048];
@@ -808,14 +808,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_multiple_detections() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Multiple analysis cycles
         for i in 0..5 {
             let frequency = 440.0 + (i as f32 * 10.0); // Varying frequency
             let samples: Vec<f32> = (0..2048)
                 .map(|j| {
-                    let t = j as f32 / 48000.0;
+                    let t = j as f32 / 48000;
                     (2.0 * std::f32::consts::PI * frequency * t).sin()
                 })
                 .collect();
@@ -833,17 +833,17 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer and fill it with test data
         let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
         
         // Generate 440Hz sine wave
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..2048) // More than one block
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -873,7 +873,7 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with insufficient data
         let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
@@ -895,7 +895,7 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer
         let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
@@ -917,17 +917,17 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with multiple blocks of data
         let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
         
         // Generate enough data for 3 blocks (need extra to ensure buffer has enough)
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..8192) // 4 blocks worth to ensure enough data
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -962,17 +962,17 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with test data
         let mut buffer = CircularBuffer::new(DEV_BUFFER_SIZE_MAX).unwrap();
         
         // Generate 440Hz sine wave for 2 blocks (with extra to ensure enough data)
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..6144) // 3 blocks worth to ensure enough data
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -999,7 +999,7 @@ mod tests {
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Test different windowing functions
         let window_functions = [WindowFunction::None, WindowFunction::Hamming, WindowFunction::Blackman];
@@ -1010,10 +1010,10 @@ mod tests {
             
             // Generate test signal
             let frequency = 440.0;
-            let sample_rate = 48000.0;
+            let sample_rate = 48000;
             let samples: Vec<f32> = (0..2048)
                 .map(|i| {
-                    let t = i as f32 / sample_rate;
+                    let t = i as f32 / sample_rate as f32;
                     (2.0 * std::f32::consts::PI * frequency * t).sin()
                 })
                 .collect();
@@ -1035,14 +1035,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_metrics_update() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Generate test signal
         let frequency = 440.0;
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();
@@ -1068,7 +1068,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_performance_grade() {
         let config = create_test_config();
-        let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Test different performance grades based on latency
         let mut test_analyzer = analyzer;
@@ -1097,7 +1097,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_meets_performance_requirements() {
         let config = create_test_config();
-        let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         let mut test_analyzer = analyzer;
         
@@ -1120,9 +1120,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_benchmark_window_sizes() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
-        let results = analyzer.benchmark_window_sizes(48000.0);
+        let results = analyzer.benchmark_window_sizes(48000);
         
         // Should return results for all tested window sizes
         assert_eq!(results.len(), 5); // 256, 512, 1024, 2048, 4096
@@ -1139,7 +1139,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_violation_tracking() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Simulate high latency processing
         let start_time = 0.0;
@@ -1159,7 +1159,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_zero_allocation_validation() {
         let config = create_test_config();
-        let analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Should validate zero allocation compliance
         assert!(analyzer.validate_zero_allocation());
@@ -1174,7 +1174,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_latency_optimization() {
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Test optimization for 30ms target
         let result = analyzer.optimize_for_latency(30.0);
@@ -1203,7 +1203,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_optimization_features() {
         let config = create_test_config();
-        let detector = crate::engine::audio::PitchDetector::new(config, 48000.0).unwrap();
+        let detector = crate::engine::audio::PitchDetector::new(config, 48000).unwrap();
 
         // Test memory usage reporting
         let memory_usage = detector.memory_usage_bytes();
@@ -1215,7 +1215,7 @@ mod tests {
         assert!(!grade.is_empty());
         
         // Test optimal window size calculation
-        let optimal_size = crate::engine::audio::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000.0);
+        let optimal_size = crate::engine::audio::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000);
         assert!(optimal_size >= 128); // Should be at least minimum
         assert!(optimal_size % 128 == 0); // Should be multiple of 128
         
@@ -1226,7 +1226,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_energy_threshold() {
         let config = create_test_config();
-        let mut detector = crate::engine::audio::PitchDetector::new(config, 48000.0).unwrap();
+        let mut detector = crate::engine::audio::PitchDetector::new(config, 48000).unwrap();
 
         // Test with silence (should return None due to energy threshold)
         let silence = vec![0.0; 2048];
@@ -1256,7 +1256,7 @@ mod tests {
     fn test_end_to_end_pitch_detection_pipeline() {
         // Create pitch analyzer
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
         
         // Simulate realistic audio input sequence
         let test_sequence = [
@@ -1267,7 +1267,7 @@ mod tests {
             (392.0, 0.6),  // G4 - weak signal
         ];
         
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let mut detected_frequencies = Vec::new();
         
         for &(frequency, amplitude) in &test_sequence {
@@ -1275,7 +1275,7 @@ mod tests {
                 // Generate sine wave with specified amplitude
                 (0..2048)
                     .map(|i| {
-                        let t = i as f32 / sample_rate;
+                        let t = i as f32 / sample_rate as f32;
                         amplitude * (2.0 * std::f32::consts::PI * frequency * t).sin()
                     })
                     .collect()
@@ -1304,7 +1304,7 @@ mod tests {
     fn test_end_to_end_musical_scale_detection() {
         // Test detection of a complete musical scale
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
         
         // C major scale frequencies (C4 to C5)
         let scale_frequencies = [
@@ -1318,13 +1318,13 @@ mod tests {
             523.25, // C5
         ];
         
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let mut scale_results = Vec::new();
         
         for &frequency in &scale_frequencies {
             let samples: Vec<f32> = (0..2048)
                 .map(|i| {
-                    let t = i as f32 / sample_rate;
+                    let t = i as f32 / sample_rate as f32;
                     0.8 * (2.0 * std::f32::consts::PI * frequency * t).sin()
                 })
                 .collect();
@@ -1347,15 +1347,15 @@ mod tests {
     fn test_end_to_end_polyphonic_interference() {
         // Test pitch detection with polyphonic (multiple frequency) interference
         let config = create_test_config();
-        let mut analyzer = PitchAnalyzer::new(config, 48000.0).unwrap();
+        let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
         
         let fundamental = 440.0; // A4
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         
         // Create complex signal with fundamental + harmonics + interference
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 let fundamental_wave = 0.6 * (2.0 * std::f32::consts::PI * fundamental * t).sin();
                 let harmonic2 = 0.3 * (2.0 * std::f32::consts::PI * fundamental * 2.0 * t).sin();
                 let harmonic3 = 0.2 * (2.0 * std::f32::consts::PI * fundamental * 3.0 * t).sin();
@@ -1380,10 +1380,10 @@ mod tests {
     fn test_end_to_end_basic_pitch_detection() {
         // Test basic pitch detection consistency
         let frequency = 440.0; // A4
-        let sample_rate = 48000.0;
+        let sample_rate = 48000;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
-                let t = i as f32 / sample_rate;
+                let t = i as f32 / sample_rate as f32;
                 (2.0 * std::f32::consts::PI * frequency * t).sin()
             })
             .collect();

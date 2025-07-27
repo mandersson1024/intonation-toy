@@ -26,7 +26,7 @@ pub struct VolumeDetectorConfig {
     /// Noise floor threshold in dB (-80 to -20)
     pub noise_floor_db: f32,
     /// Sample rate for calculations
-    pub sample_rate: f32,
+    pub sample_rate: u32,
 }
 
 impl VolumeDetectorConfig {
@@ -35,7 +35,7 @@ impl VolumeDetectorConfig {
         Self {
             input_gain_db: 0.0,
             noise_floor_db: -60.0,
-            sample_rate: 48000.0,
+            sample_rate: 48000,
         }
     }
 
@@ -49,7 +49,7 @@ impl VolumeDetectorConfig {
             return Err(format!("Noise floor must be between -80 and -20 dB, got {}", self.noise_floor_db));
         }
         
-        if self.sample_rate <= 0.0 {
+        if self.sample_rate == 0 {
             return Err("Sample rate must be positive".to_string());
         }
         
@@ -197,7 +197,7 @@ mod tests {
         let config = VolumeDetectorConfig {
             input_gain_db: 6.0,
             noise_floor_db: -70.0,
-            sample_rate: 44100.0,
+            sample_rate: 44100,
         };
         
         let detector = VolumeDetector::new(config);
@@ -285,7 +285,7 @@ mod tests {
         let new_config = VolumeDetectorConfig {
             input_gain_db: 12.0,
             noise_floor_db: -50.0,
-            sample_rate: 44100.0,
+            sample_rate: 44100,
         };
         
         assert!(detector.update_config(new_config).is_ok());

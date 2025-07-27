@@ -367,7 +367,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
-        assert_eq!(config.sample_rate, 48000.0);
+        assert_eq!(config.sample_rate, 48000);
         assert_eq!(config.buffer_size, 1024);
         assert_eq!(config.max_recreation_attempts, 3);
     }
