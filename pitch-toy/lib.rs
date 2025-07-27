@@ -41,14 +41,11 @@ use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
 
-// Import action types for three-layer action processing
 use debug::debug_panel::DebugPanel;
 
 
 
 
-
-// Legacy run_three_d function removed - using hybrid architecture only
 
 /// Sample memory usage from the browser's Performance API
 /// 
@@ -113,7 +110,7 @@ fn sample_memory_usage() -> Option<(f64, f64)> {
 /// - Actions are validated in the model layer
 /// - Validated actions are executed in the engine layer
 /// - Debug actions bypass validation for testing purposes
-pub async fn run_three_d_with_layers(
+pub async fn start_render_loop(
     mut engine: Option<engine::AudioEngine>,
     mut model: Option<model::DataModel>,
     presenter: Option<Rc<RefCell<presentation::Presenter>>>,
@@ -136,21 +133,19 @@ pub async fn run_three_d_with_layers(
 
     let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
     
+    let debug_data = debug::debug_data::DebugData::new();
     
-    // Create hybrid live data without legacy interface
-    let hybrid_live_data = debug::debug_data::DebugData::new();
-    
-    // Create hybrid debug panel
-    let mut hybrid_live_data_panel = if let Some(ref presenter_ref) = presenter {
+    // Create debug panel
+    let mut debug_panel = if let Some(ref presenter_ref) = presenter {
         Some(DebugPanel::new(
-            hybrid_live_data,
+            debug_data,
             presenter_ref.clone(),
         ))
     } else {
         None
     };
 
-    dev_log!("Starting three-d + egui render loop with three-layer architecture");
+    dev_log!("Starting render loop");
     
     // Set up user gesture handler for microphone permission
     let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
@@ -180,7 +175,6 @@ pub async fn run_three_d_with_layers(
             // Performance metrics update happens later in the debug panel section
         }
         
-        // Three-layer update sequence (engine → model → presenter)
         let timestamp = current_time / 1000.0;
         
         // Update engine layer and get results
@@ -253,7 +247,7 @@ pub async fn run_three_d_with_layers(
         };
         
         // Update debug panel data with engine and model results
-        if let Some(ref mut panel) = hybrid_live_data_panel {
+        if let Some(ref mut panel) = debug_panel {
             panel.update_data(&engine_data, Some(&model_data));
         }
         
@@ -273,7 +267,7 @@ pub async fn run_three_d_with_layers(
             memory_usage_percent,
             audio_latency,
         };
-        if let Some(ref mut panel) = hybrid_live_data_panel {
+        if let Some(ref mut panel) = debug_panel {
             // Collect real debug data from the engine
             #[cfg(debug_assertions)]
             let (audio_devices, audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
@@ -482,7 +476,7 @@ pub async fn run_three_d_with_layers(
                 });
                 
                 dev_console.render(gui_context);
-                if let Some(ref mut panel) = hybrid_live_data_panel {
+                if let Some(ref mut panel) = debug_panel {
                     panel.render(gui_context);
                 }
             }
@@ -571,7 +565,7 @@ pub async fn start() {
     };
     
     // Start three-d application with three-layer architecture
-    run_three_d_with_layers(
+    start_render_loop(
         engine,
         model,
         presenter,
