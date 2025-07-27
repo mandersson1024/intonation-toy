@@ -243,6 +243,27 @@ pub struct DataModel {
     root_note: MidiNote,
 }
 
+/// Standard A4 = 440Hz reference frequency for Equal Temperament
+/// 
+/// This constant represents the internationally accepted standard reference frequency
+/// for Equal Temperament tuning. A4 = 440Hz serves as the baseline from which all
+/// other note frequencies are calculated in Equal Temperament.
+/// 
+/// # Standard Reference
+/// 
+/// - Established by ISO 16:1975 and reaffirmed by various music organizations
+/// - Used as the reference point for calculating all other note frequencies
+/// - Independent of root note or tuning system configuration changes
+/// 
+/// # Usage
+/// 
+/// Use this constant when you need the absolute A4 = 440Hz reference frequency
+/// rather than the current root pitch frequency. For example:
+/// - Displaying standard tuning information to users
+/// - Calculating frequency ratios relative to the standard
+/// - Providing a consistent reference point across different configurations
+pub const REFERENCE_FREQUENCY: f32 = 440.0;
+
 impl DataModel {
     /// Create a new DataModel without interface dependencies
     /// 
@@ -641,7 +662,7 @@ impl DataModel {
     /// ## Future Tuning Systems
     /// - Just Intonation: Will calculate based on frequency ratios from root
     /// - Pythagorean: Will use perfect fifth ratios
-    /// - Custom: May allow user-defined reference frequencies
+    /// - Custom: May allow user-defined root pitch calculations
     /// 
     /// # Root Note Impact
     /// 
