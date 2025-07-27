@@ -9,9 +9,12 @@ use crate::engine::audio::buffer::AUDIO_CHUNK_SIZE;
 pub struct PerformanceMetrics {
     /// Frames per second (already implemented)
     pub fps: f64,
-    /// JavaScript heap memory usage in MB (estimated via Performance API)
+    /// JavaScript heap memory usage in megabytes (estimated via Performance API)
     /// Note: Memory metrics are estimates and may not be available on all browsers
-    pub memory_usage: f64,
+    pub memory_usage_mb: f64,
+    /// Percentage of allocated heap being used (estimated via Performance API)
+    /// Note: Memory metrics are estimates and may not be available on all browsers
+    pub memory_usage_percent: f64,
     /// Audio processing latency in milliseconds (from PitchAnalyzer)
     pub audio_latency: f64,
 }
@@ -20,7 +23,8 @@ impl Default for PerformanceMetrics {
     fn default() -> Self {
         Self {
             fps: 0.0,
-            memory_usage: 0.0,
+            memory_usage_mb: 0.0,
+            memory_usage_percent: 0.0,
             audio_latency: 0.0,
         }
     }

@@ -58,9 +58,9 @@ use debug::debug_panel::DebugPanel;
 /// 
 /// # Returns
 /// 
-/// Returns `Option<f64>` containing memory usage in MB, or None if the API
+/// Returns `Option<(f64, f64)>` containing (memory_mb, memory_percent), or None if the API
 /// is unavailable or fails.
-fn sample_memory_usage() -> Option<f64> {
+fn sample_memory_usage() -> Option<(f64, f64)> {
     use wasm_bindgen::JsValue;
     
     let window = web_sys::window()?;
@@ -73,15 +73,31 @@ fn sample_memory_usage() -> Option<f64> {
     }
     
     let memory_obj = memory.dyn_into::<web_sys::js_sys::Object>().ok()?;
-    let used_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("usedJSHeapSize")).ok()?;
     
+    // Get used heap size
+    let used_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("usedJSHeapSize")).ok()?;
     if used_heap_size.is_undefined() || used_heap_size.is_null() {
         return None;
     }
     
-    // Convert from bytes to MB
-    let bytes = used_heap_size.as_f64()?;
-    Some(bytes / (1024.0 * 1024.0))
+    // Get total heap size
+    let total_heap_size = js_sys::Reflect::get(&memory_obj, &JsValue::from_str("totalJSHeapSize")).ok()?;
+    if total_heap_size.is_undefined() || total_heap_size.is_null() {
+        return None;
+    }
+    
+    // Convert from bytes to MB and calculate percentage
+    let used_bytes = used_heap_size.as_f64()?;
+    let total_bytes = total_heap_size.as_f64()?;
+    
+    let memory_mb = used_bytes / (1024.0 * 1024.0);
+    let memory_percent = if total_bytes > 0.0 {
+        (used_bytes / total_bytes) * 100.0
+    } else {
+        0.0
+    };
+    
+    Some((memory_mb, memory_percent))
 }
 
 /// Run three-d with three-layer architecture
@@ -237,7 +253,7 @@ pub async fn run_three_d_with_layers(
         }
         
         // Update debug panel data with performance metrics
-        let memory_usage = sample_memory_usage().unwrap_or(0.0);
+        let (memory_usage_mb, memory_usage_percent) = sample_memory_usage().unwrap_or((0.0, 0.0));
         let audio_latency = if let Some(ref engine) = engine {
             engine.get_pitch_analyzer_metrics()
                 .map(|metrics| metrics.average_latency_ms)
@@ -248,7 +264,8 @@ pub async fn run_three_d_with_layers(
         
         let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
             fps,
-            memory_usage,
+            memory_usage_mb,
+            memory_usage_percent,
             audio_latency,
         };
         if let Some(ref mut panel) = hybrid_live_data_panel {

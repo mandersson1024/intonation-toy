@@ -207,10 +207,18 @@ impl DebugPanel {
                 
                 ui.horizontal(|ui| {
                     ui.label("Memory:");
-                    let color = if metrics.memory_usage < 50.0 { Color32::GREEN } 
-                               else if metrics.memory_usage < 80.0 { Color32::YELLOW } 
+                    let color = if metrics.memory_usage_mb < 100.0 { Color32::GREEN } 
+                               else if metrics.memory_usage_mb < 200.0 { Color32::YELLOW } 
                                else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1}%", metrics.memory_usage));
+                    ui.colored_label(color, format!("{:.1} MB", metrics.memory_usage_mb));
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Heap Usage:");
+                    let color = if metrics.memory_usage_percent < 50.0 { Color32::GREEN } 
+                               else if metrics.memory_usage_percent < 80.0 { Color32::YELLOW } 
+                               else { Color32::RED };
+                    ui.colored_label(color, format!("{:.1}%", metrics.memory_usage_percent));
                 });
                 
                 ui.horizontal(|ui| {
