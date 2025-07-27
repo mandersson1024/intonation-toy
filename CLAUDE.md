@@ -8,12 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Building and testing
 - The main language is Rust compiled to WASM, with some JavaScript for the audio worklet
-- Never run the server automatically. Instead tell the user to start the server using `trunk serve` and ask for manual testing. Be specific about what to test and what you expect in response.
-- You are allowed to use `cargo build` and `cargo check` to look for errors and warnings.
-- Browsers console logs are engouraged for tricky debugging scenarios. Add a distinct prefix to the relevant log lines so the user can filter on them.
 - We only support moden browsers, with no fallback code for older browsers.
+- Never run the server automatically. Instead tell the user to start the server using `trunk serve` and ask for manual testing. Be specific about what to test and what you expect in response.
+- You are allowed to use `cargo build`, `cargo check` and `cargo clippy` to look for errors and warnings.
+- Use console logs for tricky debugging scenarios. Add a distinct prefix to the relevant log lines so the user can filter on them.
 
-## Main Modules
+## The three-layer architecture
 
 ### Engine layer
 - Responsible for AudioWorklet management and pitch detection

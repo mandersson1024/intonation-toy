@@ -1,13 +1,25 @@
-//! Engine Layer - Audio processing and hardware interface
+//! Engine Layer - Raw audio processing and hardware interface
 //!
-//! This layer handles low-level audio operations and browser API interactions.
-//! It communicates with the Model layer by returning structured data from update calls.
+//! The Engine layer is the lowest level of the three-layer architecture,
+//! responsible exclusively for raw audio processing and hardware communication.
+//! It handles no musical interpretation - all tuning systems, root notes, and
+//! pitch analysis are handled by the Model layer.
+//!
+//! ## Role in Three-Layer Architecture
+//!
+//! The engine layer:
+//! - **Audio Hardware Interface**: Manages microphone/speaker access and permissions
+//! - **Raw Audio Processing**: Performs low-level pitch detection and volume analysis
+//! - **Browser API Integration**: Handles Web Audio API and MediaStream operations
+//! - **Data Provider**: Returns raw audio data via EngineUpdateResult for Model layer processing
+//! - **No Musical Logic**: Contains no tuning systems, scales, or musical interpretation
 //!
 //! ## Data Flow in Engine Layer
 //!
 //! The engine layer:
-//! - Processes audio data from microphone and browser APIs
-//! - Returns structured data via EngineUpdateResult from update() calls
+//! - Processes raw audio data from microphone and browser APIs
+//! - Performs frequency analysis and pitch detection (Hz values only)
+//! - Returns structured raw data via EngineUpdateResult from update() calls
 //! - Provides audio analysis, error information, and permission state
 //!
 //! ```rust
@@ -68,9 +80,9 @@ pub(crate) struct ExecuteMicrophonePermissionRequest;
 /// Container for all executed engine layer actions
 /// 
 /// This struct is reserved for future engine-specific actions. The engine layer
-/// focuses solely on raw audio processing and hardware interface operations,
-/// while all musical interpretation (including tuning systems) is handled by
-/// the model layer.
+/// in the three-layer architecture handles only raw audio processing and hardware
+/// interface operations. All musical interpretation (tuning systems, root notes,
+/// pitch analysis, interval calculations) is exclusively handled by the model layer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct EngineLayerActions {
     // Reserved for future engine-specific action types
@@ -152,9 +164,13 @@ impl DebugEngineActions {
 
 /// AudioEngine - The engine layer of the three-layer architecture
 /// 
-/// This struct represents the audio processing and hardware interface layer
+/// This struct represents the raw audio processing and hardware interface layer
 /// of the application. It handles low-level audio operations, browser API
-/// interactions, and microphone/speaker communication.
+/// interactions, and microphone/speaker communication, with no musical interpretation.
+/// 
+/// The engine provides raw audio data (frequencies in Hz, volume amplitudes) to
+/// the model layer, which handles all musical logic including tuning systems,
+/// root notes, and pitch relationships.
 /// 
 /// # Example
 /// 
@@ -170,10 +186,11 @@ pub struct AudioEngine {
 }
 
 impl AudioEngine {
-    /// Create a new AudioEngine without observable data dependencies
+    /// Create a new AudioEngine for raw audio processing
     /// 
-    /// This constructor initializes the audio processing system using direct
-    /// data return patterns instead of the observable data pattern.
+    /// This constructor initializes the audio processing system for raw audio
+    /// analysis. The engine provides frequency and amplitude data to the model
+    /// layer for musical interpretation.
     /// 
     /// # Returns
     /// 
@@ -207,8 +224,8 @@ impl AudioEngine {
     /// Update the engine layer with a new timestamp
     /// 
     /// This method is called by the main render loop to update the engine's state.
-    /// It processes audio data, handles device changes, and returns updates
-    /// for the model layer.
+    /// It processes raw audio data and returns uninterpreted audio analysis for
+    /// the model layer to handle musical interpretation.
     /// 
     /// # Arguments
     /// 
@@ -216,7 +233,13 @@ impl AudioEngine {
     /// 
     /// # Returns
     /// 
-    /// Returns `EngineUpdateResult` containing audio analysis data, errors, and permission state
+    /// Returns `EngineUpdateResult` containing:
+    /// - Raw audio analysis (frequency in Hz, volume amplitude)
+    /// - Audio system errors and status
+    /// - Microphone permission state
+    /// 
+    /// Note: All musical interpretation (tuning systems, intervals, pitch relationships)
+    /// is handled by the model layer that processes this raw data.
     pub fn update(&mut self, timestamp: f64) -> EngineUpdateResult {
         if let Some(ref context) = self.audio_context {
             // Borrow once and collect all data to avoid multiple borrows
@@ -274,16 +297,17 @@ impl AudioEngine {
     /// Get the audio context for async operations
     /// 
     /// Returns a clone of the Rc<RefCell<AudioSystemContext>> if available.
-    /// This is used for async operations that need access to the audio context
-    /// outside of the main engine instance.
+    /// This is used for async operations that need access to the raw audio
+    /// processing context outside of the main engine instance.
     pub fn get_audio_context(&self) -> Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>> {
         self.audio_context.clone()
     }
     
-    /// Connect an existing MediaStream to the audio processing pipeline
+    /// Connect an existing MediaStream to the raw audio processing pipeline
     /// 
     /// This method accepts a MediaStream that was obtained through user gesture
-    /// and connects it directly to the AudioWorklet for processing.
+    /// and connects it directly to the AudioWorklet for raw audio analysis.
+    /// The processed audio data is provided to the model layer for musical interpretation.
     /// 
     /// # Arguments
     /// 
@@ -300,36 +324,39 @@ impl AudioEngine {
         }
     }
     
-    /// Execute model layer actions and return executed actions for logging/feedback
+    /// Execute model layer actions (currently reserved for future engine-specific actions)
     /// 
-    /// This method receives validated actions from the model layer, transforms them
-    /// into engine-specific execution actions, performs the actual execution using
-    /// existing audio system functionality, and returns the executed actions for
-    /// logging and feedback purposes.
+    /// This method is reserved for future engine-specific actions. The engine layer
+    /// focuses solely on raw audio processing and hardware interface operations.
+    /// All musical interpretation (tuning systems, root notes, pitch analysis) is
+    /// handled exclusively by the model layer.
     /// 
     /// # Arguments
     /// 
-    /// * `model_actions` - Validated actions from the model layer to execute
+    /// * `model_actions` - Model layer actions (currently unused as no engine actions exist)
     /// 
     /// # Returns
     /// 
-    /// Returns `Result<EngineLayerActions, String>` containing either the successfully
-    /// executed actions or an error message if execution failed.
+    /// Returns `Result<(), String>` indicating success (currently always succeeds)
     /// 
-    /// # Execution Process
+    /// # Engine Layer Scope
     /// 
-    /// 1. Transforms model actions into engine execution actions
-    /// 2. Executes each action type using existing engine functionality:
-    ///    - Microphone permission requests use `connect_microphone_to_audioworklet_with_context()`
-    ///    - Audio system configurations apply tuning system settings
-    ///    - Tuning configurations apply root note settings
-    /// 3. Collects executed actions for logging and feedback
-    /// 4. Provides comprehensive error handling with detailed logging
+    /// The engine layer handles only:
+    /// - Raw audio hardware interface operations
+    /// - Low-level audio processing (frequency detection, volume analysis)
+    /// - Browser API interactions (MediaStream, AudioWorklet)
+    /// - Audio device management and permissions
+    /// 
+    /// Musical interpretation is handled by the model layer:
+    /// - Tuning system calculations
+    /// - Root note relationships
+    /// - Pitch analysis and interval calculations
     pub fn execute_actions(&mut self, _model_actions: ModelLayerActions) -> Result<(), String> {
-        // The engine layer no longer processes tuning-related actions.
-        // All musical interpretation including tuning systems and root notes
-        // is handled exclusively by the model layer.
-        // This method is retained for future engine-specific actions.
+        // The engine layer handles only raw audio processing and hardware interface.
+        // All musical interpretation including tuning systems, root notes, and
+        // pitch analysis is handled exclusively by the model layer.
+        // This method is retained for future engine-specific actions like
+        // audio device management or processing parameter adjustments.
         
         crate::common::dev_log!("Engine layer: No engine-specific actions to execute");
         
