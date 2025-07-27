@@ -392,9 +392,44 @@ impl DebugPanel {
                         };
                         ui.colored_label(color, display_text);
                     });
+                    
+                    // Display interval information
+                    ui.horizontal(|ui| {
+                        ui.label("Interval:");
+                        if let (Some(interval_semitones), Some(_)) = 
+                            (self.hybrid_data.get_interval_semitones(), self.hybrid_data.get_root_note()) {
+                            let interval_name = crate::shared_types::interval_name_from_semitones(interval_semitones);
+                            let (color, display_text) = if interval_semitones == 0 {
+                                (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
+                            } else if interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
+                                (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
+                            } else if interval_semitones.abs() <= 12 {
+                                (Color32::YELLOW, format!("{} ({:+} st)", interval_name, interval_semitones))
+                            } else {
+                                (Color32::from_rgb(255, 255, 255), format!("{} ({:+} st)", interval_name, interval_semitones))
+                            };
+                            ui.colored_label(color, display_text);
+                        } else {
+                            ui.label("--");
+                        }
+                    });
+                    
+                    // Display root note
+                    ui.horizontal(|ui| {
+                        ui.label("Root Note:");
+                        if let Some(root_note) = self.hybrid_data.get_root_note() {
+                            let root_name = midi_note_to_display_name(root_note);
+                            let root_octave = (root_note as i16 / 12) - 1;
+                            ui.label(format!("{}{}", root_name, root_octave));
+                        } else {
+                            ui.label("--");
+                        }
+                    });
                 } else {
                     ui.label("Closest Note: --");
                     ui.label("Cents Offset: --");
+                    ui.label("Interval: --");
+                    ui.label("Root Note: --");
                 }
             });
     }
