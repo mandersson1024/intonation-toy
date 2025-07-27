@@ -664,12 +664,6 @@ impl DataModel {
         }
     }
     
-    /// Convert MidiNote to i32 for calculations
-    fn note_to_midi_number(&self, midi_note: MidiNote) -> i32 {
-        midi_note as i32
-    }
-    
-    
     /// Validate microphone permission request with detailed error reporting
     /// 
     /// No model-layer validation is required for microphone permission requests.
