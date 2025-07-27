@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, Accuracy, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::trace_log;
 
@@ -379,7 +379,7 @@ impl DataModel {
                     closest_midi_note, accuracy_cents, frequency
                 );
                 
-                Accuracy {
+                IntonationData {
                     closest_midi_note,
                     cents_offset: accuracy_cents,
                 }
@@ -388,7 +388,7 @@ impl DataModel {
                 // No pitch detected - return default values
                 trace_log!("[MODEL] No pitch detected, returning default accuracy");
                 
-                Accuracy {
+                IntonationData {
                     closest_midi_note: self.root_note, // Use MidiNote directly
                     cents_offset: 0.0, // No offset when no pitch is detected
                 }

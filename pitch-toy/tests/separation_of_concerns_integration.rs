@@ -11,7 +11,7 @@ use pitch_toy::model::DataModel;
 use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
-    PermissionState, TuningSystem, Accuracy, MidiNote
+    PermissionState, TuningSystem, IntonationData, MidiNote
 };
 use pitch_toy::presentation::PresentationLayerActions;
 use wasm_bindgen_test::*;
@@ -229,7 +229,7 @@ fn test_layer_separation_boundaries() {
     let model_result = ModelUpdateResult {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
         pitch: Pitch::Detected(440.0, 0.95),
-        accuracy: Accuracy {
+        accuracy: IntonationData {
             closest_midi_note: 69,
             cents_offset: 1.0,
         },

@@ -369,20 +369,20 @@ impl DebugPanel {
     
     /// Render accuracy section (core data via interface)
     fn render_accuracy_section(&self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("Accuracy")
+        egui::CollapsingHeader::new("Intonation")
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(accuracy) = self.hybrid_data.get_accuracy_data() {
+                if let Some(intonation) = self.hybrid_data.get_intonation_data() {
                     // Display closest MIDI note
-                    let note_name = midi_note_to_display_name(accuracy.closest_midi_note);
-                    let octave = (accuracy.closest_midi_note as i16 / 12) - 1;
+                    let note_name = midi_note_to_display_name(intonation.closest_midi_note);
+                    let octave = (intonation.closest_midi_note as i16 / 12) - 1;
                     ui.label(format!("Closest Note: {}{}", note_name, octave));
                     
                     // Display cents offset with color coding
                     ui.horizontal(|ui| {
                         ui.label("Cents Offset:");
-                        let cents = accuracy.cents_offset;
+                        let cents = intonation.cents_offset;
                         let (color, display_text) = if cents.abs() <= 5.0 {
                             (Color32::GREEN, format!("{:+.1}", cents))
                         } else if cents.abs() <= 20.0 {

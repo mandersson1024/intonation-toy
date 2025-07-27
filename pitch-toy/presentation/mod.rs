@@ -624,7 +624,7 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `accuracy` - Accuracy metrics containing closest note and deviation
-    fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::Accuracy) {
+    fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::IntonationData) {
         let _midi_note = accuracy.closest_midi_note;
         let _cents_offset = accuracy.cents_offset;
         
@@ -731,7 +731,7 @@ mod tests {
         ModelUpdateResult {
             volume: crate::shared_types::Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
             pitch: crate::shared_types::Pitch::NotDetected,
-            accuracy: crate::shared_types::Accuracy {
+            accuracy: crate::shared_types::IntonationData {
                 closest_midi_note: 69,
                 cents_offset: 0.0,
             },
