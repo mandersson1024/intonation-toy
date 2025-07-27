@@ -1,0 +1,4 @@
+/// Web platform specific functionality
+/// This module contains browser-specific code that handles web APIs and DOM interactions
+
+pub mod first_click_handler;
