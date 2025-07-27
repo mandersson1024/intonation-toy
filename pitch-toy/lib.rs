@@ -35,7 +35,7 @@ pub use presentation::{DebugLayerActionsBuilder};
 pub(crate) mod common;
 pub(crate) mod debug;
 
-use common::{dev_log, trace_log, separation_log};
+use common::{dev_log, trace_log};
 use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
@@ -156,14 +156,9 @@ pub async fn start_render_loop(
     let mut last_fps_update = 0.0;
     let mut fps = 0.0;
     
-    // Separation verification logging frequency control
-    let mut separation_log_frame_count = 0u32;
-    const SEPARATION_LOG_FREQUENCY: u32 = 10; // Log every 10th frame
-    
     window.render_loop(move |mut frame_input| {
         // Update FPS counter
         frame_count += 1;
-        separation_log_frame_count += 1;
         let current_time = frame_input.accumulated_time;
         
         // Update FPS every second
@@ -181,20 +176,6 @@ pub async fn start_render_loop(
         let engine_data = if let Some(ref mut engine) = engine {
             let result = engine.update(timestamp);
             
-            // Verification logging: Engine returns raw frequency data (reduced frequency)
-            if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
-                if let Some(ref audio_analysis) = result.audio_analysis {
-                    match audio_analysis.pitch {
-                        crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                            separation_log!("[SEPARATION] Engine -> Raw frequency: {}Hz, clarity: {}", frequency, clarity);
-                        }
-                        crate::shared_types::Pitch::NotDetected => {
-                            separation_log!("[SEPARATION] Engine -> No pitch detected");
-                        }
-                    }
-                }
-            }
-            
             result
         } else {
             // Provide default engine data when engine is not available
@@ -208,22 +189,6 @@ pub async fn start_render_loop(
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
             let result = model.update(timestamp, engine_data.clone());
-            
-            // Verification logging: Model applies tuning context to raw frequency (reduced frequency)
-            if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
-                match result.pitch {
-                    crate::shared_types::Pitch::Detected(frequency, _) => {
-                        separation_log!("[SEPARATION] Model -> Musical interpretation: Note {:?}, cents offset: {:.2} (tuning: {:?})",
-                            result.accuracy.midi_note,
-                            result.accuracy.cents_offset,
-                            result.tuning_system
-                        );
-                    }
-                    crate::shared_types::Pitch::NotDetected => {
-                        separation_log!("[SEPARATION] Model -> No pitch to interpret");
-                    }
-                }
-            }
             
             result
         } else {
@@ -303,19 +268,6 @@ pub async fn start_render_loop(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                // Verification logging: Presentation receives pre-processed musical data (reduced frequency)
-                if separation_log_frame_count % SEPARATION_LOG_FREQUENCY == 0 {
-                    separation_log!("[SEPARATION] Presentation <- Receives musical data (no calculation needed)");
-                    // Verify separation: Engine result contains only raw data
-                    if engine_data.audio_analysis.is_some() {
-                        // EngineUpdateResult type enforces no musical fields
-                        separation_log!("[SEPARATION] ✓ Engine data contains only raw frequency (no note/accuracy fields)");
-                    }
-                    // Verify separation: Model result contains musical interpretation
-                    separation_log!("[SEPARATION] ✓ Model data contains musical interpretation (note: {:?}, tuning: {:?})",
-                        model_data.accuracy.closest_note, model_data.tuning_system);
-                }
-                
                 presenter_ref.update(timestamp, model_data);
                 presenter_ref.update_viewport(frame_input.viewport);
             }
@@ -346,15 +298,6 @@ pub async fn start_render_loop(
                 // Log validation errors if any
                 for error in &processed_actions.validation_errors {
                     dev_log!("Action validation error: {:?}", error);
-                }
-                
-                // Verification logging: Show how tuning changes affect frequency interpretation
-                if !processed_actions.actions.tuning_configurations.is_empty() {
-                    for config in &processed_actions.actions.tuning_configurations {
-                        separation_log!("[SEPARATION] Tuning context changed -> system: {:?}, root: {:?}", 
-                            config.tuning_system, config.root_note);
-                        separation_log!("[SEPARATION] Same raw frequencies will now be interpreted differently");
-                    }
                 }
                 
                 // Execute validated actions in engine layer
