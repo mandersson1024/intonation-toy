@@ -8,6 +8,7 @@ use crate::engine::audio::{
     buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
+use crate::shared_types::{Note, TuningSystem};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -26,6 +27,10 @@ pub struct DebugPanel {
     background_noise_enabled: bool,
     background_noise_level: f32,
     background_noise_type: TestWaveform,
+    
+    // UI state for user actions
+    selected_root_note: Note,
+    selected_tuning_system: TuningSystem,
 }
 
 impl DebugPanel {
@@ -48,6 +53,10 @@ impl DebugPanel {
             background_noise_enabled: false,
             background_noise_level: 0.1,
             background_noise_type: TestWaveform::WhiteNoise,
+            
+            // Initialize user action state
+            selected_root_note: Note::A,
+            selected_tuning_system: TuningSystem::EqualTemperament,
         }
     }
     
@@ -111,9 +120,8 @@ impl DebugPanel {
                 self.render_pitch_detection_section(ui);
                 ui.separator();
                 
-                
-                // Audio Errors Section (core data via interface)
-                self.render_audio_errors_section(ui);
+                // User Actions Section (debug actions)
+                self.render_user_actions_section(ui);
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
@@ -471,6 +479,78 @@ impl DebugPanel {
                 self.background_noise_level,
                 self.background_noise_type.clone(),
             );
+        }
+    }
+    
+    /// Render user actions section (debug actions)
+    fn render_user_actions_section(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("User Actions")
+            .default_open(true)
+            .show(ui, |ui| {
+                // Root Note Selection
+                ui.horizontal(|ui| {
+                    ui.label("Root Note:");
+                    egui::ComboBox::from_label("root_note_combo")
+                        .selected_text(format!("{:?}", self.selected_root_note))
+                        .show_ui(ui, |ui| {
+                            let notes = [
+                                Note::C,
+                                Note::DFlat,
+                                Note::D,
+                                Note::EFlat,
+                                Note::E,
+                                Note::F,
+                                Note::FSharp,
+                                Note::G,
+                                Note::AFlat,
+                                Note::A,
+                                Note::BFlat,
+                                Note::B,
+                            ];
+                            
+                            for note in &notes {
+                                ui.selectable_value(&mut self.selected_root_note, note.clone(), format!("{:?}", note));
+                            }
+                        });
+                    
+                    if ui.button("Set Root Note").clicked() {
+                        self.send_root_note_action();
+                    }
+                });
+                
+                // Tuning System Selection
+                ui.horizontal(|ui| {
+                    ui.label("Tuning System:");
+                    egui::ComboBox::from_label("tuning_system_combo")
+                        .selected_text(format!("{:?}", self.selected_tuning_system))
+                        .show_ui(ui, |ui| {
+                            let tuning_systems = [
+                                TuningSystem::EqualTemperament,
+                            ];
+                            
+                            for system in &tuning_systems {
+                                ui.selectable_value(&mut self.selected_tuning_system, system.clone(), format!("{:?}", system));
+                            }
+                        });
+                    
+                    if ui.button("Set Tuning System").clicked() {
+                        self.send_tuning_system_action();
+                    }
+                });
+            });
+    }
+    
+    #[cfg(debug_assertions)]
+    fn send_root_note_action(&self) {
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_root_note_adjusted(self.selected_root_note.clone());
+        }
+    }
+    
+    #[cfg(debug_assertions)]
+    fn send_tuning_system_action(&self) {
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_tuning_system_changed(self.selected_tuning_system.clone());
         }
     }
 }
