@@ -63,6 +63,9 @@
 mod sprite_scene;
 pub use sprite_scene::SpriteScene;
 
+mod main_scene;
+pub use main_scene::MainScene;
+
 use three_d::{RenderTarget, Context, Viewport};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote};
 
@@ -331,8 +334,8 @@ pub struct Presenter {
     /// Presentation layer now operates without interface dependencies
     /// Data flows through method parameters and return values
     
-    /// Sprite scene for rendering
-    sprite_scene: Option<SpriteScene>,
+    /// Main scene for rendering
+    main_scene: Option<MainScene>,
     
     /// Flag to track if scene has been initialized
     scene_initialized: bool,
@@ -372,7 +375,7 @@ impl Presenter {
         // TODO: Initialize rendering state
         // TODO: Set up sprite scene configuration
         Ok(Self {
-            sprite_scene: None,
+            main_scene: None,
             scene_initialized: false,
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
@@ -388,7 +391,7 @@ impl Presenter {
     /// 
     /// * `viewport` - The new viewport dimensions
     pub fn update_viewport(&mut self, viewport: Viewport) {
-        if let Some(ref mut scene) = self.sprite_scene {
+        if let Some(ref mut scene) = self.main_scene {
             scene.update_viewport(viewport);
         }
     }
@@ -563,12 +566,12 @@ impl Presenter {
         // Initialize scene on first render if not already done
         if !self.scene_initialized {
             let viewport = screen.viewport();
-            self.sprite_scene = Some(SpriteScene::new(context, viewport));
+            self.main_scene = Some(MainScene::new(context, viewport));
             self.scene_initialized = true;
         }
         
         // Render the scene if available
-        if let Some(ref scene) = self.sprite_scene {
+        if let Some(ref scene) = self.main_scene {
             scene.render(screen);
         }
     }
