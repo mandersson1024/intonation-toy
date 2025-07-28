@@ -39,7 +39,6 @@ pub mod stream;
 pub mod permission;
 pub mod buffer;
 pub mod buffer_analyzer;
-pub mod console_service;
 pub mod commands;
 pub mod pitch_detector;
 pub mod pitch_analyzer;
@@ -210,32 +209,6 @@ pub fn is_audio_system_ready() -> bool {
         }
     })
 }
-
-/// Create a ConsoleAudioService instance
-/// Returns a configured console audio service with audio context manager if available
-pub fn create_console_audio_service() -> console_service::ConsoleAudioServiceImpl {
-    let mut service = console_service::ConsoleAudioServiceImpl::new();
-    
-    // Set audio context manager if available
-    if let Some(manager) = get_audio_context_manager() {
-        service.set_audio_context_manager(manager);
-    }
-    
-    service
-}
-
-
-
-
-// Note: Buffer pool global functions removed - using direct processing with transferable buffers
-
-
-
-
-
-
-// Note: initialize_buffer_pool removed - using direct processing with transferable buffers
-
 
 // Re-export public API for external usage
 pub use microphone::{connect_microphone_to_audioworklet_with_context, MicrophoneManager};
