@@ -1,5 +1,4 @@
-use three_d::{Context, Viewport, Camera, ColorMaterial, Line,
-                AmbientLight, Srgba, ClearState, Gm, RenderTarget, PhysicalPoint};
+use three_d::{egui::{collapsing_header::HeaderResponse, viewport}, AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
 
 pub struct MainScene {
     camera: Camera,
@@ -28,7 +27,6 @@ impl MainScene {
     
     pub fn update_viewport(&mut self, viewport: Viewport) {
         self.center_line.set_endpoints(PhysicalPoint{x:0.0, y:viewport.height as f32 * 0.5}, PhysicalPoint{x:viewport.width as f32, y:viewport.height as f32 * 0.5});
-        self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y:viewport.height as f32 * 0.4}, PhysicalPoint{x:viewport.width as f32, y:viewport.height as f32 * 0.45});
         self.camera.set_viewport(viewport);
     }
     
@@ -40,5 +38,11 @@ impl MainScene {
             (&self.center_line).into_iter().chain(&self.user_pitch_line),
             &[&self.light],
         );
+    }
+    
+    pub fn update_pitch_position(&mut self, viewport: Viewport, normalized_interval: f32) {
+        let h: f32 = viewport.height as f32;
+        let y: f32 = h * normalized_interval + h * 0.5;
+        self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y:y}, PhysicalPoint{x:viewport.width as f32, y:y});
     }
 }

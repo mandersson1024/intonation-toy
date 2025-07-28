@@ -349,6 +349,9 @@ pub struct Presenter {
     /// for testing and debugging purposes. These actions bypass normal validation.
     #[cfg(debug_assertions)]
     pending_debug_actions: DebugLayerActions,
+    
+    /// Processed interval position for rendering
+    interval_position: f32,
 }
 
 impl Presenter {
@@ -376,12 +379,14 @@ impl Presenter {
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
+            interval_position: 0.0,
         })
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport) {
         if let Some(ref mut scene) = self.main_scene {
             scene.update_viewport(viewport);
+            scene.update_pitch_position(viewport, self.interval_position);
         }
     }
 
@@ -423,6 +428,9 @@ impl Presenter {
         
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
+        
+        // Transform and store interval semitones for rendering
+        self.interval_position = Self::transform_interval_semitones(model_data.interval_semitones);
     }
 
     /// Retrieve and clear all pending user actions
@@ -709,6 +717,26 @@ impl Presenter {
                 // Update UI to show Just Intonation tuning
             }
         }
+    }
+    
+    /// Transform raw interval semitones into a convenient position for rendering
+    /// 
+    /// Converts the interval in semitones to a normalized position value
+    /// suitable for visual representation. The returned value is normalized
+    /// to a range that can be used for positioning visual elements.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `interval_semitones` - The interval in semitones relative to the root note
+    /// 
+    /// # Returns
+    /// 
+    /// A normalized position value for rendering
+    fn transform_interval_semitones(interval_semitones: i32) -> f32 {
+        // Convert semitones to a position value
+        // This could be adjusted based on the desired visual representation
+        // For now, we'll use a simple linear mapping
+        interval_semitones as f32 * 0.1
     }
 }
 
