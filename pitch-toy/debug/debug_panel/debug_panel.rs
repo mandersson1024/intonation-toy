@@ -1,5 +1,5 @@
-// Hybrid EGUI Live Data Panel
-// Real-time data visualization and monitoring for egui interface using hybrid architecture
+// Debug Data Panel
+// Real-time data visualization and monitoring
 
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::engine::audio::{
@@ -31,9 +31,8 @@ fn midi_note_to_display_name(midi_note: MidiNote) -> &'static str {
 use std::rc::Rc;
 use std::cell::RefCell;
 
-/// Hybrid EGUI Live Data Panel - Real-time audio monitoring and control interface using hybrid architecture
 pub struct DebugPanel {
-    hybrid_data: DebugData,
+    debug_data: DebugData,
     presenter: Rc<RefCell<crate::presentation::Presenter>>,
     last_metrics_update: f64,
     
@@ -53,13 +52,12 @@ pub struct DebugPanel {
 }
 
 impl DebugPanel {
-    /// Create new Hybrid EGUI Live Data Panel
     pub fn new(
-        hybrid_data: DebugData,
+        debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
         Self {
-            hybrid_data,
+            debug_data,
             presenter,
             last_metrics_update: 0.0,
             
@@ -79,13 +77,12 @@ impl DebugPanel {
         }
     }
     
-    /// Update the hybrid data with engine and model results
     pub fn update_data(
         &mut self,
         engine_result: &crate::shared_types::EngineUpdateResult,
         model_result: Option<&crate::shared_types::ModelUpdateResult>,
     ) {
-        self.hybrid_data.update_from_layers(engine_result, model_result);
+        self.debug_data.update_from_layers(engine_result, model_result);
     }
     
     /// Update debug-specific data  
@@ -96,13 +93,13 @@ impl DebugPanel {
         audioworklet_status: Option<crate::debug::debug_panel::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
-        self.hybrid_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
+        self.debug_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
     }
     
     /// Render the live data panel
     pub fn render(&mut self, gui_context: &egui::Context) {
         let screen_rect = gui_context.screen_rect();
-        egui::Window::new("Hybrid Live Data Panel")
+        egui::Window::new("Debug Data")
             .default_pos([0.0, 0.0])
             .default_size(Vec2::new(400.0, screen_rect.height()))
             .resizable(true)
@@ -163,7 +160,7 @@ impl DebugPanel {
     
     /// Render audio devices section (debug-specific data)
     fn render_audio_devices_section(&self, ui: &mut Ui) {
-        let devices = &self.hybrid_data.audio_devices;
+        let devices = &self.debug_data.audio_devices;
         
         egui::CollapsingHeader::new("Audio Devices")
             .default_open(true)
@@ -189,7 +186,7 @@ impl DebugPanel {
         egui::CollapsingHeader::new("AudioWorklet Status")
             .default_open(true)
             .show(ui, |ui| {
-                let status = &self.hybrid_data.audioworklet_status;
+                let status = &self.debug_data.audioworklet_status;
                 
                 ui.horizontal(|ui| {
                     ui.label("State:");
@@ -220,7 +217,7 @@ impl DebugPanel {
         egui::CollapsingHeader::new("Performance Metrics")
             .default_open(true)
             .show(ui, |ui| {
-                let metrics = &self.hybrid_data.performance_metrics;
+                let metrics = &self.debug_data.performance_metrics;
                 
                 // Update metrics periodically
                 let now = js_sys::Date::now() / 1000.0; // Convert from ms to seconds
@@ -267,7 +264,7 @@ impl DebugPanel {
         egui::CollapsingHeader::new("Buffer Pool Statistics")
             .default_open(true)
             .show(ui, |ui| {
-                let stats = &self.hybrid_data.buffer_pool_stats;
+                let stats = &self.debug_data.buffer_pool_stats;
                 if let Some(stats) = stats {
                     // Pool status
                     ui.horizontal(|ui| {
@@ -309,7 +306,7 @@ impl DebugPanel {
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(volume) = self.hybrid_data.get_volume_level() {
+                if let Some(volume) = self.debug_data.get_volume_level() {
                     ui.label(format!("RMS: {:.3}", volume.rms_amplitude));
                     ui.label(format!("Peak: {:.1}", volume.peak_amplitude));
                 } else {
@@ -321,7 +318,7 @@ impl DebugPanel {
                 let bar_width = ui.available_width() - 100.0;
                 let bar_height = 20.0;
                 
-                let (normalized, bar_color) = if let Some(volume) = self.hybrid_data.get_volume_level() {
+                let (normalized, bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
                     // Use peak amplitude directly (0.0 to 1.0)
                     let amplitude = volume.peak_amplitude;
                     
@@ -357,7 +354,7 @@ impl DebugPanel {
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(pitch) = self.hybrid_data.get_pitch_data() {
+                if let Some(pitch) = self.debug_data.get_pitch_data() {
                     ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
                     ui.label(format!("Clarity: {:.2}", pitch.clarity));
                 } else {
@@ -373,7 +370,7 @@ impl DebugPanel {
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(intonation) = self.hybrid_data.get_intonation_data() {
+                if let Some(intonation) = self.debug_data.get_intonation_data() {
                     // Display closest MIDI note
                     let note_name = midi_note_to_display_name(intonation.closest_midi_note);
                     let octave = (intonation.closest_midi_note as i16 / 12) - 1;
@@ -397,7 +394,7 @@ impl DebugPanel {
                     ui.horizontal(|ui| {
                         ui.label("Interval:");
                         if let (Some(interval_semitones), Some(_)) = 
-                            (self.hybrid_data.get_interval_semitones(), self.hybrid_data.get_root_note()) {
+                            (self.debug_data.get_interval_semitones(), self.debug_data.get_root_note()) {
                             let interval_name = crate::shared_types::interval_name_from_semitones(interval_semitones);
                             let (color, display_text) = if interval_semitones == 0 {
                                 (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
@@ -417,7 +414,7 @@ impl DebugPanel {
                     // Display root note
                     ui.horizontal(|ui| {
                         ui.label("Root Note:");
-                        if let Some(root_note) = self.hybrid_data.get_root_note() {
+                        if let Some(root_note) = self.debug_data.get_root_note() {
                             let root_name = midi_note_to_display_name(root_note);
                             let root_octave = (root_note as i16 / 12) - 1;
                             ui.label(format!("{}{}", root_name, root_octave));
