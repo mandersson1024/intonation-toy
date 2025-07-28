@@ -220,14 +220,9 @@ pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
 
 // Private re-exports for internal module use only
-use microphone::{AudioStreamInfo, AudioError};
-use permission::{connect_microphone_with_context, PermissionManager};
-use context::{AudioContextManager, AudioContextState, AudioContextConfig};
-use worklet::{AudioWorkletManager, AudioWorkletConfig};
-use stream::{StreamReconnectionHandler, StreamState, StreamHealth, StreamConfig, StreamError};
-use pitch_detector::{PitchResult, PitchDetectorConfig, PitchDetector, PitchDetectionError};
-use pitch_analyzer::{PitchAnalyzer, PitchPerformanceMetrics, PitchAnalysisError};
-use volume_detector::{VolumeDetector, VolumeDetectorConfig, VolumeAnalysis};
+use microphone::{AudioError};
+use context::{AudioContextManager, AudioContextState};
+use volume_detector::{VolumeDetector, VolumeAnalysis};
 
 
 
