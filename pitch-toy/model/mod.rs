@@ -96,7 +96,7 @@
 
 use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
-use crate::common::{trace_log, warn_log};
+use crate::common::warn_log;
 
 /// Validation error types for action processing
 /// 
@@ -391,18 +391,12 @@ impl DataModel {
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
             Pitch::Detected(frequency, clarity) => {
-                trace_log!(
-                    "[MODEL] Processing detected pitch: {}Hz with clarity {} using {:?} tuning, root {:?}",
-                    frequency, clarity, self.tuning_system, self.root_note
-                );
+                // Processing detected pitch with tuning system and root note
                 
                 // Apply tuning-aware frequency to note conversion
                 let (closest_midi_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
                 
-                trace_log!(
-                    "[MODEL] Result: Note {:?}, cents offset {} ({}Hz)",
-                    closest_midi_note, accuracy_cents, frequency
-                );
+                // Result: Note and cents offset calculated
                 
                 IntonationData {
                     closest_midi_note,
@@ -411,8 +405,6 @@ impl DataModel {
             }
             Pitch::NotDetected => {
                 // No pitch detected - return default values
-                trace_log!("[MODEL] No pitch detected, returning default accuracy");
-                
                 IntonationData {
                     closest_midi_note: self.root_note, // Use MidiNote directly
                     cents_offset: 0.0, // No offset when no pitch is detected
@@ -428,10 +420,7 @@ impl DataModel {
             Pitch::NotDetected => 0, // No interval when no pitch detected
         };
 
-        trace_log!(
-            "[MODEL] Interval calculation: detected MIDI {} - root MIDI {} = {} semitones",
-            accuracy.closest_midi_note, self.root_note, interval_semitones
-        );
+        // Interval calculation: detected MIDI - root MIDI = interval semitones
 
         // Return processed model data with both legacy and flattened fields
         ModelUpdateResult {
@@ -599,10 +588,7 @@ impl DataModel {
         // This is the key to tuning-aware processing
         let root_pitch = self.get_root_pitch();
         
-        trace_log!(
-            "[MODEL] Converting frequency {}Hz with tuning {:?}, root {:?}, root pitch {}Hz",
-            frequency, self.tuning_system, self.root_note, root_pitch
-        );
+        // Converting frequency with tuning system and root pitch
         
         // Calculate MIDI note number from frequency using tuning-specific formula
         let midi_note = match self.tuning_system {
@@ -635,10 +621,7 @@ impl DataModel {
         // Positive = sharp, Negative = flat
         let accuracy_cents = (midi_note - rounded_midi) * 100.0;
         
-        trace_log!(
-            "[MODEL] Frequency {}Hz -> MIDI note {} with accuracy {} cents",
-            frequency, final_midi_note, accuracy_cents
-        );
+        // Frequency to MIDI note conversion complete
         
         (final_midi_note, accuracy_cents)
     }
@@ -675,10 +658,7 @@ impl DataModel {
         // f = f0 * 2^(n/12) where n is semitone distance
         let root_pitch = REFERENCE_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
         
-        trace_log!(
-            "[MODEL] Root pitch frequency for MIDI {}: {}Hz (diff from A4: {})",
-            self.root_note, root_pitch, midi_diff
-        );
+        // Root pitch frequency calculated
         
         root_pitch
     }
