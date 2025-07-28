@@ -124,7 +124,7 @@ async fn test_complete_data_flow_pipeline() {
     let model_result = model.update(timestamp, engine_result.clone());
     
     // Step 3: Presentation receives processed musical data
-    ui.update(timestamp, model_result.clone());
+    ui.process_data(timestamp, model_result.clone());
     
     // Verify data transformation at each stage
     if let Some(audio_analysis) = engine_result.audio_analysis {

@@ -216,8 +216,8 @@ pub async fn start_render_loop(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.update(timestamp, model_data);
-                presenter_ref.update_viewport(frame_input.viewport);
+                presenter_ref.process_data(timestamp, model_data);
+                presenter_ref.update_graphics(frame_input.viewport);
             }
         }
         

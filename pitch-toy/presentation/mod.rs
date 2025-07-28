@@ -379,14 +379,7 @@ impl Presenter {
         })
     }
 
-    /// Update viewport size for the scene
-    /// 
-    /// This should be called when the window/canvas is resized.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `viewport` - The new viewport dimensions
-    pub fn update_viewport(&mut self, viewport: Viewport) {
+    pub fn update_graphics(&mut self, viewport: Viewport) {
         if let Some(ref mut scene) = self.main_scene {
             scene.update_viewport(viewport);
         }
@@ -412,7 +405,7 @@ impl Presenter {
     /// 4. Manages error states and user feedback
     /// 5. Updates permission status display
     /// 6. Prepares data for next render cycle
-    pub fn update(&mut self, _timestamp: f64, model_data: ModelUpdateResult) {
+    pub fn process_data(&mut self, _timestamp: f64, model_data: ModelUpdateResult) {
         // Process volume data for visualization
         self.process_volume_data(&model_data.volume);
         
@@ -759,10 +752,10 @@ mod tests {
 
         // Test that update can be called multiple times without panicking
         let test_data = create_test_model_data();
-        presenter.update(0.0, test_data.clone());
-        presenter.update(1.0, test_data.clone());
-        presenter.update(123.456, test_data.clone());
-        presenter.update(-1.0, test_data); // Negative timestamp should also be safe
+        presenter.process_data(0.0, test_data.clone());
+        presenter.process_data(1.0, test_data.clone());
+        presenter.process_data(123.456, test_data.clone());
+        presenter.process_data(-1.0, test_data); // Negative timestamp should also be safe
         
         // Test render method - we need a mock render target
         // Since we can't easily create a real RenderTarget in tests,
@@ -817,13 +810,13 @@ mod tests {
 
             // Test multiple operations
             let test_data = create_test_model_data();
-            presenter.update(i as f64, test_data.clone());
-            presenter.update((i as f64) * 0.5, test_data.clone());
+            presenter.process_data(i as f64, test_data.clone());
+            presenter.process_data((i as f64) * 0.5, test_data.clone());
             
             // Test edge case values
-            presenter.update(f64::MAX, test_data.clone());
-            presenter.update(f64::MIN, test_data.clone());
-            presenter.update(0.0, test_data);
+            presenter.process_data(f64::MAX, test_data.clone());
+            presenter.process_data(f64::MIN, test_data.clone());
+            presenter.process_data(0.0, test_data);
         }
         
         // If we reach this point, all operations completed safely
@@ -846,7 +839,7 @@ mod tests {
         
         // Test that update signature is correct
         let test_data = create_test_model_data();
-        presenter.update(42.0, test_data);
+        presenter.process_data(42.0, test_data);
         
         // Test completed - all compilation requirements verified
         assert!(true, "Presenter meets all compilation requirements");
