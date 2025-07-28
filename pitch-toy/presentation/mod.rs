@@ -58,10 +58,6 @@
 //! - Complete screen layout and UI element management
 
 
-// PLACEHOLDER: Import temporary sprite scene for development/testing
-// TODO: Remove this import and sprite_scene.rs when proper visualization is implemented
-mod sprite_scene;
-pub use sprite_scene::SpriteScene;
 
 mod main_scene;
 pub use main_scene::MainScene;
