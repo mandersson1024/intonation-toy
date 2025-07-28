@@ -710,6 +710,61 @@ impl AudioSystemContext {
         
         dev_log!("✓ VolumeDetector initialized and configured");
 
+        // Step 5: Store AudioContextManager globally for device change callbacks
+        super::set_global_audio_context_manager(self.audio_context_manager.clone());
+        dev_log!("✓ AudioContextManager stored globally for device change callbacks");
+
+        // Step 6: Perform initial device refresh to populate the cache
+        {
+            let mut manager = self.audio_context_manager.borrow_mut();
+            if let Err(_e) = manager.refresh_audio_devices().await {
+                dev_log!("Initial device refresh failed: {:?}", _e);
+            } else {
+                dev_log!("✓ Initial device refresh completed - device cache populated");
+            }
+        }
+
+        // Step 7: Set up device change listener to automatically refresh device cache
+        {
+            let manager_rc = self.audio_context_manager.clone();
+            let callback = move || {
+                dev_log!("Device change detected in AudioSystemContext - refreshing device list");
+                
+                // Clone for the async closure
+                let manager_rc_async = manager_rc.clone();
+                
+                // Spawn async task to refresh devices
+                wasm_bindgen_futures::spawn_local(async move {
+                    match manager_rc_async.try_borrow_mut() {
+                        Ok(mut manager) => {
+                            if let Err(_e) = manager.refresh_audio_devices().await {
+                                dev_log!("AudioSystemContext auto device refresh failed: {:?}", _e);
+                            } else {
+                                dev_log!("AudioSystemContext auto device refresh completed successfully");
+                            }
+                        }
+                        Err(_) => {
+                            dev_log!("AudioContextManager busy during AudioSystemContext auto device refresh");
+                        }
+                    }
+                });
+            };
+            
+            // Set up the listener in the AudioContextManager
+            match self.audio_context_manager.try_borrow_mut() {
+                Ok(mut manager) => {
+                    if let Err(_e) = manager.setup_device_change_listener(callback) {
+                        dev_log!("Failed to set up AudioSystemContext device change listener: {:?}", _e);
+                    } else {
+                        dev_log!("✓ AudioSystemContext device change listener set up successfully");
+                    }
+                }
+                Err(_) => {
+                    dev_log!("AudioContextManager busy, cannot set up AudioSystemContext device change listener");
+                }
+            }
+        }
+
         self.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
         Ok(())

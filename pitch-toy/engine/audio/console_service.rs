@@ -160,19 +160,39 @@ impl ConsoleAudioServiceImpl {
                 
                 // Spawn async task to refresh devices
                 wasm_bindgen_futures::spawn_local(async move {
+                    // Try to refresh devices using the local manager first
+                    let mut refresh_success = false;
                     match manager_rc_async.try_borrow_mut() {
                         Ok(mut manager) => {
                             if let Err(_e) = manager.refresh_audio_devices().await {
                                 dev_log!("Auto device refresh failed: {:?}", _e);
                             } else {
                                 dev_log!("Auto device refresh completed successfully");
-                                
-                                // Devices are now collected by Engine::update()
-                                dev_log!("Auto device refresh completed");
+                                refresh_success = true;
                             }
                         }
                         Err(_) => {
-                            dev_log!("AudioContextManager busy during auto device refresh");
+                            dev_log!("Local AudioContextManager busy during auto device refresh");
+                        }
+                    }
+                    
+                    // If local refresh failed, try using the global AudioContextManager
+                    if !refresh_success {
+                        if let Some(global_manager_rc) = super::get_audio_context_manager() {
+                            match global_manager_rc.try_borrow_mut() {
+                                Ok(mut manager) => {
+                                    if let Err(_e) = manager.refresh_audio_devices().await {
+                                        dev_log!("Global auto device refresh failed: {:?}", _e);
+                                    } else {
+                                        dev_log!("Global auto device refresh completed successfully");
+                                    }
+                                }
+                                Err(_) => {
+                                    dev_log!("Global AudioContextManager busy during auto device refresh");
+                                }
+                            }
+                        } else {
+                            dev_log!("No global AudioContextManager available for device refresh");
                         }
                     }
                 });
@@ -240,27 +260,65 @@ impl ConsoleAudioService for ConsoleAudioServiceImpl {
             // Clone the Rc so we can move it into the async closure
             let manager_rc_clone = manager_rc.clone();
             
-            // Event dispatcher is no longer used for device updates
-            
             // Trigger device refresh in background
             // This is a non-blocking operation
             wasm_bindgen_futures::spawn_local(async move {
+                let mut refresh_success = false;
                 match manager_rc_clone.try_borrow_mut() {
                     Ok(mut manager) => {
                         if let Err(_e) = manager.refresh_audio_devices().await {
                             dev_log!("Device refresh failed: {:?}", _e);
                         } else {
                             dev_log!("Device refresh completed successfully");
-                            // Devices are now collected by Engine::update()
+                            refresh_success = true;
                         }
                     }
                     Err(_) => {
-                        dev_log!("AudioContextManager busy, skipping device refresh");
+                        dev_log!("Local AudioContextManager busy during device refresh");
+                    }
+                }
+                
+                // If local refresh failed, try using the global AudioContextManager
+                if !refresh_success {
+                    if let Some(global_manager_rc) = super::get_audio_context_manager() {
+                        match global_manager_rc.try_borrow_mut() {
+                            Ok(mut manager) => {
+                                if let Err(_e) = manager.refresh_audio_devices().await {
+                                    dev_log!("Global device refresh failed: {:?}", _e);
+                                } else {
+                                    dev_log!("Global device refresh completed successfully");
+                                }
+                            }
+                            Err(_) => {
+                                dev_log!("Global AudioContextManager busy during device refresh");
+                            }
+                        }
+                    } else {
+                        dev_log!("No global AudioContextManager available for device refresh");
                     }
                 }
             });
         } else {
-            dev_log!("No audio context manager available for device refresh");
+            // Try using the global AudioContextManager directly
+            dev_log!("No local audio context manager - trying global manager");
+            if let Some(global_manager_rc) = super::get_audio_context_manager() {
+                wasm_bindgen_futures::spawn_local(async move {
+                    match global_manager_rc.try_borrow_mut() {
+                        Ok(mut manager) => {
+                            if let Err(_e) = manager.refresh_audio_devices().await {
+                                dev_log!("Global device refresh failed: {:?}", _e);
+                            } else {
+                                dev_log!("Global device refresh completed successfully");
+                            }
+                        }
+                        Err(_) => {
+                            dev_log!("Global AudioContextManager busy during device refresh");
+                        }
+                    }
+                });
+            } else {
+                dev_log!("No audio context manager available for device refresh");
+            }
         }
     }
     
