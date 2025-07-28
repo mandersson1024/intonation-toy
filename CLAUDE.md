@@ -24,10 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Responsible for the tuning system and root note
 - Responsible for pitch analysis, meaning the relationship of the detected pitch to the root note and the selected tuning system
 - The pitch_detection crate returns a field called `clarity` in the `Pitch` struct. According to documentation "clarity is a measure of confidence in the pitch detection". We also use the term "clarity" in our app when refering to both clarity and confidence, which are interchangable terms when we speak informally about our app.
+- `pitch_detection` external documentation: https://docs.rs/pitch-detection/latest/pitch_detection/
 
 ### Presentation layer
 - Responsible for user input and visualization of data processed by the model
 - The visualization is rendered using the three_d crate
+- `three_d` external documentation: https://docs.rs/three-d/latest/three_d/index.html
 - UI action from the presentation layers include:
   - set root note
   - set tuning system
