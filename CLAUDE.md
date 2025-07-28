@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never run the server automatically. Instead tell the user to start the server using `trunk serve` and ask for manual testing. Be specific about what to test and what you expect in response.
 - You are allowed to use `cargo build`, `cargo check` and `cargo clippy` to look for errors and warnings.
 - Use console logs for tricky debugging scenarios. Add a distinct prefix to the relevant log lines so the user can filter on them. Remove those logs after the bug is fixed.
+- For logging function, see pitch-toy/common/mod.rs
 
 ## The three-layer architecture
 
