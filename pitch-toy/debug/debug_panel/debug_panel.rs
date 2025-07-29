@@ -63,7 +63,7 @@ impl DebugPanel {
             
             // Initialize UI state
             test_signal_enabled: false,
-            test_signal_frequency: 440.0,
+            test_signal_frequency: 174.614, // F3
             test_signal_volume: 50.0,
             test_signal_waveform: TestWaveform::Sine,
             output_to_speakers_enabled: false,
@@ -444,7 +444,7 @@ impl DebugPanel {
                 
                 ui.horizontal(|ui| {
                     ui.label("Frequency:");
-                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 200.0..=900.0).suffix(" Hz")).changed() {
+                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 100.0..=400.0).suffix(" Hz")).changed() {
                         if self.test_signal_enabled {
                             self.send_test_signal_action();
                         }
