@@ -442,8 +442,21 @@ impl Presenter {
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
         
-        // Calculate interval position directly from frequency and root note
-        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
+        // Calculate interval position with EMA smoothing for detected pitch
+        let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
+        
+        match model_data.pitch {
+            Pitch::Detected { .. } => {
+                // Apply EMA smoothing when pitch is detected
+                self.interval_position = self.apply_ema_smoothing(raw_interval_position);
+            }
+            Pitch::NotDetected => {
+                // Maintain existing behavior for undetected pitch (no smoothing)
+                self.interval_position = raw_interval_position; // This will be 0.0
+                // Reset EMA state for clean restart when pitch detection resumes
+                self.reset_ema();
+            }
+        }
     }
 
     /// Retrieve and clear all pending user actions
@@ -1648,6 +1661,203 @@ mod tests {
         let mut presenter = Presenter::create()
             .expect("Presenter creation should succeed");
         presenter.set_ema_period(-5.0);
+    }
+    
+    #[wasm_bindgen_test]
+    fn test_process_data_ema_smoothing_with_detected_pitch() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Set a known EMA factor for predictable results
+        presenter.set_ema_smoothing_factor(0.2);
+        
+        let root_note = Note::C;
+        
+        // First detected pitch - should initialize EMA
+        let mut model_data = create_test_model_data();
+        model_data.pitch = Pitch::Detected { frequency: 440.0, clarity: 0.9 };
+        model_data.root_note = root_note;
+        
+        presenter.process_data(&model_data);
+        let first_position = presenter.interval_position;
+        
+        // Calculate expected raw position for verification
+        let expected_raw_1 = (440.0 / root_note.frequency()).log2();
+        assert!((first_position - expected_raw_1).abs() < 0.001, 
+                "First detected pitch should equal raw value (EMA initialization)");
+        
+        // Second detected pitch - should apply EMA smoothing
+        model_data.pitch = Pitch::Detected { frequency: 466.16, clarity: 0.8 };
+        presenter.process_data(&model_data);
+        let second_position = presenter.interval_position;
+        
+        // Calculate expected EMA result
+        let expected_raw_2 = (466.16 / root_note.frequency()).log2();
+        let expected_ema_2 = first_position + 0.2 * (expected_raw_2 - first_position);
+        assert!((second_position - expected_ema_2).abs() < 0.001,
+                "Second detected pitch should be EMA smoothed");
+        
+        // Third detected pitch - verify EMA progression
+        model_data.pitch = Pitch::Detected { frequency: 493.88, clarity: 0.85 };
+        presenter.process_data(&model_data);
+        let third_position = presenter.interval_position;
+        
+        let expected_raw_3 = (493.88 / root_note.frequency()).log2();
+        let expected_ema_3 = second_position + 0.2 * (expected_raw_3 - second_position);
+        assert!((third_position - expected_ema_3).abs() < 0.001,
+                "Third detected pitch should continue EMA progression");
+    }
+    
+    #[wasm_bindgen_test]
+    fn test_process_data_no_ema_smoothing_with_undetected_pitch() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        presenter.set_ema_smoothing_factor(0.3);
+        
+        // First, establish some EMA state with detected pitch
+        let mut model_data = create_test_model_data();
+        model_data.pitch = Pitch::Detected { frequency: 440.0, clarity: 0.9 };
+        model_data.root_note = Note::C;
+        
+        presenter.process_data(&model_data);
+        assert_ne!(presenter.interval_position, 0.0, "Should have non-zero position for detected pitch");
+        
+        // Now test undetected pitch
+        model_data.pitch = Pitch::NotDetected;
+        presenter.process_data(&model_data);
+        
+        assert_eq!(presenter.interval_position, 0.0, 
+                   "Undetected pitch should result in 0.0 interval position");
+        
+        // Verify EMA state was reset by checking next detected pitch behavior
+        model_data.pitch = Pitch::Detected { frequency: 440.0, clarity: 0.9 };
+        presenter.process_data(&model_data);
+        
+        let expected_raw = (440.0 / Note::C.frequency()).log2();
+        assert!((presenter.interval_position - expected_raw).abs() < 0.001,
+                "After EMA reset, next detected pitch should equal raw value");
+    }
+    
+    #[wasm_bindgen_test]
+    fn test_process_data_ema_state_transitions() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        presenter.set_ema_smoothing_factor(0.25);
+        let root_note = Note::A;
+        
+        let mut model_data = create_test_model_data();
+        model_data.root_note = root_note;
+        
+        // Sequence: Detected -> NotDetected -> Detected -> Detected
+        
+        // First detected pitch
+        model_data.pitch = Pitch::Detected { frequency: 440.0, clarity: 0.9 };
+        presenter.process_data(&model_data);
+        let first_position = presenter.interval_position;
+        
+        // Undetected pitch (should reset EMA)
+        model_data.pitch = Pitch::NotDetected;
+        presenter.process_data(&model_data);
+        assert_eq!(presenter.interval_position, 0.0);
+        
+        // Next detected pitch (should start fresh EMA)
+        model_data.pitch = Pitch::Detected { frequency: 466.16, clarity: 0.8 };
+        presenter.process_data(&model_data);
+        let restart_position = presenter.interval_position;
+        
+        let expected_restart_raw = (466.16 / root_note.frequency()).log2();
+        assert!((restart_position - expected_restart_raw).abs() < 0.001,
+                "EMA should restart with raw value after NotDetected");
+        
+        // Fourth detected pitch (should apply EMA from restarted state)
+        model_data.pitch = Pitch::Detected { frequency: 493.88, clarity: 0.85 };
+        presenter.process_data(&model_data);
+        let final_position = presenter.interval_position;
+        
+        let expected_final_raw = (493.88 / root_note.frequency()).log2();
+        let expected_final_ema = restart_position + 0.25 * (expected_final_raw - restart_position);
+        assert!((final_position - expected_final_ema).abs() < 0.001,
+                "EMA should continue properly after restart");
+    }
+    
+    #[wasm_bindgen_test]
+    fn test_process_data_ema_smoothing_accuracy() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Test with different smoothing factors
+        let smoothing_factors = [0.1, 0.5, 0.9];
+        
+        for &factor in &smoothing_factors {
+            presenter.set_ema_smoothing_factor(factor);
+            presenter.reset_ema(); // Start fresh for each test
+            
+            let root_note = Note::C;
+            let mut model_data = create_test_model_data();
+            model_data.root_note = root_note;
+            
+            // First value - should be raw
+            model_data.pitch = Pitch::Detected { frequency: 261.63, clarity: 0.9 };
+            presenter.process_data(&model_data);
+            let first_raw = (261.63 / root_note.frequency()).log2();
+            assert!((presenter.interval_position - first_raw).abs() < 0.001,
+                    "First value should be raw for factor {}", factor);
+            
+            // Second value - should be EMA smoothed
+            model_data.pitch = Pitch::Detected { frequency: 293.66, clarity: 0.8 };
+            presenter.process_data(&model_data);
+            let second_raw = (293.66 / root_note.frequency()).log2();
+            let expected_second = first_raw + factor * (second_raw - first_raw);
+            assert!((presenter.interval_position - expected_second).abs() < 0.001,
+                    "Second value should be correctly smoothed for factor {}", factor);
+            
+            // Verify that higher smoothing factors result in values closer to raw
+            if factor == 0.9 {
+                let diff_from_raw = (presenter.interval_position - second_raw).abs();
+                assert!(diff_from_raw < 0.1, "High smoothing factor should be close to raw");
+            }
+        }
+    }
+    
+    #[wasm_bindgen_test]
+    fn test_process_data_preserves_existing_behavior() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        presenter.set_ema_smoothing_factor(0.3);
+        
+        let mut model_data = create_test_model_data();
+        model_data.pitch = Pitch::Detected { frequency: 440.0, clarity: 0.9 };
+        model_data.root_note = Note::A;
+        model_data.volume = 0.75;
+        model_data.accuracy = Accuracy::InTune;
+        model_data.error_state = ErrorState::NoError;
+        model_data.permission_state = PermissionState::Granted;
+        model_data.tuning_system = TuningSystem::EqualTemperament;
+        
+        let initial_volume = presenter.volume;
+        let initial_accuracy = presenter.accuracy;
+        let initial_error_state = presenter.error_state;
+        let initial_permission_state = presenter.permission_state;
+        let initial_tuning_system = presenter.tuning_system;
+        
+        presenter.process_data(&model_data);
+        
+        // Verify all other fields are still processed correctly
+        assert_eq!(presenter.volume, 0.75, "Volume should be updated");
+        assert_eq!(presenter.accuracy, Accuracy::InTune, "Accuracy should be updated");
+        assert_eq!(presenter.error_state, ErrorState::NoError, "Error state should be updated");
+        assert_eq!(presenter.permission_state, PermissionState::Granted, "Permission state should be updated");
+        assert_eq!(presenter.tuning_system, TuningSystem::EqualTemperament, "Tuning system should be updated");
+        
+        // Verify interval_position is processed with EMA
+        assert_ne!(presenter.interval_position, 0.0, "Interval position should be calculated");
+        
+        // Verify that changes don't affect the method signature or interface
+        let actions = presenter.get_pending_user_actions();
+        assert!(actions.set_root_note_actions.is_empty(), "Actions should work normally");
     }
     
 }
