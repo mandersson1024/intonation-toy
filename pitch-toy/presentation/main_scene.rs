@@ -47,7 +47,7 @@ impl MainScene {
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, normalized_interval: f32) {
         let h: f32 = viewport.height as f32;
-        let y: f32 = h * normalized_interval + h * 0.5;
+        let y: f32 = h * (0.5 + normalized_interval * 0.5);
         self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y:y}, PhysicalPoint{x:viewport.width as f32, y:y});
     }
 }

@@ -63,7 +63,7 @@ mod main_scene;
 pub use main_scene::MainScene;
 
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote, Pitch};
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -429,8 +429,8 @@ impl Presenter {
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
         
-        // Transform and store interval semitones for rendering
-        self.interval_position = Self::transform_interval_semitones(model_data.interval_semitones);
+        // Calculate interval position directly from frequency and root note
+        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
     }
 
     /// Retrieve and clear all pending user actions
@@ -719,24 +719,70 @@ impl Presenter {
         }
     }
     
-    /// Transform raw interval semitones into a convenient position for rendering
+    /// Calculate interval position directly from frequency and root note
     /// 
-    /// Converts the interval in semitones to a normalized position value
-    /// suitable for visual representation. The returned value is normalized
-    /// to a range that can be used for positioning visual elements.
+    /// This method provides a more accurate calculation by working directly with
+    /// frequency data rather than pre-quantized MIDI note values. It calculates
+    /// the musical interval using the frequency ratio between the detected pitch
+    /// and the root note frequency.
     /// 
     /// # Arguments
     /// 
-    /// * `interval_semitones` - The interval in semitones relative to the root note
+    /// * `pitch` - The detected pitch data containing frequency and clarity
+    /// * `root_note` - The MIDI note number of the root note
     /// 
     /// # Returns
     /// 
-    /// A normalized position value for rendering
-    fn transform_interval_semitones(interval_semitones: i32) -> f32 {
-        // Convert semitones to a position value
-        // This could be adjusted based on the desired visual representation
-        // For now, we'll use a simple linear mapping
-        interval_semitones as f32 * 0.1
+    /// The interval position value for rendering, or 0.0 if no pitch is detected
+    /// 
+    /// # Musical Theory and Scaling
+    /// 
+    /// The position is calculated as `log2(frequency / root_frequency)`, which:
+    /// - Maps unison (ratio 1.0) to position 0.0
+    /// - Maps octave up (ratio 2.0) to position 1.0
+    /// - Maps octave down (ratio 0.5) to position -1.0
+    /// 
+    /// This provides an intuitive octave-based scaling where each unit represents
+    /// one octave of musical distance.
+    fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, root_note: MidiNote) -> f32 {
+        match pitch {
+            Pitch::Detected(frequency, _clarity) => {
+                // Calculate root note frequency using standard A4=440Hz reference
+                let root_frequency = Self::midi_note_to_frequency(root_note);
+                
+                // Calculate interval position using log2 of frequency ratio
+                // This maps frequency ratios directly to position values:
+                // - ratio 1.0 (unison) -> position 0.0
+                // - ratio 2.0 (octave up) -> position 1.0
+                // - ratio 0.5 (octave down) -> position -1.0
+                (frequency / root_frequency).log2()
+            }
+            Pitch::NotDetected => 0.0,
+        }
+    }
+    
+    /// Convert MIDI note number to frequency in Hz
+    /// 
+    /// Uses the standard equal temperament formula with A4 (MIDI note 69) = 440Hz
+    /// 
+    /// # Arguments
+    /// 
+    /// * `midi_note` - The MIDI note number (0-127)
+    /// 
+    /// # Returns
+    /// 
+    /// The frequency in Hz
+    /// 
+    /// # Formula
+    /// 
+    /// `frequency = 440.0 * 2^((midi_note - 69) / 12)`
+    /// 
+    /// This formula is based on:
+    /// - A4 (MIDI note 69) is the reference pitch at 440Hz
+    /// - Each semitone up multiplies frequency by 2^(1/12)
+    /// - Each octave up doubles the frequency
+    fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
+        440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
     }
 }
 
@@ -1141,4 +1187,62 @@ mod tests {
         let noise2 = ConfigureBackgroundNoise { enabled: false, level: 0.5, noise_type: TestWaveform::PinkNoise };
         assert_eq!(noise1, noise2);
     }
+    
+    /// Test the new frequency-based interval calculation
+    #[wasm_bindgen_test]
+    fn test_frequency_based_interval_calculation() {
+        let presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Test case 1: Perfect unison (same frequency as root)
+        // A4 (440Hz) compared to A4 root (MIDI note 69)
+        let pitch_unison = Pitch::Detected(440.0, 0.9);
+        let interval_unison = presenter.calculate_interval_position_from_frequency(&pitch_unison, 69);
+        assert!((interval_unison - 0.0).abs() < 0.001, "Perfect unison should yield 0.0 position");
+        
+        // Test case 2: Perfect octave up
+        // A5 (880Hz) compared to A4 root (MIDI note 69)
+        let pitch_octave_up = Pitch::Detected(880.0, 0.9);
+        let interval_octave_up = presenter.calculate_interval_position_from_frequency(&pitch_octave_up, 69);
+        assert!((interval_octave_up - 1.0).abs() < 0.001, "Perfect octave up should yield 1.0 position (log2(2.0))");
+        
+        // Test case 3: Perfect octave down
+        // A3 (220Hz) compared to A4 root (MIDI note 69)
+        let pitch_octave_down = Pitch::Detected(220.0, 0.9);
+        let interval_octave_down = presenter.calculate_interval_position_from_frequency(&pitch_octave_down, 69);
+        assert!((interval_octave_down - (-1.0)).abs() < 0.001, "Perfect octave down should yield -1.0 position (log2(0.5))");
+        
+        // Test case 4: Perfect fifth up
+        // E5 (~659.25Hz) compared to A4 root (MIDI note 69)
+        // Perfect fifth is 7 semitones = frequency ratio of 2^(7/12) ≈ 1.498
+        // log2(1.498) ≈ 0.583
+        let pitch_fifth_up = Pitch::Detected(440.0 * 1.498307, 0.9);
+        let interval_fifth_up = presenter.calculate_interval_position_from_frequency(&pitch_fifth_up, 69);
+        assert!((interval_fifth_up - 0.583).abs() < 0.01, "Perfect fifth up should yield ~0.583 position (log2(1.498))");
+        
+        // Test case 5: Different root note
+        // A4 (440Hz) compared to F3 root (MIDI note 53)
+        // This is 16 semitones up = frequency ratio of 2^(16/12) ≈ 2.52
+        // log2(2.52) ≈ 1.333
+        let pitch_a4 = Pitch::Detected(440.0, 0.9);
+        let interval_from_f3 = presenter.calculate_interval_position_from_frequency(&pitch_a4, 53);
+        assert!((interval_from_f3 - 1.333).abs() < 0.01, "A4 from F3 root should yield ~1.333 position (log2(2.52))");
+        
+        // Test case 6: No pitch detected
+        let pitch_none = Pitch::NotDetected;
+        let interval_none = presenter.calculate_interval_position_from_frequency(&pitch_none, 69);
+        assert_eq!(interval_none, 0.0, "No pitch detected should yield 0.0 position");
+    }
+    
+    /// Test MIDI note to frequency conversion
+    #[wasm_bindgen_test]
+    fn test_midi_note_to_frequency() {
+        // Test known MIDI note frequencies
+        assert!((Presenter::midi_note_to_frequency(69) - 440.0).abs() < 0.001, "A4 (MIDI 69) should be 440Hz");
+        assert!((Presenter::midi_note_to_frequency(60) - 261.626).abs() < 0.01, "C4 (MIDI 60) should be ~261.626Hz");
+        assert!((Presenter::midi_note_to_frequency(57) - 220.0).abs() < 0.001, "A3 (MIDI 57) should be 220Hz");
+        assert!((Presenter::midi_note_to_frequency(81) - 880.0).abs() < 0.001, "A5 (MIDI 81) should be 880Hz");
+        assert!((Presenter::midi_note_to_frequency(53) - 174.614).abs() < 0.01, "F3 (MIDI 53) should be ~174.614Hz");
+    }
+    
 }
