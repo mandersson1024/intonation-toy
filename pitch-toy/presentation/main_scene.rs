@@ -12,15 +12,20 @@ impl MainScene {
         let center_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, 2.0);
         let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, 2.0);
 
-        let material = ColorMaterial {
+        let white_material = ColorMaterial {
             color: Srgba::WHITE,
+            ..Default::default()
+        };
+        
+        let green_material = ColorMaterial {
+            color: Srgba::GREEN,
             ..Default::default()
         };
         
         Self {
             camera: Camera::new_2d(viewport),
-            center_line: Gm::new(center_line, material.clone()),
-            user_pitch_line: Gm::new(user_pitch_line, material.clone()),
+            center_line: Gm::new(center_line, white_material.clone()),
+            user_pitch_line: Gm::new(user_pitch_line, green_material.clone()),
             light: AmbientLight::new(context, 1.0, Srgba::GREEN),
         }
     }
@@ -35,7 +40,7 @@ impl MainScene {
 
         screen.render(
             &self.camera,
-            (&self.center_line).into_iter().chain(&self.user_pitch_line),
+            (&self.user_pitch_line).into_iter().chain(&self.center_line),
             &[&self.light],
         );
     }
