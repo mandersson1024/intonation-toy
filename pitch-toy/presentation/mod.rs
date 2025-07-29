@@ -352,6 +352,16 @@ pub struct Presenter {
     
     /// Processed interval position for rendering
     interval_position: f32,
+    
+    /// EMA smoothing factor (alpha) for exponential moving average calculations
+    /// Value between 0.0 and 1.0, where higher values give more weight to recent data
+    ema_smoothing_factor: f32,
+    
+    /// Previous EMA value used for calculating the next smoothed value
+    previous_ema_value: f32,
+    
+    /// Whether the EMA has been initialized with the first value
+    ema_initialized: bool,
 }
 
 impl Presenter {
@@ -380,6 +390,9 @@ impl Presenter {
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
+            ema_smoothing_factor: 0.1,
+            previous_ema_value: 0.0,
+            ema_initialized: false,
         })
     }
 
@@ -571,6 +584,87 @@ impl Presenter {
         if let Some(ref scene) = self.main_scene {
             scene.render(screen);
         }
+    }
+
+    /// Get the current EMA smoothing factor
+    /// 
+    /// Returns the alpha value used in exponential moving average calculations.
+    /// A higher value gives more weight to recent data points.
+    /// 
+    /// # Returns
+    /// 
+    /// The current smoothing factor as a value between 0.0 and 1.0
+    pub fn get_ema_smoothing_factor(&self) -> f32 {
+        self.ema_smoothing_factor
+    }
+
+    /// Set the EMA smoothing factor directly
+    /// 
+    /// Sets the alpha value used in exponential moving average calculations.
+    /// The smoothing factor determines how much weight recent values have
+    /// compared to historical data.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `factor` - The smoothing factor between 0.0 and 1.0
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the factor is not between 0.0 and 1.0 (inclusive)
+    pub fn set_ema_smoothing_factor(&mut self, factor: f32) {
+        assert!(factor >= 0.0 && factor <= 1.0, "EMA smoothing factor must be between 0.0 and 1.0");
+        self.ema_smoothing_factor = factor;
+    }
+
+    /// Get the equivalent EMA period for the current smoothing factor
+    /// 
+    /// Calculates the equivalent period (in samples) that would produce
+    /// the same smoothing effect as the current smoothing factor.
+    /// 
+    /// # Returns
+    /// 
+    /// The equivalent EMA period as a floating-point number
+    pub fn get_ema_period(&self) -> f32 {
+        (2.0 / self.ema_smoothing_factor) - 1.0
+    }
+
+    /// Set the EMA period and calculate the corresponding smoothing factor
+    /// 
+    /// Sets the EMA configuration by specifying the period (in samples)
+    /// rather than the smoothing factor directly. The smoothing factor
+    /// is automatically calculated using the standard formula.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `period` - The EMA period in samples (must be positive)
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the period is not positive
+    pub fn set_ema_period(&mut self, period: f32) {
+        assert!(period > 0.0, "EMA period must be positive");
+        self.ema_smoothing_factor = 2.0 / (period + 1.0);
+    }
+
+    /// Reset the EMA state to initial conditions
+    /// 
+    /// Clears the EMA history by resetting the initialization flag and
+    /// previous value. The next EMA calculation will start fresh.
+    pub fn reset_ema(&mut self) {
+        self.ema_initialized = false;
+        self.previous_ema_value = 0.0;
+    }
+
+    /// Check whether the EMA has been initialized
+    /// 
+    /// Returns true if at least one EMA calculation has been performed,
+    /// false if the EMA is still in its initial state.
+    /// 
+    /// # Returns
+    /// 
+    /// True if EMA has been initialized, false otherwise
+    pub fn is_ema_initialized(&self) -> bool {
+        self.ema_initialized
     }
     
     /// Process volume data for audio level visualization
