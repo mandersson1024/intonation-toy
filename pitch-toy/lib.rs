@@ -155,7 +155,7 @@ pub async fn start_render_loop(
                 closest_midi_note: 69,
                 cents_offset: 0.0,
                 interval_semitones: 0,
-                root_note: 69,
+                root_note: 53,
             }
         };
         

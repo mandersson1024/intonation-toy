@@ -294,7 +294,7 @@ mod tests {
             closest_midi_note: 69,
             cents_offset: -10.0,
             interval_semitones: 0,
-            root_note: 69,
+            root_note: 53,
         };
 
         assert_eq!(update_result.volume, test_volume);
@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(update_result.closest_midi_note, 69);
         assert_eq!(update_result.cents_offset, -10.0);
         assert_eq!(update_result.interval_semitones, 0);
-        assert_eq!(update_result.root_note, 69);
+        assert_eq!(update_result.root_note, 53);
     }
 
     #[wasm_bindgen_test]

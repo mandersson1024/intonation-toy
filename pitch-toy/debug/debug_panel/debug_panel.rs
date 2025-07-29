@@ -72,7 +72,7 @@ impl DebugPanel {
             background_noise_type: TestWaveform::WhiteNoise,
             
             // Initialize user action state
-            selected_root_note: 69,
+            selected_root_note: 53,
             selected_tuning_system: TuningSystem::EqualTemperament,
         }
     }
