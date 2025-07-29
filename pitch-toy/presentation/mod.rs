@@ -667,6 +667,47 @@ impl Presenter {
         self.ema_initialized
     }
     
+    /// Apply exponential moving average (EMA) smoothing to a value
+    /// 
+    /// This method implements the standard EMA formula to smooth noisy data over time.
+    /// On the first call (initialization), it uses the current value as the first EMA value.
+    /// For subsequent calls, it applies the formula: new_ema = (current_value × k) + (previous_ema × (1 - k))
+    /// where k is the smoothing factor (alpha).
+    /// 
+    /// # Arguments
+    /// 
+    /// * `current_value` - The new data point to be smoothed
+    /// 
+    /// # Returns
+    /// 
+    /// The smoothed value after applying EMA
+    /// 
+    /// # EMA Formula
+    /// 
+    /// - First call: EMA = current_value (initialization)
+    /// - Subsequent calls: EMA = (current_value × smoothing_factor) + (previous_ema × (1 - smoothing_factor))
+    /// 
+    /// # Smoothing Factor Behavior
+    /// 
+    /// - Higher values (closer to 1.0) respond more quickly to changes
+    /// - Lower values (closer to 0.0) provide more smoothing and stability
+    /// - Factor of 1.0 = no smoothing (returns current_value)
+    /// - Factor of 0.0 = maximum smoothing (returns previous_ema)
+    fn apply_ema_smoothing(&mut self, current_value: f32) -> f32 {
+        if !self.ema_initialized {
+            // First call: initialize EMA with the current value
+            self.previous_ema_value = current_value;
+            self.ema_initialized = true;
+            current_value
+        } else {
+            // Subsequent calls: apply standard EMA formula
+            let new_ema = (current_value * self.ema_smoothing_factor) + 
+                         (self.previous_ema_value * (1.0 - self.ema_smoothing_factor));
+            self.previous_ema_value = new_ema;
+            new_ema
+        }
+    }
+    
     /// Process volume data for audio level visualization
     /// 
     /// Updates internal state based on volume levels from the model layer.
@@ -1337,6 +1378,276 @@ mod tests {
         assert!((Presenter::midi_note_to_frequency(57) - 220.0).abs() < 0.001, "A3 (MIDI 57) should be 220Hz");
         assert!((Presenter::midi_note_to_frequency(81) - 880.0).abs() < 0.001, "A5 (MIDI 81) should be 880Hz");
         assert!((Presenter::midi_note_to_frequency(53) - 174.614).abs() < 0.01, "F3 (MIDI 53) should be ~174.614Hz");
+    }
+    
+    /// Test EMA initialization behavior
+    #[wasm_bindgen_test]
+    fn test_ema_initialization() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Verify initial state
+        assert!(!presenter.is_ema_initialized(), "EMA should not be initialized initially");
+        
+        // First call should initialize with the input value
+        let first_value = 42.5;
+        let result = presenter.apply_ema_smoothing(first_value);
+        
+        // Should return the first value unchanged
+        assert_eq!(result, first_value, "First EMA call should return input value unchanged");
+        
+        // Should now be initialized
+        assert!(presenter.is_ema_initialized(), "EMA should be initialized after first call");
+        
+        // Previous EMA value should be set to the first input
+        assert_eq!(presenter.previous_ema_value, first_value, "Previous EMA value should be set to first input");
+    }
+    
+    /// Test standard EMA calculation with known values
+    #[wasm_bindgen_test]
+    fn test_ema_standard_calculation() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Set known smoothing factor for predictable results
+        presenter.set_ema_smoothing_factor(0.1);
+        
+        // Initialize with first value
+        let first_value = 100.0;
+        let result1 = presenter.apply_ema_smoothing(first_value);
+        assert_eq!(result1, first_value, "First call should return input unchanged");
+        
+        // Second call should use EMA formula
+        let second_value = 200.0;
+        let result2 = presenter.apply_ema_smoothing(second_value);
+        
+        // Expected: (200.0 * 0.1) + (100.0 * 0.9) = 20.0 + 90.0 = 110.0
+        let expected2 = (second_value * 0.1) + (first_value * 0.9);
+        assert!((result2 - expected2).abs() < 0.001, "Second EMA call should use formula: got {}, expected {}", result2, expected2);
+        
+        // Third call using previous result
+        let third_value = 50.0;
+        let result3 = presenter.apply_ema_smoothing(third_value);
+        
+        // Expected: (50.0 * 0.1) + (110.0 * 0.9) = 5.0 + 99.0 = 104.0
+        let expected3 = (third_value * 0.1) + (result2 * 0.9);
+        assert!((result3 - expected3).abs() < 0.001, "Third EMA call should use previous result: got {}, expected {}", result3, expected3);
+    }
+    
+    /// Test EMA with different smoothing factors
+    #[wasm_bindgen_test]
+    fn test_ema_different_smoothing_factors() {
+        // Test with high smoothing factor (quick response)
+        let mut presenter_high = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter_high.set_ema_smoothing_factor(0.9);
+        
+        presenter_high.apply_ema_smoothing(10.0); // Initialize
+        let result_high = presenter_high.apply_ema_smoothing(100.0);
+        
+        // Expected: (100.0 * 0.9) + (10.0 * 0.1) = 90.0 + 1.0 = 91.0
+        assert!((result_high - 91.0).abs() < 0.001, "High smoothing factor should respond quickly: got {}", result_high);
+        
+        // Test with low smoothing factor (more smoothing)
+        let mut presenter_low = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter_low.set_ema_smoothing_factor(0.1);
+        
+        presenter_low.apply_ema_smoothing(10.0); // Initialize
+        let result_low = presenter_low.apply_ema_smoothing(100.0);
+        
+        // Expected: (100.0 * 0.1) + (10.0 * 0.9) = 10.0 + 9.0 = 19.0
+        assert!((result_low - 19.0).abs() < 0.001, "Low smoothing factor should smooth more: got {}", result_low);
+        
+        // Test with smoothing factor of 1.0 (no smoothing)
+        let mut presenter_none = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter_none.set_ema_smoothing_factor(1.0);
+        
+        presenter_none.apply_ema_smoothing(10.0); // Initialize
+        let result_none = presenter_none.apply_ema_smoothing(100.0);
+        
+        // Should return current value unchanged
+        assert_eq!(result_none, 100.0, "Smoothing factor 1.0 should return current value");
+        
+        // Test with smoothing factor of 0.0 (maximum smoothing)
+        let mut presenter_max = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter_max.set_ema_smoothing_factor(0.0);
+        
+        presenter_max.apply_ema_smoothing(10.0); // Initialize
+        let result_max = presenter_max.apply_ema_smoothing(100.0);
+        
+        // Should return previous value unchanged
+        assert_eq!(result_max, 10.0, "Smoothing factor 0.0 should return previous value");
+    }
+    
+    /// Test EMA reset functionality
+    #[wasm_bindgen_test]
+    fn test_ema_reset_behavior() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        presenter.set_ema_smoothing_factor(0.5);
+        
+        // Initialize and perform some calculations
+        presenter.apply_ema_smoothing(10.0);
+        presenter.apply_ema_smoothing(20.0);
+        let before_reset = presenter.apply_ema_smoothing(30.0);
+        
+        // Verify EMA is initialized
+        assert!(presenter.is_ema_initialized(), "EMA should be initialized before reset");
+        
+        // Reset EMA state
+        presenter.reset_ema();
+        
+        // Verify reset state
+        assert!(!presenter.is_ema_initialized(), "EMA should not be initialized after reset");
+        assert_eq!(presenter.previous_ema_value, 0.0, "Previous EMA value should be reset to 0.0");
+        
+        // Next call should behave like initialization
+        let after_reset = presenter.apply_ema_smoothing(100.0);
+        assert_eq!(after_reset, 100.0, "First call after reset should return input unchanged");
+        assert!(presenter.is_ema_initialized(), "EMA should be initialized after first call post-reset");
+        
+        // Test multiple reset cycles
+        presenter.reset_ema();
+        let value1 = presenter.apply_ema_smoothing(50.0);
+        assert_eq!(value1, 50.0, "Second reset cycle should work correctly");
+        
+        presenter.reset_ema();
+        let value2 = presenter.apply_ema_smoothing(75.0);
+        assert_eq!(value2, 75.0, "Third reset cycle should work correctly");
+    }
+    
+    /// Test EMA with edge cases and extreme values
+    #[wasm_bindgen_test]
+    fn test_ema_edge_cases() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        presenter.set_ema_smoothing_factor(0.2);
+        
+        // Test with zero values
+        let result_zero = presenter.apply_ema_smoothing(0.0);
+        assert_eq!(result_zero, 0.0, "EMA should handle zero initialization");
+        
+        let result_after_zero = presenter.apply_ema_smoothing(10.0);
+        let expected_after_zero = (10.0 * 0.2) + (0.0 * 0.8);
+        assert!((result_after_zero - expected_after_zero).abs() < 0.001, "EMA should handle transition from zero");
+        
+        // Test with negative values
+        presenter.reset_ema();
+        let result_negative = presenter.apply_ema_smoothing(-50.0);
+        assert_eq!(result_negative, -50.0, "EMA should handle negative initialization");
+        
+        let result_mixed = presenter.apply_ema_smoothing(25.0);
+        let expected_mixed = (25.0 * 0.2) + (-50.0 * 0.8);
+        assert!((result_mixed - expected_mixed).abs() < 0.001, "EMA should handle negative to positive transition");
+        
+        // Test with very large values
+        presenter.reset_ema();
+        let large_value = 1e6;
+        let result_large = presenter.apply_ema_smoothing(large_value);
+        assert_eq!(result_large, large_value, "EMA should handle large values");
+        
+        // Test with very small values
+        presenter.reset_ema();
+        let small_value = 1e-6;
+        let result_small = presenter.apply_ema_smoothing(small_value);
+        assert!((result_small - small_value).abs() < 1e-9, "EMA should handle very small values");
+        
+        // Test numerical stability with repeated small changes
+        presenter.reset_ema();
+        presenter.apply_ema_smoothing(1.0);
+        
+        let mut current_value = 1.0;
+        for _ in 0..1000 {
+            current_value = presenter.apply_ema_smoothing(current_value + 0.001);
+        }
+        
+        // After 1000 iterations with small increments, value should be close to final input
+        assert!(current_value > 1.0, "EMA should accumulate small changes");
+        assert!(current_value < 2.0, "EMA should not grow unbounded with small changes");
+    }
+    
+    /// Test EMA getter/setter integration and configuration
+    #[wasm_bindgen_test]
+    fn test_ema_configuration_integration() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        // Test initial configuration
+        let initial_factor = presenter.get_ema_smoothing_factor();
+        assert_eq!(initial_factor, 0.1, "Default EMA smoothing factor should be 0.1");
+        
+        // Test factor setting and getting
+        presenter.set_ema_smoothing_factor(0.3);
+        assert_eq!(presenter.get_ema_smoothing_factor(), 0.3, "Set smoothing factor should be retrievable");
+        
+        // Test that factor change affects calculations
+        presenter.apply_ema_smoothing(10.0); // Initialize
+        let result_with_03 = presenter.apply_ema_smoothing(100.0);
+        let expected_03 = (100.0 * 0.3) + (10.0 * 0.7);
+        assert!((result_with_03 - expected_03).abs() < 0.001, "Changed smoothing factor should affect calculations");
+        
+        // Test period conversion
+        presenter.set_ema_period(19.0); // Should give smoothing factor of 2/(19+1) = 0.1
+        assert!((presenter.get_ema_smoothing_factor() - 0.1).abs() < 0.001, "Period-to-factor conversion should be accurate");
+        
+        let calculated_period = presenter.get_ema_period();
+        assert!((calculated_period - 19.0).abs() < 0.001, "Factor-to-period conversion should be accurate");
+        
+        // Test period setting with different values
+        presenter.set_ema_period(9.0); // Should give smoothing factor of 2/10 = 0.2
+        assert!((presenter.get_ema_smoothing_factor() - 0.2).abs() < 0.001, "Different period should give correct factor");
+        
+        // Test that period changes affect ongoing calculations
+        presenter.reset_ema();
+        presenter.apply_ema_smoothing(50.0); // Initialize
+        let result_with_period = presenter.apply_ema_smoothing(150.0);
+        let expected_with_period = (150.0 * 0.2) + (50.0 * 0.8);
+        assert!((result_with_period - expected_with_period).abs() < 0.001, "Period-based factor should affect calculations");
+        
+        // Test configuration persistence across calculations
+        for i in 0..10 {
+            let value = presenter.apply_ema_smoothing(i as f32);
+            // Factor should remain constant
+            assert!((presenter.get_ema_smoothing_factor() - 0.2).abs() < 0.001, "Smoothing factor should persist across calculations");
+        }
+    }
+    
+    /// Test EMA configuration validation (panic cases)
+    #[wasm_bindgen_test]
+    #[should_panic(expected = "EMA smoothing factor must be between 0.0 and 1.0")]
+    fn test_ema_factor_validation_negative() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter.set_ema_smoothing_factor(-0.1);
+    }
+    
+    #[wasm_bindgen_test]
+    #[should_panic(expected = "EMA smoothing factor must be between 0.0 and 1.0")]
+    fn test_ema_factor_validation_too_large() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter.set_ema_smoothing_factor(1.1);
+    }
+    
+    #[wasm_bindgen_test]
+    #[should_panic(expected = "EMA period must be positive")]
+    fn test_ema_period_validation_zero() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter.set_ema_period(0.0);
+    }
+    
+    #[wasm_bindgen_test]
+    #[should_panic(expected = "EMA period must be positive")]
+    fn test_ema_period_validation_negative() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        presenter.set_ema_period(-5.0);
     }
     
 }
