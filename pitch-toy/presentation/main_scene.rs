@@ -1,5 +1,37 @@
 use three_d::{egui::{collapsing_header::HeaderResponse, viewport}, AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
 
+pub struct SemitoneLines {
+    lines: Vec<Gm<Line, ColorMaterial>>,
+    material_color: Srgba,
+}
+
+impl SemitoneLines {
+    pub fn new(context: &Context) -> Self {
+        let material_color = Srgba::GRAY;
+        let material = ColorMaterial {
+            color: material_color,
+            ..Default::default()
+        };
+        
+        let mut lines = Vec::with_capacity(24);
+        
+        for _ in 0..24 {
+            let line = Line::new(
+                context,
+                PhysicalPoint { x: 0.0, y: 0.0 },
+                PhysicalPoint { x: 0.0, y: 0.0 },
+                1.0
+            );
+            lines.push(Gm::new(line, material.clone()));
+        }
+        
+        Self {
+            lines,
+            material_color,
+        }
+    }
+}
+
 pub struct MainScene {
     camera: Camera,
     center_line: Gm<Line, ColorMaterial>,
