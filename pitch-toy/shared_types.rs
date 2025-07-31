@@ -69,7 +69,7 @@ pub fn decrement_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TuningSystem {
     EqualTemperament,
     JustIntonation,

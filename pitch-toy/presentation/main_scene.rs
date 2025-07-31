@@ -1,4 +1,6 @@
-use three_d::{egui::{collapsing_header::HeaderResponse, viewport}, AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
+use three_d::{AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
+use std::collections::HashMap;
+use crate::shared_types::TuningSystem;
 
 pub struct SemitoneLines {
     lines: Vec<Gm<Line, ColorMaterial>>,
@@ -7,7 +9,7 @@ pub struct SemitoneLines {
 
 impl SemitoneLines {
     pub fn new(context: &Context) -> Self {
-        let material_color = Srgba::GRAY;
+        let material_color = Srgba::new(128, 128, 128, 255);
         let material = ColorMaterial {
             color: material_color,
             ..Default::default()
@@ -30,6 +32,67 @@ impl SemitoneLines {
             material_color,
         }
     }
+
+    pub fn new_with_color(context: &Context, color: Srgba) -> Self {
+        let material = ColorMaterial {
+            color,
+            ..Default::default()
+        };
+        
+        let mut lines = Vec::with_capacity(24);
+        
+        for _ in 0..24 {
+            let line = Line::new(
+                context,
+                PhysicalPoint { x: 0.0, y: 0.0 },
+                PhysicalPoint { x: 0.0, y: 0.0 },
+                1.0
+            );
+            lines.push(Gm::new(line, material.clone()));
+        }
+        
+        Self {
+            lines,
+            material_color: color,
+        }
+    }
+
+    pub fn set_line_positions(&mut self, viewport: Viewport, center_y: f32) {
+        let width = viewport.width as f32;
+        let height = viewport.height as f32;
+        let scale_factor = height * 0.4 / 2.0;
+        
+        // Center frequency is 1.0 Hz
+        let center_freq = 1.0;
+        
+        // Lines 0-11: semitones +1 to +12 above center
+        for i in 0..12 {
+            let semitone = (i + 1) as f32;
+            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
+            let y = center_y - frequency.log2() * scale_factor;
+            
+            self.lines[i].set_endpoints(
+                PhysicalPoint { x: 0.0, y },
+                PhysicalPoint { x: width, y }
+            );
+        }
+        
+        // Lines 12-23: semitones -1 to -12 below center
+        for i in 0..12 {
+            let semitone = -((i + 1) as f32);
+            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
+            let y = center_y - frequency.log2() * scale_factor;
+            
+            self.lines[i + 12].set_endpoints(
+                PhysicalPoint { x: 0.0, y },
+                PhysicalPoint { x: width, y }
+            );
+        }
+    }
+    
+    pub fn lines(&self) -> impl Iterator<Item = &Gm<Line, ColorMaterial>> {
+        self.lines.iter()
+    }
 }
 
 pub struct MainScene {
@@ -37,6 +100,7 @@ pub struct MainScene {
     center_line: Gm<Line, ColorMaterial>,
     user_pitch_line: Gm<Line, ColorMaterial>,
     light: AmbientLight,
+    tuning_lines: HashMap<TuningSystem, SemitoneLines>,
 }
 
 impl MainScene {
@@ -54,25 +118,64 @@ impl MainScene {
             ..Default::default()
         };
         
+        // Create HashMap with SemitoneLines for each TuningSystem
+        let mut tuning_lines = HashMap::new();
+        
+        // Equal Temperament with white color
+        tuning_lines.insert(
+            TuningSystem::EqualTemperament, 
+            SemitoneLines::new_with_color(context, Srgba::WHITE)
+        );
+        
+        // Just Intonation with light blue color
+        tuning_lines.insert(
+            TuningSystem::JustIntonation,
+            SemitoneLines::new_with_color(context, Srgba::new(128, 179, 255, 255))
+        );
+        
         Self {
             camera: Camera::new_2d(viewport),
             center_line: Gm::new(center_line, white_material.clone()),
             user_pitch_line: Gm::new(user_pitch_line, green_material.clone()),
             light: AmbientLight::new(context, 1.0, Srgba::GREEN),
+            tuning_lines,
         }
     }
     
     pub fn update_viewport(&mut self, viewport: Viewport) {
-        self.center_line.set_endpoints(PhysicalPoint{x:0.0, y:viewport.height as f32 * 0.5}, PhysicalPoint{x:viewport.width as f32, y:viewport.height as f32 * 0.5});
+        let center_y = viewport.height as f32 * 0.5;
+        
+        // Update center line position
+        self.center_line.set_endpoints(PhysicalPoint{x:0.0, y:center_y}, PhysicalPoint{x:viewport.width as f32, y:center_y});
+        
+        // Update all semitone lines for each tuning system
+        for (_, semitone_lines) in self.tuning_lines.iter_mut() {
+            semitone_lines.set_line_positions(viewport, center_y);
+        }
+        
         self.camera.set_viewport(viewport);
     }
     
     pub fn render(&self, screen: &mut RenderTarget) {
         screen.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0));
 
+        // Collect all lines to render: semitone lines, center line, and user pitch line
+        let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
+        
+        // Add all semitone lines from all tuning systems
+        for (_, semitone_lines) in &self.tuning_lines {
+            for line in semitone_lines.lines() {
+                renderable_lines.push(line);
+            }
+        }
+        
+        // Add center line and user pitch line
+        renderable_lines.push(&self.center_line);
+        renderable_lines.push(&self.user_pitch_line);
+        
         screen.render(
             &self.camera,
-            (&self.user_pitch_line).into_iter().chain(&self.center_line),
+            renderable_lines.into_iter(),
             &[&self.light],
         );
     }
