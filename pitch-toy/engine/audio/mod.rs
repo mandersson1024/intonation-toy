@@ -46,6 +46,7 @@ pub mod volume_detector;
 pub mod signal_generator;
 pub mod message_protocol;
 pub mod data_types;
+pub mod root_note_audio_node;
 
 use crate::common::dev_log;
 
@@ -215,9 +216,10 @@ pub use microphone::{connect_microphone_to_audioworklet_with_context, Microphone
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
-pub use signal_generator::{TestWaveform, BackgroundNoiseConfig, SignalGeneratorConfig};
+pub use signal_generator::{TestWaveform, BackgroundNoiseConfig, SignalGeneratorConfig, RootNoteAudioConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
+pub use root_note_audio_node::RootNoteAudioNode;
 
 // Private re-exports for internal module use only
 use microphone::{AudioError};

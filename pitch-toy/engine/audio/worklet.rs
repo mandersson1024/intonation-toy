@@ -59,6 +59,7 @@ use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig, BackgroundNoiseConfig};
 use super::signal_generator::RootNoteAudioConfig;
+use super::root_note_audio_node::RootNoteAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use super::buffer::AUDIO_CHUNK_SIZE;
 
@@ -182,6 +183,8 @@ pub struct AudioWorkletManager {
     ping_pong_enabled: bool,
     // Batch size for audio processing (received from AudioWorklet processor)
     batch_size: u32,
+    // Dedicated root note audio node
+    root_note_node: Option<RootNoteAudioNode>,
 }
 
 impl AudioWorkletManager {
@@ -203,6 +206,7 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
+            root_note_node: None,
         }
     }
     
@@ -240,6 +244,7 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
+            root_note_node: None,
         }
     }
     
@@ -830,6 +835,12 @@ impl AudioWorkletManager {
             dev_log!("AudioWorklet disconnected");
         }
         
+        // Clean up the root note audio node
+        if self.root_note_node.is_some() {
+            dev_log!("[AudioWorkletManager] Cleaning up root note audio node");
+            self.root_note_node = None; // Drop triggers cleanup
+        }
+        
         self.worklet_node = None;
         self.state = AudioWorkletState::Uninitialized;
         self.publish_audioworklet_status();
@@ -950,8 +961,46 @@ impl AudioWorkletManager {
     }
 
     /// Update root note audio configuration
+    /// 
+    /// This method manages the dedicated RootNoteAudioNode that connects directly to speakers,
+    /// independent of the main AudioWorklet processing pipeline. Root note audio is always
+    /// audible regardless of the output_to_speakers flag.
     pub fn update_root_note_audio_config(&mut self, config: RootNoteAudioConfig) {
-        // Send configuration to AudioWorklet processor
+        dev_log!("[AudioWorkletManager] Updating root note audio config - enabled: {}, frequency: {} Hz", 
+                config.enabled, config.frequency);
+        
+        if config.enabled {
+            // Create or update the root note audio node
+            if let Some(ref mut node) = self.root_note_node {
+                // Update existing node
+                node.update_config(config.clone());
+            } else {
+                // Create new node
+                if let Some(ref audio_context) = self.audio_context {
+                    match RootNoteAudioNode::new(audio_context, config.clone()) {
+                        Ok(node) => {
+                            dev_log!("[AudioWorkletManager] Created new root note audio node");
+                            self.root_note_node = Some(node);
+                        }
+                        Err(e) => {
+                            dev_log!("[AudioWorkletManager] Failed to create root note audio node: {:?}", e);
+                        }
+                    }
+                } else {
+                    dev_log!("[AudioWorkletManager] No audio context available for root note audio");
+                }
+            }
+        } else {
+            // Disable or remove the root note audio node
+            if let Some(ref mut node) = self.root_note_node {
+                node.disable();
+                dev_log!("[AudioWorkletManager] Disabled root note audio node");
+            }
+            // Note: We keep the node for potential re-enabling, only drop when disconnecting
+        }
+        
+        // Keep the existing worklet message sending for backward compatibility
+        // TODO: Remove this in subsequent phases when AudioWorklet root note generation is no longer needed
         if let Err(e) = self.send_root_note_audio_config_to_worklet(&config) {
             dev_log!("Warning: Failed to send root note audio config to worklet: {}", e);
         }
