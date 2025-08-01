@@ -476,6 +476,7 @@ impl AudioEngine {
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
                         waveform: config.waveform.clone(),
                         sample_rate: 48000, // Use standard sample rate
+                        root_note_audio_config: crate::engine::audio::signal_generator::RootNoteAudioConfig::default(),
                     };
                     
                     worklet_manager.update_test_signal_config(audio_config);

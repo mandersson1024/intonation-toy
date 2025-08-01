@@ -22,6 +22,8 @@ pub struct SignalGeneratorConfig {
     pub waveform: TestWaveform,
     /// Sample rate for generation
     pub sample_rate: u32,
+    /// Root note audio configuration
+    pub root_note_audio_config: RootNoteAudioConfig,
 }
 
 /// Configuration for background noise generation
@@ -35,6 +37,15 @@ pub struct BackgroundNoiseConfig {
     pub noise_type: TestWaveform, // Reuse TestWaveform for WhiteNoise, PinkNoise
 }
 
+/// Configuration for root note audio generation
+#[derive(Debug, Clone, PartialEq)]
+pub struct RootNoteAudioConfig {
+    /// Whether root note audio is enabled
+    pub enabled: bool,
+    /// Root note frequency in Hz
+    pub frequency: f32,
+}
+
 impl Default for SignalGeneratorConfig {
     fn default() -> Self {
         Self {
@@ -43,6 +54,7 @@ impl Default for SignalGeneratorConfig {
             amplitude: 0.3,
             waveform: TestWaveform::Sine,
             sample_rate: 48000,
+            root_note_audio_config: RootNoteAudioConfig::default(),
         }
     }
 }
@@ -53,6 +65,15 @@ impl Default for BackgroundNoiseConfig {
             enabled: false,
             level: 0.0,
             noise_type: TestWaveform::WhiteNoise,
+        }
+    }
+}
+
+impl Default for RootNoteAudioConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            frequency: 220.0,
         }
     }
 }
