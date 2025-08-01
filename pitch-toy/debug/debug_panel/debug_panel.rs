@@ -45,6 +45,7 @@ pub struct DebugPanel {
     background_noise_enabled: bool,
     background_noise_level: f32,
     background_noise_type: TestWaveform,
+    root_note_audio_enabled: bool,
     
     // UI state for user actions
     selected_root_note: MidiNote,
@@ -70,6 +71,7 @@ impl DebugPanel {
             background_noise_enabled: false,
             background_noise_level: 0.1,
             background_noise_type: TestWaveform::WhiteNoise,
+            root_note_audio_enabled: false,
             
             // Initialize user action state
             selected_root_note: 53,
@@ -154,6 +156,10 @@ impl DebugPanel {
                 
                 // Background Noise Controls Section (debug actions)
                 self.render_background_noise_controls(ui);
+                ui.separator();
+                
+                // Root Note Audio Controls Section (debug actions)
+                self.render_root_note_audio_controls(ui);
             });
         });
     }
@@ -537,6 +543,17 @@ impl DebugPanel {
             });
     }
     
+    /// Render root note audio controls (debug actions)
+    fn render_root_note_audio_controls(&mut self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Root Note Audio Controls")
+            .default_open(true)
+            .show(ui, |ui| {
+                if ui.checkbox(&mut self.root_note_audio_enabled, "Enable Root Note Audio").changed() {
+                    self.send_root_note_audio_action();
+                }
+            });
+    }
+    
     // Debug action helper methods
     
     #[cfg(debug_assertions)]
@@ -566,6 +583,13 @@ impl DebugPanel {
                 self.background_noise_level,
                 self.background_noise_type.clone(),
             );
+        }
+    }
+    
+    #[cfg(debug_assertions)]
+    fn send_root_note_audio_action(&self) {
+        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+            presenter.on_root_note_audio_configured(self.root_note_audio_enabled);
         }
     }
     

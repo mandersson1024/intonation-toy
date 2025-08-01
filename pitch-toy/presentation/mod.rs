@@ -160,6 +160,19 @@ impl ConfigureBackgroundNoise {
     }
 }
 
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureRootNoteAudio {
+    pub enabled: bool,
+}
+
+#[cfg(all(debug_assertions, test))]
+impl ConfigureRootNoteAudio {
+    pub fn new(enabled: bool) -> Self {
+        Self { enabled }
+    }
+}
+
 /// Container for all collected user actions from the presentation layer
 /// 
 /// This struct is returned by the presentation layer's get_user_actions() method
@@ -233,6 +246,7 @@ pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
     pub speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
     pub background_noise_configurations: Vec<ConfigureBackgroundNoise>,
+    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 #[cfg(debug_assertions)]
@@ -243,6 +257,7 @@ impl DebugLayerActions {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
             background_noise_configurations: Vec::new(),
+            root_note_audio_configurations: Vec::new(),
         }
     }
 }
@@ -260,6 +275,7 @@ pub struct DebugLayerActionsBuilder {
     test_signal_configurations: Vec<ConfigureTestSignal>,
     speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
     background_noise_configurations: Vec<ConfigureBackgroundNoise>,
+    root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 #[cfg(all(debug_assertions, test))]
@@ -269,6 +285,7 @@ impl DebugLayerActionsBuilder {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
             background_noise_configurations: Vec::new(),
+            root_note_audio_configurations: Vec::new(),
         }
     }
     
@@ -287,11 +304,17 @@ impl DebugLayerActionsBuilder {
         self
     }
     
+    pub fn with_root_note_audio(mut self, enabled: bool) -> Self {
+        self.root_note_audio_configurations.push(ConfigureRootNoteAudio::new(enabled));
+        self
+    }
+    
     pub fn build(self) -> DebugLayerActions {
         DebugLayerActions {
             test_signal_configurations: self.test_signal_configurations,
             speaker_output_configurations: self.speaker_output_configurations,
             background_noise_configurations: self.background_noise_configurations,
+            root_note_audio_configurations: self.root_note_audio_configurations,
         }
     }
 }
@@ -568,6 +591,21 @@ impl Presenter {
             enabled,
             level,
             noise_type,
+        });
+    }
+
+    /// Handle debug request to configure root note audio generation (debug builds only)
+    /// 
+    /// This method should be called by debug UI components to enable or disable
+    /// root note audio generation for testing and audio reference.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether root note audio generation should be enabled
+    #[cfg(debug_assertions)]
+    pub fn on_root_note_audio_configured(&mut self, enabled: bool) {
+        self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+            enabled,
         });
     }
 
