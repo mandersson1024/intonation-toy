@@ -13,7 +13,7 @@
 //   let serializer = MessageSerializer::new();
 //   let js_message = serializer.serialize_envelope(&return_msg)?;
 
-use crate::engine::audio::signal_generator::{SignalGeneratorConfig, BackgroundNoiseConfig, RootNoteAudioConfig};
+use crate::engine::audio::signal_generator::{SignalGeneratorConfig, BackgroundNoiseConfig};
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -1650,49 +1650,6 @@ impl MessageValidator for BackgroundNoiseConfig {
     }
 }
 
-// RootNoteAudioConfig implementations
-
-impl ToJsMessage for RootNoteAudioConfig {
-    fn to_js_object(&self) -> SerializationResult<Object> {
-        let obj = Object::new();
-        
-        Reflect::set(&obj, &"enabled".into(), &self.enabled.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set enabled: {:?}", e)))?;
-        Reflect::set(&obj, &"frequency".into(), &self.frequency.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set frequency: {:?}", e)))?;
-        
-        Ok(obj)
-    }
-}
-
-impl FromJsMessage for RootNoteAudioConfig {
-    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let enabled = Reflect::get(obj, &"enabled".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get enabled: {:?}", e)))?
-            .as_bool()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("enabled must be boolean".to_string()))?;
-        
-        let frequency = Reflect::get(obj, &"frequency".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get frequency: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("frequency must be number".to_string()))?
-            as f32;
-        
-        Ok(RootNoteAudioConfig {
-            enabled,
-            frequency,
-        })
-    }
-}
-
-impl MessageValidator for RootNoteAudioConfig {
-    fn validate(&self) -> SerializationResult<()> {
-        if self.frequency <= 0.0 {
-            return Err(SerializationError::ValidationFailed("frequency must be positive".to_string()));
-        }
-        Ok(())
-    }
-}
 
 impl ToJsMessage for WorkletError {
     fn to_js_object(&self) -> SerializationResult<Object> {
@@ -2621,21 +2578,6 @@ impl BackgroundNoiseConfig {
     }
 }
 
-impl RootNoteAudioConfig {
-    /// Create a new root note audio config
-    pub fn new(
-        enabled: bool,
-        frequency: f32,
-    ) -> MessageConstructionResult<Self> {
-        let config = Self {
-            enabled,
-            frequency,
-        };
-        
-        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(config)
-    }
-}
 
 // ================================
 // AudioWorklet Message Factory
@@ -2845,13 +2787,6 @@ impl AudioWorkletMessageFactory {
         self.update_background_noise_config(config)
     }
     
-    /// Create a root note audio config
-    pub fn create_root_note_audio_config(&self,
-        enabled: bool,
-        frequency: f32
-    ) -> MessageConstructionResult<RootNoteAudioConfig> {
-        RootNoteAudioConfig::new(enabled, frequency)
-    }
     
     /// Create a batch config
     pub fn create_batch_config(&self,
@@ -3082,7 +3017,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_test_signal_config_serialization() {
-        use crate::engine::audio::signal_generator::{TestWaveform, RootNoteAudioConfig};
+        use crate::engine::audio::signal_generator::TestWaveform;
         
         let config = SignalGeneratorConfig {
             enabled: true,
@@ -3090,7 +3025,6 @@ mod tests {
             amplitude: 0.5,
             waveform: TestWaveform::Sine,
             sample_rate: 48000,
-            root_note_audio_config: RootNoteAudioConfig::default(),
         };
         
         let obj = config.to_js_object().unwrap();
@@ -3166,7 +3100,6 @@ mod tests {
             0.5,
             TestWaveform::Sine,
             48000,
-            RootNoteAudioConfig::default()
         );
         assert!(valid_config.is_ok());
         
@@ -3177,7 +3110,6 @@ mod tests {
             0.5,
             TestWaveform::Sine,
             48000,
-            RootNoteAudioConfig::default()
         );
         assert!(invalid_config.is_err());
     }

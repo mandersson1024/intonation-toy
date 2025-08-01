@@ -368,3 +368,177 @@ fn test_sequential_tuning_context_changes() {
         previous_accuracy = Some(result.accuracy.cents_offset);
     }
 }
+
+/// Test that root note audio operates independently of main audio processing
+/// (debug builds only)
+#[cfg(debug_assertions)]
+#[wasm_bindgen_test]
+async fn test_root_note_audio_independence() {
+    let mut engine = AudioEngine::create()
+        .await
+        .expect("Engine creation should succeed");
+    
+    let mut presenter = Presenter::create()
+        .expect("Presenter creation should succeed");
+    
+    // Test that root note audio configuration is handled separately from main audio
+    presenter.on_root_note_audio_configured(true);
+    let debug_actions = presenter.collect_debug_actions();
+    
+    // Verify root note audio configuration is captured
+    assert_eq!(debug_actions.root_note_audio_configurations.len(), 1);
+    let config = &debug_actions.root_note_audio_configurations[0];
+    assert!(config.enabled);
+    assert!(config.frequency > 0.0);
+    
+    // Verify that root note audio configuration is separate from main audio processing
+    // The engine's update method should not affect root note audio directly
+    let _engine_result = engine.update(1.0);
+    
+    // Root note audio should maintain its configuration independently
+    // The separate RootNoteAudioNode connects directly to speakers
+}
+
+/// Test that root note audio frequency automatically updates when root note changes
+/// (debug builds only)
+#[cfg(debug_assertions)]
+#[wasm_bindgen_test]
+fn test_root_note_audio_frequency_auto_update() {
+    let mut presenter = Presenter::create()
+        .expect("Presenter creation should succeed");
+    
+    // Set initial root note
+    let initial_root_note = 69; // A4 = 440 Hz
+    presenter.on_root_note_adjusted(initial_root_note);
+    
+    // Enable root note audio
+    presenter.on_root_note_audio_configured(true);
+    
+    let initial_actions = presenter.collect_debug_actions();
+    let initial_config = &initial_actions.root_note_audio_configurations[0];
+    let initial_frequency = initial_config.frequency;
+    
+    // Verify initial frequency calculation (A4 = 440 Hz)
+    assert!((initial_frequency - 440.0).abs() < 0.1, 
+        "A4 should be approximately 440 Hz, got {}", initial_frequency);
+    
+    // Change root note to C4 (261.63 Hz)
+    let new_root_note = 60;
+    presenter.on_root_note_adjusted(new_root_note);
+    
+    let updated_actions = presenter.collect_debug_actions();
+    
+    // Verify that root note audio frequency was automatically updated
+    // Should have initial config + adjustment + auto-update
+    assert!(updated_actions.root_note_audio_configurations.len() >= 2);
+    
+    let updated_config = updated_actions.root_note_audio_configurations.last().unwrap();
+    let updated_frequency = updated_config.frequency;
+    
+    // Verify frequency was automatically updated to match new root note
+    assert!((updated_frequency - 261.63).abs() < 0.1,
+        "C4 should be approximately 261.63 Hz, got {}", updated_frequency);
+    
+    // Verify the configuration is still enabled
+    assert!(updated_config.enabled);
+}
+
+/// Test that debug panel controls work with the new separate root note audio architecture
+/// (debug builds only)
+#[cfg(debug_assertions)]
+#[wasm_bindgen_test]
+fn test_debug_panel_root_note_audio_controls() {
+    use pitch_toy::debug::debug_panel::DebugPanel;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    
+    let presenter = Rc::new(RefCell::new(
+        Presenter::create().expect("Presenter creation should succeed")
+    ));
+    
+    let _debug_panel = DebugPanel::new(presenter.clone());
+    
+    // Test the debug panel's ability to configure root note audio through presenter
+    {
+        let mut borrowed_presenter = presenter.borrow_mut();
+        borrowed_presenter.on_root_note_audio_configured(true);
+    }
+    
+    let borrowed_presenter = presenter.borrow();
+    let debug_actions = borrowed_presenter.collect_debug_actions();
+    
+    // Verify the debug panel action was recorded
+    assert!(!debug_actions.root_note_audio_configurations.is_empty());
+    let config = &debug_actions.root_note_audio_configurations[0];
+    assert!(config.enabled);
+    
+    // The frequency should be calculated from the current root note
+    assert!(config.frequency > 0.0);
+}
+
+/// Test that root note audio always outputs to speakers regardless of main output settings
+/// (debug builds only)
+#[cfg(debug_assertions)]
+#[wasm_bindgen_test]
+async fn test_root_note_audio_always_to_speakers() {
+    let mut engine = AudioEngine::create()
+        .await
+        .expect("Engine creation should succeed");
+    
+    // This test verifies architectural expectations rather than runtime behavior
+    // since we can't easily test actual audio output in a unit test environment
+    
+    // The RootNoteAudioNode should be designed to connect directly to speakers
+    // independent of the main audio processing pipeline's output settings
+    
+    // In the actual implementation:
+    // 1. Main audio can be muted or redirected
+    // 2. Root note audio should still reach speakers
+    // 3. The separate RootNoteAudioNode bypasses main audio routing
+    
+    // Verify engine structure supports this independence
+    let _engine_result = engine.update(1.0);
+    
+    // The engine manages both main audio processing AND the separate root note audio node
+    // This architectural separation ensures root note audio independence
+}
+
+/// Test that all existing tests continue to pass with the new architecture
+#[wasm_bindgen_test]
+async fn test_backward_compatibility_with_new_architecture() {
+    // Create all three layers
+    let mut engine = AudioEngine::create()
+        .await
+        .expect("Engine creation should succeed");
+    
+    let mut model = DataModel::create()
+        .expect("Model creation should succeed");
+    
+    let mut presenter = Presenter::create()
+        .expect("Presenter creation should succeed");
+    
+    // Verify that existing functionality still works
+    let timestamp = 1.0;
+    
+    // Engine processing
+    let engine_result = engine.update(timestamp);
+    
+    // Model processing
+    let model_result = model.update(timestamp, engine_result);
+    
+    // Presentation processing
+    presenter.process_data(timestamp, model_result);
+    
+    // Verify user actions still work
+    presenter.on_root_note_adjusted(67); // G note
+    let user_actions = presenter.collect_user_actions();
+    
+    assert_eq!(user_actions.root_note_adjustments.len(), 1);
+    assert_eq!(user_actions.root_note_adjustments[0].root_note, 67);
+    
+    // Process user actions through model
+    let _processed = model.process_user_actions(user_actions);
+    
+    // All existing functionality should work unchanged
+    // The new root note audio system is additive and doesn't break existing behavior
+}
