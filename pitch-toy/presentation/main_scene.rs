@@ -50,7 +50,7 @@ impl SemitoneLines {
         // Lines 0-11: semitones +1 to +12 above center
         for i in 0..12 {
             let semitone = (i + 1) as f32;
-            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
+            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0); // TODO: EqualTemperament is hard coded here
             let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i].set_endpoints(
@@ -62,7 +62,7 @@ impl SemitoneLines {
         // Lines 12-23: semitones -1 to -12 below center
         for i in 0..12 {
             let semitone = -((i + 1) as f32);
-            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
+            let frequency = center_freq * 2.0_f32.powf(semitone / 12.0); // TODO: EqualTemperament is hard coded here
             let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i + 12].set_endpoints(
