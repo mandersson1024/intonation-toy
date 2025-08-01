@@ -286,7 +286,7 @@ impl DataModel {
         // Model layer initialization without interface dependencies
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
-            root_note: 53, // Standard F3 root note (MIDI 53)
+            root_note: 57, // Standard A3 root note (MIDI 57)
         })
     }
 
