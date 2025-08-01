@@ -48,8 +48,9 @@ impl RootNoteAudioNode {
         let gain_node = audio_context.create_gain()
             .map_err(|e| AudioError::Generic(format!("Failed to create gain node: {:?}", e)))?;
         
-        // Set initial volume (0.0 = muted, will be enabled separately)
-        gain_node.gain().set_value(0.0);
+        // Set initial volume based on config.enabled state
+        let initial_gain = if config.enabled { 0.1 } else { 0.0 };
+        gain_node.gain().set_value(initial_gain);
         
         // Connect oscillator -> gain -> destination
         oscillator.connect_with_audio_node(&gain_node)
@@ -62,7 +63,8 @@ impl RootNoteAudioNode {
         oscillator.start()
             .map_err(|e| AudioError::Generic(format!("Failed to start oscillator: {:?}", e)))?;
         
-        dev_log!("[RootNoteAudioNode] Successfully created and started root note audio node");
+        dev_log!("[RootNoteAudioNode] Successfully created and started root note audio node - enabled: {}, gain: {}", 
+                config.enabled, initial_gain);
         
         Ok(Self {
             audio_context: audio_context.clone(),
