@@ -64,7 +64,7 @@ use crate::model::ModelLayerActions;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
-use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise};
+use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise, ConfigureRootNoteAudio};
 #[cfg(debug_assertions)]
 use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
@@ -122,6 +122,13 @@ pub struct ExecuteBackgroundNoiseConfiguration {
     pub noise_type: TestWaveform,
 }
 
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecuteRootNoteAudioConfiguration {
+    pub enabled: bool,
+    pub frequency: f32,
+}
+
 /// Container for all executed debug layer actions (debug builds only)
 /// 
 /// This struct contains vectors of privileged debug execution actions that have been
@@ -145,6 +152,9 @@ pub struct DebugEngineActions {
     
     /// Executed background noise configurations
     pub background_noise_executions: Vec<ExecuteBackgroundNoiseConfiguration>,
+    
+    /// Executed root note audio configurations
+    pub root_note_audio_executions: Vec<ExecuteRootNoteAudioConfiguration>,
 }
 
 #[cfg(debug_assertions)]
@@ -158,6 +168,7 @@ impl DebugEngineActions {
             test_signal_executions: Vec::new(),
             speaker_output_executions: Vec::new(),
             background_noise_executions: Vec::new(),
+            root_note_audio_executions: Vec::new(),
         }
     }
 }
@@ -413,9 +424,16 @@ impl AudioEngine {
             &mut debug_engine_actions
         )?;
         
+        // Execute root note audio configurations with privileged access
+        self.execute_root_note_audio_configurations(
+            &debug_actions.root_note_audio_configurations,
+            &mut debug_engine_actions
+        )?;
+        
         let total_executed = debug_engine_actions.test_signal_executions.len() + 
                            debug_engine_actions.speaker_output_executions.len() + 
-                           debug_engine_actions.background_noise_executions.len();
+                           debug_engine_actions.background_noise_executions.len() +
+                           debug_engine_actions.root_note_audio_executions.len();
         
         crate::common::dev_log!("[DEBUG] ✓ Engine layer successfully executed {} debug actions", total_executed);
         
@@ -626,6 +644,69 @@ impl AudioEngine {
         crate::common::dev_log!(
             "[DEBUG] ✓ Executed {} background noise configurations with privileged access",
             noise_configs.len()
+        );
+        Ok(())
+    }
+    
+    /// Execute root note audio configurations with privileged engine access (debug builds only)
+    /// 
+    /// This method provides direct control over root note audio generation in the
+    /// audio pipeline, useful for testing pitch reference and audio mixing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `root_note_configs` - Root note audio configurations to execute
+    /// * `debug_engine_actions` - Container to store executed actions
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    fn execute_root_note_audio_configurations(
+        &self,
+        root_note_configs: &[ConfigureRootNoteAudio],
+        debug_engine_actions: &mut DebugEngineActions
+    ) -> Result<(), String> {
+        for config in root_note_configs {
+            crate::common::dev_log!(
+                "[DEBUG] Executing privileged root note audio configuration - enabled: {}, frequency: {} Hz",
+                config.enabled, config.frequency
+            );
+            
+            // Direct privileged access to root note audio generation
+            if let Some(ref audio_context) = self.audio_context {
+                let mut borrowed_context = audio_context.borrow_mut();
+                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
+                    // Convert debug action to audio system config
+                    let audio_config = crate::engine::audio::signal_generator::RootNoteAudioConfig {
+                        enabled: config.enabled,
+                        frequency: config.frequency,
+                    };
+                    
+                    worklet_manager.update_root_note_audio_config(audio_config);
+                    crate::common::dev_log!(
+                        "[DEBUG] ✓ Root note audio control updated - enabled: {}, frequency: {} Hz", 
+                        config.enabled, config.frequency
+                    );
+                } else {
+                    crate::common::dev_log!(
+                        "[DEBUG] ⚠ AudioWorkletManager not available for root note audio control"
+                    );
+                }
+                
+                // Record the executed action
+                debug_engine_actions.root_note_audio_executions.push(ExecuteRootNoteAudioConfiguration {
+                    enabled: config.enabled,
+                    frequency: config.frequency,
+                });
+            } else {
+                return Err("[DEBUG] Audio context not available for root note audio execution".to_string());
+            }
+        }
+        
+        crate::common::dev_log!(
+            "[DEBUG] ✓ Executed {} root note audio configurations with privileged access",
+            root_note_configs.len()
         );
         Ok(())
     }

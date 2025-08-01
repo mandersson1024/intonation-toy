@@ -58,6 +58,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig, BackgroundNoiseConfig};
+use super::signal_generator::RootNoteAudioConfig;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use super::buffer::AUDIO_CHUNK_SIZE;
 
@@ -695,6 +696,10 @@ impl AudioWorkletManager {
                     self.message_factory.update_background_noise_config(config)
                         .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
                 }
+                ToWorkletMessage::UpdateRootNoteAudioConfig { config } => {
+                    self.message_factory.update_root_note_audio_config(config)
+                        .map_err(|e| AudioError::Generic(format!("Failed to create root note audio config message: {:?}", e)))?
+                }
                 ToWorkletMessage::ReturnBuffer { buffer_id } => {
                     self.message_factory.return_buffer(buffer_id)
                         .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
@@ -923,6 +928,36 @@ impl AudioWorkletManager {
             
             dev_log!("Background noise configuration sent to AudioWorklet: enabled={}, level={}, type={:?} (ID: {})", 
                     config.enabled, config.level, config.noise_type, envelope.message_id);
+        }
+        
+        Ok(())
+    }
+
+    /// Update root note audio configuration
+    pub fn update_root_note_audio_config(&mut self, config: RootNoteAudioConfig) {
+        // Send configuration to AudioWorklet processor
+        if let Err(e) = self.send_root_note_audio_config_to_worklet(&config) {
+            dev_log!("Warning: Failed to send root note audio config to worklet: {}", e);
+        }
+    }
+
+    /// Send root note audio configuration to AudioWorklet processor
+    fn send_root_note_audio_config_to_worklet(&self, config: &RootNoteAudioConfig) -> Result<(), AudioError> {
+        if let Some(worklet) = &self.worklet_node {
+            let envelope = self.message_factory.update_root_note_audio_config(config.clone())
+                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
+            
+            let serializer = MessageSerializer::new();
+            let js_message = serializer.serialize_envelope(&envelope)
+                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
+            
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
+            port.post_message(&js_message)
+                .map_err(|e| AudioError::Generic(format!("Failed to send root note audio config: {:?}", e)))?;
+            
+            dev_log!("Root note audio configuration sent to AudioWorklet: enabled={}, frequency={} Hz (ID: {})", 
+                    config.enabled, config.frequency, envelope.message_id);
         }
         
         Ok(())

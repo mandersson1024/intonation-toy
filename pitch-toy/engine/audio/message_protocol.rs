@@ -41,6 +41,11 @@ pub enum ToWorkletMessage {
         config: BackgroundNoiseConfig,
     },
     
+    /// Update root note audio configuration
+    UpdateRootNoteAudioConfig {
+        config: RootNoteAudioConfig,
+    },
+    
     /// Return buffer to worklet for recycling
     ReturnBuffer {
         buffer_id: u32,
@@ -773,6 +778,13 @@ impl ToJsMessage for ToWorkletMessage {
                 Reflect::set(&obj, &"config".into(), &config_obj.into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
             }
+            ToWorkletMessage::UpdateRootNoteAudioConfig { config } => {
+                Reflect::set(&obj, &"type".into(), &"updateRootNoteAudioConfig".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                let config_obj = config.to_js_object()?;
+                Reflect::set(&obj, &"config".into(), &config_obj.into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+            }
             ToWorkletMessage::ReturnBuffer { buffer_id } => {
                 Reflect::set(&obj, &"type".into(), &"returnBuffer".into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
@@ -819,6 +831,14 @@ impl FromJsMessage for ToWorkletMessage {
                 let config = BackgroundNoiseConfig::from_js_object(&config_obj)?;
                 Ok(ToWorkletMessage::UpdateBackgroundNoiseConfig { config })
             }
+            "updateRootNoteAudioConfig" => {
+                let config_obj = Reflect::get(obj, &"config".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                    .dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
+                let config = RootNoteAudioConfig::from_js_object(&config_obj)?;
+                Ok(ToWorkletMessage::UpdateRootNoteAudioConfig { config })
+            }
             "returnBuffer" => {
                 let buffer_id = Reflect::get(obj, &"bufferId".into())
                     .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferId: {:?}", e)))?
@@ -838,6 +858,7 @@ impl MessageValidator for ToWorkletMessage {
             ToWorkletMessage::UpdateTestSignalConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBatchConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => config.validate(),
+            ToWorkletMessage::UpdateRootNoteAudioConfig { config } => config.validate(),
             ToWorkletMessage::ReturnBuffer { buffer_id: _ } => Ok(()),
         }
     }
@@ -2216,6 +2237,12 @@ impl ToWorkletMessage {
         Ok(Self::UpdateBackgroundNoiseConfig { config })
     }
     
+    /// Create an update root note audio config message
+    pub fn update_root_note_audio_config(config: RootNoteAudioConfig) -> MessageConstructionResult<Self> {
+        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
+        Ok(Self::UpdateRootNoteAudioConfig { config })
+    }
+    
     /// Create a return buffer message
     pub fn return_buffer(buffer_id: u32) -> Self {
         Self::ReturnBuffer { buffer_id }
@@ -2666,6 +2693,16 @@ impl AudioWorkletMessageFactory {
     /// Create an update background noise config message envelope
     pub fn update_background_noise_config(&self, config: BackgroundNoiseConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
         let message = ToWorkletMessage::update_background_noise_config(config)?;
+        Ok(MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        })
+    }
+    
+    /// Create an update root note audio config message envelope
+    pub fn update_root_note_audio_config(&self, config: RootNoteAudioConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
+        let message = ToWorkletMessage::update_root_note_audio_config(config)?;
         Ok(MessageEnvelope {
             message_id: self.generate_id(),
             timestamp: get_high_resolution_timestamp(),
