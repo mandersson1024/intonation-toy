@@ -2,10 +2,10 @@ use three_d::{AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line
 use std::collections::HashMap;
 use crate::shared_types::TuningSystem;
 
-fn normalized_interval_to_screen_y_position(normalized_interval: f32, viewport_height: f32) -> f32 {
-    // normalized_interval of [0.5, 2.0] means [-1, +1] octaves
+fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
+    // interval of [0.5, 2.0] means [-1, +1] octaves
     let scale_factor = 0.8;
-    let y: f32 = viewport_height * (0.5 + normalized_interval * scale_factor * 0.5);
+    let y: f32 = viewport_height * (0.5 + interval * scale_factor * 0.5);
     y
 }
 
@@ -51,8 +51,7 @@ impl SemitoneLines {
         for i in 0..12 {
             let semitone = (i + 1) as f32;
             let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
-            let y = center_y - frequency.log2() * scale_factor;
-            let y = normalized_interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
+            let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i].set_endpoints(
                 PhysicalPoint { x: 0.0, y },
@@ -64,7 +63,7 @@ impl SemitoneLines {
         for i in 0..12 {
             let semitone = -((i + 1) as f32);
             let frequency = center_freq * 2.0_f32.powf(semitone / 12.0);
-            let y = normalized_interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
+            let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i + 12].set_endpoints(
                 PhysicalPoint { x: 0.0, y },
@@ -163,8 +162,8 @@ impl MainScene {
         );
     }
     
-    pub fn update_pitch_position(&mut self, viewport: Viewport, normalized_interval: f32) {
-        let y = normalized_interval_to_screen_y_position(normalized_interval, viewport.height as f32);
+    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32) {
+        let y = interval_to_screen_y_position(interval, viewport.height as f32);
         self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y:y}, PhysicalPoint{x:viewport.width as f32, y:y});
     }
 }
