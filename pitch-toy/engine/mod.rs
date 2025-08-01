@@ -494,7 +494,6 @@ impl AudioEngine {
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
                         waveform: config.waveform.clone(),
                         sample_rate: 48000, // Use standard sample rate
-                        root_note_audio_config: crate::engine::audio::signal_generator::RootNoteAudioConfig::default(),
                     };
                     
                     worklet_manager.update_test_signal_config(audio_config);
@@ -650,8 +649,9 @@ impl AudioEngine {
     
     /// Execute root note audio configurations with privileged engine access (debug builds only)
     /// 
-    /// This method provides direct control over root note audio generation in the
-    /// audio pipeline, useful for testing pitch reference and audio mixing.
+    /// This method provides direct control over root note audio generation using the new
+    /// separate RootNoteAudioNode architecture. The root note audio now connects directly
+    /// to speakers independent of the main AudioWorklet processing pipeline.
     /// 
     /// # Arguments
     /// 
@@ -673,7 +673,7 @@ impl AudioEngine {
                 config.enabled, config.frequency
             );
             
-            // Direct privileged access to root note audio generation
+            // Direct privileged access to the separate root note audio node
             if let Some(ref audio_context) = self.audio_context {
                 let mut borrowed_context = audio_context.borrow_mut();
                 if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
@@ -683,9 +683,10 @@ impl AudioEngine {
                         frequency: config.frequency,
                     };
                     
+                    // Use the new separate audio node architecture
                     worklet_manager.update_root_note_audio_config(audio_config);
                     crate::common::dev_log!(
-                        "[DEBUG] ✓ Root note audio control updated - enabled: {}, frequency: {} Hz", 
+                        "[DEBUG] ✓ Root note audio control updated using separate audio node - enabled: {}, frequency: {} Hz", 
                         config.enabled, config.frequency
                     );
                 } else {
@@ -705,7 +706,7 @@ impl AudioEngine {
         }
         
         crate::common::dev_log!(
-            "[DEBUG] ✓ Executed {} root note audio configurations with privileged access",
+            "[DEBUG] ✓ Executed {} root note audio configurations with privileged access using separate audio node",
             root_note_configs.len()
         );
         Ok(())

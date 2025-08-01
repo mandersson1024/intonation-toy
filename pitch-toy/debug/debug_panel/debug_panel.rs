@@ -548,9 +548,17 @@ impl DebugPanel {
         egui::CollapsingHeader::new("Root Note Audio Controls")
             .default_open(true)
             .show(ui, |ui| {
-                if ui.checkbox(&mut self.root_note_audio_enabled, "Enable Root Note Audio").changed() {
+                if ui.checkbox(&mut self.root_note_audio_enabled, "Enable Root Note Audio (plays current root note)").changed() {
                     self.send_root_note_audio_action();
                 }
+                
+                // Display current frequency when enabled
+                if self.root_note_audio_enabled {
+                    let frequency = Self::midi_note_to_frequency(self.selected_root_note);
+                    ui.label(format!("Frequency: {:.2} Hz", frequency));
+                }
+                
+                ui.label("Note: Audio frequency automatically follows the root note from User Actions section");
             });
     }
     
@@ -649,6 +657,11 @@ impl DebugPanel {
     fn send_root_note_action(&self) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             presenter.on_root_note_adjusted(self.selected_root_note);
+            
+            // If root note audio is enabled, update its frequency to match the new root note
+            if self.root_note_audio_enabled {
+                presenter.on_root_note_audio_configured(self.root_note_audio_enabled);
+            }
         }
     }
     
@@ -657,5 +670,20 @@ impl DebugPanel {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             presenter.on_tuning_system_changed(self.selected_tuning_system.clone());
         }
+    }
+    
+    /// Convert MIDI note number to frequency in Hz
+    /// 
+    /// Uses the same formula as the presentation layer for consistency
+    /// 
+    /// # Arguments
+    /// 
+    /// * `midi_note` - The MIDI note number (0-127)
+    /// 
+    /// # Returns
+    /// 
+    /// The frequency in Hz
+    fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
+        440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
     }
 }

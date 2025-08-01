@@ -13,7 +13,7 @@
 //   let serializer = MessageSerializer::new();
 //   let js_message = serializer.serialize_envelope(&return_msg)?;
 
-use crate::engine::audio::signal_generator::{SignalGeneratorConfig, BackgroundNoiseConfig};
+use crate::engine::audio::signal_generator::{SignalGeneratorConfig, BackgroundNoiseConfig, RootNoteAudioConfig};
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -1518,9 +1518,6 @@ impl ToJsMessage for SignalGeneratorConfig {
         Reflect::set(&obj, &"waveform".into(), &waveform_str.into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set waveform: {:?}", e)))?;
         
-        let root_note_config_obj = self.root_note_audio_config.to_js_object()?;
-        Reflect::set(&obj, &"rootNoteAudioConfig".into(), &root_note_config_obj.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set rootNoteAudioConfig: {:?}", e)))?;
         
         Ok(obj)
     }
@@ -1566,19 +1563,12 @@ impl FromJsMessage for SignalGeneratorConfig {
             _ => return Err(SerializationError::InvalidPropertyType(format!("Unknown waveform: {}", waveform_str))),
         };
         
-        let root_note_config_value = Reflect::get(obj, &"rootNoteAudioConfig".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get rootNoteAudioConfig: {:?}", e)))?;
-        let root_note_config_obj = root_note_config_value.dyn_into::<Object>()
-            .map_err(|_| SerializationError::InvalidPropertyType("rootNoteAudioConfig must be object".to_string()))?;
-        let root_note_audio_config = RootNoteAudioConfig::from_js_object(&root_note_config_obj)?;
-        
         Ok(SignalGeneratorConfig {
             enabled,
             frequency,
             amplitude,
             waveform,
             sample_rate,
-            root_note_audio_config,
         })
     }
 }
@@ -2599,7 +2589,6 @@ impl SignalGeneratorConfig {
         amplitude: f32,
         waveform: crate::engine::audio::signal_generator::TestWaveform,
         sample_rate: u32,
-        root_note_audio_config: RootNoteAudioConfig,
     ) -> MessageConstructionResult<Self> {
         let config = Self {
             enabled,
@@ -2607,7 +2596,6 @@ impl SignalGeneratorConfig {
             amplitude,
             waveform,
             sample_rate,
-            root_note_audio_config,
         };
         
         config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -2842,9 +2830,8 @@ impl AudioWorkletMessageFactory {
         amplitude: f32,
         waveform: crate::engine::audio::signal_generator::TestWaveform,
         sample_rate: u32,
-        root_note_audio_config: RootNoteAudioConfig
     ) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let config = SignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate, root_note_audio_config)?;
+        let config = SignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
         self.update_test_signal_config(config)
     }
     

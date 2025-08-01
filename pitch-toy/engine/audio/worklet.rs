@@ -713,10 +713,6 @@ impl AudioWorkletManager {
                     self.message_factory.update_background_noise_config(config)
                         .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
                 }
-                ToWorkletMessage::UpdateRootNoteAudioConfig { config } => {
-                    self.message_factory.update_root_note_audio_config(config)
-                        .map_err(|e| AudioError::Generic(format!("Failed to create root note audio config message: {:?}", e)))?
-                }
                 ToWorkletMessage::ReturnBuffer { buffer_id } => {
                     self.message_factory.return_buffer(buffer_id)
                         .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?

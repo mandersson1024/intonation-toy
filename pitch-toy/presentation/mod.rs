@@ -525,6 +525,10 @@ impl Presenter {
     /// * `root_note` - The new root note selected by the user
     pub fn on_root_note_adjusted(&mut self, root_note: MidiNote) {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
+        self.current_root_note = root_note;
+        
+        // Update root note audio frequency if it's currently enabled
+        self.on_root_note_changed_update_audio();
     }
 
     /// Retrieve and clear all pending debug actions (debug builds only)
@@ -618,6 +622,34 @@ impl Presenter {
             enabled,
             frequency,
         });
+    }
+
+    /// Update root note audio frequency when root note changes (debug builds only)
+    /// 
+    /// This method is called automatically when the root note changes to ensure
+    /// that root note audio frequency stays synchronized with the selected root note.
+    /// It checks if root note audio is currently enabled by looking at the most recent
+    /// root note audio configuration, and if so, creates a new configuration with
+    /// the updated frequency.
+    #[cfg(debug_assertions)]
+    fn on_root_note_changed_update_audio(&mut self) {
+        // Check if root note audio was most recently enabled
+        if let Some(last_config) = self.pending_debug_actions.root_note_audio_configurations.last() {
+            if last_config.enabled {
+                // Root note audio is enabled, so update the frequency
+                let frequency = Self::midi_note_to_frequency(self.current_root_note);
+                self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+                    enabled: true,
+                    frequency,
+                });
+            }
+        }
+    }
+    
+    /// No-op version for non-debug builds
+    #[cfg(not(debug_assertions))]
+    fn on_root_note_changed_update_audio(&mut self) {
+        // No root note audio in release builds
     }
 
     /// Render the presentation layer to the screen
