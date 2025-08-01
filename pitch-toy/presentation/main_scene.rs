@@ -144,6 +144,9 @@ impl MainScene {
         // Collect all lines to render: semitone lines, center line, and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
         
+        renderable_lines.push(&self.user_pitch_line); // first in list is on top
+        renderable_lines.push(&self.center_line);
+
         // Add all semitone lines from all tuning systems
         for (_, semitone_lines) in &self.tuning_lines {
             for line in semitone_lines.lines() {
@@ -151,9 +154,6 @@ impl MainScene {
             }
         }
         
-        // Add center line and user pitch line
-        renderable_lines.push(&self.center_line);
-        renderable_lines.push(&self.user_pitch_line);
         
         screen.render(
             &self.camera,
