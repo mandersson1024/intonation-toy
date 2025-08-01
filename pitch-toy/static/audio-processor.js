@@ -361,6 +361,7 @@ const ToWorkletMessageType = {
     UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
     UPDATE_BATCH_CONFIG: 'updateBatchConfig',
     UPDATE_BACKGROUND_NOISE_CONFIG: 'updateBackgroundNoiseConfig',
+    UPDATE_ROOT_NOTE_AUDIO_CONFIG: 'updateRootNoteAudioConfig',
     RETURN_BUFFER: 'returnBuffer'
 };
 
@@ -373,6 +374,7 @@ const FromWorkletMessageType = {
     STATUS_UPDATE: 'statusUpdate',
     TEST_SIGNAL_CONFIG_UPDATED: 'testSignalConfigUpdated',
     BACKGROUND_NOISE_CONFIG_UPDATED: 'backgroundNoiseConfigUpdated',
+    ROOT_NOTE_AUDIO_CONFIG_UPDATED: 'rootNoteAudioConfigUpdated',
     BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
     PROCESSOR_DESTROYED: 'processorDestroyed'
 };
@@ -557,6 +559,20 @@ class AudioWorkletMessageProtocol {
         };
     }
 
+    createRootNoteAudioConfigUpdatedMessage(config) {
+        const messageId = this.generateMessageId();
+        const timestamp = this.getCurrentTimestamp();
+        
+        return {
+            messageId: messageId,
+            timestamp: timestamp,
+            payload: {
+                type: FromWorkletMessageType.ROOT_NOTE_AUDIO_CONFIG_UPDATED,
+                config: { ...config }
+            }
+        };
+    }
+
     validateMessage(message) {
         if (!message || typeof message !== 'object') {
             return false;
@@ -708,6 +724,15 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Test signal generation state
         this.testSignalPhase = 0.0;
+        
+        // Root note audio configuration
+        this.rootNoteAudioConfig = {
+            enabled: false,
+            frequency: 220.0  // Default to A3
+        };
+        
+        // Root note audio generation state
+        this.rootNoteAudioPhase = 0.0;
         
         // Setup message handling
         this.port.onmessage = (event) => {
@@ -952,6 +977,17 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     }
                     break;
                 
+                case ToWorkletMessageType.UPDATE_ROOT_NOTE_AUDIO_CONFIG:
+                    if (actualMessage.config) {
+                        this.rootNoteAudioConfig = { ...this.rootNoteAudioConfig, ...actualMessage.config };
+                        // Reset phase when configuration changes
+                        this.rootNoteAudioPhase = 0.0;
+                        // Root note audio config updated
+                        const rootNoteConfigUpdatedMessage = this.messageProtocol.createRootNoteAudioConfigUpdatedMessage(this.rootNoteAudioConfig);
+                        this.port.postMessage(rootNoteConfigUpdatedMessage);
+                    }
+                    break;
+                
                 case ToWorkletMessageType.UPDATE_BATCH_CONFIG:
                     if (actualMessage.config) {
                         // Update batch size if provided
@@ -1147,6 +1183,41 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     }
     
     /**
+     * Generate root note audio samples
+     * @param {number} numSamples - Number of samples to generate
+     * @returns {Float32Array} - Generated root note audio samples
+     */
+    generateRootNoteAudio(numSamples) {
+        const samples = new Float32Array(numSamples);
+        const config = this.rootNoteAudioConfig;
+        
+        if (!config.enabled) {
+            return samples; // Return silence if disabled
+        }
+        
+        const phaseIncrement = (2 * Math.PI * config.frequency) / sampleRate;
+        const amplitude = 0.2; // Fixed amplitude for root note audio
+        
+        for (let i = 0; i < numSamples; i++) {
+            // Generate sine wave
+            const sample = Math.sin(this.rootNoteAudioPhase) * amplitude;
+            
+            // Clamp to valid range
+            samples[i] = Math.max(-1.0, Math.min(1.0, sample));
+            
+            // Update phase for next sample
+            this.rootNoteAudioPhase += phaseIncrement;
+            
+            // Keep phase in [0, 2π] range to prevent precision issues
+            if (this.rootNoteAudioPhase >= 2 * Math.PI) {
+                this.rootNoteAudioPhase -= 2 * Math.PI;
+            }
+        }
+        
+        return samples;
+    }
+    
+    /**
      * Process audio data in 128-sample chunks
      * This method is called by the Web Audio API for each processing quantum
      * 
@@ -1225,7 +1296,22 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         if (output && output.length > 0 && output[0]) {
             const outputChannel = output[0];
             if (outputChannel && outputChannel.length === processedAudio.length) {
+                // First, copy the processed audio to the output
                 outputChannel.set(processedAudio);
+                
+                // Generate and mix root note audio directly to output
+                // This ensures root note audio goes to speakers but bypasses pitch analysis
+                if (this.rootNoteAudioConfig.enabled) {
+                    const rootNoteAudio = this.generateRootNoteAudio(this.chunkSize);
+                    
+                    // Mix root note audio with the output channel
+                    for (let i = 0; i < this.chunkSize; i++) {
+                        outputChannel[i] += rootNoteAudio[i];
+                        
+                        // Clamp to valid range to prevent clipping
+                        outputChannel[i] = Math.max(-1.0, Math.min(1.0, outputChannel[i]));
+                    }
+                }
             }
         }
         
