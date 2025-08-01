@@ -164,12 +164,13 @@ impl ConfigureBackgroundNoise {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureRootNoteAudio {
     pub enabled: bool,
+    pub frequency: f32,
 }
 
 #[cfg(all(debug_assertions, test))]
 impl ConfigureRootNoteAudio {
-    pub fn new(enabled: bool) -> Self {
-        Self { enabled }
+    pub fn new(enabled: bool, frequency: f32) -> Self {
+        Self { enabled, frequency }
     }
 }
 
@@ -304,8 +305,8 @@ impl DebugLayerActionsBuilder {
         self
     }
     
-    pub fn with_root_note_audio(mut self, enabled: bool) -> Self {
-        self.root_note_audio_configurations.push(ConfigureRootNoteAudio::new(enabled));
+    pub fn with_root_note_audio(mut self, enabled: bool, frequency: f32) -> Self {
+        self.root_note_audio_configurations.push(ConfigureRootNoteAudio::new(enabled, frequency));
         self
     }
     
@@ -381,6 +382,9 @@ pub struct Presenter {
     
     /// EMA smoother for interval position smoothing
     pub ema_smoother: EmaSmoother,
+    
+    /// Current root note for frequency calculations
+    current_root_note: MidiNote,
 }
 
 impl Presenter {
@@ -410,6 +414,7 @@ impl Presenter {
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
             ema_smoother: EmaSmoother::new(0.1),
+            current_root_note: 57, // Default to A3
         })
     }
 
@@ -458,6 +463,9 @@ impl Presenter {
         
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
+        
+        // Update stored root note
+        self.current_root_note = model_data.root_note;
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -598,14 +606,17 @@ impl Presenter {
     /// 
     /// This method should be called by debug UI components to enable or disable
     /// root note audio generation for testing and audio reference.
+    /// The frequency is automatically calculated from the current root note.
     /// 
     /// # Arguments
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
     #[cfg(debug_assertions)]
     pub fn on_root_note_audio_configured(&mut self, enabled: bool) {
+        let frequency = Self::midi_note_to_frequency(self.current_root_note);
         self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
+            frequency,
         });
     }
 
