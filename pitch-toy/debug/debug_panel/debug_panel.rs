@@ -113,7 +113,10 @@ impl DebugPanel {
     /// Render panel content
     fn render_content(&mut self, ui: &mut Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.vertical(|ui| {
+            ui.vertical(|ui| {                
+                // Root Note Audio Controls Section (debug actions)
+                self.render_root_note_audio_controls(ui);
+
                 // Audio Devices Section (debug-specific data)
                 self.render_audio_devices_section(ui);
                 ui.separator();
@@ -157,9 +160,6 @@ impl DebugPanel {
                 // Background Noise Controls Section (debug actions)
                 self.render_background_noise_controls(ui);
                 ui.separator();
-                
-                // Root Note Audio Controls Section (debug actions)
-                self.render_root_note_audio_controls(ui);
             });
         });
     }
