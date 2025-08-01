@@ -538,6 +538,22 @@ impl AudioWorkletManager {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Failed);
             }
+            FromWorkletMessage::TestSignalConfigUpdated { config: _ } => {
+                // Configuration confirmation received - no action needed
+                dev_log!("AudioWorklet confirmed test signal configuration update");
+            }
+            FromWorkletMessage::BackgroundNoiseConfigUpdated { config: _ } => {
+                // Configuration confirmation received - no action needed
+                dev_log!("AudioWorklet confirmed background noise configuration update");
+            }
+            FromWorkletMessage::RootNoteAudioConfigUpdated { config: _ } => {
+                // Configuration confirmation received - no action needed
+                dev_log!("AudioWorklet confirmed root note audio configuration update");
+            }
+            FromWorkletMessage::BatchConfigUpdated { config: _ } => {
+                // Configuration confirmation received - no action needed
+                dev_log!("AudioWorklet confirmed batch configuration update");
+            }
         }
     }
     

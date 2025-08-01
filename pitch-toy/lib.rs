@@ -306,13 +306,15 @@ pub async fn start_render_loop(
                 // Only process if there are debug actions to handle
                 let has_debug_actions = !debug_actions.test_signal_configurations.is_empty() ||
                                        !debug_actions.speaker_output_configurations.is_empty() ||
-                                       !debug_actions.background_noise_configurations.is_empty();
+                                       !debug_actions.background_noise_configurations.is_empty() ||
+                                       !debug_actions.root_note_audio_configurations.is_empty();
                 
                 if has_debug_actions {
                     trace_log!("[DEBUG] Processing {} debug actions", 
                         debug_actions.test_signal_configurations.len() + 
                         debug_actions.speaker_output_configurations.len() + 
-                        debug_actions.background_noise_configurations.len()
+                        debug_actions.background_noise_configurations.len() +
+                        debug_actions.root_note_audio_configurations.len()
                     );
                     
                     // Execute debug actions synchronously

@@ -77,6 +77,26 @@ pub enum FromWorkletMessage {
         error: WorkletError,
     },
     
+    /// Test signal configuration updated
+    TestSignalConfigUpdated {
+        config: SignalGeneratorConfig,
+    },
+    
+    /// Background noise configuration updated
+    BackgroundNoiseConfigUpdated {
+        config: BackgroundNoiseConfig,
+    },
+    
+    /// Root note audio configuration updated
+    RootNoteAudioConfigUpdated {
+        config: RootNoteAudioConfig,
+    },
+    
+    /// Batch configuration updated
+    BatchConfigUpdated {
+        config: BatchConfig,
+    },
+    
 }
 
 /// Audio data batch structure for transferable buffer communication
@@ -900,6 +920,34 @@ impl ToJsMessage for FromWorkletMessage {
                 Reflect::set(&obj, &"error".into(), &error_obj.into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set error: {:?}", e)))?;
             }
+            FromWorkletMessage::TestSignalConfigUpdated { config } => {
+                Reflect::set(&obj, &"type".into(), &"testSignalConfigUpdated".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                let config_obj = config.to_js_object()?;
+                Reflect::set(&obj, &"config".into(), &config_obj.into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+            }
+            FromWorkletMessage::BackgroundNoiseConfigUpdated { config } => {
+                Reflect::set(&obj, &"type".into(), &"backgroundNoiseConfigUpdated".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                let config_obj = config.to_js_object()?;
+                Reflect::set(&obj, &"config".into(), &config_obj.into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+            }
+            FromWorkletMessage::RootNoteAudioConfigUpdated { config } => {
+                Reflect::set(&obj, &"type".into(), &"rootNoteAudioConfigUpdated".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                let config_obj = config.to_js_object()?;
+                Reflect::set(&obj, &"config".into(), &config_obj.into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+            }
+            FromWorkletMessage::BatchConfigUpdated { config } => {
+                Reflect::set(&obj, &"type".into(), &"batchConfigUpdated".into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                let config_obj = config.to_js_object()?;
+                Reflect::set(&obj, &"config".into(), &config_obj.into())
+                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+            }
         }
         
         Ok(obj)
@@ -943,6 +991,38 @@ impl FromJsMessage for FromWorkletMessage {
                 let error = WorkletError::from_js_object(&error_obj)?;
                 Ok(FromWorkletMessage::ProcessingError { error })
             }
+            "testSignalConfigUpdated" => {
+                let config_obj = Reflect::get(obj, &"config".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                    .dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
+                let config = SignalGeneratorConfig::from_js_object(&config_obj)?;
+                Ok(FromWorkletMessage::TestSignalConfigUpdated { config })
+            }
+            "backgroundNoiseConfigUpdated" => {
+                let config_obj = Reflect::get(obj, &"config".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                    .dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
+                let config = BackgroundNoiseConfig::from_js_object(&config_obj)?;
+                Ok(FromWorkletMessage::BackgroundNoiseConfigUpdated { config })
+            }
+            "rootNoteAudioConfigUpdated" => {
+                let config_obj = Reflect::get(obj, &"config".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                    .dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
+                let config = RootNoteAudioConfig::from_js_object(&config_obj)?;
+                Ok(FromWorkletMessage::RootNoteAudioConfigUpdated { config })
+            }
+            "batchConfigUpdated" => {
+                let config_obj = Reflect::get(obj, &"config".into())
+                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                    .dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
+                let config = BatchConfig::from_js_object(&config_obj)?;
+                Ok(FromWorkletMessage::BatchConfigUpdated { config })
+            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -962,6 +1042,10 @@ impl MessageValidator for FromWorkletMessage {
             FromWorkletMessage::ProcessingStarted | FromWorkletMessage::ProcessingStopped => Ok(()),
             FromWorkletMessage::AudioDataBatch { data } => data.validate(),
             FromWorkletMessage::ProcessingError { error } => error.validate(),
+            FromWorkletMessage::TestSignalConfigUpdated { config } => config.validate(),
+            FromWorkletMessage::BackgroundNoiseConfigUpdated { config } => config.validate(),
+            FromWorkletMessage::RootNoteAudioConfigUpdated { config } => config.validate(),
+            FromWorkletMessage::BatchConfigUpdated { config } => config.validate(),
         }
     }
 }
@@ -3069,7 +3153,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_test_signal_config_serialization() {
-        use crate::engine::audio::signal_generator::TestWaveform;
+        use crate::engine::audio::signal_generator::{TestWaveform, RootNoteAudioConfig};
         
         let config = SignalGeneratorConfig {
             enabled: true,
@@ -3077,6 +3161,7 @@ mod tests {
             amplitude: 0.5,
             waveform: TestWaveform::Sine,
             sample_rate: 48000,
+            root_note_audio_config: RootNoteAudioConfig::default(),
         };
         
         let obj = config.to_js_object().unwrap();
