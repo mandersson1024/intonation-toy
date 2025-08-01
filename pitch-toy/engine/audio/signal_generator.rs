@@ -22,8 +22,6 @@ pub struct SignalGeneratorConfig {
     pub waveform: TestWaveform,
     /// Sample rate for generation
     pub sample_rate: u32,
-    /// Root note audio configuration
-    pub root_note_audio_config: RootNoteAudioConfig,
 }
 
 /// Configuration for background noise generation
@@ -54,7 +52,6 @@ impl Default for SignalGeneratorConfig {
             amplitude: 0.3,
             waveform: TestWaveform::Sine,
             sample_rate: 48000,
-            root_note_audio_config: RootNoteAudioConfig::default(),
         }
     }
 }

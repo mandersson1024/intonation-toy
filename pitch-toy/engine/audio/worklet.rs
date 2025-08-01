@@ -551,10 +551,6 @@ impl AudioWorkletManager {
                 // Configuration confirmation received - no action needed
                 dev_log!("AudioWorklet confirmed background noise configuration update");
             }
-            FromWorkletMessage::RootNoteAudioConfigUpdated { config: _ } => {
-                // Configuration confirmation received - no action needed
-                dev_log!("AudioWorklet confirmed root note audio configuration update");
-            }
             FromWorkletMessage::BatchConfigUpdated { config: _ } => {
                 // Configuration confirmation received - no action needed
                 dev_log!("AudioWorklet confirmed batch configuration update");
@@ -999,34 +995,8 @@ impl AudioWorkletManager {
             // Note: We keep the node for potential re-enabling, only drop when disconnecting
         }
         
-        // Keep the existing worklet message sending for backward compatibility
-        // TODO: Remove this in subsequent phases when AudioWorklet root note generation is no longer needed
-        if let Err(e) = self.send_root_note_audio_config_to_worklet(&config) {
-            dev_log!("Warning: Failed to send root note audio config to worklet: {}", e);
-        }
     }
 
-    /// Send root note audio configuration to AudioWorklet processor
-    fn send_root_note_audio_config_to_worklet(&self, config: &RootNoteAudioConfig) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            let envelope = self.message_factory.update_root_note_audio_config(config.clone())
-                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
-            
-            let serializer = MessageSerializer::new();
-            let js_message = serializer.serialize_envelope(&envelope)
-                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
-            port.post_message(&js_message)
-                .map_err(|e| AudioError::Generic(format!("Failed to send root note audio config: {:?}", e)))?;
-            
-            dev_log!("Root note audio configuration sent to AudioWorklet: enabled={}, frequency={} Hz (ID: {})", 
-                    config.enabled, config.frequency, envelope.message_id);
-        }
-        
-        Ok(())
-    }
 
     /// Set whether to output audio stream to speakers
     pub fn set_output_to_speakers(&mut self, enabled: bool) {
