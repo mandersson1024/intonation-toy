@@ -68,8 +68,13 @@ pub use startup_scene::StartupScene;
 mod smoothing;
 pub use smoothing::EmaSmoother;
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport, ClearState};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote, Pitch, PermissionState};
+
+#[cfg(target_arch = "wasm32")]
+use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
 
 enum Scene {
     Startup(StartupScene),
@@ -369,6 +374,19 @@ pub struct Presenter {
     
     /// Current root note for frequency calculations
     current_root_note: MidiNote,
+    
+    /// Current tuning system for interval calculations and display
+    current_tuning_system: TuningSystem,
+    
+    /// Tracks whether the main scene UI is currently active
+    /// Used to manage HTML UI lifecycle during scene transitions
+    #[cfg(target_arch = "wasm32")]
+    main_scene_ui_active: bool,
+
+    /// Self-reference for passing to UI event handlers
+    /// This enables UI elements to call back into the presenter
+    #[cfg(target_arch = "wasm32")]
+    self_reference: Option<Rc<RefCell<Self>>>,
 }
 
 impl Presenter {
@@ -399,7 +417,31 @@ impl Presenter {
             interval_position: 0.0,
             ema_smoother: EmaSmoother::new(0.1),
             current_root_note: 57, // Default to A3
+            current_tuning_system: TuningSystem::EqualTemperament, // Default tuning system
+            #[cfg(target_arch = "wasm32")]
+            main_scene_ui_active: false,
+            #[cfg(target_arch = "wasm32")]
+            self_reference: None,
         })
+    }
+
+    /// Set the self-reference for UI event handling
+    /// 
+    /// This method should be called after creating the presenter and wrapping it
+    /// in Rc<RefCell<>> to enable UI event handlers to call back into the presenter.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `self_ref` - The Rc<RefCell<>> wrapped presenter reference
+    #[cfg(target_arch = "wasm32")]
+    pub fn set_self_reference(&mut self, self_ref: Rc<RefCell<Self>>) {
+        self.self_reference = Some(self_ref);
+    }
+
+    /// No-op version for non-WASM targets
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_self_reference(&mut self, _self_ref: Rc<RefCell<Self>>) {
+        // No-op for non-WASM targets
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport) {
@@ -520,6 +562,24 @@ impl Presenter {
         self.on_root_note_changed_update_audio();
     }
 
+    /// Get the current root note
+    /// 
+    /// # Returns
+    /// 
+    /// The current root note as a MidiNote
+    pub fn get_root_note(&self) -> MidiNote {
+        self.current_root_note
+    }
+
+    /// Get the current tuning system
+    /// 
+    /// # Returns
+    /// 
+    /// The current tuning system
+    pub fn get_tuning_system(&self) -> TuningSystem {
+        self.current_tuning_system.clone()
+    }
+
     /// Retrieve and clear all pending debug actions (debug builds only)
     /// 
     /// This method is called by the main loop to get all debug actions that have
@@ -637,6 +697,23 @@ impl Presenter {
             // Permission was granted - switch to MainScene
             let viewport = screen.viewport();
             self.scene = Scene::Main(MainScene::new(context, viewport));
+            
+            // Set up HTML UI for main scene
+            #[cfg(target_arch = "wasm32")]
+            {
+                setup_main_scene_ui();
+                self.main_scene_ui_active = true;
+                
+                // Set up event listeners if we have a self-reference
+                if let Some(ref self_ref) = self.self_reference {
+                    setup_event_listeners(self_ref.clone());
+                } else {
+                    crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
+                }
+                
+                // Synchronize UI state with current presenter values
+                crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone());
+            }
         }
         
         // Delegate rendering to the active scene
@@ -775,6 +852,9 @@ impl Presenter {
     /// 
     /// * `tuning_system` - Current tuning system from the model layer
     fn process_tuning_system(&mut self, tuning_system: &crate::shared_types::TuningSystem) {
+        // Store the current tuning system
+        self.current_tuning_system = tuning_system.clone();
+        
         match tuning_system {
             crate::shared_types::TuningSystem::EqualTemperament => {
                 // Update UI to show Equal Temperament tuning
@@ -849,6 +929,31 @@ impl Presenter {
     /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
         440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
+    }
+    
+    /// Clean up HTML UI elements if they are currently active
+    /// 
+    /// This method ensures proper cleanup of DOM elements when the presenter
+    /// is dropped or when transitioning away from the main scene.
+    #[cfg(target_arch = "wasm32")]
+    fn cleanup_main_scene_ui_if_active(&mut self) {
+        if self.main_scene_ui_active {
+            cleanup_main_scene_ui();
+            self.main_scene_ui_active = false;
+        }
+    }
+
+    /// No-op version for non-WASM targets
+    #[cfg(not(target_arch = "wasm32"))]
+    fn cleanup_main_scene_ui_if_active(&mut self) {
+        // No-op for non-WASM targets
+    }
+}
+
+impl Drop for Presenter {
+    fn drop(&mut self) {
+        // Clean up HTML UI elements if active
+        self.cleanup_main_scene_ui_if_active();
     }
 }
 
