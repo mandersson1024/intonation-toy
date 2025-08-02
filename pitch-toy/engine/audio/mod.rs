@@ -47,6 +47,7 @@ pub mod signal_generator;
 pub mod message_protocol;
 pub mod data_types;
 pub mod root_note_audio_node;
+pub mod test_signal_node;
 
 use crate::common::dev_log;
 
@@ -220,6 +221,7 @@ pub use signal_generator::{TestWaveform, SignalGeneratorConfig, RootNoteAudioCon
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
 pub use root_note_audio_node::RootNoteAudioNode;
+pub use test_signal_node::TestSignalAudioNode;
 
 // Private re-exports for internal module use only
 use microphone::{AudioError};

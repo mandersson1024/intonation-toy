@@ -358,7 +358,6 @@ class TransferableBufferPool {
 const ToWorkletMessageType = {
     START_PROCESSING: 'startProcessing',
     STOP_PROCESSING: 'stopProcessing',
-    UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
     UPDATE_BATCH_CONFIG: 'updateBatchConfig',
     RETURN_BUFFER: 'returnBuffer'
 };
@@ -370,7 +369,6 @@ const FromWorkletMessageType = {
     AUDIO_DATA_BATCH: 'audioDataBatch',
     PROCESSING_ERROR: 'processingError',
     STATUS_UPDATE: 'statusUpdate',
-    TEST_SIGNAL_CONFIG_UPDATED: 'testSignalConfigUpdated',
     BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
     PROCESSOR_DESTROYED: 'processorDestroyed'
 };
@@ -500,19 +498,6 @@ class AudioWorkletMessageProtocol {
         };
     }
 
-    createTestSignalConfigUpdatedMessage(config) {
-        const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
-        
-        return {
-            messageId: messageId,
-            timestamp: timestamp,
-            payload: {
-                type: FromWorkletMessageType.TEST_SIGNAL_CONFIG_UPDATED,
-                config: { ...config }
-            }
-        };
-    }
 
     createBatchConfigUpdatedMessage(config) {
         const messageId = this.generateMessageId();
@@ -675,17 +660,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         this.isProcessing = false;
         this.chunkCounter = 0;
         
-        // Test signal configuration
-        this.testSignalConfig = {
-            enabled: false,
-            frequency: 440.0,
-            amplitude: 0.3,
-            waveform: 'sine',
-            sample_rate: sampleRate // Use the actual sample rate from AudioWorklet
-        };
-        
-        // Test signal generation state
-        this.testSignalPhase = 0.0;
         
         
         // Setup message handling
@@ -911,16 +885,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     break;
                 
                 
-                case ToWorkletMessageType.UPDATE_TEST_SIGNAL_CONFIG:
-                    if (actualMessage.config) {
-                        this.testSignalConfig = { ...this.testSignalConfig, ...actualMessage.config };
-                        // Reset phase when configuration changes
-                        this.testSignalPhase = 0.0;
-                        // Test signal config updated
-                        const configUpdatedMessage = this.messageProtocol.createTestSignalConfigUpdatedMessage(this.testSignalConfig);
-                        this.port.postMessage(configUpdatedMessage);
-                    }
-                    break;
                 
                 case ToWorkletMessageType.UPDATE_BATCH_CONFIG:
                     if (actualMessage.config) {
@@ -1011,62 +975,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         }
     }
     
-    /**
-     * Generate test signal samples
-     * @param {number} numSamples - Number of samples to generate
-     * @returns {Float32Array} - Generated test signal samples
-     */
-    generateTestSignal(numSamples) {
-        const samples = new Float32Array(numSamples);
-        const config = this.testSignalConfig;
-        
-        if (!config.enabled) {
-            return samples; // Return silence if disabled
-        }
-        
-        const phaseIncrement = (2 * Math.PI * config.frequency) / config.sample_rate;
-        
-        for (let i = 0; i < numSamples; i++) {
-            let sample = 0.0;
-            
-            // Generate waveform
-            switch (config.waveform) {
-                case 'sine':
-                    sample = Math.sin(this.testSignalPhase);
-                    break;
-                case 'square':
-                    sample = Math.sin(this.testSignalPhase) >= 0 ? 1.0 : -1.0;
-                    break;
-                case 'sawtooth':
-                    sample = 2.0 * (this.testSignalPhase / (2 * Math.PI) - Math.floor(this.testSignalPhase / (2 * Math.PI) + 0.5));
-                    break;
-                case 'triangle':
-                    const t = this.testSignalPhase / (2 * Math.PI) - Math.floor(this.testSignalPhase / (2 * Math.PI));
-                    sample = t < 0.5 ? 4.0 * t - 1.0 : 3.0 - 4.0 * t;
-                    break;
-                default:
-                    sample = Math.sin(this.testSignalPhase);
-            }
-            
-            // Apply amplitude scaling
-            sample *= config.amplitude;
-            
-            // Clamp to valid range
-            sample = Math.max(-1.0, Math.min(1.0, sample));
-            
-            samples[i] = sample;
-            
-            // Update phase for next sample
-            this.testSignalPhase += phaseIncrement;
-            
-            // Keep phase in [0, 2π] range to prevent precision issues
-            if (this.testSignalPhase >= 2 * Math.PI) {
-                this.testSignalPhase -= 2 * Math.PI;
-            }
-        }
-        
-        return samples;
-    }
     
     /**
      * Process audio data in 128-sample chunks
@@ -1120,15 +1028,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             return true;
         }
         
-        // Generate processed audio: test signal OR microphone input
-        let processedAudio;
-        if (this.testSignalConfig.enabled) {
-            // Test signal is enabled - replace mic input with test signal
-            processedAudio = this.generateTestSignal(this.chunkSize);
-        } else {
-            // Use microphone input
-            processedAudio = new Float32Array(inputChannel);
-        }
+        // Process microphone input audio
+        const processedAudio = new Float32Array(inputChannel);
         
         // Pass-through processed audio to output
         if (output && output.length > 0 && output[0]) {

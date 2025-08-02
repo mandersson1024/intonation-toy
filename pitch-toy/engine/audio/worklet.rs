@@ -50,7 +50,7 @@
 
 use web_sys::{
     AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
-    AudioNode, MessageEvent
+    AudioNode, MessageEvent, GainNode
 };
 use js_sys;
 use std::fmt;
@@ -60,6 +60,7 @@ use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig};
 use super::signal_generator::RootNoteAudioConfig;
 use super::root_note_audio_node::RootNoteAudioNode;
+use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use super::buffer::AUDIO_CHUNK_SIZE;
 
@@ -184,6 +185,12 @@ pub struct AudioWorkletManager {
     batch_size: u32,
     // Dedicated root note audio node
     root_note_node: Option<RootNoteAudioNode>,
+    // Test signal audio node for local signal generation
+    test_signal_node: Option<TestSignalAudioNode>,
+    // Mixer gain node for combining microphone and test signal
+    mixer_gain: Option<GainNode>,
+    // Stored microphone source for potential re-routing
+    microphone_source: Option<AudioNode>,
 }
 
 impl AudioWorkletManager {
@@ -205,6 +212,9 @@ impl AudioWorkletManager {
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
             root_note_node: None,
+            test_signal_node: None,
+            mixer_gain: None,
+            microphone_source: None,
         }
     }
     
@@ -242,6 +252,9 @@ impl AudioWorkletManager {
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
             root_note_node: None,
+            test_signal_node: None,
+            mixer_gain: None,
+            microphone_source: None,
         }
     }
     
@@ -540,10 +553,6 @@ impl AudioWorkletManager {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
                 Self::publish_status_update_static(shared_data, AudioWorkletState::Failed);
             }
-            FromWorkletMessage::TestSignalConfigUpdated { config: _ } => {
-                // Configuration confirmation received - no action needed
-                dev_log!("AudioWorklet confirmed test signal configuration update");
-            }
             FromWorkletMessage::BatchConfigUpdated { config: _ } => {
                 // Configuration confirmation received - no action needed
                 dev_log!("AudioWorklet confirmed batch configuration update");
@@ -694,10 +703,6 @@ impl AudioWorkletManager {
                     self.message_factory.stop_processing()
                         .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
                 }
-                ToWorkletMessage::UpdateTestSignalConfig { config } => {
-                    self.message_factory.update_test_signal_config(config)
-                        .map_err(|e| AudioError::Generic(format!("Failed to create test signal config message: {:?}", e)))?
-                }
                 ToWorkletMessage::UpdateBatchConfig { config } => {
                     self.message_factory.update_batch_config(config)
                         .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
@@ -724,52 +729,53 @@ impl AudioWorkletManager {
         }
     }
 
-    /// Send test signal configuration to AudioWorklet processor
-    fn send_test_signal_config_to_worklet(&self, config: &SignalGeneratorConfig) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            let envelope = self.message_factory.update_test_signal_config(config.clone())
-                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
-            
-            let serializer = MessageSerializer::new();
-            let js_message = serializer.serialize_envelope(&envelope)
-                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.post_message(&js_message)
-                .map_err(|e| AudioError::Generic(format!("Failed to send test signal config: {:?}", e)))?;
-            
-            dev_log!("Sent test signal config to AudioWorklet: enabled={}, freq={:.1}Hz, amp={:.2} (ID: {})", 
-                     config.enabled, config.frequency, config.amplitude, envelope.message_id);
-            Ok(())
-        } else {
-            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
-        }
-    }
     
     /// Connect microphone input to audio worklet
-    pub fn connect_microphone(&self, microphone_source: &AudioNode) -> Result<(), AudioError> {
+    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<(), AudioError> {
+        // Store microphone source for potential re-routing
+        self.microphone_source = Some(microphone_source.clone());
+        
         if let Some(worklet) = &self.worklet_node {
-            match microphone_source.connect_with_audio_node(worklet) {
-                Ok(_) => {
-                    
-                    // Only connect AudioWorklet to destination if output to speakers is enabled
-                    if self.output_to_speakers {
-                        let audio_context = worklet.context();
-                        if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
-                        } else {
+            // Check if mixer exists (test signal is active)
+            if self.mixer_gain.is_some() {
+                // Route through mixer: microphone → mixer → worklet
+                if let Some(ref mixer) = self.mixer_gain {
+                    match microphone_source.connect_with_audio_node(mixer) {
+                        Ok(_) => {
+                            dev_log!("Connected microphone to mixer (test signal routing active)");
                         }
-                    } else {
+                        Err(e) => {
+                            return Err(AudioError::Generic(
+                                format!("Failed to connect microphone to mixer: {:?}", e)
+                            ));
+                        }
                     }
-                    
-                    Ok(())
                 }
-                Err(e) => {
-                    Err(AudioError::Generic(
-                        format!("Failed to connect microphone to AudioWorklet: {:?}", e)
-                    ))
+            } else {
+                // Direct routing: microphone → worklet
+                match microphone_source.connect_with_audio_node(worklet) {
+                    Ok(_) => {
+                        dev_log!("Connected microphone directly to worklet");
+                    }
+                    Err(e) => {
+                        return Err(AudioError::Generic(
+                            format!("Failed to connect microphone to AudioWorklet: {:?}", e)
+                        ));
+                    }
                 }
             }
+            
+            // Only connect AudioWorklet to destination if output to speakers is enabled
+            if self.output_to_speakers {
+                let audio_context = worklet.context();
+                if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
+                    dev_log!("Failed to connect worklet to speakers: {:?}", e);
+                } else {
+                    dev_log!("Connected worklet to speakers");
+                }
+            }
+            
+            Ok(())
         } else {
             Err(AudioError::Generic("No AudioWorklet node available".to_string()))
         }
@@ -815,6 +821,18 @@ impl AudioWorkletManager {
             let _ = worklet.disconnect();
             dev_log!("AudioWorklet disconnected");
         }
+        
+        // Clean up the test signal node
+        self.cleanup_test_signal();
+        
+        // Clean up the mixer node
+        if let Some(mixer) = self.mixer_gain.take() {
+            let _ = mixer.disconnect();
+            dev_log!("Mixer node disconnected and cleaned up");
+        }
+        
+        // Clear stored microphone source
+        self.microphone_source = None;
         
         // Clean up the root note audio node
         if self.root_note_node.is_some() {
@@ -901,11 +919,102 @@ impl AudioWorkletManager {
         Ok(())
     }
     
-    /// Update test signal generator configuration
+    /// Ensure mixer node exists and is connected
+    fn ensure_mixer_node(&mut self) -> Result<&GainNode, AudioError> {
+        if self.mixer_gain.is_none() {
+            if let Some(ref audio_context) = self.audio_context {
+                let mixer = audio_context
+                    .create_gain()
+                    .map_err(|_| AudioError::Generic("Failed to create mixer gain node".to_string()))?;
+                
+                // Set mixer gain to unity
+                mixer.gain().set_value(1.0);
+                
+                // Connect mixer to worklet
+                if let Some(ref worklet) = self.worklet_node {
+                    mixer
+                        .connect_with_audio_node(worklet)
+                        .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
+                    dev_log!("Created and connected mixer node to worklet");
+                } else {
+                    return Err(AudioError::Generic("No worklet node available for mixer connection".to_string()));
+                }
+                
+                self.mixer_gain = Some(mixer);
+            } else {
+                return Err(AudioError::Generic("No audio context available".to_string()));
+            }
+        }
+        
+        Ok(self.mixer_gain.as_ref().unwrap())
+    }
+    
+    /// Setup test signal routing through mixer
+    fn setup_test_signal_routing(&mut self) -> Result<(), AudioError> {
+        let _mixer = self.ensure_mixer_node()?;
+        
+        if let Some(ref mut test_signal) = self.test_signal_node {
+            if let Some(ref mixer) = self.mixer_gain {
+                test_signal
+                    .connect_to(mixer)
+                    .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
+                dev_log!("Connected test signal to mixer");
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Cleanup test signal node and routing
+    fn cleanup_test_signal(&mut self) {
+        if let Some(mut test_signal) = self.test_signal_node.take() {
+            test_signal.cleanup();
+            dev_log!("Cleaned up test signal node");
+        }
+    }
+    
+    /// Update test signal generator configuration (manages local TestSignalAudioNode only)
     pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
-        // Send configuration to AudioWorklet processor
-        if let Err(e) = self.send_test_signal_config_to_worklet(&config) {
-            dev_log!("Warning: Failed to send test signal config to worklet: {}", e);
+        // Manage local TestSignalAudioNode
+        if let Some(ref audio_context) = self.audio_context {
+            if config.enabled {
+                if let Some(ref mut test_signal) = self.test_signal_node {
+                    // Update existing node
+                    test_signal.update_config(config);
+                    dev_log!("Updated existing test signal node configuration");
+                } else {
+                    // Create new node without auto-connection to speakers
+                    match TestSignalAudioNode::new(audio_context, config, false) {
+                        Ok(mut node) => {
+                            // Setup routing through mixer
+                            if let Err(e) = self.setup_test_signal_routing() {
+                                dev_log!("Failed to setup test signal routing: {:?}", e);
+                            } else {
+                                // Connect the node after routing is setup
+                                if let Some(ref mixer) = self.mixer_gain {
+                                    if let Err(e) = node.connect_to(mixer) {
+                                        dev_log!("Failed to connect test signal to mixer: {:?}", e);
+                                    } else {
+                                        dev_log!("Created and connected new test signal node");
+                                    }
+                                }
+                            }
+                            self.test_signal_node = Some(node);
+                        }
+                        Err(e) => {
+                            dev_log!("Failed to create test signal node: {:?}", e);
+                        }
+                    }
+                }
+            } else {
+                // Disable test signal but keep node for potential re-enabling
+                if let Some(ref mut test_signal) = self.test_signal_node {
+                    test_signal.disable();
+                    dev_log!("Disabled test signal node");
+                }
+            }
+        } else {
+            dev_log!("No audio context available for test signal configuration");
         }
     }
 

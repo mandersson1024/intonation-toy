@@ -26,11 +26,6 @@ pub enum ToWorkletMessage {
     /// Stop audio processing
     StopProcessing,
     
-    /// Update test signal configuration
-    UpdateTestSignalConfig {
-        config: SignalGeneratorConfig,
-    },
-    
     /// Update batch processing configuration
     UpdateBatchConfig {
         config: BatchConfig,
@@ -65,11 +60,6 @@ pub enum FromWorkletMessage {
     /// Processing error occurred
     ProcessingError {
         error: WorkletError,
-    },
-    
-    /// Test signal configuration updated
-    TestSignalConfigUpdated {
-        config: SignalGeneratorConfig,
     },
     
     /// Batch configuration updated
@@ -757,13 +747,6 @@ impl ToJsMessage for ToWorkletMessage {
                 Reflect::set(&obj, &"type".into(), &"stopProcessing".into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
             }
-            ToWorkletMessage::UpdateTestSignalConfig { config } => {
-                Reflect::set(&obj, &"type".into(), &"updateTestSignalConfig".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let config_obj = config.to_js_object()?;
-                Reflect::set(&obj, &"config".into(), &config_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
-            }
             ToWorkletMessage::UpdateBatchConfig { config } => {
                 Reflect::set(&obj, &"type".into(), &"updateBatchConfig".into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
@@ -793,14 +776,6 @@ impl FromJsMessage for ToWorkletMessage {
         match msg_type.as_str() {
             "startProcessing" => Ok(ToWorkletMessage::StartProcessing),
             "stopProcessing" => Ok(ToWorkletMessage::StopProcessing),
-            "updateTestSignalConfig" => {
-                let config_obj = Reflect::get(obj, &"config".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
-                    .dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                let config = SignalGeneratorConfig::from_js_object(&config_obj)?;
-                Ok(ToWorkletMessage::UpdateTestSignalConfig { config })
-            }
             "updateBatchConfig" => {
                 let config_obj = Reflect::get(obj, &"config".into())
                     .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
@@ -825,7 +800,6 @@ impl MessageValidator for ToWorkletMessage {
     fn validate(&self) -> SerializationResult<()> {
         match self {
             ToWorkletMessage::StartProcessing | ToWorkletMessage::StopProcessing => Ok(()),
-            ToWorkletMessage::UpdateTestSignalConfig { config } => config.validate(),
             ToWorkletMessage::UpdateBatchConfig { config } => config.validate(),
             ToWorkletMessage::ReturnBuffer { buffer_id: _ } => Ok(()),
         }
@@ -867,13 +841,6 @@ impl ToJsMessage for FromWorkletMessage {
                 let error_obj = error.to_js_object()?;
                 Reflect::set(&obj, &"error".into(), &error_obj.into())
                     .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set error: {:?}", e)))?;
-            }
-            FromWorkletMessage::TestSignalConfigUpdated { config } => {
-                Reflect::set(&obj, &"type".into(), &"testSignalConfigUpdated".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let config_obj = config.to_js_object()?;
-                Reflect::set(&obj, &"config".into(), &config_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
             }
             FromWorkletMessage::BatchConfigUpdated { config } => {
                 Reflect::set(&obj, &"type".into(), &"batchConfigUpdated".into())
@@ -925,14 +892,6 @@ impl FromJsMessage for FromWorkletMessage {
                 let error = WorkletError::from_js_object(&error_obj)?;
                 Ok(FromWorkletMessage::ProcessingError { error })
             }
-            "testSignalConfigUpdated" => {
-                let config_obj = Reflect::get(obj, &"config".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
-                    .dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                let config = SignalGeneratorConfig::from_js_object(&config_obj)?;
-                Ok(FromWorkletMessage::TestSignalConfigUpdated { config })
-            }
             "batchConfigUpdated" => {
                 let config_obj = Reflect::get(obj, &"config".into())
                     .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
@@ -960,7 +919,6 @@ impl MessageValidator for FromWorkletMessage {
             FromWorkletMessage::ProcessingStarted | FromWorkletMessage::ProcessingStopped => Ok(()),
             FromWorkletMessage::AudioDataBatch { data } => data.validate(),
             FromWorkletMessage::ProcessingError { error } => error.validate(),
-            FromWorkletMessage::TestSignalConfigUpdated { config } => config.validate(),
             FromWorkletMessage::BatchConfigUpdated { config } => config.validate(),
         }
     }
@@ -2101,12 +2059,6 @@ impl ToWorkletMessage {
         Self::StopProcessing
     }
     
-    /// Create an update test signal config message
-    pub fn update_test_signal_config(config: SignalGeneratorConfig) -> MessageConstructionResult<Self> {
-        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(Self::UpdateTestSignalConfig { config })
-    }
-    
     /// Create an update batch config message
     pub fn update_batch_config(config: BatchConfig) -> MessageConstructionResult<Self> {
         config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -2504,16 +2456,6 @@ impl AudioWorkletMessageFactory {
         })
     }
     
-    /// Create an update test signal config message envelope
-    pub fn update_test_signal_config(&self, config: SignalGeneratorConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::update_test_signal_config(config)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
-    }
-    
     /// Create an update batch config message envelope
     pub fn update_batch_config(&self, config: BatchConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
         let message = ToWorkletMessage::update_batch_config(config)?;
@@ -2621,18 +2563,6 @@ impl AudioWorkletMessageFactory {
         active_buffers: usize
     ) -> MessageConstructionResult<MemoryUsage> {
         MemoryUsage::new(heap_size, used_heap, active_buffers)
-    }
-    
-    /// Create a test signal config
-    pub fn create_test_signal_config(&self,
-        enabled: bool,
-        frequency: f32,
-        amplitude: f32,
-        waveform: crate::engine::audio::signal_generator::TestWaveform,
-        sample_rate: u32,
-    ) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let config = SignalGeneratorConfig::new(enabled, frequency, amplitude, waveform, sample_rate)?;
-        self.update_test_signal_config(config)
     }
     
     /// Create a batch config
