@@ -387,6 +387,11 @@ pub struct Presenter {
     /// This enables UI elements to call back into the presenter
     #[cfg(target_arch = "wasm32")]
     self_reference: Option<Rc<RefCell<Self>>>,
+    
+    
+    /// Track whether root note audio is currently enabled (debug builds only)
+    #[cfg(debug_assertions)]
+    root_note_audio_enabled: bool,
 }
 
 impl Presenter {
@@ -422,6 +427,8 @@ impl Presenter {
             main_scene_ui_active: false,
             #[cfg(target_arch = "wasm32")]
             self_reference: None,
+            #[cfg(debug_assertions)]
+            root_note_audio_enabled: false,
         })
     }
 
@@ -543,7 +550,9 @@ impl Presenter {
     /// 
     /// * `tuning_system` - The new tuning system selected by the user
     pub fn on_tuning_system_changed(&mut self, tuning_system: TuningSystem) {
-        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system });
+        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system: tuning_system.clone() });
+        self.current_tuning_system = tuning_system;
+        self.sync_html_ui();
     }
 
     /// Handle user request to adjust the root note
@@ -560,6 +569,9 @@ impl Presenter {
         
         // Update root note audio frequency if it's currently enabled
         self.on_root_note_changed_update_audio();
+        
+        // Sync HTML UI immediately
+        self.sync_html_ui();
     }
 
     /// Get the current root note
@@ -648,6 +660,7 @@ impl Presenter {
     /// * `enabled` - Whether root note audio generation should be enabled
     #[cfg(debug_assertions)]
     pub fn on_root_note_audio_configured(&mut self, enabled: bool) {
+        self.root_note_audio_enabled = enabled;
         let frequency = Self::midi_note_to_frequency(self.current_root_note);
         self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
@@ -664,16 +677,13 @@ impl Presenter {
     /// the updated frequency.
     #[cfg(debug_assertions)]
     fn on_root_note_changed_update_audio(&mut self) {
-        // Check if root note audio was most recently enabled
-        if let Some(last_config) = self.pending_debug_actions.root_note_audio_configurations.last() {
-            if last_config.enabled {
-                // Root note audio is enabled, so update the frequency
-                let frequency = Self::midi_note_to_frequency(self.current_root_note);
-                self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
-                    enabled: true,
-                    frequency,
-                });
-            }
+        // If root note audio is currently enabled, update the frequency
+        if self.root_note_audio_enabled {
+            let frequency = Self::midi_note_to_frequency(self.current_root_note);
+            self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+                enabled: true,
+                frequency,
+            });
         }
     }
     
@@ -723,6 +733,9 @@ impl Presenter {
             }
             Scene::Main(main_scene) => {
                 main_scene.render(screen);
+                
+                // HTML UI synchronization is handled immediately when state changes,
+                // not during render to prevent flickering
             }
         }
     }
@@ -929,6 +942,20 @@ impl Presenter {
     /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
         440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
+    }
+
+    /// Synchronize HTML UI with current presenter state
+    #[cfg(target_arch = "wasm32")]
+    fn sync_html_ui(&mut self) {
+        if self.main_scene_ui_active {
+            crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone());
+        }
+    }
+
+    /// No-op version for non-WASM targets
+    #[cfg(not(target_arch = "wasm32"))]
+    fn sync_html_ui(&mut self) {
+        // No-op for non-WASM targets
     }
     
     /// Clean up HTML UI elements if they are currently active

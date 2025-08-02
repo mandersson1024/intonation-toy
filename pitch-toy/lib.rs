@@ -444,7 +444,12 @@ pub async fn start() {
         Ok(presenter) => {
             dev_log!("✓ Presentation layer created successfully");
             // Sprite scene will be initialized on first render to avoid variable shadowing
-            Some(Rc::new(RefCell::new(presenter)))
+            let presenter_rc = Rc::new(RefCell::new(presenter));
+            
+            // Set the self-reference for UI event handling
+            presenter_rc.borrow_mut().set_self_reference(presenter_rc.clone());
+            
+            Some(presenter_rc)
         }
         Err(e) => {
             dev_log!("✗ Presentation layer creation failed: {}", e);

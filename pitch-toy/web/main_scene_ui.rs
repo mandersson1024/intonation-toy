@@ -258,15 +258,15 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up plus button event listener
     if let Some(plus_button) = document.get_element_by_id("root-note-plus") {
         let presenter_clone = presenter.clone();
-        let document_clone = document.clone();
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_root = presenter_clone.borrow().get_root_note();
-            if let Some(new_root) = increment_midi_note(current_root) {
-                presenter_clone.borrow_mut().on_root_note_adjusted(new_root);
+            if let Ok(presenter_ref) = presenter_clone.try_borrow() {
+                let current_root = presenter_ref.get_root_note();
+                drop(presenter_ref); // Release the borrow
                 
-                // Update the display
-                if let Some(display) = document_clone.get_element_by_id("root-note-display") {
-                    display.set_text_content(Some(&format_midi_note(new_root)));
+                if let Some(new_root) = increment_midi_note(current_root) {
+                    if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                        presenter_mut.on_root_note_adjusted(new_root);
+                    }
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -284,15 +284,15 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up minus button event listener
     if let Some(minus_button) = document.get_element_by_id("root-note-minus") {
         let presenter_clone = presenter.clone();
-        let document_clone = document.clone();
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_root = presenter_clone.borrow().get_root_note();
-            if let Some(new_root) = decrement_midi_note(current_root) {
-                presenter_clone.borrow_mut().on_root_note_adjusted(new_root);
+            if let Ok(presenter_ref) = presenter_clone.try_borrow() {
+                let current_root = presenter_ref.get_root_note();
+                drop(presenter_ref); // Release the borrow
                 
-                // Update the display
-                if let Some(display) = document_clone.get_element_by_id("root-note-display") {
-                    display.set_text_content(Some(&format_midi_note(new_root)));
+                if let Some(new_root) = decrement_midi_note(current_root) {
+                    if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                        presenter_mut.on_root_note_adjusted(new_root);
+                    }
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -361,12 +361,10 @@ pub fn cleanup_main_scene_ui() {
 #[cfg(target_arch = "wasm32")]
 pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSystem) {
     let Some(window) = window() else {
-        dev_log!("Failed to get window for UI sync");
         return;
     };
 
     let Some(document) = window.document() else {
-        dev_log!("Failed to get document for UI sync");
         return;
     };
 
@@ -374,8 +372,6 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
     if let Some(display) = document.get_element_by_id("root-note-display") {
         let formatted_note = format_midi_note(root_note);
         display.set_text_content(Some(&formatted_note));
-    } else {
-        dev_log!("Warning: root-note-display element not found during UI sync");
     }
 
     // Update tuning system dropdown selection
@@ -386,11 +382,7 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
                 TuningSystem::JustIntonation => "just",
             };
             html_select.set_value(value);
-        } else {
-            dev_log!("Warning: tuning-system-select is not an HtmlSelectElement");
         }
-    } else {
-        dev_log!("Warning: tuning-system-select element not found during UI sync");
     }
 }
 

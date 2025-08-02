@@ -43,10 +43,6 @@ pub struct DebugPanel {
     test_signal_waveform: TestWaveform,
     output_to_speakers_enabled: bool,
     root_note_audio_enabled: bool,
-    
-    // UI state for user actions
-    selected_root_note: MidiNote,
-    selected_tuning_system: TuningSystem,
 }
 
 impl DebugPanel {
@@ -67,9 +63,6 @@ impl DebugPanel {
             output_to_speakers_enabled: false,
             root_note_audio_enabled: false,
             
-            // Initialize user action state
-            selected_root_note: 53,
-            selected_tuning_system: TuningSystem::EqualTemperament,
         }
     }
     
@@ -502,8 +495,11 @@ impl DebugPanel {
                 
                 // Display current frequency when enabled
                 if self.root_note_audio_enabled {
-                    let frequency = Self::midi_note_to_frequency(self.selected_root_note);
-                    ui.label(format!("Frequency: {:.2} Hz", frequency));
+                    if let Ok(presenter_ref) = self.presenter.try_borrow() {
+                        let current_root_note = presenter_ref.get_root_note();
+                        let frequency = Self::midi_note_to_frequency(current_root_note);
+                        ui.label(format!("Frequency: {:.2} Hz", frequency));
+                    }
                 }
                 
                 ui.label("Note: Audio frequency automatically follows the root note from User Actions section");
@@ -543,26 +539,31 @@ impl DebugPanel {
         egui::CollapsingHeader::new("User Actions")
             .default_open(true)
             .show(ui, |ui| {
+                // Get current values from presenter
+                let (current_root_note, current_tuning_system) = if let Ok(presenter_ref) = self.presenter.try_borrow() {
+                    (presenter_ref.get_root_note(), presenter_ref.get_tuning_system())
+                } else {
+                    return; // Skip rendering if we can't borrow presenter
+                };
+                
                 // Root Note Selection
                 ui.horizontal(|ui| {
                     ui.label("Root Note:");
                     
                     // Decrement button
-                    if ui.add_enabled(self.selected_root_note > 0, egui::Button::new("-")).clicked() {
-                        if let Some(new_note) = decrement_midi_note(self.selected_root_note) {
-                            self.selected_root_note = new_note;
-                            self.send_root_note_action();
+                    if ui.add_enabled(current_root_note > 0, egui::Button::new("-")).clicked() {
+                        if let Some(new_note) = decrement_midi_note(current_root_note) {
+                            self.send_root_note_action(new_note);
                         }
                     }
                     
                     // Current note display
-                    ui.label(format!("{}{}", midi_note_to_display_name(self.selected_root_note), (self.selected_root_note as i16 / 12) - 1));
+                    ui.label(format!("{}{}", midi_note_to_display_name(current_root_note), (current_root_note as i16 / 12) - 1));
                     
                     // Increment button
-                    if ui.add_enabled(self.selected_root_note < 127, egui::Button::new("+")).clicked() {
-                        if let Some(new_note) = increment_midi_note(self.selected_root_note) {
-                            self.selected_root_note = new_note;
-                            self.send_root_note_action();
+                    if ui.add_enabled(current_root_note < 127, egui::Button::new("+")).clicked() {
+                        if let Some(new_note) = increment_midi_note(current_root_note) {
+                            self.send_root_note_action(new_note);
                         }
                     }
                 });
@@ -571,8 +572,9 @@ impl DebugPanel {
                 ui.horizontal(|ui| {
                     ui.label("Tuning System:");
                     ui.push_id("tuning", |ui| {
+                        let mut selected_tuning = current_tuning_system.clone();
                         egui::ComboBox::from_label("")
-                            .selected_text(format!("{:?}", self.selected_tuning_system))
+                            .selected_text(format!("{:?}", selected_tuning))
                             .show_ui(ui, |ui| {
                                 let tuning_systems = [
                                     TuningSystem::EqualTemperament,
@@ -580,8 +582,8 @@ impl DebugPanel {
                                 ];
                                 
                                 for system in &tuning_systems {
-                                    if ui.selectable_value(&mut self.selected_tuning_system, system.clone(), format!("{:?}", system)).clicked() {
-                                        self.send_tuning_system_action();
+                                    if ui.selectable_value(&mut selected_tuning, system.clone(), format!("{:?}", system)).clicked() {
+                                        self.send_tuning_system_action(selected_tuning.clone());
                                     }
                                 }
                             })
@@ -591,9 +593,9 @@ impl DebugPanel {
     }
     
     #[cfg(debug_assertions)]
-    fn send_root_note_action(&self) {
+    fn send_root_note_action(&self, root_note: MidiNote) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_root_note_adjusted(self.selected_root_note);
+            presenter.on_root_note_adjusted(root_note);
             
             // If root note audio is enabled, update its frequency to match the new root note
             if self.root_note_audio_enabled {
@@ -603,9 +605,9 @@ impl DebugPanel {
     }
     
     #[cfg(debug_assertions)]
-    fn send_tuning_system_action(&self) {
+    fn send_tuning_system_action(&self, tuning_system: TuningSystem) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_tuning_system_changed(self.selected_tuning_system.clone());
+            presenter.on_tuning_system_changed(tuning_system);
         }
     }
     
