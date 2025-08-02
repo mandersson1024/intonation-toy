@@ -103,3 +103,55 @@ span.status-inactive {
     gap: 8px !important;
     margin-top: 0 !important;
 }
+
+/* Permission overlay styles */
+.permission-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 9999;
+    cursor: pointer;
+}
+
+.permission-panel, #permission-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 30px;
+    border-radius: 10px;
+    min-width: 400px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.permission-panel:hover, #permission-panel:hover {
+    background: rgba(30, 30, 80, 0.9);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(100, 100, 255, 0.5);
+}
+
+/* Animation keyframes for permission panel */
+@keyframes permission-panel-pulse {
+    0% {
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+        box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    100% {
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
+    }
+}
+
+.permission-panel.pulsing {
+    animation: permission-panel-pulse 2s ease-in-out infinite;
+}

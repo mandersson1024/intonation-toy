@@ -49,17 +49,28 @@ pub fn setup_first_click_handler(
         }
     };
     
-    // Style the overlay to be full-screen and invisible
+    // Style the overlay to be full-screen with semi-transparent background
     overlay.set_attribute("style", 
         "position: fixed; top: 0; left: 0; width: 100%; height: 100%; \
-         background: transparent; z-index: 9999; cursor: pointer;"
+         background: rgba(0, 0, 0, 0.5); z-index: 9999; cursor: default;"
     ).unwrap();
     
     // Add instructions text with visual elements
     overlay.set_inner_html(
-        "<div style='position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); \
+        "<style>
+            #permission-panel {
+                transition: background 0.3s ease, box-shadow 0.3s ease;
+                cursor: pointer;
+            }
+            #permission-panel:hover {
+                background: rgba(30, 30, 80, 0.9) !important;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(100, 100, 255, 0.5);
+            }
+        </style>
+        <div id='permission-panel' class='permission-panel' style='position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); \
          color: #fff; font-family: Arial, sans-serif; font-size: 18px; text-align: center; \
-         background: rgba(0,0,0,0.8); padding: 30px; border-radius: 10px; min-width: 400px;'>
+         background: rgba(0,0,0,0.8); padding: 30px; border-radius: 10px; min-width: 400px; \
+         box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); cursor: pointer;'>
          <div style='display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 25px;'>
              <!-- Left Speaker with Red Cross -->
              <div style='position: relative;'>
@@ -117,7 +128,7 @@ pub fn setup_first_click_handler(
                  </svg>
              </div>
          </div>
-         Click anywhere to start<br>
+         Click here to start<br>
          <small style='opacity: 0.7;'>(Microphone permission will be requested)</small>
          </div>"
     );
@@ -210,17 +221,23 @@ pub fn setup_first_click_handler(
         }
     }) as Box<dyn FnMut(_)>);
     
-    // Add event listener to overlay
-    let target: &EventTarget = overlay.as_ref();
-    target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()).unwrap();
-    
-    // Keep the closure alive
-    closure.forget();
-    
-    // Append overlay to body
+    // Append overlay to body first
     if let Some(body) = document.body() {
         body.append_child(&overlay).unwrap();
         dev_log!("✓ First click handler overlay added");
+        
+        // Now find the panel and add click listener to it
+        if let Ok(Some(panel)) = document.query_selector("#permission-panel") {
+            let target: &EventTarget = panel.as_ref();
+            target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()).unwrap();
+            
+            // Keep the closure alive
+            closure.forget();
+            
+            dev_log!("✓ Click handler attached to permission panel");
+        } else {
+            dev_log!("⚠ Could not find permission panel element");
+        }
     } else {
         dev_log!("⚠ No body element available to append overlay");
     }
