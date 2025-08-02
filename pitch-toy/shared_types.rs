@@ -106,7 +106,7 @@ pub enum Error {
     AudioContextSuspended,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PermissionState {
     NotRequested,
     Requested,

@@ -373,9 +373,8 @@ pub async fn start_render_loop(
         );
         
         let mut screen = frame_input.screen();
-        screen.clear(ClearState::color_and_depth(0.8, 0.8, 0.8, 1.0, 1.0));
         
-        // Render presentation layer
+        // Render presentation layer (which handles its own screen clearing)
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                 presenter_ref.render(&context, &mut screen);

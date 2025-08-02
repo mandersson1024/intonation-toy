@@ -360,6 +360,12 @@ pub async fn connect_existing_mediastream_to_audioworklet(
     
     dev_log!("Connecting existing MediaStream to AudioWorklet");
     
+    // Update permission state to indicate connection attempt
+    {
+        let context_borrowed = audio_context.borrow();
+        context_borrowed.set_permission_state(super::permission::AudioPermission::Requesting);
+    }
+    
     // Check if stream has active tracks
     let tracks = media_stream.get_tracks();
     dev_log!("MediaStream has {} tracks", tracks.length());
@@ -448,6 +454,12 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         Ok(_) => {
             dev_log!("✓ Existing MediaStream successfully connected to AudioWorklet");
             
+            // Update permission state to Granted since we successfully connected
+            {
+                let context_borrowed = audio_context.borrow();
+                context_borrowed.set_permission_state(super::permission::AudioPermission::Granted);
+            }
+            
             // Ensure processing is active after connection
             {
                 let mut context_borrowed = audio_context.borrow_mut();
@@ -487,6 +499,13 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         }
         Err(e) => {
             dev_log!("✗ Failed to connect existing MediaStream to AudioWorklet: {:?}", e);
+            
+            // Update permission state to indicate connection failure
+            {
+                let context_borrowed = audio_context.borrow();
+                context_borrowed.set_permission_state(super::permission::AudioPermission::Unavailable);
+            }
+            
             Err(format!("Failed to connect microphone: {:?}", e))
         }
     }

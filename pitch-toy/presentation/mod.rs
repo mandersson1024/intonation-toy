@@ -62,11 +62,19 @@
 mod main_scene;
 pub use main_scene::MainScene;
 
+mod startup_scene;
+pub use startup_scene::StartupScene;
+
 mod smoothing;
 pub use smoothing::EmaSmoother;
 
-use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote, Pitch};
+use three_d::{RenderTarget, Context, Viewport, ClearState};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote, Pitch, PermissionState};
+
+enum Scene {
+    Startup(StartupScene),
+    Main(MainScene),
+}
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -333,11 +341,11 @@ pub struct Presenter {
     /// Presentation layer now operates without interface dependencies
     /// Data flows through method parameters and return values
     
-    /// Main scene for rendering
-    main_scene: Option<MainScene>,
+    /// Current scene (startup or main)
+    scene: Scene,
     
-    /// Flag to track if scene has been initialized
-    scene_initialized: bool,
+    /// Current permission state for scene switching
+    current_permission_state: PermissionState,
     
     /// Collection of pending user actions to be processed by the main loop
     /// 
@@ -383,8 +391,8 @@ impl Presenter {
         // TODO: Initialize rendering state
         // TODO: Set up sprite scene configuration
         Ok(Self {
-            main_scene: None,
-            scene_initialized: false,
+            scene: Scene::Startup(StartupScene),
+            current_permission_state: PermissionState::NotRequested,
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
@@ -395,9 +403,14 @@ impl Presenter {
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport) {
-        if let Some(ref mut scene) = self.main_scene {
-            scene.update_viewport(viewport);
-            scene.update_pitch_position(viewport, self.interval_position);
+        match &mut self.scene {
+            Scene::Startup(_) => {
+                // No viewport updates needed for startup scene
+            }
+            Scene::Main(main_scene) => {
+                main_scene.update_viewport(viewport);
+                main_scene.update_pitch_position(viewport, self.interval_position);
+            }
         }
     }
 
@@ -619,16 +632,21 @@ impl Presenter {
     /// * `_context` - The WebGL context for rendering (currently unused)
     /// * `screen` - The render target to draw to
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget) {
-        // Initialize scene on first render if not already done
-        if !self.scene_initialized {
+        // Check if we need to switch from StartupScene to MainScene
+        if matches!(self.scene, Scene::Startup(_)) && self.current_permission_state == PermissionState::Granted {
+            // Permission was granted - switch to MainScene
             let viewport = screen.viewport();
-            self.main_scene = Some(MainScene::new(context, viewport));
-            self.scene_initialized = true;
+            self.scene = Scene::Main(MainScene::new(context, viewport));
         }
         
-        // Render the scene if available
-        if let Some(ref scene) = self.main_scene {
-            scene.render(screen);
+        // Delegate rendering to the active scene
+        match &self.scene {
+            Scene::Startup(startup_scene) => {
+                startup_scene.render(screen);
+            }
+            Scene::Main(main_scene) => {
+                main_scene.render(screen);
+            }
         }
     }
 
@@ -745,20 +763,8 @@ impl Presenter {
     /// 
     /// * `permission_state` - Current microphone permission state
     fn process_permission_state(&mut self, permission_state: &crate::shared_types::PermissionState) {
-        match permission_state {
-            crate::shared_types::PermissionState::NotRequested => {
-                // Show "Click to start" or permission request button
-            }
-            crate::shared_types::PermissionState::Requested => {
-                // Show "Requesting permission..." status
-            }
-            crate::shared_types::PermissionState::Granted => {
-                // Show active/listening state
-            }
-            crate::shared_types::PermissionState::Denied => {
-                // Show permission denied message with instructions
-            }
-        }
+        // Update stored permission state
+        self.current_permission_state = *permission_state;
     }
     
     /// Process tuning system updates
