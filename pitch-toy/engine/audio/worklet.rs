@@ -57,7 +57,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig, BackgroundNoiseConfig};
+use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig};
 use super::signal_generator::RootNoteAudioConfig;
 use super::root_note_audio_node::RootNoteAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
@@ -166,7 +166,6 @@ pub struct AudioWorkletManager {
     config: AudioWorkletConfig,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
-    background_noise_config: BackgroundNoiseConfig,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     // Audio context for test signal output
@@ -196,7 +195,6 @@ impl AudioWorkletManager {
             config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
-            background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
@@ -234,7 +232,6 @@ impl AudioWorkletManager {
             config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
-            background_noise_config: BackgroundNoiseConfig::default(),
             chunk_counter: 0,
             _message_closure: None,
             audio_context: None,
@@ -547,10 +544,6 @@ impl AudioWorkletManager {
                 // Configuration confirmation received - no action needed
                 dev_log!("AudioWorklet confirmed test signal configuration update");
             }
-            FromWorkletMessage::BackgroundNoiseConfigUpdated { config: _ } => {
-                // Configuration confirmation received - no action needed
-                dev_log!("AudioWorklet confirmed background noise configuration update");
-            }
             FromWorkletMessage::BatchConfigUpdated { config: _ } => {
                 // Configuration confirmation received - no action needed
                 dev_log!("AudioWorklet confirmed batch configuration update");
@@ -708,10 +701,6 @@ impl AudioWorkletManager {
                 ToWorkletMessage::UpdateBatchConfig { config } => {
                     self.message_factory.update_batch_config(config)
                         .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
-                }
-                ToWorkletMessage::UpdateBackgroundNoiseConfig { config } => {
-                    self.message_factory.update_background_noise_config(config)
-                        .map_err(|e| AudioError::Generic(format!("Failed to create background noise config message: {:?}", e)))?
                 }
                 ToWorkletMessage::ReturnBuffer { buffer_id } => {
                     self.message_factory.return_buffer(buffer_id)
@@ -918,38 +907,6 @@ impl AudioWorkletManager {
         if let Err(e) = self.send_test_signal_config_to_worklet(&config) {
             dev_log!("Warning: Failed to send test signal config to worklet: {}", e);
         }
-    }
-
-    /// Update background noise configuration
-    pub fn update_background_noise_config(&mut self, config: BackgroundNoiseConfig) {
-        self.background_noise_config = config.clone();
-        
-        // Send configuration to AudioWorklet processor
-        if let Err(e) = self.send_background_noise_config_to_worklet(&config) {
-            dev_log!("Warning: Failed to send background noise config to worklet: {}", e);
-        }
-    }
-
-    /// Send background noise configuration to AudioWorklet processor
-    fn send_background_noise_config_to_worklet(&self, config: &BackgroundNoiseConfig) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            let envelope = self.message_factory.update_background_noise_config(config.clone())
-                .map_err(|e| AudioError::Generic(format!("Failed to create message envelope: {:?}", e)))?;
-            
-            let serializer = MessageSerializer::new();
-            let js_message = serializer.serialize_envelope(&envelope)
-                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
-            port.post_message(&js_message)
-                .map_err(|e| AudioError::Generic(format!("Failed to send background noise config: {:?}", e)))?;
-            
-            dev_log!("Background noise configuration sent to AudioWorklet: enabled={}, level={}, type={:?} (ID: {})", 
-                    config.enabled, config.level, config.noise_type, envelope.message_id);
-        }
-        
-        Ok(())
     }
 
     /// Update root note audio configuration

@@ -5,8 +5,6 @@ pub enum TestWaveform {
     Square,
     Sawtooth,
     Triangle,
-    WhiteNoise,
-    PinkNoise,
 }
 
 /// Configuration for test signal generation
@@ -22,17 +20,6 @@ pub struct SignalGeneratorConfig {
     pub waveform: TestWaveform,
     /// Sample rate for generation
     pub sample_rate: u32,
-}
-
-/// Configuration for background noise generation
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundNoiseConfig {
-    /// Whether background noise is enabled
-    pub enabled: bool,
-    /// Noise level (0.0 - 1.0)
-    pub level: f32,
-    /// Type of noise to generate
-    pub noise_type: TestWaveform, // Reuse TestWaveform for WhiteNoise, PinkNoise
 }
 
 /// Configuration for root note audio generation
@@ -52,16 +39,6 @@ impl Default for SignalGeneratorConfig {
             amplitude: 0.3,
             waveform: TestWaveform::Sine,
             sample_rate: 48000,
-        }
-    }
-}
-
-impl Default for BackgroundNoiseConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            level: 0.0,
-            noise_type: TestWaveform::WhiteNoise,
         }
     }
 }

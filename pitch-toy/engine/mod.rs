@@ -64,7 +64,7 @@ use crate::model::ModelLayerActions;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
-use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureBackgroundNoise, ConfigureRootNoteAudio};
+use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers, ConfigureRootNoteAudio};
 #[cfg(debug_assertions)]
 use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
@@ -114,13 +114,6 @@ pub struct ExecuteOutputToSpeakersConfiguration {
     pub enabled: bool,
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExecuteBackgroundNoiseConfiguration {
-    pub enabled: bool,
-    pub level: f32,
-    pub noise_type: TestWaveform,
-}
 
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]
@@ -138,7 +131,6 @@ pub struct ExecuteRootNoteAudioConfiguration {
 /// Debug actions provide privileged access to engine internals for testing purposes:
 /// - Direct test signal generation control
 /// - Direct speaker output manipulation
-/// - Direct background noise injection
 /// 
 /// These actions should only be used for debugging and testing purposes.
 #[cfg(debug_assertions)]
@@ -149,9 +141,6 @@ pub struct DebugEngineActions {
     
     /// Executed speaker output configurations
     pub speaker_output_executions: Vec<ExecuteOutputToSpeakersConfiguration>,
-    
-    /// Executed background noise configurations
-    pub background_noise_executions: Vec<ExecuteBackgroundNoiseConfiguration>,
     
     /// Executed root note audio configurations
     pub root_note_audio_executions: Vec<ExecuteRootNoteAudioConfiguration>,
@@ -167,7 +156,6 @@ impl DebugEngineActions {
         Self {
             test_signal_executions: Vec::new(),
             speaker_output_executions: Vec::new(),
-            background_noise_executions: Vec::new(),
             root_note_audio_executions: Vec::new(),
         }
     }
@@ -399,7 +387,6 @@ impl AudioEngine {
     /// 
     /// - Test signal generation: Direct control over audio worklet test signals
     /// - Speaker output: Direct manipulation of speaker output routing
-    /// - Background noise: Direct injection of noise into the audio pipeline
     #[cfg(debug_assertions)]
     pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<DebugEngineActions, String> {
         crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
@@ -418,12 +405,6 @@ impl AudioEngine {
             &mut debug_engine_actions
         )?;
         
-        // Execute background noise configurations with privileged access
-        self.execute_background_noise_configurations(
-            &debug_actions.background_noise_configurations,
-            &mut debug_engine_actions
-        )?;
-        
         // Execute root note audio configurations with privileged access
         self.execute_root_note_audio_configurations(
             &debug_actions.root_note_audio_configurations,
@@ -432,7 +413,6 @@ impl AudioEngine {
         
         let total_executed = debug_engine_actions.test_signal_executions.len() + 
                            debug_engine_actions.speaker_output_executions.len() + 
-                           debug_engine_actions.background_noise_executions.len() +
                            debug_engine_actions.root_note_audio_executions.len();
         
         crate::common::dev_log!("[DEBUG] ✓ Engine layer successfully executed {} debug actions", total_executed);
@@ -582,70 +562,6 @@ impl AudioEngine {
         Ok(())
     }
     
-    /// Execute background noise configurations with privileged engine access (debug builds only)
-    /// 
-    /// This method provides direct control over background noise generation in the
-    /// audio pipeline, useful for testing noise cancellation and signal processing.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `noise_configs` - Background noise configurations to execute
-    /// * `debug_engine_actions` - Container to store executed actions
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure
-    #[cfg(debug_assertions)]
-    fn execute_background_noise_configurations(
-        &self,
-        noise_configs: &[ConfigureBackgroundNoise],
-        debug_engine_actions: &mut DebugEngineActions
-    ) -> Result<(), String> {
-        for config in noise_configs {
-            crate::common::dev_log!(
-                "[DEBUG] Executing privileged background noise configuration - enabled: {}, level: {}, type: {:?}",
-                config.enabled, config.level, config.noise_type
-            );
-            
-            // Direct privileged access to background noise generation
-            if let Some(ref audio_context) = self.audio_context {
-                let mut borrowed_context = audio_context.borrow_mut();
-                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
-                    // Convert debug action to audio system config
-                    let audio_config = crate::engine::audio::BackgroundNoiseConfig {
-                        enabled: config.enabled,
-                        level: config.level,
-                        noise_type: config.noise_type.clone(),
-                    };
-                    
-                    worklet_manager.update_background_noise_config(audio_config);
-                    crate::common::dev_log!(
-                        "[DEBUG] ✓ Background noise control updated - enabled: {}, level: {}", 
-                        config.enabled, config.level
-                    );
-                } else {
-                    crate::common::dev_log!(
-                        "[DEBUG] ⚠ AudioWorkletManager not available for background noise control"
-                    );
-                }
-                
-                // Record the executed action
-                debug_engine_actions.background_noise_executions.push(ExecuteBackgroundNoiseConfiguration {
-                    enabled: config.enabled,
-                    level: config.level,
-                    noise_type: config.noise_type.clone(),
-                });
-            } else {
-                return Err("[DEBUG] Audio context not available for background noise execution".to_string());
-            }
-        }
-        
-        crate::common::dev_log!(
-            "[DEBUG] ✓ Executed {} background noise configurations with privileged access",
-            noise_configs.len()
-        );
-        Ok(())
-    }
     
     /// Execute root note audio configurations with privileged engine access (debug builds only)
     /// 

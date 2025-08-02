@@ -145,20 +145,6 @@ impl ConfigureOutputToSpeakers {
     }
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureBackgroundNoise {
-    pub enabled: bool,
-    pub level: f32,
-    pub noise_type: TestWaveform,
-}
-
-#[cfg(all(debug_assertions, test))]
-impl ConfigureBackgroundNoise {
-    pub fn new(enabled: bool, level: f32, noise_type: TestWaveform) -> Self {
-        Self { enabled, level, noise_type }
-    }
-}
 
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]
@@ -246,7 +232,6 @@ impl PresentationLayerActionsBuilder {
 pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
     pub speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
-    pub background_noise_configurations: Vec<ConfigureBackgroundNoise>,
     pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
@@ -257,7 +242,6 @@ impl DebugLayerActions {
         Self {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
-            background_noise_configurations: Vec::new(),
             root_note_audio_configurations: Vec::new(),
         }
     }
@@ -275,7 +259,6 @@ impl DebugLayerActions {
 pub struct DebugLayerActionsBuilder {
     test_signal_configurations: Vec<ConfigureTestSignal>,
     speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
-    background_noise_configurations: Vec<ConfigureBackgroundNoise>,
     root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
@@ -285,7 +268,6 @@ impl DebugLayerActionsBuilder {
         Self {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
-            background_noise_configurations: Vec::new(),
             root_note_audio_configurations: Vec::new(),
         }
     }
@@ -300,11 +282,6 @@ impl DebugLayerActionsBuilder {
         self
     }
     
-    pub fn with_background_noise(mut self, enabled: bool, level: f32, noise_type: TestWaveform) -> Self {
-        self.background_noise_configurations.push(ConfigureBackgroundNoise::new(enabled, level, noise_type));
-        self
-    }
-    
     pub fn with_root_note_audio(mut self, enabled: bool, frequency: f32) -> Self {
         self.root_note_audio_configurations.push(ConfigureRootNoteAudio::new(enabled, frequency));
         self
@@ -314,7 +291,6 @@ impl DebugLayerActionsBuilder {
         DebugLayerActions {
             test_signal_configurations: self.test_signal_configurations,
             speaker_output_configurations: self.speaker_output_configurations,
-            background_noise_configurations: self.background_noise_configurations,
             root_note_audio_configurations: self.root_note_audio_configurations,
         }
     }
@@ -587,24 +563,6 @@ impl Presenter {
         });
     }
 
-    /// Handle debug request to configure background noise generation (debug builds only)
-    /// 
-    /// This method should be called by debug UI components to configure background
-    /// noise generation for testing noise cancellation and signal processing.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `enabled` - Whether background noise generation should be enabled
-    /// * `level` - The level of background noise
-    /// * `noise_type` - The type of noise to generate
-    #[cfg(debug_assertions)]
-    pub fn on_background_noise_configured(&mut self, enabled: bool, level: f32, noise_type: TestWaveform) {
-        self.pending_debug_actions.background_noise_configurations.push(ConfigureBackgroundNoise {
-            enabled,
-            level,
-            noise_type,
-        });
-    }
 
     /// Handle debug request to configure root note audio generation (debug builds only)
     /// 
@@ -1153,7 +1111,6 @@ mod tests {
         
         assert!(debug_actions.test_signal_configurations.is_empty());
         assert!(debug_actions.speaker_output_configurations.is_empty());
-        assert!(debug_actions.background_noise_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]
@@ -1197,27 +1154,6 @@ mod tests {
         assert!(debug_actions2.speaker_output_configurations.is_empty());
     }
 
-    #[cfg(debug_assertions)]
-    #[wasm_bindgen_test]
-    fn test_background_noise_configuration_collection() {
-        use crate::engine::audio::TestWaveform;
-        
-        let mut presenter = Presenter::create()
-            .expect("Presenter creation should succeed");
-
-        // Configure background noise
-        presenter.on_background_noise_configured(true, 0.1, TestWaveform::WhiteNoise);
-        
-        let debug_actions = presenter.get_debug_actions();
-        assert_eq!(debug_actions.background_noise_configurations.len(), 1);
-        assert_eq!(debug_actions.background_noise_configurations[0].enabled, true);
-        assert_eq!(debug_actions.background_noise_configurations[0].level, 0.1);
-        assert_eq!(debug_actions.background_noise_configurations[0].noise_type, TestWaveform::WhiteNoise);
-        
-        // After getting actions, they should be cleared
-        let debug_actions2 = presenter.get_debug_actions();
-        assert!(debug_actions2.background_noise_configurations.is_empty());
-    }
 
     #[cfg(debug_assertions)]
     #[wasm_bindgen_test]
@@ -1230,7 +1166,6 @@ mod tests {
         // Trigger multiple debug actions
         presenter.on_test_signal_configured(true, 880.0, 75.0, TestWaveform::Square);
         presenter.on_output_to_speakers_configured(false);
-        presenter.on_background_noise_configured(true, 0.2, TestWaveform::PinkNoise);
         presenter.on_test_signal_configured(false, 220.0, 25.0, TestWaveform::Triangle); // Second test signal config
         
         let debug_actions = presenter.get_debug_actions();
@@ -1238,7 +1173,6 @@ mod tests {
         // Verify all actions were collected
         assert_eq!(debug_actions.test_signal_configurations.len(), 2);
         assert_eq!(debug_actions.speaker_output_configurations.len(), 1);
-        assert_eq!(debug_actions.background_noise_configurations.len(), 1);
         
         // Verify first test signal config
         assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
@@ -1254,7 +1188,6 @@ mod tests {
         let debug_actions2 = presenter.get_debug_actions();
         assert!(debug_actions2.test_signal_configurations.is_empty());
         assert!(debug_actions2.speaker_output_configurations.is_empty());
-        assert!(debug_actions2.background_noise_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]
@@ -1269,7 +1202,6 @@ mod tests {
         // Test that new instances are empty
         assert!(actions1.test_signal_configurations.is_empty());
         assert!(actions1.speaker_output_configurations.is_empty());
-        assert!(actions1.background_noise_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]
@@ -1284,10 +1216,6 @@ mod tests {
         let speaker1 = ConfigureOutputToSpeakers { enabled: true };
         let speaker2 = ConfigureOutputToSpeakers { enabled: true };
         assert_eq!(speaker1, speaker2);
-        
-        let noise1 = ConfigureBackgroundNoise { enabled: false, level: 0.5, noise_type: TestWaveform::PinkNoise };
-        let noise2 = ConfigureBackgroundNoise { enabled: false, level: 0.5, noise_type: TestWaveform::PinkNoise };
-        assert_eq!(noise1, noise2);
     }
     
     /// Test the new frequency-based interval calculation

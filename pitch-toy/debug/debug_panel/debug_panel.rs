@@ -42,9 +42,6 @@ pub struct DebugPanel {
     test_signal_volume: f32,
     test_signal_waveform: TestWaveform,
     output_to_speakers_enabled: bool,
-    background_noise_enabled: bool,
-    background_noise_level: f32,
-    background_noise_type: TestWaveform,
     root_note_audio_enabled: bool,
     
     // UI state for user actions
@@ -68,9 +65,6 @@ impl DebugPanel {
             test_signal_volume: 50.0,
             test_signal_waveform: TestWaveform::Sine,
             output_to_speakers_enabled: false,
-            background_noise_enabled: false,
-            background_noise_level: 0.1,
-            background_noise_type: TestWaveform::WhiteNoise,
             root_note_audio_enabled: false,
             
             // Initialize user action state
@@ -155,10 +149,6 @@ impl DebugPanel {
                 
                 // Output to Speakers Controls Section (debug actions)
                 self.render_output_to_speakers_controls(ui);
-                ui.separator();
-                
-                // Background Noise Controls Section (debug actions)
-                self.render_background_noise_controls(ui);
                 ui.separator();
             });
         });
@@ -501,48 +491,6 @@ impl DebugPanel {
             });
     }
     
-    /// Render background noise controls (debug actions)
-    fn render_background_noise_controls(&mut self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("Background Noise Controls")
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    if ui.checkbox(&mut self.background_noise_enabled, "Enable Background Noise").changed() {
-                        self.send_background_noise_action();
-                    }
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Level:");
-                    if ui.add(egui::Slider::new(&mut self.background_noise_level, 0.0..=1.0)).changed() {
-                        if self.background_noise_enabled {
-                            self.send_background_noise_action();
-                        }
-                    }
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Type:");
-                    egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", self.background_noise_type))
-                        .show_ui(ui, |ui| {
-                            let noise_types = [
-                                TestWaveform::WhiteNoise,
-                                TestWaveform::PinkNoise,
-                            ];
-                            
-                            for noise_type in &noise_types {
-                                if ui.selectable_value(&mut self.background_noise_type, noise_type.clone(), format!("{:?}", noise_type)).clicked() {
-                                    if self.background_noise_enabled {
-                                        self.send_background_noise_action();
-                                    }
-                                }
-                            }
-                        });
-                });
-            });
-    }
-    
     /// Render root note audio controls (debug actions)
     fn render_root_note_audio_controls(&mut self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Root Note Audio Controls")
@@ -580,17 +528,6 @@ impl DebugPanel {
     fn send_output_to_speakers_action(&self) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             presenter.on_output_to_speakers_configured(self.output_to_speakers_enabled);
-        }
-    }
-    
-    #[cfg(debug_assertions)]
-    fn send_background_noise_action(&self) {
-        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_background_noise_configured(
-                self.background_noise_enabled,
-                self.background_noise_level,
-                self.background_noise_type.clone(),
-            );
         }
     }
     

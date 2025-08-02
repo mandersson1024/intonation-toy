@@ -360,7 +360,6 @@ const ToWorkletMessageType = {
     STOP_PROCESSING: 'stopProcessing',
     UPDATE_TEST_SIGNAL_CONFIG: 'updateTestSignalConfig',
     UPDATE_BATCH_CONFIG: 'updateBatchConfig',
-    UPDATE_BACKGROUND_NOISE_CONFIG: 'updateBackgroundNoiseConfig',
     RETURN_BUFFER: 'returnBuffer'
 };
 
@@ -372,7 +371,6 @@ const FromWorkletMessageType = {
     PROCESSING_ERROR: 'processingError',
     STATUS_UPDATE: 'statusUpdate',
     TEST_SIGNAL_CONFIG_UPDATED: 'testSignalConfigUpdated',
-    BACKGROUND_NOISE_CONFIG_UPDATED: 'backgroundNoiseConfigUpdated',
     BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
     PROCESSOR_DESTROYED: 'processorDestroyed'
 };
@@ -511,20 +509,6 @@ class AudioWorkletMessageProtocol {
             timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.TEST_SIGNAL_CONFIG_UPDATED,
-                config: { ...config }
-            }
-        };
-    }
-
-    createBackgroundNoiseConfigUpdatedMessage(config) {
-        const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
-        
-        return {
-            messageId: messageId,
-            timestamp: timestamp,
-            payload: {
-                type: FromWorkletMessageType.BACKGROUND_NOISE_CONFIG_UPDATED,
                 config: { ...config }
             }
         };
@@ -698,13 +682,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             amplitude: 0.3,
             waveform: 'sine',
             sample_rate: sampleRate // Use the actual sample rate from AudioWorklet
-        };
-        
-        // Background noise configuration (independent of test signal)
-        this.backgroundNoiseConfig = {
-            enabled: false,
-            level: 0.0,
-            type: 'white_noise'  // white_noise, pink_noise
         };
         
         // Test signal generation state
@@ -945,16 +922,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     }
                     break;
                 
-                case ToWorkletMessageType.UPDATE_BACKGROUND_NOISE_CONFIG:
-                    if (actualMessage.config) {
-                        this.backgroundNoiseConfig = { ...this.backgroundNoiseConfig, ...actualMessage.config };
-                        // Background noise config updated
-                        const noiseConfigUpdatedMessage = this.messageProtocol.createBackgroundNoiseConfigUpdatedMessage(this.backgroundNoiseConfig);
-                        this.port.postMessage(noiseConfigUpdatedMessage);
-                    }
-                    break;
-                
-                
                 case ToWorkletMessageType.UPDATE_BATCH_CONFIG:
                     if (actualMessage.config) {
                         // Update batch size if provided
@@ -1077,13 +1044,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                     const t = this.testSignalPhase / (2 * Math.PI) - Math.floor(this.testSignalPhase / (2 * Math.PI));
                     sample = t < 0.5 ? 4.0 * t - 1.0 : 3.0 - 4.0 * t;
                     break;
-                case 'white_noise':
-                    sample = (Math.random() * 2.0 - 1.0);
-                    break;
-                case 'pink_noise':
-                    // Simplified pink noise approximation
-                    sample = (Math.random() * 2.0 - 1.0) * 0.5;
-                    break;
                 default:
                     sample = Math.sin(this.testSignalPhase);
             }
@@ -1107,48 +1067,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         return samples;
     }
-    
-    /**
-     * Generate background noise samples
-     * @param {number} numSamples - Number of samples to generate
-     * @returns {Float32Array} - Generated background noise samples
-     */
-    generateBackgroundNoise(numSamples) {
-        const samples = new Float32Array(numSamples);
-        const config = this.backgroundNoiseConfig;
-        
-        if (!config.enabled || config.level <= 0.0) {
-            return samples; // Return silence if disabled or level is 0
-        }
-        
-        for (let i = 0; i < numSamples; i++) {
-            let sample = 0.0;
-            
-            // Generate noise based on type
-            switch (config.type) {
-                case 'white_noise':
-                    sample = (Math.random() * 2.0 - 1.0);
-                    break;
-                case 'pink_noise':
-                    // Simplified pink noise approximation
-                    sample = (Math.random() * 2.0 - 1.0) * 0.5;
-                    break;
-                default:
-                    sample = (Math.random() * 2.0 - 1.0); // Default to white noise
-            }
-            
-            // Apply level scaling
-            sample *= config.level;
-            
-            // Clamp to valid range
-            sample = Math.max(-1.0, Math.min(1.0, sample));
-            
-            samples[i] = sample;
-        }
-        
-        return samples;
-    }
-    
     
     /**
      * Process audio data in 128-sample chunks
@@ -1210,19 +1128,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         } else {
             // Use microphone input
             processedAudio = new Float32Array(inputChannel);
-        }
-        
-        // Generate and mix background noise (independent of test signal/mic)
-        if (this.backgroundNoiseConfig.enabled) {
-            const backgroundNoise = this.generateBackgroundNoise(this.chunkSize);
-            
-            // Mix background noise with the processed audio
-            for (let i = 0; i < this.chunkSize; i++) {
-                processedAudio[i] += backgroundNoise[i];
-                
-                // Clamp to valid range to prevent clipping
-                processedAudio[i] = Math.max(-1.0, Math.min(1.0, processedAudio[i]));
-            }
         }
         
         // Pass-through processed audio to output
