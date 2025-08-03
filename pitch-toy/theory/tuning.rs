@@ -76,6 +76,25 @@ pub fn frequency_to_interval_semitones(
     }
 }
 
+/// Calculate the difference between two frequencies in cents
+/// 
+/// Cents are a logarithmic unit of measure used for musical intervals.
+/// There are 1200 cents in an octave. A positive result means frequency2 is higher than frequency1.
+/// 
+/// This definition of cents is independent of tuning system, so the distance between two 
+/// semitones in a given tuning system might be more or less than 100 cents. However, 
+/// the octave interval is always the same at 1200 cents across all tuning systems.
+/// 
+/// # Arguments
+/// * `frequency1_hz` - The first frequency in Hz
+/// * `frequency2_hz` - The second frequency in Hz
+/// 
+/// # Returns
+/// The difference in cents (frequency2 relative to frequency1)
+pub fn cents_delta(frequency1_hz: f32, frequency2_hz: f32) -> f32 {
+    1200.0 * (frequency2_hz / frequency1_hz).log2()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,5 +170,30 @@ mod tests {
             root_freq * 5.0 / 4.0,
         );
         assert!((interval - 4.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cents_delta() {
+        let base_freq = 440.0;
+        
+        // Octave up should be 1200 cents
+        let octave_up = cents_delta(base_freq, base_freq * 2.0);
+        assert!((octave_up - 1200.0).abs() < 0.001);
+        
+        // Octave down should be -1200 cents
+        let octave_down = cents_delta(base_freq, base_freq / 2.0);
+        assert!((octave_down + 1200.0).abs() < 0.001);
+        
+        // Perfect fifth (3:2 ratio) should be approximately 702 cents
+        let perfect_fifth = cents_delta(base_freq, base_freq * 3.0 / 2.0);
+        assert!((perfect_fifth - 701.955).abs() < 0.01);
+        
+        // Same frequency should be 0 cents
+        let same_freq = cents_delta(base_freq, base_freq);
+        assert!(same_freq.abs() < 0.001);
+        
+        // Semitone in equal temperament should be 100 cents
+        let semitone = cents_delta(base_freq, base_freq * 2.0_f32.powf(1.0 / 12.0));
+        assert!((semitone - 100.0).abs() < 0.001);
     }
 }
