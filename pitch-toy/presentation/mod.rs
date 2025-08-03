@@ -551,6 +551,9 @@ impl Presenter {
         self.current_root_note = model_data.root_note;
         self.current_scale = model_data.scale;
         
+        // Sync HTML UI with updated state
+        self.sync_html_ui();
+        
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
         
@@ -597,8 +600,6 @@ impl Presenter {
     /// * `tuning_system` - The new tuning system selected by the user
     pub fn on_tuning_system_changed(&mut self, tuning_system: TuningSystem) {
         self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system: tuning_system.clone() });
-        self.current_tuning_system = tuning_system;
-        self.sync_html_ui();
     }
 
     /// Handle user request to adjust the root note
@@ -611,13 +612,9 @@ impl Presenter {
     /// * `root_note` - The new root note selected by the user
     pub fn on_root_note_adjusted(&mut self, root_note: MidiNote) {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
-        self.current_root_note = root_note;
         
         // Update root note audio frequency if it's currently enabled
         self.on_root_note_changed_update_audio();
-        
-        // Sync HTML UI immediately
-        self.sync_html_ui();
     }
 
     /// Handle scale change action
@@ -628,12 +625,6 @@ impl Presenter {
     pub fn on_scale_changed(&mut self, scale: Scale) {
         // Queue scale change action for collection by model layer
         self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale: scale.clone() });
-        
-        // Update current scale immediately for UI consistency
-        self.current_scale = scale;
-        
-        // Sync HTML UI immediately
-        self.sync_html_ui();
     }
 
     /// Get the current root note

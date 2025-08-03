@@ -137,6 +137,77 @@ pub async fn start_render_loop(
             }
         };
         
+        // Process user actions through three-layer validation and execution
+        if let (Some(presenter), Some(model), Some(engine)) = (&presenter, &mut model, &mut engine) {
+            // Collect user actions from presentation layer
+            let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.get_user_actions()
+            } else {
+                presentation::PresentationLayerActions::new()
+            };
+            
+            // Only process if there are actions to handle
+            let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
+                                  !user_actions.root_note_adjustments.is_empty();
+            
+            if has_user_actions {
+                trace_log!("Processing {} user actions", 
+                    user_actions.tuning_system_changes.len() + 
+                    user_actions.root_note_adjustments.len()
+                );
+                
+                // Process and validate actions in model layer
+                let processed_actions = model.process_user_actions(user_actions);
+                
+                // Log validation errors if any
+                for error in &processed_actions.validation_errors {
+                    dev_log!("Action validation error: {:?}", error);
+                }
+                
+                // Execute validated actions in engine layer
+                let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
+                                       !processed_actions.actions.tuning_configurations.is_empty();
+                
+                if has_model_actions {
+                    trace_log!("Actions ready for execution: {} audio system, {} tuning", 
+                        processed_actions.actions.audio_system_configurations.len(),
+                        processed_actions.actions.tuning_configurations.len()
+                    );
+                    
+                    // Execute actions synchronously
+                    let total_sync = processed_actions.actions.audio_system_configurations.len() + 
+                                   processed_actions.actions.tuning_configurations.len();
+                    match engine.execute_actions(processed_actions.actions) {
+                        Ok(()) => {
+                            if total_sync > 0 {
+                                trace_log!("✓ Executed {} actions", total_sync);
+                            }
+                        }
+                        Err(e) => {
+                            dev_log!("✗ Action execution failed: {}", e);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Log if action processing is skipped due to missing layers
+            if presenter.is_none() || model.is_none() || engine.is_none() {
+                let missing = vec![
+                    if presenter.is_none() { "presenter" } else { "" },
+                    if model.is_none() { "model" } else { "" },
+                    if engine.is_none() { "engine" } else { "" },
+                ]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(", ");
+                
+                if !missing.is_empty() {
+                    trace_log!("Skipping user action processing - missing layers: {}", missing);
+                }
+            }
+        }
+        
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
             let result = model.update(timestamp, engine_data.clone());
@@ -222,77 +293,6 @@ pub async fn start_render_loop(
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                 presenter_ref.process_data(timestamp, model_data);
                 presenter_ref.update_graphics(frame_input.viewport);
-            }
-        }
-        
-        // Process user actions through three-layer validation and execution
-        if let (Some(presenter), Some(model), Some(engine)) = (&presenter, &mut model, &mut engine) {
-            // Collect user actions from presentation layer
-            let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.get_user_actions()
-            } else {
-                presentation::PresentationLayerActions::new()
-            };
-            
-            // Only process if there are actions to handle
-            let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
-                                  !user_actions.root_note_adjustments.is_empty();
-            
-            if has_user_actions {
-                trace_log!("Processing {} user actions", 
-                    user_actions.tuning_system_changes.len() + 
-                    user_actions.root_note_adjustments.len()
-                );
-                
-                // Process and validate actions in model layer
-                let processed_actions = model.process_user_actions(user_actions);
-                
-                // Log validation errors if any
-                for error in &processed_actions.validation_errors {
-                    dev_log!("Action validation error: {:?}", error);
-                }
-                
-                // Execute validated actions in engine layer
-                let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
-                                       !processed_actions.actions.tuning_configurations.is_empty();
-                
-                if has_model_actions {
-                    trace_log!("Actions ready for execution: {} audio system, {} tuning", 
-                        processed_actions.actions.audio_system_configurations.len(),
-                        processed_actions.actions.tuning_configurations.len()
-                    );
-                    
-                    // Execute actions synchronously
-                    let total_sync = processed_actions.actions.audio_system_configurations.len() + 
-                                   processed_actions.actions.tuning_configurations.len();
-                    match engine.execute_actions(processed_actions.actions) {
-                        Ok(()) => {
-                            if total_sync > 0 {
-                                trace_log!("✓ Executed {} actions", total_sync);
-                            }
-                        }
-                        Err(e) => {
-                            dev_log!("✗ Action execution failed: {}", e);
-                        }
-                    }
-                }
-            }
-        } else {
-            // Log if action processing is skipped due to missing layers
-            if presenter.is_none() || model.is_none() || engine.is_none() {
-                let missing = vec![
-                    if presenter.is_none() { "presenter" } else { "" },
-                    if model.is_none() { "model" } else { "" },
-                    if engine.is_none() { "engine" } else { "" },
-                ]
-                .into_iter()
-                .filter(|s| !s.is_empty())
-                .collect::<Vec<_>>()
-                .join(", ");
-                
-                if !missing.is_empty() {
-                    trace_log!("Skipping user action processing - missing layers: {}", missing);
-                }
             }
         }
         
