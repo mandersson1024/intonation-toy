@@ -12,7 +12,7 @@ pub struct IntervalSemitones {
 /// These ratios represent the harmonic relationships between notes in Just Intonation.
 /// Index corresponds to semitones from the root (0-11).
 const JUST_INTONATION_RATIOS: [(i32, f32); 12] = [
-    (0, 1.0 / 1.0),     // Unison
+    (0, 1.0),           // Unison
     (1, 16.0 / 15.0),   // Minor second
     (2, 9.0 / 8.0),     // Major second
     (3, 6.0 / 5.0),     // Minor third

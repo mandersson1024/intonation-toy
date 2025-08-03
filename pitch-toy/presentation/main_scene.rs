@@ -12,10 +12,11 @@ fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
 pub struct SemitoneLines {
     lines: Vec<Gm<Line, ColorMaterial>>,
     material_color: Srgba,
+    tuning_system: TuningSystem,
 }
 
 impl SemitoneLines {
-    pub fn new(context: &Context, color: Srgba) -> Self {
+    pub fn new(context: &Context, color: Srgba, tuning_system: TuningSystem) -> Self {
         let material = ColorMaterial {
             color,
             ..Default::default()
@@ -36,6 +37,7 @@ impl SemitoneLines {
         Self {
             lines,
             material_color: color,
+            tuning_system,
         }
     }
 
@@ -50,7 +52,7 @@ impl SemitoneLines {
         // Lines 0-11: semitones +1 to +12 above center
         for i in 0..12 {
             let semitone = (i + 1) as i32;
-            let frequency = crate::theory::tuning::interval_frequency(TuningSystem::EqualTemperament, center_freq, semitone);
+            let frequency = crate::theory::tuning::interval_frequency(self.tuning_system.clone(), center_freq, semitone);
             let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i].set_endpoints(
@@ -62,7 +64,7 @@ impl SemitoneLines {
         // Lines 12-23: semitones -1 to -12 below center
         for i in 0..12 {
             let semitone = -((i + 1) as i32);
-            let frequency = crate::theory::tuning::interval_frequency(TuningSystem::EqualTemperament, center_freq, semitone);
+            let frequency = crate::theory::tuning::interval_frequency(self.tuning_system.clone(), center_freq, semitone);
             let y = interval_to_screen_y_position(frequency.log2(), viewport.height as f32);
             
             self.lines[i + 12].set_endpoints(
@@ -106,13 +108,13 @@ impl MainScene {
         // Equal Temperament with white color
         tuning_lines.insert(
             TuningSystem::EqualTemperament, 
-            SemitoneLines::new(context, Srgba::WHITE)
+            SemitoneLines::new(context, Srgba::WHITE, TuningSystem::EqualTemperament)
         );
         
         // Just Intonation with light blue color
         tuning_lines.insert(
             TuningSystem::JustIntonation,
-            SemitoneLines::new(context, Srgba::new(128, 179, 255, 255))
+            SemitoneLines::new(context, Srgba::new(128, 179, 255, 255), TuningSystem::JustIntonation)
         );
         
         Self {
