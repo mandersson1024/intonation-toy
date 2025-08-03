@@ -9,11 +9,17 @@ use web_sys::{window, Document, Element, HtmlElement, HtmlSelectElement, EventTa
 use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
+#[cfg(target_arch = "wasm32")]
+use std::sync::atomic::{AtomicU8, Ordering};
 
 #[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
+
+// Global state for current root note - initialized to A3 (57)
+#[cfg(target_arch = "wasm32")]
+static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
@@ -23,6 +29,7 @@ fn format_midi_note(midi_note: MidiNote) -> String {
     let octave = (midi_note as i16 / 12) - 1;
     format!("{}{}", note_names[note_index], octave)
 }
+
 
 #[cfg(target_arch = "wasm32")]
 pub fn setup_main_scene_ui() {
@@ -317,7 +324,7 @@ pub fn cleanup_main_scene_ui() {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>, current_root_note: crate::shared_types::MidiNote) {
+pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for event listeners");
         return;
@@ -331,8 +338,8 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up plus button event listener
     if let Some(plus_button) = document.get_element_by_id("root-note-plus") {
         let presenter_clone = presenter.clone();
-        let current_root_note = current_root_note;
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
             if let Some(new_root) = increment_midi_note(current_root_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
                     presenter_mut.on_root_note_adjusted(new_root);
@@ -353,8 +360,8 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up minus button event listener
     if let Some(minus_button) = document.get_element_by_id("root-note-minus") {
         let presenter_clone = presenter.clone();
-        let current_root_note = current_root_note;
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
             if let Some(new_root) = decrement_midi_note(current_root_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
                     presenter_mut.on_root_note_adjusted(new_root);
@@ -472,6 +479,9 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
         return;
     };
 
+    // Update stored root note state
+    CURRENT_ROOT_NOTE.store(root_note, Ordering::Relaxed);
+
     // Update root note display
     if let Some(display) = document.get_element_by_id("root-note-display") {
         let formatted_note = format_midi_note(root_note);
@@ -503,7 +513,7 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>, _current_root_note: crate::shared_types::MidiNote) {
+pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
     // No-op for non-WASM targets
 }
 

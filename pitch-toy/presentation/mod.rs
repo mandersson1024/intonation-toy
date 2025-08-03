@@ -738,7 +738,7 @@ impl Presenter {
                 
                 // Set up event listeners if we have a self-reference
                 if let Some(ref self_ref) = self.self_reference {
-                    setup_event_listeners(self_ref.clone(), model_data.root_note);
+                    setup_event_listeners(self_ref.clone());
                 } else {
                     crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
                 }
