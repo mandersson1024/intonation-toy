@@ -60,7 +60,7 @@
 
 
 mod main_scene;
-pub use main_scene::MainScene;
+pub use main_scene::{MainScene, TuningLines};
 
 mod startup_scene;
 pub use startup_scene::StartupScene;
@@ -389,6 +389,7 @@ pub struct Presenter {
     self_reference: Option<Rc<RefCell<Self>>>,
     
     
+    
     /// Track whether root note audio is currently enabled (debug builds only)
     #[cfg(debug_assertions)]
     root_note_audio_enabled: bool,
@@ -452,13 +453,27 @@ impl Presenter {
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport) {
+        // Extract values we need before the match to avoid borrowing issues
+        let interval_position = self.interval_position;
+        
+        // Get tuning line positions for the active tuning system
+        let tuning_line_positions = if matches!(self.scene, Scene::Main(_)) {
+            self.get_tuning_line_positions(viewport)
+        } else {
+            Vec::new()
+        };
+        
         match &mut self.scene {
             Scene::Startup(_) => {
                 // No viewport updates needed for startup scene
             }
             Scene::Main(main_scene) => {
                 main_scene.update_viewport(viewport);
-                main_scene.update_pitch_position(viewport, self.interval_position);
+                
+                // Update tuning lines - MainScene doesn't know about music theory
+                main_scene.update_tuning_lines(viewport, &tuning_line_positions);
+                
+                main_scene.update_pitch_position(viewport, interval_position);
             }
         }
     }
@@ -942,6 +957,49 @@ impl Presenter {
     /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
         crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
+    }
+
+    /// Get tuning line positions for the active tuning system
+    /// Returns only the positions for intervals that are relevant to the current tuning system
+    pub fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<f32> {
+        let root_frequency =
+            crate::theory::tuning::midi_note_to_standard_frequency(self.current_root_note);
+        
+        // For now, show a reasonable set of intervals: -12 to +12 semitones excluding root (0)
+        // This gives us the chromatic scale above and below the root note
+        let mut positions = Vec::new();
+        
+        // Add intervals above root: +1 to +12 semitones
+        for semitone in 1..=12 {
+            let frequency = crate::theory::tuning::interval_frequency(
+                self.current_tuning_system.clone(),
+                root_frequency,
+                semitone,
+            );
+            let interval = (frequency / root_frequency).log2();
+            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
+                interval,
+                viewport.height as f32,
+            );
+            positions.push(y_position);
+        }
+        
+        // Add intervals below root: -1 to -12 semitones
+        for semitone in -12..=-1 {
+            let frequency = crate::theory::tuning::interval_frequency(
+                self.current_tuning_system.clone(),
+                root_frequency,
+                semitone,
+            );
+            let interval = (frequency / root_frequency).log2();
+            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
+                interval,
+                viewport.height as f32,
+            );
+            positions.push(y_position);
+        }
+        
+        positions
     }
     
     /// Convert MIDI note to frequency using the presenter's current tuning system
