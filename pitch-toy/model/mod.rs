@@ -590,19 +590,15 @@ impl DataModel {
         
         // Converting frequency with tuning system and root pitch
         
-        // Calculate MIDI note number from frequency using tuning-specific formula
-        let midi_note = match self.tuning_system {
-            TuningSystem::EqualTemperament => {
-                // Equal temperament: logarithmic relationship between frequency and pitch
-                // Formula: MIDI = root_midi + 12 * log2(frequency / root_pitch_frequency)
-                self.root_note as f32 + 12.0 * (frequency / root_pitch).log2()
-            }
-            TuningSystem::JustIntonation => {
-                // For now, use equal temperament formula as placeholder
-                // TODO: Implement proper just intonation calculations
-                self.root_note as f32 + 12.0 * (frequency / root_pitch).log2()
-            }
-        };
+        // Use the inverse calculation from the tuning module
+        let interval_semitones = crate::theory::tuning::frequency_to_interval_semitones(
+            self.tuning_system.clone(),
+            root_pitch,
+            frequency,
+        );
+        
+        // Calculate MIDI note from root note plus interval
+        let midi_note = self.root_note as f32 + interval_semitones;
         
         // Round to nearest MIDI note for note identification
         let rounded_midi = midi_note.round();
@@ -648,19 +644,8 @@ impl DataModel {
     /// - If root is C, then C4 = 261.63Hz becomes the root pitch
     /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
-        // Always calculate root pitch using Equal Temperament regardless of tuning system
-        const A4_MIDI: i32 = 69; // MIDI note number for A4
-        
-        // Use the root note directly as MIDI number
-        let midi_diff = self.root_note as i32 - A4_MIDI;
-        
-        // Calculate frequency using equal temperament formula
-        // f = f0 * 2^(n/12) where n is semitone distance
-        let root_pitch = REFERENCE_FREQUENCY * 2.0_f32.powf(midi_diff as f32 / 12.0);
-        
-        // Root pitch frequency calculated
-        
-        root_pitch
+        // Use the centralized function for consistency
+        crate::theory::tuning::midi_note_to_frequency_et(self.root_note)
     }
     
     /// Validate microphone permission request with detailed error reporting

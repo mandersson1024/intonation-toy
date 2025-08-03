@@ -13,6 +13,9 @@ pub mod web;
 // Module interfaces
 pub mod shared_types;
 
+// Theory modules
+pub mod theory;
+
 // Re-export types for test usage
 #[cfg(test)]
 pub use shared_types::{MidiNote, TuningSystem};
