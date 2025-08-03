@@ -133,7 +133,7 @@ impl DebugPanel {
                 ui.separator();
                 
                 // User Actions Section (debug actions)
-                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system.clone());
+                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system);
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
@@ -563,7 +563,7 @@ impl DebugPanel {
                 ui.horizontal(|ui| {
                     ui.label("Tuning System:");
                     ui.push_id("tuning", |ui| {
-                        let mut selected_tuning = current_tuning_system.clone();
+                        let mut selected_tuning = current_tuning_system;
                         egui::ComboBox::from_label("")
                             .selected_text(format!("{:?}", selected_tuning))
                             .show_ui(ui, |ui| {

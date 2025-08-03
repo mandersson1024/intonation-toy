@@ -474,7 +474,7 @@ impl Presenter {
         let tuning_line_positions = if matches!(self.scene, Scene::Main(_)) {
             Self::get_tuning_line_positions(
                 model_data.root_note,
-                model_data.tuning_system.clone(),
+                model_data.tuning_system,
                 model_data.scale,
                 viewport
             )
@@ -537,7 +537,7 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         
         // Sync HTML UI with updated state
-        Self::sync_html_ui(model_data.root_note, model_data.tuning_system.clone(), model_data.scale);
+        Self::sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -744,7 +744,7 @@ impl Presenter {
                 }
                 
                 // Synchronize UI state with current model data values
-                Self::sync_html_ui(model_data.root_note, model_data.tuning_system.clone(), model_data.scale);
+                Self::sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
             }
         }
         
@@ -983,7 +983,7 @@ impl Presenter {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(scale, semitone) {
                 let frequency = crate::theory::tuning::interval_frequency(
-                    tuning_system.clone(),
+                    tuning_system,
                     root_frequency,
                     semitone,
                 );
@@ -1001,7 +1001,7 @@ impl Presenter {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(scale, semitone) {
                 let frequency = crate::theory::tuning::interval_frequency(
-                    tuning_system.clone(),
+                    tuning_system,
                     root_frequency,
                     semitone,
                 );
