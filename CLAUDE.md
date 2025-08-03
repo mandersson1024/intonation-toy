@@ -38,6 +38,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Has priviliged access to data from all systems
 - Conditionally compiled under cfg(debug_assertions)
 
+## Stateless Design Principle
+
+The application follows a stateless architecture where higher layers should receive fresh data each frame rather than caching data from lower layers:
+
+- **Model layer**: Maintains only configuration state (tuning_system, root_note, current_scale). Receives fresh EngineUpdateResult data each frame and returns processed ModelUpdateResult data.
+- **Presentation layer**: Should avoid caching model data. Methods should receive required configuration data as parameters rather than storing cached copies of model state. This ensures single source of truth and eliminates synchronization complexity.
+- **Data flow**: Each layer processes fresh data from the layer below and passes results upward without caching intermediate state from other layers.
+
+When modifying the presentation layer, prefer passing data as method parameters over storing cached state from the model layer. Note that HTML elements and UI components may need to maintain their own display state separately from model data.
+
 ## Functional requirements and general information
 - The application is all about analyzing the relation of audio input to the root note; in musical terms - intonation
 - We visualize the intonation by realtime graphic rendering to the screen
