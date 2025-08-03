@@ -941,7 +941,7 @@ impl Presenter {
     /// - Each semitone up multiplies frequency by 2^(1/12)
     /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
-        crate::theory::tuning::midi_note_to_frequency_et(midi_note)
+        crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
     }
     
     /// Convert MIDI note to frequency using the presenter's current tuning system
@@ -957,7 +957,7 @@ impl Presenter {
     /// 
     /// The frequency in Hz according to the current tuning system
     pub fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote) -> f32 {
-        let root_frequency = crate::theory::tuning::midi_note_to_frequency_et(self.current_root_note);
+        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(self.current_root_note);
         let interval_semitones = (midi_note as i32) - (self.current_root_note as i32);
         crate::theory::tuning::interval_frequency(self.current_tuning_system.clone(), root_frequency, interval_semitones)
     }

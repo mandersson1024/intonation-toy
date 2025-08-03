@@ -1,5 +1,30 @@
 use crate::shared_types::{MidiNote, TuningSystem};
 
+/// Just Intonation frequency ratios for the 12-tone chromatic scale
+/// 
+/// These ratios represent the harmonic relationships between notes in Just Intonation.
+/// Index corresponds to semitones from the root (0-11).
+const JUST_INTONATION_RATIOS: [(i32, f32); 12] = [
+    (0, 1.0 / 1.0),     // Unison
+    (1, 16.0 / 15.0),   // Minor second
+    (2, 9.0 / 8.0),     // Major second
+    (3, 6.0 / 5.0),     // Minor third
+    (4, 5.0 / 4.0),     // Major third
+    (5, 4.0 / 3.0),     // Perfect fourth
+    (6, 45.0 / 32.0),   // Tritone
+    (7, 3.0 / 2.0),     // Perfect fifth
+    (8, 8.0 / 5.0),     // Minor sixth
+    (9, 5.0 / 3.0),     // Major sixth
+    (10, 9.0 / 5.0),    // Minor seventh
+    (11, 15.0 / 8.0),   // Major seventh
+];
+
+/// Get the Just Intonation ratio for a given semitone interval
+fn get_just_intonation_ratio(semitone: i32) -> f32 {
+    let semitone_in_octave = semitone.rem_euclid(12) as usize;
+    JUST_INTONATION_RATIOS[semitone_in_octave].1
+}
+
 pub fn interval_frequency(
     tuning_system: TuningSystem,
     root_frequency_hz: f32,
@@ -11,30 +36,15 @@ pub fn interval_frequency(
         }
         TuningSystem::JustIntonation => {
             let octaves = interval_semitones.div_euclid(12);
-            let semitone_in_octave = interval_semitones.rem_euclid(12);
-            
-            let ratio = match semitone_in_octave {
-                0 => 1.0 / 1.0,   // Unison
-                1 => 16.0 / 15.0, // Minor second
-                2 => 9.0 / 8.0,   // Major second
-                3 => 6.0 / 5.0,   // Minor third
-                4 => 5.0 / 4.0,   // Major third
-                5 => 4.0 / 3.0,   // Perfect fourth
-                6 => 45.0 / 32.0, // Tritone
-                7 => 3.0 / 2.0,   // Perfect fifth
-                8 => 8.0 / 5.0,   // Minor sixth
-                9 => 5.0 / 3.0,   // Major sixth
-                10 => 9.0 / 5.0,  // Minor seventh
-                11 => 15.0 / 8.0, // Major seventh
-                _ => unreachable!(),
-            };
-            
+            let ratio = get_just_intonation_ratio(interval_semitones);
             root_frequency_hz * ratio * 2.0_f32.powi(octaves)
         }
     }
 }
 
-pub fn midi_note_to_frequency_et(midi_note: MidiNote) -> f32 {
+pub fn midi_note_to_standard_frequency(midi_note: MidiNote) -> f32 {
+    // We refer to Equal Temperament A4=440 as "Standard Tuning"
+    // and the frequencies of the notes as "standard frequencies"
     440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
 }
 
@@ -52,22 +62,7 @@ pub fn frequency_to_interval_semitones(
             let octaves = ratio.log2().floor();
             let ratio_in_octave = ratio / 2.0_f32.powf(octaves);
             
-            let ji_ratios = [
-                (0, 1.0 / 1.0),
-                (1, 16.0 / 15.0),
-                (2, 9.0 / 8.0),
-                (3, 6.0 / 5.0),
-                (4, 5.0 / 4.0),
-                (5, 4.0 / 3.0),
-                (6, 45.0 / 32.0),
-                (7, 3.0 / 2.0),
-                (8, 8.0 / 5.0),
-                (9, 5.0 / 3.0),
-                (10, 9.0 / 5.0),
-                (11, 15.0 / 8.0),
-            ];
-            
-            let (closest_semitone, _) = ji_ratios
+            let (closest_semitone, _) = JUST_INTONATION_RATIOS
                 .iter()
                 .min_by(|(_, r1), (_, r2)| {
                     let diff1 = (ratio_in_octave - r1).abs();
@@ -96,10 +91,10 @@ mod tests {
             assert!((expected - actual).abs() < 0.001);
         }
         
-        let freq_c4 = midi_note_to_frequency_et(60);
+        let freq_c4 = midi_note_to_standard_frequency(60);
         assert!((freq_c4 - 261.626).abs() < 0.01);
         
-        let freq_a4 = midi_note_to_frequency_et(69);
+        let freq_a4 = midi_note_to_standard_frequency(69);
         assert!((freq_a4 - 440.0).abs() < 0.001);
     }
 

@@ -645,7 +645,7 @@ impl DataModel {
     /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
         // Use the centralized function for consistency
-        crate::theory::tuning::midi_note_to_frequency_et(self.root_note)
+        crate::theory::tuning::midi_note_to_standard_frequency(self.root_note)
     }
     
     /// Validate microphone permission request with detailed error reporting

@@ -623,6 +623,6 @@ impl DebugPanel {
     /// 
     /// The frequency in Hz
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
-        crate::theory::tuning::midi_note_to_frequency_et(midi_note)
+        crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
     }
 }
