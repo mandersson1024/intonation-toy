@@ -591,20 +591,17 @@ impl DataModel {
         // Converting frequency with tuning system and root pitch
         
         // Use the inverse calculation from the tuning module
-        let interval_semitones = crate::theory::tuning::frequency_to_interval_semitones(
+        let interval_result = crate::theory::tuning::frequency_to_interval_semitones(
             self.tuning_system.clone(),
             root_pitch,
             frequency,
         );
         
         // Calculate MIDI note from root note plus interval
-        let midi_note = self.root_note as f32 + interval_semitones;
-        
-        // Round to nearest MIDI note for note identification
-        let rounded_midi = midi_note.round();
+        let midi_note = self.root_note as i32 + interval_result.semitones;
         
         // Clamp to valid MIDI range (0-127)
-        let clamped_midi = rounded_midi.max(0.0).min(127.0) as u8;
+        let clamped_midi = midi_note.max(0).min(127) as u8;
         
         // Validate using the utility function
         let final_midi_note = if is_valid_midi_note(clamped_midi) {
@@ -613,13 +610,7 @@ impl DataModel {
             69 // Default to A4 if validation fails
         };
         
-        // Calculate accuracy in cents (100 cents = 1 semitone)
-        // Positive = sharp, Negative = flat
-        let accuracy_cents = (midi_note - rounded_midi) * 100.0;
-        
-        // Frequency to MIDI note conversion complete
-        
-        (final_midi_note, accuracy_cents)
+        (final_midi_note, interval_result.cents)
     }
     
     

@@ -1,5 +1,12 @@
 use crate::shared_types::{MidiNote, TuningSystem};
 
+/// Represents an interval as a base semitone with cents deviation
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IntervalSemitones {
+    pub semitones: i32,
+    pub cents: f32,
+}
+
 /// Just Intonation frequency ratios for the 12-tone chromatic scale
 /// 
 /// These ratios represent the harmonic relationships between notes in Just Intonation.
@@ -48,31 +55,55 @@ pub fn midi_note_to_standard_frequency(midi_note: MidiNote) -> f32 {
     440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
 }
 
+/// Convert a frequency to its interval relative to a root frequency
+/// 
+/// Returns the base semitone interval and cents deviation separately.
+/// This handles cases where cents deviation may exceed ±100 cents.
+/// 
+/// For Equal Temperament: Base semitone is rounded to nearest, cents show deviation
+/// For Just Intonation: Base semitone is closest just interval, cents show deviation from that
 pub fn frequency_to_interval_semitones(
     tuning_system: TuningSystem,
     root_frequency_hz: f32,
     target_frequency_hz: f32,
-) -> f32 {
+) -> IntervalSemitones {
     match tuning_system {
         TuningSystem::EqualTemperament => {
-            cents_delta(root_frequency_hz, target_frequency_hz) / 100.0
+            let total_cents = cents_delta(root_frequency_hz, target_frequency_hz);
+            let base_semitones = (total_cents / 100.0).round() as i32;
+            let base_freq = root_frequency_hz * 2.0_f32.powf(base_semitones as f32 / 12.0);
+            let cents_deviation = cents_delta(base_freq, target_frequency_hz);
+            
+            IntervalSemitones {
+                semitones: base_semitones,
+                cents: cents_deviation,
+            }
         }
         TuningSystem::JustIntonation => {
             let ratio = target_frequency_hz / root_frequency_hz;
-            let octaves = ratio.log2().floor();
-            let ratio_in_octave = ratio / 2.0_f32.powf(octaves);
+            let octaves = ratio.log2().floor() as i32;
+            let ratio_in_octave = ratio / 2.0_f32.powf(octaves as f32);
             
-            let (closest_semitone, _) = JUST_INTONATION_RATIOS
+            let (closest_semitone, closest_ratio) = JUST_INTONATION_RATIOS
                 .iter()
                 .min_by(|(_, r1), (_, r2)| {
-                    let freq1 = root_frequency_hz * ratio_in_octave;
-                    let cents_diff1 = cents_delta(freq1, root_frequency_hz * r1).abs();
-                    let cents_diff2 = cents_delta(freq1, root_frequency_hz * r2).abs();
+                    let target_ratio_freq = root_frequency_hz * ratio_in_octave;
+                    let just_freq1 = root_frequency_hz * r1;
+                    let just_freq2 = root_frequency_hz * r2;
+                    let cents_diff1 = cents_delta(just_freq1, target_ratio_freq).abs();
+                    let cents_diff2 = cents_delta(just_freq2, target_ratio_freq).abs();
                     cents_diff1.partial_cmp(&cents_diff2).unwrap()
                 })
                 .unwrap();
             
-            octaves * 12.0 + *closest_semitone as f32
+            let base_semitones = octaves * 12 + *closest_semitone;
+            let just_intonation_freq = root_frequency_hz * closest_ratio * 2.0_f32.powf(octaves as f32);
+            let cents_deviation = cents_delta(just_intonation_freq, target_frequency_hz);
+            
+            IntervalSemitones {
+                semitones: base_semitones,
+                cents: cents_deviation,
+            }
         }
     }
 }
@@ -143,14 +174,16 @@ mod tests {
             root_freq,
             root_freq * 2.0,
         );
-        assert!((interval - 12.0).abs() < 0.001);
+        assert_eq!(interval.semitones, 12);
+        assert!(interval.cents.abs() < 0.001);
         
         let interval = frequency_to_interval_semitones(
             TuningSystem::EqualTemperament,
             root_freq,
             root_freq * 2.0_f32.powf(7.0 / 12.0),
         );
-        assert!((interval - 7.0).abs() < 0.001);
+        assert_eq!(interval.semitones, 7);
+        assert!(interval.cents.abs() < 0.001);
     }
 
     #[test]
@@ -162,14 +195,16 @@ mod tests {
             root_freq,
             root_freq * 3.0 / 2.0,
         );
-        assert!((interval - 7.0).abs() < 0.001);
+        assert_eq!(interval.semitones, 7);
+        assert!(interval.cents.abs() < 0.001);
         
         let interval = frequency_to_interval_semitones(
             TuningSystem::JustIntonation,
             root_freq,
             root_freq * 5.0 / 4.0,
         );
-        assert!((interval - 4.0).abs() < 0.001);
+        assert_eq!(interval.semitones, 4);
+        assert!(interval.cents.abs() < 0.001);
     }
 
     #[test]
