@@ -71,7 +71,7 @@ pub use smoothing::EmaSmoother;
 use std::rc::Rc;
 use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport, ClearState};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, MidiNote, Pitch, PermissionState};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch, PermissionState};
 
 #[cfg(target_arch = "wasm32")]
 use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
@@ -125,6 +125,22 @@ pub struct AdjustRootNote {
 impl AdjustRootNote {
     pub fn new(root_note: MidiNote) -> Self {
         Self { root_note }
+    }
+}
+
+/// Action for changing the active scale
+/// 
+/// This action represents a user request to change the musical scale used
+/// for note filtering and intonation calculations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScaleChangeAction {
+    pub scale: Scale,
+}
+
+#[cfg(test)]
+impl ScaleChangeAction {
+    pub fn new(scale: Scale) -> Self {
+        Self { scale }
     }
 }
 
@@ -182,6 +198,7 @@ impl ConfigureRootNoteAudio {
 pub struct PresentationLayerActions {
     pub tuning_system_changes: Vec<ChangeTuningSystem>,
     pub root_note_adjustments: Vec<AdjustRootNote>,
+    pub scale_changes: Vec<ScaleChangeAction>,
 }
 
 impl PresentationLayerActions {
@@ -190,6 +207,7 @@ impl PresentationLayerActions {
         Self {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
+            scale_changes: Vec::new(),
         }
     }
 }
@@ -206,6 +224,7 @@ impl PresentationLayerActions {
 pub struct PresentationLayerActionsBuilder {
     tuning_system_changes: Vec<ChangeTuningSystem>,
     root_note_adjustments: Vec<AdjustRootNote>,
+    scale_changes: Vec<ScaleChangeAction>,
 }
 
 #[cfg(test)]
@@ -214,6 +233,7 @@ impl PresentationLayerActionsBuilder {
         Self {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
+            scale_changes: Vec::new(),
         }
     }
     
@@ -227,10 +247,16 @@ impl PresentationLayerActionsBuilder {
         self
     }
     
+    pub fn with_scale_change(mut self, scale: Scale) -> Self {
+        self.scale_changes.push(ScaleChangeAction::new(scale));
+        self
+    }
+    
     pub fn build(self) -> PresentationLayerActions {
         PresentationLayerActions {
             tuning_system_changes: self.tuning_system_changes,
             root_note_adjustments: self.root_note_adjustments,
+            scale_changes: self.scale_changes,
         }
     }
 }
@@ -378,6 +404,9 @@ pub struct Presenter {
     /// Current tuning system for interval calculations and display
     current_tuning_system: TuningSystem,
     
+    /// Current scale for filtering displayed intervals
+    current_scale: Scale,
+    
     /// Tracks whether the main scene UI is currently active
     /// Used to manage HTML UI lifecycle during scene transitions
     #[cfg(target_arch = "wasm32")]
@@ -424,6 +453,7 @@ impl Presenter {
             ema_smoother: EmaSmoother::new(0.1),
             current_root_note: 57, // Default to A3
             current_tuning_system: TuningSystem::EqualTemperament, // Default tuning system
+            current_scale: Scale::Major, // Default scale
             #[cfg(target_arch = "wasm32")]
             main_scene_ui_active: false,
             #[cfg(target_arch = "wasm32")]
@@ -517,8 +547,9 @@ impl Presenter {
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
         
-        // Update stored root note
+        // Update stored root note and scale
         self.current_root_note = model_data.root_note;
+        self.current_scale = model_data.scale;
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -589,6 +620,22 @@ impl Presenter {
         self.sync_html_ui();
     }
 
+    /// Handle scale change action
+    /// 
+    /// # Arguments
+    /// 
+    /// * `scale` - The new scale to set
+    pub fn on_scale_changed(&mut self, scale: Scale) {
+        // Queue scale change action for collection by model layer
+        self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale: scale.clone() });
+        
+        // Update current scale immediately for UI consistency
+        self.current_scale = scale;
+        
+        // Sync HTML UI immediately
+        self.sync_html_ui();
+    }
+
     /// Get the current root note
     /// 
     /// # Returns
@@ -605,6 +652,15 @@ impl Presenter {
     /// The current tuning system
     pub fn get_tuning_system(&self) -> TuningSystem {
         self.current_tuning_system.clone()
+    }
+
+    /// Get the current scale
+    /// 
+    /// # Returns
+    /// 
+    /// The current scale
+    pub fn get_current_scale(&self) -> Scale {
+        self.current_scale
     }
 
     /// Retrieve and clear all pending debug actions (debug builds only)
@@ -737,7 +793,7 @@ impl Presenter {
                 }
                 
                 // Synchronize UI state with current presenter values
-                crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone());
+                crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone(), self.current_scale);
             }
         }
         
@@ -971,32 +1027,38 @@ impl Presenter {
         
         // Add intervals above root: +1 to +12 semitones
         for semitone in 1..=12 {
-            let frequency = crate::theory::tuning::interval_frequency(
-                self.current_tuning_system.clone(),
-                root_frequency,
-                semitone,
-            );
-            let interval = (frequency / root_frequency).log2();
-            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
-                interval,
-                viewport.height as f32,
-            );
-            positions.push(y_position);
+            // Only show intervals that are in the current scale
+            if crate::shared_types::semitone_in_scale(self.current_scale, semitone) {
+                let frequency = crate::theory::tuning::interval_frequency(
+                    self.current_tuning_system.clone(),
+                    root_frequency,
+                    semitone,
+                );
+                let interval = (frequency / root_frequency).log2();
+                let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
+                    interval,
+                    viewport.height as f32,
+                );
+                positions.push(y_position);
+            }
         }
         
         // Add intervals below root: -1 to -12 semitones
         for semitone in -12..=-1 {
-            let frequency = crate::theory::tuning::interval_frequency(
-                self.current_tuning_system.clone(),
-                root_frequency,
-                semitone,
-            );
-            let interval = (frequency / root_frequency).log2();
-            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
-                interval,
-                viewport.height as f32,
-            );
-            positions.push(y_position);
+            // Only show intervals that are in the current scale
+            if crate::shared_types::semitone_in_scale(self.current_scale, semitone) {
+                let frequency = crate::theory::tuning::interval_frequency(
+                    self.current_tuning_system.clone(),
+                    root_frequency,
+                    semitone,
+                );
+                let interval = (frequency / root_frequency).log2();
+                let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
+                    interval,
+                    viewport.height as f32,
+                );
+                positions.push(y_position);
+            }
         }
         
         positions
@@ -1024,7 +1086,7 @@ impl Presenter {
     #[cfg(target_arch = "wasm32")]
     fn sync_html_ui(&mut self) {
         if self.main_scene_ui_active {
-            crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone());
+            crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone(), self.current_scale);
         }
     }
 
@@ -1076,6 +1138,7 @@ mod tests {
                 cents_offset: 0.0,
             },
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
+            scale: Scale::Major,
             errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::NotRequested,
             closest_midi_note: 69,
@@ -1217,6 +1280,7 @@ mod tests {
         
         assert!(actions.tuning_system_changes.is_empty());
         assert!(actions.root_note_adjustments.is_empty());
+        assert!(actions.scale_changes.is_empty());
     }
 
 
@@ -1296,6 +1360,7 @@ mod tests {
         // Test that new instances are empty
         assert!(actions1.tuning_system_changes.is_empty());
         assert!(actions1.root_note_adjustments.is_empty());
+        assert!(actions1.scale_changes.is_empty());
     }
 
     /// Test action struct creation and equality
@@ -1312,6 +1377,70 @@ mod tests {
         let root_note1 = AdjustRootNote { root_note: 65 };
         let root_note2 = AdjustRootNote { root_note: 65 };
         assert_eq!(root_note1, root_note2);
+        
+        let scale_change1 = ScaleChangeAction { scale: Scale::Major };
+        let scale_change2 = ScaleChangeAction { scale: Scale::Major };
+        assert_eq!(scale_change1, scale_change2);
+    }
+
+    /// Test ScaleChangeAction creation using test constructor
+    #[wasm_bindgen_test]
+    fn test_scale_change_action_new() {
+        let action = ScaleChangeAction::new(Scale::Minor);
+        assert_eq!(action.scale, Scale::Minor);
+        
+        let action2 = ScaleChangeAction::new(Scale::Chromatic);
+        assert_eq!(action2.scale, Scale::Chromatic);
+    }
+
+    /// Test PresentationLayerActionsBuilder with scale changes
+    #[wasm_bindgen_test]
+    fn test_presentation_layer_actions_builder_with_scale() {
+        let actions = PresentationLayerActions::builder()
+            .with_scale_change(Scale::Minor)
+            .build();
+        
+        assert_eq!(actions.scale_changes.len(), 1);
+        assert_eq!(actions.scale_changes[0].scale, Scale::Minor);
+        assert!(actions.tuning_system_changes.is_empty());
+        assert!(actions.root_note_adjustments.is_empty());
+    }
+
+    /// Test builder with multiple scale changes
+    #[wasm_bindgen_test]
+    fn test_builder_multiple_scale_changes() {
+        let actions = PresentationLayerActions::builder()
+            .with_scale_change(Scale::Major)
+            .with_scale_change(Scale::Minor)
+            .with_scale_change(Scale::Chromatic)
+            .build();
+        
+        assert_eq!(actions.scale_changes.len(), 3);
+        assert_eq!(actions.scale_changes[0].scale, Scale::Major);
+        assert_eq!(actions.scale_changes[1].scale, Scale::Minor);
+        assert_eq!(actions.scale_changes[2].scale, Scale::Chromatic);
+    }
+
+    /// Test builder with mixed actions including scale changes
+    #[wasm_bindgen_test]
+    fn test_builder_mixed_actions_with_scale() {
+        let actions = PresentationLayerActions::builder()
+            .with_tuning_change(TuningSystem::EqualTemperament)
+            .with_root_note_adjustment(60)
+            .with_scale_change(Scale::Major)
+            .with_root_note_adjustment(62)
+            .with_scale_change(Scale::Minor)
+            .build();
+        
+        assert_eq!(actions.tuning_system_changes.len(), 1);
+        assert_eq!(actions.root_note_adjustments.len(), 2);
+        assert_eq!(actions.scale_changes.len(), 2);
+        
+        assert_eq!(actions.tuning_system_changes[0].tuning_system, TuningSystem::EqualTemperament);
+        assert_eq!(actions.root_note_adjustments[0].root_note, 60);
+        assert_eq!(actions.root_note_adjustments[1].root_note, 62);
+        assert_eq!(actions.scale_changes[0].scale, Scale::Major);
+        assert_eq!(actions.scale_changes[1].scale, Scale::Minor);
     }
 
     // Debug action tests (only run in debug builds)
@@ -1487,6 +1616,85 @@ mod tests {
         assert!((Presenter::midi_note_to_frequency(57) - 220.0).abs() < 0.001, "A3 (MIDI 57) should be 220Hz");
         assert!((Presenter::midi_note_to_frequency(81) - 880.0).abs() < 0.001, "A5 (MIDI 81) should be 880Hz");
         assert!((Presenter::midi_note_to_frequency(53) - 174.614).abs() < 0.01, "F3 (MIDI 53) should be ~174.614Hz");
+    }
+
+    /// Test scale field initialization in Presenter creation
+    #[wasm_bindgen_test]
+    fn test_presenter_scale_initialization() {
+        let presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+        
+        assert_eq!(presenter.current_scale, Scale::Major);
+        assert_eq!(presenter.get_current_scale(), Scale::Major);
+    }
+
+    /// Test scale change action collection and clearing
+    #[wasm_bindgen_test]
+    fn test_scale_change_action_collection() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Initially no scale changes
+        let actions = presenter.get_user_actions();
+        assert!(actions.scale_changes.is_empty());
+
+        // Add scale change
+        presenter.on_scale_changed(Scale::Minor);
+        
+        let actions = presenter.get_user_actions();
+        assert_eq!(actions.scale_changes.len(), 1);
+        assert_eq!(actions.scale_changes[0].scale, Scale::Minor);
+        assert_eq!(presenter.get_current_scale(), Scale::Minor);
+        
+        // After getting actions, they should be cleared
+        let actions2 = presenter.get_user_actions();
+        assert!(actions2.scale_changes.is_empty());
+    }
+
+    /// Test scale-aware tuning line filtering with different scales
+    #[wasm_bindgen_test]
+    fn test_scale_aware_tuning_line_filtering() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        let viewport = three_d::Viewport {
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600,
+        };
+
+        // Test with Major scale - should have fewer lines than chromatic
+        presenter.on_scale_changed(Scale::Major);
+        let major_positions = presenter.get_tuning_line_positions(viewport);
+        
+        // Test with Chromatic scale - should have all semitones
+        presenter.on_scale_changed(Scale::Chromatic);
+        let chromatic_positions = presenter.get_tuning_line_positions(viewport);
+        
+        // Chromatic should have more positions than Major
+        assert!(chromatic_positions.len() > major_positions.len());
+        
+        // Test with Minor scale
+        presenter.on_scale_changed(Scale::Minor);
+        let minor_positions = presenter.get_tuning_line_positions(viewport);
+        
+        // Major and Minor should have the same number of positions (both are 7-note scales)
+        assert_eq!(major_positions.len(), minor_positions.len());
+    }
+
+    /// Test UI synchronization includes scale parameter
+    #[wasm_bindgen_test]
+    fn test_ui_synchronization_with_scale() {
+        let mut presenter = Presenter::create()
+            .expect("Presenter creation should succeed");
+
+        // Test that scale changes trigger UI sync
+        presenter.on_scale_changed(Scale::Minor);
+        
+        // This test mainly ensures the sync_html_ui call doesn't panic
+        // and that the scale parameter is properly passed through
+        assert_eq!(presenter.get_current_scale(), Scale::Minor);
     }
     
 }

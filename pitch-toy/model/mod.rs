@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Error, PermissionState, MidiNote, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note, semitone_in_scale};
 use crate::presentation::PresentationLayerActions;
 use crate::common::warn_log;
 
@@ -241,6 +241,9 @@ pub struct DataModel {
     
     /// Current root note for tuning calculations
     root_note: MidiNote,
+    
+    /// Current scale for note filtering
+    current_scale: Scale,
 }
 
 /// Standard A4 = 440Hz reference frequency for Equal Temperament
@@ -287,6 +290,7 @@ impl DataModel {
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
             root_note: 57, // Standard A3 root note (MIDI 57)
+            current_scale: Scale::Major,
         })
     }
 
@@ -428,6 +432,7 @@ impl DataModel {
             pitch,
             accuracy: accuracy.clone(), // Keep for backward compatibility
             tuning_system: self.tuning_system.clone(),
+            scale: self.current_scale.clone(),
             errors,
             permission_state,
             // New flattened fields for easier access
@@ -525,6 +530,21 @@ impl DataModel {
                 }
         }
         
+        // Process scale changes
+        for scale_change in presentation_actions.scale_changes {
+            let new_scale = scale_change.scale;
+            // Only apply if scale is different from current
+            if new_scale != self.current_scale {
+                // Apply the scale change directly to internal state
+                crate::common::dev_log!(
+                    "Model layer: Scale changed from {:?} to {:?}",
+                    self.current_scale, new_scale
+                );
+                self.current_scale = new_scale;
+                // No model-layer action created since scale changes are internal
+            }
+        }
+        
         ProcessedActions {
             actions: model_actions,
             validation_errors,
@@ -536,16 +556,23 @@ impl DataModel {
         self.process_user_actions(presentation_actions)
     }
     
-    /// Convert a frequency to the closest musical note with tuning system awareness
+    /// Convert a frequency to the closest musical note with tuning system and scale awareness
     /// 
-    /// This method applies the current tuning system and root note context to convert
-    /// raw frequency data into musical note identification. The conversion process:
+    /// This method applies the current tuning system, root note context, and scale filtering
+    /// to convert raw frequency data into musical note identification. The conversion process:
     /// 
     /// 1. Validates the input frequency (must be positive)
     /// 2. Calculates a root pitch frequency based on tuning system and root note
     /// 3. Converts frequency to MIDI note space using tuning-specific formulas
     /// 4. Maps MIDI note to the closest musical note
-    /// 5. Calculates accuracy in cents (1/100th of a semitone)
+    /// 5. Applies scale filtering to find the nearest scale member if needed
+    /// 6. Calculates accuracy in cents (1/100th of a semitone)
+    /// 
+    /// # Scale Filtering
+    /// 
+    /// When the detected note is not in the current scale, the method finds the
+    /// nearest scale member by searching outward (±1, ±2, ±3 semitones) until
+    /// a scale member is found. For equal distances, it favors the upward direction.
     /// 
     /// # Tuning System Application
     /// 
@@ -563,7 +590,7 @@ impl DataModel {
     /// # Returns
     /// 
     /// Returns a tuple of (Note, accuracy_cents) where:
-    /// - Note: The closest musical note to the frequency
+    /// - Note: The closest musical note to the frequency (filtered by scale)
     /// - accuracy_cents: Deviation in cents (negative = flat, positive = sharp)
     fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (MidiNote, f32) {
         // Handle edge case: invalid or zero frequency
@@ -590,22 +617,23 @@ impl DataModel {
         
         // Converting frequency with tuning system and root pitch
         
-        // Use the inverse calculation from the tuning module
-        let interval_result = crate::theory::tuning::frequency_to_interval_semitones(
+        // Use the scale-aware calculation from the tuning module
+        let interval_result = crate::theory::tuning::frequency_to_interval_semitones_scale_aware(
             self.tuning_system.clone(),
             root_pitch,
             frequency,
+            self.current_scale,
         );
         
         // Calculate MIDI note from root note plus interval
-        let midi_note = self.root_note as i32 + interval_result.semitones;
+        let raw_midi_note = self.root_note as i32 + interval_result.semitones;
         
         // Clamp to valid MIDI range (0-127)
-        let clamped_midi = midi_note.max(0).min(127) as u8;
+        let clamped_midi_note = raw_midi_note.max(0).min(127) as u8;
         
         // Validate using the utility function
-        let final_midi_note = if is_valid_midi_note(clamped_midi) {
-            clamped_midi
+        let final_midi_note = if is_valid_midi_note(clamped_midi_note) {
+            clamped_midi_note
         } else {
             69 // Default to A4 if validation fails
         };
@@ -1242,6 +1270,192 @@ mod tests {
         let result = model.update(1.0, engine_data);
         assert_eq!(result.pitch, Pitch::NotDetected);
         assert_eq!(result.accuracy.cents_offset, 0.0);
+    }
+
+    /// Test scale field initialization in DataModel
+    #[wasm_bindgen_test]
+    fn test_data_model_scale_initialization() {
+        let model = DataModel::create().unwrap();
+        assert_eq!(model.current_scale, Scale::Major, "Default scale should be Major");
+    }
+
+    /// Test scale change processing
+    #[wasm_bindgen_test]
+    fn test_scale_change_processing() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with scale change
+        let mut actions = PresentationLayerActions::new();
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Minor,
+        });
+        
+        let result = model.process_user_actions(actions);
+        
+        // Should have no model-layer actions (scale changes are internal)
+        assert_eq!(result.actions.audio_system_configurations.len(), 0);
+        assert_eq!(result.actions.tuning_configurations.len(), 0);
+        
+        // Should have no validation errors
+        assert_eq!(result.validation_errors.len(), 0);
+        
+        // Verify model state was updated
+        assert_eq!(model.current_scale, Scale::Minor);
+    }
+
+    /// Test scale filtering in frequency_to_note_and_accuracy
+    #[wasm_bindgen_test]
+    fn test_scale_aware_note_filtering() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Set scale to Major
+        model.current_scale = Scale::Major;
+        
+        // Test frequency for C# (not in C Major scale)
+        let csharp_freq = 277.18; // C#4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(csharp_freq);
+        
+        // Should snap to nearest scale note (D4 = MIDI 62)
+        assert_eq!(midi_note, 62, "C# should snap to D in C Major scale");
+        assert!(cents < 0.0, "Should be flat relative to D");
+        
+        // Test frequency for D (in C Major scale)
+        let d_freq = 293.66; // D4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(d_freq);
+        
+        // Should remain as D
+        assert_eq!(midi_note, 62, "D should remain D in C Major scale");
+        assert!(cents.abs() < 1.0, "Should be nearly in tune");
+        
+        // Change scale to Chromatic
+        model.current_scale = Scale::Chromatic;
+        
+        // Test C# again - should now be accepted
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(csharp_freq);
+        assert_eq!(midi_note, 61, "C# should be C# in Chromatic scale");
+        assert!(cents.abs() < 1.0, "Should be nearly in tune");
+    }
+
+    /// Test scale filtering with different root notes
+    #[wasm_bindgen_test]
+    fn test_scale_filtering_with_different_roots() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Set root to G (MIDI 67) and scale to Major
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: 67, // G4
+        });
+        model.process_user_actions(actions);
+        model.current_scale = Scale::Major;
+        
+        // Test frequency for G# (not in G Major scale)
+        let gsharp_freq = 415.30; // G#4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(gsharp_freq);
+        
+        // Should snap to nearest scale note (A4 = MIDI 69)
+        assert_eq!(midi_note, 69, "G# should snap to A in G Major scale");
+        assert!(cents < 0.0, "Should be flat relative to A");
+        
+        // Test frequency for F# (in G Major scale - major 7th)
+        let fsharp_freq = 369.99; // F#4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(fsharp_freq);
+        
+        // Should remain as F#
+        assert_eq!(midi_note, 66, "F# should remain F# in G Major scale");
+        assert!(cents.abs() < 1.0, "Should be nearly in tune");
+    }
+
+    /// Test scale persistence in ModelUpdateResult
+    #[wasm_bindgen_test]
+    fn test_scale_in_model_update_result() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Change scale to Minor
+        let mut actions = PresentationLayerActions::new();
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Minor,
+        });
+        model.process_user_actions(actions);
+        
+        // Create engine data
+        let engine_data = EngineUpdateResult {
+            audio_analysis: None,
+            audio_errors: Vec::new(),
+            permission_state: crate::shared_types::PermissionState::NotRequested,
+        };
+        
+        let result = model.update(1.0, engine_data);
+        
+        // Verify scale is included in result
+        assert_eq!(result.scale, Scale::Minor);
+    }
+
+    /// Test multiple scale changes in sequence
+    #[wasm_bindgen_test]
+    fn test_multiple_scale_changes() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Create presentation actions with multiple scale changes
+        let mut actions = PresentationLayerActions::new();
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Minor,
+        });
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Chromatic,
+        });
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Major,
+        });
+        
+        model.process_user_actions(actions);
+        
+        // Final scale should be Major
+        assert_eq!(model.current_scale, Scale::Major);
+    }
+
+    /// Test scale change to same scale (no-op)
+    #[wasm_bindgen_test]
+    fn test_scale_change_to_same_scale() {
+        let mut model = DataModel::create().unwrap();
+        
+        // Initial scale is Major
+        assert_eq!(model.current_scale, Scale::Major);
+        
+        // Try to change to Major again
+        let mut actions = PresentationLayerActions::new();
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::Major,
+        });
+        
+        model.process_user_actions(actions);
+        
+        // Scale should still be Major (no-op)
+        assert_eq!(model.current_scale, Scale::Major);
+    }
+
+    /// Test edge cases in scale-aware note filtering
+    #[wasm_bindgen_test]
+    fn test_scale_filtering_edge_cases() {
+        let mut model = DataModel::create().unwrap();
+        model.current_scale = Scale::Major;
+        
+        // Test very low frequency
+        let (midi_note, _) = model.frequency_to_note_and_accuracy(20.0);
+        // Should still apply scale filtering
+        let interval = (midi_note as i32) - (model.root_note as i32);
+        assert!(semitone_in_scale(Scale::Major, interval), "Low frequency note should be in scale");
+        
+        // Test very high frequency
+        let (midi_note, _) = model.frequency_to_note_and_accuracy(4000.0);
+        // Should still apply scale filtering
+        let interval = (midi_note as i32) - (model.root_note as i32);
+        assert!(semitone_in_scale(Scale::Major, interval), "High frequency note should be in scale");
+        
+        // Test frequency at MIDI boundary (127)
+        model.root_note = 120; // Very high root
+        let (midi_note, _) = model.frequency_to_note_and_accuracy(3000.0);
+        assert!(midi_note <= 127, "MIDI note should be clamped to valid range");
     }
 
     /// Test engine-to-model data flow integration

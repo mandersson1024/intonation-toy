@@ -75,6 +75,45 @@ pub enum TuningSystem {
     JustIntonation,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scale {
+    Major,
+    Minor,
+    Chromatic,
+}
+
+impl Scale {
+    /// Returns a boolean array indicating which semitones (1-11) from the root are included in the scale.
+    /// Index 0 represents +1 semitone from root, index 10 represents +11 semitones.
+    pub fn pattern(&self) -> [bool; 11] {
+        match self {
+            // Major scale: W-W-H-W-W-W-H (semitones: 2,4,5,7,9,11)
+            Scale::Major => [false, true, false, true, true, false, true, false, true, false, true],
+            // Minor scale: W-H-W-W-H-W-W (semitones: 2,3,5,7,8,10)
+            Scale::Minor => [false, true, true, false, true, false, true, true, false, true, false],
+            // Chromatic scale: all semitones
+            Scale::Chromatic => [true; 11],
+        }
+    }
+}
+
+/// Check if a semitone offset from the root is included in the given scale.
+/// The root (offset 0) is always included in any scale.
+pub fn semitone_in_scale(scale: Scale, semitone_offset: i32) -> bool {
+    if semitone_offset == 0 {
+        return true; // Root is always in the scale
+    }
+    
+    // Use rem_euclid to handle negative offsets and octaves
+    let normalized_offset = semitone_offset.rem_euclid(12);
+    if normalized_offset == 0 {
+        return true; // Octaves of the root
+    }
+    
+    // Check the pattern (index 0 = semitone 1)
+    scale.pattern()[(normalized_offset - 1) as usize]
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntonationData {
     pub closest_midi_note: MidiNote,
@@ -127,6 +166,7 @@ pub struct ModelUpdateResult {
     pub pitch: Pitch,
     pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,
+    pub scale: Scale,
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
     // Flattened intonation data fields for easier access
@@ -289,6 +329,7 @@ mod tests {
             pitch: test_pitch.clone(),
             accuracy: test_accuracy.clone(),
             tuning_system: test_tuning_system.clone(),
+            scale: Scale::Major,
             errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
             closest_midi_note: 69,
@@ -436,6 +477,75 @@ mod tests {
         assert_eq!(interval_name_from_semitones(-12), "Perfect Octave (descending)");
         assert_eq!(interval_name_from_semitones(-16), "Major Third + Octave (descending)");
         assert_eq!(interval_name_from_semitones(-24), "2 Octaves (descending)");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_scale_patterns() {
+        // Test Major scale pattern (W-W-H-W-W-W-H)
+        let major = Scale::Major.pattern();
+        assert_eq!(major, [false, true, false, true, true, false, true, false, true, false, true]);
+        
+        // Test Minor scale pattern (W-H-W-W-H-W-W)
+        let minor = Scale::Minor.pattern();
+        assert_eq!(minor, [false, true, true, false, true, false, true, true, false, true, false]);
+        
+        // Test Chromatic scale pattern (all semitones)
+        let chromatic = Scale::Chromatic.pattern();
+        assert_eq!(chromatic, [true; 11]);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_semitone_in_scale() {
+        // Test root is always in scale
+        assert!(semitone_in_scale(Scale::Major, 0));
+        assert!(semitone_in_scale(Scale::Minor, 0));
+        assert!(semitone_in_scale(Scale::Chromatic, 0));
+        
+        // Test Major scale semitones
+        assert!(!semitone_in_scale(Scale::Major, 1));  // Minor 2nd not in major
+        assert!(semitone_in_scale(Scale::Major, 2));   // Major 2nd
+        assert!(!semitone_in_scale(Scale::Major, 3));  // Minor 3rd not in major
+        assert!(semitone_in_scale(Scale::Major, 4));   // Major 3rd
+        assert!(semitone_in_scale(Scale::Major, 5));   // Perfect 4th
+        assert!(!semitone_in_scale(Scale::Major, 6));  // Tritone not in major
+        assert!(semitone_in_scale(Scale::Major, 7));   // Perfect 5th
+        assert!(!semitone_in_scale(Scale::Major, 8));  // Minor 6th not in major
+        assert!(semitone_in_scale(Scale::Major, 9));   // Major 6th
+        assert!(!semitone_in_scale(Scale::Major, 10)); // Minor 7th not in major
+        assert!(semitone_in_scale(Scale::Major, 11));  // Major 7th
+        
+        // Test Minor scale semitones
+        assert!(!semitone_in_scale(Scale::Minor, 1));  // Minor 2nd not in minor
+        assert!(semitone_in_scale(Scale::Minor, 2));   // Major 2nd
+        assert!(semitone_in_scale(Scale::Minor, 3));   // Minor 3rd
+        assert!(!semitone_in_scale(Scale::Minor, 4));  // Major 3rd not in minor
+        assert!(semitone_in_scale(Scale::Minor, 5));   // Perfect 4th
+        assert!(!semitone_in_scale(Scale::Minor, 6));  // Tritone not in minor
+        assert!(semitone_in_scale(Scale::Minor, 7));   // Perfect 5th
+        assert!(semitone_in_scale(Scale::Minor, 8));   // Minor 6th
+        assert!(!semitone_in_scale(Scale::Minor, 9));  // Major 6th not in minor
+        assert!(semitone_in_scale(Scale::Minor, 10));  // Minor 7th
+        assert!(!semitone_in_scale(Scale::Minor, 11)); // Major 7th not in minor
+        
+        // Test Chromatic scale (all semitones)
+        for i in 0..12 {
+            assert!(semitone_in_scale(Scale::Chromatic, i));
+        }
+        
+        // Test octave handling
+        assert!(semitone_in_scale(Scale::Major, 12));  // Octave is root
+        assert!(semitone_in_scale(Scale::Major, 14));  // Octave + Major 2nd
+        assert!(!semitone_in_scale(Scale::Major, 13)); // Octave + Minor 2nd not in major
+        
+        // Test negative offsets
+        assert!(semitone_in_scale(Scale::Major, -12)); // Octave below is root
+        assert!(semitone_in_scale(Scale::Major, -10)); // Major 2nd below (wraps to +2)
+        assert!(!semitone_in_scale(Scale::Major, -11)); // Minor 2nd below (wraps to +1)
+        
+        // Test large offsets
+        assert!(semitone_in_scale(Scale::Major, 24));  // 2 octaves is root
+        assert!(semitone_in_scale(Scale::Major, 26));  // 2 octaves + Major 2nd
+        assert!(!semitone_in_scale(Scale::Major, 25)); // 2 octaves + Minor 2nd not in major
     }
 
 

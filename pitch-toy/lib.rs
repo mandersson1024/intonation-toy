@@ -18,10 +18,10 @@ pub mod theory;
 
 // Re-export types for test usage
 #[cfg(test)]
-pub use shared_types::{MidiNote, TuningSystem};
+pub use shared_types::{MidiNote, TuningSystem, Scale};
 #[cfg(test)]
 pub use presentation::{
-    ChangeTuningSystem, AdjustRootNote,
+    ChangeTuningSystem, AdjustRootNote, ScaleChangeAction,
     PresentationLayerActions,
 };
 #[cfg(all(debug_assertions, test))]
@@ -152,6 +152,7 @@ pub async fn start_render_loop(
                     cents_offset: 0.0,
                 },
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
+                scale: crate::shared_types::Scale::Major,
                 errors: Vec::new(),
                 permission_state: crate::shared_types::PermissionState::NotRequested,
                 // New flattened fields with default values

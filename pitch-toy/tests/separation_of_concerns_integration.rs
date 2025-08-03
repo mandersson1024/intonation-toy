@@ -11,7 +11,7 @@ use pitch_toy::model::DataModel;
 use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
-    PermissionState, TuningSystem, IntonationData, MidiNote
+    PermissionState, TuningSystem, Scale, IntonationData, MidiNote
 };
 use pitch_toy::presentation::PresentationLayerActions;
 use wasm_bindgen_test::*;
@@ -234,6 +234,7 @@ fn test_layer_separation_boundaries() {
             cents_offset: 1.0,
         },
         tuning_system: TuningSystem::EqualTemperament,
+        scale: Scale::Major,
         errors: Vec::new(),
         permission_state: PermissionState::Granted,
         closest_midi_note: 69,

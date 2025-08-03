@@ -1,4 +1,4 @@
-use crate::shared_types::{MidiNote, TuningSystem};
+use crate::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale};
 
 /// Represents an interval as a base semitone with cents deviation
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -127,6 +127,95 @@ pub fn cents_delta(frequency1_hz: f32, frequency2_hz: f32) -> f32 {
     1200.0 * (frequency2_hz / frequency1_hz).log2()
 }
 
+/// Find the closest scale note to a given semitone interval
+/// 
+/// This function searches for the nearest scale member when the candidate semitone
+/// is not in the scale. If the candidate is already in the scale, it's returned unchanged.
+/// Otherwise, it searches outward (±1, ±2, ±3 semitones) until finding a scale member.
+/// For ties at equal distance, it favors the upward direction.
+fn find_closest_scale_note(candidate_semitone: i32, scale: Scale) -> i32 {
+    // If already in scale, return as-is
+    if semitone_in_scale(scale, candidate_semitone) {
+        return candidate_semitone;
+    }
+    
+    // Search outward for the closest scale member
+    for distance in 1..=12 {
+        // Check upward first (favoring upward for ties)
+        let upward = candidate_semitone + distance;
+        if semitone_in_scale(scale, upward) {
+            return upward;
+        }
+        
+        // Check downward
+        let downward = candidate_semitone - distance;
+        if semitone_in_scale(scale, downward) {
+            return downward;
+        }
+    }
+    
+    // Fallback - should not happen for valid scales
+    candidate_semitone
+}
+
+/// Scale-aware frequency to interval conversion
+/// 
+/// Converts a frequency to its interval relative to a root frequency,
+/// but filters the result to the nearest scale member. This is useful
+/// for applications that want to show intonation relative to scale notes only.
+/// 
+/// The function first calculates the raw interval, then finds the closest
+/// scale note and recalculates the cents offset relative to that scale note.
+pub fn frequency_to_interval_semitones_scale_aware(
+    tuning_system: TuningSystem,
+    root_frequency_hz: f32,
+    target_frequency_hz: f32,
+    scale: Scale,
+) -> IntervalSemitones {
+    // First get the raw interval
+    let raw_interval = frequency_to_interval_semitones(
+        tuning_system.clone(),
+        root_frequency_hz,
+        target_frequency_hz,
+    );
+    
+    // Find the closest scale note
+    let scale_semitone = find_closest_scale_note(raw_interval.semitones, scale);
+    
+    // If the semitone was adjusted, recalculate cents relative to the scale note
+    if scale_semitone != raw_interval.semitones {
+        let scale_note_frequency = interval_frequency(
+            tuning_system,
+            root_frequency_hz,
+            scale_semitone,
+        );
+        let adjusted_cents = cents_delta(scale_note_frequency, target_frequency_hz);
+        
+        IntervalSemitones {
+            semitones: scale_semitone,
+            cents: adjusted_cents,
+        }
+    } else {
+        // No adjustment needed, use original result
+        raw_interval
+    }
+}
+
+/// Scale-aware interval frequency calculation
+/// 
+/// Returns the frequency for the closest scale member to the given interval.
+/// This is useful for getting the "target" frequency that a scale-aware
+/// intonation system would expect for a given interval.
+pub fn interval_frequency_scale_aware(
+    tuning_system: TuningSystem,
+    root_frequency_hz: f32,
+    interval_semitones: i32,
+    scale: Scale,
+) -> f32 {
+    let scale_semitone = find_closest_scale_note(interval_semitones, scale);
+    interval_frequency(tuning_system, root_frequency_hz, scale_semitone)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +319,144 @@ mod tests {
         // Semitone in equal temperament should be 100 cents
         let semitone = cents_delta(base_freq, base_freq * 2.0_f32.powf(1.0 / 12.0));
         assert!((semitone - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_find_closest_scale_note() {
+        // Test notes already in Major scale
+        assert_eq!(find_closest_scale_note(0, Scale::Major), 0);   // Root
+        assert_eq!(find_closest_scale_note(2, Scale::Major), 2);   // Major 2nd
+        assert_eq!(find_closest_scale_note(4, Scale::Major), 4);   // Major 3rd
+        
+        // Test notes not in Major scale - should round to nearest scale note
+        assert_eq!(find_closest_scale_note(1, Scale::Major), 2);   // Minor 2nd -> Major 2nd (up)
+        assert_eq!(find_closest_scale_note(3, Scale::Major), 2);   // Minor 3rd -> Major 2nd (down)
+        assert_eq!(find_closest_scale_note(6, Scale::Major), 7);   // Tritone -> Perfect 5th (up)
+        assert_eq!(find_closest_scale_note(8, Scale::Major), 7);   // Minor 6th -> Perfect 5th (down)
+        assert_eq!(find_closest_scale_note(10, Scale::Major), 11); // Minor 7th -> Major 7th (up)
+        
+        // Test chromatic scale - all notes should remain unchanged
+        for i in 0..12 {
+            assert_eq!(find_closest_scale_note(i, Scale::Chromatic), i);
+        }
+        
+        // Test octave handling
+        assert_eq!(find_closest_scale_note(13, Scale::Major), 14); // Octave + Minor 2nd -> Octave + Major 2nd
+        assert_eq!(find_closest_scale_note(-11, Scale::Major), -10); // -Minor 2nd -> -Major 2nd
+    }
+
+    #[test]
+    fn test_frequency_to_interval_semitones_scale_aware() {
+        let root_freq = 440.0; // A4
+        
+        // Test Equal Temperament with Major scale
+        // A# (1 semitone) should map to B (2 semitones) in Major scale
+        let a_sharp_freq = root_freq * 2.0_f32.powf(1.0 / 12.0);
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            a_sharp_freq,
+            Scale::Major,
+        );
+        assert_eq!(interval.semitones, 2); // Should be mapped to B (Major 2nd)
+        
+        // The cents should be negative (A# is flat relative to B)
+        assert!(interval.cents < 0.0);
+        assert!((interval.cents + 100.0).abs() < 0.001); // Should be -100 cents
+        
+        // Test frequency already in scale (B natural)
+        let b_freq = root_freq * 2.0_f32.powf(2.0 / 12.0);
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            b_freq,
+            Scale::Major,
+        );
+        assert_eq!(interval.semitones, 2);
+        assert!(interval.cents.abs() < 0.001); // Should be exactly 0 cents
+        
+        // Test Chromatic scale behavior (should be identical to non-scale-aware)
+        let interval_chromatic = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            a_sharp_freq,
+            Scale::Chromatic,
+        );
+        let interval_raw = frequency_to_interval_semitones(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            a_sharp_freq,
+        );
+        assert_eq!(interval_chromatic.semitones, interval_raw.semitones);
+        assert!((interval_chromatic.cents - interval_raw.cents).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_frequency_to_interval_semitones_scale_aware_just_intonation() {
+        let root_freq = 440.0;
+        
+        // Test Just Intonation with Major scale
+        // Use a frequency that would naturally map to a non-scale note
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::JustIntonation,
+            root_freq,
+            root_freq * 16.0 / 15.0, // Minor 2nd in JI
+            Scale::Major,
+        );
+        // Should map to Major 2nd (2 semitones)
+        assert_eq!(interval.semitones, 2);
+        // Cents should be negative (minor 2nd is flat relative to major 2nd)
+        assert!(interval.cents < 0.0);
+    }
+
+    #[test]
+    fn test_interval_frequency_scale_aware() {
+        let root_freq = 440.0;
+        
+        // Test that asking for a non-scale interval returns the closest scale note frequency
+        let freq = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            1, // Minor 2nd (not in Major scale)
+            Scale::Major,
+        );
+        
+        // Should return frequency for Major 2nd (2 semitones)
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            2,
+        );
+        assert!((freq - expected_freq).abs() < 0.001);
+        
+        // Test that scale notes remain unchanged
+        let freq = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            4, // Major 3rd (in Major scale)
+            Scale::Major,
+        );
+        
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            4,
+        );
+        assert!((freq - expected_freq).abs() < 0.001);
+        
+        // Test Chromatic scale (should be identical to non-scale-aware)
+        let freq_chromatic = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            6, // Tritone
+            Scale::Chromatic,
+        );
+        
+        let freq_raw = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            6,
+        );
+        assert!((freq_chromatic - freq_raw).abs() < 0.001);
     }
 }

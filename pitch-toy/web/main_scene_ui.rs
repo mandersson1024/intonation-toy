@@ -13,7 +13,7 @@ use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
-use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
@@ -212,9 +212,82 @@ pub fn setup_main_scene_ui() {
     tuning_container.append_child(&tuning_label).ok();
     tuning_container.append_child(&tuning_select).ok();
 
+    // Create scale controls container
+    let Ok(scale_container) = document.create_element("div") else {
+        dev_log!("Failed to create scale container");
+        return;
+    };
+    scale_container.set_attribute("style", "display: flex; align-items: center; gap: 10px;").ok();
+
+    // Create scale label
+    let Ok(scale_label) = document.create_element("span") else {
+        dev_log!("Failed to create scale label");
+        return;
+    };
+    scale_label.set_text_content(Some("Scale:"));
+    scale_label.set_attribute("style", 
+        "color: #ffffff; \
+         font-family: inherit; \
+         font-size: 14px; \
+         font-weight: 500; \
+         margin-right: 4px;").ok();
+
+    // Create scale dropdown
+    let Ok(scale_select) = document.create_element("select") else {
+        dev_log!("Failed to create scale select");
+        return;
+    };
+    scale_select.set_id("scale-select");
+    scale_select.set_attribute("style", 
+        "padding: 8px 12px; \
+         background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
+         color: #ffffff; \
+         border: 1px solid rgba(255, 255, 255, 0.2); \
+         border-radius: 6px; \
+         cursor: pointer; \
+         font-size: 14px; \
+         font-family: inherit; \
+         min-width: 160px; \
+         transition: all 0.2s ease;").ok();
+
+    // Create Major option
+    let Ok(major_option) = document.create_element("option") else {
+        dev_log!("Failed to create major option");
+        return;
+    };
+    major_option.set_attribute("value", "major").ok();
+    major_option.set_attribute("selected", "true").ok();
+    major_option.set_text_content(Some("Major"));
+
+    // Create Minor option
+    let Ok(minor_option) = document.create_element("option") else {
+        dev_log!("Failed to create minor option");
+        return;
+    };
+    minor_option.set_attribute("value", "minor").ok();
+    minor_option.set_text_content(Some("Minor"));
+
+    // Create Chromatic option
+    let Ok(chromatic_option) = document.create_element("option") else {
+        dev_log!("Failed to create chromatic option");
+        return;
+    };
+    chromatic_option.set_attribute("value", "chromatic").ok();
+    chromatic_option.set_text_content(Some("Chromatic"));
+
+    // Assemble scale dropdown
+    scale_select.append_child(&major_option).ok();
+    scale_select.append_child(&minor_option).ok();
+    scale_select.append_child(&chromatic_option).ok();
+
+    // Assemble scale controls
+    scale_container.append_child(&scale_label).ok();
+    scale_container.append_child(&scale_select).ok();
+
     // Assemble main container
     container.append_child(&root_note_container).ok();
     container.append_child(&tuning_container).ok();
+    container.append_child(&scale_container).ok();
 
     // Append to body
     let Some(body) = document.body() else {
@@ -311,7 +384,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     if let Some(tuning_select) = document.get_element_by_id("tuning-system-select") {
         let presenter_clone = presenter.clone();
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
+            if let Some(current_window) = web_sys::window() {
+                if let Some(document) = current_window.document() {
+                    if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
                 if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
                     let value = html_select.value();
                     let tuning_system = match value.as_str() {
@@ -322,7 +397,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                             return;
                         }
                     };
-                    presenter_clone.borrow_mut().on_tuning_system_changed(tuning_system);
+                        presenter_clone.borrow_mut().on_tuning_system_changed(tuning_system);
+                    }
+                }
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -335,6 +412,41 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         closure.forget();
     } else {
         dev_log!("Failed to find tuning-system-select dropdown");
+    }
+
+    // Set up scale dropdown event listener
+    if let Some(scale_select) = document.get_element_by_id("scale-select") {
+        let presenter_clone = presenter.clone();
+        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            if let Some(current_window) = web_sys::window() {
+                if let Some(document) = current_window.document() {
+                    if let Some(select_element) = document.get_element_by_id("scale-select") {
+                if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
+                    let value = html_select.value();
+                    let scale = match value.as_str() {
+                        "major" => Scale::Major,
+                        "minor" => Scale::Minor,
+                        "chromatic" => Scale::Chromatic,
+                        _ => {
+                            dev_log!("Unknown scale value: {}", value);
+                            return;
+                        }
+                    };
+                        presenter_clone.borrow_mut().on_scale_changed(scale);
+                    }
+                }
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+
+        if let Some(event_target) = scale_select.dyn_ref::<EventTarget>() {
+            if let Err(err) = event_target.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref()) {
+                dev_log!("Failed to add change listener to scale dropdown: {:?}", err);
+            }
+        }
+        closure.forget();
+    } else {
+        dev_log!("Failed to find scale-select dropdown");
     }
 }
 
@@ -359,7 +471,7 @@ pub fn cleanup_main_scene_ui() {
 /// * `root_note` - The current root note from the presenter
 /// * `tuning_system` - The current tuning system from the presenter
 #[cfg(target_arch = "wasm32")]
-pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSystem) {
+pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
     let Some(window) = window() else {
         return;
     };
@@ -384,6 +496,18 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
             html_select.set_value(value);
         }
     }
+
+    // Update scale dropdown selection
+    if let Some(select_element) = document.get_element_by_id("scale-select") {
+        if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
+            let value = match scale {
+                Scale::Major => "major",
+                Scale::Minor => "minor",
+                Scale::Chromatic => "chromatic",
+            };
+            html_select.set_value(value);
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -392,6 +516,6 @@ pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::p
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn sync_ui_with_presenter_state(_root_note: crate::shared_types::MidiNote, _tuning_system: crate::shared_types::TuningSystem) {
+pub fn sync_ui_with_presenter_state(_root_note: crate::shared_types::MidiNote, _tuning_system: crate::shared_types::TuningSystem, _scale: crate::shared_types::Scale) {
     // No-op for non-WASM targets
 }
