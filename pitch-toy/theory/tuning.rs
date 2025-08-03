@@ -42,9 +42,9 @@ pub fn interval_frequency(
     }
 }
 
+/// We refer to Equal Temperament A4=440 as "Standard Tuning"
+/// and the frequencies of the notes as "standard frequencies"
 pub fn midi_note_to_standard_frequency(midi_note: MidiNote) -> f32 {
-    // We refer to Equal Temperament A4=440 as "Standard Tuning"
-    // and the frequencies of the notes as "standard frequencies"
     440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
 }
 
@@ -55,7 +55,7 @@ pub fn frequency_to_interval_semitones(
 ) -> f32 {
     match tuning_system {
         TuningSystem::EqualTemperament => {
-            12.0 * (target_frequency_hz / root_frequency_hz).log2()
+            cents_delta(root_frequency_hz, target_frequency_hz) / 100.0
         }
         TuningSystem::JustIntonation => {
             let ratio = target_frequency_hz / root_frequency_hz;
@@ -65,9 +65,10 @@ pub fn frequency_to_interval_semitones(
             let (closest_semitone, _) = JUST_INTONATION_RATIOS
                 .iter()
                 .min_by(|(_, r1), (_, r2)| {
-                    let diff1 = (ratio_in_octave - r1).abs();
-                    let diff2 = (ratio_in_octave - r2).abs();
-                    diff1.partial_cmp(&diff2).unwrap()
+                    let freq1 = root_frequency_hz * ratio_in_octave;
+                    let cents_diff1 = cents_delta(freq1, root_frequency_hz * r1).abs();
+                    let cents_diff2 = cents_delta(freq1, root_frequency_hz * r2).abs();
+                    cents_diff1.partial_cmp(&cents_diff2).unwrap()
                 })
                 .unwrap();
             
@@ -102,7 +103,6 @@ mod tests {
     #[test]
     fn test_equal_temperament_matches_existing_formula() {
         let root_freq = 440.0;
-        let midi_a4 = 69;
         
         for offset in -12..=12 {
             let expected = 440.0 * 2.0_f32.powf(offset as f32 / 12.0);
