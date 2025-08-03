@@ -148,12 +148,14 @@ pub async fn start_render_loop(
             
             // Only process if there are actions to handle
             let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
-                                  !user_actions.root_note_adjustments.is_empty();
+                                  !user_actions.root_note_adjustments.is_empty() ||
+                                  !user_actions.scale_changes.is_empty();
             
             if has_user_actions {
                 trace_log!("Processing {} user actions", 
                     user_actions.tuning_system_changes.len() + 
-                    user_actions.root_note_adjustments.len()
+                    user_actions.root_note_adjustments.len() +
+                    user_actions.scale_changes.len()
                 );
                 
                 // Process and validate actions in model layer

@@ -532,15 +532,9 @@ impl DataModel {
         
         // Process scale changes
         for scale_change in presentation_actions.scale_changes {
-            let new_scale = scale_change.scale;
             // Only apply if scale is different from current
-            if new_scale != self.current_scale {
-                // Apply the scale change directly to internal state
-                crate::common::dev_log!(
-                    "Model layer: Scale changed from {:?} to {:?}",
-                    self.current_scale, new_scale
-                );
-                self.current_scale = new_scale;
+            if scale_change.scale != self.current_scale {
+                self.apply_scale_change(&scale_change);
                 // No model-layer action created since scale changes are internal
             }
         }
@@ -761,6 +755,30 @@ impl DataModel {
             self.tuning_system, action.tuning_system
         );
         self.tuning_system = action.tuning_system.clone();
+    }
+    
+    /// Apply scale change to internal state
+    /// 
+    /// Updates the internal scale based on a validated scale change.
+    /// This method should only be called with actions that have passed business logic validation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `action` - The validated scale change to apply
+    /// 
+    /// # Current Implementation
+    /// 
+    /// Updates the internal scale based on a validated scale change.
+    /// Future implementations will add:
+    /// - State change notifications
+    /// - Logging of configuration changes
+    /// - Validation of state consistency after changes
+    fn apply_scale_change(&mut self, action: &crate::presentation::ScaleChangeAction) {
+        crate::common::dev_log!(
+            "Model layer: Scale changed from {:?} to {:?}",
+            self.current_scale, action.scale
+        );
+        self.current_scale = action.scale;
     }
     
     /// Apply root note change to internal state
