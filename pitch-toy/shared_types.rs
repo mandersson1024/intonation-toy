@@ -83,16 +83,16 @@ pub enum Scale {
 }
 
 impl Scale {
-    /// Returns a boolean array indicating which semitones (1-11) from the root are included in the scale.
-    /// Index 0 represents +1 semitone from root, index 10 represents +11 semitones.
-    pub fn pattern(&self) -> [bool; 11] {
+    /// Returns a boolean array indicating which semitones (0-11) from the root are included in the scale.
+    /// Index 0 represents the root note (always true), index 1 represents +1 semitone from root, etc.
+    pub fn pattern(&self) -> [bool; 12] {
         match self {
-            // Major scale: W-W-H-W-W-W-H (semitones: 2,4,5,7,9,11)
-            Scale::Major => [false, true, false, true, true, false, true, false, true, false, true],
-            // Minor scale: W-H-W-W-H-W-W (semitones: 2,3,5,7,8,10)
-            Scale::Minor => [false, true, true, false, true, false, true, true, false, true, false],
-            // Chromatic scale: all semitones
-            Scale::Chromatic => [true; 11],
+            // Major scale: Root + W-W-H-W-W-W-H (semitones: 0,2,4,5,7,9,11)
+            Scale::Major => [true, false, true, false, true, true, false, true, false, true, false, true],
+            // Minor scale: Root + W-H-W-W-H-W-W (semitones: 0,2,3,5,7,8,10)
+            Scale::Minor => [true, false, true, true, false, true, false, true, true, false, true, false],
+            // Chromatic scale: all semitones including root
+            Scale::Chromatic => [true; 12],
         }
     }
 }
@@ -100,18 +100,11 @@ impl Scale {
 /// Check if a semitone offset from the root is included in the given scale.
 /// The root (offset 0) is always included in any scale.
 pub fn semitone_in_scale(scale: Scale, semitone_offset: i32) -> bool {
-    if semitone_offset == 0 {
-        return true; // Root is always in the scale
-    }
-    
     // Use rem_euclid to handle negative offsets and octaves
     let normalized_offset = semitone_offset.rem_euclid(12);
-    if normalized_offset == 0 {
-        return true; // Octaves of the root
-    }
     
-    // Check the pattern (index 0 = semitone 1)
-    scale.pattern()[(normalized_offset - 1) as usize]
+    // Check the pattern (index 0 = root, index 1 = semitone 1, etc.)
+    scale.pattern()[normalized_offset as usize]
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -481,17 +474,17 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_scale_patterns() {
-        // Test Major scale pattern (W-W-H-W-W-W-H)
+        // Test Major scale pattern (Root + W-W-H-W-W-W-H)
         let major = Scale::Major.pattern();
-        assert_eq!(major, [false, true, false, true, true, false, true, false, true, false, true]);
+        assert_eq!(major, [true, false, true, false, true, true, false, true, false, true, false, true]);
         
-        // Test Minor scale pattern (W-H-W-W-H-W-W)
+        // Test Minor scale pattern (Root + W-H-W-W-H-W-W)
         let minor = Scale::Minor.pattern();
-        assert_eq!(minor, [false, true, true, false, true, false, true, true, false, true, false]);
+        assert_eq!(minor, [true, false, true, true, false, true, false, true, true, false, true, false]);
         
-        // Test Chromatic scale pattern (all semitones)
+        // Test Chromatic scale pattern (all semitones including root)
         let chromatic = Scale::Chromatic.pattern();
-        assert_eq!(chromatic, [true; 11]);
+        assert_eq!(chromatic, [true; 12]);
     }
 
     #[wasm_bindgen_test]
