@@ -317,7 +317,7 @@ pub fn cleanup_main_scene_ui() {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
+pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>, current_root_note: crate::shared_types::MidiNote) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for event listeners");
         return;
@@ -331,15 +331,11 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up plus button event listener
     if let Some(plus_button) = document.get_element_by_id("root-note-plus") {
         let presenter_clone = presenter.clone();
+        let current_root_note = current_root_note;
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Ok(presenter_ref) = presenter_clone.try_borrow() {
-                let current_root = presenter_ref.get_root_note();
-                drop(presenter_ref); // Release the borrow
-                
-                if let Some(new_root) = increment_midi_note(current_root) {
-                    if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                        presenter_mut.on_root_note_adjusted(new_root);
-                    }
+            if let Some(new_root) = increment_midi_note(current_root_note) {
+                if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                    presenter_mut.on_root_note_adjusted(new_root);
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -357,15 +353,11 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     // Set up minus button event listener
     if let Some(minus_button) = document.get_element_by_id("root-note-minus") {
         let presenter_clone = presenter.clone();
+        let current_root_note = current_root_note;
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Ok(presenter_ref) = presenter_clone.try_borrow() {
-                let current_root = presenter_ref.get_root_note();
-                drop(presenter_ref); // Release the borrow
-                
-                if let Some(new_root) = decrement_midi_note(current_root) {
-                    if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                        presenter_mut.on_root_note_adjusted(new_root);
-                    }
+            if let Some(new_root) = decrement_midi_note(current_root_note) {
+                if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                    presenter_mut.on_root_note_adjusted(new_root);
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -511,7 +503,7 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
+pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>, _current_root_note: crate::shared_types::MidiNote) {
     // No-op for non-WASM targets
 }
 

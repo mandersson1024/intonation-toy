@@ -86,23 +86,23 @@ impl DebugPanel {
     }
     
     /// Render the live data panel
-    pub fn render(&mut self, gui_context: &egui::Context) {
+    pub fn render(&mut self, gui_context: &egui::Context, model_data: &crate::shared_types::ModelUpdateResult) {
         let screen_rect = gui_context.screen_rect();
         egui::Window::new("Debug Data")
             .default_pos([0.0, 0.0])
             .default_size(Vec2::new(400.0, screen_rect.height()))
             .resizable(true)
             .show(gui_context, |ui| {
-                self.render_content(ui);
+                self.render_content(ui, model_data);
             });
     }
     
     /// Render panel content
-    fn render_content(&mut self, ui: &mut Ui) {
+    fn render_content(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical(|ui| {                
                 // Root Note Audio Controls Section (debug actions)
-                self.render_root_note_audio_controls(ui);
+                self.render_root_note_audio_controls(ui, model_data.root_note);
 
                 // Audio Devices Section (debug-specific data)
                 self.render_audio_devices_section(ui);
@@ -133,7 +133,7 @@ impl DebugPanel {
                 ui.separator();
                 
                 // User Actions Section (debug actions)
-                self.render_user_actions_section(ui);
+                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system.clone());
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
@@ -485,21 +485,18 @@ impl DebugPanel {
     }
     
     /// Render root note audio controls (debug actions)
-    fn render_root_note_audio_controls(&mut self, ui: &mut Ui) {
+    fn render_root_note_audio_controls(&mut self, ui: &mut Ui, root_note: crate::shared_types::MidiNote) {
         egui::CollapsingHeader::new("Root Note Audio Controls")
             .default_open(true)
             .show(ui, |ui| {
                 if ui.checkbox(&mut self.root_note_audio_enabled, "Enable Root Note Audio (plays current root note)").changed() {
-                    self.send_root_note_audio_action();
+                    self.send_root_note_audio_action(root_note);
                 }
                 
                 // Display current frequency when enabled
                 if self.root_note_audio_enabled {
-                    if let Ok(presenter_ref) = self.presenter.try_borrow() {
-                        let current_root_note = presenter_ref.get_root_note();
-                        let frequency = Self::midi_note_to_frequency(current_root_note);
-                        ui.label(format!("Frequency: {:.2} Hz", frequency));
-                    }
+                    let frequency = Self::midi_note_to_frequency(root_note);
+                    ui.label(format!("Frequency: {:.2} Hz", frequency));
                 }
                 
                 ui.label("Note: Audio frequency automatically follows the root note from User Actions section");
@@ -528,23 +525,17 @@ impl DebugPanel {
     }
     
     #[cfg(debug_assertions)]
-    fn send_root_note_audio_action(&self) {
+    fn send_root_note_audio_action(&self, root_note: crate::shared_types::MidiNote) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_root_note_audio_configured(self.root_note_audio_enabled);
+            presenter.on_root_note_audio_configured(self.root_note_audio_enabled, root_note);
         }
     }
     
     /// Render user actions section (debug actions)
-    fn render_user_actions_section(&mut self, ui: &mut Ui) {
+    fn render_user_actions_section(&mut self, ui: &mut Ui, current_root_note: crate::shared_types::MidiNote, current_tuning_system: crate::shared_types::TuningSystem) {
         egui::CollapsingHeader::new("User Actions")
             .default_open(true)
             .show(ui, |ui| {
-                // Get current values from presenter
-                let (current_root_note, current_tuning_system) = if let Ok(presenter_ref) = self.presenter.try_borrow() {
-                    (presenter_ref.get_root_note(), presenter_ref.get_tuning_system())
-                } else {
-                    return; // Skip rendering if we can't borrow presenter
-                };
                 
                 // Root Note Selection
                 ui.horizontal(|ui| {
@@ -599,7 +590,7 @@ impl DebugPanel {
             
             // If root note audio is enabled, update its frequency to match the new root note
             if self.root_note_audio_enabled {
-                presenter.on_root_note_audio_configured(self.root_note_audio_enabled);
+                presenter.on_root_note_audio_configured(self.root_note_audio_enabled, root_note);
             }
         }
     }

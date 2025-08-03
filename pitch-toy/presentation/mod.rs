@@ -375,9 +375,6 @@ pub struct Presenter {
     /// Current scene (startup or main)
     scene: Scene,
     
-    /// Current permission state for scene switching
-    current_permission_state: PermissionState,
-    
     /// Collection of pending user actions to be processed by the main loop
     /// 
     /// This field stores user actions (like requesting microphone permission,
@@ -397,15 +394,6 @@ pub struct Presenter {
     
     /// EMA smoother for interval position smoothing
     pub ema_smoother: EmaSmoother,
-    
-    /// Current root note for frequency calculations
-    current_root_note: MidiNote,
-    
-    /// Current tuning system for interval calculations and display
-    current_tuning_system: TuningSystem,
-    
-    /// Current scale for filtering displayed intervals
-    current_scale: Scale,
     
     /// Tracks whether the main scene UI is currently active
     /// Used to manage HTML UI lifecycle during scene transitions
@@ -445,15 +433,11 @@ impl Presenter {
         // TODO: Set up sprite scene configuration
         Ok(Self {
             scene: Scene::Startup(StartupScene),
-            current_permission_state: PermissionState::NotRequested,
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
             ema_smoother: EmaSmoother::new(0.1),
-            current_root_note: 57, // Default to A3
-            current_tuning_system: TuningSystem::EqualTemperament, // Default tuning system
-            current_scale: Scale::Major, // Default scale
             #[cfg(target_arch = "wasm32")]
             main_scene_ui_active: false,
             #[cfg(target_arch = "wasm32")]
@@ -482,13 +466,18 @@ impl Presenter {
         // No-op for non-WASM targets
     }
 
-    pub fn update_graphics(&mut self, viewport: Viewport) {
+    pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
         // Extract values we need before the match to avoid borrowing issues
         let interval_position = self.interval_position;
         
         // Get tuning line positions for the active tuning system
         let tuning_line_positions = if matches!(self.scene, Scene::Main(_)) {
-            self.get_tuning_line_positions(viewport)
+            Self::get_tuning_line_positions(
+                model_data.root_note,
+                model_data.tuning_system.clone(),
+                model_data.scale,
+                viewport
+            )
         } else {
             Vec::new()
         };
@@ -547,12 +536,8 @@ impl Presenter {
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
         
-        // Update stored root note and scale
-        self.current_root_note = model_data.root_note;
-        self.current_scale = model_data.scale;
-        
         // Sync HTML UI with updated state
-        self.sync_html_ui();
+        Self::sync_html_ui(model_data.root_note, model_data.tuning_system.clone(), model_data.scale);
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -614,7 +599,7 @@ impl Presenter {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
         
         // Update root note audio frequency if it's currently enabled
-        self.on_root_note_changed_update_audio();
+        self.on_root_note_changed_update_audio(root_note);
     }
 
     /// Handle scale change action
@@ -627,32 +612,6 @@ impl Presenter {
         self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale: scale.clone() });
     }
 
-    /// Get the current root note
-    /// 
-    /// # Returns
-    /// 
-    /// The current root note as a MidiNote
-    pub fn get_root_note(&self) -> MidiNote {
-        self.current_root_note
-    }
-
-    /// Get the current tuning system
-    /// 
-    /// # Returns
-    /// 
-    /// The current tuning system
-    pub fn get_tuning_system(&self) -> TuningSystem {
-        self.current_tuning_system.clone()
-    }
-
-    /// Get the current scale
-    /// 
-    /// # Returns
-    /// 
-    /// The current scale
-    pub fn get_current_scale(&self) -> Scale {
-        self.current_scale
-    }
 
     /// Retrieve and clear all pending debug actions (debug builds only)
     /// 
@@ -721,9 +680,9 @@ impl Presenter {
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
     #[cfg(debug_assertions)]
-    pub fn on_root_note_audio_configured(&mut self, enabled: bool) {
+    pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote) {
         self.root_note_audio_enabled = enabled;
-        let frequency = Self::midi_note_to_frequency(self.current_root_note);
+        let frequency = Self::midi_note_to_frequency(root_note);
         self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
             frequency,
@@ -738,10 +697,10 @@ impl Presenter {
     /// root note audio configuration, and if so, creates a new configuration with
     /// the updated frequency.
     #[cfg(debug_assertions)]
-    fn on_root_note_changed_update_audio(&mut self) {
+    fn on_root_note_changed_update_audio(&mut self, root_note: MidiNote) {
         // If root note audio is currently enabled, update the frequency
         if self.root_note_audio_enabled {
-            let frequency = Self::midi_note_to_frequency(self.current_root_note);
+            let frequency = Self::midi_note_to_frequency(root_note);
             self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
                 enabled: true,
                 frequency,
@@ -763,9 +722,10 @@ impl Presenter {
     /// 
     /// * `_context` - The WebGL context for rendering (currently unused)
     /// * `screen` - The render target to draw to
-    pub fn render(&mut self, context: &Context, screen: &mut RenderTarget) {
+    /// * `model_data` - The current model data containing root note, tuning system, and scale
+    pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {
         // Check if we need to switch from StartupScene to MainScene
-        if matches!(self.scene, Scene::Startup(_)) && self.current_permission_state == PermissionState::Granted {
+        if matches!(self.scene, Scene::Startup(_)) && model_data.permission_state == PermissionState::Granted {
             // Permission was granted - switch to MainScene
             let viewport = screen.viewport();
             self.scene = Scene::Main(MainScene::new(context, viewport));
@@ -778,13 +738,13 @@ impl Presenter {
                 
                 // Set up event listeners if we have a self-reference
                 if let Some(ref self_ref) = self.self_reference {
-                    setup_event_listeners(self_ref.clone());
+                    setup_event_listeners(self_ref.clone(), model_data.root_note);
                 } else {
                     crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
                 }
                 
-                // Synchronize UI state with current presenter values
-                crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone(), self.current_scale);
+                // Synchronize UI state with current model data values
+                Self::sync_html_ui(model_data.root_note, model_data.tuning_system.clone(), model_data.scale);
             }
         }
         
@@ -915,8 +875,7 @@ impl Presenter {
     /// 
     /// * `permission_state` - Current microphone permission state
     fn process_permission_state(&mut self, permission_state: &crate::shared_types::PermissionState) {
-        // Update stored permission state
-        self.current_permission_state = *permission_state;
+        // Process permission state without caching
     }
     
     /// Process tuning system updates
@@ -927,9 +886,7 @@ impl Presenter {
     /// 
     /// * `tuning_system` - Current tuning system from the model layer
     fn process_tuning_system(&mut self, tuning_system: &crate::shared_types::TuningSystem) {
-        // Store the current tuning system
-        self.current_tuning_system = tuning_system.clone();
-        
+        // Process tuning system without caching
         match tuning_system {
             crate::shared_types::TuningSystem::EqualTemperament => {
                 // Update UI to show Equal Temperament tuning
@@ -1006,11 +963,16 @@ impl Presenter {
         crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
     }
 
+    
     /// Get tuning line positions for the active tuning system
     /// Returns only the positions for intervals that are relevant to the current tuning system
-    pub fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<f32> {
-        let root_frequency =
-            crate::theory::tuning::midi_note_to_standard_frequency(self.current_root_note);
+    pub fn get_tuning_line_positions(
+        root_note: MidiNote,
+        tuning_system: TuningSystem,
+        scale: Scale,
+        viewport: Viewport
+    ) -> Vec<f32> {
+        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
         
         // For now, show a reasonable set of intervals: -12 to +12 semitones excluding root (0)
         // This gives us the chromatic scale above and below the root note
@@ -1019,9 +981,9 @@ impl Presenter {
         // Add intervals above root: +1 to +12 semitones
         for semitone in 1..=12 {
             // Only show intervals that are in the current scale
-            if crate::shared_types::semitone_in_scale(self.current_scale, semitone) {
+            if crate::shared_types::semitone_in_scale(scale, semitone) {
                 let frequency = crate::theory::tuning::interval_frequency(
-                    self.current_tuning_system.clone(),
+                    tuning_system.clone(),
                     root_frequency,
                     semitone,
                 );
@@ -1037,9 +999,9 @@ impl Presenter {
         // Add intervals below root: -1 to -12 semitones
         for semitone in -12..=-1 {
             // Only show intervals that are in the current scale
-            if crate::shared_types::semitone_in_scale(self.current_scale, semitone) {
+            if crate::shared_types::semitone_in_scale(scale, semitone) {
                 let frequency = crate::theory::tuning::interval_frequency(
-                    self.current_tuning_system.clone(),
+                    tuning_system.clone(),
                     root_frequency,
                     semitone,
                 );
@@ -1055,35 +1017,52 @@ impl Presenter {
         positions
     }
     
-    /// Convert MIDI note to frequency using the presenter's current tuning system
+
+    /// Convert MIDI note to frequency using specified tuning system and root note.
     /// 
-    /// This method calculates frequency based on the current tuning system and root note,
+    /// This method calculates frequency based on the tuning system and root note,
     /// enabling proper support for both Equal Temperament and Just Intonation.
     /// 
     /// # Arguments
     /// 
     /// * `midi_note` - The MIDI note number to convert
+    /// * `root_note` - The root note for calculating intervals
+    /// * `tuning_system` - The tuning system to use (Equal Temperament or Just Intonation)
     /// 
     /// # Returns
     /// 
-    /// The frequency in Hz according to the current tuning system
-    pub fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote) -> f32 {
-        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(self.current_root_note);
-        let interval_semitones = (midi_note as i32) - (self.current_root_note as i32);
-        crate::theory::tuning::interval_frequency(self.current_tuning_system.clone(), root_frequency, interval_semitones)
+    /// The frequency in Hz according to the specified tuning system
+    /// 
+    /// # Example
+    /// 
+    /// ```ignore
+    /// let frequency = presenter.midi_note_to_frequency_with_tuning(
+    ///     60, // Middle C
+    ///     60, // C as root
+    ///     TuningSystem::EqualTemperament
+    /// );
+    /// ```
+    pub fn midi_note_to_frequency_with_tuning(
+        &self,
+        midi_note: MidiNote,
+        root_note: MidiNote,
+        tuning_system: TuningSystem,
+    ) -> f32 {
+        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
+        let interval_semitones = (midi_note as i32) - (root_note as i32);
+        crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
 
-    /// Synchronize HTML UI with current presenter state
+
+    /// Synchronize HTML UI with specified presenter state
     #[cfg(target_arch = "wasm32")]
-    fn sync_html_ui(&mut self) {
-        if self.main_scene_ui_active {
-            crate::web::main_scene_ui::sync_ui_with_presenter_state(self.current_root_note, self.current_tuning_system.clone(), self.current_scale);
-        }
+    fn sync_html_ui(root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
+        crate::web::main_scene_ui::sync_ui_with_presenter_state(root_note, tuning_system, scale);
     }
 
     /// No-op version for non-WASM targets
     #[cfg(not(target_arch = "wasm32"))]
-    fn sync_html_ui(&mut self) {
+    fn sync_html_ui(_root_note: MidiNote, _tuning_system: TuningSystem, _scale: Scale) {
         // No-op for non-WASM targets
     }
     
@@ -1609,14 +1588,14 @@ mod tests {
         assert!((Presenter::midi_note_to_frequency(53) - 174.614).abs() < 0.01, "F3 (MIDI 53) should be ~174.614Hz");
     }
 
-    /// Test scale field initialization in Presenter creation
+    /// Test that Presenter creation succeeds
     #[wasm_bindgen_test]
     fn test_presenter_scale_initialization() {
         let presenter = Presenter::create()
             .expect("Presenter creation should succeed");
         
-        assert_eq!(presenter.current_scale, Scale::Major);
-        assert_eq!(presenter.get_current_scale(), Scale::Major);
+        // Presenter no longer stores scale state - this test just verifies creation succeeds
+        assert!(true);
     }
 
     /// Test scale change action collection and clearing
@@ -1635,7 +1614,6 @@ mod tests {
         let actions = presenter.get_user_actions();
         assert_eq!(actions.scale_changes.len(), 1);
         assert_eq!(actions.scale_changes[0].scale, Scale::Minor);
-        assert_eq!(presenter.get_current_scale(), Scale::Minor);
         
         // After getting actions, they should be cleared
         let actions2 = presenter.get_user_actions();
@@ -1656,19 +1634,16 @@ mod tests {
         };
 
         // Test with Major scale - should have fewer lines than chromatic
-        presenter.on_scale_changed(Scale::Major);
-        let major_positions = presenter.get_tuning_line_positions(viewport);
+        let major_positions = Presenter::get_tuning_line_positions(57, crate::shared_types::TuningSystem::EqualTemperament, Scale::Major, viewport);
         
         // Test with Chromatic scale - should have all semitones
-        presenter.on_scale_changed(Scale::Chromatic);
-        let chromatic_positions = presenter.get_tuning_line_positions(viewport);
+        let chromatic_positions = Presenter::get_tuning_line_positions(57, crate::shared_types::TuningSystem::EqualTemperament, Scale::Chromatic, viewport);
         
         // Chromatic should have more positions than Major
         assert!(chromatic_positions.len() > major_positions.len());
         
         // Test with Minor scale
-        presenter.on_scale_changed(Scale::Minor);
-        let minor_positions = presenter.get_tuning_line_positions(viewport);
+        let minor_positions = Presenter::get_tuning_line_positions(57, crate::shared_types::TuningSystem::EqualTemperament, Scale::Minor, viewport);
         
         // Major and Minor should have the same number of positions (both are 7-note scales)
         assert_eq!(major_positions.len(), minor_positions.len());
@@ -1680,12 +1655,13 @@ mod tests {
         let mut presenter = Presenter::create()
             .expect("Presenter creation should succeed");
 
-        // Test that scale changes trigger UI sync
+        // Test that scale changes are properly queued
         presenter.on_scale_changed(Scale::Minor);
         
-        // This test mainly ensures the sync_html_ui call doesn't panic
-        // and that the scale parameter is properly passed through
-        assert_eq!(presenter.get_current_scale(), Scale::Minor);
+        // This test mainly ensures the scale change action is properly queued
+        let actions = presenter.get_user_actions();
+        assert_eq!(actions.scale_changes.len(), 1);
+        assert_eq!(actions.scale_changes[0].scale, Scale::Minor);
     }
     
 }

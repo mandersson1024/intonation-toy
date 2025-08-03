@@ -291,8 +291,8 @@ pub async fn start_render_loop(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.process_data(timestamp, model_data);
-                presenter_ref.update_graphics(frame_input.viewport);
+                presenter_ref.process_data(timestamp, model_data.clone());
+                presenter_ref.update_graphics(frame_input.viewport, &model_data);
             }
         }
         
@@ -371,7 +371,7 @@ pub async fn start_render_loop(
                 
                 dev_console.render(gui_context);
                 if let Some(ref mut panel) = debug_panel {
-                    panel.render(gui_context);
+                    panel.render(gui_context, &model_data);
                 }
             }
         );
@@ -381,7 +381,7 @@ pub async fn start_render_loop(
         // Render presentation layer (which handles its own screen clearing)
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.render(&context, &mut screen);
+                presenter_ref.render(&context, &mut screen, &model_data);
             }
         }
         
