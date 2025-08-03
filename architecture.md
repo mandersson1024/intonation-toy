@@ -36,8 +36,10 @@ The Model layer sits between raw audio data and visual presentation:
 - **Musical Theory Processing**: Converts raw frequencies to musical notes and intervals
 - **Tuning System Implementation**: Applies Equal Temperament, Just Intonation calculations
 - **Business Logic Validation**: Validates user actions before execution
-- **State Management**: Manages root note, tuning system, and scale configurations
+- **Configuration State**: Manages root note, tuning system, and scale settings (but **not** audio data)
 - **Accuracy Calculations**: Computes intonation accuracy in cents
+
+**Important**: The Model layer **does not cache audio data** from the Engine. It receives fresh `EngineUpdateResult` data each frame and processes it immediately, maintaining only configuration state (tuning system, root note, etc.).
 
 **Key Components:**
 - `DataModel`: Main model orchestrator
@@ -60,6 +62,8 @@ The Presentation layer manages all visual and user interaction aspects:
 - **Visual Feedback**: Real-time pitch visualization and tuning indicators
 - **Scene Management**: Handles startup screen and main visualization scenes
 
+**Important**: The Presentation layer **does not cache processed data** from the Model. It receives fresh `ModelUpdateResult` data each frame for rendering, maintaining only UI state (current scene, smoothing buffers, etc.).
+
 **Key Components:**
 - `Presenter`: Main presentation orchestrator
 - `MainScene`: 3D graphics rendering with tuning lines
@@ -71,7 +75,7 @@ The Presentation layer manages all visual and user interaction aspects:
 
 ### Data Flow Pattern
 
-The architecture uses a **return-based data flow** pattern rather than observer/callback interfaces:
+The architecture uses a **return-based data flow** pattern rather than observer/callback interfaces, with a crucial **stateless principle**:
 
 ```
 Engine Layer    Model Layer     Presentation Layer
@@ -82,6 +86,13 @@ Engine Layer    Model Layer     Presentation Layer
      |              |                   |
 [Actions] <--- [Validation] <--- [User Input]
 ```
+
+**Critical Design Principle**: Higher layers (Model and Presentation) **do not duplicate or cache data from lower layers**. Instead, they receive fresh, updated data every frame and use this as their primary data source. This ensures:
+
+- **Single Source of Truth**: Each layer owns its data domain exclusively
+- **Consistency**: No stale cached data or synchronization issues
+- **Simplicity**: No complex state management between layers
+- **Real-time Accuracy**: Every frame uses the most current data available
 
 ### Main Render Loop Communication
 
@@ -203,6 +214,7 @@ Located in `lib.rs`, the main render loop orchestrates all three layers:
 - **Predictable**: Explicit data parameters and return values
 - **Testable**: Each layer can be tested independently
 - **Maintainable**: Clear data dependencies and transformation points
+- **Stateless**: Higher layers receive fresh data each frame rather than caching lower layer data
 
 ### Error Handling
 - **Propagation**: Errors flow upward through layers for user feedback
