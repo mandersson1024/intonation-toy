@@ -4,7 +4,7 @@ use crate::shared_types::TuningSystem;
 
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
-    let scale_factor = 0.8;
+    let scale_factor = 1.0;
     let y: f32 = viewport_height * (0.5 + interval * scale_factor * 0.5);
     y
 }
@@ -105,16 +105,14 @@ impl MainScene {
         // Create HashMap with SemitoneLines for each TuningSystem
         let mut tuning_lines = HashMap::new();
         
-        // Equal Temperament with white color
         tuning_lines.insert(
             TuningSystem::EqualTemperament, 
             SemitoneLines::new(context, Srgba::WHITE, TuningSystem::EqualTemperament)
         );
         
-        // Just Intonation with light blue color
         tuning_lines.insert(
             TuningSystem::JustIntonation,
-            SemitoneLines::new(context, Srgba::new(128, 179, 255, 255), TuningSystem::JustIntonation)
+            SemitoneLines::new(context, Srgba::new(0, 100, 200, 255), TuningSystem::JustIntonation)
         );
         
         Self {
