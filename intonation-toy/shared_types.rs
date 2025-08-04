@@ -134,7 +134,6 @@ pub enum Error {
     MicrophoneNotAvailable,
     ProcessingError(String),
     BrowserApiNotSupported,
-    AudioContextSuspended,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -304,6 +303,7 @@ mod tests {
             audio_analysis: Some(test_analysis.clone()),
             audio_errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
+            root_note_audio_enabled: false,
         };
 
         assert_eq!(update_result.audio_analysis, Some(test_analysis));
@@ -331,6 +331,7 @@ mod tests {
             cents_offset: -10.0,
             interval_semitones: 0,
             root_note: 53,
+            root_note_audio_enabled: false,
         };
 
         assert_eq!(update_result.volume, test_volume);
@@ -392,10 +393,9 @@ mod tests {
             Error::MicrophoneNotAvailable,
             Error::ProcessingError("test".to_string()),
             Error::BrowserApiNotSupported,
-            Error::AudioContextSuspended,
         ];
         
-        assert_eq!(errors.len(), 5);
+        assert_eq!(errors.len(), 4);
     }
 
 

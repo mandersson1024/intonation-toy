@@ -384,9 +384,6 @@ impl DataModel {
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     Error::BrowserApiNotSupported
                 }
-                crate::shared_types::Error::AudioContextSuspended => {
-                    Error::AudioContextSuspended
-                }
             }
         }).collect();
         
@@ -1573,7 +1570,7 @@ mod tests {
         
         let engine_data = EngineUpdateResult {
             audio_analysis: Some(audio_analysis),
-            audio_errors: vec![crate::shared_types::Error::AudioContextSuspended],
+            audio_errors: vec![crate::shared_types::Error::ProcessingError("Test error".to_string())],
             permission_state: crate::shared_types::PermissionState::Granted,
         };
         
@@ -1599,7 +1596,7 @@ mod tests {
         
         // Verify error propagation
         assert_eq!(result.errors.len(), 1);
-        assert_eq!(result.errors[0], Error::AudioContextSuspended);
+        assert_eq!(result.errors[0], Error::ProcessingError("Test error".to_string()));
         
         // Verify permission state
         assert_eq!(result.permission_state, PermissionState::Granted);

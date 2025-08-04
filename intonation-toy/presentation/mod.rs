@@ -776,9 +776,6 @@ impl Presenter {
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
                 }
-                crate::shared_types::Error::AudioContextSuspended => {
-                    // Show audio context suspended message
-                }
                 crate::shared_types::Error::ProcessingError(_msg) => {
                     // Show general processing error
                 }
