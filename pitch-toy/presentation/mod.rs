@@ -537,7 +537,7 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         
         // Sync HTML UI with updated state
-        Self::sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
+        self.sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -744,7 +744,7 @@ impl Presenter {
                 }
                 
                 // Synchronize UI state with current model data values
-                Self::sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
+                self.sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
             }
         }
         
@@ -1055,14 +1055,20 @@ impl Presenter {
 
 
     /// Synchronize HTML UI with specified presenter state
-    #[cfg(target_arch = "wasm32")]
-    fn sync_html_ui(root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
+    #[cfg(all(target_arch = "wasm32", debug_assertions))]
+    fn sync_html_ui(&self, root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
+        crate::web::main_scene_ui::sync_ui_with_presenter_state(root_note, tuning_system, scale, self.root_note_audio_enabled);
+    }
+    
+    /// Synchronize HTML UI with specified presenter state (non-debug version)
+    #[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
+    fn sync_html_ui(&self, root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
         crate::web::main_scene_ui::sync_ui_with_presenter_state(root_note, tuning_system, scale);
     }
 
     /// No-op version for non-WASM targets
     #[cfg(not(target_arch = "wasm32"))]
-    fn sync_html_ui(_root_note: MidiNote, _tuning_system: TuningSystem, _scale: Scale) {
+    fn sync_html_ui(&self, _root_note: MidiNote, _tuning_system: TuningSystem, _scale: Scale) {
         // No-op for non-WASM targets
     }
     
@@ -1159,7 +1165,7 @@ mod tests {
         // This test mainly ensures the render method signature is correct
         
         // Create a mock function pointer to verify the signature
-        let _render_fn: fn(&mut Presenter, &Context, &mut RenderTarget) = Presenter::render;
+        let _render_fn: fn(&mut Presenter, &Context, &mut RenderTarget, &ModelUpdateResult) = Presenter::render;
         
         assert!(true, "render() method signature is correct");
     }

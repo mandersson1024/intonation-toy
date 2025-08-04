@@ -50,6 +50,9 @@ pub mod root_note_audio_node;
 pub mod test_signal_node;
 
 use crate::common::dev_log;
+use crate::engine::audio::stream::{StreamState, StreamError, StreamConfig, StreamReconnectionHandler};
+use crate::engine::audio::context::AudioContextConfig;
+use crate::engine::audio::microphone::AudioStreamInfo;
 
 use std::cell::RefCell;
 use std::rc::Rc;

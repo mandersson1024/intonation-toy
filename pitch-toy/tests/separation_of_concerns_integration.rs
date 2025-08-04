@@ -11,7 +11,7 @@ use pitch_toy::model::DataModel;
 use pitch_toy::presentation::Presenter;
 use pitch_toy::shared_types::{
     EngineUpdateResult, ModelUpdateResult, AudioAnalysis, Volume, Pitch, 
-    PermissionState, TuningSystem, Scale, IntonationData, MidiNote
+    PermissionState, TuningSystem, IntonationData, MidiNote
 };
 use pitch_toy::presentation::PresentationLayerActions;
 use wasm_bindgen_test::*;
@@ -234,7 +234,6 @@ fn test_layer_separation_boundaries() {
             cents_offset: 1.0,
         },
         tuning_system: TuningSystem::EqualTemperament,
-        scale: Scale::Major,
         errors: Vec::new(),
         permission_state: PermissionState::Granted,
         closest_midi_note: 69,
@@ -384,7 +383,7 @@ async fn test_root_note_audio_independence() {
     
     // Test that root note audio configuration is handled separately from main audio
     presenter.on_root_note_audio_configured(true);
-    let debug_actions = presenter.collect_debug_actions();
+    let debug_actions = presenter.get_debug_actions();
     
     // Verify root note audio configuration is captured
     assert_eq!(debug_actions.root_note_audio_configurations.len(), 1);
@@ -449,7 +448,7 @@ fn test_root_note_audio_frequency_auto_update() {
 #[cfg(debug_assertions)]
 #[wasm_bindgen_test]
 fn test_debug_panel_root_note_audio_controls() {
-    use pitch_toy::debug::debug_panel::DebugPanel;
+    use pitch_toy::debug::DebugPanel;
     use std::cell::RefCell;
     use std::rc::Rc;
     
@@ -532,7 +531,7 @@ async fn test_backward_compatibility_with_new_architecture() {
     
     // Verify user actions still work
     presenter.on_root_note_adjusted(67); // G note
-    let user_actions = presenter.collect_user_actions();
+    let user_actions = presenter.get_user_actions();
     
     assert_eq!(user_actions.root_note_adjustments.len(), 1);
     assert_eq!(user_actions.root_note_adjustments[0].root_note, 67);

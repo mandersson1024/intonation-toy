@@ -673,7 +673,7 @@ impl PitchAnalyzer {
 mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
-   use crate::engine::audio::PitchDetectorConfig;
+   use crate::engine::audio::pitch_analyzer::PitchDetectorConfig;
 
     fn create_test_config() -> PitchDetectorConfig {
         PitchDetectorConfig {
@@ -811,7 +811,7 @@ mod tests {
             let frequency = 440.0 + (i as f32 * 10.0); // Varying frequency
             let samples: Vec<f32> = (0..2048)
                 .map(|j| {
-                    let t = j as f32 / 48000;
+                    let t = j as f32 / 48000.0;
                     (2.0 * std::f32::consts::PI * frequency * t).sin()
                 })
                 .collect();
@@ -832,7 +832,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer and fill it with test data
-        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+        let mut buffer = CircularBuffer::new();
         
         // Generate 440Hz sine wave
         let frequency = 440.0;
@@ -872,7 +872,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with insufficient data
-        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+        let mut buffer = CircularBuffer::new();
         let samples = vec![0.0; 1024]; // Less than required 2048
         buffer.write_chunk(&samples);
 
@@ -894,7 +894,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer
-        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+        let mut buffer = CircularBuffer::new();
         let samples = vec![0.0; 2048];
         buffer.write_chunk(&samples);
 
@@ -916,7 +916,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with multiple blocks of data
-        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+        let mut buffer = CircularBuffer::new();
         
         // Generate enough data for 3 blocks (need extra to ensure buffer has enough)
         let frequency = 440.0;
@@ -961,7 +961,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
 
         // Create a circular buffer with test data
-        let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+        let mut buffer = CircularBuffer::new();
         
         // Generate 440Hz sine wave for 2 blocks (with extra to ensure enough data)
         let frequency = 440.0;
@@ -1002,7 +1002,7 @@ mod tests {
 
         for window_fn in window_functions.iter() {
             // Create fresh buffer for each test
-            let mut buffer = CircularBuffer::new(BUFFER_SIZE).unwrap();
+            let mut buffer = CircularBuffer::new();
             
             // Generate test signal
             let frequency = 440.0;
@@ -1199,7 +1199,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_optimization_features() {
         let config = create_test_config();
-        let detector = crate::engine::audio::PitchDetector::new(config, 48000).unwrap();
+        let detector = crate::engine::audio::pitch_analyzer::PitchDetector::new(config, 48000).unwrap();
 
         // Test memory usage reporting
         let memory_usage = detector.memory_usage_bytes();
@@ -1211,7 +1211,7 @@ mod tests {
         assert!(!grade.is_empty());
         
         // Test optimal window size calculation
-        let optimal_size = crate::engine::audio::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000);
+        let optimal_size = crate::engine::audio::pitch_analyzer::PitchDetector::get_optimal_window_size_for_latency(50.0, 48000);
         assert!(optimal_size >= 128); // Should be at least minimum
         assert!(optimal_size % 128 == 0); // Should be multiple of 128
         
@@ -1220,7 +1220,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_energy_threshold() {
         let config = create_test_config();
-        let mut detector = crate::engine::audio::PitchDetector::new(config, 48000).unwrap();
+        let mut detector = crate::engine::audio::pitch_analyzer::PitchDetector::new(config, 48000).unwrap();
 
         // Test with silence (should return None due to energy threshold)
         let silence = vec![0.0; 2048];
