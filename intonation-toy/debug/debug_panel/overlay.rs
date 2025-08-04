@@ -1,5 +1,5 @@
-// EGUI Microphone Button
-// Manages microphone button rendering in three-d + egui context
+// EGUI Debug Controls
+// Manages debug panel overlay rendering in three-d + egui context
 
 use three_d::egui;
 use crate::engine::audio::TestWaveform;
