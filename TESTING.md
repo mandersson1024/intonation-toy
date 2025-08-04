@@ -13,7 +13,7 @@ This project uses `wasm-pack test --node` for all testing. We do NOT use any oth
 ### Individual Packages
 ```bash
 # Core application
-wasm-pack test --node pitch-toy
+wasm-pack test --node intonation-toy
 
 # Observable data library
 wasm-pack test --node observable-data

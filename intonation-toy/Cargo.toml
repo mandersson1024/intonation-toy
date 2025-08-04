@@ -1,9 +1,9 @@
 [package]
-name = "pitch-toy"
+name = "intonation-toy"
 version = "0.1.0"
 edition = "2024"
-description = "Real-time pitch detection with Rust/WASM and Web Audio API"
-repository = "https://github.com/user/pitch-toy"
+description = "Real-time intonation analysis with Rust/WASM and Web Audio API"
+repository = "https://github.com/user/intonation-toy"
 license = "MIT"
 
 [dependencies]
@@ -84,6 +84,6 @@ default = []
 separation-logging = []
 
 [lib]
-name = "pitch_toy"
+name = "intonation_toy"
 path = "lib.rs"
 crate-type = ["cdylib", "rlib"] 

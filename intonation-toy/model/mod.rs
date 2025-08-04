@@ -19,12 +19,12 @@
 //! - Returns `ModelLayerActions` containing validated operations
 //! 
 //! ```rust
-//! use pitch_toy::model::DataModel;
-//! use pitch_toy::shared_types::{
+//! use intonation_toy::model::DataModel;
+//! use intonation_toy::shared_types::{
 //!     EngineUpdateResult,
 //!     ModelUpdateResult,
 //! };
-//! use pitch_toy::presentation::PresentationLayerActions;
+//! use intonation_toy::presentation::PresentationLayerActions;
 //! 
 //! // Create model without interface dependencies
 //! let mut model = DataModel::create()?;

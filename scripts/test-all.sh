@@ -4,7 +4,7 @@ set -e
 echo "🧪 Running all tests with wasm-pack test --node..."
 
 # Test all packages in the workspace
-packages=("pitch-toy" "dev-console")
+packages=("intonation-toy" "dev-console")
 
 for package in "${packages[@]}"; do
     echo "🔍 Testing $package..."

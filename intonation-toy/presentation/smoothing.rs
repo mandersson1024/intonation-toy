@@ -26,7 +26,7 @@
 /// # Examples
 /// 
 /// ```rust
-/// use pitch_toy::presentation::smoothing::EmaSmoother;
+/// use intonation_toy::presentation::smoothing::EmaSmoother;
 /// 
 /// let mut smoother = EmaSmoother::new(0.1);
 /// 

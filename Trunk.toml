@@ -1,7 +1,7 @@
 [build]
-target = "pitch-toy/index.html"
+target = "intonation-toy/index.html"
 dist = "dist"
 
 [watch]
-watch = ["pitch-toy", "dev-console"]
+watch = ["intonation-toy", "dev-console"]
 ignore = ["target", "dist"]

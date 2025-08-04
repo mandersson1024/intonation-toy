@@ -1,6 +1,6 @@
-## pitch-toy
+## intonation-toy
 
-Real-time pitch detection and visualization tool with musical interval analysis for web browsers.
+Real-time intonation analysis and visualization tool with musical interval analysis for web browsers.
 
 ### Prerequisites
 

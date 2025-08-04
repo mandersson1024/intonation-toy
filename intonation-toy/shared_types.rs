@@ -1,4 +1,4 @@
-//! Shared data types for the pitch-toy application.
+//! Shared data types for the intonation-toy application.
 //!
 //! This module contains all shared data structures used for communication
 //! between the three layers of the architecture:

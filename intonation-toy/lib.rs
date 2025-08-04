@@ -72,7 +72,7 @@ pub async fn start_render_loop(
     dev_log!("Starting three-d with three-layer architecture");
     
     let window = Window::new(WindowSettings {
-        title: "pitch-toy".to_string(),
+        title: "intonation-toy".to_string(),
         max_size: Some((1280, 720)),
         ..Default::default()
     })

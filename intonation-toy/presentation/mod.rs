@@ -16,20 +16,20 @@
 //! - Updates UI elements and visualizations based on the provided data
 //! 
 //! ```rust
-//! use pitch_toy::presentation::Presenter;
-//! use pitch_toy::shared_types::ModelUpdateResult;
+//! use intonation_toy::presentation::Presenter;
+//! use intonation_toy::shared_types::ModelUpdateResult;
 //! 
 //! // Create presenter without interface dependencies
 //! let mut presenter = Presenter::create()?;
 //! 
 //! // Update with model data
 //! let model_data = ModelUpdateResult {
-//!     volume: pitch_toy::shared_types::Volume { peak: -10.0, rms: -15.0 },
-//!     pitch: pitch_toy::shared_types::Pitch::Detected(440.0, 0.95),
-//!     accuracy: pitch_toy::shared_types::Accuracy { midi_note: 69, cents_offset: 5.0 },
-//!     tuning_system: pitch_toy::shared_types::TuningSystem::EqualTemperament,
+//!     volume: intonation_toy::shared_types::Volume { peak: -10.0, rms: -15.0 },
+//!     pitch: intonation_toy::shared_types::Pitch::Detected(440.0, 0.95),
+//!     accuracy: intonation_toy::shared_types::Accuracy { midi_note: 69, cents_offset: 5.0 },
+//!     tuning_system: intonation_toy::shared_types::TuningSystem::EqualTemperament,
 //!     errors: Vec::new(),
-//!     permission_state: pitch_toy::shared_types::PermissionState::Granted,
+//!     permission_state: intonation_toy::shared_types::PermissionState::Granted,
 //! };
 //! presenter.update(timestamp, model_data);
 //! ```
@@ -349,8 +349,8 @@ impl DebugLayerActionsBuilder {
 /// # Example
 /// 
 /// ```no_run
-/// use pitch_toy::presentation::Presenter;
-/// use pitch_toy::shared_types::model_to_presentation::ModelUpdateResult;
+/// use intonation_toy::presentation::Presenter;
+/// use intonation_toy::shared_types::model_to_presentation::ModelUpdateResult;
 /// use three_d::RenderTarget;
 /// 
 /// let mut presenter = Presenter::create()

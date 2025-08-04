@@ -23,7 +23,7 @@
 //! - Provides audio analysis, error information, and permission state
 //!
 //! ```rust
-//! use pitch_toy::engine::AudioEngine;
+//! use intonation_toy::engine::AudioEngine;
 //!
 //! // Create engine without dependencies
 //! let mut engine = AudioEngine::create().await?;
@@ -164,7 +164,7 @@ impl DebugEngineActions {
 /// # Example
 /// 
 /// ```no_run
-/// use pitch_toy::engine::AudioEngine;
+/// use intonation_toy::engine::AudioEngine;
 /// 
 /// let engine = AudioEngine::create()
 ///     .await.expect("AudioEngine creation should succeed");
