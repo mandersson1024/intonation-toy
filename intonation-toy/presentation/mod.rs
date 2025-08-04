@@ -776,8 +776,9 @@ impl Presenter {
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
                 }
-                crate::shared_types::Error::ProcessingError(_msg) => {
+                crate::shared_types::Error::ProcessingError(msg) => {
                     // Show general processing error
+                    crate::common::error_log!("🔥 PROCESSING ERROR: {}", msg);
                 }
             }
         }
