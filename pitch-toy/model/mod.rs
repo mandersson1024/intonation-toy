@@ -119,6 +119,8 @@ pub(crate) enum ValidationError {
     UnsupportedTuningSystem(String),
     /// Root note is already set to requested value
     RootNoteAlreadySet(MidiNote),
+    /// Invalid frequency value
+    InvalidFrequency(f32),
 }
 
 /// Result of processing user actions with validation information
@@ -169,6 +171,17 @@ pub struct UpdateTuningConfigurationAction {
     pub root_note: MidiNote,
 }
 
+/// Validated root note audio configuration
+/// 
+/// This struct represents a root note audio configuration that has been validated
+/// by the model layer's business logic. It contains the audio generation settings
+/// including enabled state and frequency.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigureRootNoteAudioAction {
+    pub enabled: bool,
+    pub frequency: f32,
+}
+
 /// Container for all processed model layer actions
 /// 
 /// This struct contains vectors of validated business logic actions that have been
@@ -184,6 +197,9 @@ pub struct ModelLayerActions {
     
     /// Validated tuning configuration updates
     pub tuning_configurations: Vec<UpdateTuningConfigurationAction>,
+    
+    /// Validated root note audio configurations
+    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudioAction>,
 }
 
 impl ModelLayerActions {
@@ -195,6 +211,7 @@ impl ModelLayerActions {
         Self {
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
+            root_note_audio_configurations: Vec::new(),
         }
     }
 }
@@ -244,6 +261,9 @@ pub struct DataModel {
     
     /// Current scale for note filtering
     current_scale: Scale,
+    
+    /// Root note audio generation enabled state
+    root_note_audio_enabled: bool,
 }
 
 /// Standard A4 = 440Hz reference frequency for Equal Temperament
@@ -291,6 +311,7 @@ impl DataModel {
             tuning_system: TuningSystem::EqualTemperament,
             root_note: 57, // Standard A3 root note (MIDI 57)
             current_scale: Scale::Major,
+            root_note_audio_enabled: false,
         })
     }
 
@@ -427,7 +448,7 @@ impl DataModel {
         // Interval calculation: detected MIDI - root MIDI = interval semitones
 
         // Return processed model data with both legacy and flattened fields
-        ModelUpdateResult {
+        let result = ModelUpdateResult {
             volume,
             pitch,
             accuracy: accuracy.clone(), // Keep for backward compatibility
@@ -440,7 +461,12 @@ impl DataModel {
             cents_offset: accuracy.cents_offset,
             interval_semitones,
             root_note: self.root_note,
-        }
+            root_note_audio_enabled: self.root_note_audio_enabled,
+        };
+        
+        crate::common::dev_log!("MODEL: Returning result with root_note_audio_enabled: {}", result.root_note_audio_enabled);
+        
+        result
     }
     
     /// Process user actions from the presentation layer
@@ -536,6 +562,35 @@ impl DataModel {
             if scale_change.scale != self.current_scale {
                 self.apply_scale_change(&scale_change);
                 // No model-layer action created since scale changes are internal
+            }
+        }
+        
+        // Process root note audio configurations
+        crate::common::dev_log!("MODEL: Processing {} root note audio configurations", presentation_actions.root_note_audio_configurations.len());
+        for root_note_audio_config in presentation_actions.root_note_audio_configurations {
+            crate::common::dev_log!("MODEL: Processing root note audio config - enabled: {}, current state: {}", root_note_audio_config.enabled, self.root_note_audio_enabled);
+            
+            match self.validate_root_note_audio_configuration_with_error(&root_note_audio_config) {
+                Ok(()) => {
+                    let config = ConfigureRootNoteAudioAction {
+                        enabled: root_note_audio_config.enabled,
+                        frequency: root_note_audio_config.frequency,
+                    };
+                    
+                    // Apply the state change to internal model state
+                    self.apply_root_note_audio_change(&config);
+                    
+                    // Add validated action for engine execution
+                    model_actions.root_note_audio_configurations.push(config);
+                    
+                    crate::common::dev_log!("MODEL: ✓ Root note audio configuration validated and queued for engine execution");
+                }
+                Err(error) => {
+                    // Log validation error but continue processing other actions
+                    let error_message = format!("Root note audio configuration validation failed: {:?}", error);
+                    crate::common::warn_log!("{}", error_message);
+                    validation_errors.push(error);
+                }
             }
         }
         
@@ -730,7 +785,23 @@ impl DataModel {
         }
     }
     
-    
+    /// Validate root note audio configuration request
+    /// 
+    /// Validates a root note audio configuration request by checking that the frequency
+    /// is valid and the configuration is different from the current state.
+    /// Future implementations will add:
+    /// - Frequency range validation
+    /// - Audio system compatibility checks
+    /// - Volume level validation
+    fn validate_root_note_audio_configuration_with_error(&self, config: &crate::presentation::ConfigureRootNoteAudio) -> Result<(), ValidationError> {
+        // Validate frequency is positive
+        if config.frequency <= 0.0 {
+            return Err(ValidationError::InvalidFrequency(config.frequency));
+        }
+        
+        // Allow configuration even if state is the same to ensure proper synchronization
+        Ok(())
+    }
     
     /// Apply tuning system change to internal state
     /// 
@@ -805,6 +876,24 @@ impl DataModel {
         );
         self.tuning_system = action.tuning_system.clone();
         self.root_note = action.root_note;
+    }
+    
+    /// Apply root note audio configuration change to internal state
+    /// 
+    /// Updates the internal root note audio enabled state based on a validated
+    /// root note audio configuration change. This method should only be called with
+    /// actions that have passed business logic validation.
+    /// Future implementations will add:
+    /// - State change notifications
+    /// - Logging of configuration changes
+    /// - Validation of state consistency after changes
+    fn apply_root_note_audio_change(&mut self, action: &ConfigureRootNoteAudioAction) {
+        crate::common::dev_log!(
+            "Model layer: Root note audio changed from {} to {}",
+            if self.root_note_audio_enabled { "enabled" } else { "disabled" },
+            if action.enabled { "enabled" } else { "disabled" }
+        );
+        self.root_note_audio_enabled = action.enabled;
     }
 }
 

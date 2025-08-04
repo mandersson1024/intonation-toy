@@ -21,8 +21,8 @@ use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, de
 #[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
 
-// Global state for root note audio enabled (debug builds only)
-#[cfg(all(target_arch = "wasm32", debug_assertions))]
+// Global state for root note audio enabled
+#[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = false, 1 = true
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
@@ -300,8 +300,8 @@ pub fn setup_main_scene_ui() {
     container.append_child(&tuning_container).ok();
     container.append_child(&scale_container).ok();
 
-    // Create root note audio controls (debug only)
-    #[cfg(debug_assertions)]
+    // Create root note audio controls
+    #[cfg(target_arch = "wasm32")]
     {
         // Create root note audio container
         let Ok(root_note_audio_container) = document.create_element("div") else {
@@ -396,6 +396,19 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
             if let Some(new_root) = increment_midi_note(current_root_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
                     presenter_mut.on_root_note_adjusted(new_root);
+                    
+                    // Also update root note audio frequency if it's currently enabled
+                    if let Some(current_window) = web_sys::window() {
+                        if let Some(document) = current_window.document() {
+                            if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
+                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                                    if html_checkbox.checked() {
+                                        presenter_mut.on_root_note_audio_configured(true, new_root);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -418,6 +431,19 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
             if let Some(new_root) = decrement_midi_note(current_root_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
                     presenter_mut.on_root_note_adjusted(new_root);
+                    
+                    // Also update root note audio frequency if it's currently enabled
+                    if let Some(current_window) = web_sys::window() {
+                        if let Some(document) = current_window.document() {
+                            if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
+                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                                    if html_checkbox.checked() {
+                                        presenter_mut.on_root_note_audio_configured(true, new_root);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -501,8 +527,8 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         dev_log!("Failed to find scale-select dropdown");
     }
 
-    // Set up root note audio checkbox event listener (debug only)
-    #[cfg(debug_assertions)]
+    // Set up root note audio checkbox event listener
+    #[cfg(target_arch = "wasm32")]
     {
         if let Some(checkbox) = document.get_element_by_id("root-note-audio-checkbox") {
             let presenter_clone = presenter.clone();
@@ -553,9 +579,9 @@ pub fn cleanup_main_scene_ui() {
 /// * `root_note` - The current root note from the presenter
 /// * `tuning_system` - The current tuning system from the presenter
 /// * `scale` - The current scale from the presenter
-/// * `root_note_audio_enabled` - The current root note audio state (debug builds only)
-#[cfg(all(target_arch = "wasm32", debug_assertions))]
-pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSystem, scale: Scale, root_note_audio_enabled: bool) {
+/// * `root_note_audio_enabled` - The current root note audio state
+#[cfg(target_arch = "wasm32")]
+pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
         return;
     };
@@ -565,18 +591,18 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
     };
 
     // Update stored root note state
-    CURRENT_ROOT_NOTE.store(root_note, Ordering::Relaxed);
+    CURRENT_ROOT_NOTE.store(model_data.root_note, Ordering::Relaxed);
 
     // Update root note display
     if let Some(display) = document.get_element_by_id("root-note-display") {
-        let formatted_note = format_midi_note(root_note);
+        let formatted_note = format_midi_note(model_data.root_note);
         display.set_text_content(Some(&formatted_note));
     }
 
     // Update tuning system dropdown selection
     if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
         if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-            let value = match tuning_system {
+            let value = match model_data.tuning_system {
                 TuningSystem::EqualTemperament => "equal",
                 TuningSystem::JustIntonation => "just",
             };
@@ -587,7 +613,7 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
     // Update scale dropdown selection
     if let Some(select_element) = document.get_element_by_id("scale-select") {
         if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-            let value = match scale {
+            let value = match model_data.scale {
                 Scale::Major => "major",
                 Scale::Minor => "minor",
                 Scale::Chromatic => "chromatic",
@@ -597,81 +623,23 @@ pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSy
     }
 
     // Update root note audio checkbox state
-    CURRENT_ROOT_NOTE_AUDIO_ENABLED.store(if root_note_audio_enabled { 1 } else { 0 }, Ordering::Relaxed);
+    CURRENT_ROOT_NOTE_AUDIO_ENABLED.store(if model_data.root_note_audio_enabled { 1 } else { 0 }, Ordering::Relaxed);
     
     if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
         if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
-            html_checkbox.set_checked(root_note_audio_enabled);
-            dev_log!("Synced root note audio checkbox to: {}", root_note_audio_enabled);
+            html_checkbox.set_checked(model_data.root_note_audio_enabled);
+            dev_log!("Synced root note audio checkbox to: {}", model_data.root_note_audio_enabled);
         }
     }
 }
 
-/// Synchronize UI elements with current presenter state (non-debug version)
-/// 
-/// This function updates the UI to reflect the current root note and tuning system
-/// values from the presenter, ensuring the UI stays in sync when values change
-/// from sources other than direct user interaction.
-/// 
-/// # Arguments
-/// 
-/// * `root_note` - The current root note from the presenter
-/// * `tuning_system` - The current tuning system from the presenter
-/// * `scale` - The current scale from the presenter
-#[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
-pub fn sync_ui_with_presenter_state(root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
-    let Some(window) = window() else {
-        return;
-    };
-
-    let Some(document) = window.document() else {
-        return;
-    };
-
-    // Update stored root note state
-    CURRENT_ROOT_NOTE.store(root_note, Ordering::Relaxed);
-
-    // Update root note display
-    if let Some(display) = document.get_element_by_id("root-note-display") {
-        let formatted_note = format_midi_note(root_note);
-        display.set_text_content(Some(&formatted_note));
-    }
-
-    // Update tuning system dropdown selection
-    if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
-        if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-            let value = match tuning_system {
-                TuningSystem::EqualTemperament => "equal",
-                TuningSystem::JustIntonation => "just",
-            };
-            html_select.set_value(value);
-        }
-    }
-
-    // Update scale dropdown selection
-    if let Some(select_element) = document.get_element_by_id("scale-select") {
-        if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-            let value = match scale {
-                Scale::Major => "major",
-                Scale::Minor => "minor",
-                Scale::Chromatic => "chromatic",
-            };
-            html_select.set_value(value);
-        }
-    }
-}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
     // No-op for non-WASM targets
 }
 
-#[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
-pub fn sync_ui_with_presenter_state(_root_note: crate::shared_types::MidiNote, _tuning_system: crate::shared_types::TuningSystem, _scale: crate::shared_types::Scale, _root_note_audio_enabled: bool) {
-    // No-op for non-WASM targets
-}
-
-#[cfg(all(not(target_arch = "wasm32"), not(debug_assertions)))]
-pub fn sync_ui_with_presenter_state(_root_note: crate::shared_types::MidiNote, _tuning_system: crate::shared_types::TuningSystem, _scale: crate::shared_types::Scale) {
+#[cfg(not(target_arch = "wasm32"))]
+pub fn sync_ui_with_presenter_state(_model_data: &crate::shared_types::ModelUpdateResult) {
     // No-op for non-WASM targets
 }

@@ -42,7 +42,6 @@ pub struct DebugPanel {
     test_signal_volume: f32,
     test_signal_waveform: TestWaveform,
     output_to_speakers_enabled: bool,
-    root_note_audio_enabled: bool,
 }
 
 impl DebugPanel {
@@ -61,7 +60,6 @@ impl DebugPanel {
             test_signal_volume: 50.0,
             test_signal_waveform: TestWaveform::Sine,
             output_to_speakers_enabled: false,
-            root_note_audio_enabled: false,
             
         }
     }
@@ -102,7 +100,7 @@ impl DebugPanel {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical(|ui| {                
                 // Root Note Audio Controls Section (debug actions)
-                self.render_root_note_audio_controls(ui, model_data.root_note);
+                self.render_root_note_audio_controls(ui, model_data);
 
                 // Audio Devices Section (debug-specific data)
                 self.render_audio_devices_section(ui);
@@ -485,17 +483,18 @@ impl DebugPanel {
     }
     
     /// Render root note audio controls (debug actions)
-    fn render_root_note_audio_controls(&mut self, ui: &mut Ui, root_note: crate::shared_types::MidiNote) {
+    fn render_root_note_audio_controls(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
         egui::CollapsingHeader::new("Root Note Audio Controls")
             .default_open(true)
             .show(ui, |ui| {
-                if ui.checkbox(&mut self.root_note_audio_enabled, "Enable Root Note Audio (plays current root note)").changed() {
-                    self.send_root_note_audio_action(root_note);
+                let mut root_note_audio_enabled = model_data.root_note_audio_enabled;
+                if ui.checkbox(&mut root_note_audio_enabled, "Enable Root Note Audio (plays current root note)").changed() {
+                    self.send_root_note_audio_action(model_data.root_note, root_note_audio_enabled);
                 }
                 
                 // Display current frequency when enabled
-                if self.root_note_audio_enabled {
-                    let frequency = Self::midi_note_to_frequency(root_note);
+                if model_data.root_note_audio_enabled {
+                    let frequency = Self::midi_note_to_frequency(model_data.root_note);
                     ui.label(format!("Frequency: {:.2} Hz", frequency));
                 }
                 
@@ -525,9 +524,9 @@ impl DebugPanel {
     }
     
     #[cfg(debug_assertions)]
-    fn send_root_note_audio_action(&self, root_note: crate::shared_types::MidiNote) {
+    fn send_root_note_audio_action(&self, root_note: crate::shared_types::MidiNote, enabled: bool) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_root_note_audio_configured(self.root_note_audio_enabled, root_note);
+            presenter.on_root_note_audio_configured(enabled, root_note);
         }
     }
     
@@ -587,11 +586,6 @@ impl DebugPanel {
     fn send_root_note_action(&self, root_note: MidiNote) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             presenter.on_root_note_adjusted(root_note);
-            
-            // If root note audio is enabled, update its frequency to match the new root note
-            if self.root_note_audio_enabled {
-                presenter.on_root_note_audio_configured(self.root_note_audio_enabled, root_note);
-            }
         }
     }
     

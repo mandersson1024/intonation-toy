@@ -167,6 +167,8 @@ pub struct ModelUpdateResult {
     pub cents_offset: f32,
     pub interval_semitones: i32,
     pub root_note: MidiNote,
+    /// Controls whether root note audio generation is enabled
+    pub root_note_audio_enabled: bool,
 }
 
 /// Converts a semitone interval to a musical interval name.

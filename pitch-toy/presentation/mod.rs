@@ -175,7 +175,6 @@ impl ConfigureOutputToSpeakers {
 }
 
 
-#[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureRootNoteAudio {
     pub enabled: bool,
@@ -199,6 +198,7 @@ pub struct PresentationLayerActions {
     pub tuning_system_changes: Vec<ChangeTuningSystem>,
     pub root_note_adjustments: Vec<AdjustRootNote>,
     pub scale_changes: Vec<ScaleChangeAction>,
+    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 impl PresentationLayerActions {
@@ -208,6 +208,7 @@ impl PresentationLayerActions {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
             scale_changes: Vec::new(),
+            root_note_audio_configurations: Vec::new(),
         }
     }
 }
@@ -225,6 +226,7 @@ pub struct PresentationLayerActionsBuilder {
     tuning_system_changes: Vec<ChangeTuningSystem>,
     root_note_adjustments: Vec<AdjustRootNote>,
     scale_changes: Vec<ScaleChangeAction>,
+    root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 #[cfg(test)]
@@ -234,6 +236,7 @@ impl PresentationLayerActionsBuilder {
             tuning_system_changes: Vec::new(),
             root_note_adjustments: Vec::new(),
             scale_changes: Vec::new(),
+            root_note_audio_configurations: Vec::new(),
         }
     }
     
@@ -257,6 +260,7 @@ impl PresentationLayerActionsBuilder {
             tuning_system_changes: self.tuning_system_changes,
             root_note_adjustments: self.root_note_adjustments,
             scale_changes: self.scale_changes,
+            root_note_audio_configurations: self.root_note_audio_configurations,
         }
     }
 }
@@ -271,7 +275,6 @@ impl PresentationLayerActionsBuilder {
 pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
     pub speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
-    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 #[cfg(debug_assertions)]
@@ -281,7 +284,6 @@ impl DebugLayerActions {
         Self {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
-            root_note_audio_configurations: Vec::new(),
         }
     }
 }
@@ -298,7 +300,6 @@ impl DebugLayerActions {
 pub struct DebugLayerActionsBuilder {
     test_signal_configurations: Vec<ConfigureTestSignal>,
     speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
-    root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
 #[cfg(all(debug_assertions, test))]
@@ -307,7 +308,6 @@ impl DebugLayerActionsBuilder {
         Self {
             test_signal_configurations: Vec::new(),
             speaker_output_configurations: Vec::new(),
-            root_note_audio_configurations: Vec::new(),
         }
     }
     
@@ -321,16 +321,10 @@ impl DebugLayerActionsBuilder {
         self
     }
     
-    pub fn with_root_note_audio(mut self, enabled: bool, frequency: f32) -> Self {
-        self.root_note_audio_configurations.push(ConfigureRootNoteAudio::new(enabled, frequency));
-        self
-    }
-    
     pub fn build(self) -> DebugLayerActions {
         DebugLayerActions {
             test_signal_configurations: self.test_signal_configurations,
             speaker_output_configurations: self.speaker_output_configurations,
-            root_note_audio_configurations: self.root_note_audio_configurations,
         }
     }
 }
@@ -407,9 +401,6 @@ pub struct Presenter {
     
     
     
-    /// Track whether root note audio is currently enabled (debug builds only)
-    #[cfg(debug_assertions)]
-    root_note_audio_enabled: bool,
 }
 
 impl Presenter {
@@ -442,8 +433,6 @@ impl Presenter {
             main_scene_ui_active: false,
             #[cfg(target_arch = "wasm32")]
             self_reference: None,
-            #[cfg(debug_assertions)]
-            root_note_audio_enabled: false,
         })
     }
 
@@ -537,7 +526,7 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         
         // Sync HTML UI with updated state
-        self.sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
+        self.sync_html_ui(&model_data);
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -597,9 +586,6 @@ impl Presenter {
     /// * `root_note` - The new root note selected by the user
     pub fn on_root_note_adjusted(&mut self, root_note: MidiNote) {
         self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
-        
-        // Update root note audio frequency if it's currently enabled
-        self.on_root_note_changed_update_audio(root_note);
     }
 
     /// Handle scale change action
@@ -679,40 +665,16 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
-    #[cfg(debug_assertions)]
     pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote) {
-        self.root_note_audio_enabled = enabled;
+        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}", enabled, root_note);
         let frequency = Self::midi_note_to_frequency(root_note);
-        self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+        self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
             frequency,
         });
+        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.root_note_audio_configurations.len());
     }
 
-    /// Update root note audio frequency when root note changes (debug builds only)
-    /// 
-    /// This method is called automatically when the root note changes to ensure
-    /// that root note audio frequency stays synchronized with the selected root note.
-    /// It checks if root note audio is currently enabled by looking at the most recent
-    /// root note audio configuration, and if so, creates a new configuration with
-    /// the updated frequency.
-    #[cfg(debug_assertions)]
-    fn on_root_note_changed_update_audio(&mut self, root_note: MidiNote) {
-        // If root note audio is currently enabled, update the frequency
-        if self.root_note_audio_enabled {
-            let frequency = Self::midi_note_to_frequency(root_note);
-            self.pending_debug_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
-                enabled: true,
-                frequency,
-            });
-        }
-    }
-    
-    /// No-op version for non-debug builds
-    #[cfg(not(debug_assertions))]
-    fn on_root_note_changed_update_audio(&mut self) {
-        // No root note audio in release builds
-    }
 
     /// Render the presentation layer to the screen
     /// 
@@ -744,7 +706,7 @@ impl Presenter {
                 }
                 
                 // Synchronize UI state with current model data values
-                self.sync_html_ui(model_data.root_note, model_data.tuning_system, model_data.scale);
+                self.sync_html_ui(&model_data);
             }
         }
         
@@ -1056,19 +1018,19 @@ impl Presenter {
 
     /// Synchronize HTML UI with specified presenter state
     #[cfg(all(target_arch = "wasm32", debug_assertions))]
-    fn sync_html_ui(&self, root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(root_note, tuning_system, scale, self.root_note_audio_enabled);
+    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
+        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
     }
     
     /// Synchronize HTML UI with specified presenter state (non-debug version)
     #[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
-    fn sync_html_ui(&self, root_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(root_note, tuning_system, scale);
+    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
+        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
     }
 
     /// No-op version for non-WASM targets
     #[cfg(not(target_arch = "wasm32"))]
-    fn sync_html_ui(&self, _root_note: MidiNote, _tuning_system: TuningSystem, _scale: Scale) {
+    fn sync_html_ui(&self, _model_data: &ModelUpdateResult) {
         // No-op for non-WASM targets
     }
     
