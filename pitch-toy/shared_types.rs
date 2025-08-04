@@ -151,6 +151,7 @@ pub struct EngineUpdateResult {
     pub audio_analysis: Option<AudioAnalysis>,
     pub audio_errors: Vec<Error>,
     pub permission_state: PermissionState,
+    pub root_note_audio_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

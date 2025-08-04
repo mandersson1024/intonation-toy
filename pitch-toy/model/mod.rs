@@ -261,9 +261,6 @@ pub struct DataModel {
     
     /// Current scale for note filtering
     current_scale: Scale,
-    
-    /// Root note audio generation enabled state
-    root_note_audio_enabled: bool,
 }
 
 /// Standard A4 = 440Hz reference frequency for Equal Temperament
@@ -311,7 +308,6 @@ impl DataModel {
             tuning_system: TuningSystem::EqualTemperament,
             root_note: 57, // Standard A3 root note (MIDI 57)
             current_scale: Scale::Major,
-            root_note_audio_enabled: false,
         })
     }
 
@@ -461,7 +457,7 @@ impl DataModel {
             cents_offset: accuracy.cents_offset,
             interval_semitones,
             root_note: self.root_note,
-            root_note_audio_enabled: self.root_note_audio_enabled,
+            root_note_audio_enabled: engine_data.root_note_audio_enabled,
         };
         
         crate::common::dev_log!("MODEL: Returning result with root_note_audio_enabled: {}", result.root_note_audio_enabled);
@@ -568,7 +564,7 @@ impl DataModel {
         // Process root note audio configurations
         crate::common::dev_log!("MODEL: Processing {} root note audio configurations", presentation_actions.root_note_audio_configurations.len());
         for root_note_audio_config in presentation_actions.root_note_audio_configurations {
-            crate::common::dev_log!("MODEL: Processing root note audio config - enabled: {}, current state: {}", root_note_audio_config.enabled, self.root_note_audio_enabled);
+            crate::common::dev_log!("MODEL: Processing root note audio config - enabled: {}", root_note_audio_config.enabled);
             
             match self.validate_root_note_audio_configuration_with_error(&root_note_audio_config) {
                 Ok(()) => {
@@ -889,11 +885,10 @@ impl DataModel {
     /// - Validation of state consistency after changes
     fn apply_root_note_audio_change(&mut self, action: &ConfigureRootNoteAudioAction) {
         crate::common::dev_log!(
-            "Model layer: Root note audio changed from {} to {}",
-            if self.root_note_audio_enabled { "enabled" } else { "disabled" },
+            "Model layer: Root note audio configuration passed through - enabled: {}",
             if action.enabled { "enabled" } else { "disabled" }
         );
-        self.root_note_audio_enabled = action.enabled;
+        // Model no longer stores root note audio state - engine owns this state
     }
 }
 

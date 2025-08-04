@@ -1059,6 +1059,21 @@ impl AudioWorkletManager {
         
     }
 
+    /// Check if root note audio is currently enabled
+    /// 
+    /// This method checks the current state of the root note audio node to determine
+    /// if root note audio is enabled and playing.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if root note audio is enabled, `false` otherwise.
+    pub fn is_root_note_audio_enabled(&self) -> bool {
+        if let Some(ref node) = self.root_note_node {
+            node.is_enabled()
+        } else {
+            false
+        }
+    }
 
     /// Set whether to output audio stream to speakers
     pub fn set_output_to_speakers(&mut self, enabled: bool) {

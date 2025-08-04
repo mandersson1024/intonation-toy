@@ -195,8 +195,26 @@ impl AudioEngine {
         match audio_context.initialize().await {
             Ok(()) => {
                 crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
+                
+                let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
+                
+                // Initialize default root note audio if it should be enabled
+                if !cfg!(debug_assertions) { // Enable by default in release mode
+                    crate::common::dev_log!("Initializing default root note audio (release mode)");
+                    let default_root_note = 57; // A3
+                    let default_frequency = crate::theory::tuning::midi_note_to_standard_frequency(default_root_note);
+                    
+                    if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
+                        let root_note_config = crate::engine::audio::RootNoteAudioConfig {
+                            enabled: true,
+                            frequency: default_frequency,
+                        };
+                        borrowed_context.configure_root_note_audio(root_note_config);
+                    }
+                }
+                
                 Ok(Self {
-                    audio_context: Some(std::rc::Rc::new(std::cell::RefCell::new(audio_context))),
+                    audio_context: Some(audio_context_rc),
                 })
             }
             Err(e) => {
@@ -237,10 +255,14 @@ impl AudioEngine {
             let audio_errors = borrowed_context.collect_audio_errors();
             let permission_state = borrowed_context.collect_permission_state();
             
+            // Get root note audio state from audio system
+            let root_note_audio_enabled = borrowed_context.get_root_note_audio_enabled();
+            
             EngineUpdateResult {
                 audio_analysis,
                 audio_errors,
                 permission_state,
+                root_note_audio_enabled,
             }
         } else {
             // No audio context available
@@ -248,6 +270,7 @@ impl AudioEngine {
                 audio_analysis: None,
                 audio_errors: vec![crate::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
                 permission_state: crate::shared_types::PermissionState::NotRequested,
+                root_note_audio_enabled: !cfg!(debug_assertions), // Default: on in release, off in debug
             }
         }
     }

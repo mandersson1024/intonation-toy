@@ -989,6 +989,43 @@ impl AudioSystemContext {
         }
     }
     
+    /// Get current root note audio enabled state (return-based pattern)
+    /// 
+    /// This method retrieves the current state of root note audio from the audio system
+    /// without using the observable/setter pattern. It's used by the engine layer
+    /// to include the state in EngineUpdateResult.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if root note audio is currently enabled and playing, `false` otherwise.
+    /// Returns the default value (true in release, false in debug) if audio system is not initialized.
+    pub fn get_root_note_audio_enabled(&self) -> bool {
+        if !self.is_initialized {
+            return !cfg!(debug_assertions); // Default: on in release, off in debug
+        }
+
+        // Check if root note audio is enabled in the AudioWorkletManager
+        if let Some(ref worklet) = self.audioworklet_manager {
+            worklet.is_root_note_audio_enabled()
+        } else {
+            !cfg!(debug_assertions) // Default: on in release, off in debug
+        }
+    }
+    
+    /// Configure root note audio system
+    /// 
+    /// This method configures the root note audio system by delegating to the AudioWorkletManager.
+    /// It's used to enable/disable root note audio and set the frequency.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `config` - The root note audio configuration
+    pub fn configure_root_note_audio(&mut self, config: super::RootNoteAudioConfig) {
+        if let Some(ref mut worklet) = self.audioworklet_manager {
+            worklet.update_root_note_audio_config(config);
+        }
+    }
+    
     /// Set microphone permission state
     pub fn set_permission_state(&self, state: super::AudioPermission) {
         self.permission_state.set(state);

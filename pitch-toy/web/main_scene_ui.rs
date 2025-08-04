@@ -340,6 +340,8 @@ pub fn setup_main_scene_ui() {
              border: 1px solid rgba(255, 255, 255, 0.2); \
              border-radius: 4px; \
              transition: all 0.2s ease;").ok();
+        
+        // Checkbox will be synced with engine state via sync_ui_with_model_data
 
         // Assemble root note audio controls
         root_note_audio_container.append_child(&root_note_audio_label).ok();
