@@ -131,7 +131,7 @@ impl DebugPanel {
                 ui.separator();
                 
                 // User Actions Section (debug actions)
-                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system);
+                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system, model_data.root_note_audio_enabled);
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
@@ -531,7 +531,7 @@ impl DebugPanel {
     }
     
     /// Render user actions section (debug actions)
-    fn render_user_actions_section(&mut self, ui: &mut Ui, current_root_note: crate::shared_types::MidiNote, current_tuning_system: crate::shared_types::TuningSystem) {
+    fn render_user_actions_section(&mut self, ui: &mut Ui, current_root_note: crate::shared_types::MidiNote, current_tuning_system: crate::shared_types::TuningSystem, root_note_audio_enabled: bool) {
         egui::CollapsingHeader::new("User Actions")
             .default_open(true)
             .show(ui, |ui| {
@@ -543,7 +543,7 @@ impl DebugPanel {
                     // Decrement button
                     if ui.add_enabled(current_root_note > 0, egui::Button::new("-")).clicked() {
                         if let Some(new_note) = decrement_midi_note(current_root_note) {
-                            self.send_root_note_action(new_note);
+                            self.send_root_note_action(new_note, root_note_audio_enabled);
                         }
                     }
                     
@@ -553,7 +553,7 @@ impl DebugPanel {
                     // Increment button
                     if ui.add_enabled(current_root_note < 127, egui::Button::new("+")).clicked() {
                         if let Some(new_note) = increment_midi_note(current_root_note) {
-                            self.send_root_note_action(new_note);
+                            self.send_root_note_action(new_note, root_note_audio_enabled);
                         }
                     }
                 });
@@ -583,9 +583,18 @@ impl DebugPanel {
     }
     
     #[cfg(debug_assertions)]
-    fn send_root_note_action(&self, root_note: MidiNote) {
+    fn send_root_note_action(&self, root_note: MidiNote, root_note_audio_enabled: bool) {
+        crate::common::dev_log!("DEBUG PANEL: send_root_note_action called - root_note: {}, audio_enabled: {}", root_note, root_note_audio_enabled);
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             presenter.on_root_note_adjusted(root_note);
+            
+            // Also update root note audio frequency if it's currently enabled
+            if root_note_audio_enabled {
+                crate::common::dev_log!("DEBUG PANEL: Updating root note audio frequency to {} Hz", Self::midi_note_to_frequency(root_note));
+                presenter.on_root_note_audio_configured(true, root_note);
+            } else {
+                crate::common::dev_log!("DEBUG PANEL: Root note audio is disabled, not updating frequency");
+            }
         }
     }
     

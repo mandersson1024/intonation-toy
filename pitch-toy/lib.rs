@@ -38,14 +38,17 @@ pub use presentation::{DebugLayerActionsBuilder};
 
 // Supporting modules
 pub(crate) mod common;
+#[cfg(debug_assertions)]
 pub(crate) mod debug;
 
 use common::{dev_log, trace_log, log, error_log};
 use wasm_bindgen::prelude::*;
+#[cfg(debug_assertions)]
 use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
 
+#[cfg(debug_assertions)]
 use debug::debug_panel::DebugPanel;
 
 /// Run three-d with three-layer architecture
@@ -78,15 +81,21 @@ pub async fn start_render_loop(
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
     
+    #[cfg(debug_assertions)]
     let mut command_registry = ConsoleCommandRegistry::new();
+    #[cfg(debug_assertions)]
     crate::engine::platform::commands::register_platform_commands(&mut command_registry);
+    #[cfg(debug_assertions)]
     crate::engine::audio::register_audio_commands(&mut command_registry);
 
+    #[cfg(debug_assertions)]
     let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
     
+    #[cfg(debug_assertions)]
     let debug_data = debug::debug_data::DebugData::new();
     
     // Create debug panel
+    #[cfg(debug_assertions)]
     let mut debug_panel = if let Some(ref presenter_ref) = presenter {
         Some(DebugPanel::new(
             debug_data,
@@ -247,57 +256,57 @@ pub async fn start_render_loop(
         };
         
         // Update debug panel data with engine and model results
+        #[cfg(debug_assertions)]
         if let Some(ref mut panel) = debug_panel {
             panel.update_data(&engine_data, Some(&model_data));
         }
         
         // Update debug panel data with performance metrics
-        let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
-        let audio_latency = if let Some(ref engine) = engine {
-            engine.get_pitch_analyzer_metrics()
-                .map(|metrics| metrics.average_latency_ms)
-                .unwrap_or(0.0)
-        } else {
-            0.0
-        };
-        
-        let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
-            fps,
-            memory_usage_mb,
-            memory_usage_percent,
-            audio_latency,
-        };
-        if let Some(ref mut panel) = debug_panel {
-            // Collect real debug data from the engine
-            #[cfg(debug_assertions)]
-            let (audio_devices, audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
-                let devices = engine.get_debug_audio_devices();
-                let status = engine.get_debug_audioworklet_status().map(|s| {
-                    // Convert from engine AudioWorkletStatus to debug AudioWorkletStatus
-                    debug::debug_panel::data_types::AudioWorkletStatus {
-                        state: s.state,
-                        processor_loaded: s.processor_loaded,
-                        chunk_size: s.chunk_size,
-                        batch_size: s.batch_size,
-                        batches_processed: s.batches_processed,
-                    }
-                });
-                let stats = engine.get_debug_buffer_pool_stats();
-                (devices, status, stats)
+        #[cfg(debug_assertions)]
+        {
+            let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
+            let audio_latency = if let Some(ref engine) = engine {
+                engine.get_pitch_analyzer_metrics()
+                    .map(|metrics| metrics.average_latency_ms)
+                    .unwrap_or(0.0)
             } else {
-                (None, None, None)
+                0.0
             };
             
-            #[cfg(not(debug_assertions))]
-            let (audio_devices, audioworklet_status, buffer_pool_stats) = (None, None, None);
-            
-            // Update debug-specific data
-            panel.update_debug_data(
-                audio_devices,
-                Some(performance_metrics),
-                audioworklet_status,
-                buffer_pool_stats,
-            );
+            let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
+                fps,
+                memory_usage_mb,
+                memory_usage_percent,
+                audio_latency,
+            };
+            if let Some(ref mut panel) = debug_panel {
+                // Collect real debug data from the engine
+                let (audio_devices, audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
+                    let devices = engine.get_debug_audio_devices();
+                    let status = engine.get_debug_audioworklet_status().map(|s| {
+                        // Convert from engine AudioWorkletStatus to debug AudioWorkletStatus
+                        debug::debug_panel::data_types::AudioWorkletStatus {
+                            state: s.state,
+                            processor_loaded: s.processor_loaded,
+                            chunk_size: s.chunk_size,
+                            batch_size: s.batch_size,
+                            batches_processed: s.batches_processed,
+                        }
+                    });
+                    let stats = engine.get_debug_buffer_pool_stats();
+                    (devices, status, stats)
+                } else {
+                    (None, None, None)
+                };
+                
+                // Update debug-specific data
+                panel.update_debug_data(
+                    audio_devices,
+                    Some(performance_metrics),
+                    audioworklet_status,
+                    buffer_pool_stats,
+                );
+            }
         }
         
         // Update presentation layer with model data
@@ -379,9 +388,12 @@ pub async fn start_render_loop(
                     ..egui::Visuals::default()
                 });
                 
-                dev_console.render(gui_context);
-                if let Some(ref mut panel) = debug_panel {
-                    panel.render(gui_context, &model_data);
+                #[cfg(debug_assertions)]
+                {
+                    dev_console.render(gui_context);
+                    if let Some(ref mut panel) = debug_panel {
+                        panel.render(gui_context, &model_data);
+                    }
                 }
             }
         );
