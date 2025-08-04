@@ -26,7 +26,7 @@ pub use presentation::{
 };
 #[cfg(all(debug_assertions, test))]
 pub use presentation::{
-    ConfigureTestSignal, ConfigureOutputToSpeakers,
+    ConfigureTestSignal,
     DebugLayerActions,
 };
 #[cfg(test)]
@@ -330,20 +330,17 @@ pub async fn start_render_loop(
                 };
                 
                 // Only process if there are debug actions to handle
-                let has_debug_actions = !debug_actions.test_signal_configurations.is_empty() ||
-                                       !debug_actions.speaker_output_configurations.is_empty();
+                let has_debug_actions = !debug_actions.test_signal_configurations.is_empty();
                 
                 if has_debug_actions {
                     trace_log!("[DEBUG] Processing {} debug actions", 
-                        debug_actions.test_signal_configurations.len() + 
-                        debug_actions.speaker_output_configurations.len()
+                        debug_actions.test_signal_configurations.len()
                     );
                     
                     // Execute debug actions synchronously
                     match _engine.execute_debug_actions_sync(debug_actions) {
                         Ok(executed_debug_actions) => {
-                            let total_debug = executed_debug_actions.test_signal_executions.len() + 
-                                            executed_debug_actions.speaker_output_executions.len();
+                            let total_debug = executed_debug_actions.test_signal_executions.len();
                             if total_debug > 0 {
                                 trace_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
                             }

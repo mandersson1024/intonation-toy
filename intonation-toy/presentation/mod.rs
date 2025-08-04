@@ -161,20 +161,6 @@ impl ConfigureTestSignal {
     }
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureOutputToSpeakers {
-    pub enabled: bool,
-}
-
-#[cfg(all(debug_assertions, test))]
-impl ConfigureOutputToSpeakers {
-    pub fn new(enabled: bool) -> Self {
-        Self { enabled }
-    }
-}
-
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureRootNoteAudio {
     pub enabled: bool,
@@ -274,7 +260,6 @@ impl PresentationLayerActionsBuilder {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
-    pub speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
 }
 
 #[cfg(debug_assertions)]
@@ -283,7 +268,6 @@ impl DebugLayerActions {
     pub(crate) fn new() -> Self {
         Self {
             test_signal_configurations: Vec::new(),
-            speaker_output_configurations: Vec::new(),
         }
     }
 }
@@ -299,7 +283,6 @@ impl DebugLayerActions {
 #[cfg(all(debug_assertions, test))]
 pub struct DebugLayerActionsBuilder {
     test_signal_configurations: Vec<ConfigureTestSignal>,
-    speaker_output_configurations: Vec<ConfigureOutputToSpeakers>,
 }
 
 #[cfg(all(debug_assertions, test))]
@@ -307,7 +290,6 @@ impl DebugLayerActionsBuilder {
     pub fn new() -> Self {
         Self {
             test_signal_configurations: Vec::new(),
-            speaker_output_configurations: Vec::new(),
         }
     }
     
@@ -316,15 +298,9 @@ impl DebugLayerActionsBuilder {
         self
     }
     
-    pub fn with_speaker_output(mut self, enabled: bool) -> Self {
-        self.speaker_output_configurations.push(ConfigureOutputToSpeakers::new(enabled));
-        self
-    }
-    
     pub fn build(self) -> DebugLayerActions {
         DebugLayerActions {
             test_signal_configurations: self.test_signal_configurations,
-            speaker_output_configurations: self.speaker_output_configurations,
         }
     }
 }
@@ -639,22 +615,6 @@ impl Presenter {
             waveform,
         });
     }
-
-    /// Handle debug request to configure speaker output (debug builds only)
-    /// 
-    /// This method should be called by debug UI components to enable or disable
-    /// direct speaker output for debugging audio processing.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `enabled` - Whether speaker output should be enabled
-    #[cfg(debug_assertions)]
-    pub fn on_output_to_speakers_configured(&mut self, enabled: bool) {
-        self.pending_debug_actions.speaker_output_configurations.push(ConfigureOutputToSpeakers {
-            enabled,
-        });
-    }
-
 
     /// Handle debug request to configure root note audio generation (debug builds only)
     /// 
@@ -1391,7 +1351,6 @@ mod tests {
         let debug_actions = presenter.get_debug_actions();
         
         assert!(debug_actions.test_signal_configurations.is_empty());
-        assert!(debug_actions.speaker_output_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]
@@ -1419,25 +1378,6 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[wasm_bindgen_test]
-    fn test_speaker_output_configuration_collection() {
-        let mut presenter = Presenter::create()
-            .expect("Presenter creation should succeed");
-
-        // Configure speaker output
-        presenter.on_output_to_speakers_configured(true);
-        
-        let debug_actions = presenter.get_debug_actions();
-        assert_eq!(debug_actions.speaker_output_configurations.len(), 1);
-        assert_eq!(debug_actions.speaker_output_configurations[0].enabled, true);
-        
-        // After getting actions, they should be cleared
-        let debug_actions2 = presenter.get_debug_actions();
-        assert!(debug_actions2.speaker_output_configurations.is_empty());
-    }
-
-
-    #[cfg(debug_assertions)]
-    #[wasm_bindgen_test]
     fn test_multiple_debug_action_collection() {
         use crate::engine::audio::TestWaveform;
         
@@ -1446,14 +1386,12 @@ mod tests {
 
         // Trigger multiple debug actions
         presenter.on_test_signal_configured(true, 880.0, 75.0, TestWaveform::Square);
-        presenter.on_output_to_speakers_configured(false);
         presenter.on_test_signal_configured(false, 220.0, 25.0, TestWaveform::Triangle); // Second test signal config
         
         let debug_actions = presenter.get_debug_actions();
         
         // Verify all actions were collected
         assert_eq!(debug_actions.test_signal_configurations.len(), 2);
-        assert_eq!(debug_actions.speaker_output_configurations.len(), 1);
         
         // Verify first test signal config
         assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
@@ -1468,7 +1406,6 @@ mod tests {
         // After getting actions, all should be cleared
         let debug_actions2 = presenter.get_debug_actions();
         assert!(debug_actions2.test_signal_configurations.is_empty());
-        assert!(debug_actions2.speaker_output_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]
@@ -1482,7 +1419,6 @@ mod tests {
         
         // Test that new instances are empty
         assert!(actions1.test_signal_configurations.is_empty());
-        assert!(actions1.speaker_output_configurations.is_empty());
     }
 
     #[cfg(debug_assertions)]

@@ -26,8 +26,6 @@ impl Default for TestSignalConfig {
 
 /// EGUI debug controls wrapper for three-d + egui rendering
 pub struct EguiDebugControls {
-    output_to_speakers: bool,
-    prev_output_to_speakers: bool,
     test_signal_config: TestSignalConfig,
     prev_test_signal_config: TestSignalConfig,
 }
@@ -37,8 +35,6 @@ impl EguiDebugControls {
     pub fn new() -> Self {
         let test_signal_config = TestSignalConfig::default();
         Self {
-            output_to_speakers: false,
-            prev_output_to_speakers: false,
             test_signal_config: test_signal_config.clone(),
             prev_test_signal_config: test_signal_config,
         }
@@ -64,11 +60,6 @@ impl EguiDebugControls {
             self.prev_test_signal_config = self.test_signal_config.clone();
         }
         
-        // Check output to speakers changes
-        if self.output_to_speakers != self.prev_output_to_speakers {
-            presenter.on_output_to_speakers_configured(self.output_to_speakers);
-            self.prev_output_to_speakers = self.output_to_speakers;
-        }
     }
     
     /// Render test signal controls section
@@ -111,11 +102,7 @@ impl EguiDebugControls {
     /// Render debug controls inline within an existing UI context
     #[cfg(debug_assertions)]
     pub fn render_inline(&mut self, ui: &mut egui::Ui, presenter: &mut crate::presentation::Presenter) {
-        // Render debug controls (test signal, output to speakers)
-        
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.output_to_speakers, "Output to Speakers");
-        });
+        // Render debug controls (test signal)
         
         // Check and apply any configuration changes
         self.check_and_apply_changes(presenter);

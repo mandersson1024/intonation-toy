@@ -41,7 +41,6 @@ pub struct DebugPanel {
     test_signal_frequency: f32,
     test_signal_volume: f32,
     test_signal_waveform: TestWaveform,
-    output_to_speakers_enabled: bool,
 }
 
 impl DebugPanel {
@@ -59,8 +58,6 @@ impl DebugPanel {
             test_signal_frequency: 220.0, // A3
             test_signal_volume: 50.0,
             test_signal_waveform: TestWaveform::Sine,
-            output_to_speakers_enabled: false,
-            
         }
     }
     
@@ -138,9 +135,6 @@ impl DebugPanel {
                 self.render_test_signal_controls(ui);
                 ui.separator();
                 
-                // Output to Speakers Controls Section (debug actions)
-                self.render_output_to_speakers_controls(ui);
-                ui.separator();
             });
         });
     }
@@ -471,17 +465,6 @@ impl DebugPanel {
             });
     }
     
-    /// Render output to speakers controls (debug actions)
-    fn render_output_to_speakers_controls(&mut self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("Output to Speakers")
-            .default_open(true)
-            .show(ui, |ui| {
-                if ui.checkbox(&mut self.output_to_speakers_enabled, "Enable Output to Speakers").changed() {
-                    self.send_output_to_speakers_action();
-                }
-            });
-    }
-    
     /// Render root note audio controls (debug actions)
     fn render_root_note_audio_controls(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
         egui::CollapsingHeader::new("Root Note Audio Controls")
@@ -513,13 +496,6 @@ impl DebugPanel {
                 self.test_signal_volume,
                 self.test_signal_waveform.clone(),
             );
-        }
-    }
-    
-    #[cfg(debug_assertions)]
-    fn send_output_to_speakers_action(&self) {
-        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_output_to_speakers_configured(self.output_to_speakers_enabled);
         }
     }
     

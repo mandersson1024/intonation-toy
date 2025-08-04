@@ -189,8 +189,14 @@ pub struct AudioWorkletManager {
     test_signal_node: Option<TestSignalAudioNode>,
     // Mixer gain node for combining microphone and test signal
     mixer_gain: Option<GainNode>,
+    // Microphone gain node for volume control
+    microphone_gain: Option<GainNode>,
     // Stored microphone source for potential re-routing
     microphone_source: Option<AudioNode>,
+    // Previous microphone volume for restoration when test signal is disabled
+    prev_microphone_volume: Option<f32>,
+    // Previous speaker output state for restoration when test signal is disabled
+    prev_output_to_speakers: Option<bool>,
 }
 
 impl AudioWorkletManager {
@@ -214,7 +220,10 @@ impl AudioWorkletManager {
             root_note_node: None,
             test_signal_node: None,
             mixer_gain: None,
+            microphone_gain: None,
             microphone_source: None,
+            prev_microphone_volume: None,
+            prev_output_to_speakers: None,
         }
     }
     
@@ -254,7 +263,10 @@ impl AudioWorkletManager {
             root_note_node: None,
             test_signal_node: None,
             mixer_gain: None,
+            microphone_gain: None,
             microphone_source: None,
+            prev_microphone_volume: None,
+            prev_output_to_speakers: None,
         }
     }
     
@@ -735,32 +747,53 @@ impl AudioWorkletManager {
         // Store microphone source for potential re-routing
         self.microphone_source = Some(microphone_source.clone());
         
+        // Ensure microphone gain node exists
+        self.ensure_microphone_gain_node()?;
+        
         if let Some(worklet) = &self.worklet_node {
+            // Connect microphone to gain node first
+            if let Some(ref mic_gain) = self.microphone_gain {
+                match microphone_source.connect_with_audio_node(mic_gain) {
+                Ok(_) => {
+                    dev_log!("Connected microphone to gain node");
+                }
+                Err(e) => {
+                    return Err(AudioError::Generic(
+                        format!("Failed to connect microphone to gain node: {:?}", e)
+                    ));
+                }
+            }
+            }
+            
             // Check if mixer exists (test signal is active)
             if self.mixer_gain.is_some() {
-                // Route through mixer: microphone → mixer → worklet
+                // Route through mixer: microphone → gain → mixer → worklet
                 if let Some(ref mixer) = self.mixer_gain {
-                    match microphone_source.connect_with_audio_node(mixer) {
-                        Ok(_) => {
-                            dev_log!("Connected microphone to mixer (test signal routing active)");
-                        }
-                        Err(e) => {
-                            return Err(AudioError::Generic(
-                                format!("Failed to connect microphone to mixer: {:?}", e)
-                            ));
+                    if let Some(ref mic_gain) = self.microphone_gain {
+                        match mic_gain.connect_with_audio_node(mixer) {
+                            Ok(_) => {
+                                dev_log!("Connected microphone gain to mixer (test signal routing active)");
+                            }
+                            Err(e) => {
+                                return Err(AudioError::Generic(
+                                    format!("Failed to connect microphone gain to mixer: {:?}", e)
+                                ));
+                            }
                         }
                     }
                 }
             } else {
-                // Direct routing: microphone → worklet
-                match microphone_source.connect_with_audio_node(worklet) {
-                    Ok(_) => {
-                        dev_log!("Connected microphone directly to worklet");
-                    }
-                    Err(e) => {
-                        return Err(AudioError::Generic(
-                            format!("Failed to connect microphone to AudioWorklet: {:?}", e)
-                        ));
+                // Direct routing: microphone → gain → worklet
+                if let Some(ref mic_gain) = self.microphone_gain {
+                    match mic_gain.connect_with_audio_node(worklet) {
+                        Ok(_) => {
+                            dev_log!("Connected microphone gain directly to worklet");
+                        }
+                        Err(e) => {
+                            return Err(AudioError::Generic(
+                                format!("Failed to connect microphone gain to AudioWorklet: {:?}", e)
+                            ));
+                        }
                     }
                 }
             }
@@ -831,8 +864,18 @@ impl AudioWorkletManager {
             dev_log!("Mixer node disconnected and cleaned up");
         }
         
+        // Clean up the microphone gain node
+        if let Some(mic_gain) = self.microphone_gain.take() {
+            let _ = mic_gain.disconnect();
+            dev_log!("Microphone gain node disconnected and cleaned up");
+        }
+        
         // Clear stored microphone source
         self.microphone_source = None;
+        
+        // Clear stored previous states
+        self.prev_microphone_volume = None;
+        self.prev_output_to_speakers = None;
         
         // Clean up the root note audio node
         if self.root_note_node.is_some() {
@@ -949,6 +992,43 @@ impl AudioWorkletManager {
         Ok(self.mixer_gain.as_ref().unwrap())
     }
     
+    /// Ensure microphone gain node exists
+    fn ensure_microphone_gain_node(&mut self) -> Result<&GainNode, AudioError> {
+        if self.microphone_gain.is_none() {
+            if let Some(ref audio_context) = self.audio_context {
+                let mic_gain = audio_context
+                    .create_gain()
+                    .map_err(|_| AudioError::Generic("Failed to create microphone gain node".to_string()))?;
+                
+                // Set initial gain to unity
+                mic_gain.gain().set_value(1.0);
+                
+                dev_log!("Created microphone gain node with unity gain");
+                self.microphone_gain = Some(mic_gain);
+            } else {
+                return Err(AudioError::Generic("No audio context available".to_string()));
+            }
+        }
+        
+        Ok(self.microphone_gain.as_ref().unwrap())
+    }
+    
+    /// Set microphone volume
+    pub fn set_microphone_volume(&mut self, volume: f32) -> Result<(), AudioError> {
+        // Clamp volume to 0.0 - 1.0 range
+        let clamped_volume = volume.clamp(0.0, 1.0);
+        
+        // Ensure microphone gain node exists
+        let mic_gain = self.ensure_microphone_gain_node()?;
+        
+        // Set the gain value
+        mic_gain.gain().set_value(clamped_volume);
+        
+        dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
+        
+        Ok(())
+    }
+    
     /// Setup test signal routing through mixer
     fn setup_test_signal_routing(&mut self) -> Result<(), AudioError> {
         let _mixer = self.ensure_mixer_node()?;
@@ -975,7 +1055,36 @@ impl AudioWorkletManager {
     
     /// Update test signal generator configuration (manages local TestSignalAudioNode only)
     pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
-        // Manage local TestSignalAudioNode
+        // First handle automatic audio routing management
+        if config.enabled {
+            // Store previous states before enabling test signal
+            if self.prev_microphone_volume.is_none() {
+                // Get current microphone volume from gain node
+                if let Some(ref mic_gain) = self.microphone_gain {
+                    let current_volume = mic_gain.gain().value();
+                    self.prev_microphone_volume = Some(current_volume);
+                    dev_log!("Stored previous microphone volume: {}", current_volume);
+                }
+            }
+            
+            if self.prev_output_to_speakers.is_none() {
+                // Store current speaker output state
+                self.prev_output_to_speakers = Some(self.output_to_speakers);
+                dev_log!("Stored previous speaker output state: {}", self.output_to_speakers);
+            }
+            
+            // Automatically mute microphone and enable speaker output
+            if let Err(e) = self.set_microphone_volume(0.0) {
+                dev_log!("Failed to mute microphone for test signal: {:?}", e);
+            }
+            
+            if !self.output_to_speakers {
+                self.set_output_to_speakers(true);
+                dev_log!("Automatically enabled speaker output for test signal");
+            }
+        }
+        
+        // Then manage local TestSignalAudioNode
         if let Some(ref audio_context) = self.audio_context {
             if config.enabled {
                 if let Some(ref mut test_signal) = self.test_signal_node {
@@ -1011,6 +1120,22 @@ impl AudioWorkletManager {
                 if let Some(ref mut test_signal) = self.test_signal_node {
                     test_signal.disable();
                     dev_log!("Disabled test signal node");
+                }
+                
+                // Restore previous audio routing states
+                if let Some(prev_volume) = self.prev_microphone_volume.take() {
+                    if let Err(e) = self.set_microphone_volume(prev_volume) {
+                        dev_log!("Failed to restore microphone volume: {:?}", e);
+                    } else {
+                        dev_log!("Restored microphone volume to: {}", prev_volume);
+                    }
+                }
+                
+                if let Some(prev_speakers) = self.prev_output_to_speakers.take() {
+                    if self.output_to_speakers != prev_speakers {
+                        self.set_output_to_speakers(prev_speakers);
+                        dev_log!("Restored speaker output state to: {}", prev_speakers);
+                    }
                 }
             }
         } else {

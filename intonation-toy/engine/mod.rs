@@ -64,7 +64,7 @@ use crate::model::ModelLayerActions;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
-use crate::presentation::{DebugLayerActions, ConfigureTestSignal, ConfigureOutputToSpeakers};
+use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 #[cfg(debug_assertions)]
 use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
@@ -108,13 +108,6 @@ pub struct ExecuteTestSignalConfiguration {
     pub waveform: TestWaveform,
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExecuteOutputToSpeakersConfiguration {
-    pub enabled: bool,
-}
-
-
 
 /// Container for all executed debug layer actions (debug builds only)
 /// 
@@ -132,9 +125,6 @@ pub struct ExecuteOutputToSpeakersConfiguration {
 pub struct DebugEngineActions {
     /// Executed test signal configurations
     pub test_signal_executions: Vec<ExecuteTestSignalConfiguration>,
-    
-    /// Executed speaker output configurations
-    pub speaker_output_executions: Vec<ExecuteOutputToSpeakersConfiguration>,
 }
 
 #[cfg(debug_assertions)]
@@ -146,7 +136,6 @@ impl DebugEngineActions {
     pub fn new() -> Self {
         Self {
             test_signal_executions: Vec::new(),
-            speaker_output_executions: Vec::new(),
         }
     }
 }
@@ -448,15 +437,7 @@ impl AudioEngine {
             &mut debug_engine_actions
         )?;
         
-        // Execute speaker output configurations with privileged access
-        self.execute_speaker_output_configurations(
-            &debug_actions.speaker_output_configurations,
-            &mut debug_engine_actions
-        )?;
-        
-        
-        let total_executed = debug_engine_actions.test_signal_executions.len() + 
-                           debug_engine_actions.speaker_output_executions.len();
+        let total_executed = debug_engine_actions.test_signal_executions.len();
         
         crate::common::dev_log!("[DEBUG] ✓ Engine layer successfully executed {} debug actions", total_executed);
         
@@ -545,62 +526,6 @@ impl AudioEngine {
         crate::common::dev_log!(
             "[DEBUG] ✓ Executed {} test signal configurations with privileged access",
             test_signal_configs.len()
-        );
-        Ok(())
-    }
-    
-    /// Execute speaker output configurations with privileged engine access (debug builds only)
-    /// 
-    /// This method provides direct control over speaker output routing, bypassing
-    /// normal permission checks and safety validations.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `speaker_configs` - Speaker output configurations to execute
-    /// * `debug_engine_actions` - Container to store executed actions
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure
-    #[cfg(debug_assertions)]
-    fn execute_speaker_output_configurations(
-        &self,
-        speaker_configs: &[ConfigureOutputToSpeakers],
-        debug_engine_actions: &mut DebugEngineActions
-    ) -> Result<(), String> {
-        for config in speaker_configs {
-            crate::common::dev_log!(
-                "[DEBUG] Executing privileged speaker output configuration - enabled: {}",
-                config.enabled
-            );
-            
-            // Direct privileged access to speaker output control
-            if let Some(ref audio_context) = self.audio_context {
-                let mut borrowed_context = audio_context.borrow_mut();
-                if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
-                    worklet_manager.set_output_to_speakers(config.enabled);
-                    crate::common::dev_log!(
-                        "[DEBUG] ✓ Speaker output control updated - enabled: {}", 
-                        config.enabled
-                    );
-                } else {
-                    crate::common::dev_log!(
-                        "[DEBUG] ⚠ AudioWorkletManager not available for speaker output control"
-                    );
-                }
-                
-                // Record the executed action
-                debug_engine_actions.speaker_output_executions.push(ExecuteOutputToSpeakersConfiguration {
-                    enabled: config.enabled,
-                });
-            } else {
-                return Err("[DEBUG] Audio context not available for speaker output execution".to_string());
-            }
-        }
-        
-        crate::common::dev_log!(
-            "[DEBUG] ✓ Executed {} speaker output configurations with privileged access",
-            speaker_configs.len()
         );
         Ok(())
     }
