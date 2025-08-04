@@ -210,14 +210,37 @@ pub fn setup_first_click_handler(
                         }
                         Err(e) => {
                             dev_log!("✗ Microphone permission failed on first click: {:?}", e);
+                            // Display error after a short delay to avoid removal conflicts
+                            let timeout_closure = Closure::wrap(Box::new(move || {
+                                crate::web::error_message_box::show_error_message(
+                                    "Microphone Access Required",
+                                    "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted."
+                                );
+                            }) as Box<dyn FnMut()>);
+                            
+                            if let Some(window) = web_sys::window() {
+                                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                                    timeout_closure.as_ref().unchecked_ref(),
+                                    100 // 100ms delay
+                                );
+                                timeout_closure.forget();
+                            }
                         }
                     }
                 });
             } else {
                 dev_log!("✗ Failed to call getUserMedia");
+                crate::web::error_message_box::show_error_message(
+                    "Browser Error",
+                    "Failed to access microphone API. Please try refreshing the page or using a different browser."
+                );
             }
         } else {
             dev_log!("✗ MediaDevices API not available");
+            crate::web::error_message_box::show_error_message(
+                "Browser Not Supported",
+                "Your browser doesn't support the required audio features. Please try a modern browser like Chrome or Firefox."
+            );
         }
     }) as Box<dyn FnMut(_)>);
     

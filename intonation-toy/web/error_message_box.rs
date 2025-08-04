@@ -7,10 +7,13 @@ use crate::common::dev_log;
 
 #[cfg(target_arch = "wasm32")]
 pub fn show_error_message(title: &str, details: &str) {
+    // Debug logging to console
+    web_sys::console::log_1(&format!("show_error_message called with title: {}, details: {}", title, details).into());
+    
     let window: Window = match web_sys::window() {
         Some(w) => w,
         None => {
-            dev_log!("Failed to get window");
+            web_sys::console::error_1(&"Failed to get window".into());
             return;
         }
     };
@@ -18,19 +21,24 @@ pub fn show_error_message(title: &str, details: &str) {
     let document: Document = match window.document() {
         Some(d) => d,
         None => {
-            dev_log!("Failed to get document");
+            web_sys::console::error_1(&"Failed to get document".into());
             return;
         }
     };
 
     // Remove any existing error message
+    web_sys::console::log_1(&"About to hide existing error messages".into());
     hide_error_message();
 
     // Create overlay
+    web_sys::console::log_1(&"Creating overlay element".into());
     let overlay = match document.create_element("div") {
-        Ok(el) => el,
+        Ok(el) => {
+            web_sys::console::log_1(&"Overlay element created successfully".into());
+            el
+        },
         Err(e) => {
-            dev_log!("Failed to create overlay element: {:?}", e);
+            web_sys::console::error_1(&format!("Failed to create overlay element: {:?}", e).into());
             return;
         }
     };
@@ -118,24 +126,35 @@ pub fn show_error_message(title: &str, details: &str) {
     }
 
     // Add to document body
+    web_sys::console::log_1(&"About to append overlay to body".into());
     match document.body() {
         Some(body) => {
             if let Err(e) = body.append_child(&overlay) {
-                dev_log!("Failed to append overlay to body: {:?}", e);
+                web_sys::console::error_1(&format!("Failed to append overlay to body: {:?}", e).into());
+            } else {
+                web_sys::console::log_1(&"Successfully appended overlay to body".into());
+                // Verify it's actually there
+                if let Some(check_overlay) = document.get_element_by_id("error-message-overlay") {
+                    web_sys::console::log_1(&"Overlay confirmed to exist in DOM".into());
+                } else {
+                    web_sys::console::error_1(&"Overlay NOT found in DOM immediately after append!".into());
+                }
             }
         }
         None => {
-            dev_log!("Failed to get document body");
+            web_sys::console::error_1(&"Failed to get document body".into());
         }
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn hide_error_message() {
+    web_sys::console::log_1(&"hide_error_message called".into());
+    
     let window: Window = match web_sys::window() {
         Some(w) => w,
         None => {
-            dev_log!("Failed to get window");
+            web_sys::console::error_1(&"Failed to get window in hide_error_message".into());
             return;
         }
     };
@@ -143,15 +162,16 @@ pub fn hide_error_message() {
     let document: Document = match window.document() {
         Some(d) => d,
         None => {
-            dev_log!("Failed to get document");
+            web_sys::console::error_1(&"Failed to get document in hide_error_message".into());
             return;
         }
     };
 
     if let Some(overlay) = document.get_element_by_id("error-message-overlay") {
-        if let Err(e) = overlay.remove() {
-            dev_log!("Failed to remove error overlay: {:?}", e);
-        }
+        web_sys::console::log_1(&"Found overlay to hide - removing it".into());
+        overlay.remove();
+    } else {
+        web_sys::console::log_1(&"No overlay found to hide".into());
     }
 }
 

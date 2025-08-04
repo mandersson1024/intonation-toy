@@ -70,7 +70,7 @@ pub use smoothing::EmaSmoother;
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use three_d::{RenderTarget, Context, Viewport, ClearState};
+use three_d::{RenderTarget, Context, Viewport};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch, PermissionState};
 
 #[cfg(target_arch = "wasm32")]
@@ -1043,6 +1043,7 @@ mod tests {
             cents_offset: 0.0,
             interval_semitones: 0,
             root_note: 53,
+            root_note_audio_enabled: false,
         }
     }
 
@@ -1429,10 +1430,6 @@ mod tests {
         let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
         let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
         assert_eq!(test_signal1, test_signal2);
-        
-        let speaker1 = ConfigureOutputToSpeakers { enabled: true };
-        let speaker2 = ConfigureOutputToSpeakers { enabled: true };
-        assert_eq!(speaker1, speaker2);
     }
     
     /// Test the new frequency-based interval calculation

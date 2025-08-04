@@ -460,8 +460,6 @@ impl DataModel {
             root_note_audio_enabled: engine_data.root_note_audio_enabled,
         };
         
-        crate::common::dev_log!("MODEL: Returning result with root_note_audio_enabled: {}", result.root_note_audio_enabled);
-        
         result
     }
     
