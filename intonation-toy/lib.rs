@@ -428,7 +428,20 @@ pub async fn start() {
         let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
         error_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
         error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
-        // TODO: Add error screen rendering in future story when UI requirements are defined
+        
+        // Display error overlay for unsupported browser
+        #[cfg(target_arch = "wasm32")]
+        {
+            let missing_apis_str = api_list.join(", ");
+            let detailed_message = format!(
+                "Your browser doesn't support the required features: {}. Please try a modern browser like Chrome or Firefox.",
+                missing_apis_str
+            );
+            crate::web::error_message_box::show_error_message(
+                "Browser Not Supported",
+                &detailed_message
+            );
+        }
         return;
     }
 
