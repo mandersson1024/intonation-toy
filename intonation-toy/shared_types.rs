@@ -134,7 +134,6 @@ pub enum Error {
     MicrophoneNotAvailable,
     ProcessingError(String),
     BrowserApiNotSupported,
-    AudioContextInitFailed,
     AudioContextSuspended,
 }
 
@@ -393,11 +392,10 @@ mod tests {
             Error::MicrophoneNotAvailable,
             Error::ProcessingError("test".to_string()),
             Error::BrowserApiNotSupported,
-            Error::AudioContextInitFailed,
             Error::AudioContextSuspended,
         ];
         
-        assert_eq!(errors.len(), 6);
+        assert_eq!(errors.len(), 5);
     }
 
 

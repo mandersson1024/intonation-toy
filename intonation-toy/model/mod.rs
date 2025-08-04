@@ -384,9 +384,6 @@ impl DataModel {
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     Error::BrowserApiNotSupported
                 }
-                crate::shared_types::Error::AudioContextInitFailed => {
-                    Error::AudioContextInitFailed
-                }
                 crate::shared_types::Error::AudioContextSuspended => {
                     Error::AudioContextSuspended
                 }
