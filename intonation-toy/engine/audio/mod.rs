@@ -235,6 +235,7 @@ use volume_detector::{VolumeDetector, VolumeAnalysis};
 
 #[cfg(test)]
 mod tests {
+    use buffer::STANDARD_SAMPLE_RATE;
     use super::*;
     use wasm_bindgen_test::*;
 
@@ -333,7 +334,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
-        assert_eq!(info.sample_rate, 48000.0);
+        assert_eq!(info.sample_rate, STANDARD_SAMPLE_RATE as f32);
         assert_eq!(info.buffer_size, 1024);
         assert!(info.device_id.is_none());
         assert!(info.device_label.is_none());
@@ -342,7 +343,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
-        assert_eq!(config.sample_rate, 48000);
+        assert_eq!(config.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(config.buffer_size, 1024);
         assert_eq!(config.max_recreation_attempts, 3);
     }

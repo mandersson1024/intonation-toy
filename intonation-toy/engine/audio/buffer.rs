@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 
 pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed chunk size
 pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096 - IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
+pub const STANDARD_SAMPLE_RATE: u32 = 44100;            // Standard consumer audio sample rate (44.1 kHz)
 
 
 

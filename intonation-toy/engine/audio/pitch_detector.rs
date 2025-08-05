@@ -320,6 +320,7 @@ impl PitchDetector {
 mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
+    use super::super::buffer::STANDARD_SAMPLE_RATE;
 
     #[wasm_bindgen_test]
     fn test_pitch_result_creation() {
@@ -357,11 +358,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_detector_creation() {
         let config = PitchDetectorConfig::default();
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_ok());
         
         let detector = detector.unwrap();
-        assert_eq!(detector.sample_rate(), 48000);
+        assert_eq!(detector.sample_rate(), STANDARD_SAMPLE_RATE);
         assert_eq!(detector.config().sample_window_size, BUFFER_SIZE);
         assert_eq!(detector.config().threshold, 0.1);            // Updated for better detection sensitivity
     }
@@ -371,7 +372,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.sample_window_size = 1000; // Not multiple of 128
         
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("multiple of 128")),
@@ -384,7 +385,7 @@ mod tests {
         let mut config = PitchDetectorConfig::default();
         config.sample_window_size = 0;
         
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("cannot be zero")),
@@ -420,7 +421,7 @@ mod tests {
         }
         
         config.threshold = 1.1;
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("between 0.0 and 1.0")),
@@ -442,7 +443,7 @@ mod tests {
         
         config.min_frequency = 100.0;
         config.max_frequency = 50.0; // Max less than min
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_err());
         match detector {
             Err(err) => assert!(err.contains("must be greater than minimum")),
@@ -589,7 +590,7 @@ mod tests {
         config.min_frequency = 80.0; // Vocal/instrumental range
         config.max_frequency = 2000.0;
         
-        let detector = PitchDetector::new(config, 48000);
+        let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_ok());
         
         let detector = detector.unwrap();

@@ -8,6 +8,7 @@ mod tests {
     use wasm_bindgen_test::*;
     use wasm_bindgen::{JsValue, JsCast};
     use js_sys::{ArrayBuffer, Float32Array, Function, Reflect};
+    use pitch_toy::engine::audio::buffer::STANDARD_SAMPLE_RATE;
     
     // Tests run in node environment
     
@@ -20,7 +21,7 @@ mod tests {
                 globalThis.currentTime = 0;
             }
             if (typeof globalThis.sampleRate === 'undefined') {
-                globalThis.sampleRate = 48000;
+                globalThis.sampleRate = {};", STANDARD_SAMPLE_RATE).as_str() + r#"
             }
             
             // Simple buffer pool for testing

@@ -2587,6 +2587,7 @@ impl Default for AudioWorkletMessageFactory {
 mod tests {
     use super::*;
     use wasm_bindgen_test::*;
+    use super::super::buffer::STANDARD_SAMPLE_RATE;
 
     #[wasm_bindgen_test]
     fn test_message_envelope_creation() {
@@ -2641,7 +2642,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_data_batch_creation() {
         let batch = AudioDataBatch {
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp: get_current_timestamp(),
@@ -2650,7 +2651,7 @@ mod tests {
             buffer_pool_stats: None,
         };
         
-        assert_eq!(batch.sample_rate, 48000);
+        assert_eq!(batch.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(batch.sample_count, 1024);
         assert_eq!(batch.buffer_length, 4096);
         assert_eq!(batch.sequence_number, Some(42));
@@ -2661,7 +2662,7 @@ mod tests {
     fn test_processor_status_creation() {
         let status = ProcessorStatus {
             active: true,
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
             buffer_size: 1024,
             processed_batches: 100,
             avg_processing_time_ms: 5.2,
@@ -2674,7 +2675,7 @@ mod tests {
         };
         
         assert_eq!(status.active, true);
-        assert_eq!(status.sample_rate, 48000);
+        assert_eq!(status.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(status.buffer_size, 1024);
         assert_eq!(status.processed_batches, 100);
         assert_eq!(status.avg_processing_time_ms, 5.2);
@@ -2720,7 +2721,7 @@ mod tests {
         
         // Test message with data
         let data = AudioDataBatch {
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp: 12345.0,
@@ -2774,7 +2775,7 @@ mod tests {
             enabled: true,
             frequency: 440.0,
             amplitude: 0.5,
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
         };
         
         let obj = config.to_js_object().unwrap();
@@ -2847,7 +2848,7 @@ mod tests {
             true,
             440.0,
             0.5,
-            48000,
+            STANDARD_SAMPLE_RATE,
         );
         assert!(valid_config.is_ok());
         
@@ -2856,7 +2857,7 @@ mod tests {
             true,
             -440.0, // Invalid frequency
             0.5,
-            48000,
+            STANDARD_SAMPLE_RATE,
         );
         assert!(invalid_config.is_err());
     }
@@ -2891,14 +2892,14 @@ mod tests {
         
         // Test audio data batch creation
         let batch_msg = factory.create_audio_data_batch(
-            48000,
+            STANDARD_SAMPLE_RATE,
             1024,
             4096,
             Some(42)
         ).unwrap();
         
         if let FromWorkletMessage::AudioDataBatch { data } = &batch_msg.payload {
-            assert_eq!(data.sample_rate, 48000);
+            assert_eq!(data.sample_rate, STANDARD_SAMPLE_RATE);
             assert_eq!(data.sample_count, 1024);
             assert_eq!(data.buffer_length, 4096);
             assert_eq!(data.sequence_number, Some(42));

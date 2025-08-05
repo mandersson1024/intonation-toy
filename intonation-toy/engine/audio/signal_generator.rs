@@ -1,4 +1,6 @@
 
+use super::buffer::STANDARD_SAMPLE_RATE;
+
 /// Configuration for test signal generation
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalGeneratorConfig {
@@ -27,7 +29,7 @@ impl Default for SignalGeneratorConfig {
             enabled: false,
             frequency: 440.0,
             amplitude: 0.3,
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
         }
     }
 }

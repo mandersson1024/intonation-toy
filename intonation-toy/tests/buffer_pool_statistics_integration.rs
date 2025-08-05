@@ -7,6 +7,7 @@ use wasm_bindgen_test::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 use pitch_toy::engine::audio::message_protocol::*;
+use pitch_toy::engine::audio::buffer::STANDARD_SAMPLE_RATE;
 
 // No wasm_bindgen_test_configure! needed for Node.js
 
@@ -62,7 +63,7 @@ impl MockAudioWorkletMessageGenerator {
         
         // Use AudioDataBatch instead of StatusUpdate since we now bundle buffer stats with audio data
         let audio_data = AudioDataBatch {
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
             sample_count: 1024,
             buffer_length: 4096,
             timestamp,

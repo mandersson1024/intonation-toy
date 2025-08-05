@@ -61,6 +61,7 @@ pub(crate) mod platform;
 
 use crate::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
+use audio::buffer::STANDARD_SAMPLE_RATE;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -495,7 +496,7 @@ impl AudioEngine {
                         enabled: config.enabled,
                         frequency: config.frequency,
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
-                        sample_rate: 48000, // Use standard sample rate
+                        sample_rate: STANDARD_SAMPLE_RATE, // Use standard consumer audio sample rate
                     };
                     
                     worklet_manager.update_test_signal_config(audio_config);

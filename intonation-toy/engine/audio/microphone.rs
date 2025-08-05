@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::MediaStream;
 use std::fmt;
 use super::permission::{PermissionManager, AudioPermission};
+use super::buffer::STANDARD_SAMPLE_RATE;
 
 /// Audio stream information
 #[derive(Debug, Clone)]
@@ -15,7 +16,7 @@ pub struct AudioStreamInfo {
 impl Default for AudioStreamInfo {
     fn default() -> Self {
         Self {
-            sample_rate: 44100,
+            sample_rate: STANDARD_SAMPLE_RATE,
             buffer_size: 1024,    // Production buffer size
             device_id: None,
             device_label: None,
@@ -528,7 +529,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_stream_info_default() {
         let info = AudioStreamInfo::default();
-        assert_eq!(info.sample_rate, 48000);
+        assert_eq!(info.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(info.buffer_size, 1024);
         assert!(info.device_id.is_none());
         assert!(info.device_label.is_none());
@@ -558,7 +559,7 @@ mod tests {
     fn test_microphone_manager_stream_info() {
         let manager = MicrophoneManager::new();
         let info = manager.stream_info();
-        assert_eq!(info.sample_rate, 48000);
+        assert_eq!(info.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(info.buffer_size, 1024);
     }
 }

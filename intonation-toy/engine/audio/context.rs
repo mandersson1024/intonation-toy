@@ -19,7 +19,7 @@
 //! use pitch_toy::audio::{AudioContextManager, AudioContextConfig};
 //!
 //! async fn setup_audio() {
-//!     // Create manager with default configuration (48kHz, 1024 buffer)
+//!     // Create manager with default configuration (44.1kHz, 1024 buffer)
 //!     let mut manager = AudioContextManager::new();
 //!
 //!     // Or with custom configuration
@@ -53,6 +53,7 @@ use wasm_bindgen::closure::Closure;
 use std::fmt;
 use crate::common::dev_log;
 use super::AudioError;
+use super::buffer::STANDARD_SAMPLE_RATE;
 
 /// AudioContext configuration states
 #[derive(Debug, Clone, PartialEq)]
@@ -87,7 +88,7 @@ impl fmt::Display for AudioContextState {
 /// Audio context configuration
 #[derive(Debug, Clone)]
 pub struct AudioContextConfig {
-    /// Preferred sample rate (44.1kHz or 48kHz standard)
+    /// Preferred sample rate (44.1kHz standard, 48kHz for testing)
     pub sample_rate: u32,
     /// Buffer size for audio processing
     pub buffer_size: u32,
@@ -98,7 +99,7 @@ pub struct AudioContextConfig {
 impl Default for AudioContextConfig {
     fn default() -> Self {
         Self {
-            sample_rate: 44100,
+            sample_rate: STANDARD_SAMPLE_RATE,
             buffer_size: 1024,    // Production buffer size
             max_recreation_attempts: 3,
         }
@@ -109,7 +110,7 @@ impl AudioContextConfig {
     /// Create configuration with 44.1kHz sample rate
     pub fn with_44_1khz() -> Self {
         Self {
-            sample_rate: 44100,
+            sample_rate: STANDARD_SAMPLE_RATE,
             ..Default::default()
         }
     }
@@ -1157,7 +1158,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_audio_context_config_default() {
         let config = AudioContextConfig::default();
-        assert_eq!(config.sample_rate, 48000);
+        assert_eq!(config.sample_rate, STANDARD_SAMPLE_RATE);
         assert_eq!(config.buffer_size, 1024);
         assert_eq!(config.max_recreation_attempts, 3);
     }

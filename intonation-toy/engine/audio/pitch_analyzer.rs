@@ -674,6 +674,7 @@ mod tests {
     use super::*;
      use wasm_bindgen_test::wasm_bindgen_test;
    use crate::engine::audio::pitch_analyzer::PitchDetectorConfig;
+    use super::super::buffer::STANDARD_SAMPLE_RATE;
 
     fn create_test_config() -> PitchDetectorConfig {
         PitchDetectorConfig {
@@ -687,7 +688,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_creation() {
         let config = create_test_config();
-        let analyzer = PitchAnalyzer::new(config, 48000);
+        let analyzer = PitchAnalyzer::new(config, STANDARD_SAMPLE_RATE);
         assert!(analyzer.is_ok());
 
         let analyzer = analyzer.unwrap();
@@ -744,7 +745,7 @@ mod tests {
 
         // Generate 440Hz sine wave
         let frequency = 440.0;
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;
@@ -836,7 +837,7 @@ mod tests {
         
         // Generate 440Hz sine wave
         let frequency = 440.0;
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..2048) // More than one block
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;
@@ -920,7 +921,7 @@ mod tests {
         
         // Generate enough data for 3 blocks (need extra to ensure buffer has enough)
         let frequency = 440.0;
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..8192) // 4 blocks worth to ensure enough data
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;
@@ -965,7 +966,7 @@ mod tests {
         
         // Generate 440Hz sine wave for 2 blocks (with extra to ensure enough data)
         let frequency = 440.0;
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..6144) // 3 blocks worth to ensure enough data
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;
@@ -1006,7 +1007,7 @@ mod tests {
             
             // Generate test signal
             let frequency = 440.0;
-            let sample_rate = 48000;
+            let sample_rate = STANDARD_SAMPLE_RATE;
             let samples: Vec<f32> = (0..2048)
                 .map(|i| {
                     let t = i as f32 / sample_rate as f32;
@@ -1035,7 +1036,7 @@ mod tests {
 
         // Generate test signal
         let frequency = 440.0;
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;
@@ -1260,7 +1261,7 @@ mod tests {
             (392.0, 0.6),  // G4 - weak signal
         ];
         
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let mut detected_frequencies = Vec::new();
         
         for &(frequency, amplitude) in &test_sequence {
@@ -1311,7 +1312,7 @@ mod tests {
             523.25, // C5
         ];
         
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let mut scale_results = Vec::new();
         
         for &frequency in &scale_frequencies {
@@ -1343,7 +1344,7 @@ mod tests {
         let mut analyzer = PitchAnalyzer::new(config, 48000).unwrap();
         
         let fundamental = 440.0; // A4
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         
         // Create complex signal with fundamental + harmonics + interference
         let samples: Vec<f32> = (0..2048)
@@ -1373,7 +1374,7 @@ mod tests {
     fn test_end_to_end_basic_pitch_detection() {
         // Test basic pitch detection consistency
         let frequency = 440.0; // A4
-        let sample_rate = 48000;
+        let sample_rate = STANDARD_SAMPLE_RATE;
         let samples: Vec<f32> = (0..2048)
             .map(|i| {
                 let t = i as f32 / sample_rate as f32;

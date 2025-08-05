@@ -5,6 +5,7 @@ mod tests {
     use wasm_bindgen_test::*;
     use wasm_bindgen::{JsValue, JsCast};
     use js_sys::{ArrayBuffer, Float32Array, Function, Object, Reflect};
+    use pitch_toy::engine::audio::buffer::STANDARD_SAMPLE_RATE;
     
     // Tests run in node environment
     
@@ -134,7 +135,7 @@ mod tests {
         let data = Object::new();
         Reflect::set(&data, &"type".into(), &"processorReady".into()).unwrap();
         Reflect::set(&data, &"batchSize".into(), &JsValue::from(1024)).unwrap();
-        Reflect::set(&data, &"sampleRate".into(), &JsValue::from(48000)).unwrap();
+        Reflect::set(&data, &"sampleRate".into(), &JsValue::from(STANDARD_SAMPLE_RATE)).unwrap();
         
         let event = create_mock_event(&data).unwrap();
         
@@ -151,7 +152,7 @@ mod tests {
         assert_eq!(batch_size.as_f64().unwrap(), 1024.0);
         
         let sample_rate = Reflect::get(&handler, &"sampleRate".into()).unwrap();
-        assert_eq!(sample_rate.as_f64().unwrap(), 48000.0);
+        assert_eq!(sample_rate.as_f64().unwrap(), STANDARD_SAMPLE_RATE as f64);
     }
     
     #[wasm_bindgen_test]

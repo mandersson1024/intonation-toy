@@ -1,3 +1,5 @@
+use super::buffer::STANDARD_SAMPLE_RATE;
+
 /// Volume analysis result from processing an audio buffer
 #[derive(Debug, Clone)]
 pub struct VolumeAnalysis {
@@ -35,7 +37,7 @@ impl VolumeDetectorConfig {
         Self {
             input_gain_db: 0.0,
             noise_floor_db: -60.0,
-            sample_rate: 48000,
+            sample_rate: STANDARD_SAMPLE_RATE,
         }
     }
 
@@ -197,7 +199,7 @@ mod tests {
         let config = VolumeDetectorConfig {
             input_gain_db: 6.0,
             noise_floor_db: -70.0,
-            sample_rate: 44100,
+            sample_rate: STANDARD_SAMPLE_RATE,
         };
         
         let detector = VolumeDetector::new(config);
@@ -285,7 +287,7 @@ mod tests {
         let new_config = VolumeDetectorConfig {
             input_gain_db: 12.0,
             noise_floor_db: -50.0,
-            sample_rate: 44100,
+            sample_rate: STANDARD_SAMPLE_RATE,
         };
         
         assert!(detector.update_config(new_config).is_ok());
