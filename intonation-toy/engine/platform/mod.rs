@@ -18,6 +18,7 @@ pub enum PlatformValidationResult {
     // TODO: For semantic clarity we could implement the type MissingApi, but as long
     // as the implementation is identical to CriticalApi we keep it simple and use that.
     MissingCriticalApis(Vec<CriticalApi>),
+    MobileDevice,
 }
 
 /// Critical APIs that must be available for application startup
@@ -221,6 +222,12 @@ impl Platform {
     pub fn check_feature_support() -> PlatformValidationResult {
         dev_log!("Validating critical platform APIs...");
         
+        // Check for mobile device first
+        if Self::is_mobile_device() {
+            dev_log!("✗ Mobile device detected - application not supported on mobile devices");
+            return PlatformValidationResult::MobileDevice;
+        }
+        
         let api_statuses = Self::get_api_status();
         let missing_apis: Vec<CriticalApi> = api_statuses
             .iter()
@@ -251,6 +258,41 @@ impl Platform {
         let user_agent = "Unknown".to_string();
         
         format!("UserAgent: {}", user_agent)
+    }
+
+    /// Check if the current platform is a mobile device
+    #[cfg(target_arch = "wasm32")]
+    pub fn is_mobile_device() -> bool {
+        if let Some(window) = web_sys::window() {
+            if let Ok(user_agent) = window.navigator().user_agent() {
+                // Common mobile device patterns
+                let mobile_patterns = [
+                    "Android",
+                    "iPhone",
+                    "iPad",
+                    "iPod",
+                    "BlackBerry",
+                    "Windows Phone",
+                    "webOS",
+                    "Opera Mini",
+                    "IEMobile",
+                    "Mobile",
+                    "Tablet"
+                ];
+                
+                let ua_lower = user_agent.to_lowercase();
+                return mobile_patterns.iter().any(|pattern| ua_lower.contains(&pattern.to_lowercase()));
+            }
+        }
+        // If we can't get user agent, assume not mobile
+        false
+    }
+    
+    /// Check if the current platform is a mobile device
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn is_mobile_device() -> bool {
+        // In native environment (tests), always return false
+        false
     }
 }
 
@@ -284,6 +326,14 @@ mod tests {
             }
             _ => panic!("Expected MissingCriticalApis variant"),
         }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_mobile_device_detection() {
+        // Test that is_mobile_device returns appropriate value in test environment
+        let is_mobile = Platform::is_mobile_device();
+        // In native test environment, should always return false
+        assert!(!is_mobile, "is_mobile_device should return false in test environment");
     }
 
 }

@@ -424,28 +424,46 @@ pub async fn start() {
     
     // Validate critical platform APIs before proceeding
     dev_log!("Checking platform feature support...");
-    if let PlatformValidationResult::MissingCriticalApis(missing_apis) = Platform::check_feature_support() {
-        let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
-        error_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
-        error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
-        
-        // Display error overlay for unsupported browser
-        #[cfg(target_arch = "wasm32")]
-        {
-            let missing_apis_str = api_list.join(", ");
-            let detailed_message = format!(
-                "Your browser doesn't support the required features: {}. Please try a modern browser like Chrome or Firefox.",
-                missing_apis_str
-            );
-            crate::web::error_message_box::show_error_message(
-                "Browser Not Supported",
-                &detailed_message
-            );
+    match Platform::check_feature_support() {
+        PlatformValidationResult::MissingCriticalApis(missing_apis) => {
+            let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
+            error_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
+            error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
+            
+            // Display error overlay for unsupported browser
+            #[cfg(target_arch = "wasm32")]
+            {
+                let missing_apis_str = api_list.join(", ");
+                let detailed_message = format!(
+                    "Your browser doesn't support the required features: {}. Please try a modern browser like Chrome or Firefox.",
+                    missing_apis_str
+                );
+                crate::web::error_message_box::show_error_message(
+                    "Browser Not Supported",
+                    &detailed_message
+                );
+            }
+            return;
         }
-        return;
+        PlatformValidationResult::MobileDevice => {
+            error_log!("✗ CRITICAL: Mobile device detected - application not supported on mobile");
+            error_log!("✗ Application cannot start on mobile devices. Please use a desktop or laptop computer.");
+            
+            // Display error overlay for mobile device
+            #[cfg(target_arch = "wasm32")]
+            {
+                let detailed_message = "This application requires desktop features and is not optimized for mobile devices. Please try again on a desktop or laptop computer for the best experience.";
+                crate::web::error_message_box::show_error_message(
+                    "Mobile Devices Not Supported",
+                    detailed_message
+                );
+            }
+            return;
+        }
+        PlatformValidationResult::AllSupported => {
+            log!("✓ Platform validation passed - initializing three-layer architecture");
+        }
     }
-
-    log!("✓ Platform validation passed - initializing three-layer architecture");
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
