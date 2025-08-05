@@ -418,7 +418,7 @@ pub async fn start() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
     
-    log!("Starting Pitch Toy application");
+    log!("Starting Intonation Toy application");
     dev_log!("Build configuration: {}", if cfg!(debug_assertions) { "Development" } else { "Production" });
     dev_log!("{}", Platform::get_platform_info());
     
