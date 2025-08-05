@@ -14,69 +14,233 @@ This document provides a structured approach for manually testing the intonation
 ### 1. Application Startup & Platform Validation
 **Goal**: Verify the application initializes correctly across different environments.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Basic Startup** | 1. Navigate to application URL<br>2. Wait for loading to complete | - Application loads without errors<br>- UI elements are visible<br>- No error messages in console |
-| **Browser Compatibility** | 1. Test in Chrome<br>2. Test in Firefox<br>3. Check developer console for errors | - Application works in both browsers<br>- No critical API missing errors<br>- Platform validation passes |
-| **Microphone Permission** | 1. Click anywhere on the application (first user gesture)<br>2. Accept microphone permission when prompted | - Permission dialog appears<br>- Permission granted successfully<br>- Audio input indicator shows activity |
+#### Basic Startup
+**Steps:**
+1. Navigate to application URL
+2. Wait for loading to complete
+
+**Expected Result:**
+- Application loads without errors
+- UI elements are visible
+- No error messages in console
+
+#### Browser Compatibility
+**Steps:**
+1. Test in Chrome
+2. Test in Firefox
+3. Check developer console for errors
+
+**Expected Result:**
+- Application works in both browsers
+- No critical API missing errors
+- Platform validation passes
+
+#### Microphone Permission
+**Steps:**
+1. Click anywhere on the application (first user gesture)
+2. Accept microphone permission when prompted
+
+**Expected Result:**
+- Permission dialog appears
+- Permission granted successfully
+- Audio input indicator shows activity
 
 ### 2. Tuning System Functionality
 **Goal**: Verify both Equal Temperament and Just Intonation work correctly.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Equal Temperament Mode** | 1. Ensure ET mode is selected<br>2. Play/sing a known pitch (e.g., A4=440Hz)<br>3. Observe pitch detection and visualization | - Pitch detected accurately<br>- Visualization updates in real-time<br>- Cents offset shown relative to ET intervals |
-| **Just Intonation Mode** | 1. Switch to Just Intonation mode<br>2. Play/sing the same pitch<br>3. Compare results with ET mode | - Mode switch successful<br>- Different intonation analysis than ET<br>- Visualization reflects JI intervals |
-| **Tuning System Toggle** | 1. Switch between ET and JI multiple times<br>2. Verify each switch takes effect immediately | - No lag in switching<br>- Analysis updates immediately<br>- UI reflects current mode |
+#### Equal Temperament Mode
+**Steps:**
+1. Ensure ET mode is selected
+2. Play/sing a known pitch (e.g., A4=440Hz)
+3. Observe pitch detection and visualization
+
+**Expected Result:**
+- Pitch detected accurately
+- Visualization updates in real-time
+- Cents offset shown relative to ET intervals
+
+#### Just Intonation Mode
+**Steps:**
+1. Switch to Just Intonation mode
+2. Play/sing the same pitch
+3. Compare results with ET mode
+
+**Expected Result:**
+- Mode switch successful
+- Different intonation analysis than ET
+- Visualization reflects JI intervals
+
+#### Tuning System Toggle
+**Steps:**
+1. Switch between ET and JI multiple times
+2. Verify each switch takes effect immediately
+
+**Expected Result:**
+- No lag in switching
+- Analysis updates immediately
+- UI reflects current mode
 
 ### 3. Root Note Configuration
 **Goal**: Verify root note changes affect pitch analysis correctly.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Root Note Selection** | 1. Change root note (e.g., from C to D)<br>2. Play a consistent pitch<br>3. Observe interval analysis changes | - Root note updates immediately<br>- Interval calculations adjust to new root<br>- Visual representation updates |
-| **Standard Tuning Reference** | 1. Set root note to A (MIDI 69)<br>2. Play A4=440Hz<br>3. Verify it shows as root/unison | - Shows 0 semitones, 0 cents<br>- Pitch detection shows ~440Hz<br>- Visualization centers on root |
+#### Root Note Selection
+**Steps:**
+1. Change root note (e.g., from C to D)
+2. Play a consistent pitch
+3. Observe interval analysis changes
+
+**Expected Result:**
+- Root note updates immediately
+- Interval calculations adjust to new root
+- Visual representation updates
+
+#### Standard Tuning Reference
+**Steps:**
+1. Set root note to A (MIDI 69)
+2. Play A4=440Hz
+3. Verify it shows as root/unison
+
+**Expected Result:**
+- Shows 0 semitones, 0 cents
+- Pitch detection shows ~440Hz
+- Visualization centers on root
 
 ### 4. Scale Awareness
 **Goal**: Verify scale-aware features work correctly.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Major Scale** | 1. Set scale to Major<br>2. Play notes in and out of the major scale<br>3. Observe how non-scale notes are handled | - Scale notes show accurate intervals<br>- Non-scale notes map to nearest scale notes<br>- Cents offset shows deviation from scale note |
-| **Chromatic Scale** | 1. Switch to Chromatic scale<br>2. Play various chromatic pitches<br>3. Compare with Major scale behavior | - All 12 semitones treated equally<br>- No note mapping occurs<br>- Direct interval analysis for all notes |
+#### Major Scale
+**Steps:**
+1. Set scale to Major
+2. Play notes in and out of the major scale
+3. Observe how non-scale notes are handled
+
+**Expected Result:**
+- Scale notes show accurate intervals
+- Non-scale notes map to nearest scale notes
+- Cents offset shows deviation from scale note
+
+#### Chromatic Scale
+**Steps:**
+1. Switch to Chromatic scale
+2. Play various chromatic pitches
+3. Compare with Major scale behavior
+
+**Expected Result:**
+- All 12 semitones treated equally
+- No note mapping occurs
+- Direct interval analysis for all notes
 
 ### 5. Audio Input & Pitch Detection
 **Goal**: Verify pitch detection accuracy and responsiveness.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Pitch Detection Accuracy** | 1. Use a tuner app or known audio source<br>2. Play sustained notes at different pitches<br>3. Compare detected pitch with reference | - Pitch detection within ±5 cents of reference<br>- Stable readings for sustained notes<br>- Quick response to pitch changes |
-| **Volume Sensitivity** | 1. Play notes at different volumes<br>2. Test very quiet and loud inputs<br>3. Verify detection threshold | - Detects reasonable volume range<br>- No false positives from noise<br>- Graceful handling of too-quiet input |
-| **Clarity/Confidence** | 1. Play pure tones vs. complex timbres<br>2. Observe clarity measurements<br>3. Test with noisy environment | - Pure tones show high clarity<br>- Complex timbres show appropriate clarity<br>- Noise reduces clarity appropriately |
+#### Pitch Detection Accuracy
+**Steps:**
+1. Use a tuner app or known audio source
+2. Play sustained notes at different pitches
+3. Compare detected pitch with reference
+
+**Expected Result:**
+- Pitch detection within ±5 cents of reference
+- Stable readings for sustained notes
+- Quick response to pitch changes
+
+#### Volume Sensitivity
+**Steps:**
+1. Play notes at different volumes
+2. Test very quiet and loud inputs
+3. Verify detection threshold
+
+**Expected Result:**
+- Detects reasonable volume range
+- No false positives from noise
+- Graceful handling of too-quiet input
+
+#### Clarity/Confidence
+**Steps:**
+1. Play pure tones vs. complex timbres
+2. Observe clarity measurements
+3. Test with noisy environment
+
+**Expected Result:**
+- Pure tones show high clarity
+- Complex timbres show appropriate clarity
+- Noise reduces clarity appropriately
 
 ### 6. Visual Representation
 **Goal**: Verify real-time visualization works correctly.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Real-time Updates** | 1. Play sustained notes<br>2. Observe visualization updates<br>3. Change pitch gradually | - Smooth, real-time updates<br>- No lag or stuttering<br>- Visual elements track pitch changes |
-| **Cents Visualization** | 1. Play slightly sharp/flat notes<br>2. Observe cents offset display<br>3. Test both positive and negative offsets | - Accurate cents display<br>- Visual indication of sharp/flat<br>- Smooth transitions between values |
+#### Real-time Updates
+**Steps:**
+1. Play sustained notes
+2. Observe visualization updates
+3. Change pitch gradually
+
+**Expected Result:**
+- Smooth, real-time updates
+- No lag or stuttering
+- Visual elements track pitch changes
+
+#### Cents Visualization
+**Steps:**
+1. Play slightly sharp/flat notes
+2. Observe cents offset display
+3. Test both positive and negative offsets
+
+**Expected Result:**
+- Accurate cents display
+- Visual indication of sharp/flat
+- Smooth transitions between values
 
 ### 7. Debug Features (Debug Builds Only)
 **Goal**: Verify debug panel functionality in development builds.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Debug Panel** | 1. Verify debug panel is visible<br>2. Check performance metrics display<br>3. Verify audio system information | - Panel shows relevant debug info<br>- FPS counter updates<br>- Memory usage displayed<br>- Audio device info shown |
-| **Test Signal** | 1. Enable test signal generation<br>2. Configure different waveforms<br>3. Verify signal replaces microphone input | - Test signal generates correctly<br>- Signal parameters adjustable<br>- Can switch back to microphone |
+#### Debug Panel
+**Steps:**
+1. Verify debug panel is visible
+2. Check performance metrics display
+3. Verify audio system information
+
+**Expected Result:**
+- Panel shows relevant debug info
+- FPS counter updates
+- Memory usage displayed
+- Audio device info shown
+
+#### Test Signal
+**Steps:**
+1. Enable test signal generation
+2. Configure different waveforms
+3. Verify signal replaces microphone input
+
+**Expected Result:**
+- Test signal generates correctly
+- Signal parameters adjustable
+- Can switch back to microphone
 
 ### 8. Performance & Stability
 **Goal**: Verify application maintains performance under extended use.
 
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| **Extended Use** | 1. Run application for 10+ minutes<br>2. Continuously provide audio input<br>3. Monitor performance and memory | - No performance degradation<br>- Memory usage remains stable<br>- No crashes or errors |
-| **Rapid Input Changes** | 1. Rapidly change between different pitches<br>2. Switch settings frequently<br>3. Observe system response | - Handles rapid changes smoothly<br>- No lag accumulation<br>- System remains responsive |
+#### Extended Use
+**Steps:**
+1. Run application for 10+ minutes
+2. Continuously provide audio input
+3. Monitor performance and memory
+
+**Expected Result:**
+- No performance degradation
+- Memory usage remains stable
+- No crashes or errors
+
+#### Rapid Input Changes
+**Steps:**
+1. Rapidly change between different pitches
+2. Switch settings frequently
+3. Observe system response
+
+**Expected Result:**
+- Handles rapid changes smoothly
+- No lag accumulation
+- System remains responsive
 
 ## Pass/Fail Criteria
 
