@@ -384,23 +384,10 @@ impl DebugPanel {
                             ui.label("--");
                         }
                     });
-                    
-                    // Display root note
-                    ui.horizontal(|ui| {
-                        ui.label("Root Note:");
-                        if let Some(root_note) = self.debug_data.get_root_note() {
-                            let root_name = midi_note_to_display_name(root_note);
-                            let root_octave = (root_note as i16 / 12) - 1;
-                            ui.label(format!("{}{}", root_name, root_octave));
-                        } else {
-                            ui.label("--");
-                        }
-                    });
                 } else {
                     ui.label("Closest Note: --");
                     ui.label("Cents Offset: --");
                     ui.label("Interval: --");
-                    ui.label("Root Note: --");
                 }
             });
     }
