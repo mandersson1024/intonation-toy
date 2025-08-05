@@ -2774,7 +2774,7 @@ mod tests {
         let config = SignalGeneratorConfig {
             enabled: true,
             frequency: 440.0,
-            amplitude: 0.5,
+            amplitude: 0.2,
             sample_rate: STANDARD_SAMPLE_RATE,
         };
         

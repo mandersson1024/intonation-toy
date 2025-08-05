@@ -1361,7 +1361,7 @@ mod tests {
         assert_eq!(debug_actions.test_signal_configurations.len(), 1);
         assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
         assert_eq!(debug_actions.test_signal_configurations[0].frequency, 440.0);
-        assert_eq!(debug_actions.test_signal_configurations[0].volume, 50.0);
+        assert_eq!(debug_actions.test_signal_configurations[0].volume, 20.0);
         
         // After getting actions, they should be cleared
         let debug_actions2 = presenter.get_debug_actions();
@@ -1414,8 +1414,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_debug_action_struct_creation() {
         
-        let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0 };
-        let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0 };
+        let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 20.0 };
+        let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 20.0 };
         assert_eq!(test_signal1, test_signal2);
     }
     

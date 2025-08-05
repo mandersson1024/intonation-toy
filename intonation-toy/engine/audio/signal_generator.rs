@@ -28,7 +28,7 @@ impl Default for SignalGeneratorConfig {
         Self {
             enabled: false,
             frequency: 440.0,
-            amplitude: 0.3,
+            amplitude: 0.2,
             sample_rate: STANDARD_SAMPLE_RATE,
         }
     }

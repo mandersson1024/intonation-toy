@@ -54,7 +54,7 @@ impl DebugPanel {
             // Initialize UI state
             test_signal_enabled: false,
             test_signal_frequency: 220.0, // A3
-            test_signal_volume: 50.0,
+            test_signal_volume: 20.0,
         }
     }
     
