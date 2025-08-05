@@ -134,7 +134,7 @@ impl DebugPanel {
         let devices = &self.debug_data.audio_devices;
         
         egui::CollapsingHeader::new("Audio Devices")
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 ui.label(format!("Input Devices: {}", devices.input_devices.len()));
                 for device in &devices.input_devices {
@@ -155,7 +155,7 @@ impl DebugPanel {
     /// Render AudioWorklet status section (debug-specific data)
     fn render_audioworklet_status_section(&self, ui: &mut Ui) {
         egui::CollapsingHeader::new("AudioWorklet Status")
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 let status = &self.debug_data.audioworklet_status;
                 
@@ -233,7 +233,7 @@ impl DebugPanel {
     /// Render buffer pool statistics section (debug-specific data)
     fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Buffer Pool Statistics")
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 let stats = &self.debug_data.buffer_pool_stats;
                 if let Some(stats) = stats {
