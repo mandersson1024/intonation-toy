@@ -1,11 +1,3 @@
-/// Test signal waveform types
-#[derive(Debug, Clone, PartialEq)]
-pub enum TestWaveform {
-    Sine,
-    Square,
-    Sawtooth,
-    Triangle,
-}
 
 /// Configuration for test signal generation
 #[derive(Debug, Clone, PartialEq)]
@@ -16,8 +8,6 @@ pub struct SignalGeneratorConfig {
     pub frequency: f32,
     /// Signal amplitude (0.0 - 1.0)
     pub amplitude: f32,
-    /// Waveform type
-    pub waveform: TestWaveform,
     /// Sample rate for generation
     pub sample_rate: u32,
 }
@@ -37,7 +27,6 @@ impl Default for SignalGeneratorConfig {
             enabled: false,
             frequency: 440.0,
             amplitude: 0.3,
-            waveform: TestWaveform::Sine,
             sample_rate: 48000,
         }
     }

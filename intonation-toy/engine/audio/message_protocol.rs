@@ -1423,15 +1423,6 @@ impl ToJsMessage for SignalGeneratorConfig {
         Reflect::set(&obj, &"sampleRate".into(), &self.sample_rate.into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
         
-        let waveform_str = match self.waveform {
-            crate::engine::audio::signal_generator::TestWaveform::Sine => "sine",
-            crate::engine::audio::signal_generator::TestWaveform::Square => "square",
-            crate::engine::audio::signal_generator::TestWaveform::Sawtooth => "sawtooth",
-            crate::engine::audio::signal_generator::TestWaveform::Triangle => "triangle",
-        };
-        Reflect::set(&obj, &"waveform".into(), &waveform_str.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set waveform: {:?}", e)))?;
-        
         
         Ok(obj)
     }
@@ -1462,24 +1453,10 @@ impl FromJsMessage for SignalGeneratorConfig {
             .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
             as u32;
         
-        let waveform_str = Reflect::get(obj, &"waveform".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get waveform: {:?}", e)))?
-            .as_string()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("waveform must be string".to_string()))?;
-        
-        let waveform = match waveform_str.as_str() {
-            "sine" => crate::engine::audio::signal_generator::TestWaveform::Sine,
-            "square" => crate::engine::audio::signal_generator::TestWaveform::Square,
-            "sawtooth" => crate::engine::audio::signal_generator::TestWaveform::Sawtooth,
-            "triangle" => crate::engine::audio::signal_generator::TestWaveform::Triangle,
-            _ => return Err(SerializationError::InvalidPropertyType(format!("Unknown waveform: {}", waveform_str))),
-        };
-        
         Ok(SignalGeneratorConfig {
             enabled,
             frequency,
             amplitude,
-            waveform,
             sample_rate,
         })
     }
@@ -2383,14 +2360,12 @@ impl SignalGeneratorConfig {
         enabled: bool,
         frequency: f32,
         amplitude: f32,
-        waveform: crate::engine::audio::signal_generator::TestWaveform,
         sample_rate: u32,
     ) -> MessageConstructionResult<Self> {
         let config = Self {
             enabled,
             frequency,
             amplitude,
-            waveform,
             sample_rate,
         };
         
@@ -2794,13 +2769,11 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_test_signal_config_serialization() {
-        use crate::engine::audio::signal_generator::TestWaveform;
         
         let config = SignalGeneratorConfig {
             enabled: true,
             frequency: 440.0,
             amplitude: 0.5,
-            waveform: TestWaveform::Sine,
             sample_rate: 48000,
         };
         
@@ -2868,14 +2841,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_constructor_validation() {
-        use crate::engine::audio::signal_generator::TestWaveform;
         
         // Test valid construction
         let valid_config = SignalGeneratorConfig::new(
             true,
             440.0,
             0.5,
-            TestWaveform::Sine,
             48000,
         );
         assert!(valid_config.is_ok());
@@ -2885,7 +2856,6 @@ mod tests {
             true,
             -440.0, // Invalid frequency
             0.5,
-            TestWaveform::Sine,
             48000,
         );
         assert!(invalid_config.is_err());

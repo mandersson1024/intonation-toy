@@ -66,7 +66,7 @@ use crate::model::ModelLayerActions;
 #[cfg(debug_assertions)]
 use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 #[cfg(debug_assertions)]
-use self::audio::{TestWaveform, AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
+use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
 /// Execution action for microphone permission requests
 /// 
@@ -105,7 +105,6 @@ pub struct ExecuteTestSignalConfiguration {
     pub enabled: bool,
     pub frequency: f32,
     pub volume: f32,
-    pub waveform: TestWaveform,
 }
 
 
@@ -483,8 +482,8 @@ impl AudioEngine {
     ) -> Result<(), String> {
         for config in test_signal_configs {
             crate::common::dev_log!(
-                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%, waveform: {:?}",
-                config.enabled, config.frequency, config.volume, config.waveform
+                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%",
+                config.enabled, config.frequency, config.volume
             );
             
             // Direct privileged access to test signal generation
@@ -496,7 +495,6 @@ impl AudioEngine {
                         enabled: config.enabled,
                         frequency: config.frequency,
                         amplitude: config.volume / 100.0, // Convert percentage to 0-1 range
-                        waveform: config.waveform.clone(),
                         sample_rate: 48000, // Use standard sample rate
                     };
                     
@@ -516,7 +514,6 @@ impl AudioEngine {
                     enabled: config.enabled,
                     frequency: config.frequency,
                     volume: config.volume,
-                    waveform: config.waveform.clone(),
                 });
             } else {
                 return Err("[DEBUG] Audio context not available for test signal execution".to_string());

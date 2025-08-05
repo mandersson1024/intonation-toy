@@ -81,9 +81,6 @@ enum Scene {
     Main(MainScene),
 }
 
-// Debug-only imports for conditional compilation
-#[cfg(debug_assertions)]
-use crate::engine::audio::TestWaveform;
 
 /// Action structs for the new action collection system
 /// 
@@ -151,13 +148,12 @@ pub struct ConfigureTestSignal {
     pub enabled: bool,
     pub frequency: f32,
     pub volume: f32,
-    pub waveform: TestWaveform,
 }
 
 #[cfg(all(debug_assertions, test))]
 impl ConfigureTestSignal {
-    pub fn new(enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) -> Self {
-        Self { enabled, frequency, volume, waveform }
+    pub fn new(enabled: bool, frequency: f32, volume: f32) -> Self {
+        Self { enabled, frequency, volume }
     }
 }
 
@@ -293,8 +289,8 @@ impl DebugLayerActionsBuilder {
         }
     }
     
-    pub fn with_test_signal(mut self, enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) -> Self {
-        self.test_signal_configurations.push(ConfigureTestSignal::new(enabled, frequency, volume, waveform));
+    pub fn with_test_signal(mut self, enabled: bool, frequency: f32, volume: f32) -> Self {
+        self.test_signal_configurations.push(ConfigureTestSignal::new(enabled, frequency, volume));
         self
     }
     
@@ -605,14 +601,12 @@ impl Presenter {
     /// * `enabled` - Whether test signal generation should be enabled
     /// * `frequency` - The frequency of the test signal in Hz
     /// * `volume` - The volume of the test signal (0-100)
-    /// * `waveform` - The waveform type to generate
     #[cfg(debug_assertions)]
-    pub fn on_test_signal_configured(&mut self, enabled: bool, frequency: f32, volume: f32, waveform: TestWaveform) {
+    pub fn on_test_signal_configured(&mut self, enabled: bool, frequency: f32, volume: f32) {
         self.pending_debug_actions.test_signal_configurations.push(ConfigureTestSignal {
             enabled,
             frequency,
             volume,
-            waveform,
         });
     }
 
@@ -1356,20 +1350,18 @@ mod tests {
     #[cfg(debug_assertions)]
     #[wasm_bindgen_test]
     fn test_test_signal_configuration_collection() {
-        use crate::engine::audio::TestWaveform;
         
         let mut presenter = Presenter::create()
             .expect("Presenter creation should succeed");
 
         // Configure test signal
-        presenter.on_test_signal_configured(true, 440.0, 50.0, TestWaveform::Sine);
+        presenter.on_test_signal_configured(true, 440.0, 50.0);
         
         let debug_actions = presenter.get_debug_actions();
         assert_eq!(debug_actions.test_signal_configurations.len(), 1);
         assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
         assert_eq!(debug_actions.test_signal_configurations[0].frequency, 440.0);
         assert_eq!(debug_actions.test_signal_configurations[0].volume, 50.0);
-        assert_eq!(debug_actions.test_signal_configurations[0].waveform, TestWaveform::Sine);
         
         // After getting actions, they should be cleared
         let debug_actions2 = presenter.get_debug_actions();
@@ -1379,14 +1371,13 @@ mod tests {
     #[cfg(debug_assertions)]
     #[wasm_bindgen_test]
     fn test_multiple_debug_action_collection() {
-        use crate::engine::audio::TestWaveform;
         
         let mut presenter = Presenter::create()
             .expect("Presenter creation should succeed");
 
         // Trigger multiple debug actions
-        presenter.on_test_signal_configured(true, 880.0, 75.0, TestWaveform::Square);
-        presenter.on_test_signal_configured(false, 220.0, 25.0, TestWaveform::Triangle); // Second test signal config
+        presenter.on_test_signal_configured(true, 880.0, 75.0);
+        presenter.on_test_signal_configured(false, 220.0, 25.0); // Second test signal config
         
         let debug_actions = presenter.get_debug_actions();
         
@@ -1396,12 +1387,10 @@ mod tests {
         // Verify first test signal config
         assert_eq!(debug_actions.test_signal_configurations[0].enabled, true);
         assert_eq!(debug_actions.test_signal_configurations[0].frequency, 880.0);
-        assert_eq!(debug_actions.test_signal_configurations[0].waveform, TestWaveform::Square);
         
         // Verify second test signal config
         assert_eq!(debug_actions.test_signal_configurations[1].enabled, false);
         assert_eq!(debug_actions.test_signal_configurations[1].frequency, 220.0);
-        assert_eq!(debug_actions.test_signal_configurations[1].waveform, TestWaveform::Triangle);
         
         // After getting actions, all should be cleared
         let debug_actions2 = presenter.get_debug_actions();
@@ -1424,10 +1413,9 @@ mod tests {
     #[cfg(debug_assertions)]
     #[wasm_bindgen_test]
     fn test_debug_action_struct_creation() {
-        use crate::engine::audio::TestWaveform;
         
-        let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
-        let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0, waveform: TestWaveform::Sine };
+        let test_signal1 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0 };
+        let test_signal2 = ConfigureTestSignal { enabled: true, frequency: 440.0, volume: 50.0 };
         assert_eq!(test_signal1, test_signal2);
     }
     

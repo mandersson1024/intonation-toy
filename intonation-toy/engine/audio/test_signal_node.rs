@@ -1,7 +1,7 @@
 use web_sys::{AudioContext, OscillatorNode, GainNode, OscillatorType, AudioNode};
 use crate::common::dev_log;
 use super::microphone::AudioError;
-use super::signal_generator::{SignalGeneratorConfig, TestWaveform};
+use super::signal_generator::SignalGeneratorConfig;
 
 pub struct TestSignalAudioNode {
     audio_context: AudioContext,
@@ -23,8 +23,7 @@ impl TestSignalAudioNode {
             .create_gain()
             .map_err(|_| AudioError::Generic("Failed to create gain node".to_string()))?;
         
-        let oscillator_type = Self::convert_waveform_to_oscillator_type(&config.waveform);
-        oscillator.set_type(oscillator_type);
+        oscillator.set_type(OscillatorType::Sine);
         
         oscillator
             .frequency()
@@ -71,9 +70,6 @@ impl TestSignalAudioNode {
             self.set_amplitude(new_config.amplitude);
         }
         
-        if new_config.waveform != self.config.waveform {
-            self.set_waveform(&new_config.waveform);
-        }
         
         if new_config.enabled != self.config.enabled {
             if new_config.enabled {
@@ -104,15 +100,6 @@ impl TestSignalAudioNode {
         }
     }
     
-    pub fn set_waveform(&mut self, waveform: &TestWaveform) {
-        if waveform != &self.config.waveform {
-            dev_log!("Setting waveform to: {:?}", waveform);
-            let oscillator_type = Self::convert_waveform_to_oscillator_type(waveform);
-            self.oscillator.set_type(oscillator_type);
-            self.config.waveform = waveform.clone();
-        }
-    }
-    
     pub fn enable(&mut self) {
         if !self.config.enabled {
             dev_log!("Enabling TestSignalAudioNode");
@@ -126,15 +113,6 @@ impl TestSignalAudioNode {
             dev_log!("Disabling TestSignalAudioNode");
             self.gain_node.gain().set_value(0.0);
             self.config.enabled = false;
-        }
-    }
-    
-    fn convert_waveform_to_oscillator_type(waveform: &TestWaveform) -> OscillatorType {
-        match waveform {
-            TestWaveform::Sine => OscillatorType::Sine,
-            TestWaveform::Square => OscillatorType::Square,
-            TestWaveform::Sawtooth => OscillatorType::Sawtooth,
-            TestWaveform::Triangle => OscillatorType::Triangle,
         }
     }
     

@@ -220,7 +220,7 @@ pub use microphone::{connect_microphone_to_audioworklet_with_context, Microphone
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
-pub use signal_generator::{TestWaveform, SignalGeneratorConfig, RootNoteAudioConfig};
+pub use signal_generator::{SignalGeneratorConfig, RootNoteAudioConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
 pub use root_note_audio_node::RootNoteAudioNode;

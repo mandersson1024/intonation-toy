@@ -4,7 +4,6 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::engine::audio::{
     AudioWorkletState,
-    TestWaveform,
     buffer::AUDIO_CHUNK_SIZE,
 };
 use crate::debug::debug_data::DebugData;
@@ -40,7 +39,6 @@ pub struct DebugPanel {
     test_signal_enabled: bool,
     test_signal_frequency: f32,
     test_signal_volume: f32,
-    test_signal_waveform: TestWaveform,
 }
 
 impl DebugPanel {
@@ -57,7 +55,6 @@ impl DebugPanel {
             test_signal_enabled: false,
             test_signal_frequency: 220.0, // A3
             test_signal_volume: 50.0,
-            test_signal_waveform: TestWaveform::Sine,
         }
     }
     
@@ -421,27 +418,6 @@ impl DebugPanel {
                     }
                 });
                 
-                ui.horizontal(|ui| {
-                    ui.label("Waveform:");
-                    egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", self.test_signal_waveform))
-                        .show_ui(ui, |ui| {
-                            let waveforms = [
-                                TestWaveform::Sine,
-                                TestWaveform::Square,
-                                TestWaveform::Triangle,
-                                TestWaveform::Sawtooth,
-                            ];
-                            
-                            for waveform in &waveforms {
-                                if ui.selectable_value(&mut self.test_signal_waveform, waveform.clone(), format!("{:?}", waveform)).clicked() {
-                                    if self.test_signal_enabled {
-                                        self.send_test_signal_action();
-                                    }
-                                }
-                            }
-                        });
-                });
             });
     }
     
@@ -455,7 +431,6 @@ impl DebugPanel {
                 self.test_signal_enabled,
                 self.test_signal_frequency,
                 self.test_signal_volume,
-                self.test_signal_waveform.clone(),
             );
         }
     }
