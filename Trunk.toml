@@ -1,6 +1,7 @@
 [build]
 target = "intonation-toy/index.html"
 dist = "dist"
+public_url = "."
 
 [watch]
 watch = ["intonation-toy", "dev-console"]
