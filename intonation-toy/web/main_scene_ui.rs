@@ -630,7 +630,6 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
     if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
         if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
             html_checkbox.set_checked(model_data.root_note_audio_enabled);
-            dev_log!("Synced root note audio checkbox to: {}", model_data.root_note_audio_enabled);
         }
     }
 }
