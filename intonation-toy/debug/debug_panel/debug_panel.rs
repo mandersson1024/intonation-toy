@@ -95,10 +95,7 @@ impl DebugPanel {
     /// Render panel content
     fn render_content(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.vertical(|ui| {                
-                // Root Note Audio Controls Section (debug actions)
-                self.render_root_note_audio_controls(ui, model_data);
-
+            ui.vertical(|ui| {
                 // Audio Devices Section (debug-specific data)
                 self.render_audio_devices_section(ui);
                 ui.separator();
@@ -125,10 +122,6 @@ impl DebugPanel {
                 
                 // Accuracy Section (core data via interface)
                 self.render_accuracy_section(ui);
-                ui.separator();
-                
-                // User Actions Section (debug actions)
-                self.render_user_actions_section(ui, model_data.root_note, model_data.tuning_system, model_data.root_note_audio_enabled);
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
@@ -465,25 +458,6 @@ impl DebugPanel {
             });
     }
     
-    /// Render root note audio controls (debug actions)
-    fn render_root_note_audio_controls(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
-        egui::CollapsingHeader::new("Root Note Audio Controls")
-            .default_open(true)
-            .show(ui, |ui| {
-                let mut root_note_audio_enabled = model_data.root_note_audio_enabled;
-                if ui.checkbox(&mut root_note_audio_enabled, "Enable Root Note Audio (plays current root note)").changed() {
-                    self.send_root_note_audio_action(model_data.root_note, root_note_audio_enabled);
-                }
-                
-                // Display current frequency when enabled
-                if model_data.root_note_audio_enabled {
-                    let frequency = Self::midi_note_to_frequency(model_data.root_note);
-                    ui.label(format!("Frequency: {:.2} Hz", frequency));
-                }
-                
-                ui.label("Note: Audio frequency automatically follows the root note from User Actions section");
-            });
-    }
     
     // Debug action helper methods
     
@@ -496,88 +470,6 @@ impl DebugPanel {
                 self.test_signal_volume,
                 self.test_signal_waveform.clone(),
             );
-        }
-    }
-    
-    #[cfg(debug_assertions)]
-    fn send_root_note_audio_action(&self, root_note: crate::shared_types::MidiNote, enabled: bool) {
-        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_root_note_audio_configured(enabled, root_note);
-        }
-    }
-    
-    /// Render user actions section (debug actions)
-    fn render_user_actions_section(&mut self, ui: &mut Ui, current_root_note: crate::shared_types::MidiNote, current_tuning_system: crate::shared_types::TuningSystem, root_note_audio_enabled: bool) {
-        egui::CollapsingHeader::new("User Actions")
-            .default_open(true)
-            .show(ui, |ui| {
-                
-                // Root Note Selection
-                ui.horizontal(|ui| {
-                    ui.label("Root Note:");
-                    
-                    // Decrement button
-                    if ui.add_enabled(current_root_note > 0, egui::Button::new("-")).clicked() {
-                        if let Some(new_note) = decrement_midi_note(current_root_note) {
-                            self.send_root_note_action(new_note, root_note_audio_enabled);
-                        }
-                    }
-                    
-                    // Current note display
-                    ui.label(format!("{}{}", midi_note_to_display_name(current_root_note), (current_root_note as i16 / 12) - 1));
-                    
-                    // Increment button
-                    if ui.add_enabled(current_root_note < 127, egui::Button::new("+")).clicked() {
-                        if let Some(new_note) = increment_midi_note(current_root_note) {
-                            self.send_root_note_action(new_note, root_note_audio_enabled);
-                        }
-                    }
-                });
-                
-                // Tuning System Selection
-                ui.horizontal(|ui| {
-                    ui.label("Tuning System:");
-                    ui.push_id("tuning", |ui| {
-                        let mut selected_tuning = current_tuning_system;
-                        egui::ComboBox::from_label("")
-                            .selected_text(format!("{:?}", selected_tuning))
-                            .show_ui(ui, |ui| {
-                                let tuning_systems = [
-                                    TuningSystem::EqualTemperament,
-                                    TuningSystem::JustIntonation,
-                                ];
-                                
-                                for system in &tuning_systems {
-                                    if ui.selectable_value(&mut selected_tuning, system.clone(), format!("{:?}", system)).clicked() {
-                                        self.send_tuning_system_action(selected_tuning.clone());
-                                    }
-                                }
-                            })
-                        });
-                });
-            });
-    }
-    
-    #[cfg(debug_assertions)]
-    fn send_root_note_action(&self, root_note: MidiNote, root_note_audio_enabled: bool) {
-        crate::common::dev_log!("DEBUG PANEL: send_root_note_action called - root_note: {}, audio_enabled: {}", root_note, root_note_audio_enabled);
-        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_root_note_adjusted(root_note);
-            
-            // Also update root note audio frequency if it's currently enabled
-            if root_note_audio_enabled {
-                crate::common::dev_log!("DEBUG PANEL: Updating root note audio frequency to {} Hz", Self::midi_note_to_frequency(root_note));
-                presenter.on_root_note_audio_configured(true, root_note);
-            } else {
-                crate::common::dev_log!("DEBUG PANEL: Root note audio is disabled, not updating frequency");
-            }
-        }
-    }
-    
-    #[cfg(debug_assertions)]
-    fn send_tuning_system_action(&self, tuning_system: TuningSystem) {
-        if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_tuning_system_changed(tuning_system);
         }
     }
     
