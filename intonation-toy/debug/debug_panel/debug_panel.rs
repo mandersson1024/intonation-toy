@@ -37,8 +37,9 @@ pub struct DebugPanel {
     
     // UI state for debug controls
     test_signal_enabled: bool,
-    test_signal_frequency: f32,
     test_signal_volume: f32,
+    test_signal_midi_note: MidiNote,
+    test_signal_nudge_percent: f32,
 }
 
 impl DebugPanel {
@@ -46,6 +47,22 @@ impl DebugPanel {
         debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
+        Self::with_initial_frequency(debug_data, presenter, None)
+    }
+    
+    /// Create a new DebugPanel with an optional initial frequency
+    pub fn with_initial_frequency(
+        debug_data: DebugData,
+        presenter: Rc<RefCell<crate::presentation::Presenter>>,
+        initial_frequency: Option<f32>,
+    ) -> Self {
+        // Default to A3 (220 Hz) if no frequency provided
+        let initial_freq = initial_frequency.unwrap_or(220.0);
+        let initial_midi_note = Self::frequency_to_closest_midi_note(
+            initial_freq,
+            TuningSystem::EqualTemperament,  // Use Equal Temperament for initialization
+        );
+        
         Self {
             debug_data,
             presenter,
@@ -53,8 +70,9 @@ impl DebugPanel {
             
             // Initialize UI state
             test_signal_enabled: false,
-            test_signal_frequency: 220.0, // A3
             test_signal_volume: 20.0,
+            test_signal_midi_note: initial_midi_note,
+            test_signal_nudge_percent: 0.0,
         }
     }
     
@@ -122,7 +140,7 @@ impl DebugPanel {
                 ui.separator();
                 
                 // Test Signal Controls Section (debug actions)
-                self.render_test_signal_controls(ui);
+                self.render_test_signal_controls(ui, model_data);
                 ui.separator();
                 
             });
@@ -390,32 +408,139 @@ impl DebugPanel {
     }
     
     /// Render test signal controls (debug actions)
-    fn render_test_signal_controls(&mut self, ui: &mut Ui) {
+    fn render_test_signal_controls(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
         egui::CollapsingHeader::new("Test Signal Controls")
             .default_open(true)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.test_signal_enabled, "Enable Test Signal").changed() {
-                        self.send_test_signal_action();
+                        self.send_test_signal_action(model_data);
                     }
                 });
                 
                 ui.horizontal(|ui| {
-                    ui.label("Frequency:");
-                    if ui.add(egui::Slider::new(&mut self.test_signal_frequency, 110.0..=440.0).suffix(" Hz")).changed() {
+                    ui.label("MIDI Note:");
+                    
+                    // Display current MIDI note name
+                    let note_name = midi_note_to_display_name(self.test_signal_midi_note);
+                    let octave = (self.test_signal_midi_note as i16 / 12) - 1;
+                    ui.label(format!("{}{} ({})", note_name, octave, self.test_signal_midi_note));
+                    
+                    // Decrement button with bounds checking
+                    let can_decrement = self.test_signal_midi_note > 0;
+                    ui.add_enabled_ui(can_decrement, |ui| {
+                        if ui.button("-").clicked() {
+                            if let Some(new_note) = decrement_midi_note(self.test_signal_midi_note) {
+                                self.test_signal_midi_note = new_note;
+                                if self.test_signal_enabled {
+                                    self.send_test_signal_action(model_data);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Increment button with bounds checking
+                    let can_increment = self.test_signal_midi_note < 127;
+                    ui.add_enabled_ui(can_increment, |ui| {
+                        if ui.button("+").clicked() {
+                            if let Some(new_note) = increment_midi_note(self.test_signal_midi_note) {
+                                self.test_signal_midi_note = new_note;
+                                if self.test_signal_enabled {
+                                    self.send_test_signal_action(model_data);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Display current frequency with error handling
+                    match self.calculate_midi_note_frequency_safe(
+                        self.test_signal_midi_note, 
+                        model_data.root_note, 
+                        model_data.tuning_system.clone()
+                    ) {
+                        Ok(frequency) => {
+                            ui.label(format!("({:.1} Hz)", frequency));
+                        }
+                        Err(_) => {
+                            ui.colored_label(Color32::RED, "(Error)");
+                        }
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    ui.label("Nudge:");
+                    
+                    // Display current nudge percentage
+                    ui.label(format!("{:+.1}%", self.test_signal_nudge_percent));
+                    
+                    // Decrement nudge button with bounds checking
+                    let can_decrement_nudge = self.test_signal_nudge_percent > -50.0;
+                    ui.add_enabled_ui(can_decrement_nudge, |ui| {
+                        if ui.button("-").clicked() {
+                            // Decrement by 1%, with bounds checking
+                            self.test_signal_nudge_percent = (self.test_signal_nudge_percent - 1.0).max(-50.0);
+                            if self.test_signal_enabled {
+                                self.send_test_signal_action(model_data);
+                            }
+                        }
+                    });
+                    
+                    // Increment nudge button with bounds checking
+                    let can_increment_nudge = self.test_signal_nudge_percent < 50.0;
+                    ui.add_enabled_ui(can_increment_nudge, |ui| {
+                        if ui.button("+").clicked() {
+                            // Increment by 1%, with bounds checking
+                            self.test_signal_nudge_percent = (self.test_signal_nudge_percent + 1.0).min(50.0);
+                            if self.test_signal_enabled {
+                                self.send_test_signal_action(model_data);
+                            }
+                        }
+                    });
+                    
+                    // Reset button
+                    if ui.button("Reset").on_hover_text("Reset nudge to 0%").clicked() {
+                        self.test_signal_nudge_percent = 0.0;
                         if self.test_signal_enabled {
-                            self.send_test_signal_action();
+                            self.send_test_signal_action(model_data);
+                        }
+                    }
+                    
+                    // Display final nudged frequency with error handling
+                    match self.calculate_final_frequency_safe(
+                        self.test_signal_midi_note,
+                        self.test_signal_nudge_percent,
+                        model_data.root_note,
+                        model_data.tuning_system.clone()
+                    ) {
+                        Ok((base_freq, final_freq)) => {
+                            ui.label(format!("({:.1} Hz → {:.1} Hz)", base_freq, final_freq));
+                        }
+                        Err(_) => {
+                            ui.colored_label(Color32::RED, "(Error calculating frequency)");
                         }
                     }
                 });
                 
                 ui.horizontal(|ui| {
                     ui.label("Volume:");
-                    if ui.add(egui::Slider::new(&mut self.test_signal_volume, 0.0..=100.0).suffix("%")).changed() {
+                    
+                    // Volume slider with better formatting
+                    let volume_response = ui.add(
+                        egui::Slider::new(&mut self.test_signal_volume, 0.0..=100.0)
+                            .suffix("%")
+                            .show_value(true)
+                            .clamp_to_range(true)
+                    );
+                    
+                    if volume_response.changed() {
                         if self.test_signal_enabled {
-                            self.send_test_signal_action();
+                            self.send_test_signal_action(model_data);
                         }
                     }
+                    
+                    // Show amplitude value as tooltip
+                    let amplitude = self.test_signal_volume / 100.0;
+                    volume_response.on_hover_text(format!("Amplitude: {:.3}", amplitude));
                 });
                 
             });
@@ -425,28 +550,151 @@ impl DebugPanel {
     // Debug action helper methods
     
     #[cfg(debug_assertions)]
-    fn send_test_signal_action(&self) {
+    fn send_test_signal_action(&self, model_data: &crate::shared_types::ModelUpdateResult) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-            presenter.on_test_signal_configured(
-                self.test_signal_enabled,
-                self.test_signal_frequency,
-                self.test_signal_volume,
-            );
+            // Calculate frequency with error handling
+            match self.calculate_final_frequency_safe(
+                self.test_signal_midi_note,
+                self.test_signal_nudge_percent,
+                model_data.root_note,
+                model_data.tuning_system.clone()
+            ) {
+                Ok((_, final_frequency)) => {
+                    // Ensure frequency is within audio range
+                    let clamped_frequency = final_frequency.max(20.0).min(20_000.0);
+                    
+                    presenter.on_test_signal_configured(
+                        self.test_signal_enabled,
+                        clamped_frequency,
+                        self.test_signal_volume,
+                    );
+                }
+                Err(e) => {
+                    // Log error in debug mode
+                    crate::common::warn_log!("[DEBUG_PANEL] Error calculating test signal frequency: {}", e);
+                    
+                    // Disable test signal on error
+                    presenter.on_test_signal_configured(
+                        false,
+                        440.0, // Default to A4
+                        self.test_signal_volume,
+                    );
+                }
+            }
         }
     }
     
-    /// Convert MIDI note number to frequency in Hz
-    /// 
-    /// Uses the same formula as the presentation layer for consistency
+    /// Convert MIDI note to frequency considering the tuning system
     /// 
     /// # Arguments
     /// 
     /// * `midi_note` - The MIDI note number (0-127)
+    /// * `root_note` - The root note for the tuning system
+    /// * `tuning_system` - The tuning system to use
     /// 
     /// # Returns
     /// 
-    /// The frequency in Hz
-    fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
-        crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
+    /// The frequency in Hz according to the specified tuning system
+    fn midi_note_to_frequency_with_tuning(
+        &self,
+        midi_note: MidiNote,
+        root_note: MidiNote,
+        tuning_system: TuningSystem,
+    ) -> f32 {
+        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
+        let interval_semitones = (midi_note as i32) - (root_note as i32);
+        crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
+    }
+    
+    /// Find the closest MIDI note for a given frequency
+    /// 
+    /// # Arguments
+    /// 
+    /// * `frequency` - The frequency in Hz
+    /// * `tuning_system` - The tuning system to use for the conversion
+    /// 
+    /// # Returns
+    /// 
+    /// The closest MIDI note (0-127)
+    fn frequency_to_closest_midi_note(
+        frequency: f32,
+        tuning_system: TuningSystem,
+    ) -> MidiNote {
+        // Handle edge cases
+        if frequency <= 0.0 {
+            return 69; // Default to A4
+        }
+        
+        // For Equal Temperament, use the standard formula
+        // MIDI note = 69 + 12 * log2(frequency / 440)
+        let midi_note_float = match tuning_system {
+            TuningSystem::EqualTemperament => {
+                69.0 + 12.0 * (frequency / 440.0).log2()
+            }
+            TuningSystem::JustIntonation => {
+                // For Just Intonation, we still use Equal Temperament 
+                // to find the closest note for initialization purposes
+                69.0 + 12.0 * (frequency / 440.0).log2()
+            }
+        };
+        
+        // Round to nearest integer and clamp to valid MIDI range
+        let midi_note = midi_note_float.round() as i32;
+        midi_note.max(0).min(127) as MidiNote
+    }
+    
+    /// Initialize the test signal from a target frequency
+    pub fn initialize_from_frequency(&mut self, frequency: f32, tuning_system: TuningSystem) {
+        self.test_signal_midi_note = Self::frequency_to_closest_midi_note(frequency, tuning_system);
+        self.test_signal_nudge_percent = 0.0; // Reset nudge when initializing from frequency
+    }
+    
+    /// Safely calculate MIDI note frequency with error handling
+    fn calculate_midi_note_frequency_safe(
+        &self,
+        midi_note: MidiNote,
+        root_note: MidiNote,
+        tuning_system: TuningSystem,
+    ) -> Result<f32, &'static str> {
+        // Validate MIDI notes
+        if midi_note > 127 || root_note > 127 {
+            return Err("Invalid MIDI note");
+        }
+        
+        let frequency = self.midi_note_to_frequency_with_tuning(midi_note, root_note, tuning_system);
+        
+        // Validate frequency is in reasonable range
+        if frequency <= 0.0 || frequency > 20_000.0 {
+            return Err("Frequency out of range");
+        }
+        
+        Ok(frequency)
+    }
+    
+    /// Safely calculate final frequency with nudge applied
+    fn calculate_final_frequency_safe(
+        &self,
+        midi_note: MidiNote,
+        nudge_percent: f32,
+        root_note: MidiNote,
+        tuning_system: TuningSystem,
+    ) -> Result<(f32, f32), &'static str> {
+        // Calculate base frequency
+        let base_frequency = self.calculate_midi_note_frequency_safe(midi_note, root_note, tuning_system)?;
+        
+        // Validate nudge percentage
+        if nudge_percent < -50.0 || nudge_percent > 50.0 {
+            return Err("Nudge percentage out of range");
+        }
+        
+        // Calculate final frequency with nudge
+        let final_frequency = base_frequency * (1.0 + nudge_percent / 100.0);
+        
+        // Validate final frequency
+        if final_frequency <= 0.0 || final_frequency > 20_000.0 {
+            return Err("Final frequency out of range");
+        }
+        
+        Ok((base_frequency, final_frequency))
     }
 }
