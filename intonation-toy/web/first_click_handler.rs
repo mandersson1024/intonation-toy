@@ -214,7 +214,7 @@ pub fn setup_first_click_handler(
                             let timeout_closure = Closure::wrap(Box::new(move || {
                                 crate::web::error_message_box::show_error_message(
                                     "Microphone Access Required",
-                                    "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted."
+                                    "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted. (Mac users: the microphone may also be blocked in System Settings.)"
                                 );
                             }) as Box<dyn FnMut()>);
                             
