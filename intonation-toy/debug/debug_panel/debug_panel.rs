@@ -70,7 +70,7 @@ impl DebugPanel {
             
             // Initialize UI state
             test_signal_enabled: false,
-            test_signal_volume: 20.0,
+            test_signal_volume: 15.0,
             test_signal_midi_note: initial_midi_note,
             test_signal_nudge_percent: 0.0,
         }
