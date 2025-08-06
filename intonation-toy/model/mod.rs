@@ -307,7 +307,7 @@ impl DataModel {
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
             root_note: 57, // Standard A3 root note (MIDI 57)
-            current_scale: Scale::Major,
+            current_scale: Scale::Chromatic,
         })
     }
 
@@ -1370,7 +1370,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_data_model_scale_initialization() {
         let model = DataModel::create().unwrap();
-        assert_eq!(model.current_scale, Scale::Major, "Default scale should be Major");
+        assert_eq!(model.current_scale, Scale::Chromatic, "Default scale should be Chromatic");
     }
 
     /// Test scale change processing
@@ -1428,6 +1428,26 @@ mod tests {
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(csharp_freq);
         assert_eq!(midi_note, 61, "C# should be C# in Chromatic scale");
         assert!(cents.abs() < 1.0, "Should be nearly in tune");
+        
+        // Test with MajorPentatonic scale
+        model.current_scale = Scale::MajorPentatonic;
+        
+        // Test frequency for F (not in C Major Pentatonic)
+        let f_freq = 349.23; // F4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(f_freq);
+        
+        // Should snap to nearest pentatonic note (E4 = MIDI 64 or G4 = MIDI 67)
+        assert!(midi_note == 64 || midi_note == 67, "F should snap to E or G in C Major Pentatonic");
+        
+        // Test with MinorPentatonic scale
+        model.current_scale = Scale::MinorPentatonic;
+        
+        // Test frequency for B (not in C Minor Pentatonic)
+        let b_freq = 493.88; // B4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(b_freq);
+        
+        // Should snap to nearest pentatonic note (Bb4 = MIDI 70 or C5 = MIDI 72)
+        assert!(midi_note == 70 || midi_note == 72, "B should snap to Bb or C in C Minor Pentatonic");
     }
 
     /// Test scale filtering with different root notes
@@ -1458,6 +1478,36 @@ mod tests {
         // Should remain as F#
         assert_eq!(midi_note, 66, "F# should remain F# in G Major scale");
         assert!(cents.abs() < 1.0, "Should be nearly in tune");
+        
+        // Test with MajorPentatonic scale and root D (MIDI 62)
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: 62, // D4
+        });
+        model.process_user_actions(actions);
+        model.current_scale = Scale::MajorPentatonic;
+        
+        // Test frequency for G (not in D Major Pentatonic - which has D, E, F#, A, B)
+        let g_freq = 392.00; // G4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(g_freq);
+        
+        // Should snap to nearest pentatonic note (F#4 = MIDI 66 or A4 = MIDI 69)
+        assert!(midi_note == 66 || midi_note == 69, "G should snap to F# or A in D Major Pentatonic");
+        
+        // Test with MinorPentatonic scale and root A (MIDI 69)
+        let mut actions = PresentationLayerActions::new();
+        actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
+            root_note: 69, // A4
+        });
+        model.process_user_actions(actions);
+        model.current_scale = Scale::MinorPentatonic;
+        
+        // Test frequency for B (not in A Minor Pentatonic - which has A, C, D, E, G)
+        let b_freq = 493.88; // B4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(b_freq);
+        
+        // Should snap to nearest pentatonic note (C5 = MIDI 72)
+        assert_eq!(midi_note, 72, "B should snap to C in A Minor Pentatonic");
     }
 
     /// Test scale persistence in ModelUpdateResult
@@ -1501,11 +1551,17 @@ mod tests {
         actions.scale_changes.push(crate::presentation::ScaleChangeAction {
             scale: Scale::Major,
         });
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::MajorPentatonic,
+        });
+        actions.scale_changes.push(crate::presentation::ScaleChangeAction {
+            scale: Scale::MinorPentatonic,
+        });
         
         model.process_user_actions(actions);
         
-        // Final scale should be Major
-        assert_eq!(model.current_scale, Scale::Major);
+        // Final scale should be MinorPentatonic
+        assert_eq!(model.current_scale, Scale::MinorPentatonic);
     }
 
     /// Test scale change to same scale (no-op)
@@ -1513,19 +1569,19 @@ mod tests {
     fn test_scale_change_to_same_scale() {
         let mut model = DataModel::create().unwrap();
         
-        // Initial scale is Major
-        assert_eq!(model.current_scale, Scale::Major);
+        // Initial scale is Chromatic
+        assert_eq!(model.current_scale, Scale::Chromatic);
         
-        // Try to change to Major again
+        // Try to change to Chromatic again
         let mut actions = PresentationLayerActions::new();
         actions.scale_changes.push(crate::presentation::ScaleChangeAction {
-            scale: Scale::Major,
+            scale: Scale::Chromatic,
         });
         
         model.process_user_actions(actions);
         
-        // Scale should still be Major (no-op)
-        assert_eq!(model.current_scale, Scale::Major);
+        // Scale should still be Chromatic (no-op)
+        assert_eq!(model.current_scale, Scale::Chromatic);
     }
 
     /// Test edge cases in scale-aware note filtering
@@ -1550,6 +1606,23 @@ mod tests {
         model.root_note = 120; // Very high root
         let (midi_note, _) = model.frequency_to_note_and_accuracy(3000.0);
         assert!(midi_note <= 127, "MIDI note should be clamped to valid range");
+        
+        // Test edge cases with MajorPentatonic scale
+        model.current_scale = Scale::MajorPentatonic;
+        model.root_note = 60; // C4
+        
+        // Test low frequency with pentatonic
+        let (midi_note, _) = model.frequency_to_note_and_accuracy(30.0);
+        let interval = (midi_note as i32) - (model.root_note as i32);
+        assert!(semitone_in_scale(Scale::MajorPentatonic, interval), "Low frequency note should be in pentatonic scale");
+        
+        // Test edge cases with MinorPentatonic scale
+        model.current_scale = Scale::MinorPentatonic;
+        
+        // Test high frequency with pentatonic
+        let (midi_note, _) = model.frequency_to_note_and_accuracy(3500.0);
+        let interval = (midi_note as i32) - (model.root_note as i32);
+        assert!(semitone_in_scale(Scale::MinorPentatonic, interval), "High frequency note should be in pentatonic scale");
     }
 
     /// Test engine-to-model data flow integration

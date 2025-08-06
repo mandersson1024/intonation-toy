@@ -244,7 +244,7 @@ pub async fn start_render_loop(
                     cents_offset: 0.0,
                 },
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
-                scale: crate::shared_types::Scale::Major,
+                scale: crate::shared_types::Scale::Chromatic,
                 errors: Vec::new(),
                 permission_state: crate::shared_types::PermissionState::NotRequested,
                 // New flattened fields with default values

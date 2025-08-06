@@ -1029,7 +1029,7 @@ mod tests {
                 cents_offset: 0.0,
             },
             tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
-            scale: Scale::Major,
+            scale: Scale::Chromatic,
             errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::NotRequested,
             closest_midi_note: 69,
@@ -1270,8 +1270,8 @@ mod tests {
         let root_note2 = AdjustRootNote { root_note: 65 };
         assert_eq!(root_note1, root_note2);
         
-        let scale_change1 = ScaleChangeAction { scale: Scale::Major };
-        let scale_change2 = ScaleChangeAction { scale: Scale::Major };
+        let scale_change1 = ScaleChangeAction { scale: Scale::Chromatic };
+        let scale_change2 = ScaleChangeAction { scale: Scale::Chromatic };
         assert_eq!(scale_change1, scale_change2);
     }
 
@@ -1305,12 +1305,16 @@ mod tests {
             .with_scale_change(Scale::Major)
             .with_scale_change(Scale::Minor)
             .with_scale_change(Scale::Chromatic)
+            .with_scale_change(Scale::MajorPentatonic)
+            .with_scale_change(Scale::MinorPentatonic)
             .build();
         
-        assert_eq!(actions.scale_changes.len(), 3);
+        assert_eq!(actions.scale_changes.len(), 5);
         assert_eq!(actions.scale_changes[0].scale, Scale::Major);
         assert_eq!(actions.scale_changes[1].scale, Scale::Minor);
         assert_eq!(actions.scale_changes[2].scale, Scale::Chromatic);
+        assert_eq!(actions.scale_changes[3].scale, Scale::MajorPentatonic);
+        assert_eq!(actions.scale_changes[4].scale, Scale::MinorPentatonic);
     }
 
     /// Test builder with mixed actions including scale changes
@@ -1535,6 +1539,19 @@ mod tests {
         
         // Major and Minor should have the same number of positions (both are 7-note scales)
         assert_eq!(major_positions.len(), minor_positions.len());
+        
+        // Test with MajorPentatonic scale - should have 5 notes
+        let major_penta_positions = Presenter::get_tuning_line_positions(57, crate::shared_types::TuningSystem::EqualTemperament, Scale::MajorPentatonic, viewport);
+        
+        // Test with MinorPentatonic scale - should have 5 notes
+        let minor_penta_positions = Presenter::get_tuning_line_positions(57, crate::shared_types::TuningSystem::EqualTemperament, Scale::MinorPentatonic, viewport);
+        
+        // Both pentatonic scales should have the same number of positions (5 notes each)
+        assert_eq!(major_penta_positions.len(), minor_penta_positions.len());
+        
+        // Pentatonic scales should have fewer positions than major/minor scales
+        assert!(major_penta_positions.len() < major_positions.len());
+        assert!(minor_penta_positions.len() < minor_positions.len());
     }
 
     /// Test UI synchronization includes scale parameter

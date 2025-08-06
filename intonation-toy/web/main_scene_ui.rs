@@ -261,13 +261,21 @@ pub fn setup_main_scene_ui() {
          min-width: 160px; \
          transition: all 0.2s ease;").ok();
 
+    // Create Chromatic option (first in enum, so default)
+    let Ok(chromatic_option) = document.create_element("option") else {
+        dev_log!("Failed to create chromatic option");
+        return;
+    };
+    chromatic_option.set_attribute("value", "chromatic").ok();
+    chromatic_option.set_attribute("selected", "true").ok();
+    chromatic_option.set_text_content(Some("Chromatic"));
+
     // Create Major option
     let Ok(major_option) = document.create_element("option") else {
         dev_log!("Failed to create major option");
         return;
     };
     major_option.set_attribute("value", "major").ok();
-    major_option.set_attribute("selected", "true").ok();
     major_option.set_text_content(Some("Major"));
 
     // Create Minor option
@@ -278,18 +286,28 @@ pub fn setup_main_scene_ui() {
     minor_option.set_attribute("value", "minor").ok();
     minor_option.set_text_content(Some("Minor"));
 
-    // Create Chromatic option
-    let Ok(chromatic_option) = document.create_element("option") else {
-        dev_log!("Failed to create chromatic option");
+    // Create Major Pentatonic option
+    let Ok(major_pentatonic_option) = document.create_element("option") else {
+        dev_log!("Failed to create major pentatonic option");
         return;
     };
-    chromatic_option.set_attribute("value", "chromatic").ok();
-    chromatic_option.set_text_content(Some("Chromatic"));
+    major_pentatonic_option.set_attribute("value", "major_pentatonic").ok();
+    major_pentatonic_option.set_text_content(Some("Major Pentatonic"));
 
-    // Assemble scale dropdown
+    // Create Minor Pentatonic option
+    let Ok(minor_pentatonic_option) = document.create_element("option") else {
+        dev_log!("Failed to create minor pentatonic option");
+        return;
+    };
+    minor_pentatonic_option.set_attribute("value", "minor_pentatonic").ok();
+    minor_pentatonic_option.set_text_content(Some("Minor Pentatonic"));
+
+    // Assemble scale dropdown (order matches enum)
+    scale_select.append_child(&chromatic_option).ok();
     scale_select.append_child(&major_option).ok();
     scale_select.append_child(&minor_option).ok();
-    scale_select.append_child(&chromatic_option).ok();
+    scale_select.append_child(&major_pentatonic_option).ok();
+    scale_select.append_child(&minor_pentatonic_option).ok();
 
     // Assemble scale controls
     scale_container.append_child(&scale_label).ok();
@@ -504,9 +522,11 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                 if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
                     let value = html_select.value();
                     let scale = match value.as_str() {
+                        "chromatic" => Scale::Chromatic,
                         "major" => Scale::Major,
                         "minor" => Scale::Minor,
-                        "chromatic" => Scale::Chromatic,
+                        "major_pentatonic" => Scale::MajorPentatonic,
+                        "minor_pentatonic" => Scale::MinorPentatonic,
                         _ => {
                             dev_log!("Unknown scale value: {}", value);
                             return;
@@ -616,9 +636,11 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
     if let Some(select_element) = document.get_element_by_id("scale-select") {
         if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
             let value = match model_data.scale {
+                Scale::Chromatic => "chromatic",
                 Scale::Major => "major",
                 Scale::Minor => "minor",
-                Scale::Chromatic => "chromatic",
+                Scale::MajorPentatonic => "major_pentatonic",
+                Scale::MinorPentatonic => "minor_pentatonic",
             };
             html_select.set_value(value);
         }

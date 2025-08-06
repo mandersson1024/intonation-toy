@@ -343,6 +343,42 @@ mod tests {
         // Test octave handling
         assert_eq!(find_closest_scale_note(13, Scale::Major), 14); // Octave + Minor 2nd -> Octave + Major 2nd
         assert_eq!(find_closest_scale_note(-11, Scale::Major), -10); // -Minor 2nd -> -Major 2nd
+        
+        // Test MajorPentatonic scale
+        assert_eq!(find_closest_scale_note(0, Scale::MajorPentatonic), 0);   // Root (C)
+        assert_eq!(find_closest_scale_note(2, Scale::MajorPentatonic), 2);   // Major 2nd (D)
+        assert_eq!(find_closest_scale_note(4, Scale::MajorPentatonic), 4);   // Major 3rd (E)
+        assert_eq!(find_closest_scale_note(7, Scale::MajorPentatonic), 7);   // Perfect 5th (G)
+        assert_eq!(find_closest_scale_note(9, Scale::MajorPentatonic), 9);   // Major 6th (A)
+        
+        // Test notes not in MajorPentatonic scale
+        assert_eq!(find_closest_scale_note(1, Scale::MajorPentatonic), 2);   // C# -> D (up)
+        assert_eq!(find_closest_scale_note(3, Scale::MajorPentatonic), 2);   // D# -> D (down)
+        assert_eq!(find_closest_scale_note(5, Scale::MajorPentatonic), 4);   // F -> E (down)
+        assert_eq!(find_closest_scale_note(6, Scale::MajorPentatonic), 7);   // F# -> G (up)
+        assert_eq!(find_closest_scale_note(8, Scale::MajorPentatonic), 7);   // G# -> G (down)
+        assert_eq!(find_closest_scale_note(10, Scale::MajorPentatonic), 9);  // A# -> A (down)
+        assert_eq!(find_closest_scale_note(11, Scale::MajorPentatonic), 12); // B -> C octave (up)
+        
+        // Test MinorPentatonic scale
+        assert_eq!(find_closest_scale_note(0, Scale::MinorPentatonic), 0);   // Root (C)
+        assert_eq!(find_closest_scale_note(3, Scale::MinorPentatonic), 3);   // Minor 3rd (Eb)
+        assert_eq!(find_closest_scale_note(5, Scale::MinorPentatonic), 5);   // Perfect 4th (F)
+        assert_eq!(find_closest_scale_note(7, Scale::MinorPentatonic), 7);   // Perfect 5th (G)
+        assert_eq!(find_closest_scale_note(10, Scale::MinorPentatonic), 10); // Minor 7th (Bb)
+        
+        // Test notes not in MinorPentatonic scale
+        assert_eq!(find_closest_scale_note(1, Scale::MinorPentatonic), 0);   // C# -> C (down)
+        assert_eq!(find_closest_scale_note(2, Scale::MinorPentatonic), 3);   // D -> Eb (up)
+        assert_eq!(find_closest_scale_note(4, Scale::MinorPentatonic), 3);   // E -> Eb (down)
+        assert_eq!(find_closest_scale_note(6, Scale::MinorPentatonic), 5);   // F# -> F (down)
+        assert_eq!(find_closest_scale_note(8, Scale::MinorPentatonic), 7);   // G# -> G (down)
+        assert_eq!(find_closest_scale_note(9, Scale::MinorPentatonic), 10);  // A -> Bb (up)
+        assert_eq!(find_closest_scale_note(11, Scale::MinorPentatonic), 10); // B -> Bb (down)
+        
+        // Test pentatonic octave handling
+        assert_eq!(find_closest_scale_note(13, Scale::MajorPentatonic), 14); // Octave + C# -> Octave + D
+        assert_eq!(find_closest_scale_note(-11, Scale::MinorPentatonic), -10); // -B -> -Bb
     }
 
     #[test]
@@ -389,6 +425,41 @@ mod tests {
         );
         assert_eq!(interval_chromatic.semitones, interval_raw.semitones);
         assert!((interval_chromatic.cents - interval_raw.cents).abs() < 0.001);
+        
+        // Test MajorPentatonic scale
+        // C# (3 semitones from A) should map to D (4 semitones) in A Major Pentatonic
+        let c_sharp_freq = root_freq * 2.0_f32.powf(3.0 / 12.0);
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            c_sharp_freq,
+            Scale::MajorPentatonic,
+        );
+        assert_eq!(interval.semitones, 2); // Should be mapped to B (Major 2nd from A)
+        assert!(interval.cents > 0.0); // C# is sharp relative to B
+        
+        // Test MinorPentatonic scale
+        // B (2 semitones from A) should map to C (3 semitones) in A Minor Pentatonic
+        let b_freq = root_freq * 2.0_f32.powf(2.0 / 12.0);
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            b_freq,
+            Scale::MinorPentatonic,
+        );
+        assert_eq!(interval.semitones, 3); // Should be mapped to C (Minor 3rd from A)
+        assert!(interval.cents < 0.0); // B is flat relative to C
+        
+        // Test frequency that's already in pentatonic scale
+        let e_freq = root_freq * 2.0_f32.powf(7.0 / 12.0); // E (Perfect 5th from A)
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            e_freq,
+            Scale::MajorPentatonic,
+        );
+        assert_eq!(interval.semitones, 7); // Should remain as Perfect 5th
+        assert!(interval.cents.abs() < 0.001); // Should be exactly 0 cents
     }
 
     #[test]
@@ -458,5 +529,99 @@ mod tests {
             6,
         );
         assert!((freq_chromatic - freq_raw).abs() < 0.001);
+        
+        // Test MajorPentatonic scale
+        // Request Minor 3rd (3 semitones), should get Major 2nd (2 semitones) as closest
+        let freq_pentatonic = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            3, // Minor 3rd (not in Major Pentatonic)
+            Scale::MajorPentatonic,
+        );
+        
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            2, // Major 2nd (closest in Major Pentatonic)
+        );
+        assert!((freq_pentatonic - expected_freq).abs() < 0.001);
+        
+        // Test MinorPentatonic scale
+        // Request Major 2nd (2 semitones), should get Minor 3rd (3 semitones) as closest
+        let freq_minor_penta = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            2, // Major 2nd (not in Minor Pentatonic)
+            Scale::MinorPentatonic,
+        );
+        
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            3, // Minor 3rd (closest in Minor Pentatonic)
+        );
+        assert!((freq_minor_penta - expected_freq).abs() < 0.001);
+        
+        // Test that pentatonic scale notes remain unchanged
+        let freq = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            7, // Perfect 5th (in both Major and Minor Pentatonic)
+            Scale::MajorPentatonic,
+        );
+        
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            7,
+        );
+        assert!((freq - expected_freq).abs() < 0.001);
+    }
+    
+    #[test]
+    fn test_pentatonic_scale_edge_cases() {
+        // Test edge cases specific to pentatonic scales
+        let root_freq = 440.0;
+        
+        // Test B (11 semitones) in MajorPentatonic - should map to next octave C (12)
+        let freq = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            11, // B (not in C Major Pentatonic)
+            Scale::MajorPentatonic,
+        );
+        
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            12, // C (octave)
+        );
+        assert!((freq - expected_freq).abs() < 0.001);
+        
+        // Test Just Intonation with pentatonic scales
+        let interval = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::JustIntonation,
+            root_freq,
+            root_freq * 7.0 / 6.0, // Septimal minor third (not in pentatonic)
+            Scale::MajorPentatonic,
+        );
+        // Should map to Major 2nd (2 semitones) in Major Pentatonic
+        assert_eq!(interval.semitones, 2);
+        
+        // Test very large intervals with pentatonic scales
+        let freq = interval_frequency_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            25, // 2 octaves + minor 2nd
+            Scale::MinorPentatonic,
+        );
+        
+        // Should map to 2 octaves + root (24 semitones)
+        let expected_freq = interval_frequency(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            24,
+        );
+        assert!((freq - expected_freq).abs() < 0.001);
     }
 }

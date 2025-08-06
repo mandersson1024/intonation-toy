@@ -77,9 +77,11 @@ pub enum TuningSystem {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Scale {
+    Chromatic,
     Major,
     Minor,
-    Chromatic,
+    MajorPentatonic,
+    MinorPentatonic,
 }
 
 impl Scale {
@@ -87,12 +89,16 @@ impl Scale {
     /// Index 0 represents the root note (always true), index 1 represents +1 semitone from root, etc.
     pub fn pattern(&self) -> [bool; 12] {
         match self {
+            // Chromatic scale: all semitones including root
+            Scale::Chromatic => [true; 12],
             // Major scale: Root + W-W-H-W-W-W-H (semitones: 0,2,4,5,7,9,11)
             Scale::Major => [true, false, true, false, true, true, false, true, false, true, false, true],
             // Minor scale: Root + W-H-W-W-H-W-W (semitones: 0,2,3,5,7,8,10)
             Scale::Minor => [true, false, true, true, false, true, false, true, true, false, true, false],
-            // Chromatic scale: all semitones including root
-            Scale::Chromatic => [true; 12],
+            // Major Pentatonic scale: Root + W-W-m3-W-m3 (semitones: 0,2,4,7,9)
+            Scale::MajorPentatonic => [true, false, true, false, true, false, false, true, false, true, false, false],
+            // Minor Pentatonic scale: Root + m3-W-W-m3-W (semitones: 0,3,5,7,10)
+            Scale::MinorPentatonic => [true, false, false, true, false, true, false, true, false, false, true, false],
         }
     }
 }
@@ -324,7 +330,7 @@ mod tests {
             pitch: test_pitch.clone(),
             accuracy: test_accuracy.clone(),
             tuning_system: test_tuning_system.clone(),
-            scale: Scale::Major,
+            scale: Scale::Chromatic,
             errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
             closest_midi_note: 69,
@@ -475,6 +481,10 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_scale_patterns() {
+        // Test Chromatic scale pattern (all semitones including root)
+        let chromatic = Scale::Chromatic.pattern();
+        assert_eq!(chromatic, [true; 12]);
+        
         // Test Major scale pattern (Root + W-W-H-W-W-W-H)
         let major = Scale::Major.pattern();
         assert_eq!(major, [true, false, true, false, true, true, false, true, false, true, false, true]);
@@ -483,17 +493,23 @@ mod tests {
         let minor = Scale::Minor.pattern();
         assert_eq!(minor, [true, false, true, true, false, true, false, true, true, false, true, false]);
         
-        // Test Chromatic scale pattern (all semitones including root)
-        let chromatic = Scale::Chromatic.pattern();
-        assert_eq!(chromatic, [true; 12]);
+        // Test Major Pentatonic scale pattern (semitones: 0,2,4,7,9)
+        let major_pent = Scale::MajorPentatonic.pattern();
+        assert_eq!(major_pent, [true, false, true, false, true, false, false, true, false, true, false, false]);
+        
+        // Test Minor Pentatonic scale pattern (semitones: 0,3,5,7,10)
+        let minor_pent = Scale::MinorPentatonic.pattern();
+        assert_eq!(minor_pent, [true, false, false, true, false, true, false, true, false, false, true, false]);
     }
 
     #[wasm_bindgen_test]
     fn test_semitone_in_scale() {
         // Test root is always in scale
+        assert!(semitone_in_scale(Scale::Chromatic, 0));
         assert!(semitone_in_scale(Scale::Major, 0));
         assert!(semitone_in_scale(Scale::Minor, 0));
-        assert!(semitone_in_scale(Scale::Chromatic, 0));
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 0));
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 0));
         
         // Test Major scale semitones
         assert!(!semitone_in_scale(Scale::Major, 1));  // Minor 2nd not in major
@@ -525,6 +541,34 @@ mod tests {
         for i in 0..12 {
             assert!(semitone_in_scale(Scale::Chromatic, i));
         }
+        
+        // Test Major Pentatonic scale semitones (0,2,4,7,9)
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 0));   // Root
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 1));  // Not in scale
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 2));   // Major 2nd
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 3));  // Not in scale
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 4));   // Major 3rd
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 5));  // Not in scale
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 6));  // Not in scale
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 7));   // Perfect 5th
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 8));  // Not in scale
+        assert!(semitone_in_scale(Scale::MajorPentatonic, 9));   // Major 6th
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 10)); // Not in scale
+        assert!(!semitone_in_scale(Scale::MajorPentatonic, 11)); // Not in scale
+        
+        // Test Minor Pentatonic scale semitones (0,3,5,7,10)
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 0));   // Root
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 1));  // Not in scale
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 2));  // Not in scale
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 3));   // Minor 3rd
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 4));  // Not in scale
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 5));   // Perfect 4th
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 6));  // Not in scale
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 7));   // Perfect 5th
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 8));  // Not in scale
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 9));  // Not in scale
+        assert!(semitone_in_scale(Scale::MinorPentatonic, 10));  // Minor 7th
+        assert!(!semitone_in_scale(Scale::MinorPentatonic, 11)); // Not in scale
         
         // Test octave handling
         assert!(semitone_in_scale(Scale::Major, 12));  // Octave is root
