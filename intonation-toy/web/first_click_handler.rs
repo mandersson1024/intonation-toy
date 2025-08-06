@@ -5,6 +5,8 @@
 /// the user's first click and uses that gesture to request microphone permission.
 
 use crate::common::dev_log;
+use crate::app_config::COLOR_SCHEME;
+use crate::web::utils::{rgba_to_css, rgb_to_css};
 
 /// Sets up a first-click handler overlay for WASM targets
 /// 
@@ -50,38 +52,49 @@ pub fn setup_first_click_handler(
     };
     
     // Style the overlay to be full-screen with semi-transparent background
-    overlay.set_attribute("style", 
+    let overlay_style = format!(
         "position: fixed; top: 0; left: 0; width: 100%; height: 100%; \
-         background: rgba(0, 0, 0, 0.5); z-index: 9999; cursor: default;"
-    ).unwrap();
+         background: {}; z-index: 9999; cursor: default;",
+        rgba_to_css(COLOR_SCHEME.background, 0.5)
+    );
+    overlay.set_attribute("style", &overlay_style).unwrap();
     
     // Add instructions text with visual elements
-    overlay.set_inner_html(
+    let panel_html = format!(
         "<style>
-            #permission-panel {
+            #permission-panel {{
                 transition: background 0.3s ease, box-shadow 0.3s ease;
                 cursor: pointer;
-            }
-            #permission-panel:hover {
-                background: rgba(30, 30, 80, 0.9) !important;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(100, 100, 255, 0.5);
-            }
+            }}
+            #permission-panel:hover {{
+                background: {} !important;
+                box-shadow: 0 10px 40px {}, 0 0 0 2px {};
+            }}
         </style>
         <div id='permission-panel' class='permission-panel' style='position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); \
-         color: #fff; font-family: Arial, sans-serif; font-size: 18px; text-align: center; \
-         background: rgba(0,0,0,0.8); padding: 30px; border-radius: 10px; min-width: 400px; \
-         box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); cursor: pointer;'>
-         <div style='display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 25px;'>
+         color: {}; font-family: Arial, sans-serif; font-size: 18px; text-align: center; \
+         background: {}; padding: 30px; border-radius: 10px; min-width: 400px; \
+         box-shadow: 0 5px 25px {}; cursor: pointer;'>",
+        rgba_to_css(COLOR_SCHEME.primary, 0.9),
+        rgba_to_css(COLOR_SCHEME.background, 0.6),
+        rgba_to_css(COLOR_SCHEME.primary, 0.5),
+        rgb_to_css(COLOR_SCHEME.text),
+        rgba_to_css(COLOR_SCHEME.background, 0.8),
+        rgba_to_css(COLOR_SCHEME.background, 0.4)
+    );
+    
+    let svg_content = format!(
+        "         <div style='display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 25px;'>
              <!-- Left Speaker with Red Cross -->
              <div style='position: relative;'>
                  <svg width='70' height='70' viewBox='0 0 70 70' style='display: block;'>
-                     <rect x='10' y='15' width='30' height='40' fill='#e5e5e5' rx='2'/>
-                     <path d='M40 25 L50 15 L50 55 L40 45 Z' fill='#e5e5e5'/>
-                     <path d='M55 25 Q60 35 55 45' stroke='#e5e5e5' stroke-width='2' fill='none'/>
-                     <path d='M60 20 Q68 35 60 50' stroke='#e5e5e5' stroke-width='2' fill='none'/>
+                     <rect x='10' y='15' width='30' height='40' fill='{}' rx='2'/>
+                     <path d='M40 25 L50 15 L50 55 L40 45 Z' fill='{}'/>
+                     <path d='M55 25 Q60 35 55 45' stroke='{}' stroke-width='2' fill='none'/>
+                     <path d='M60 20 Q68 35 60 50' stroke='{}' stroke-width='2' fill='none'/>
                  </svg>
                  <svg width='50' height='50' viewBox='0 0 50 50' style='position: absolute; top: 10px; left: 10px;'>
-                     <path d='M15 15 L35 35 M35 15 L15 35' stroke='#ef4444' stroke-width='4' stroke-linecap='round'/>
+                     <path d='M15 15 L35 35 M35 15 L15 35' stroke='{}' stroke-width='4' stroke-linecap='round'/>
                  </svg>
              </div>
              
@@ -90,48 +103,73 @@ pub fn setup_first_click_handler(
                  <div style='display: flex; gap: 20px; align-items: center;'>
                      <!-- Microphone -->
                      <svg width='60' height='80' viewBox='0 0 60 80' style='display: block;'>
-                         <rect x='20' y='10' width='20' height='35' fill='#e5e5e5' rx='10'/>
-                         <path d='M15 35 Q15 50 30 50 Q45 50 45 35' stroke='#e5e5e5' stroke-width='3' fill='none'/>
-                         <line x1='30' y1='50' x2='30' y2='65' stroke='#e5e5e5' stroke-width='3'/>
-                         <line x1='20' y1='65' x2='40' y2='65' stroke='#e5e5e5' stroke-width='3'/>
-                         <circle cx='30' cy='20' r='2' fill='#999'/>
-                         <circle cx='30' cy='28' r='2' fill='#999'/>
-                         <circle cx='30' cy='36' r='2' fill='#999'/>
+                         <rect x='20' y='10' width='20' height='35' fill='{}' rx='10'/>
+                         <path d='M15 35 Q15 50 30 50 Q45 50 45 35' stroke='{}' stroke-width='3' fill='none'/>
+                         <line x1='30' y1='50' x2='30' y2='65' stroke='{}' stroke-width='3'/>
+                         <line x1='20' y1='65' x2='40' y2='65' stroke='{}' stroke-width='3'/>
+                         <circle cx='30' cy='20' r='2' fill='{}'/>
+                         <circle cx='30' cy='28' r='2' fill='{}'/>
+                         <circle cx='30' cy='36' r='2' fill='{}'/>
                      </svg>
                      
                      <!-- Headphones -->
                      <svg width='70' height='70' viewBox='0 0 70 70' style='display: block;'>
-                         <path d='M15 35 Q15 10 35 10 Q55 10 55 35' stroke='#e5e5e5' stroke-width='4' fill='none'/>
-                         <rect x='10' y='30' width='12' height='25' fill='#e5e5e5' rx='6'/>
-                         <rect x='48' y='30' width='12' height='25' fill='#e5e5e5' rx='6'/>
-                         <circle cx='16' cy='42' r='3' fill='#999'/>
-                         <circle cx='54' cy='42' r='3' fill='#999'/>
+                         <path d='M15 35 Q15 10 35 10 Q55 10 55 35' stroke='{}' stroke-width='4' fill='none'/>
+                         <rect x='10' y='30' width='12' height='25' fill='{}' rx='6'/>
+                         <rect x='48' y='30' width='12' height='25' fill='{}' rx='6'/>
+                         <circle cx='16' cy='42' r='3' fill='{}'/>
+                         <circle cx='54' cy='42' r='3' fill='{}'/>
                      </svg>
                  </div>
                  
                  <!-- Green Checkmark -->
                  <svg width='40' height='40' viewBox='0 0 40 40' style='position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);'>
-                     <path d='M10 20 L17 27 L30 14' stroke='#22c55e' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/>
+                     <path d='M10 20 L17 27 L30 14' stroke='{}' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/>
                  </svg>
              </div>
              
              <!-- Right Speaker with Red Cross -->
              <div style='position: relative;'>
                  <svg width='70' height='70' viewBox='0 0 70 70' style='display: block; transform: scaleX(-1);'>
-                     <rect x='10' y='15' width='30' height='40' fill='#e5e5e5' rx='2'/>
-                     <path d='M40 25 L50 15 L50 55 L40 45 Z' fill='#e5e5e5'/>
-                     <path d='M55 25 Q60 35 55 45' stroke='#e5e5e5' stroke-width='2' fill='none'/>
-                     <path d='M60 20 Q68 35 60 50' stroke='#e5e5e5' stroke-width='2' fill='none'/>
+                     <rect x='10' y='15' width='30' height='40' fill='{}' rx='2'/>
+                     <path d='M40 25 L50 15 L50 55 L40 45 Z' fill='{}'/>
+                     <path d='M55 25 Q60 35 55 45' stroke='{}' stroke-width='2' fill='none'/>
+                     <path d='M60 20 Q68 35 60 50' stroke='{}' stroke-width='2' fill='none'/>
                  </svg>
                  <svg width='50' height='50' viewBox='0 0 50 50' style='position: absolute; top: 10px; left: 10px;'>
-                     <path d='M15 15 L35 35 M35 15 L15 35' stroke='#ef4444' stroke-width='4' stroke-linecap='round'/>
+                     <path d='M15 15 L35 35 M35 15 L15 35' stroke='{}' stroke-width='4' stroke-linecap='round'/>
                  </svg>
              </div>
          </div>
          Click here to start<br>
          <small style='opacity: 0.7;'>(Microphone permission will be requested)</small>
-         </div>"
+         </div>",
+        rgb_to_css(COLOR_SCHEME.muted),      // Speaker body
+        rgb_to_css(COLOR_SCHEME.muted),      // Speaker cone
+        rgb_to_css(COLOR_SCHEME.muted),      // Speaker waves 1
+        rgb_to_css(COLOR_SCHEME.muted),      // Speaker waves 2
+        rgb_to_css(COLOR_SCHEME.secondary),  // Red cross
+        rgb_to_css(COLOR_SCHEME.muted),      // Microphone body
+        rgb_to_css(COLOR_SCHEME.muted),      // Microphone curve
+        rgb_to_css(COLOR_SCHEME.muted),      // Microphone stand
+        rgb_to_css(COLOR_SCHEME.muted),      // Microphone base
+        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
+        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
+        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
+        rgb_to_css(COLOR_SCHEME.muted),      // Headphone band
+        rgb_to_css(COLOR_SCHEME.muted),      // Headphone cups
+        rgb_to_css(COLOR_SCHEME.muted),      // Headphone cups
+        rgb_to_css(COLOR_SCHEME.surface),    // Headphone details
+        rgb_to_css(COLOR_SCHEME.surface),    // Headphone details
+        rgb_to_css(COLOR_SCHEME.accent),     // Green checkmark
+        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker body
+        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker cone
+        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker waves 1
+        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker waves 2
+        rgb_to_css(COLOR_SCHEME.secondary),  // Right red cross
     );
+    
+    overlay.set_inner_html(&format!("{}{}", panel_html, svg_content));
     
     // Get audio context from engine for the permission request
     let audio_context = engine.as_ref()

@@ -5,7 +5,7 @@
 use crate::shared_types::ColorScheme;
 
 /// Color scheme configuration
-pub const COLOR_SCHEME: ColorScheme = ColorScheme::dark();
+pub const COLOR_SCHEME: ColorScheme = ColorScheme::light();
 
 /// Viewport configuration
 pub const VIEWPORT_WIDTH: u32 = 1024;

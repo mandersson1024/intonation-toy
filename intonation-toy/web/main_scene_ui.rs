@@ -16,6 +16,10 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
+#[cfg(target_arch = "wasm32")]
+use crate::app_config::COLOR_SCHEME;
+#[cfg(target_arch = "wasm32")]
+use crate::web::utils::{rgba_to_css, rgb_to_css};
 
 // Global state for current root note - initialized to A3 (57)
 #[cfg(target_arch = "wasm32")]
@@ -47,6 +51,40 @@ pub fn setup_main_scene_ui() {
         return;
     };
 
+    // Create style constants using color scheme
+    let label_style = format!(
+        "color: {}; font-family: inherit; font-size: 14px; font-weight: 500;",
+        rgb_to_css(COLOR_SCHEME.text)
+    );
+    
+    let button_style = format!(
+        "padding: 6px 12px; font-size: 14px; font-weight: bold; cursor: pointer; \
+         background: linear-gradient(135deg, {}, {}); color: {}; \
+         border: 1px solid {}; border-radius: 6px; transition: all 0.2s ease;",
+        rgb_to_css(COLOR_SCHEME.surface),
+        rgba_to_css(COLOR_SCHEME.surface, 0.8),
+        rgb_to_css(COLOR_SCHEME.text),
+        rgba_to_css(COLOR_SCHEME.text, 0.2)
+    );
+    
+    let select_style = format!(
+        "padding: 8px 12px; background: linear-gradient(135deg, {}, {}); \
+         color: {}; border: 1px solid {}; border-radius: 6px; cursor: pointer;",
+        rgb_to_css(COLOR_SCHEME.surface),
+        rgba_to_css(COLOR_SCHEME.surface, 0.8),
+        rgb_to_css(COLOR_SCHEME.text),
+        rgba_to_css(COLOR_SCHEME.text, 0.2)
+    );
+    
+    let display_style = format!(
+        "color: {}; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace; \
+         font-size: 16px; font-weight: 600; background: {}; padding: 8px 12px; \
+         border: 1px solid {}; border-radius: 4px;",
+        rgb_to_css(COLOR_SCHEME.text),
+        rgba_to_css(COLOR_SCHEME.text, 0.1),
+        rgba_to_css(COLOR_SCHEME.text, 0.15)
+    );
+
     // Create container div
     let Ok(container) = document.create_element("div") else {
         dev_log!("Failed to create container div");
@@ -74,12 +112,15 @@ pub fn setup_main_scene_ui() {
         return;
     };
     root_note_label.set_text_content(Some("Root Note:"));
-    root_note_label.set_attribute("style", 
-        "color: #ffffff; \
+    let label_style = format!(
+        "color: {}; \
          font-family: inherit; \
          font-size: 14px; \
          font-weight: 500; \
-         margin-right: 4px;").ok();
+         margin-right: 4px;",
+        rgb_to_css(COLOR_SCHEME.text)
+    );
+    root_note_label.set_attribute("style", &label_style).ok();
 
     // Create minus button
     let Ok(minus_button) = document.create_element("button") else {

@@ -4,6 +4,8 @@ use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement, Window};
 
 use crate::common::dev_log;
+use crate::app_config::COLOR_SCHEME;
+use crate::web::utils::{rgba_to_css, rgb_to_css};
 
 #[cfg(target_arch = "wasm32")]
 pub fn show_error_message(title: &str, details: &str) {
@@ -47,12 +49,14 @@ pub fn show_error_message(title: &str, details: &str) {
         dev_log!("Failed to set overlay id: {:?}", e);
     }
 
-    if let Err(e) = overlay.set_attribute(
-        "style",
+    let overlay_style = format!(
         "position: fixed; top: 0; left: 0; width: 100%; height: 100%; \
-         background-color: rgba(0, 0, 0, 0.8); display: flex; \
+         background-color: {}; display: flex; \
          justify-content: center; align-items: center; z-index: 10000;",
-    ) {
+        rgba_to_css(COLOR_SCHEME.background, 0.8)
+    );
+    
+    if let Err(e) = overlay.set_attribute("style", &overlay_style) {
         dev_log!("Failed to set overlay style: {:?}", e);
     }
 
@@ -65,14 +69,18 @@ pub fn show_error_message(title: &str, details: &str) {
         }
     };
 
-    if let Err(e) = panel.set_attribute(
-        "style",
-        "background-color: #ef4444; color: white; padding: 30px; \
-         border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); \
+    let panel_style = format!(
+        "background-color: {}; color: {}; padding: 30px; \
+         border-radius: 8px; box-shadow: 0 4px 6px {}; \
          text-align: center; min-width: 400px; max-width: 600px; \
          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; \
          transition: transform 0.2s ease;",
-    ) {
+        rgb_to_css(COLOR_SCHEME.secondary),
+        rgb_to_css(COLOR_SCHEME.text),
+        rgba_to_css(COLOR_SCHEME.background, 0.1)
+    );
+    
+    if let Err(e) = panel.set_attribute("style", &panel_style) {
         dev_log!("Failed to set panel style: {:?}", e);
     }
 
