@@ -907,6 +907,7 @@ mod tests {
             audio_analysis: None,
             audio_errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::NotRequested,
+            root_note_audio_enabled: false,
         };
 
         // Test that update can be called multiple times without panicking
@@ -984,6 +985,7 @@ mod tests {
             audio_analysis: None,
             audio_errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::NotRequested,
+            root_note_audio_enabled: false,
         };
         
         // Test that update signature is correct
@@ -1010,6 +1012,7 @@ mod tests {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::Granted,
+            root_note_audio_enabled: false,
         };
         
         let result = model.update(1.0, engine_data);
@@ -1036,6 +1039,7 @@ mod tests {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::Granted,
+            root_note_audio_enabled: false,
         };
         
         let result = model.update(1.0, engine_data);
@@ -1062,6 +1066,7 @@ mod tests {
             audio_analysis: Some(audio_analysis),
             audio_errors: Vec::new(),
             permission_state: crate::shared_types::PermissionState::Granted,
+            root_note_audio_enabled: false,
         };
         
         let result = model.update(1.0, engine_data);
@@ -1645,6 +1650,7 @@ mod tests {
             audio_analysis: Some(audio_analysis),
             audio_errors: vec![crate::shared_types::Error::ProcessingError("Test error".to_string())],
             permission_state: crate::shared_types::PermissionState::Granted,
+            root_note_audio_enabled: false,
         };
         
         // Process engine data

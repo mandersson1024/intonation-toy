@@ -164,40 +164,64 @@ fn find_closest_scale_note(candidate_semitone: i32, scale: Scale) -> i32 {
 /// but filters the result to the nearest scale member. This is useful
 /// for applications that want to show intonation relative to scale notes only.
 /// 
-/// The function first calculates the raw interval, then finds the closest
-/// scale note and recalculates the cents offset relative to that scale note.
+/// This implementation directly finds the closest scale note by frequency distance
+/// rather than first rounding to chromatic semitones, which prevents issues where
+/// non-scale chromatic notes are closer in semitone count but further in frequency.
 pub fn frequency_to_interval_semitones_scale_aware(
     tuning_system: TuningSystem,
     root_frequency_hz: f32,
     target_frequency_hz: f32,
     scale: Scale,
 ) -> IntervalSemitones {
-    // First get the raw interval
-    let raw_interval = frequency_to_interval_semitones(
-        tuning_system.clone(),
-        root_frequency_hz,
-        target_frequency_hz,
-    );
-    
-    // Find the closest scale note
-    let scale_semitone = find_closest_scale_note(raw_interval.semitones, scale);
-    
-    // If the semitone was adjusted, recalculate cents relative to the scale note
-    if scale_semitone != raw_interval.semitones {
-        let scale_note_frequency = interval_frequency(
+    // For chromatic scale, use the standard algorithm since all notes are in scale
+    if scale == Scale::Chromatic {
+        return frequency_to_interval_semitones(
             tuning_system,
             root_frequency_hz,
-            scale_semitone,
+            target_frequency_hz,
         );
-        let adjusted_cents = cents_delta(scale_note_frequency, target_frequency_hz);
-        
-        IntervalSemitones {
-            semitones: scale_semitone,
-            cents: adjusted_cents,
+    }
+    
+    // For non-chromatic scales, find the closest scale note by frequency distance
+    let mut closest_semitone = 0;
+    let mut smallest_cents_distance = f32::INFINITY;
+    
+    // Search across a reasonable range of octaves (±4 octaves = ±48 semitones)
+    // This covers the typical range of musical instruments and human voice
+    for semitone in -48..=48 {
+        // Skip notes not in the scale
+        if !semitone_in_scale(scale, semitone) {
+            continue;
         }
-    } else {
-        // No adjustment needed, use original result
-        raw_interval
+        
+        // Calculate the frequency for this scale note
+        let scale_note_frequency = interval_frequency(
+            tuning_system.clone(),
+            root_frequency_hz,
+            semitone,
+        );
+        
+        // Calculate cents distance to target frequency
+        let cents_distance = cents_delta(scale_note_frequency, target_frequency_hz).abs();
+        
+        // Update if this is the closest scale note found so far
+        if cents_distance < smallest_cents_distance {
+            smallest_cents_distance = cents_distance;
+            closest_semitone = semitone;
+        }
+    }
+    
+    // Calculate the final cents offset relative to the closest scale note
+    let scale_note_frequency = interval_frequency(
+        tuning_system,
+        root_frequency_hz,
+        closest_semitone,
+    );
+    let cents_offset = cents_delta(scale_note_frequency, target_frequency_hz);
+    
+    IntervalSemitones {
+        semitones: closest_semitone,
+        cents: cents_offset,
     }
 }
 
@@ -578,6 +602,79 @@ mod tests {
         assert!((freq - expected_freq).abs() < 0.001);
     }
     
+    #[test]
+    fn test_frequency_based_scale_detection_bug_fix() {
+        // Test for the specific bug where 226.6Hz with A3=220Hz root was incorrectly
+        // mapping to B3 instead of A3 in non-chromatic scales
+        
+        let root_freq = 220.0; // A3
+        
+        // Test 224.4Hz - should map to A3 with positive cents
+        let interval_224_4 = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            224.4,
+            Scale::Major, // Non-chromatic scale
+        );
+        assert_eq!(interval_224_4.semitones, 0); // Should be A3 (0 semitones from root)
+        assert!(interval_224_4.cents > 0.0); // Should be sharp (positive cents)
+        assert!(interval_224_4.cents < 50.0); // Should be reasonable cents offset
+        
+        // Test 226.6Hz - this was the problematic case
+        // It should map to A3 (+51.4 cents), NOT B3 (-148.8 cents)
+        let interval_226_6 = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            226.6,
+            Scale::Major,
+        );
+        assert_eq!(interval_226_6.semitones, 0); // Should be A3 (0 semitones from root)
+        assert!(interval_226_6.cents > 0.0); // Should be sharp (positive cents)
+        assert!(interval_226_6.cents > 50.0 && interval_226_6.cents < 55.0); // Should be ~51.4 cents
+        
+        // Verify that this is indeed closer to A3 than to B3
+        let a3_freq = interval_frequency(TuningSystem::EqualTemperament, root_freq, 0);
+        let b3_freq = interval_frequency(TuningSystem::EqualTemperament, root_freq, 2);
+        let cents_to_a3 = cents_delta(a3_freq, 226.6).abs();
+        let cents_to_b3 = cents_delta(b3_freq, 226.6).abs();
+        assert!(cents_to_a3 < cents_to_b3, "226.6Hz should be closer to A3 than B3");
+        
+        // Test that chromatic scale still works correctly (regression test)
+        let interval_chromatic = frequency_to_interval_semitones_scale_aware(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            226.6,
+            Scale::Chromatic,
+        );
+        // In chromatic scale, this should round to the nearest semitone (A# = 1 semitone)
+        let raw_interval = frequency_to_interval_semitones(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            226.6,
+        );
+        assert_eq!(interval_chromatic.semitones, raw_interval.semitones);
+        assert!((interval_chromatic.cents - raw_interval.cents).abs() < 0.001);
+        
+        // Additional test: Demonstrate the bug is fixed by comparing old vs new behavior
+        // Calculate what the old algorithm would have done (chromatic rounding first)
+        let old_raw_interval = frequency_to_interval_semitones(
+            TuningSystem::EqualTemperament,
+            root_freq,
+            226.6,
+        );
+        // Old algorithm: 226.6Hz → 51.4 cents → rounds to 1 semitone (A#) → maps to B (2 semitones)
+        let old_closest_scale_note = find_closest_scale_note(old_raw_interval.semitones, Scale::Major);
+        assert_eq!(old_raw_interval.semitones, 1); // Would round to A# (1 semitone)
+        assert_eq!(old_closest_scale_note, 2); // Would map to B (2 semitones)
+        
+        // New algorithm correctly finds A (0 semitones) as closer
+        assert_eq!(interval_226_6.semitones, 0); // Maps directly to A (0 semitones)
+        assert!(interval_226_6.cents < 60.0); // Positive cents (sharp from A)
+        
+        // Verify the new algorithm gives better results
+        assert!(interval_226_6.cents.abs() < 100.0); // Much closer than old (-148.8 cents from B)
+    }
+
     #[test]
     fn test_pentatonic_scale_edge_cases() {
         // Test edge cases specific to pentatonic scales
