@@ -1,4 +1,4 @@
-use pitch_detection::detector::{yin::YINDetector, PitchDetector as PitchDetectorTrait};
+use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
 use super::buffer::BUFFER_SIZE;
 
 pub type PitchDetectionError = String;
@@ -24,7 +24,9 @@ impl PitchResult {
 #[derive(Debug, Clone)]
 pub struct PitchDetectorConfig {
     pub sample_window_size: usize,
-    pub threshold: f32,
+    pub power_threshold: f64,
+    pub clarity_threshold: f64,
+    pub padding_size: usize,
     pub min_frequency: f32,
     pub max_frequency: f32,
 }
@@ -33,7 +35,9 @@ impl Default for PitchDetectorConfig {
     fn default() -> Self {
         Self {
             sample_window_size: BUFFER_SIZE,
-            threshold: 0.1,            // Lowered threshold for better test signal detection
+            power_threshold: 5.0,      // Minimum signal energy threshold
+            clarity_threshold: 0.7,    // Minimum confidence threshold
+            padding_size: BUFFER_SIZE / 2, // Zero-padding size
             min_frequency: 80.0,
             max_frequency: 2000.0,
         }
@@ -42,7 +46,7 @@ impl Default for PitchDetectorConfig {
 
 pub struct PitchDetector {
     config: PitchDetectorConfig,
-    yin_detector: YINDetector<f32>,
+    detector_algorithm: McLeodDetector<f32>,
     sample_rate: u32,
 }
 
@@ -63,10 +67,24 @@ impl PitchDetector {
             return Err(format!("Sample rate must be positive, got {}", sample_rate));
         }
 
-        if config.threshold < 0.0 || config.threshold > 1.0 {
+        if config.power_threshold <= 0.0 {
             return Err(format!(
-                "Threshold must be between 0.0 and 1.0, got {}",
-                config.threshold
+                "Power threshold must be positive, got {}",
+                config.power_threshold
+            ));
+        }
+
+        if config.clarity_threshold < 0.0 || config.clarity_threshold > 1.0 {
+            return Err(format!(
+                "Clarity threshold must be between 0.0 and 1.0, got {}",
+                config.clarity_threshold
+            ));
+        }
+
+        if config.padding_size > config.sample_window_size {
+            return Err(format!(
+                "Padding size ({}) cannot be larger than sample window size ({})",
+                config.padding_size, config.sample_window_size
             ));
         }
 
@@ -84,12 +102,12 @@ impl PitchDetector {
             ));
         }
 
-        let yin_detector = YINDetector::new(config.sample_window_size, 0);
+        let mcleod_detector = McLeodDetector::new(config.sample_window_size, config.padding_size);
 
 
         Ok(Self {
             config,
-            yin_detector,
+            detector_algorithm: mcleod_detector,
             sample_rate,
         })
     }
@@ -103,8 +121,8 @@ impl PitchDetector {
             ));
         }
 
-        // Use YIN analysis
-        let result = self.yin_detector.get_pitch(samples, self.sample_rate as usize, 0.0, self.config.threshold);
+        // Use McLeod analysis
+        let result = self.detector_algorithm.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold as f32, self.config.clarity_threshold as f32);
         
 
         match result {
@@ -133,7 +151,7 @@ impl PitchDetector {
     /// Get optimal window size recommendation balancing accuracy and latency
     pub fn get_optimal_window_size_for_latency(target_latency_ms: f32, sample_rate: u32) -> usize {
         // Calculate maximum samples we can process within the target latency
-        // Assuming YIN takes about 2-3x the window size in operations
+        // Assuming McLeod takes about 2-3x the window size in operations
         let max_samples = (target_latency_ms / 1000.0 * sample_rate as f32 / 3.0) as usize;
         
         // Prioritize accuracy - use larger windows when possible within latency constraints
@@ -226,10 +244,24 @@ impl PitchDetector {
             ));
         }
 
-        if new_config.threshold < 0.0 || new_config.threshold > 1.0 {
+        if new_config.power_threshold <= 0.0 {
             return Err(format!(
-                "Threshold must be between 0.0 and 1.0, got {}",
-                new_config.threshold
+                "Power threshold must be positive, got {}",
+                new_config.power_threshold
+            ));
+        }
+
+        if new_config.clarity_threshold < 0.0 || new_config.clarity_threshold > 1.0 {
+            return Err(format!(
+                "Clarity threshold must be between 0.0 and 1.0, got {}",
+                new_config.clarity_threshold
+            ));
+        }
+
+        if new_config.padding_size > new_config.sample_window_size {
+            return Err(format!(
+                "Padding size ({}) cannot be larger than sample window size ({})",
+                new_config.padding_size, new_config.sample_window_size
             ));
         }
 
@@ -247,8 +279,8 @@ impl PitchDetector {
             ));
         }
 
-        if new_config.sample_window_size != self.config.sample_window_size {
-            self.yin_detector = YINDetector::new(new_config.sample_window_size, 0);
+        if new_config.sample_window_size != self.config.sample_window_size || new_config.padding_size != self.config.padding_size {
+            self.detector_algorithm = McLeodDetector::new(new_config.sample_window_size, new_config.padding_size);
         }
 
 
@@ -268,14 +300,14 @@ impl PitchDetector {
     pub fn memory_usage_bytes(&self) -> usize {
         // Calculate memory usage for the detector
         let config_size = std::mem::size_of::<PitchDetectorConfig>();
-        let detector_size = std::mem::size_of::<YINDetector<f32>>();
+        let detector_size = std::mem::size_of::<McLeodDetector<f32>>();
         let base_size = std::mem::size_of::<Self>();
         
-        // Estimate YIN detector internal buffer size
-        // YIN typically uses several buffers of the window size
-        let yin_internal_buffers = self.config.sample_window_size * std::mem::size_of::<f32>() * 3;
+        // Estimate McLeod detector internal buffer size
+        // McLeod uses autocorrelation and FFT buffers
+        let mcleod_internal_buffers = (self.config.sample_window_size + self.config.padding_size) * std::mem::size_of::<f32>() * 4;
         
-        base_size + config_size + detector_size + yin_internal_buffers
+        base_size + config_size + detector_size + mcleod_internal_buffers
     }
 
     /// Validate that the detector can meet performance requirements
@@ -335,7 +367,9 @@ mod tests {
     fn test_pitch_detector_config_default() {
         let config = PitchDetectorConfig::default();
         assert_eq!(config.sample_window_size, BUFFER_SIZE);
-        assert_eq!(config.threshold, 0.1);            // Lowered threshold for better test signal detection
+        assert_eq!(config.power_threshold, 5.0);
+        assert_eq!(config.clarity_threshold, 0.7);
+        assert_eq!(config.padding_size, BUFFER_SIZE / 2);
         assert_eq!(config.min_frequency, 80.0);
         assert_eq!(config.max_frequency, 2000.0);
     }
@@ -344,13 +378,17 @@ mod tests {
     fn test_pitch_detector_config_custom() {
         let config = PitchDetectorConfig {
             sample_window_size: 2048,
-            threshold: 0.2,
+            power_threshold: 3.0,
+            clarity_threshold: 0.8,
+            padding_size: 1024,
             min_frequency: 60.0,
             max_frequency: 4000.0,
         };
         
         assert_eq!(config.sample_window_size, 2048);
-        assert_eq!(config.threshold, 0.2);
+        assert_eq!(config.power_threshold, 3.0);
+        assert_eq!(config.clarity_threshold, 0.8);
+        assert_eq!(config.padding_size, 1024);
         assert_eq!(config.min_frequency, 60.0);
         assert_eq!(config.max_frequency, 4000.0);
     }
@@ -364,7 +402,8 @@ mod tests {
         let detector = detector.unwrap();
         assert_eq!(detector.sample_rate(), STANDARD_SAMPLE_RATE);
         assert_eq!(detector.config().sample_window_size, BUFFER_SIZE);
-        assert_eq!(detector.config().threshold, 0.1);            // Updated for better detection sensitivity
+        assert_eq!(detector.config().power_threshold, 5.0);
+        assert_eq!(detector.config().clarity_threshold, 0.7);
     }
 
     #[wasm_bindgen_test]
@@ -409,18 +448,19 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_pitch_detector_invalid_threshold() {
+    fn test_pitch_detector_invalid_thresholds() {
         let mut config = PitchDetectorConfig::default();
-        config.threshold = -0.1;
+        config.power_threshold = -0.1;
         
         let detector = PitchDetector::new(config.clone(), 48000);
         assert!(detector.is_err());
         match detector {
-            Err(err) => assert!(err.contains("between 0.0 and 1.0")),
+            Err(err) => assert!(err.contains("must be positive")),
             Ok(_) => panic!("Expected error"),
         }
         
-        config.threshold = 1.1;
+        config.power_threshold = 5.0;
+        config.clarity_threshold = 1.1;
         let detector = PitchDetector::new(config, STANDARD_SAMPLE_RATE);
         assert!(detector.is_err());
         match detector {
@@ -494,7 +534,7 @@ mod tests {
         if let Some(pitch_result) = result.unwrap() {
             // Should detect close to 440Hz
             assert!((pitch_result.frequency - 440.0).abs() < 50.0);
-            assert!(pitch_result.clarity <= 1.0); // YIN clarity should be <= 1.0
+            assert!(pitch_result.clarity <= 1.0); // McLeod clarity should be <= 1.0
             assert!(pitch_result.timestamp >= 0.0);
         }
     }
@@ -528,13 +568,15 @@ mod tests {
         let mut detector = PitchDetector::new(config, 48000).unwrap();
         
         let mut new_config = PitchDetectorConfig::default();
-        new_config.threshold = 0.2;
+        new_config.power_threshold = 3.0;
+        new_config.clarity_threshold = 0.8;
         new_config.min_frequency = 100.0;
         new_config.max_frequency = 1000.0;
         
         let result = detector.update_config(new_config.clone());
         assert!(result.is_ok());
-        assert_eq!(detector.config().threshold, 0.2);
+        assert_eq!(detector.config().power_threshold, 3.0);
+        assert_eq!(detector.config().clarity_threshold, 0.8);
         assert_eq!(detector.config().min_frequency, 100.0);
         assert_eq!(detector.config().max_frequency, 1000.0);
     }
@@ -586,7 +628,8 @@ mod tests {
         // Test accuracy-optimized configuration
         let mut config = PitchDetectorConfig::default();
         config.sample_window_size = 2048; // Accuracy-focused setting (default)
-        config.threshold = 0.15; // Balanced threshold
+        config.power_threshold = 4.0; // Balanced power threshold
+        config.clarity_threshold = 0.75; // Higher clarity threshold
         config.min_frequency = 80.0; // Vocal/instrumental range
         config.max_frequency = 2000.0;
         
@@ -595,7 +638,8 @@ mod tests {
         
         let detector = detector.unwrap();
         assert_eq!(detector.config().sample_window_size, 2048);
-        assert_eq!(detector.config().threshold, 0.15);
+        assert_eq!(detector.config().power_threshold, 4.0);
+        assert_eq!(detector.config().clarity_threshold, 0.75);
         assert_eq!(detector.config().min_frequency, 80.0);
         assert_eq!(detector.config().max_frequency, 2000.0);
     }

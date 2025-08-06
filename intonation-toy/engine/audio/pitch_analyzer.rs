@@ -239,7 +239,9 @@ impl PitchAnalyzer {
                 // Create temporary detector for this window size
                 let config = super::pitch_detector::PitchDetectorConfig {
                     sample_window_size: window_size,
-                    threshold: 0.15,
+                    power_threshold: 5.0,
+                    clarity_threshold: 0.7,
+                    padding_size: window_size / 2,
                     min_frequency: 80.0,
                     max_frequency: 2000.0,
                 };
