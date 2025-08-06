@@ -2,6 +2,11 @@
 /// 
 /// This module contains all configuration constants used throughout the application
 
+use crate::shared_types::ColorScheme;
+
+/// Color scheme configuration
+pub const COLOR_SCHEME: ColorScheme = ColorScheme::dark();
+
 /// Viewport configuration
 pub const VIEWPORT_WIDTH: u32 = 1024;
 pub const VIEWPORT_HEIGHT: u32 = 1024;

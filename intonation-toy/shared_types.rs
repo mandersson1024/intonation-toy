@@ -94,6 +94,73 @@ pub fn midi_note_to_name(midi_note: MidiNote) -> String {
     format!("{}{}", note_name, octave)
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorScheme {
+    pub background: [f32; 3],
+    pub surface: [f32; 3],
+    pub primary: [f32; 3],
+    pub secondary: [f32; 3],
+    pub accent: [f32; 3],
+    pub text: [f32; 3],
+    pub muted: [f32; 3],
+}
+
+impl Default for ColorScheme {
+    fn default() -> Self {
+        Self::dark()
+    }
+}
+
+impl ColorScheme {
+    pub const fn dark() -> Self {
+        Self {
+            background: [0.05, 0.05, 0.05],
+            surface: [0.2, 0.2, 0.2],
+            primary: [0.0, 0.8, 1.0],
+            secondary: [1.0, 0.2, 0.2],
+            accent: [1.0, 0.8, 0.0],
+            text: [1.0, 1.0, 1.0],
+            muted: [0.4, 0.4, 0.4],
+        }
+    }
+    
+    pub const fn light() -> Self {
+        Self {
+            background: [0.95, 0.95, 0.95],
+            surface: [0.8, 0.8, 0.8],
+            primary: [0.0, 0.4, 0.8],
+            secondary: [0.8, 0.0, 0.0],
+            accent: [0.8, 0.6, 0.0],
+            text: [0.0, 0.0, 0.0],
+            muted: [0.6, 0.6, 0.6],
+        }
+    }
+    
+    pub const fn autumn() -> Self {
+        Self {
+            background: [0.12, 0.08, 0.06],
+            surface: [0.3, 0.2, 0.15],
+            primary: [0.9, 0.6, 0.2],
+            secondary: [0.8, 0.3, 0.1],
+            accent: [0.95, 0.8, 0.3],
+            text: [0.95, 0.9, 0.8],
+            muted: [0.5, 0.4, 0.3],
+        }
+    }
+    
+    pub const fn sunset() -> Self {
+        Self {
+            background: [0.15, 0.05, 0.08],
+            surface: [0.25, 0.15, 0.18],
+            primary: [1.0, 0.4, 0.2],
+            secondary: [0.9, 0.2, 0.4],
+            accent: [1.0, 0.7, 0.0],
+            text: [1.0, 0.95, 0.9],
+            muted: [0.6, 0.4, 0.4],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TuningSystem {
     EqualTemperament,
