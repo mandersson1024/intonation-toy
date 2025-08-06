@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use wasm_bindgen::closure::Closure;
 
 // Configuration module
-pub mod config;
+pub mod app_config;
 
 // Three-layer architecture modules
 pub mod engine;
@@ -133,8 +133,8 @@ pub async fn start_render_loop(
     let canvas = None;
     
     let window = Window::new(WindowSettings {
-        title: config::WINDOW_TITLE.to_string(),
-        max_size: Some((config::VIEWPORT_WIDTH, config::VIEWPORT_HEIGHT)),
+        title: app_config::WINDOW_TITLE.to_string(),
+        max_size: Some((app_config::VIEWPORT_WIDTH, app_config::VIEWPORT_HEIGHT)),
         canvas: canvas.clone(),
         ..Default::default()
     })

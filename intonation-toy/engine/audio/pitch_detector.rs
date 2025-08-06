@@ -1,4 +1,6 @@
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
+use crate::app_config;
+
 use super::buffer::BUFFER_SIZE;
 
 pub type PitchDetectionError = String;
@@ -24,8 +26,8 @@ impl PitchResult {
 #[derive(Debug, Clone)]
 pub struct PitchDetectorConfig {
     pub sample_window_size: usize,
-    pub power_threshold: f64,
-    pub clarity_threshold: f64,
+    pub power_threshold: f32,
+    pub clarity_threshold: f32,
     pub padding_size: usize,
     pub min_frequency: f32,
     pub max_frequency: f32,
@@ -36,7 +38,7 @@ impl Default for PitchDetectorConfig {
         Self {
             sample_window_size: BUFFER_SIZE,
             power_threshold: 5.0,      // Minimum signal energy threshold
-            clarity_threshold: 0.7,    // Minimum confidence threshold
+            clarity_threshold: crate::app_config::CLARITY_THRESHOLD,    // Minimum confidence threshold
             padding_size: BUFFER_SIZE / 2, // Zero-padding size
             min_frequency: 80.0,
             max_frequency: 2000.0,
@@ -46,7 +48,7 @@ impl Default for PitchDetectorConfig {
 
 pub struct PitchDetector {
     config: PitchDetectorConfig,
-    detector_algorithm: McLeodDetector<f32>,
+    detector: McLeodDetector<f32>,
     sample_rate: u32,
 }
 
@@ -107,7 +109,7 @@ impl PitchDetector {
 
         Ok(Self {
             config,
-            detector_algorithm: mcleod_detector,
+            detector: mcleod_detector,
             sample_rate,
         })
     }
@@ -122,7 +124,7 @@ impl PitchDetector {
         }
 
         // Use McLeod analysis
-        let result = self.detector_algorithm.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold as f32, self.config.clarity_threshold as f32);
+        let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, self.config.clarity_threshold);
         
 
         match result {
@@ -280,7 +282,7 @@ impl PitchDetector {
         }
 
         if new_config.sample_window_size != self.config.sample_window_size || new_config.padding_size != self.config.padding_size {
-            self.detector_algorithm = McLeodDetector::new(new_config.sample_window_size, new_config.padding_size);
+            self.detector = McLeodDetector::new(new_config.sample_window_size, new_config.padding_size);
         }
 
 
@@ -368,7 +370,7 @@ mod tests {
         let config = PitchDetectorConfig::default();
         assert_eq!(config.sample_window_size, BUFFER_SIZE);
         assert_eq!(config.power_threshold, 5.0);
-        assert_eq!(config.clarity_threshold, 0.7);
+        assert_eq!(config.clarity_threshold, crate::app_config::CLARITY_THRESHOLD);
         assert_eq!(config.padding_size, BUFFER_SIZE / 2);
         assert_eq!(config.min_frequency, 80.0);
         assert_eq!(config.max_frequency, 2000.0);
@@ -403,7 +405,7 @@ mod tests {
         assert_eq!(detector.sample_rate(), STANDARD_SAMPLE_RATE);
         assert_eq!(detector.config().sample_window_size, BUFFER_SIZE);
         assert_eq!(detector.config().power_threshold, 5.0);
-        assert_eq!(detector.config().clarity_threshold, 0.7);
+        assert_eq!(detector.config().clarity_threshold, crate::app_config::CLARITY_THRESHOLD);
     }
 
     #[wasm_bindgen_test]
