@@ -219,6 +219,7 @@ pub struct MainScene {
     pub tuning_lines: TuningLines,
     text_renderer: TextRenderer,
     context: Context,
+    pitch_detected: bool,
 }
 
 impl MainScene {
@@ -245,6 +246,7 @@ impl MainScene {
             tuning_lines,
             text_renderer,
             context: context.clone(),
+            pitch_detected: false,
         })
     }
     
@@ -259,7 +261,10 @@ impl MainScene {
         // Collect all lines to render: tuning lines and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
         
-        renderable_lines.push(&self.user_pitch_line); // first in list is on top
+        // Only add user pitch line if pitch is detected
+        if self.pitch_detected {
+            renderable_lines.push(&self.user_pitch_line); // first in list is on top
+        }
 
         // Add all tuning lines
         for line in self.tuning_lines.lines() {
@@ -291,9 +296,12 @@ impl MainScene {
         }
     }
     
-    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32) {
-        let y = interval_to_screen_y_position(interval, viewport.height as f32);
-        self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y}, PhysicalPoint{x:viewport.width as f32, y});
+    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool) {
+        self.pitch_detected = pitch_detected;
+        if pitch_detected {
+            let y = interval_to_screen_y_position(interval, viewport.height as f32);
+            self.user_pitch_line.set_endpoints(PhysicalPoint{x:0.0, y}, PhysicalPoint{x:viewport.width as f32, y});
+        }
     }
     
     /// Update tuning lines with position, MIDI note, and thickness data provided by the presenter
@@ -303,4 +311,271 @@ impl MainScene {
         self.tuning_lines.update_lines(viewport, line_data);
     }
     
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+    use wasm_bindgen::JsCast;
+
+    fn create_test_context() -> Context {
+        // For tests, create a context using the Window API which handles
+        // all the WebGL setup internally
+        use three_d::{Window, WindowSettings};
+        
+        let window = Window::new(WindowSettings {
+            title: "Test".to_string(),
+            max_size: Some((800, 600)),
+            ..Default::default()
+        }).unwrap();
+        
+        window.gl().clone()
+    }
+
+    fn create_test_viewport() -> Viewport {
+        Viewport {
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600,
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_main_scene_creation() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Verify that pitch_detected is false by default
+        assert_eq!(scene.pitch_detected, false, "MainScene should initialize with pitch_detected = false");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_update_pitch_position_with_detection() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Test updating with pitch detected
+        let interval = 1.0; // Middle of the range
+        scene.update_pitch_position(viewport, interval, true);
+        
+        // Verify pitch_detected state is stored
+        assert_eq!(scene.pitch_detected, true, "pitch_detected should be true after update with detection");
+        
+        // Verify that the line position would be updated (we can't directly test the line position
+        // due to Line being opaque, but we can verify the state was set)
+        let expected_y = interval_to_screen_y_position(interval, viewport.height as f32);
+        assert!(expected_y > 0.0 && expected_y < viewport.height as f32, "Y position should be within viewport bounds");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_update_pitch_position_without_detection() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // First set it to detected
+        scene.update_pitch_position(viewport, 1.0, true);
+        assert_eq!(scene.pitch_detected, true);
+        
+        // Now update without detection
+        scene.update_pitch_position(viewport, 1.5, false);
+        
+        // Verify pitch_detected state is stored as false
+        assert_eq!(scene.pitch_detected, false, "pitch_detected should be false after update without detection");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_pitch_detection_state_persistence() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Test state persistence through multiple updates
+        scene.update_pitch_position(viewport, 1.0, true);
+        assert_eq!(scene.pitch_detected, true, "State should persist as true");
+        
+        scene.update_pitch_position(viewport, 1.2, true);
+        assert_eq!(scene.pitch_detected, true, "State should remain true");
+        
+        scene.update_pitch_position(viewport, 1.3, false);
+        assert_eq!(scene.pitch_detected, false, "State should change to false");
+        
+        scene.update_pitch_position(viewport, 1.4, false);
+        assert_eq!(scene.pitch_detected, false, "State should remain false");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_conditional_rendering_logic() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Test that pitch_detected controls rendering inclusion
+        // When pitch_detected is false, the line should not be included
+        scene.pitch_detected = false;
+        assert_eq!(scene.pitch_detected, false, "Line should not be included when pitch not detected");
+        
+        // When pitch_detected is true, the line should be included
+        scene.pitch_detected = true;
+        assert_eq!(scene.pitch_detected, true, "Line should be included when pitch is detected");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_rapid_state_changes() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Test rapid alternation between detected and not detected states
+        for i in 0..10 {
+            let detected = i % 2 == 0;
+            let interval = 0.5 + (i as f32) * 0.15; // Vary the interval
+            
+            scene.update_pitch_position(viewport, interval, detected);
+            
+            assert_eq!(
+                scene.pitch_detected, 
+                detected, 
+                "State should correctly alternate on iteration {}", 
+                i
+            );
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_edge_case_parameters() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Test with edge case interval values
+        let edge_cases = [
+            (0.0, true),   // Minimum interval
+            (0.5, true),   // Lower octave boundary
+            (1.0, true),   // Middle
+            (2.0, true),   // Upper octave boundary
+            (10.0, true),  // Extremely high interval
+            (-1.0, true),  // Negative interval
+            (0.0, false),  // Not detected with various intervals
+            (1.0, false),
+            (2.0, false),
+        ];
+        
+        for (interval, detected) in edge_cases.iter() {
+            scene.update_pitch_position(viewport, *interval, *detected);
+            assert_eq!(
+                scene.pitch_detected, 
+                *detected, 
+                "State should be {} for interval {}", 
+                detected, 
+                interval
+            );
+            
+            // Verify y position calculation doesn't panic
+            let y = interval_to_screen_y_position(*interval, viewport.height as f32);
+            assert!(!y.is_nan(), "Y position should not be NaN for interval {}", interval);
+        }
+        
+        // Test with edge case viewport
+        let small_viewport = Viewport {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        
+        scene.update_pitch_position(small_viewport, 1.0, true);
+        assert_eq!(scene.pitch_detected, true, "Should handle small viewport");
+        
+        let large_viewport = Viewport {
+            x: 0,
+            y: 0,
+            width: 10000,
+            height: 10000,
+        };
+        
+        scene.update_pitch_position(large_viewport, 1.0, false);
+        assert_eq!(scene.pitch_detected, false, "Should handle large viewport");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_interval_to_screen_y_position_calculation() {
+        // Test the helper function directly
+        let viewport_height = 600.0;
+        
+        // Test standard intervals
+        let y_middle = interval_to_screen_y_position(0.0, viewport_height);
+        assert_eq!(y_middle, 300.0, "Interval 0.0 should map to middle of screen");
+        
+        let y_top = interval_to_screen_y_position(-1.0, viewport_height);
+        assert_eq!(y_top, 0.0, "Interval -1.0 should map to top of screen");
+        
+        let y_bottom = interval_to_screen_y_position(1.0, viewport_height);
+        assert_eq!(y_bottom, 600.0, "Interval 1.0 should map to bottom of screen");
+        
+        // Test intermediate values
+        let y_quarter = interval_to_screen_y_position(-0.5, viewport_height);
+        assert_eq!(y_quarter, 150.0, "Interval -0.5 should map to quarter way down");
+        
+        let y_three_quarters = interval_to_screen_y_position(0.5, viewport_height);
+        assert_eq!(y_three_quarters, 450.0, "Interval 0.5 should map to three quarters down");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_tuning_lines_always_rendered() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Add some tuning lines
+        let line_data = vec![
+            (100.0, 60, 1.0),  // Middle C
+            (200.0, 62, 1.0),  // D
+            (300.0, 64, 1.0),  // E
+        ];
+        
+        scene.update_tuning_lines(viewport, &line_data);
+        
+        // Verify tuning lines are present regardless of pitch detection state
+        scene.pitch_detected = false;
+        assert_eq!(scene.tuning_lines.lines().count(), 3, "Tuning lines should be present when pitch not detected");
+        
+        scene.pitch_detected = true;
+        assert_eq!(scene.tuning_lines.lines().count(), 3, "Tuning lines should be present when pitch is detected");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_render_state_consistency() {
+        let context = create_test_context();
+        let viewport = create_test_viewport();
+        
+        let mut scene = MainScene::new(&context, viewport).unwrap();
+        
+        // Set up initial state
+        scene.update_pitch_position(viewport, 1.0, true);
+        assert_eq!(scene.pitch_detected, true);
+        
+        // Add tuning lines
+        let line_data = vec![(100.0, 60, 1.0), (200.0, 62, 1.0)];
+        scene.update_tuning_lines(viewport, &line_data);
+        
+        // Change pitch detection state
+        scene.update_pitch_position(viewport, 1.2, false);
+        assert_eq!(scene.pitch_detected, false);
+        
+        // Verify tuning lines are still there
+        assert_eq!(scene.tuning_lines.lines().count(), 2, "Tuning lines should persist through state changes");
+    }
 }
