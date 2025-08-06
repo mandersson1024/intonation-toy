@@ -19,8 +19,6 @@ function resizeCanvas() {
     // Set both CSS dimensions and canvas attributes
     canvas.style.width = size + 'px';
     canvas.style.height = size + 'px';
-    canvas.width = size;
-    canvas.height = size;
 }
 
 // Initial resize
