@@ -431,8 +431,8 @@ impl Presenter {
         // Extract values we need before the match to avoid borrowing issues
         let interval_position = self.interval_position;
         
-        // Get tuning line positions for the active tuning system
-        let tuning_line_positions = if matches!(self.scene, Scene::Main(_)) {
+        // Get tuning line data for the active tuning system
+        let tuning_line_data = if matches!(self.scene, Scene::Main(_)) {
             Self::get_tuning_line_positions(
                 model_data.root_note,
                 model_data.tuning_system,
@@ -451,7 +451,7 @@ impl Presenter {
                 main_scene.update_viewport(viewport);
                 
                 // Update tuning lines - MainScene doesn't know about music theory
-                main_scene.update_tuning_lines(viewport, &tuning_line_positions);
+                main_scene.update_tuning_lines(viewport, &tuning_line_data);
                 
                 main_scene.update_pitch_position(viewport, interval_position);
             }
@@ -644,7 +644,13 @@ impl Presenter {
         if matches!(self.scene, Scene::Startup(_)) && model_data.permission_state == PermissionState::Granted {
             // Permission was granted - switch to MainScene
             let viewport = screen.viewport();
-            self.scene = Scene::Main(MainScene::new(context, viewport));
+            match MainScene::new(context, viewport) {
+                Ok(main_scene) => self.scene = Scene::Main(main_scene),
+                Err(e) => {
+                    crate::common::dev_log!("Failed to create MainScene: {}", e);
+                    return; // Stay in startup scene
+                }
+            }
             
             // Set up HTML UI for main scene
             #[cfg(target_arch = "wasm32")]
@@ -665,7 +671,7 @@ impl Presenter {
         }
         
         // Delegate rendering to the active scene
-        match &self.scene {
+        match &mut self.scene {
             Scene::Startup(startup_scene) => {
                 startup_scene.render(screen);
             }
@@ -886,12 +892,12 @@ impl Presenter {
         tuning_system: TuningSystem,
         scale: Scale,
         viewport: Viewport
-    ) -> Vec<f32> {
+    ) -> Vec<(f32, MidiNote)> {
         let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
         
         // For now, show a reasonable set of intervals: -12 to +12 semitones excluding root (0)
         // This gives us the chromatic scale above and below the root note
-        let mut positions = Vec::new();
+        let mut line_data = Vec::new();
         
         // Add intervals above root: +1 to +12 semitones
         for semitone in 1..=12 {
@@ -907,7 +913,8 @@ impl Presenter {
                     interval,
                     viewport.height as f32,
                 );
-                positions.push(y_position);
+                let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
+                line_data.push((y_position, midi_note));
             }
         }
         
@@ -925,11 +932,12 @@ impl Presenter {
                     interval,
                     viewport.height as f32,
                 );
-                positions.push(y_position);
+                let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
+                line_data.push((y_position, midi_note));
             }
         }
         
-        positions
+        line_data
     }
     
 

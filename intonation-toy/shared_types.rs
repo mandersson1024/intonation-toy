@@ -69,6 +69,31 @@ pub fn decrement_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
     }
 }
 
+/// Converts a MIDI note number (0-127) to its standard note name with octave.
+/// 
+/// Uses the standard MIDI mapping where:
+/// - C4 = 60 (middle C)
+/// - A4 = 69 (440 Hz)
+/// - MIDI note 0 = C-1
+/// - MIDI note 127 = G9
+/// 
+/// # Examples
+/// ```
+/// assert_eq!(midi_note_to_name(60), "C4");  // Middle C
+/// assert_eq!(midi_note_to_name(69), "A4");  // Concert A
+/// assert_eq!(midi_note_to_name(0), "C-1");  // Lowest MIDI note
+/// assert_eq!(midi_note_to_name(127), "G9"); // Highest MIDI note
+/// ```
+pub fn midi_note_to_name(midi_note: MidiNote) -> String {
+    const NOTE_NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    
+    let octave = (midi_note as i32 / 12) - 1;
+    let note_index = midi_note % 12;
+    let note_name = NOTE_NAMES[note_index as usize];
+    
+    format!("{}{}", note_name, octave)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TuningSystem {
     EqualTemperament,
@@ -584,6 +609,55 @@ mod tests {
         assert!(semitone_in_scale(Scale::Major, 24));  // 2 octaves is root
         assert!(semitone_in_scale(Scale::Major, 26));  // 2 octaves + Major 2nd
         assert!(!semitone_in_scale(Scale::Major, 25)); // 2 octaves + Minor 2nd not in major
+    }
+
+    #[test]
+    fn test_midi_note_to_name() {
+        // Test standard reference points
+        assert_eq!(midi_note_to_name(60), "C4");   // Middle C
+        assert_eq!(midi_note_to_name(69), "A4");   // Concert A (440 Hz)
+        
+        // Test all chromatic notes in the 4th octave
+        assert_eq!(midi_note_to_name(60), "C4");   // C4
+        assert_eq!(midi_note_to_name(61), "C#4");  // C#4
+        assert_eq!(midi_note_to_name(62), "D4");   // D4
+        assert_eq!(midi_note_to_name(63), "D#4");  // D#4
+        assert_eq!(midi_note_to_name(64), "E4");   // E4
+        assert_eq!(midi_note_to_name(65), "F4");   // F4
+        assert_eq!(midi_note_to_name(66), "F#4");  // F#4
+        assert_eq!(midi_note_to_name(67), "G4");   // G4
+        assert_eq!(midi_note_to_name(68), "G#4");  // G#4
+        assert_eq!(midi_note_to_name(69), "A4");   // A4
+        assert_eq!(midi_note_to_name(70), "A#4");  // A#4
+        assert_eq!(midi_note_to_name(71), "B4");   // B4
+        
+        // Test different octaves
+        assert_eq!(midi_note_to_name(0), "C-1");   // Lowest MIDI note
+        assert_eq!(midi_note_to_name(12), "C0");   // C0
+        assert_eq!(midi_note_to_name(24), "C1");   // C1
+        assert_eq!(midi_note_to_name(36), "C2");   // C2
+        assert_eq!(midi_note_to_name(48), "C3");   // C3
+        assert_eq!(midi_note_to_name(72), "C5");   // C5
+        assert_eq!(midi_note_to_name(84), "C6");   // C6
+        assert_eq!(midi_note_to_name(96), "C7");   // C7
+        assert_eq!(midi_note_to_name(108), "C8");  // C8
+        assert_eq!(midi_note_to_name(120), "C9");  // C9
+        
+        // Test edge cases
+        assert_eq!(midi_note_to_name(127), "G9");  // Highest MIDI note
+        assert_eq!(midi_note_to_name(1), "C#-1");  // Second lowest MIDI note
+        assert_eq!(midi_note_to_name(11), "B-1");  // B in -1 octave
+        
+        // Test A notes across octaves (useful for tuning reference)
+        assert_eq!(midi_note_to_name(21), "A0");   // A0
+        assert_eq!(midi_note_to_name(33), "A1");   // A1
+        assert_eq!(midi_note_to_name(45), "A2");   // A2
+        assert_eq!(midi_note_to_name(57), "A3");   // A3
+        assert_eq!(midi_note_to_name(69), "A4");   // A4 (440 Hz)
+        assert_eq!(midi_note_to_name(81), "A5");   // A5
+        assert_eq!(midi_note_to_name(93), "A6");   // A6
+        assert_eq!(midi_note_to_name(105), "A7");  // A7
+        assert_eq!(midi_note_to_name(117), "A8");  // A8
     }
 
 
