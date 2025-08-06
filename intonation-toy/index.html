@@ -6,8 +6,6 @@
     <title>Intonation Toy</title>
     <link data-trunk rel="css" href="static/index.css" />
     <link data-trunk rel="copy-file" href="static/audio-processor.js" />
-    <link data-trunk rel="copy-file" href="static/resize-handler.js" />
-    <script src="resize-handler.js" defer></script>
     <link data-trunk rel="rust" data-wasm-opt="4" />
   </head>
   <body>
@@ -15,7 +13,7 @@
       <!-- UI controls will be inserted here by JavaScript/WASM -->
     </div>
     <main id="canvas-container">
-      <canvas id="wgpu-canvas"></canvas>
+      <!-- Canvas will be created dynamically by Rust -->
     </main>
     <!-- Trunk will inject the JS/WASM for you -->
   </body>

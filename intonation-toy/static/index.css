@@ -47,8 +47,8 @@ body {
     overflow: hidden;
 }
 
-/* Canvas styling for wgpu render target - responsive with constraints */
-#wgpu-canvas {
+/* Canvas styling for three_d render target - responsive with constraints */
+#three-d-canvas {
     border: 3px solid red;
     border-radius: 4px;
     background-color: #000;

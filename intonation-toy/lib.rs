@@ -1,6 +1,7 @@
 use three_d::{self, Window, WindowSettings, GUI, ClearState, FrameOutput, egui, egui::Color32};
 use std::rc::Rc;
 use std::cell::RefCell;
+use wasm_bindgen::closure::Closure;
 
 // Configuration module
 pub mod config;
@@ -51,6 +52,35 @@ use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
 
+#[cfg(target_arch = "wasm32")]
+fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
+    dev_log!("RESIZE: resize_canvas called");
+    let window_obj = web_sys::window().unwrap();
+    
+    let menu_bar_height = 60;
+    let padding = 40; // 20px on each side
+    let min_size = 256;
+    let max_size = 1024;
+    
+    // Calculate available space
+    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - padding;
+    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - menu_bar_height - padding;
+    
+    dev_log!("RESIZE: available {}x{}", available_width, available_height);
+    
+    // Take the smaller dimension to maintain square aspect ratio
+    let mut size = std::cmp::min(available_width, available_height);
+    size = std::cmp::min(size, max_size);
+    size = std::cmp::max(size, min_size);
+    
+    dev_log!("RESIZE: setting canvas size to {}px", size);
+    
+    // Set both CSS dimensions
+    let size_str = format!("{}px", size);
+    canvas.style().set_property("width", &size_str).unwrap();
+    canvas.style().set_property("height", &size_str).unwrap();
+}
+
 #[cfg(debug_assertions)]
 use debug::debug_panel::DebugPanel;
 
@@ -74,12 +104,47 @@ pub async fn start_render_loop(
 ) {
     dev_log!("Starting three-d with three-layer architecture");
     
+    // Create canvas element dynamically with proper sizing
+    #[cfg(target_arch = "wasm32")]
+    let canvas = {
+        let window_obj = web_sys::window().unwrap();
+        let document = window_obj.document().unwrap();
+        let canvas_container = document.get_element_by_id("canvas-container").unwrap();
+        
+        let canvas = document.create_element("canvas").unwrap()
+            .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+        canvas.set_id("three-d-canvas");
+        
+        canvas_container.append_child(&canvas).unwrap();
+        
+        // Set up resize event handler
+        let canvas_clone = canvas.clone();
+        let resize_callback = Closure::wrap(Box::new(move || {
+            resize_canvas(&canvas_clone);
+        }) as Box<dyn FnMut()>);
+        
+        window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
+        resize_callback.forget(); // Keep the closure alive
+        
+        Some(canvas)
+    };
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    let canvas = None;
+    
     let window = Window::new(WindowSettings {
         title: config::WINDOW_TITLE.to_string(),
         max_size: Some((config::VIEWPORT_WIDTH, config::VIEWPORT_HEIGHT)),
+        canvas: canvas.clone(),
         ..Default::default()
     })
     .unwrap();
+    
+    // Apply initial canvas sizing after three_d window initialization
+    #[cfg(target_arch = "wasm32")]
+    if let Some(ref canvas_element) = canvas {
+        resize_canvas(canvas_element);
+    }
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
