@@ -892,12 +892,33 @@ impl Presenter {
         tuning_system: TuningSystem,
         scale: Scale,
         viewport: Viewport
-    ) -> Vec<(f32, MidiNote)> {
+    ) -> Vec<(f32, MidiNote, f32)> {
         let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
         
-        // For now, show a reasonable set of intervals: -12 to +12 semitones excluding root (0)
-        // This gives us the chromatic scale above and below the root note
+        // Helper function to determine line thickness based on semitone offset
+        let get_thickness = |semitone: i32| -> f32 {
+            // Octave lines (0, +12, -12) get thickness 2.0, others get 1.0
+            if semitone == 0 || semitone == 12 || semitone == -12 {
+                2.0
+            } else {
+                1.0
+            }
+        };
+        
+        // Show intervals from -12 to +12 semitones including root (0)
         let mut line_data = Vec::new();
+        
+        // Add center line (root note, 0 semitones)
+        if crate::shared_types::semitone_in_scale(scale, 0) {
+            // Root frequency stays at interval 0.0 (log2(1) = 0)
+            let interval = 0.0;
+            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
+                interval,
+                viewport.height as f32,
+            );
+            let thickness = get_thickness(0);
+            line_data.push((y_position, root_note, thickness));
+        }
         
         // Add intervals above root: +1 to +12 semitones
         for semitone in 1..=12 {
@@ -914,11 +935,12 @@ impl Presenter {
                     viewport.height as f32,
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                line_data.push((y_position, midi_note));
+                let thickness = get_thickness(semitone);
+                line_data.push((y_position, midi_note, thickness));
             }
         }
         
-        // Add intervals below root: -1 to -12 semitones
+        // Add intervals below root: -12 to -1 semitones
         for semitone in -12..=-1 {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(scale, semitone) {
@@ -933,7 +955,8 @@ impl Presenter {
                     viewport.height as f32,
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                line_data.push((y_position, midi_note));
+                let thickness = get_thickness(semitone);
+                line_data.push((y_position, midi_note, thickness));
             }
         }
         
