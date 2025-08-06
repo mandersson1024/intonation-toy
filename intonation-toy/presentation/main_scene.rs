@@ -145,24 +145,15 @@ impl TextRenderer {
         self._queued_texts.clear();
     }
     
-    /// Create simple placeholder text meshes using colored rectangles
+    /// Create simple letter shapes using multiple lines
     /// Returns an iterator of text meshes for rendering
     pub fn render_meshes(&self) -> impl Iterator<Item = Gm<Line, ColorMaterial>> {
-        // For now, create simple colored rectangles as placeholders for text
-        // A full implementation would create actual text meshes
         let mut text_meshes = Vec::new();
         
         for queued_text in &self._queued_texts {
-            // Create a small horizontal line as a placeholder for each character
-            let char_width = queued_text.size * 0.6; // Approximate character width
-            let text_width = queued_text.text.len() as f32 * char_width;
-            
-            let line = Line::new(
-                &self.context,
-                PhysicalPoint { x: queued_text.x, y: queued_text.y },
-                PhysicalPoint { x: queued_text.x + text_width, y: queued_text.y },
-                2.0 // Line thickness
-            );
+            let char_width = queued_text.size * 0.8;
+            let char_height = queued_text.size;
+            let mut x_offset = 0.0;
             
             let material = ColorMaterial {
                 color: Srgba::new(
@@ -174,10 +165,222 @@ impl TextRenderer {
                 ..Default::default()
             };
             
-            text_meshes.push(Gm::new(line, material));
+            for ch in queued_text.text.chars() {
+                let x = queued_text.x + x_offset;
+                let y = queued_text.y;
+                
+                // Create simple letter shapes using line segments
+                let letter_lines = self.create_letter_lines(ch, x, y, char_width, char_height);
+                
+                for (start, end) in letter_lines {
+                    let line = Line::new(
+                        &self.context,
+                        PhysicalPoint { x: start.0, y: start.1 },
+                        PhysicalPoint { x: end.0, y: end.1 },
+                        2.0
+                    );
+                    text_meshes.push(Gm::new(line, material.clone()));
+                }
+                
+                x_offset += char_width;
+            }
         }
         
         text_meshes.into_iter()
+    }
+    
+    /// Create line segments for simple letter shapes
+    fn create_letter_lines(&self, ch: char, x: f32, y: f32, width: f32, height: f32) -> Vec<((f32, f32), (f32, f32))> {
+        let mut lines = Vec::new();
+        let half_width = width * 0.4;
+        let half_height = height * 0.4;
+        
+        match ch {
+            'A' | 'a' => {
+                // Left diagonal
+                lines.push(((x, y + half_height), (x + half_width, y - half_height)));
+                // Right diagonal  
+                lines.push(((x + half_width, y - half_height), (x + width, y + half_height)));
+                // Cross bar
+                lines.push(((x + width * 0.25, y), (x + width * 0.75, y)));
+            },
+            'B' => {
+                // Vertical line
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Middle horizontal
+                lines.push(((x, y), (x + half_width, y)));
+                // Bottom horizontal
+                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                // Top right vertical
+                lines.push(((x + half_width, y - half_height), (x + half_width, y)));
+                // Bottom right vertical
+                lines.push(((x + half_width, y), (x + half_width, y + half_height)));
+            },
+            'C' | 'c' => {
+                // Left vertical
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Bottom horizontal
+                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+            },
+            'D' | 'd' => {
+                // Left vertical
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Bottom horizontal
+                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                // Right vertical
+                lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+            },
+            'E' | 'e' => {
+                // Left vertical
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Middle horizontal
+                lines.push(((x, y), (x + half_width * 0.7, y)));
+                // Bottom horizontal
+                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+            },
+            'F' | 'f' => {
+                // Left vertical
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Middle horizontal
+                lines.push(((x, y), (x + half_width * 0.7, y)));
+            },
+            'G' | 'g' => {
+                // Left vertical
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                // Top horizontal
+                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                // Bottom horizontal
+                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                // Right middle
+                lines.push(((x + half_width * 0.5, y), (x + half_width, y)));
+                // Right bottom
+                lines.push(((x + half_width, y), (x + half_width, y + half_height)));
+            },
+            '0'..='9' => {
+                let digit = ch as u8 - b'0';
+                match digit {
+                    0 => {
+                        // Oval shape
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        lines.push(((x, y - half_height), (x, y + half_height)));
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+                    },
+                    1 => {
+                        // Vertical line
+                        lines.push(((x + half_width * 0.5, y - half_height), (x + half_width * 0.5, y + half_height)));
+                    },
+                    2 => {
+                        // Top horizontal
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                        // Bottom horizontal
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        // Right top vertical
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y)));
+                        // Left bottom vertical
+                        lines.push(((x, y), (x, y + half_height)));
+                    },
+                    3 => {
+                        // Top horizontal
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                        // Bottom horizontal
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        // Right vertical
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+                    },
+                    4 => {
+                        // Left vertical top
+                        lines.push(((x, y - half_height), (x, y)));
+                        // Right vertical
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                    },
+                    5 => {
+                        // Top horizontal
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                        // Bottom horizontal
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        // Left top vertical
+                        lines.push(((x, y - half_height), (x, y)));
+                        // Right bottom vertical
+                        lines.push(((x + half_width, y), (x + half_width, y + half_height)));
+                    },
+                    6 => {
+                        // Left vertical
+                        lines.push(((x, y - half_height), (x, y + half_height)));
+                        // Top horizontal
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                        // Bottom horizontal
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        // Right bottom vertical
+                        lines.push(((x + half_width, y), (x + half_width, y + half_height)));
+                    },
+                    7 => {
+                        // Top horizontal
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        // Diagonal
+                        lines.push(((x + half_width, y - half_height), (x, y + half_height)));
+                    },
+                    8 => {
+                        // Rectangle outline
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                        lines.push(((x, y - half_height), (x, y + half_height)));
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+                        // Middle horizontal
+                        lines.push(((x, y), (x + half_width, y)));
+                    },
+                    9 => {
+                        // Top rectangle
+                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
+                        lines.push(((x, y - half_height), (x, y)));
+                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
+                        lines.push(((x, y), (x + half_width, y)));
+                        // Bottom horizontal
+                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
+                    },
+                    _ => {}
+                }
+            },
+            '#' => {
+                // Sharp symbol - two vertical lines and two horizontal lines
+                lines.push(((x + width * 0.25, y - half_height), (x + width * 0.25, y + half_height)));
+                lines.push(((x + width * 0.75, y - half_height), (x + width * 0.75, y + half_height)));
+                lines.push(((x, y - half_height * 0.5), (x + width, y - half_height * 0.5)));
+                lines.push(((x, y + half_height * 0.5), (x + width, y + half_height * 0.5)));
+            },
+            'b' => {
+                // Flat symbol - vertical line and curved part
+                lines.push(((x, y - half_height), (x, y + half_height)));
+                lines.push(((x, y - half_height * 0.5), (x + half_width * 0.7, y)));
+                lines.push(((x + half_width * 0.7, y), (x, y + half_height * 0.5)));
+            },
+            _ => {
+                // Default: just a small horizontal line for unknown characters
+                lines.push(((x, y), (x + half_width, y)));
+            }
+        }
+        
+        lines
     }
 }
 
