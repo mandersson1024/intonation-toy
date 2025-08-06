@@ -104,10 +104,8 @@ impl TuningLines {
 }
 
 pub struct TextRenderer {
-    // For now, just a placeholder that doesn't actually render text
-    // Real implementation would require resolving three-d version compatibility
-    _queued_texts: Vec<QueuedText>,
-    context: Context,
+    text_builder: three_d_text_builder::TextBuilder,
+    queued_texts: Vec<QueuedText>,
 }
 
 #[derive(Debug, Clone)]
@@ -120,267 +118,66 @@ struct QueuedText {
 }
 
 impl TextRenderer {
-    pub fn new(context: &Context) -> Result<Self, String> {
+    pub fn new(_context: &Context) -> Result<Self, String> {
+        // Use the actual Roboto Regular font file
+        let roboto_font = include_bytes!("../static/fonts/Roboto-Regular.ttf");
+        
+        let text_builder = three_d_text_builder::TextBuilder::new(
+            roboto_font,
+            three_d_text_builder::TextBuilderSettings::default()
+        ).map_err(|e| format!("Failed to create TextBuilder with Roboto font: {:?}", e))?;
+            
         Ok(Self {
-            _queued_texts: Vec::new(),
-            context: context.clone(),
+            text_builder,
+            queued_texts: Vec::new(),
         })
     }
     
     /// Queue text for rendering at the specified position
     pub fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]) {
-        self._queued_texts.push(QueuedText {
+        self.queued_texts.push(QueuedText {
             text: text.to_string(),
             x,
             y,
             size,
             color,
         });
-        // For now, just store the text data - actual rendering would be implemented later
-        // Real implementation would create text meshes and add them to a render queue
     }
     
     /// Clear all queued text (called each frame)
     pub fn clear_queue(&mut self) {
-        self._queued_texts.clear();
+        self.queued_texts.clear();
     }
     
-    /// Create simple letter shapes using multiple lines
-    /// Returns an iterator of text meshes for rendering
-    pub fn render_meshes(&self) -> impl Iterator<Item = Gm<Line, ColorMaterial>> {
-        let mut text_meshes = Vec::new();
+    /// Create text models using the actual Roboto font
+    pub fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<three_d::Gm<three_d_text_builder::TextMesh, three_d_text_builder::TextMaterial>> {
+        let mut text_refs = Vec::new();
         
-        for queued_text in &self._queued_texts {
-            let char_width = queued_text.size * 0.8;
-            let char_height = queued_text.size;
-            let mut x_offset = 0.0;
-            
-            let material = ColorMaterial {
-                color: Srgba::new(
+        // Set viewport for proper text positioning
+        self.text_builder.set_viewport(viewport);
+        
+        // Create TextRef objects for each queued text
+        for queued_text in &self.queued_texts {
+            let text_ref = three_d_text_builder::TextRef {
+                text: &queued_text.text,
+                color: three_d::Srgba::new(
                     (queued_text.color[0] * 255.0) as u8,
                     (queued_text.color[1] * 255.0) as u8,
                     (queued_text.color[2] * 255.0) as u8,
                     (queued_text.color[3] * 255.0) as u8,
                 ),
+                position: three_d_text_builder::TextPosition::Pixels(three_d::vec2(queued_text.x, queued_text.y)),
                 ..Default::default()
             };
-            
-            for ch in queued_text.text.chars() {
-                let x = queued_text.x + x_offset;
-                let y = queued_text.y;
-                
-                // Create simple letter shapes using line segments
-                let letter_lines = self.create_letter_lines(ch, x, y, char_width, char_height);
-                
-                for (start, end) in letter_lines {
-                    let line = Line::new(
-                        &self.context,
-                        PhysicalPoint { x: start.0, y: start.1 },
-                        PhysicalPoint { x: end.0, y: end.1 },
-                        2.0
-                    );
-                    text_meshes.push(Gm::new(line, material.clone()));
-                }
-                
-                x_offset += char_width;
-            }
+            text_refs.push(text_ref);
         }
         
-        text_meshes.into_iter()
-    }
-    
-    /// Create line segments for simple letter shapes
-    fn create_letter_lines(&self, ch: char, x: f32, y: f32, width: f32, height: f32) -> Vec<((f32, f32), (f32, f32))> {
-        let mut lines = Vec::new();
-        let half_width = width * 0.4;
-        let half_height = height * 0.4;
-        
-        match ch {
-            'A' | 'a' => {
-                // Left diagonal
-                lines.push(((x, y + half_height), (x + half_width, y - half_height)));
-                // Right diagonal  
-                lines.push(((x + half_width, y - half_height), (x + width, y + half_height)));
-                // Cross bar
-                lines.push(((x + width * 0.25, y), (x + width * 0.75, y)));
-            },
-            'B' => {
-                // Vertical line
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Middle horizontal
-                lines.push(((x, y), (x + half_width, y)));
-                // Bottom horizontal
-                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                // Top right vertical
-                lines.push(((x + half_width, y - half_height), (x + half_width, y)));
-                // Bottom right vertical
-                lines.push(((x + half_width, y), (x + half_width, y + half_height)));
-            },
-            'C' | 'c' => {
-                // Left vertical
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Bottom horizontal
-                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-            },
-            'D' | 'd' => {
-                // Left vertical
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Bottom horizontal
-                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                // Right vertical
-                lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-            },
-            'E' | 'e' => {
-                // Left vertical
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Middle horizontal
-                lines.push(((x, y), (x + half_width * 0.7, y)));
-                // Bottom horizontal
-                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-            },
-            'F' | 'f' => {
-                // Left vertical
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Middle horizontal
-                lines.push(((x, y), (x + half_width * 0.7, y)));
-            },
-            'G' | 'g' => {
-                // Left vertical
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                // Top horizontal
-                lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                // Bottom horizontal
-                lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                // Right middle
-                lines.push(((x + half_width * 0.5, y), (x + half_width, y)));
-                // Right bottom
-                lines.push(((x + half_width, y), (x + half_width, y + half_height)));
-            },
-            '0'..='9' => {
-                let digit = ch as u8 - b'0';
-                match digit {
-                    0 => {
-                        // Oval shape
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        lines.push(((x, y - half_height), (x, y + half_height)));
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-                    },
-                    1 => {
-                        // Vertical line
-                        lines.push(((x + half_width * 0.5, y - half_height), (x + half_width * 0.5, y + half_height)));
-                    },
-                    2 => {
-                        // Top horizontal
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                        // Bottom horizontal
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        // Right top vertical
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y)));
-                        // Left bottom vertical
-                        lines.push(((x, y), (x, y + half_height)));
-                    },
-                    3 => {
-                        // Top horizontal
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                        // Bottom horizontal
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        // Right vertical
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-                    },
-                    4 => {
-                        // Left vertical top
-                        lines.push(((x, y - half_height), (x, y)));
-                        // Right vertical
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                    },
-                    5 => {
-                        // Top horizontal
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                        // Bottom horizontal
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        // Left top vertical
-                        lines.push(((x, y - half_height), (x, y)));
-                        // Right bottom vertical
-                        lines.push(((x + half_width, y), (x + half_width, y + half_height)));
-                    },
-                    6 => {
-                        // Left vertical
-                        lines.push(((x, y - half_height), (x, y + half_height)));
-                        // Top horizontal
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                        // Bottom horizontal
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        // Right bottom vertical
-                        lines.push(((x + half_width, y), (x + half_width, y + half_height)));
-                    },
-                    7 => {
-                        // Top horizontal
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        // Diagonal
-                        lines.push(((x + half_width, y - half_height), (x, y + half_height)));
-                    },
-                    8 => {
-                        // Rectangle outline
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                        lines.push(((x, y - half_height), (x, y + half_height)));
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-                        // Middle horizontal
-                        lines.push(((x, y), (x + half_width, y)));
-                    },
-                    9 => {
-                        // Top rectangle
-                        lines.push(((x, y - half_height), (x + half_width, y - half_height)));
-                        lines.push(((x, y - half_height), (x, y)));
-                        lines.push(((x + half_width, y - half_height), (x + half_width, y + half_height)));
-                        lines.push(((x, y), (x + half_width, y)));
-                        // Bottom horizontal
-                        lines.push(((x, y + half_height), (x + half_width, y + half_height)));
-                    },
-                    _ => {}
-                }
-            },
-            '#' => {
-                // Sharp symbol - two vertical lines and two horizontal lines
-                lines.push(((x + width * 0.25, y - half_height), (x + width * 0.25, y + half_height)));
-                lines.push(((x + width * 0.75, y - half_height), (x + width * 0.75, y + half_height)));
-                lines.push(((x, y - half_height * 0.5), (x + width, y - half_height * 0.5)));
-                lines.push(((x, y + half_height * 0.5), (x + width, y + half_height * 0.5)));
-            },
-            'b' => {
-                // Flat symbol - vertical line and curved part
-                lines.push(((x, y - half_height), (x, y + half_height)));
-                lines.push(((x, y - half_height * 0.5), (x + half_width * 0.7, y)));
-                lines.push(((x + half_width * 0.7, y), (x, y + half_height * 0.5)));
-            },
-            _ => {
-                // Default: just a small horizontal line for unknown characters
-                lines.push(((x, y), (x + half_width, y)));
-            }
+        // Build text models using the proper API
+        if !text_refs.is_empty() {
+            self.text_builder.build(context, &text_refs).collect()
+        } else {
+            Vec::new()
         }
-        
-        lines
     }
 }
 
@@ -391,6 +188,7 @@ pub struct MainScene {
     light: AmbientLight,
     pub tuning_lines: TuningLines,
     text_renderer: TextRenderer,
+    context: Context,
 }
 
 impl MainScene {
@@ -418,6 +216,7 @@ impl MainScene {
             light: AmbientLight::new(context, 1.0, Srgba::GREEN),
             tuning_lines,
             text_renderer,
+            context: context.clone(),
         })
     }
     
@@ -459,13 +258,16 @@ impl MainScene {
         // Render note labels above tuning lines
         self.tuning_lines.render_note_labels(&mut self.text_renderer);
         
-        // Render text meshes as a second pass
-        let text_meshes: Vec<_> = self.text_renderer.render_meshes().collect();
-        screen.render(
-            &self.camera,
-            text_meshes.iter(),
-            &[&self.light],
-        );
+        // Render text models using actual Roboto font  
+        let viewport = self.camera.viewport();
+        let text_models = self.text_renderer.create_text_models(&self.context, viewport);
+        if !text_models.is_empty() {
+            screen.render(
+                &self.camera,
+                &text_models,
+                &[&self.light],
+            );
+        }
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32) {
