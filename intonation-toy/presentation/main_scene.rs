@@ -97,8 +97,8 @@ impl TuningLines {
             let text_y = y_position - 20.0;
             let text_x = 10.0; // Small offset from left edge
             
-            // Queue the text for rendering (white color, 16px size)
-            text_renderer.queue_text(&note_name, text_x, text_y, 16.0, [1.0, 1.0, 1.0, 1.0]);
+            // Queue the text for rendering (white color, small size)
+            text_renderer.queue_text(&note_name, text_x, text_y, 8.0, [1.0, 1.0, 1.0, 1.0]);
         }
     }
 }
@@ -160,6 +160,7 @@ impl TextRenderer {
         for queued_text in &self.queued_texts {
             let text_ref = three_d_text_builder::TextRef {
                 text: &queued_text.text,
+                size: queued_text.size,
                 color: three_d::Srgba::new(
                     (queued_text.color[0] * 255.0) as u8,
                     (queued_text.color[1] * 255.0) as u8,
