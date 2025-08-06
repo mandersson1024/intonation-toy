@@ -2,6 +2,9 @@ use three_d::{self, Window, WindowSettings, GUI, ClearState, FrameOutput, egui, 
 use std::rc::Rc;
 use std::cell::RefCell;
 
+// Configuration module
+pub mod config;
+
 // Three-layer architecture modules
 pub mod engine;
 pub mod model;
@@ -72,8 +75,8 @@ pub async fn start_render_loop(
     dev_log!("Starting three-d with three-layer architecture");
     
     let window = Window::new(WindowSettings {
-        title: "intonation-toy".to_string(),
-        max_size: Some((1280, 720)),
+        title: config::WINDOW_TITLE.to_string(),
+        max_size: Some((config::VIEWPORT_WIDTH, config::VIEWPORT_HEIGHT)),
         ..Default::default()
     })
     .unwrap();
