@@ -56,21 +56,10 @@ pub fn setup_main_scene_ui() {
     container.set_id("main-scene-ui-container");
     
     container.set_attribute("style", 
-        "position: fixed; \
-         top: 20px; \
-         left: 50%; \
-         transform: translateX(-50%); \
-         display: flex; \
+        "display: flex; \
          gap: 24px; \
          align-items: center; \
-         background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95)); \
-         padding: 16px 24px; \
-         border-radius: 12px; \
-         border: 1px solid rgba(255, 255, 255, 0.1); \
-         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); \
-         backdrop-filter: blur(10px); \
-         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; \
-         z-index: 1000;").ok();
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;").ok();
 
     // Create root note controls container
     let Ok(root_note_container) = document.create_element("div") else {
@@ -369,14 +358,20 @@ pub fn setup_main_scene_ui() {
         container.append_child(&root_note_audio_container).ok();
     }
 
-    // Append to body
-    let Some(body) = document.body() else {
-        dev_log!("Failed to get document body");
-        return;
-    };
-
-    if let Err(err) = body.append_child(&container) {
-        dev_log!("Failed to append UI container to body: {:?}", err);
+    // Append container to menu bar
+    let menu_bar = document.get_element_by_id("menu-bar");
+    
+    if let Some(menu_bar) = menu_bar {
+        if let Err(err) = menu_bar.append_child(&container) {
+            dev_log!("Failed to append UI container to menu bar: {:?}", err);
+        }
+    } else {
+        // Fallback to body if menu-bar doesn't exist
+        if let Some(body) = document.body() {
+            if let Err(err) = body.append_child(&container) {
+                dev_log!("Failed to append UI container to body: {:?}", err);
+            }
+        }
     }
 }
 

@@ -9,8 +9,11 @@
     <link data-trunk rel="rust" data-wasm-opt="4" />
   </head>
   <body>
-    <main>
-      <canvas id="wgpu-canvas" width="1024" height="1024" style="display: block; margin: 0 auto; border: 3px solid red;"></canvas>
+    <div id="menu-bar">
+      <!-- UI controls will be inserted here by JavaScript/WASM -->
+    </div>
+    <main id="canvas-container">
+      <canvas id="wgpu-canvas"></canvas>
     </main>
     <!-- Trunk will inject the JS/WASM for you -->
   </body>
