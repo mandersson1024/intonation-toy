@@ -70,20 +70,20 @@ pub fn setup_main_scene_ui() {
     
     container.set_attribute("style", &styling::get_container_style()).ok();
 
+    // Create root note section header
+    let Ok(root_note_header) = document.create_element("div") else {
+        dev_log!("Failed to create root note header");
+        return;
+    };
+    root_note_header.set_text_content(Some("Root Note"));
+    root_note_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+
     // Create root note controls container
     let Ok(root_note_container) = document.create_element("div") else {
         dev_log!("Failed to create root note container");
         return;
     };
     root_note_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create root note label
-    let Ok(root_note_label) = document.create_element("span") else {
-        dev_log!("Failed to create root note label");
-        return;
-    };
-    root_note_label.set_text_content(Some("Root Note:"));
-    root_note_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create minus button
     let Ok(minus_button) = document.create_element("button") else {
@@ -112,11 +112,47 @@ pub fn setup_main_scene_ui() {
     plus_button.set_text_content(Some("+"));
     plus_button.set_attribute("style", &styling::get_small_button_style()).ok();
 
-    // Assemble root note controls
-    root_note_container.append_child(&root_note_label).ok();
-    root_note_container.append_child(&minus_button).ok();
-    root_note_container.append_child(&root_note_display).ok();
-    root_note_container.append_child(&plus_button).ok();
+    // Create tuning fork icon (for WASM targets only)
+    #[cfg(target_arch = "wasm32")]
+    {
+        let Ok(tuning_fork_icon) = document.create_element("div") else {
+            dev_log!("Failed to create tuning fork icon");
+            return;
+        };
+        tuning_fork_icon.set_id("root-note-audio-icon");
+        tuning_fork_icon.set_class_name("tuning-fork-icon");
+        
+        let tuning_fork_svg = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v16"/>
+                <path d="M8 2h8"/>
+                <path d="M8 2v4c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V2"/>
+                <path d="M6 18c-2 0-2 2-2 2s0 2 2 2 2-2 2-2-0-2-2-2"/>
+                <path d="M18 18c2 0 2 2 2 2s0 2-2 2-2-2-2-2 0-2 2-2"/>
+            </svg>"#;
+        tuning_fork_icon.set_inner_html(&tuning_fork_svg);
+
+        // Assemble root note controls with tuning fork
+        root_note_container.append_child(&minus_button).ok();
+        root_note_container.append_child(&root_note_display).ok();
+        root_note_container.append_child(&plus_button).ok();
+        root_note_container.append_child(&tuning_fork_icon).ok();
+    }
+    
+    // For non-WASM targets, assemble without tuning fork
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        root_note_container.append_child(&minus_button).ok();
+        root_note_container.append_child(&root_note_display).ok();
+        root_note_container.append_child(&plus_button).ok();
+    }
+
+    // Create tuning section header
+    let Ok(tuning_header) = document.create_element("div") else {
+        dev_log!("Failed to create tuning header");
+        return;
+    };
+    tuning_header.set_text_content(Some("Tuning System"));
+    tuning_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
 
     // Create tuning system controls container
     let Ok(tuning_container) = document.create_element("div") else {
@@ -124,14 +160,6 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create tuning system label
-    let Ok(tuning_label) = document.create_element("span") else {
-        dev_log!("Failed to create tuning label");
-        return;
-    };
-    tuning_label.set_text_content(Some("Tuning:"));
-    tuning_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create tuning system dropdown
     let Ok(tuning_select) = document.create_element("select") else {
@@ -162,8 +190,15 @@ pub fn setup_main_scene_ui() {
     tuning_select.append_child(&just_option).ok();
 
     // Assemble tuning controls
-    tuning_container.append_child(&tuning_label).ok();
     tuning_container.append_child(&tuning_select).ok();
+
+    // Create scale section header
+    let Ok(scale_header) = document.create_element("div") else {
+        dev_log!("Failed to create scale header");
+        return;
+    };
+    scale_header.set_text_content(Some("Scale"));
+    scale_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
 
     // Create scale controls container
     let Ok(scale_container) = document.create_element("div") else {
@@ -171,14 +206,6 @@ pub fn setup_main_scene_ui() {
         return;
     };
     scale_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create scale label
-    let Ok(scale_label) = document.create_element("span") else {
-        dev_log!("Failed to create scale label");
-        return;
-    };
-    scale_label.set_text_content(Some("Scale:"));
-    scale_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create scale dropdown
     let Ok(scale_select) = document.create_element("select") else {
@@ -237,58 +264,16 @@ pub fn setup_main_scene_ui() {
     scale_select.append_child(&minor_pentatonic_option).ok();
 
     // Assemble scale controls
-    scale_container.append_child(&scale_label).ok();
     scale_container.append_child(&scale_select).ok();
 
     // Assemble main container
+    container.append_child(&root_note_header).ok();
     container.append_child(&root_note_container).ok();
+    container.append_child(&tuning_header).ok();
     container.append_child(&tuning_container).ok();
+    container.append_child(&scale_header).ok();
     container.append_child(&scale_container).ok();
 
-    // Create root note audio controls
-    #[cfg(target_arch = "wasm32")]
-    {
-        // Create root note audio container
-        let Ok(root_note_audio_container) = document.create_element("div") else {
-            dev_log!("Failed to create root note audio container");
-            return;
-        };
-        root_note_audio_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-        // Create root note audio label
-        let Ok(root_note_audio_label) = document.create_element("span") else {
-            dev_log!("Failed to create root note audio label");
-            return;
-        };
-        root_note_audio_label.set_text_content(Some("Root Note Audio:"));
-        root_note_audio_label.set_attribute("style", &styling::get_label_style()).ok();
-
-        // Create tuning fork icon
-        let Ok(tuning_fork_icon) = document.create_element("div") else {
-            dev_log!("Failed to create tuning fork icon");
-            return;
-        };
-        tuning_fork_icon.set_id("root-note-audio-icon");
-        tuning_fork_icon.set_class_name("tuning-fork-icon");
-        
-        let tuning_fork_svg = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v16"/>
-                <path d="M8 2h8"/>
-                <path d="M8 2v4c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V2"/>
-                <path d="M6 18c-2 0-2 2-2 2s0 2 2 2 2-2 2-2-0-2-2-2"/>
-                <path d="M18 18c2 0 2 2 2 2s0 2-2 2-2-2-2-2 0-2 2-2"/>
-            </svg>"#;
-        tuning_fork_icon.set_inner_html(&tuning_fork_svg);
-        
-        // Icon will be synced with engine state via sync_ui_with_model_data
-
-        // Assemble root note audio controls
-        root_note_audio_container.append_child(&root_note_audio_label).ok();
-        root_note_audio_container.append_child(&tuning_fork_icon).ok();
-
-        // Append to main container
-        container.append_child(&root_note_audio_container).ok();
-    }
 
     // Append header and container to sidebar
     let sidebar = document.get_element_by_id("sidebar");

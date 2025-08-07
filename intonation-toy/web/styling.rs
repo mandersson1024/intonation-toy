@@ -189,6 +189,13 @@ pub fn get_label_style() -> String {
     )
 }
 
+pub fn get_subsection_header_style() -> String {
+    format!(
+        "color: {}; font-size: 13px; font-weight: 600; margin-bottom: 8px; margin-top: 24px; display: block;",
+        rgb_to_css(get_current_color_scheme().text)
+    )
+}
+
 pub fn get_control_range_style() -> String {
     "display: flex; align-items: center; gap: 12px;".to_string()
 }
