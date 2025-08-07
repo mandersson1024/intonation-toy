@@ -294,46 +294,76 @@ impl DebugPanel {
         egui::CollapsingHeader::new("Volume Level")
             .default_open(true)
             .show(ui, |ui| {
-                // Always reserve space for consistent height
-                if let Some(volume) = self.debug_data.get_volume_level() {
-                    ui.label(format!("RMS: {:.3}", volume.rms_amplitude));
-                    ui.label(format!("Peak: {:.1}", volume.peak_amplitude));
-                } else {
-                    ui.label("RMS: --");
-                    ui.label("Peak: --");
-                }
-                
-                // Volume bar visualization (always present)
                 let bar_width = ui.available_width() - 100.0;
                 let bar_height = 20.0;
                 
-                let (normalized, bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
-                    // Use peak amplitude directly (0.0 to 1.0)
-                    let amplitude = volume.peak_amplitude;
+                // RMS Level Section
+                ui.label("RMS Level");
+                if let Some(volume) = self.debug_data.get_volume_level() {
+                    ui.label(format!("Value: {:.3}", volume.rms_amplitude));
+                } else {
+                    ui.label("Value: --");
+                }
+                
+                // RMS meter visualization
+                let (rms_normalized, rms_bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
+                    let rms_amplitude = volume.rms_amplitude.clamp(0.0, 1.0);
                     
-                    // Clamp to 0-1 range
-                    let normalized = amplitude.clamp(0.0, 1.0);
+                    // RMS-specific color thresholds (lower than peak)
+                    let rms_color = if rms_amplitude > 0.7 {
+                        Color32::RED  // High RMS level
+                    } else if rms_amplitude > 0.5 {
+                        Color32::YELLOW  // Medium RMS level
+                    } else {
+                        Color32::GREEN  // Normal RMS level
+                    };
                     
-                    // Color based on amplitude level
-                    let bar_color = if normalized > 0.9 {
+                    (rms_amplitude, rms_color)
+                } else {
+                    (0.0, Color32::GRAY)
+                };
+                
+                let (rms_rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                ui.painter().rect_filled(rms_rect, 2.0, Color32::from_gray(40));
+                
+                let rms_filled_width = rms_rect.width() * rms_normalized;
+                let rms_filled_rect = egui::Rect::from_min_size(rms_rect.min, Vec2::new(rms_filled_width, rms_rect.height()));
+                ui.painter().rect_filled(rms_filled_rect, 2.0, rms_bar_color);
+                
+                ui.add_space(10.0);
+                
+                // Peak Level Section
+                ui.label("Peak Level");
+                if let Some(volume) = self.debug_data.get_volume_level() {
+                    ui.label(format!("Value: {:.3}", volume.peak_amplitude));
+                } else {
+                    ui.label("Value: --");
+                }
+                
+                // Peak meter visualization
+                let (peak_normalized, peak_bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
+                    let peak_amplitude = volume.peak_amplitude.clamp(0.0, 1.0);
+                    
+                    // Peak-specific color thresholds
+                    let peak_color = if peak_amplitude > 0.9 {
                         Color32::RED  // Near clipping
-                    } else if normalized > 0.7 {
+                    } else if peak_amplitude > 0.7 {
                         Color32::YELLOW  // High level
                     } else {
                         Color32::GREEN  // Normal level
                     };
                     
-                    (normalized, bar_color)
+                    (peak_amplitude, peak_color)
                 } else {
                     (0.0, Color32::GRAY)
                 };
                 
-                let (rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-                ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+                let (peak_rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
+                ui.painter().rect_filled(peak_rect, 2.0, Color32::from_gray(40));
                 
-                let filled_width = rect.width() * normalized;
-                let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
-                ui.painter().rect_filled(filled_rect, 2.0, bar_color);
+                let peak_filled_width = peak_rect.width() * peak_normalized;
+                let peak_filled_rect = egui::Rect::from_min_size(peak_rect.min, Vec2::new(peak_filled_width, peak_rect.height()));
+                ui.painter().rect_filled(peak_filled_rect, 2.0, peak_bar_color);
             });
     }
     
