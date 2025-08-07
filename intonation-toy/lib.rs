@@ -57,14 +57,14 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     dev_log!("RESIZE: resize_canvas called");
     let window_obj = web_sys::window().unwrap();
     
-    let menu_bar_height = 60;
+    let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
     let padding = 40; // 20px on each side
     let min_size = 256;
     let max_size = 1024;
     
-    // Calculate available space
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - padding;
-    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - menu_bar_height - padding;
+    // Calculate available space (subtract sidebar width from width, full height available)
+    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - padding;
+    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - padding;
     
     dev_log!("RESIZE: available {}x{}", available_width, available_height);
     

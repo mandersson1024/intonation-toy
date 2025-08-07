@@ -3,6 +3,9 @@ use crate::web::utils::{rgb_to_css, rgba_to_css};
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement};
 
+/// Sidebar width in pixels - used consistently across styling and canvas sizing
+pub const SIDEBAR_WIDTH: i32 = 300;
+
 fn get_document() -> Document {
     web_sys::window()
         .expect("no global window exists")
@@ -57,7 +60,8 @@ pub fn apply_sidebar_styles() {
     let border_color = rgba_to_css(COLOR_SCHEME.muted, 0.3);
     
     let style = format!(
-        "position: fixed; top: 0; left: 0; bottom: 0; width: 300px; background: linear-gradient(to right, {}, {}); border-right: 1px solid {}; display: flex; flex-direction: column; padding: 20px; z-index: 1000; backdrop-filter: blur(10px); overflow-y: auto;",
+        "position: fixed; top: 0; left: 0; bottom: 0; width: {}px; background: linear-gradient(to right, {}, {}); border-right: 1px solid {}; display: flex; flex-direction: column; padding: 20px; z-index: 1000; backdrop-filter: blur(10px); overflow-y: auto;",
+        SIDEBAR_WIDTH,
         gradient_start,
         gradient_end,
         border_color
@@ -66,7 +70,7 @@ pub fn apply_sidebar_styles() {
 }
 
 pub fn apply_canvas_container_styles() {
-    let style = "position: fixed; top: 0; left: 300px; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;";
+    let style = &format!("position: fixed; top: 0; left: {}px; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;", SIDEBAR_WIDTH);
     apply_style_to_element("#canvas-container", &style);
 }
 
@@ -243,7 +247,7 @@ pub fn apply_control_styles() {
 
 pub fn get_permission_overlay_style() -> String {
     // Overlay only covers the canvas area, not the sidebar
-    "position: fixed; top: 0; left: 300px; right: 0; bottom: 0; background: transparent; z-index: 9999; cursor: pointer;".to_string()
+    format!("position: fixed; top: 0; left: {}px; right: 0; bottom: 0; background: transparent; z-index: 9999; cursor: pointer;", SIDEBAR_WIDTH)
 }
 
 pub fn get_permission_panel_style() -> String {
