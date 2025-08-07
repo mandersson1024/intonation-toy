@@ -260,6 +260,56 @@ pub enum Error {
     MicrophoneNotAvailable,
     ProcessingError(String),
     BrowserApiNotSupported,
+    MobileDeviceNotSupported,
+    BrowserError,
+}
+
+impl Error {
+    /// Returns the error dialog title for this error variant.
+    pub fn title(&self) -> &'static str {
+        match self {
+            Error::MicrophonePermissionDenied => "Microphone Access Required",
+            Error::MicrophoneNotAvailable => "Microphone Not Available",
+            Error::ProcessingError(_) => "Processing Error",
+            Error::BrowserApiNotSupported => "Browser Not Supported",
+            Error::MobileDeviceNotSupported => "Mobile Devices Not Supported",
+            Error::BrowserError => "Browser Error",
+        }
+    }
+
+    /// Returns the error message template for this error variant.
+    /// Some messages contain `{}` placeholders for dynamic content.
+    /// Note: ProcessingError returns a dynamically allocated string, not a static string.
+    pub fn details(&self) -> &str {
+        match self {
+            Error::MicrophonePermissionDenied => "Please allow microphone access to analyze audio input. You may need to refresh the page after granting permission.",
+            Error::MicrophoneNotAvailable => "No microphone device found. Please ensure a microphone is connected and try again.",
+            Error::ProcessingError(msg) => msg,
+            Error::BrowserApiNotSupported => "This browser doesn't support the required audio features ({}). Please try a modern browser like Chrome, Firefox, or Safari.",
+            Error::MobileDeviceNotSupported => "This application is not optimized for mobile devices. For the best experience, please use a desktop computer with a microphone.",
+            Error::BrowserError => "An unexpected browser error occurred. Please try refreshing the page.",
+        }
+    }
+
+    /// Returns the error message with dynamic parameters filled in.
+    /// Use this for messages that need dynamic content like missing API names.
+    pub fn details_with(&self, params: &[&str]) -> String {
+        let template = self.details();
+        
+        // For ProcessingError, return the message as-is since it's already dynamic
+        if matches!(self, Error::ProcessingError(_)) {
+            return template.to_string();
+        }
+        
+        // Replace {} placeholders with provided parameters
+        let mut result = template.to_string();
+        for param in params {
+            if let Some(pos) = result.find("{}") {
+                result.replace_range(pos..pos+2, param);
+            }
+        }
+        result
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

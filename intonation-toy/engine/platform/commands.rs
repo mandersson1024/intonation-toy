@@ -8,6 +8,7 @@ use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(ApiStatusCommand));
     registry.register(Box::new(ThemeCommand));
+    registry.register(Box::new(ErrorCommand));
 }
 
 // API Status Command
@@ -110,5 +111,73 @@ impl ConsoleCommand for ThemeCommand {
         ConsoleCommandResult::MultipleOutputs(vec![
             ConsoleOutput::success(&format!("Theme set to {}", theme_name))
         ])
+    }
+}
+
+// Error Command
+struct ErrorCommand;
+
+impl ConsoleCommand for ErrorCommand {
+    fn name(&self) -> &str {
+        "error"
+    }
+    
+    fn description(&self) -> &str {
+        "Display actual error messages used by the application (browser-unsupported|mobile-unsupported|mic-unavailable|mic-permission|browser-error)"
+    }
+    
+    fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        if args.is_empty() {
+            // Show help with available error scenarios
+            let mut outputs = Vec::new();
+            outputs.push(ConsoleOutput::info("Available error scenarios:"));
+            outputs.push(ConsoleOutput::info("  browser-unsupported  - Show browser compatibility error"));
+            outputs.push(ConsoleOutput::info("  mobile-unsupported   - Show mobile device not supported error"));
+            outputs.push(ConsoleOutput::info("  mic-unavailable      - Show microphone not available error"));
+            outputs.push(ConsoleOutput::info("  mic-permission       - Show microphone permission error"));
+            outputs.push(ConsoleOutput::info("  browser-error        - Show general browser error"));
+            outputs.push(ConsoleOutput::info("Usage: error <scenario>"));
+            
+            return ConsoleCommandResult::MultipleOutputs(outputs);
+        }
+        
+        let scenario = args[0].to_lowercase();
+        match scenario.as_str() {
+            "browser-unsupported" => {
+                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::success("Displayed browser unsupported error")
+                ])
+            }
+            "mobile-unsupported" => {
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::success("Displayed mobile unsupported error")
+                ])
+            }
+            "mic-unavailable" => {
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::success("Displayed microphone unavailable error")
+                ])
+            }
+            "mic-permission" => {
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::success("Displayed microphone permission error")
+                ])
+            }
+            "browser-error" => {
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::success("Displayed browser error")
+                ])
+            }
+            _ => {
+                ConsoleCommandResult::MultipleOutputs(vec![
+                    ConsoleOutput::error(&format!("Unknown error scenario '{}'. Available scenarios: browser-unsupported, mobile-unsupported, mic-unavailable, mic-permission, browser-error", scenario))
+                ])
+            }
+        }
     }
 }

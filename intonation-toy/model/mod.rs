@@ -384,6 +384,12 @@ impl DataModel {
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     Error::BrowserApiNotSupported
                 }
+                crate::shared_types::Error::MobileDeviceNotSupported => {
+                    Error::MobileDeviceNotSupported
+                }
+                crate::shared_types::Error::BrowserError => {
+                    Error::BrowserError
+                }
             }
         }).collect();
         

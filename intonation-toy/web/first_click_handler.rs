@@ -246,10 +246,7 @@ pub fn setup_first_click_handler(
                             
                             // Display error after a short delay to avoid removal conflicts
                             let timeout_closure = Closure::wrap(Box::new(move || {
-                                crate::web::error_message_box::show_error_message(
-                                    "Microphone Access Required",
-                                    "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted. (Mac users: the microphone may also be blocked in System Settings.)"
-                                );
+                                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
                             }) as Box<dyn FnMut()>);
                             
                             if let Some(window) = web_sys::window() {
@@ -277,10 +274,7 @@ pub fn setup_first_click_handler(
                     }
                 }
                 
-                crate::web::error_message_box::show_error_message(
-                    "Browser Error",
-                    "Failed to access microphone API. Please try refreshing the page or using a different browser."
-                );
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
             }
         } else {
             dev_log!("✗ MediaDevices API not available");
@@ -297,10 +291,7 @@ pub fn setup_first_click_handler(
                 }
             }
             
-            crate::web::error_message_box::show_error_message(
-                "Browser Not Supported",
-                "Your browser doesn't support the required audio features. Please try a modern browser like Chrome or Firefox."
-            );
+            crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required audio features"]);
         }
     }) as Box<dyn FnMut(_)>);
     

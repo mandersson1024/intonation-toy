@@ -511,14 +511,7 @@ pub async fn start() {
             #[cfg(target_arch = "wasm32")]
             {
                 let missing_apis_str = api_list.join(", ");
-                let detailed_message = format!(
-                    "Your browser doesn't support the required features: {}. Please try a modern browser like Chrome or Firefox.",
-                    missing_apis_str
-                );
-                crate::web::error_message_box::show_error_message(
-                    "Browser Not Supported",
-                    &detailed_message
-                );
+                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
             }
             return;
         }
@@ -529,11 +522,7 @@ pub async fn start() {
             // Display error overlay for mobile device
             #[cfg(target_arch = "wasm32")]
             {
-                let detailed_message = "This application requires desktop features and is not optimized for mobile devices. Please try again on a desktop or laptop computer for the best experience.";
-                crate::web::error_message_box::show_error_message(
-                    "Mobile Devices Not Supported",
-                    detailed_message
-                );
+                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
             }
             return;
         }

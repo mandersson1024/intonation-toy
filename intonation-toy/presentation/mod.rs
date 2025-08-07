@@ -784,10 +784,7 @@ impl Presenter {
                 }
                 crate::shared_types::Error::MicrophoneNotAvailable => {
                     // Show microphone not available message - this is a critical error
-                    crate::web::error_message_box::show_error_message(
-                        "Microphone Not Available",
-                        "No microphone was detected on your system. Please connect a microphone and refresh the page to use the pitch detection features."
-                    );
+                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 }
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
@@ -795,6 +792,14 @@ impl Presenter {
                 crate::shared_types::Error::ProcessingError(msg) => {
                     // Show general processing error
                     crate::common::error_log!("🔥 PROCESSING ERROR: {}", msg);
+                }
+                crate::shared_types::Error::MobileDeviceNotSupported => {
+                    // Show mobile device not supported message
+                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                }
+                crate::shared_types::Error::BrowserError => {
+                    // Show browser error message
+                    crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
                 }
             }
         }
