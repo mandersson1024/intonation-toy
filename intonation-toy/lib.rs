@@ -452,7 +452,7 @@ pub async fn start_render_loop(
                 
                 #[cfg(debug_assertions)]
                 {
-                    // dev_console.render(gui_context); // Commented out due to egui version mismatch
+                    dev_console.render(gui_context);
                     if let Some(ref mut panel) = debug_panel {
                         panel.render(gui_context, &model_data);
                     }
