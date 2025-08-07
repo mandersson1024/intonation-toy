@@ -23,7 +23,8 @@ pub const VIEWPORT_MAX_SIZE: u32 = 1024;
 pub const WINDOW_TITLE: &str = "intonation-toy";
 
 /// Pitch detection configuration
-pub const CLARITY_THRESHOLD: f32 = 0.7;
+pub const CLARITY_THRESHOLD: f32 = 0.6;
+pub const POWER_THRESHOLD: f32 = 5.0;
 
 /// User pitch line thickness configuration
 pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 3.0;

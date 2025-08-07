@@ -1,5 +1,5 @@
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
-use crate::app_config;
+use crate::app_config::{CLARITY_THRESHOLD, POWER_THRESHOLD};
 
 use super::buffer::BUFFER_SIZE;
 
@@ -37,8 +37,8 @@ impl Default for PitchDetectorConfig {
     fn default() -> Self {
         Self {
             sample_window_size: BUFFER_SIZE,
-            power_threshold: 5.0,      // Minimum signal energy threshold
-            clarity_threshold: crate::app_config::CLARITY_THRESHOLD,    // Minimum confidence threshold
+            power_threshold: POWER_THRESHOLD,      // Minimum signal energy threshold
+            clarity_threshold: CLARITY_THRESHOLD,    // Minimum confidence threshold
             padding_size: BUFFER_SIZE / 2, // Zero-padding size
             min_frequency: 80.0,
             max_frequency: 2000.0,
@@ -369,8 +369,8 @@ mod tests {
     fn test_pitch_detector_config_default() {
         let config = PitchDetectorConfig::default();
         assert_eq!(config.sample_window_size, BUFFER_SIZE);
-        assert_eq!(config.power_threshold, 5.0);
-        assert_eq!(config.clarity_threshold, crate::app_config::CLARITY_THRESHOLD);
+        assert_eq!(config.power_threshold, POWER_THRESHOLD);
+        assert_eq!(config.clarity_threshold, CLARITY_THRESHOLD);
         assert_eq!(config.padding_size, BUFFER_SIZE / 2);
         assert_eq!(config.min_frequency, 80.0);
         assert_eq!(config.max_frequency, 2000.0);
@@ -404,8 +404,8 @@ mod tests {
         let detector = detector.unwrap();
         assert_eq!(detector.sample_rate(), STANDARD_SAMPLE_RATE);
         assert_eq!(detector.config().sample_window_size, BUFFER_SIZE);
-        assert_eq!(detector.config().power_threshold, 5.0);
-        assert_eq!(detector.config().clarity_threshold, crate::app_config::CLARITY_THRESHOLD);
+        assert_eq!(detector.config().power_threshold, POWER_THRESHOLD);
+        assert_eq!(detector.config().clarity_threshold, CLARITY_THRESHOLD);
     }
 
     #[wasm_bindgen_test]

@@ -3,6 +3,7 @@ use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
 use crate::common::dev_log;
+use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
 
 pub type PitchAnalysisError = String;
 
@@ -239,8 +240,8 @@ impl PitchAnalyzer {
                 // Create temporary detector for this window size
                 let config = super::pitch_detector::PitchDetectorConfig {
                     sample_window_size: window_size,
-                    power_threshold: 5.0,
-                    clarity_threshold: crate::app_config::CLARITY_THRESHOLD,
+                    power_threshold: POWER_THRESHOLD,
+                    clarity_threshold: CLARITY_THRESHOLD,
                     padding_size: window_size / 2,
                     min_frequency: 80.0,
                     max_frequency: 2000.0,
