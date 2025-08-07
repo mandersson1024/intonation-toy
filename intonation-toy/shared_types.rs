@@ -94,6 +94,34 @@ pub fn midi_note_to_name(midi_note: MidiNote) -> String {
     format!("{}{}", note_name, octave)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Theme {
+    Dark,
+    Light,
+    Autumn,
+    Sunset,
+}
+
+impl Theme {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Theme::Dark => "dark",
+            Theme::Light => "light",
+            Theme::Autumn => "autumn",
+            Theme::Sunset => "sunset",
+        }
+    }
+
+    pub fn color_scheme(&self) -> ColorScheme {
+        match self {
+            Theme::Dark => ColorScheme::dark(),
+            Theme::Light => ColorScheme::light(),
+            Theme::Autumn => ColorScheme::autumn(),
+            Theme::Sunset => ColorScheme::sunset(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ColorScheme {
     pub background: [f32; 3],

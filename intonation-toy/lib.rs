@@ -17,6 +17,9 @@ pub mod web;
 // Module interfaces
 pub mod shared_types;
 
+// Theme management
+pub mod theme;
+
 // Theory modules
 pub mod theory;
 
@@ -444,9 +447,19 @@ pub async fn start_render_loop(
             viewport,
             device_pixel_ratio,
             |gui_context| {
+                let current_theme = crate::app_config::color_scheme();
                 gui_context.set_visuals(egui::Visuals {
-                    window_fill: Color32::from_rgba_unmultiplied(27, 27, 27, 240),
-                    override_text_color: Some(Color32::from_rgb(255, 255, 255)),
+                    window_fill: Color32::from_rgba_unmultiplied(
+                        current_theme.surface[0] as u8, 
+                        current_theme.surface[1] as u8, 
+                        current_theme.surface[2] as u8, 
+                        240
+                    ),
+                    override_text_color: Some(Color32::from_rgb(
+                        current_theme.text[0] as u8, 
+                        current_theme.text[1] as u8, 
+                        current_theme.text[2] as u8
+                    )),
                     ..egui::Visuals::default()
                 });
                 
@@ -528,6 +541,9 @@ pub async fn start() {
             log!("✓ Platform validation passed - initializing three-layer architecture");
         }
     }
+    
+    // Initialize theme system
+    crate::theme::initialize_theme(crate::shared_types::Theme::Light);
     
     // Apply color scheme styles to DOM elements
     crate::web::styling::apply_color_scheme_styles();
