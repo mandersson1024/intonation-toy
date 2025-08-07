@@ -17,9 +17,7 @@ use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
 #[cfg(target_arch = "wasm32")]
-use crate::app_config::COLOR_SCHEME;
-#[cfg(target_arch = "wasm32")]
-use crate::web::utils::{rgba_to_css, rgb_to_css};
+use crate::web::styling;
 
 // Global state for current root note - initialized to A3 (57)
 #[cfg(target_arch = "wasm32")]
@@ -51,39 +49,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
 
-    // Create style constants using color scheme
-    let label_style = format!(
-        "color: {}; font-family: inherit; font-size: 14px; font-weight: 500;",
-        rgb_to_css(COLOR_SCHEME.text)
-    );
-    
-    let button_style = format!(
-        "padding: 6px 12px; font-size: 14px; font-weight: bold; cursor: pointer; \
-         background: linear-gradient(135deg, {}, {}); color: {}; \
-         border: 1px solid {}; border-radius: 6px; transition: all 0.2s ease;",
-        rgb_to_css(COLOR_SCHEME.surface),
-        rgba_to_css(COLOR_SCHEME.surface, 0.8),
-        rgb_to_css(COLOR_SCHEME.text),
-        rgba_to_css(COLOR_SCHEME.text, 0.2)
-    );
-    
-    let select_style = format!(
-        "padding: 8px 12px; background: linear-gradient(135deg, {}, {}); \
-         color: {}; border: 1px solid {}; border-radius: 6px; cursor: pointer;",
-        rgb_to_css(COLOR_SCHEME.surface),
-        rgba_to_css(COLOR_SCHEME.surface, 0.8),
-        rgb_to_css(COLOR_SCHEME.text),
-        rgba_to_css(COLOR_SCHEME.text, 0.2)
-    );
-    
-    let display_style = format!(
-        "color: {}; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace; \
-         font-size: 16px; font-weight: 600; background: {}; padding: 8px 12px; \
-         border: 1px solid {}; border-radius: 4px;",
-        rgb_to_css(COLOR_SCHEME.text),
-        rgba_to_css(COLOR_SCHEME.text, 0.1),
-        rgba_to_css(COLOR_SCHEME.text, 0.15)
-    );
+    // No need for local style constants - will use centralized styling functions
 
     // Create container div
     let Ok(container) = document.create_element("div") else {
@@ -93,18 +59,14 @@ pub fn setup_main_scene_ui() {
     
     container.set_id("main-scene-ui-container");
     
-    container.set_attribute("style", 
-        "display: flex; \
-         gap: 24px; \
-         align-items: center; \
-         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;").ok();
+    container.set_attribute("style", &styling::get_container_style()).ok();
 
     // Create root note controls container
     let Ok(root_note_container) = document.create_element("div") else {
         dev_log!("Failed to create root note container");
         return;
     };
-    root_note_container.set_attribute("style", "display: flex; align-items: center; gap: 10px;").ok();
+    root_note_container.set_attribute("style", &styling::get_control_container_style()).ok();
 
     // Create root note label
     let Ok(root_note_label) = document.create_element("span") else {
@@ -112,15 +74,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     root_note_label.set_text_content(Some("Root Note:"));
-    let label_style = format!(
-        "color: {}; \
-         font-family: inherit; \
-         font-size: 14px; \
-         font-weight: 500; \
-         margin-right: 4px;",
-        rgb_to_css(COLOR_SCHEME.text)
-    );
-    root_note_label.set_attribute("style", &label_style).ok();
+    root_note_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create minus button
     let Ok(minus_button) = document.create_element("button") else {
@@ -129,20 +83,7 @@ pub fn setup_main_scene_ui() {
     };
     minus_button.set_id("root-note-minus");
     minus_button.set_text_content(Some("-"));
-    minus_button.set_attribute("style", 
-        "width: 32px; \
-         height: 32px; \
-         font-size: 18px; \
-         font-weight: bold; \
-         cursor: pointer; \
-         background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
-         color: #ffffff; \
-         border: 1px solid rgba(255, 255, 255, 0.2); \
-         border-radius: 6px; \
-         transition: all 0.2s ease; \
-         display: flex; \
-         align-items: center; \
-         justify-content: center;").ok();
+    minus_button.set_attribute("style", &styling::get_small_button_style()).ok();
 
     // Create root note display
     let Ok(root_note_display) = document.create_element("span") else {
@@ -151,17 +92,7 @@ pub fn setup_main_scene_ui() {
     };
     root_note_display.set_id("root-note-display");
     root_note_display.set_text_content(Some("A3")); // Default root note is 57 (A3)
-    root_note_display.set_attribute("style", 
-        "color: #ffffff; \
-         font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace; \
-         font-size: 16px; \
-         font-weight: 600; \
-         min-width: 48px; \
-         text-align: center; \
-         background: rgba(255, 255, 255, 0.1); \
-         padding: 6px 12px; \
-         border-radius: 6px; \
-         border: 1px solid rgba(255, 255, 255, 0.15);").ok();
+    root_note_display.set_attribute("style", &styling::get_root_note_display_style()).ok();
 
     // Create plus button
     let Ok(plus_button) = document.create_element("button") else {
@@ -170,20 +101,7 @@ pub fn setup_main_scene_ui() {
     };
     plus_button.set_id("root-note-plus");
     plus_button.set_text_content(Some("+"));
-    plus_button.set_attribute("style", 
-        "width: 32px; \
-         height: 32px; \
-         font-size: 18px; \
-         font-weight: bold; \
-         cursor: pointer; \
-         background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
-         color: #ffffff; \
-         border: 1px solid rgba(255, 255, 255, 0.2); \
-         border-radius: 6px; \
-         transition: all 0.2s ease; \
-         display: flex; \
-         align-items: center; \
-         justify-content: center;").ok();
+    plus_button.set_attribute("style", &styling::get_small_button_style()).ok();
 
     // Assemble root note controls
     root_note_container.append_child(&root_note_label).ok();
@@ -196,7 +114,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create tuning container");
         return;
     };
-    tuning_container.set_attribute("style", "display: flex; align-items: center; gap: 10px;").ok();
+    tuning_container.set_attribute("style", &styling::get_control_container_style()).ok();
 
     // Create tuning system label
     let Ok(tuning_label) = document.create_element("span") else {
@@ -204,12 +122,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_label.set_text_content(Some("Tuning:"));
-    tuning_label.set_attribute("style", 
-        "color: #ffffff; \
-         font-family: inherit; \
-         font-size: 14px; \
-         font-weight: 500; \
-         margin-right: 4px;").ok();
+    tuning_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create tuning system dropdown
     let Ok(tuning_select) = document.create_element("select") else {
@@ -217,17 +130,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_select.set_id("tuning-system-select");
-    tuning_select.set_attribute("style", 
-        "padding: 8px 12px; \
-         background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
-         color: #ffffff; \
-         border: 1px solid rgba(255, 255, 255, 0.2); \
-         border-radius: 6px; \
-         cursor: pointer; \
-         font-size: 14px; \
-         font-family: inherit; \
-         min-width: 160px; \
-         transition: all 0.2s ease;").ok();
+    tuning_select.set_attribute("style", &styling::get_select_style()).ok();
 
     // Create Equal Temperament option
     let Ok(equal_option) = document.create_element("option") else {
@@ -258,7 +161,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create scale container");
         return;
     };
-    scale_container.set_attribute("style", "display: flex; align-items: center; gap: 10px;").ok();
+    scale_container.set_attribute("style", &styling::get_control_container_style()).ok();
 
     // Create scale label
     let Ok(scale_label) = document.create_element("span") else {
@@ -266,12 +169,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     scale_label.set_text_content(Some("Scale:"));
-    scale_label.set_attribute("style", 
-        "color: #ffffff; \
-         font-family: inherit; \
-         font-size: 14px; \
-         font-weight: 500; \
-         margin-right: 4px;").ok();
+    scale_label.set_attribute("style", &styling::get_label_style()).ok();
 
     // Create scale dropdown
     let Ok(scale_select) = document.create_element("select") else {
@@ -279,17 +177,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     scale_select.set_id("scale-select");
-    scale_select.set_attribute("style", 
-        "padding: 8px 12px; \
-         background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
-         color: #ffffff; \
-         border: 1px solid rgba(255, 255, 255, 0.2); \
-         border-radius: 6px; \
-         cursor: pointer; \
-         font-size: 14px; \
-         font-family: inherit; \
-         min-width: 160px; \
-         transition: all 0.2s ease;").ok();
+    scale_select.set_attribute("style", &styling::get_select_style()).ok();
 
     // Create Chromatic option (first in enum, so default)
     let Ok(chromatic_option) = document.create_element("option") else {
@@ -356,7 +244,7 @@ pub fn setup_main_scene_ui() {
             dev_log!("Failed to create root note audio container");
             return;
         };
-        root_note_audio_container.set_attribute("style", "display: flex; align-items: center; gap: 10px;").ok();
+        root_note_audio_container.set_attribute("style", &styling::get_control_container_style()).ok();
 
         // Create root note audio label
         let Ok(root_note_audio_label) = document.create_element("span") else {
@@ -364,12 +252,7 @@ pub fn setup_main_scene_ui() {
             return;
         };
         root_note_audio_label.set_text_content(Some("Root Note Audio:"));
-        root_note_audio_label.set_attribute("style", 
-            "color: #ffffff; \
-             font-family: inherit; \
-             font-size: 14px; \
-             font-weight: 500; \
-             margin-right: 4px;").ok();
+        root_note_audio_label.set_attribute("style", &styling::get_label_style()).ok();
 
         // Create root note audio checkbox
         let Ok(root_note_audio_checkbox) = document.create_element("input") else {
@@ -379,15 +262,7 @@ pub fn setup_main_scene_ui() {
         let root_note_audio_checkbox = root_note_audio_checkbox.dyn_into::<HtmlInputElement>().unwrap();
         root_note_audio_checkbox.set_type("checkbox");
         root_note_audio_checkbox.set_id("root-note-audio-checkbox");
-        root_note_audio_checkbox.set_attribute("style", 
-            "width: 20px; \
-             height: 20px; \
-             cursor: pointer; \
-             background: linear-gradient(135deg, #4a4a4a, #3a3a3a); \
-             color: #ffffff; \
-             border: 1px solid rgba(255, 255, 255, 0.2); \
-             border-radius: 4px; \
-             transition: all 0.2s ease;").ok();
+        root_note_audio_checkbox.set_attribute("style", &styling::get_checkbox_style()).ok();
         
         // Checkbox will be synced with engine state via sync_ui_with_model_data
 

@@ -5,8 +5,7 @@
 /// the user's first click and uses that gesture to request microphone permission.
 
 use crate::common::dev_log;
-use crate::app_config::COLOR_SCHEME;
-use crate::web::utils::{rgba_to_css, rgb_to_css};
+use crate::web::styling;
 
 /// Sets up a first-click handler overlay for WASM targets
 /// 
@@ -52,36 +51,14 @@ pub fn setup_first_click_handler(
     };
     
     // Style the overlay to be full-screen with semi-transparent background
-    let overlay_style = format!(
-        "position: fixed; top: 0; left: 0; width: 100%; height: 100%; \
-         background: {}; z-index: 9999; cursor: default;",
-        rgba_to_css(COLOR_SCHEME.background, 0.5)
-    );
-    overlay.set_attribute("style", &overlay_style).unwrap();
+    overlay.set_attribute("style", &styling::get_first_click_overlay_style()).unwrap();
+    overlay.set_attribute("class", "first-click-overlay").unwrap();
+    
+    // Apply first click styles to document
+    styling::apply_first_click_styles();
     
     // Add instructions text with visual elements
-    let panel_html = format!(
-        "<style>
-            #permission-panel {{
-                transition: background 0.3s ease, box-shadow 0.3s ease;
-                cursor: pointer;
-            }}
-            #permission-panel:hover {{
-                background: {} !important;
-                box-shadow: 0 10px 40px {}, 0 0 0 2px {};
-            }}
-        </style>
-        <div id='permission-panel' class='permission-panel' style='position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); \
-         color: {}; font-family: Arial, sans-serif; font-size: 18px; text-align: center; \
-         background: {}; padding: 30px; border-radius: 10px; min-width: 400px; \
-         box-shadow: 0 5px 25px {}; cursor: pointer;'>",
-        rgba_to_css(COLOR_SCHEME.primary, 0.9),
-        rgba_to_css(COLOR_SCHEME.background, 0.6),
-        rgba_to_css(COLOR_SCHEME.primary, 0.5),
-        rgb_to_css(COLOR_SCHEME.text),
-        rgba_to_css(COLOR_SCHEME.background, 0.8),
-        rgba_to_css(COLOR_SCHEME.background, 0.4)
-    );
+    let panel_html = "<div id='permission-panel' class='first-click-panel'>";
     
     let svg_content = format!(
         "         <div style='display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 25px;'>
@@ -144,29 +121,29 @@ pub fn setup_first_click_handler(
          Click here to start<br>
          <small style='opacity: 0.7;'>(Microphone permission will be requested)</small>
          </div>",
-        rgb_to_css(COLOR_SCHEME.muted),      // Speaker body
-        rgb_to_css(COLOR_SCHEME.muted),      // Speaker cone
-        rgb_to_css(COLOR_SCHEME.muted),      // Speaker waves 1
-        rgb_to_css(COLOR_SCHEME.muted),      // Speaker waves 2
-        rgb_to_css(COLOR_SCHEME.secondary),  // Red cross
-        rgb_to_css(COLOR_SCHEME.muted),      // Microphone body
-        rgb_to_css(COLOR_SCHEME.muted),      // Microphone curve
-        rgb_to_css(COLOR_SCHEME.muted),      // Microphone stand
-        rgb_to_css(COLOR_SCHEME.muted),      // Microphone base
-        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
-        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
-        rgb_to_css(COLOR_SCHEME.surface),    // Microphone dots
-        rgb_to_css(COLOR_SCHEME.muted),      // Headphone band
-        rgb_to_css(COLOR_SCHEME.muted),      // Headphone cups
-        rgb_to_css(COLOR_SCHEME.muted),      // Headphone cups
-        rgb_to_css(COLOR_SCHEME.surface),    // Headphone details
-        rgb_to_css(COLOR_SCHEME.surface),    // Headphone details
-        rgb_to_css(COLOR_SCHEME.accent),     // Green checkmark
-        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker body
-        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker cone
-        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker waves 1
-        rgb_to_css(COLOR_SCHEME.muted),      // Right speaker waves 2
-        rgb_to_css(COLOR_SCHEME.secondary),  // Right red cross
+        styling::get_svg_muted_color(),      // Speaker body
+        styling::get_svg_muted_color(),      // Speaker cone
+        styling::get_svg_muted_color(),      // Speaker waves 1
+        styling::get_svg_muted_color(),      // Speaker waves 2
+        styling::get_svg_secondary_color(),  // Red cross
+        styling::get_svg_muted_color(),      // Microphone body
+        styling::get_svg_muted_color(),      // Microphone curve
+        styling::get_svg_muted_color(),      // Microphone stand
+        styling::get_svg_muted_color(),      // Microphone base
+        styling::get_svg_surface_color(),    // Microphone dots
+        styling::get_svg_surface_color(),    // Microphone dots
+        styling::get_svg_surface_color(),    // Microphone dots
+        styling::get_svg_muted_color(),      // Headphone band
+        styling::get_svg_muted_color(),      // Headphone cups
+        styling::get_svg_muted_color(),      // Headphone cups
+        styling::get_svg_surface_color(),    // Headphone details
+        styling::get_svg_surface_color(),    // Headphone details
+        styling::get_svg_accent_color(),     // Green checkmark
+        styling::get_svg_muted_color(),      // Right speaker body
+        styling::get_svg_muted_color(),      // Right speaker cone
+        styling::get_svg_muted_color(),      // Right speaker waves 1
+        styling::get_svg_muted_color(),      // Right speaker waves 2
+        styling::get_svg_secondary_color(),  // Right red cross
     );
     
     overlay.set_inner_html(&format!("{}{}", panel_html, svg_content));

@@ -529,6 +529,9 @@ pub async fn start() {
         }
     }
     
+    // Apply color scheme styles to DOM elements
+    crate::web::styling::apply_color_scheme_styles();
+    
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
     
