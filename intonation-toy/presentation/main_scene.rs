@@ -92,7 +92,7 @@ impl TuningLines {
             self.midi_notes[i] = midi_note;
             self.y_positions[i] = y;
             self.thicknesses[i] = thickness;
-            //crate::common::dev_log!("TUNING_DEBUG: Line {}: y={:.1}, midi_note={}, thickness={:.1}, width={:.1}", i, y, midi_note, thickness, width);
+            crate::common::dev_log!("OCTAVE_LINE_DEBUG: Line {}: y={:.1}, midi_note={}, thickness={:.1}, semitone_offset={}", i, y, midi_note, thickness, midi_note as i32 - 60);
         }
     }
     
@@ -228,7 +228,7 @@ pub struct MainScene {
 impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
-        let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, 2.0);
+        let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, 3.0);
 
         let primary_material = ColorMaterial {
             color: rgb_to_srgba(scheme.primary),
@@ -265,7 +265,7 @@ impl MainScene {
         let line = Line::new(&self.context, 
             PhysicalPoint{x:0.0, y:0.0}, 
             PhysicalPoint{x:0.0, y:0.0}, 
-            2.0);
+            1.0);
         self.user_pitch_line = Gm::new(line, primary_material);
         
         // Update tuning lines material
