@@ -914,8 +914,8 @@ impl Presenter {
         
         // Helper function to determine line thickness based on semitone offset
         let get_thickness = |semitone: i32| -> f32 {
-            // Octave lines (0, +12, -12) get thickness 2.0, others get 1.0
-            if semitone == 0 || semitone == 12 || semitone == -12 {
+            // Octave lines (multiples of 12 semitones) get thickness 2.0, others get 1.0
+            if semitone % 12 == 0 {
                 2.0
             } else {
                 1.0

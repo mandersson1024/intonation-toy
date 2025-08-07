@@ -265,7 +265,7 @@ impl MainScene {
         let line = Line::new(&self.context, 
             PhysicalPoint{x:0.0, y:0.0}, 
             PhysicalPoint{x:0.0, y:0.0}, 
-            1.0);
+            3.0);
         self.user_pitch_line = Gm::new(line, primary_material);
         
         // Update tuning lines material
@@ -275,8 +275,11 @@ impl MainScene {
         };
         
         // Clear and recreate all tuning lines with new material
-        // They will be recreated with correct positions on next update_lines call
+        // They will be recreated with correct positions and thickness on next update_lines call
         self.tuning_lines.lines.clear();
+        self.tuning_lines.midi_notes.clear();
+        self.tuning_lines.y_positions.clear();
+        self.tuning_lines.thicknesses.clear();
         
         // Update ambient light
         self.light = AmbientLight::new(&self.context, 1.0, rgb_to_srgba(scheme.secondary));
