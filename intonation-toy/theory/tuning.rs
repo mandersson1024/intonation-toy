@@ -376,12 +376,12 @@ mod tests {
         assert_eq!(find_closest_scale_note(9, Scale::MajorPentatonic), 9);   // Major 6th (A)
         
         // Test notes not in MajorPentatonic scale
-        assert_eq!(find_closest_scale_note(1, Scale::MajorPentatonic), 2);   // C# -> D (up)
-        assert_eq!(find_closest_scale_note(3, Scale::MajorPentatonic), 2);   // D# -> D (down)
+        assert_eq!(find_closest_scale_note(1, Scale::MajorPentatonic), 2);   // Db -> D (up)
+        assert_eq!(find_closest_scale_note(3, Scale::MajorPentatonic), 2);   // Eb -> D (down)
         assert_eq!(find_closest_scale_note(5, Scale::MajorPentatonic), 4);   // F -> E (down)
-        assert_eq!(find_closest_scale_note(6, Scale::MajorPentatonic), 7);   // F# -> G (up)
-        assert_eq!(find_closest_scale_note(8, Scale::MajorPentatonic), 7);   // G# -> G (down)
-        assert_eq!(find_closest_scale_note(10, Scale::MajorPentatonic), 9);  // A# -> A (down)
+        assert_eq!(find_closest_scale_note(6, Scale::MajorPentatonic), 7);   // Gb -> G (up)
+        assert_eq!(find_closest_scale_note(8, Scale::MajorPentatonic), 7);   // Ab -> G (down)
+        assert_eq!(find_closest_scale_note(10, Scale::MajorPentatonic), 9);  // Bb -> A (down)
         assert_eq!(find_closest_scale_note(11, Scale::MajorPentatonic), 12); // B -> C octave (up)
         
         // Test MinorPentatonic scale
@@ -392,16 +392,16 @@ mod tests {
         assert_eq!(find_closest_scale_note(10, Scale::MinorPentatonic), 10); // Minor 7th (Bb)
         
         // Test notes not in MinorPentatonic scale
-        assert_eq!(find_closest_scale_note(1, Scale::MinorPentatonic), 0);   // C# -> C (down)
+        assert_eq!(find_closest_scale_note(1, Scale::MinorPentatonic), 0);   // Db -> C (down)
         assert_eq!(find_closest_scale_note(2, Scale::MinorPentatonic), 3);   // D -> Eb (up)
         assert_eq!(find_closest_scale_note(4, Scale::MinorPentatonic), 3);   // E -> Eb (down)
-        assert_eq!(find_closest_scale_note(6, Scale::MinorPentatonic), 5);   // F# -> F (down)
-        assert_eq!(find_closest_scale_note(8, Scale::MinorPentatonic), 7);   // G# -> G (down)
+        assert_eq!(find_closest_scale_note(6, Scale::MinorPentatonic), 5);   // Gb -> F (down)
+        assert_eq!(find_closest_scale_note(8, Scale::MinorPentatonic), 7);   // Ab -> G (down)
         assert_eq!(find_closest_scale_note(9, Scale::MinorPentatonic), 10);  // A -> Bb (up)
         assert_eq!(find_closest_scale_note(11, Scale::MinorPentatonic), 10); // B -> Bb (down)
         
         // Test pentatonic octave handling
-        assert_eq!(find_closest_scale_note(13, Scale::MajorPentatonic), 14); // Octave + C# -> Octave + D
+        assert_eq!(find_closest_scale_note(13, Scale::MajorPentatonic), 14); // Octave + Db -> Octave + D
         assert_eq!(find_closest_scale_note(-11, Scale::MinorPentatonic), -10); // -B -> -Bb
     }
 

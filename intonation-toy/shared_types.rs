@@ -39,7 +39,7 @@ pub fn is_valid_midi_note(value: MidiNote) -> bool {
 /// ```
 /// use pitch_toy::shared_types::increment_midi_note;
 /// 
-/// assert_eq!(increment_midi_note(69), Some(70));  // A4 to A#4
+/// assert_eq!(increment_midi_note(69), Some(70));  // A4 to Bb4
 /// assert_eq!(increment_midi_note(127), None);     // G9 cannot increment
 /// ```
 pub fn increment_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
@@ -58,7 +58,7 @@ pub fn increment_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
 /// ```
 /// use pitch_toy::shared_types::decrement_midi_note;
 /// 
-/// assert_eq!(decrement_midi_note(69), Some(68));  // A4 to G#4
+/// assert_eq!(decrement_midi_note(69), Some(68));  // A4 to Ab4
 /// assert_eq!(decrement_midi_note(0), None);       // C-1 cannot decrement
 /// ```
 pub fn decrement_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
@@ -85,7 +85,7 @@ pub fn decrement_midi_note(midi_note: MidiNote) -> Option<MidiNote> {
 /// assert_eq!(midi_note_to_name(127), "G9"); // Highest MIDI note
 /// ```
 pub fn midi_note_to_name(midi_note: MidiNote) -> String {
-    const NOTE_NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const NOTE_NAMES: [&str; 12] = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
     
     let octave = (midi_note as i32 / 12) - 1;
     let note_index = midi_note % 12;
@@ -605,7 +605,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_increment_midi_note() {
         assert_eq!(increment_midi_note(0), Some(1));
-        assert_eq!(increment_midi_note(69), Some(70));  // A4 to A#4
+        assert_eq!(increment_midi_note(69), Some(70));  // A4 to Bb4
         assert_eq!(increment_midi_note(126), Some(127));
         assert_eq!(increment_midi_note(127), None);     // Cannot increment max value
     }
@@ -613,7 +613,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_decrement_midi_note() {
         assert_eq!(decrement_midi_note(127), Some(126));
-        assert_eq!(decrement_midi_note(69), Some(68));  // A4 to G#4
+        assert_eq!(decrement_midi_note(69), Some(68));  // A4 to Ab4
         assert_eq!(decrement_midi_note(1), Some(0));
         assert_eq!(decrement_midi_note(0), None);       // Cannot decrement min value
     }
@@ -764,16 +764,16 @@ mod tests {
         
         // Test all chromatic notes in the 4th octave
         assert_eq!(midi_note_to_name(60), "C4");   // C4
-        assert_eq!(midi_note_to_name(61), "C#4");  // C#4
+        assert_eq!(midi_note_to_name(61), "Db4");  // Db4
         assert_eq!(midi_note_to_name(62), "D4");   // D4
-        assert_eq!(midi_note_to_name(63), "D#4");  // D#4
+        assert_eq!(midi_note_to_name(63), "Eb4");  // Eb4
         assert_eq!(midi_note_to_name(64), "E4");   // E4
         assert_eq!(midi_note_to_name(65), "F4");   // F4
-        assert_eq!(midi_note_to_name(66), "F#4");  // F#4
+        assert_eq!(midi_note_to_name(66), "Gb4");  // Gb4
         assert_eq!(midi_note_to_name(67), "G4");   // G4
-        assert_eq!(midi_note_to_name(68), "G#4");  // G#4
+        assert_eq!(midi_note_to_name(68), "Ab4");  // Ab4
         assert_eq!(midi_note_to_name(69), "A4");   // A4
-        assert_eq!(midi_note_to_name(70), "A#4");  // A#4
+        assert_eq!(midi_note_to_name(70), "Bb4");  // Bb4
         assert_eq!(midi_note_to_name(71), "B4");   // B4
         
         // Test different octaves
@@ -790,7 +790,7 @@ mod tests {
         
         // Test edge cases
         assert_eq!(midi_note_to_name(127), "G9");  // Highest MIDI note
-        assert_eq!(midi_note_to_name(1), "C#-1");  // Second lowest MIDI note
+        assert_eq!(midi_note_to_name(1), "Db-1");  // Second lowest MIDI note
         assert_eq!(midi_note_to_name(11), "B-1");  // B in -1 octave
         
         // Test A notes across octaves (useful for tuning reference)

@@ -1251,18 +1251,18 @@ mod tests {
         // With C as root, 440Hz (A) should show some cents deviation since it's not a perfect interval
         assert!(result_c.accuracy.cents_offset.abs() > 1.0, "440Hz should show cents deviation with C root");
         
-        // Change root note to F#
+        // Change root note to Gb
         let mut actions = PresentationLayerActions::new();
         actions.root_note_adjustments.push(crate::presentation::AdjustRootNote {
             root_note: 66,
         });
         model.process_user_actions(actions);
         
-        // Test same frequency with F# root note
-        let result_fsharp = model.update(3.0, engine_data);
-        assert_eq!(result_fsharp.accuracy.closest_midi_note, 69);
+        // Test same frequency with Gb root note
+        let result_gb = model.update(3.0, engine_data);
+        assert_eq!(result_gb.accuracy.closest_midi_note, 69);
         // The cents offset should be different again
-        assert_ne!(result_a.accuracy.cents_offset, result_fsharp.accuracy.cents_offset, 
+        assert_ne!(result_a.accuracy.cents_offset, result_gb.accuracy.cents_offset, 
             "Same frequency should have different cents offset with different root notes");
     }
 
@@ -1278,9 +1278,9 @@ mod tests {
         assert!(cents.abs() < 1.0, "C4 should be nearly perfect");
         
         // Test frequencies between notes
-        let between_c_and_csharp = 269.0; // Between C4 (261.63) and C#4 (277.18)
-        let (midi_note, cents) = model.frequency_to_note_and_accuracy(between_c_and_csharp);
-        assert_eq!(midi_note, 60, "269Hz should be closer to C than C#");
+        let between_c_and_db = 269.0; // Between C4 (261.63) and Db4 (277.18)
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(between_c_and_db);
+        assert_eq!(midi_note, 60, "269Hz should be closer to C than Db");
         assert!(cents > 0.0, "Should be sharp relative to C");
         assert!(cents < 50.0, "Should be less than 50 cents sharp");
         
@@ -1416,12 +1416,12 @@ mod tests {
         // Set scale to Major
         model.current_scale = Scale::Major;
         
-        // Test frequency for C# (not in C Major scale)
-        let csharp_freq = 277.18; // C#4
-        let (midi_note, cents) = model.frequency_to_note_and_accuracy(csharp_freq);
+        // Test frequency for Db (not in C Major scale)
+        let db_freq = 277.18; // Db4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(db_freq);
         
         // Should snap to nearest scale note (D4 = MIDI 62)
-        assert_eq!(midi_note, 62, "C# should snap to D in C Major scale");
+        assert_eq!(midi_note, 62, "Db should snap to D in C Major scale");
         assert!(cents < 0.0, "Should be flat relative to D");
         
         // Test frequency for D (in C Major scale)
@@ -1435,9 +1435,9 @@ mod tests {
         // Change scale to Chromatic
         model.current_scale = Scale::Chromatic;
         
-        // Test C# again - should now be accepted
-        let (midi_note, cents) = model.frequency_to_note_and_accuracy(csharp_freq);
-        assert_eq!(midi_note, 61, "C# should be C# in Chromatic scale");
+        // Test Db again - should now be accepted
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(db_freq);
+        assert_eq!(midi_note, 61, "Db should be Db in Chromatic scale");
         assert!(cents.abs() < 1.0, "Should be nearly in tune");
         
         // Test with MajorPentatonic scale
@@ -1474,20 +1474,20 @@ mod tests {
         model.process_user_actions(actions);
         model.current_scale = Scale::Major;
         
-        // Test frequency for G# (not in G Major scale)
-        let gsharp_freq = 415.30; // G#4
-        let (midi_note, cents) = model.frequency_to_note_and_accuracy(gsharp_freq);
+        // Test frequency for Ab (not in G Major scale)
+        let ab_freq = 415.30; // Ab4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(ab_freq);
         
         // Should snap to nearest scale note (A4 = MIDI 69)
-        assert_eq!(midi_note, 69, "G# should snap to A in G Major scale");
+        assert_eq!(midi_note, 69, "Ab should snap to A in G Major scale");
         assert!(cents < 0.0, "Should be flat relative to A");
         
-        // Test frequency for F# (in G Major scale - major 7th)
-        let fsharp_freq = 369.99; // F#4
-        let (midi_note, cents) = model.frequency_to_note_and_accuracy(fsharp_freq);
+        // Test frequency for Gb (in G Major scale - major 7th)
+        let gb_freq = 369.99; // Gb4
+        let (midi_note, cents) = model.frequency_to_note_and_accuracy(gb_freq);
         
-        // Should remain as F#
-        assert_eq!(midi_note, 66, "F# should remain F# in G Major scale");
+        // Should remain as Gb
+        assert_eq!(midi_note, 66, "Gb should remain Gb in G Major scale");
         assert!(cents.abs() < 1.0, "Should be nearly in tune");
         
         // Test with MajorPentatonic scale and root D (MIDI 62)
@@ -1498,12 +1498,12 @@ mod tests {
         model.process_user_actions(actions);
         model.current_scale = Scale::MajorPentatonic;
         
-        // Test frequency for G (not in D Major Pentatonic - which has D, E, F#, A, B)
+        // Test frequency for G (not in D Major Pentatonic - which has D, E, Gb, A, B)
         let g_freq = 392.00; // G4
         let (midi_note, cents) = model.frequency_to_note_and_accuracy(g_freq);
         
-        // Should snap to nearest pentatonic note (F#4 = MIDI 66 or A4 = MIDI 69)
-        assert!(midi_note == 66 || midi_note == 69, "G should snap to F# or A in D Major Pentatonic");
+        // Should snap to nearest pentatonic note (Gb4 = MIDI 66 or A4 = MIDI 69)
+        assert!(midi_note == 66 || midi_note == 69, "G should snap to Gb or A in D Major Pentatonic");
         
         // Test with MinorPentatonic scale and root A (MIDI 69)
         let mut actions = PresentationLayerActions::new();

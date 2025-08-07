@@ -30,10 +30,7 @@ static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = fals
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
 fn format_midi_note(midi_note: MidiNote) -> String {
-    let note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    let note_index = (midi_note % 12) as usize;
-    let octave = (midi_note as i16 / 12) - 1;
-    format!("{}{}", note_names[note_index], octave)
+    crate::shared_types::midi_note_to_name(midi_note)
 }
 
 

@@ -9,23 +9,12 @@ use crate::engine::audio::{
 use crate::debug::debug_data::DebugData;
 use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 
-/// Convert MIDI note to display name for debugging
-fn midi_note_to_display_name(midi_note: MidiNote) -> &'static str {
-    match midi_note % 12 {
-        0 => "C",
-        1 => "C#",
-        2 => "D",
-        3 => "D#",
-        4 => "E",
-        5 => "F",
-        6 => "F#",
-        7 => "G",
-        8 => "G#",
-        9 => "A",
-        10 => "A#",
-        11 => "B",
-        _ => unreachable!(),
-    }
+/// Get just the note name (without octave) from a MIDI note number
+fn midi_note_to_display_name(midi_note: MidiNote) -> String {
+    let full_name = crate::shared_types::midi_note_to_name(midi_note);
+    // Extract just the note name by removing the octave number
+    let note_end = full_name.chars().position(|c| c.is_numeric() || c == '-').unwrap_or(full_name.len());
+    full_name[..note_end].to_string()
 }
 use std::rc::Rc;
 use std::cell::RefCell;

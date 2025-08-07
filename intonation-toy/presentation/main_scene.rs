@@ -3,6 +3,9 @@ use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD};
 
+// Left margin to reserve space for note names
+const NOTE_NAME_LEFT_MARGIN: f32 = 40.0;
+
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
     let scale_factor = 1.0;
@@ -59,8 +62,8 @@ impl TuningLines {
         while self.lines.len() < needed_lines {
             let line = Line::new(
                 &self.context,
-                PhysicalPoint { x: 0.0, y: 0.0 },
-                PhysicalPoint { x: 0.0, y: 0.0 },
+                PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y: 0.0 },
+                PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y: 0.0 },
                 1.0  // Default thickness, will be updated
             );
             self.lines.push(Gm::new(line, self.material.clone()));
@@ -89,7 +92,7 @@ impl TuningLines {
             if i < self.thicknesses.len() && self.thicknesses[i] != thickness {
                 let line = Line::new(
                     &self.context,
-                    PhysicalPoint { x: 0.0, y },
+                    PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y },
                     PhysicalPoint { x: width, y },
                     thickness
                 );
@@ -97,7 +100,7 @@ impl TuningLines {
             } else {
                 // Just update endpoints if thickness hasn't changed
                 self.lines[i].set_endpoints(
-                    PhysicalPoint { x: 0.0, y },
+                    PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y },
                     PhysicalPoint { x: width, y }
                 );
             }
@@ -136,13 +139,13 @@ impl TuningLines {
             // Convert MIDI note to name
             let note_name = crate::shared_types::midi_note_to_name(midi_note);
             
-            // Position text slightly above the line (20 pixels up)
-            let text_y = y_position - 20.0;
-            let text_x = 10.0; // Small offset from left edge
+            // Position text aligned with the line (same Y position)
+            let text_y = y_position;
+            let text_x = 15.0;
             
-            // Queue the text for rendering (using theme text color, small size)
+            // Queue the text for rendering (using theme text color, larger size)
             let text_color = get_current_color_scheme().text;
-            text_renderer.queue_text(&note_name, text_x, text_y, 8.0, [text_color[0], text_color[1], text_color[2], 1.0]);
+            text_renderer.queue_text(&note_name, text_x, text_y, 16.0, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
 }
@@ -243,7 +246,7 @@ impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
-        let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, initial_thickness);
+        let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, initial_thickness);
 
         let primary_material = create_color_material(rgb_to_srgba(scheme.primary), false);
         
@@ -277,8 +280,8 @@ impl MainScene {
             true
         );
         let line = Line::new(&self.context, 
-            PhysicalPoint{x:0.0, y:0.0}, 
-            PhysicalPoint{x:0.0, y:0.0}, 
+            PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, 
+            PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, 
             self.user_pitch_line_thickness);
         self.user_pitch_line = Gm::new(line, primary_material);
         
@@ -349,7 +352,7 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         if pitch_detected {
             let y = interval_to_screen_y_position(interval, viewport.height as f32);
-            let endpoints = (PhysicalPoint{x:0.0, y}, PhysicalPoint{x:viewport.width as f32, y});
+            let endpoints = (PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
             
             // Calculate thickness and alpha based on clarity
             let (new_thickness, new_alpha) = if let Some(clarity_value) = clarity {
