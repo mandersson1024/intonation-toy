@@ -3,7 +3,7 @@ use wasm_bindgen::JsCast;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::closure::Closure;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{window, Document, Element, HtmlElement, HtmlSelectElement, HtmlInputElement, EventTarget};
+use web_sys::{window, Document, HtmlElement, HtmlSelectElement, EventTarget};
 
 #[cfg(target_arch = "wasm32")]
 use std::rc::Rc;
@@ -26,6 +26,10 @@ static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
 // Global state for root note audio enabled
 #[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = false, 1 = true
+
+// Debouncing for tuning fork clicks to prevent double-triggering
+#[cfg(target_arch = "wasm32")]
+static LAST_TUNING_FORK_CLICK_TIME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
@@ -259,21 +263,28 @@ pub fn setup_main_scene_ui() {
         root_note_audio_label.set_text_content(Some("Root Note Audio:"));
         root_note_audio_label.set_attribute("style", &styling::get_label_style()).ok();
 
-        // Create root note audio checkbox
-        let Ok(root_note_audio_checkbox) = document.create_element("input") else {
-            dev_log!("Failed to create root note audio checkbox");
+        // Create tuning fork icon
+        let Ok(tuning_fork_icon) = document.create_element("div") else {
+            dev_log!("Failed to create tuning fork icon");
             return;
         };
-        let root_note_audio_checkbox = root_note_audio_checkbox.dyn_into::<HtmlInputElement>().unwrap();
-        root_note_audio_checkbox.set_type("checkbox");
-        root_note_audio_checkbox.set_id("root-note-audio-checkbox");
-        root_note_audio_checkbox.set_attribute("style", &styling::get_checkbox_style()).ok();
+        tuning_fork_icon.set_id("root-note-audio-icon");
+        tuning_fork_icon.set_class_name("tuning-fork-icon");
         
-        // Checkbox will be synced with engine state via sync_ui_with_model_data
+        let tuning_fork_svg = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v16"/>
+                <path d="M8 2h8"/>
+                <path d="M8 2v4c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V2"/>
+                <path d="M6 18c-2 0-2 2-2 2s0 2 2 2 2-2 2-2-0-2-2-2"/>
+                <path d="M18 18c2 0 2 2 2 2s0 2-2 2-2-2-2-2 0-2 2-2"/>
+            </svg>"#;
+        tuning_fork_icon.set_inner_html(&tuning_fork_svg);
+        
+        // Icon will be synced with engine state via sync_ui_with_model_data
 
         // Assemble root note audio controls
         root_note_audio_container.append_child(&root_note_audio_label).ok();
-        root_note_audio_container.append_child(&root_note_audio_checkbox).ok();
+        root_note_audio_container.append_child(&tuning_fork_icon).ok();
 
         // Append to main container
         container.append_child(&root_note_audio_container).ok();
@@ -344,9 +355,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                     // Also update root note audio frequency if it's currently enabled
                     if let Some(current_window) = web_sys::window() {
                         if let Some(document) = current_window.document() {
-                            if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
-                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
-                                    if html_checkbox.checked() {
+                            if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
+                                if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
+                                    if html_element.class_name().contains("active") {
                                         presenter_mut.on_root_note_audio_configured(true, new_root);
                                     }
                                 }
@@ -379,9 +390,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                     // Also update root note audio frequency if it's currently enabled
                     if let Some(current_window) = web_sys::window() {
                         if let Some(document) = current_window.document() {
-                            if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
-                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
-                                    if html_checkbox.checked() {
+                            if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
+                                if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
+                                    if html_element.class_name().contains("active") {
                                         presenter_mut.on_root_note_audio_configured(true, new_root);
                                     }
                                 }
@@ -473,33 +484,53 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         dev_log!("Failed to find scale-select dropdown");
     }
 
-    // Set up root note audio checkbox event listener
+    // Set up root note audio tuning fork icon event listener
     #[cfg(target_arch = "wasm32")]
     {
-        if let Some(checkbox) = document.get_element_by_id("root-note-audio-checkbox") {
+        if let Some(icon) = document.get_element_by_id("root-note-audio-icon") {
             let presenter_clone = presenter.clone();
-            let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
+                event.prevent_default();
+                event.stop_propagation();
+                
+                // Debounce to prevent double-clicks within 200ms
+                let now = js_sys::Date::now() as u64;
+                let last_click = LAST_TUNING_FORK_CLICK_TIME.load(Ordering::Relaxed);
+                if now - last_click < 200 {
+                    return;
+                }
+                LAST_TUNING_FORK_CLICK_TIME.store(now, Ordering::Relaxed);
+                
                 if let Some(current_window) = web_sys::window() {
                     if let Some(document) = current_window.document() {
-                        if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
-                            if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
-                                let enabled = html_checkbox.checked();
+                        if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
+                            if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
+                                // Toggle the active class
+                                let current_classes = html_element.class_name();
+                                let enabled = current_classes.contains("active");
+                                if enabled {
+                                    let new_classes = current_classes.replace(" active", "").replace("active ", "").replace("active", "");
+                                    html_element.set_class_name(&new_classes);
+                                } else {
+                                    html_element.set_class_name(&format!("{} active", current_classes));
+                                }
+                                let new_enabled = !enabled;
                                 let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                                presenter_clone.borrow_mut().on_root_note_audio_configured(enabled, current_root_note);
+                                presenter_clone.borrow_mut().on_root_note_audio_configured(new_enabled, current_root_note);
                             }
                         }
                     }
                 }
             }) as Box<dyn FnMut(_)>);
 
-            if let Some(event_target) = checkbox.dyn_ref::<EventTarget>() {
-                if let Err(err) = event_target.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref()) {
-                    dev_log!("Failed to add change listener to root note audio checkbox: {:?}", err);
+            if let Some(event_target) = icon.dyn_ref::<EventTarget>() {
+                if let Err(err) = event_target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()) {
+                    dev_log!("Failed to add click listener to root note audio icon: {:?}", err);
                 }
             }
             closure.forget();
         } else {
-            dev_log!("Failed to find root-note-audio-checkbox");
+            dev_log!("Failed to find root-note-audio-icon");
         }
     }
 }
@@ -570,12 +601,20 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
         }
     }
 
-    // Update root note audio checkbox state
+    // Update root note audio icon state
     CURRENT_ROOT_NOTE_AUDIO_ENABLED.store(if model_data.root_note_audio_enabled { 1 } else { 0 }, Ordering::Relaxed);
     
-    if let Some(checkbox_element) = document.get_element_by_id("root-note-audio-checkbox") {
-        if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
-            html_checkbox.set_checked(model_data.root_note_audio_enabled);
+    if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
+        if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
+            let current_classes = html_element.class_name();
+            if model_data.root_note_audio_enabled {
+                if !current_classes.contains("active") {
+                    html_element.set_class_name(&format!("{} active", current_classes));
+                }
+            } else {
+                let new_classes = current_classes.replace(" active", "").replace("active ", "").replace("active", "");
+                html_element.set_class_name(&new_classes);
+            }
         }
     }
 }

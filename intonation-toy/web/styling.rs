@@ -400,6 +400,42 @@ pub fn get_svg_accent_color() -> String {
     rgb_to_css(get_current_color_scheme().accent)
 }
 
+pub fn get_tuning_fork_icon_style() -> String {
+    format!(
+        "cursor: pointer; color: {};",
+        get_svg_muted_color()
+    )
+}
+
+pub fn get_tuning_fork_icon_active_style() -> String {
+    format!(
+        "color: {}; filter: drop-shadow(0 0 8px {});",
+        rgb_to_css(get_current_color_scheme().accent),
+        rgba_to_css(get_current_color_scheme().accent, 0.6)
+    )
+}
+
+pub fn apply_tuning_fork_icon_styles() {
+    let css = format!(
+        r#"
+        .tuning-fork-icon {{
+            {}
+        }}
+        .tuning-fork-icon.active {{
+            {}
+        }}
+        .tuning-fork-icon svg {{
+            width: 24px;
+            height: 24px;
+            display: block;
+        }}
+        "#,
+        get_tuning_fork_icon_style(),
+        get_tuning_fork_icon_active_style()
+    );
+    add_style_to_document(&css);
+}
+
 // Main Scene UI Styles
 pub fn get_root_note_display_style() -> String {
     format!(
@@ -466,6 +502,7 @@ pub fn apply_color_scheme_styles() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
+    apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
 }
 
@@ -513,5 +550,6 @@ pub fn reapply_current_theme() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
+    apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
 }
