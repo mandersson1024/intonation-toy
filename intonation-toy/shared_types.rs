@@ -282,7 +282,7 @@ impl Error {
     /// Note: ProcessingError returns a dynamically allocated string, not a static string.
     pub fn details(&self) -> &str {
         match self {
-            Error::MicrophonePermissionDenied => "Please allow microphone access to analyze audio input. You may need to refresh the page after granting permission.",
+            Error::MicrophonePermissionDenied => "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted. (Mac users: the microphone may also be blocked in System Settings.)",
             Error::MicrophoneNotAvailable => "No microphone device found. Please ensure a microphone is connected and try again.",
             Error::ProcessingError(msg) => msg,
             Error::BrowserApiNotSupported => "This browser doesn't support the required audio features ({}). Please try a modern browser like Chrome, Firefox, or Safari.",
