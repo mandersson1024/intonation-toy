@@ -441,8 +441,11 @@ impl Presenter {
         // Extract values we need before the match to avoid borrowing issues
         let interval_position = self.interval_position;
         
-        // Determine if pitch is detected
-        let pitch_detected = matches!(model_data.pitch, Pitch::Detected(_, _));
+        // Determine if pitch is detected and extract clarity
+        let (pitch_detected, clarity) = match model_data.pitch {
+            Pitch::Detected(_, clarity_value) => (true, Some(clarity_value)),
+            Pitch::NotDetected => (false, None),
+        };
         
         // Get tuning line data for the active tuning system
         let tuning_line_data = if matches!(self.scene, Scene::Main(_)) {
@@ -466,7 +469,7 @@ impl Presenter {
                 // Update tuning lines - MainScene doesn't know about music theory
                 main_scene.update_tuning_lines(viewport, &tuning_line_data);
                 
-                main_scene.update_pitch_position(viewport, interval_position, pitch_detected);
+                main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity);
             }
         }
     }

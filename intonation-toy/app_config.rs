@@ -24,3 +24,7 @@ pub const WINDOW_TITLE: &str = "intonation-toy";
 
 /// Pitch detection configuration
 pub const CLARITY_THRESHOLD: f32 = 0.7;
+
+/// User pitch line thickness configuration
+pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 3.0;
+pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
