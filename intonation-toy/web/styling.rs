@@ -460,5 +460,13 @@ pub fn apply_color_scheme_styles() {
 }
 
 pub fn reapply_current_theme() {
-    apply_color_scheme_styles();
+    // Only reapply color-related styles, not layout/sizing
+    apply_body_styles();
+    apply_sidebar_styles();
+    apply_status_classes();
+    apply_control_styles();
+    apply_control_range_styles();
+    apply_permission_styles();
+    apply_permission_overlay_animations();
+    apply_first_click_styles();
 }
