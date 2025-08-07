@@ -109,7 +109,7 @@ impl ConsoleCommand for ThemeCommand {
         crate::web::styling::reapply_current_theme();
         
         ConsoleCommandResult::MultipleOutputs(vec![
-            ConsoleOutput::success(&format!("Theme set to {}", theme_name))
+            ConsoleOutput::success(&format!("Theme set to {} (CSS and WebGL components updated)", theme_name))
         ])
     }
 }

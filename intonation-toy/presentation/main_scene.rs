@@ -1,5 +1,6 @@
 use three_d::{AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
-use crate::shared_types::MidiNote;
+use crate::shared_types::{MidiNote, ColorScheme};
+use crate::theme::{get_current_color_scheme, rgb_to_srgba};
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
@@ -127,8 +128,9 @@ impl TuningLines {
             let text_y = y_position - 20.0;
             let text_x = 10.0; // Small offset from left edge
             
-            // Queue the text for rendering (white color, small size)
-            text_renderer.queue_text(&note_name, text_x, text_y, 8.0, [1.0, 1.0, 1.0, 1.0]);
+            // Queue the text for rendering (using theme text color, small size)
+            let text_color = get_current_color_scheme().text;
+            text_renderer.queue_text(&note_name, text_x, text_y, 8.0, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
 }
@@ -220,33 +222,31 @@ pub struct MainScene {
     text_renderer: TextRenderer,
     context: Context,
     pitch_detected: bool,
+    current_scheme: ColorScheme,
 }
 
 impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
+        let scheme = get_current_color_scheme();
         let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, 2.0);
 
-        let white_material = ColorMaterial {
-            color: Srgba::WHITE,
+        let primary_material = ColorMaterial {
+            color: rgb_to_srgba(scheme.primary),
             ..Default::default()
         };
         
-        let green_material = ColorMaterial {
-            color: Srgba::GREEN,
-            ..Default::default()
-        };
-        
-        let tuning_lines = TuningLines::new(context, Srgba::WHITE);
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.text));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line: Gm::new(user_pitch_line, green_material.clone()),
-            light: AmbientLight::new(context, 1.0, Srgba::GREEN),
+            user_pitch_line: Gm::new(user_pitch_line, primary_material.clone()),
+            light: AmbientLight::new(context, 1.0, rgb_to_srgba(scheme.secondary)),
             tuning_lines,
             text_renderer,
             context: context.clone(),
             pitch_detected: false,
+            current_scheme: scheme,
         })
     }
     
@@ -254,9 +254,44 @@ impl MainScene {
         self.camera.set_viewport(viewport);
     }
     
+    fn refresh_colors(&mut self) {
+        let scheme = self.current_scheme.clone();
+        
+        // Recreate user pitch line with new color (it will be repositioned on next update)
+        let primary_material = ColorMaterial {
+            color: rgb_to_srgba(scheme.primary),
+            ..Default::default()
+        };
+        let line = Line::new(&self.context, 
+            PhysicalPoint{x:0.0, y:0.0}, 
+            PhysicalPoint{x:0.0, y:0.0}, 
+            2.0);
+        self.user_pitch_line = Gm::new(line, primary_material);
+        
+        // Update tuning lines material
+        self.tuning_lines.material = ColorMaterial {
+            color: rgb_to_srgba(scheme.text),
+            ..Default::default()
+        };
+        
+        // Clear and recreate all tuning lines with new material
+        // They will be recreated with correct positions on next update_lines call
+        self.tuning_lines.lines.clear();
+        
+        // Update ambient light
+        self.light = AmbientLight::new(&self.context, 1.0, rgb_to_srgba(scheme.secondary));
+    }
     
     pub fn render(&mut self, screen: &mut RenderTarget) {
-        screen.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0));
+        // Check for theme changes
+        let scheme = get_current_color_scheme();
+        if scheme != self.current_scheme {
+            self.current_scheme = scheme.clone();
+            self.refresh_colors();
+        }
+        
+        let bg = scheme.background;
+        screen.clear(ClearState::color_and_depth(bg[0], bg[1], bg[2], 1.0, 1.0));
 
         // Collect all lines to render: tuning lines and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();

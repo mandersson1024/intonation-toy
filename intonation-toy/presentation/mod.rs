@@ -402,7 +402,7 @@ impl Presenter {
         }
         
         Ok(Self {
-            scene: Scene::Startup(StartupScene),
+            scene: Scene::Startup(StartupScene::new()),
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
