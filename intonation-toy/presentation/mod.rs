@@ -394,6 +394,13 @@ impl Presenter {
         // Presentation layer initialization without interface dependencies
         // TODO: Initialize rendering state
         // TODO: Set up sprite scene configuration
+        
+        // Set up HTML UI for sidebar immediately so it's available during startup scene
+        #[cfg(target_arch = "wasm32")]
+        {
+            setup_main_scene_ui();
+        }
+        
         Ok(Self {
             scene: Scene::Startup(StartupScene),
             pending_user_actions: PresentationLayerActions::new(),
@@ -402,7 +409,7 @@ impl Presenter {
             interval_position: 0.0,
             ema_smoother: EmaSmoother::new(0.1),
             #[cfg(target_arch = "wasm32")]
-            main_scene_ui_active: false,
+            main_scene_ui_active: true, // UI is now active from the start
             #[cfg(target_arch = "wasm32")]
             self_reference: None,
         })
@@ -418,7 +425,10 @@ impl Presenter {
     /// * `self_ref` - The Rc<RefCell<>> wrapped presenter reference
     #[cfg(target_arch = "wasm32")]
     pub fn set_self_reference(&mut self, self_ref: Rc<RefCell<Self>>) {
-        self.self_reference = Some(self_ref);
+        self.self_reference = Some(self_ref.clone());
+        
+        // Set up event listeners now that we have the self-reference
+        setup_event_listeners(self_ref);
     }
 
     /// No-op version for non-WASM targets
@@ -658,8 +668,7 @@ impl Presenter {
             // Set up HTML UI for main scene
             #[cfg(target_arch = "wasm32")]
             {
-                setup_main_scene_ui();
-                self.main_scene_ui_active = true;
+                // UI was already set up during presenter creation
                 
                 // Set up event listeners if we have a self-reference
                 if let Some(ref self_ref) = self.self_reference {

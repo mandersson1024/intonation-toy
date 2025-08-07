@@ -242,8 +242,8 @@ pub fn apply_control_styles() {
 }
 
 pub fn get_permission_overlay_style() -> String {
-    // Transparent background with cursor pointer as in index.css
-    "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 9999; cursor: pointer;".to_string()
+    // Overlay only covers the canvas area, not the sidebar
+    "position: fixed; top: 0; left: 300px; right: 0; bottom: 0; background: transparent; z-index: 9999; cursor: pointer;".to_string()
 }
 
 pub fn get_permission_panel_style() -> String {
@@ -263,6 +263,18 @@ pub fn apply_permission_styles() {
         .permission-title {{ font-size: 24px; font-weight: 600; margin-bottom: 16px; color: {}; }}
         .permission-description {{ font-size: 16px; margin-bottom: 24px; color: {}; }}
         .permission-button {{ {}; margin: 0 8px; }}
+        
+        /* Disabled sidebar styles during permission request */
+        body.permission-required #sidebar {{
+            opacity: 0.5;
+            pointer-events: none;
+        }}
+        body.permission-required #sidebar button,
+        body.permission-required #sidebar select,
+        body.permission-required #sidebar input {{
+            opacity: 0.4;
+            cursor: not-allowed;
+        }}
         "#,
         get_permission_overlay_style(),
         get_permission_panel_style(),

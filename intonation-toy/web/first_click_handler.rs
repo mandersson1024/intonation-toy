@@ -21,7 +21,7 @@ pub fn setup_first_click_handler(
     permission_granted: std::rc::Rc<std::cell::RefCell<bool>>,
     engine: &mut Option<crate::engine::AudioEngine>,
 ) {
-    use web_sys::{window, HtmlElement, EventTarget};
+    use web_sys::{window, HtmlElement, EventTarget, Element};
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
     
@@ -175,6 +175,12 @@ pub fn setup_first_click_handler(
         if let Some(browser_window) = web_sys::window() {
             if let Some(document) = browser_window.document() {
                 if let Some(body) = document.body() {
+                    // Remove permission-required class to re-enable sidebar controls
+                    if let Some(current_class) = body.get_attribute("class") {
+                        let new_class = current_class.replace("permission-required", "").trim().to_string();
+                        body.set_attribute("class", &new_class).ok();
+                    }
+                    
                     // Use querySelectorAll to find all overlays
                     if let Ok(Some(overlay_element)) = document.query_selector("div[style*='z-index: 9999']") {
                         if let Some(parent) = overlay_element.parent_node() {
@@ -225,6 +231,19 @@ pub fn setup_first_click_handler(
                         }
                         Err(e) => {
                             dev_log!("✗ Microphone permission failed on first click: {:?}", e);
+                            
+                            // Remove permission-required class since permission dialog is closed
+                            if let Some(window) = web_sys::window() {
+                                if let Some(document) = window.document() {
+                                    if let Some(body) = document.body() {
+                                        if let Some(current_class) = body.get_attribute("class") {
+                                            let new_class = current_class.replace("permission-required", "").trim().to_string();
+                                            body.set_attribute("class", &new_class).ok();
+                                        }
+                                    }
+                                }
+                            }
+                            
                             // Display error after a short delay to avoid removal conflicts
                             let timeout_closure = Closure::wrap(Box::new(move || {
                                 crate::web::error_message_box::show_error_message(
@@ -245,6 +264,19 @@ pub fn setup_first_click_handler(
                 });
             } else {
                 dev_log!("✗ Failed to call getUserMedia");
+                
+                // Remove permission-required class since we're showing an error
+                if let Some(window) = web_sys::window() {
+                    if let Some(document) = window.document() {
+                        if let Some(body) = document.body() {
+                            if let Some(current_class) = body.get_attribute("class") {
+                                let new_class = current_class.replace("permission-required", "").trim().to_string();
+                                body.set_attribute("class", &new_class).ok();
+                            }
+                        }
+                    }
+                }
+                
                 crate::web::error_message_box::show_error_message(
                     "Browser Error",
                     "Failed to access microphone API. Please try refreshing the page or using a different browser."
@@ -252,6 +284,19 @@ pub fn setup_first_click_handler(
             }
         } else {
             dev_log!("✗ MediaDevices API not available");
+            
+            // Remove permission-required class since we're showing an error
+            if let Some(window) = web_sys::window() {
+                if let Some(document) = window.document() {
+                    if let Some(body) = document.body() {
+                        if let Some(current_class) = body.get_attribute("class") {
+                            let new_class = current_class.replace("permission-required", "").trim().to_string();
+                            body.set_attribute("class", &new_class).ok();
+                        }
+                    }
+                }
+            }
+            
             crate::web::error_message_box::show_error_message(
                 "Browser Not Supported",
                 "Your browser doesn't support the required audio features. Please try a modern browser like Chrome or Firefox."
@@ -261,6 +306,15 @@ pub fn setup_first_click_handler(
     
     // Append overlay to body first
     if let Some(body) = document.body() {
+        // Add permission-required class to body to disable sidebar controls
+        let current_class = body.get_attribute("class").unwrap_or_default();
+        let new_class = if current_class.is_empty() {
+            "permission-required".to_string()
+        } else {
+            format!("{} permission-required", current_class)
+        };
+        body.set_attribute("class", &new_class).ok();
+        
         body.append_child(&overlay).unwrap();
         dev_log!("✓ First click handler overlay added");
         
