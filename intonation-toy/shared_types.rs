@@ -141,15 +141,15 @@ impl Default for ColorScheme {
 
 impl ColorScheme {
     pub const fn dark() -> Self {
-        Self {
-            background: [0.05, 0.05, 0.05],
-            surface: [0.2, 0.2, 0.2],
-            primary: [0.0, 0.8, 1.0],
-            secondary: [1.0, 0.2, 0.2],
-            accent: [1.0, 0.8, 0.0],
-            text: [1.0, 1.0, 1.0],
-            muted: [0.4, 0.4, 0.4],
-        }
+    Self {
+        background: [0.08, 0.08, 0.09],     // Soft charcoal, not full black
+        surface: [0.18, 0.18, 0.2],         // Slightly lighter than background
+        primary: [0.2, 0.7, 0.6],  // Teal
+        secondary: [0.9, 0.4, 0.4],         // Warm, mellow red
+        accent: [0.95, 0.75, 0.4],          // Soft gold
+        text: [0.88, 0.88, 0.9],            // Light gray instead of pure white
+        muted: [0.55, 0.55, 0.6],           // Desaturated bluish-gray
+    }
     }
     
     pub const fn light() -> Self {

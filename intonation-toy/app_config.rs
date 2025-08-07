@@ -2,10 +2,10 @@
 /// 
 /// This module contains all configuration constants used throughout the application
 
-use crate::shared_types::{ColorScheme, Theme};
+use crate::shared_types::Theme;
 
 /// Default theme configuration
-pub const DEFAULT_THEME: Theme = Theme::Light;
+pub const DEFAULT_THEME: Theme = Theme::Dark;
 
 /// Configuration constants
 /// 

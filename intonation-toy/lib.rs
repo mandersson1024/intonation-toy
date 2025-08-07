@@ -550,7 +550,7 @@ pub async fn start() {
     }
     
     // Initialize theme system
-    crate::theme::initialize_theme(crate::shared_types::Theme::Light);
+    crate::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
     
     // Apply color scheme styles to DOM elements
     crate::web::styling::apply_color_scheme_styles();
