@@ -10,7 +10,7 @@ const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
-    let scale_factor = 1.0;
+    let scale_factor = 0.95;
     let y: f32 = viewport_height * (0.5 + interval * scale_factor * 0.5);
     y
 }

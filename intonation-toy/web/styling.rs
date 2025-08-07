@@ -457,6 +457,25 @@ pub fn apply_color_scheme_styles() {
     apply_permission_styles();
     apply_permission_overlay_animations();
     apply_first_click_styles();
+    apply_root_note_styles();
+}
+
+pub fn apply_root_note_styles() {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            // Update root note display
+            if let Some(element) = document.get_element_by_id("root-note-display") {
+                element.set_attribute("style", &get_root_note_display_style()).ok();
+            }
+            // Update root note buttons
+            if let Some(element) = document.get_element_by_id("root-note-plus") {
+                element.set_attribute("style", &get_small_button_style()).ok();
+            }
+            if let Some(element) = document.get_element_by_id("root-note-minus") {
+                element.set_attribute("style", &get_small_button_style()).ok();
+            }
+        }
+    }
 }
 
 pub fn reapply_current_theme() {
@@ -469,4 +488,5 @@ pub fn reapply_current_theme() {
     apply_permission_styles();
     apply_permission_overlay_animations();
     apply_first_click_styles();
+    apply_root_note_styles();
 }
