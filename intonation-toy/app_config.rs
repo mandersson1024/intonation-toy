@@ -14,10 +14,10 @@ pub const DEFAULT_THEME: Theme = Theme::Light;
 /// in their respective domain modules (e.g., theme module for color schemes).
 
 /// Viewport configuration
-pub const VIEWPORT_WIDTH: u32 = 1024;
-pub const VIEWPORT_HEIGHT: u32 = 1024;
-pub const VIEWPORT_MIN_SIZE: u32 = 256;
-pub const VIEWPORT_MAX_SIZE: u32 = 1024;
+pub const VIEWPORT_WIDTH: u32 = 768;
+pub const VIEWPORT_HEIGHT: u32 = 768;
+pub const CANVAS_MIN_SIZE: i32 = 256;
+pub const CANVAS_MAX_SIZE: i32 = 768;
 
 /// Window configuration
 pub const WINDOW_TITLE: &str = "intonation-toy";

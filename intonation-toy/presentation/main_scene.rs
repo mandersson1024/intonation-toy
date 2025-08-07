@@ -4,7 +4,9 @@ use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alp
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD};
 
 // Left margin to reserve space for note names
-const NOTE_NAME_LEFT_MARGIN: f32 = 40.0;
+const NOTE_NAME_X_OFFSET: f32 = 18.0;
+const NOTE_NAME_Y_OFFSET: f32 = 2.0;
+const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
@@ -62,8 +64,8 @@ impl TuningLines {
         while self.lines.len() < needed_lines {
             let line = Line::new(
                 &self.context,
-                PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y: 0.0 },
-                PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y: 0.0 },
+                PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
+                PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
                 1.0  // Default thickness, will be updated
             );
             self.lines.push(Gm::new(line, self.material.clone()));
@@ -92,7 +94,7 @@ impl TuningLines {
             if i < self.thicknesses.len() && self.thicknesses[i] != thickness {
                 let line = Line::new(
                     &self.context,
-                    PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y },
+                    PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
                     PhysicalPoint { x: width, y },
                     thickness
                 );
@@ -100,14 +102,13 @@ impl TuningLines {
             } else {
                 // Just update endpoints if thickness hasn't changed
                 self.lines[i].set_endpoints(
-                    PhysicalPoint { x: NOTE_NAME_LEFT_MARGIN, y },
+                    PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
                     PhysicalPoint { x: width, y }
                 );
             }
             self.midi_notes[i] = midi_note;
             self.y_positions[i] = y;
             self.thicknesses[i] = thickness;
-            crate::common::dev_log!("OCTAVE_LINE_DEBUG: Line {}: y={:.1}, midi_note={}, thickness={:.1}, semitone_offset={}", i, y, midi_note, thickness, midi_note as i32 - 60);
         }
     }
     
@@ -140,8 +141,8 @@ impl TuningLines {
             let note_name = crate::shared_types::midi_note_to_name(midi_note);
             
             // Position text aligned with the line (same Y position)
-            let text_y = y_position;
-            let text_x = 15.0;
+            let text_y = y_position + NOTE_NAME_Y_OFFSET;
+            let text_x = NOTE_NAME_X_OFFSET;
             
             // Queue the text for rendering (using theme text color, larger size)
             let text_color = get_current_color_scheme().text;
@@ -246,7 +247,7 @@ impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
-        let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, initial_thickness);
+        let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, initial_thickness);
 
         let primary_material = create_color_material(rgb_to_srgba(scheme.primary), false);
         
@@ -280,8 +281,8 @@ impl MainScene {
             true
         );
         let line = Line::new(&self.context, 
-            PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, 
-            PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y:0.0}, 
+            PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, 
+            PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, 
             self.user_pitch_line_thickness);
         self.user_pitch_line = Gm::new(line, primary_material);
         
@@ -352,7 +353,7 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         if pitch_detected {
             let y = interval_to_screen_y_position(interval, viewport.height as f32);
-            let endpoints = (PhysicalPoint{x:NOTE_NAME_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
+            let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
             
             // Calculate thickness and alpha based on clarity
             let (new_thickness, new_alpha) = if let Some(clarity_value) = clarity {
@@ -365,7 +366,6 @@ impl MainScene {
                 // At CLARITY_THRESHOLD: alpha = USER_PITCH_LINE_TRANSPARENCY_MIN
                 // At 1.0 clarity: alpha = USER_PITCH_LINE_TRANSPARENCY_MAX
                 let alpha = USER_PITCH_LINE_TRANSPARENCY_MIN + normalized_clarity * (USER_PITCH_LINE_TRANSPARENCY_MAX - USER_PITCH_LINE_TRANSPARENCY_MIN);
-                crate::common::dev_log!("TRANSPARENCY_DEBUG: clarity={:.3}, normalized_clarity={:.3}, alpha={:.3}", clarity_value, normalized_clarity, alpha);
                 (thickness, alpha)
             } else {
                 (USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MAX) // Default values when no clarity provided

@@ -62,8 +62,6 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     
     let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
     let padding = 40; // 20px on each side
-    let min_size = 256;
-    let max_size = 1024;
     
     // Calculate available space (subtract sidebar width from width, full height available)
     let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - padding;
@@ -73,8 +71,8 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     
     // Take the smaller dimension to maintain square aspect ratio
     let mut size = std::cmp::min(available_width, available_height);
-    size = std::cmp::min(size, max_size);
-    size = std::cmp::max(size, min_size);
+    size = std::cmp::min(size, crate::app_config::CANVAS_MAX_SIZE);
+    size = std::cmp::max(size, crate::app_config::CANVAS_MIN_SIZE);
     
     dev_log!("RESIZE: setting canvas size to {}px", size);
     
