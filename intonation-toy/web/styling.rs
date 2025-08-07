@@ -444,6 +444,14 @@ pub fn get_checkbox_style() -> String {
     )
 }
 
+pub fn get_sidebar_header_style() -> String {
+    format!(
+        "color: {}; font-size: 24px; font-weight: 700; margin: 0 0 20px 0; padding: 16px 0; text-align: center; border-bottom: 2px solid {}; font-family: system-ui, -apple-system, sans-serif;",
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
+    )
+}
+
 pub fn apply_color_scheme_styles() {
     // Apply CSS reset first
     apply_css_reset();
@@ -458,6 +466,7 @@ pub fn apply_color_scheme_styles() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
+    apply_sidebar_header_styles();
 }
 
 pub fn apply_root_note_styles() {
@@ -478,6 +487,21 @@ pub fn apply_root_note_styles() {
     }
 }
 
+pub fn apply_sidebar_header_styles() {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            // Find the h1 element in the sidebar (should be the first child)
+            if let Some(sidebar) = document.get_element_by_id("sidebar") {
+                if let Some(header) = sidebar.first_element_child() {
+                    if header.tag_name().to_lowercase() == "h1" {
+                        header.set_attribute("style", &get_sidebar_header_style()).ok();
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn reapply_current_theme() {
     // Only reapply color-related styles, not layout/sizing
     apply_body_styles();
@@ -489,4 +513,5 @@ pub fn reapply_current_theme() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
+    apply_sidebar_header_styles();
 }

@@ -48,6 +48,14 @@ pub fn setup_main_scene_ui() {
 
     // No need for local style constants - will use centralized styling functions
 
+    // Create header for sidebar
+    let Ok(header) = document.create_element("h1") else {
+        dev_log!("Failed to create header");
+        return;
+    };
+    header.set_text_content(Some("Intonation Toy"));
+    header.set_attribute("style", &styling::get_sidebar_header_style()).ok();
+
     // Create container div
     let Ok(container) = document.create_element("div") else {
         dev_log!("Failed to create container div");
@@ -271,16 +279,24 @@ pub fn setup_main_scene_ui() {
         container.append_child(&root_note_audio_container).ok();
     }
 
-    // Append container to sidebar
+    // Append header and container to sidebar
     let sidebar = document.get_element_by_id("sidebar");
     
     if let Some(sidebar) = sidebar {
+        // Append header first
+        if let Err(err) = sidebar.append_child(&header) {
+            dev_log!("Failed to append header to sidebar: {:?}", err);
+        }
+        // Then append the main container
         if let Err(err) = sidebar.append_child(&container) {
             dev_log!("Failed to append UI container to sidebar: {:?}", err);
         }
     } else {
         // Fallback to body if sidebar doesn't exist
         if let Some(body) = document.body() {
+            if let Err(err) = body.append_child(&header) {
+                dev_log!("Failed to append header to body: {:?}", err);
+            }
             if let Err(err) = body.append_child(&container) {
                 dev_log!("Failed to append UI container to body: {:?}", err);
             }
