@@ -134,7 +134,7 @@ impl TuningLines {
 }
 
 pub struct TextRenderer {
-    // text_builder: three_d_text_builder::TextBuilder,  // Temporarily disabled for three-d upgrade
+    text_builder: three_d_text_builder::TextBuilder,
     queued_texts: Vec<QueuedText>,
 }
 
@@ -149,17 +149,16 @@ struct QueuedText {
 
 impl TextRenderer {
     pub fn new(_context: &Context) -> Result<Self, String> {
-        // Temporarily disabled text rendering for three-d upgrade
-        // // Use the actual Roboto Regular font file
-        // let roboto_font = include_bytes!("../static/fonts/Roboto-Regular.ttf");
-        // 
-        // let text_builder = three_d_text_builder::TextBuilder::new(
-        //     roboto_font,
-        //     three_d_text_builder::TextBuilderSettings::default()
-        // ).map_err(|e| format!("Failed to create TextBuilder with Roboto font: {:?}", e))?;
+        // Use the actual Roboto Regular font file
+        let roboto_font = include_bytes!("../static/fonts/Roboto-Regular.ttf");
+        
+        let text_builder = three_d_text_builder::TextBuilder::new(
+            roboto_font,
+            three_d_text_builder::TextBuilderSettings::default()
+        ).map_err(|e| format!("Failed to create TextBuilder with Roboto font: {:?}", e))?;
             
         Ok(Self {
-            // text_builder,
+            text_builder,
             queued_texts: Vec::new(),
         })
     }
@@ -181,37 +180,35 @@ impl TextRenderer {
     }
     
     /// Create text models using the actual Roboto font
-    pub fn create_text_models(&mut self, _context: &Context, _viewport: Viewport) -> Vec<()> {
-        // Temporarily disabled text rendering for three-d upgrade
-        // let mut text_refs = Vec::new();
-        // 
-        // // Set viewport for proper text positioning
-        // self.text_builder.set_viewport(viewport);
-        // 
-        // // Create TextRef objects for each queued text
-        // for queued_text in &self.queued_texts {
-        //     let text_ref = three_d_text_builder::TextRef {
-        //         text: &queued_text.text,
-        //         size: queued_text.size,
-        //         color: three_d::Srgba::new(
-        //             (queued_text.color[0] * 255.0) as u8,
-        //             (queued_text.color[1] * 255.0) as u8,
-        //             (queued_text.color[2] * 255.0) as u8,
-        //             (queued_text.color[3] * 255.0) as u8,
-        //         ),
-        //         position: three_d_text_builder::TextPosition::Pixels(three_d::vec2(queued_text.x, queued_text.y)),
-        //         ..Default::default()
-        //     };
-        //     text_refs.push(text_ref);
-        // }
-        // 
-        // // Build text models using the proper API
-        // if !text_refs.is_empty() {
-        //     self.text_builder.build(context, &text_refs).collect()
-        // } else {
-        //     Vec::new()
-        // }
-        Vec::new()  // Return empty vector for now
+    pub fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<three_d::Gm<three_d_text_builder::TextMesh, three_d_text_builder::TextMaterial>> {
+        let mut text_refs = Vec::new();
+        
+        // Set viewport for proper text positioning
+        self.text_builder.set_viewport(viewport);
+        
+        // Create TextRef objects for each queued text
+        for queued_text in &self.queued_texts {
+            let text_ref = three_d_text_builder::TextRef {
+                text: &queued_text.text,
+                size: queued_text.size,
+                color: three_d::Srgba::new(
+                    (queued_text.color[0] * 255.0) as u8,
+                    (queued_text.color[1] * 255.0) as u8,
+                    (queued_text.color[2] * 255.0) as u8,
+                    (queued_text.color[3] * 255.0) as u8,
+                ),
+                position: three_d_text_builder::TextPosition::Pixels(three_d::vec2(queued_text.x, queued_text.y)),
+                ..Default::default()
+            };
+            text_refs.push(text_ref);
+        }
+        
+        // Build text models using the proper API
+        if !text_refs.is_empty() {
+            self.text_builder.build(context, &text_refs).collect()
+        } else {
+            Vec::new()
+        }
     }
 }
 
@@ -281,23 +278,22 @@ impl MainScene {
             &[&self.light],
         );
         
-        // Temporarily disabled text rendering for three-d upgrade
-        // // Clear previous frame's text queue
-        // self.text_renderer.clear_queue();
-        // 
-        // // Render note labels above tuning lines
-        // self.tuning_lines.render_note_labels(&mut self.text_renderer);
-        // 
-        // // Render text models using actual Roboto font  
-        // let viewport = self.camera.viewport();
-        // let text_models = self.text_renderer.create_text_models(&self.context, viewport);
-        // if !text_models.is_empty() {
-        //     screen.render(
-        //         &self.camera,
-        //         &text_models,
-        //         &[&self.light],
-        //     );
-        // }
+        // Clear previous frame's text queue
+        self.text_renderer.clear_queue();
+        
+        // Render note labels above tuning lines
+        self.tuning_lines.render_note_labels(&mut self.text_renderer);
+        
+        // Render text models using actual Roboto font  
+        let viewport = self.camera.viewport();
+        let text_models = self.text_renderer.create_text_models(&self.context, viewport);
+        if !text_models.is_empty() {
+            screen.render(
+                &self.camera,
+                &text_models,
+                &[&self.light],
+            );
+        }
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool) {
