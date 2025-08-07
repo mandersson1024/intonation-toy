@@ -917,11 +917,11 @@ impl Presenter {
         
         // Helper function to determine line thickness based on semitone offset
         let get_thickness = |semitone: i32| -> f32 {
-            // Octave lines (multiples of 12 semitones) get thickness 2.0, others get 1.0
+            // Octave lines (multiples of 12 semitones) get configurable thickness, others get regular thickness
             if semitone % 12 == 0 {
-                2.0
+                crate::app_config::OCTAVE_LINE_THICKNESS
             } else {
-                1.0
+                crate::app_config::REGULAR_LINE_THICKNESS
             }
         };
         

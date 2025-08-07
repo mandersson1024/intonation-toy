@@ -310,7 +310,7 @@ impl DebugPanel {
                     let rms_amplitude = volume.rms_amplitude.clamp(0.0, 1.0);
                     
                     // RMS-specific color thresholds (lower than peak)
-                    let rms_color = if rms_amplitude > 0.7 {
+                    let rms_color = if rms_amplitude >= 1.0 {
                         Color32::RED  // High RMS level
                     } else if rms_amplitude > 0.5 {
                         Color32::YELLOW  // Medium RMS level
@@ -345,7 +345,7 @@ impl DebugPanel {
                     let peak_amplitude = volume.peak_amplitude.clamp(0.0, 1.0);
                     
                     // Peak-specific color thresholds
-                    let peak_color = if peak_amplitude > 0.9 {
+                    let peak_color = if peak_amplitude >= 1.0 {
                         Color32::RED  // Near clipping
                     } else if peak_amplitude > 0.7 {
                         Color32::YELLOW  // High level
