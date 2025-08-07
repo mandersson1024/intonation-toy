@@ -44,29 +44,29 @@ pub fn apply_css_reset() {
 
 pub fn apply_body_styles() {
     let style = format!(
-        "background-color: {}; color: {}; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; min-height: 100vh; overflow: hidden;",
+        "background-color: {}; color: {}; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: row; min-height: 100vh; overflow: hidden;",
         rgb_to_css(COLOR_SCHEME.background),
         rgb_to_css(COLOR_SCHEME.text)
     );
     apply_style_to_element("body", &style);
 }
 
-pub fn apply_menu_bar_styles() {
+pub fn apply_sidebar_styles() {
     let gradient_start = rgba_to_css(COLOR_SCHEME.surface, 0.95);
     let gradient_end = rgba_to_css(COLOR_SCHEME.surface, 0.85);
     let border_color = rgba_to_css(COLOR_SCHEME.muted, 0.3);
     
     let style = format!(
-        "position: fixed; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, {}, {}); border-bottom: 1px solid {}; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 1000; backdrop-filter: blur(10px);",
+        "position: fixed; top: 0; left: 0; bottom: 0; width: 300px; background: linear-gradient(to right, {}, {}); border-right: 1px solid {}; display: flex; flex-direction: column; padding: 20px; z-index: 1000; backdrop-filter: blur(10px); overflow-y: auto;",
         gradient_start,
         gradient_end,
         border_color
     );
-    apply_style_to_element("#menu-bar", &style);
+    apply_style_to_element("#sidebar", &style);
 }
 
 pub fn apply_canvas_container_styles() {
-    let style = "position: fixed; top: 60px; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;";
+    let style = "position: fixed; top: 0; left: 300px; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;";
     apply_style_to_element("#canvas-container", &style);
 }
 
@@ -404,13 +404,13 @@ pub fn get_small_button_style() -> String {
 
 pub fn get_container_style() -> String {
     format!(
-        "display: flex; align-items: center; gap: 20px; height: 100%; padding: 0 20px;"
+        "display: flex; flex-direction: column; gap: 20px; width: 100%;"
     )
 }
 
 pub fn get_control_container_style() -> String {
     format!(
-        "display: flex; align-items: center; gap: 8px;"
+        "display: flex; flex-direction: column; gap: 12px; width: 100%;"
     )
 }
 
@@ -432,7 +432,7 @@ pub fn apply_color_scheme_styles() {
     // Apply CSS reset first
     apply_css_reset();
     apply_body_styles();
-    apply_menu_bar_styles();
+    apply_sidebar_styles();
     apply_canvas_container_styles();
     apply_canvas_styles();
     apply_status_classes();

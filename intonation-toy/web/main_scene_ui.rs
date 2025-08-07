@@ -66,7 +66,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create root note container");
         return;
     };
-    root_note_container.set_attribute("style", &styling::get_control_container_style()).ok();
+    root_note_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
 
     // Create root note label
     let Ok(root_note_label) = document.create_element("span") else {
@@ -114,7 +114,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create tuning container");
         return;
     };
-    tuning_container.set_attribute("style", &styling::get_control_container_style()).ok();
+    tuning_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
 
     // Create tuning system label
     let Ok(tuning_label) = document.create_element("span") else {
@@ -161,7 +161,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create scale container");
         return;
     };
-    scale_container.set_attribute("style", &styling::get_control_container_style()).ok();
+    scale_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
 
     // Create scale label
     let Ok(scale_label) = document.create_element("span") else {
@@ -244,7 +244,7 @@ pub fn setup_main_scene_ui() {
             dev_log!("Failed to create root note audio container");
             return;
         };
-        root_note_audio_container.set_attribute("style", &styling::get_control_container_style()).ok();
+        root_note_audio_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
 
         // Create root note audio label
         let Ok(root_note_audio_label) = document.create_element("span") else {
@@ -274,15 +274,15 @@ pub fn setup_main_scene_ui() {
         container.append_child(&root_note_audio_container).ok();
     }
 
-    // Append container to menu bar
-    let menu_bar = document.get_element_by_id("menu-bar");
+    // Append container to sidebar
+    let sidebar = document.get_element_by_id("sidebar");
     
-    if let Some(menu_bar) = menu_bar {
-        if let Err(err) = menu_bar.append_child(&container) {
-            dev_log!("Failed to append UI container to menu bar: {:?}", err);
+    if let Some(sidebar) = sidebar {
+        if let Err(err) = sidebar.append_child(&container) {
+            dev_log!("Failed to append UI container to sidebar: {:?}", err);
         }
     } else {
-        // Fallback to body if menu-bar doesn't exist
+        // Fallback to body if sidebar doesn't exist
         if let Some(body) = document.body() {
             if let Err(err) = body.append_child(&container) {
                 dev_log!("Failed to append UI container to body: {:?}", err);
