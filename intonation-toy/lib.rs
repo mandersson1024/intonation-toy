@@ -447,28 +447,48 @@ pub async fn start_render_loop(
             viewport,
             device_pixel_ratio,
             |gui_context| {
-                let current_theme = crate::theme::get_current_color_scheme();
-                gui_context.set_visuals(egui::Visuals {
-                    window_fill: Color32::from_rgba_unmultiplied(
-                        current_theme.surface[0] as u8, 
-                        current_theme.surface[1] as u8, 
-                        current_theme.surface[2] as u8, 
-                        240
-                    ),
-                    override_text_color: Some(Color32::from_rgb(
-                        current_theme.text[0] as u8, 
-                        current_theme.text[1] as u8, 
-                        current_theme.text[2] as u8
-                    )),
-                    ..egui::Visuals::default()
-                });
-                
+                // In debug mode, use dark theme for debug panels and console
                 #[cfg(debug_assertions)]
                 {
+                    // Set dark theme visuals for debug UI
+                    gui_context.set_visuals(egui::Visuals::dark());
+                    
                     dev_console.render(gui_context);
                     if let Some(ref mut panel) = debug_panel {
                         panel.render(gui_context, &model_data);
                     }
+                }
+                
+                // In release mode, apply the current color scheme
+                #[cfg(not(debug_assertions))]
+                {
+                    let current_theme = crate::theme::get_current_color_scheme();
+                    
+                    // Convert float colors (0.0-1.0) to u8 (0-255)
+                    let surface_color = Color32::from_rgb(
+                        (current_theme.surface[0] * 255.0) as u8,
+                        (current_theme.surface[1] * 255.0) as u8,
+                        (current_theme.surface[2] * 255.0) as u8,
+                    );
+                    let text_color = Color32::from_rgb(
+                        (current_theme.text[0] * 255.0) as u8,
+                        (current_theme.text[1] * 255.0) as u8,
+                        (current_theme.text[2] * 255.0) as u8,
+                    );
+                    let bg_color = Color32::from_rgb(
+                        (current_theme.background[0] * 255.0) as u8,
+                        (current_theme.background[1] * 255.0) as u8,
+                        (current_theme.background[2] * 255.0) as u8,
+                    );
+                    
+                    gui_context.set_visuals(egui::Visuals {
+                        window_fill: surface_color,
+                        panel_fill: surface_color,
+                        override_text_color: Some(text_color),
+                        extreme_bg_color: bg_color,
+                        faint_bg_color: surface_color,
+                        ..egui::Visuals::default()
+                    });
                 }
             }
         );
