@@ -29,10 +29,14 @@ pub fn set_current_theme(theme: Theme) {
 }
 
 pub fn rgb_to_srgba(rgb: [f32; 3]) -> three_d::Srgba {
+    rgb_to_srgba_with_alpha(rgb, 1.0)
+}
+
+pub fn rgb_to_srgba_with_alpha(rgb: [f32; 3], alpha: f32) -> three_d::Srgba {
     three_d::Srgba::new(
         (rgb[0] * 255.0) as u8,
         (rgb[1] * 255.0) as u8,
         (rgb[2] * 255.0) as u8,
-        255,
+        (alpha.clamp(0.0, 1.0) * 255.0) as u8,
     )
 }

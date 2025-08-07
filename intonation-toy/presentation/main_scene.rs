@@ -1,13 +1,27 @@
-use three_d::{AmbientLight, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderTarget, Srgba, Viewport};
+use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
 use crate::shared_types::{MidiNote, ColorScheme};
-use crate::theme::{get_current_color_scheme, rgb_to_srgba};
-use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, CLARITY_THRESHOLD};
+use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
+use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD};
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
     let scale_factor = 1.0;
     let y: f32 = viewport_height * (0.5 + interval * scale_factor * 0.5);
     y
+}
+
+/// Create a ColorMaterial with the given color and optional transparency
+fn create_color_material(color: Srgba, is_transparent: bool) -> ColorMaterial {
+    ColorMaterial {
+        color,
+        texture: None,
+        is_transparent,
+        render_states: RenderStates {
+            write_mask: WriteMask::COLOR,
+            blend: Blend::TRANSPARENCY,
+            ..Default::default()
+        },
+    }
 }
 
 pub struct TuningLines {
@@ -21,10 +35,7 @@ pub struct TuningLines {
 
 impl TuningLines {
     pub fn new(context: &Context, color: Srgba) -> Self {
-        let material = ColorMaterial {
-            color,
-            ..Default::default()
-        };
+        let material = create_color_material(color, false);
         
         Self {
             lines: Vec::new(),
@@ -225,6 +236,7 @@ pub struct MainScene {
     pitch_detected: bool,
     current_scheme: ColorScheme,
     user_pitch_line_thickness: f32,
+    user_pitch_line_alpha: f32,
 }
 
 impl MainScene {
@@ -233,10 +245,7 @@ impl MainScene {
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
         let user_pitch_line = Line::new(context, PhysicalPoint{x:0.0, y:0.0}, PhysicalPoint{x:0.0, y:0.0}, initial_thickness);
 
-        let primary_material = ColorMaterial {
-            color: rgb_to_srgba(scheme.primary),
-            ..Default::default()
-        };
+        let primary_material = create_color_material(rgb_to_srgba(scheme.primary), false);
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.text));
         let text_renderer = TextRenderer::new(context)?;
@@ -251,6 +260,7 @@ impl MainScene {
             pitch_detected: false,
             current_scheme: scheme,
             user_pitch_line_thickness: initial_thickness,
+            user_pitch_line_alpha: USER_PITCH_LINE_TRANSPARENCY_MAX,
         })
     }
     
@@ -262,10 +272,10 @@ impl MainScene {
         let scheme = self.current_scheme.clone();
         
         // Recreate user pitch line with new color (it will be repositioned on next update)
-        let primary_material = ColorMaterial {
-            color: rgb_to_srgba(scheme.primary),
-            ..Default::default()
-        };
+        let primary_material = create_color_material(
+            rgb_to_srgba_with_alpha(scheme.primary, self.user_pitch_line_alpha),
+            true
+        );
         let line = Line::new(&self.context, 
             PhysicalPoint{x:0.0, y:0.0}, 
             PhysicalPoint{x:0.0, y:0.0}, 
@@ -273,10 +283,7 @@ impl MainScene {
         self.user_pitch_line = Gm::new(line, primary_material);
         
         // Update tuning lines material
-        self.tuning_lines.material = ColorMaterial {
-            color: rgb_to_srgba(scheme.text),
-            ..Default::default()
-        };
+        self.tuning_lines.material = create_color_material(rgb_to_srgba(scheme.text), false);
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
@@ -344,25 +351,36 @@ impl MainScene {
             let y = interval_to_screen_y_position(interval, viewport.height as f32);
             let endpoints = (PhysicalPoint{x:0.0, y}, PhysicalPoint{x:viewport.width as f32, y});
             
-            // Calculate thickness based on clarity
-            let new_thickness = if let Some(clarity_value) = clarity {
+            // Calculate thickness and alpha based on clarity
+            let (new_thickness, new_alpha) = if let Some(clarity_value) = clarity {
                 // Map clarity from [CLARITY_THRESHOLD, 1.0] to [USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_THICKNESS_MIN]
                 let clamped_clarity = clarity_value.clamp(CLARITY_THRESHOLD, 1.0);
                 let normalized_clarity = (clamped_clarity - CLARITY_THRESHOLD) / (1.0 - CLARITY_THRESHOLD);
-                USER_PITCH_LINE_THICKNESS_MAX + normalized_clarity * (USER_PITCH_LINE_THICKNESS_MIN - USER_PITCH_LINE_THICKNESS_MAX)
+                let thickness = USER_PITCH_LINE_THICKNESS_MAX + normalized_clarity * (USER_PITCH_LINE_THICKNESS_MIN - USER_PITCH_LINE_THICKNESS_MAX);
+                
+                // Map clarity to alpha using configured transparency range
+                // At CLARITY_THRESHOLD: alpha = USER_PITCH_LINE_TRANSPARENCY_MIN
+                // At 1.0 clarity: alpha = USER_PITCH_LINE_TRANSPARENCY_MAX
+                let alpha = USER_PITCH_LINE_TRANSPARENCY_MIN + normalized_clarity * (USER_PITCH_LINE_TRANSPARENCY_MAX - USER_PITCH_LINE_TRANSPARENCY_MIN);
+                crate::common::dev_log!("TRANSPARENCY_DEBUG: clarity={:.3}, normalized_clarity={:.3}, alpha={:.3}", clarity_value, normalized_clarity, alpha);
+                (thickness, alpha)
             } else {
-                USER_PITCH_LINE_THICKNESS_MAX // Default thickness when no clarity provided
+                (USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MAX) // Default values when no clarity provided
             };
             
-            // Check if thickness changed - if so, recreate the line
-            if (new_thickness - self.user_pitch_line_thickness).abs() > f32::EPSILON {
-                let primary_material = ColorMaterial {
-                    color: rgb_to_srgba(self.current_scheme.primary),
-                    ..Default::default()
-                };
+            // Check if thickness or alpha changed - if so, recreate the line
+            let thickness_changed = (new_thickness - self.user_pitch_line_thickness).abs() > f32::EPSILON;
+            let alpha_changed = (new_alpha - self.user_pitch_line_alpha).abs() > f32::EPSILON;
+            
+            if thickness_changed || alpha_changed {
+                let primary_material = create_color_material(
+                    rgb_to_srgba_with_alpha(self.current_scheme.primary, new_alpha),
+                    true
+                );
                 let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
                 self.user_pitch_line = Gm::new(line, primary_material);
                 self.user_pitch_line_thickness = new_thickness;
+                self.user_pitch_line_alpha = new_alpha;
             } else {
                 // Only position changed, use existing line
                 self.user_pitch_line.set_endpoints(endpoints.0, endpoints.1);

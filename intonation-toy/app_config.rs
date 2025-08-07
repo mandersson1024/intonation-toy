@@ -28,7 +28,11 @@ pub const POWER_THRESHOLD: f32 = 5.0;
 
 /// User pitch line thickness configuration
 pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 3.0;
-pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
+pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 20.0;
+
+/// User pitch line transparency configuration
+pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;
+pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 
 /// Octave line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 3.0;
