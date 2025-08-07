@@ -447,7 +447,7 @@ pub async fn start_render_loop(
             viewport,
             device_pixel_ratio,
             |gui_context| {
-                let current_theme = crate::app_config::color_scheme();
+                let current_theme = crate::theme::get_current_color_scheme();
                 gui_context.set_visuals(egui::Visuals {
                     window_fill: Color32::from_rgba_unmultiplied(
                         current_theme.surface[0] as u8, 

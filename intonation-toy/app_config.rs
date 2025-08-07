@@ -2,12 +2,16 @@
 /// 
 /// This module contains all configuration constants used throughout the application
 
-use crate::shared_types::ColorScheme;
+use crate::shared_types::{ColorScheme, Theme};
 
-/// Color scheme configuration
-pub fn color_scheme() -> ColorScheme {
-    crate::theme::get_current_color_scheme()
-}
+/// Default theme configuration
+pub const DEFAULT_THEME: Theme = Theme::Light;
+
+/// Configuration constants
+/// 
+/// This module should contain only configuration constants, not functions.
+/// Functions that compute or retrieve dynamic configuration values belong 
+/// in their respective domain modules (e.g., theme module for color schemes).
 
 /// Viewport configuration
 pub const VIEWPORT_WIDTH: u32 = 1024;

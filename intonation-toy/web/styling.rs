@@ -1,4 +1,4 @@
-use crate::app_config::color_scheme;
+use crate::theme::get_current_color_scheme;
 use crate::web::utils::{rgb_to_css, rgba_to_css};
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement};
@@ -48,16 +48,16 @@ pub fn apply_css_reset() {
 pub fn apply_body_styles() {
     let style = format!(
         "background-color: {}; color: {}; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: row; min-height: 100vh; overflow: hidden;",
-        rgb_to_css(color_scheme().background),
-        rgb_to_css(color_scheme().text)
+        rgb_to_css(get_current_color_scheme().background),
+        rgb_to_css(get_current_color_scheme().text)
     );
     apply_style_to_element("body", &style);
 }
 
 pub fn apply_sidebar_styles() {
-    let gradient_start = rgba_to_css(color_scheme().surface, 0.95);
-    let gradient_end = rgba_to_css(color_scheme().surface, 0.85);
-    let border_color = rgba_to_css(color_scheme().muted, 0.3);
+    let gradient_start = rgba_to_css(get_current_color_scheme().surface, 0.95);
+    let gradient_end = rgba_to_css(get_current_color_scheme().surface, 0.85);
+    let border_color = rgba_to_css(get_current_color_scheme().muted, 0.3);
     
     let style = format!(
         "position: fixed; top: 0; left: 0; bottom: 0; width: {}px; background: linear-gradient(to right, {}, {}); border-right: 1px solid {}; display: flex; flex-direction: column; padding: 20px; z-index: 1000; backdrop-filter: blur(10px); overflow-y: auto;",
@@ -158,34 +158,34 @@ pub fn apply_status_classes() {
 pub fn get_button_style() -> String {
     format!(
         "background-color: {}; color: {}; border: 1px solid {}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().primary, 0.3)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
     )
 }
 
 pub fn get_select_style() -> String {
     format!(
         "background-color: {}; color: {}; border: 1px solid {}; padding: 6px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; min-width: 120px;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().primary, 0.3)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
     )
 }
 
 pub fn get_input_style() -> String {
     format!(
         "background-color: {}; color: {}; border: 1px solid {}; padding: 6px 12px; border-radius: 6px; font-size: 14px;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().primary, 0.3)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
     )
 }
 
 pub fn get_label_style() -> String {
     format!(
         "color: {}; font-size: 14px; font-weight: 500; margin-right: 8px;",
-        rgb_to_css(color_scheme().text)
+        rgb_to_css(get_current_color_scheme().text)
     )
 }
 
@@ -222,8 +222,8 @@ pub fn apply_control_range_styles() {
 pub fn apply_control_styles() {
     let button_hover = format!(
         "background-color: {}; transform: translateY(-1px); box-shadow: 0 4px 12px {};",
-        rgba_to_css(color_scheme().primary, 0.1),
-        rgba_to_css(color_scheme().primary, 0.2)
+        rgba_to_css(get_current_color_scheme().primary, 0.1),
+        rgba_to_css(get_current_color_scheme().primary, 0.2)
     );
     
     let css = format!(
@@ -282,8 +282,8 @@ pub fn apply_permission_styles() {
         "#,
         get_permission_overlay_style(),
         get_permission_panel_style(),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().text, 0.8),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().text, 0.8),
         get_button_style()
     );
     add_style_to_document(&css);
@@ -314,30 +314,30 @@ pub fn apply_permission_overlay_animations() {
 pub fn get_error_overlay_style() -> String {
     format!(
         "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: {}; display: flex; justify-content: center; align-items: center; z-index: 10000;",
-        rgba_to_css(color_scheme().background, 0.95)
+        rgba_to_css(get_current_color_scheme().background, 0.95)
     )
 }
 
 pub fn get_error_panel_style() -> String {
     format!(
         "background-color: {}; color: {}; padding: 40px; border-radius: 12px; box-shadow: 0 20px 60px {}; max-width: 600px; text-align: center;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().background, 0.5)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().background, 0.5)
     )
 }
 
 pub fn get_error_title_style() -> String {
     format!(
         "font-size: 28px; font-weight: 700; margin-bottom: 20px; color: {};",
-        rgb_to_css(color_scheme().secondary)
+        rgb_to_css(get_current_color_scheme().secondary)
     )
 }
 
 pub fn get_error_details_style() -> String {
     format!(
         "font-size: 16px; line-height: 1.5; color: {}; white-space: pre-wrap;",
-        rgba_to_css(color_scheme().text, 0.8)
+        rgba_to_css(get_current_color_scheme().text, 0.8)
     )
 }
 
@@ -345,23 +345,23 @@ pub fn get_error_details_style() -> String {
 pub fn get_first_click_overlay_style() -> String {
     format!(
         "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: {}; display: flex; justify-content: center; align-items: center; z-index: 9999; cursor: pointer;",
-        rgba_to_css(color_scheme().background, 0.95)
+        rgba_to_css(get_current_color_scheme().background, 0.95)
     )
 }
 
 pub fn get_first_click_panel_style() -> String {
     format!(
         "background-color: {}; color: {}; padding: 60px; border-radius: 16px; box-shadow: 0 25px 75px {}; max-width: 600px; text-align: center; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().background, 0.6)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().background, 0.6)
     )
 }
 
 pub fn get_first_click_panel_hover_style() -> String {
     format!(
         "transform: scale(1.02); box-shadow: 0 30px 90px {};",
-        rgba_to_css(color_scheme().background, 0.7)
+        rgba_to_css(get_current_color_scheme().background, 0.7)
     )
 }
 
@@ -378,43 +378,43 @@ pub fn apply_first_click_styles() {
         get_first_click_overlay_style(),
         get_first_click_panel_style(),
         get_first_click_panel_hover_style(),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().text, 0.8)
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().text, 0.8)
     );
     add_style_to_document(&css);
 }
 
 pub fn get_svg_muted_color() -> String {
-    rgb_to_css(color_scheme().muted)
+    rgb_to_css(get_current_color_scheme().muted)
 }
 
 pub fn get_svg_secondary_color() -> String {
-    rgb_to_css(color_scheme().secondary)
+    rgb_to_css(get_current_color_scheme().secondary)
 }
 
 pub fn get_svg_surface_color() -> String {
-    rgb_to_css(color_scheme().surface)
+    rgb_to_css(get_current_color_scheme().surface)
 }
 
 pub fn get_svg_accent_color() -> String {
-    rgb_to_css(color_scheme().accent)
+    rgb_to_css(get_current_color_scheme().accent)
 }
 
 // Main Scene UI Styles
 pub fn get_root_note_display_style() -> String {
     format!(
         "background-color: {}; color: {}; padding: 6px 12px; border-radius: 6px; font-size: 16px; font-weight: 600; min-width: 60px; text-align: center; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;",
-        rgba_to_css(color_scheme().primary, 0.1),
-        rgb_to_css(color_scheme().primary)
+        rgba_to_css(get_current_color_scheme().primary, 0.1),
+        rgb_to_css(get_current_color_scheme().primary)
     )
 }
 
 pub fn get_small_button_style() -> String {
     format!(
         "background-color: {}; color: {}; border: 1px solid {}; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.2s;",
-        rgb_to_css(color_scheme().surface),
-        rgb_to_css(color_scheme().text),
-        rgba_to_css(color_scheme().primary, 0.3)
+        rgb_to_css(get_current_color_scheme().surface),
+        rgb_to_css(get_current_color_scheme().text),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
     )
 }
 
@@ -433,14 +433,14 @@ pub fn get_control_container_style() -> String {
 pub fn get_monospace_display_style() -> String {
     format!(
         "font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace; font-size: 14px; color: {};",
-        rgb_to_css(color_scheme().text)
+        rgb_to_css(get_current_color_scheme().text)
     )
 }
 
 pub fn get_checkbox_style() -> String {
     format!(
         "width: 18px; height: 18px; cursor: pointer; accent-color: {};",
-        rgb_to_css(color_scheme().primary)
+        rgb_to_css(get_current_color_scheme().primary)
     )
 }
 
