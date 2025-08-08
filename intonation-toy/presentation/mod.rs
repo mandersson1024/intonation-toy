@@ -637,13 +637,13 @@ impl Presenter {
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
     /// * `root_note` - The MIDI note to use as the root note  
-    /// * `volume_db` - Volume in decibels for UI (typically -40 to 0)
-    pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote, volume_db: f32) {
-        // Convert dB to amplitude (0.0-1.0) for internal representation
-        let volume = 10.0_f32.powf(volume_db / 20.0);
+    /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
+    pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote, volume_amplitude: f32) {
+        // Use the amplitude value directly
+        let volume = volume_amplitude;
         
-        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume_db: {}, volume: {}", 
-                                enabled, root_note, volume_db, volume);
+        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume: {}", 
+                                enabled, root_note, volume);
         let frequency = Self::midi_note_to_frequency(root_note);
         self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
@@ -663,13 +663,13 @@ impl Presenter {
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
     /// * `root_note` - The MIDI note to use as the root note
-    /// * `volume_db` - Volume in decibels (typically -40 to 0)
-    pub fn on_root_note_audio_configured_with_volume(&mut self, enabled: bool, root_note: MidiNote, volume_db: f32) {
-        // Convert dB to amplitude (0.0-1.0)
-        let volume = 10.0_f32.powf(volume_db / 20.0);
+    /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
+    pub fn on_root_note_audio_configured_with_volume(&mut self, enabled: bool, root_note: MidiNote, volume_amplitude: f32) {
+        // Use the amplitude value directly
+        let volume = volume_amplitude;
         
-        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume_db: {}, volume: {}", 
-                                enabled, root_note, volume_db, volume);
+        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume: {}", 
+                                enabled, root_note, volume);
         
         let frequency = Self::midi_note_to_frequency(root_note);
         self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {

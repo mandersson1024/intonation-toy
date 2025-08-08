@@ -28,9 +28,66 @@ static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
 static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = false, 1 = true
 
 
-// Global state for tuning fork volume
+// Global state for tuning fork volume slider position (0-100)
 #[cfg(target_arch = "wasm32")]
-static CURRENT_TUNING_FORK_VOLUME_DB: AtomicI8 = AtomicI8::new(-20);
+static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(50);
+
+/// Convert slider position (0-100) to amplitude (0.0-1.0) using dual-scale approach
+/// - 0-20%: Linear scaling from 0.0 to 0.01 amplitude
+/// - 20-100%: dB scaling from -40dB to 0dB
+#[cfg(target_arch = "wasm32")]
+fn slider_position_to_amplitude(position: f32) -> f32 {
+    if position <= 0.0 {
+        0.0
+    } else if position <= 20.0 {
+        // Linear scaling: 0-20% maps to 0.0-0.01 amplitude
+        position * 0.01 / 20.0
+    } else {
+        // dB scaling: 20-100% maps to -40dB to 0dB
+        let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
+        10.0_f32.powf(db / 20.0)
+    }
+}
+
+/// Convert amplitude (0.0-1.0) to slider position (0-100) for UI synchronization
+#[cfg(target_arch = "wasm32")]
+fn amplitude_to_slider_position(amplitude: f32) -> f32 {
+    if amplitude <= 0.0 {
+        0.0
+    } else if amplitude <= 0.01 {
+        // Linear range: 0.0-0.01 amplitude maps to 0-20% position
+        amplitude * 20.0 / 0.01
+    } else {
+        // dB range: calculate dB from amplitude and map to 20-100% position
+        let db = 20.0 * amplitude.log10();
+        let db = db.max(-40.0).min(0.0); // Clamp to valid range
+        20.0 + (db + 40.0) * 80.0 / 40.0
+    }
+}
+
+/// Convert slider position to dB display string
+/// - 0%: Shows "-∞ dB"
+/// - 0-20%: Calculates dB from amplitude
+/// - 20-100%: Maps directly to dB scale
+#[cfg(target_arch = "wasm32")]
+fn slider_position_to_db_display(position: f32) -> String {
+    if position <= 0.0 {
+        "-∞ dB".to_string()
+    } else if position <= 20.0 {
+        // Calculate dB from the amplitude in the linear range
+        let amplitude = slider_position_to_amplitude(position);
+        if amplitude > 0.0 {
+            let db = 20.0 * amplitude.log10();
+            format!("{:.1} dB", db)
+        } else {
+            "-∞ dB".to_string()
+        }
+    } else {
+        // Direct dB mapping for 20-100% range
+        let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
+        format!("{:.1} dB", db)
+    }
+}
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
@@ -305,9 +362,9 @@ pub fn setup_main_scene_ui() {
     };
     volume_slider.set_id("tuning-fork-volume");
     volume_slider.set_attribute("type", "range").ok();
-    volume_slider.set_attribute("min", "-40").ok();
-    volume_slider.set_attribute("max", "0").ok();
-    volume_slider.set_attribute("value", "-20").ok();
+    volume_slider.set_attribute("min", "0").ok();
+    volume_slider.set_attribute("max", "100").ok();
+    volume_slider.set_attribute("value", "50").ok();
     volume_slider.set_attribute("style", &styling::get_range_input_style()).ok();
 
     // Create volume display
@@ -316,7 +373,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     volume_display.set_id("tuning-fork-volume-display");
-    volume_display.set_text_content(Some("-20 dB"));
+    volume_display.set_text_content(Some(&slider_position_to_db_display(50.0)));
     volume_display.set_attribute("style", &styling::get_volume_display_style()).ok();
 
     // Assemble volume container
@@ -489,8 +546,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                             if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
                                 if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
                                     if html_checkbox.checked() {
-                                        let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
-                                        presenter_mut.on_root_note_audio_configured(true, new_root, volume_db);
+                                        let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                                        let amplitude = slider_position_to_amplitude(position);
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, amplitude);
                                     }
                                 }
                             }
@@ -525,8 +583,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                             if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
                                 if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
                                     if html_checkbox.checked() {
-                                        let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
-                                        presenter_mut.on_root_note_audio_configured(true, new_root, volume_db);
+                                        let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                                        let amplitude = slider_position_to_amplitude(position);
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, amplitude);
                                     }
                                 }
                             }
@@ -627,8 +686,9 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                         if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
                             let enabled = html_checkbox.checked();
                             let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                            let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
-                            presenter_clone.borrow_mut().on_root_note_audio_configured(enabled, current_root_note, volume_db);
+                            let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                            let amplitude = slider_position_to_amplitude(position);
+                            presenter_clone.borrow_mut().on_root_note_audio_configured(enabled, current_root_note, amplitude);
                         }
                     }
                 }
@@ -653,12 +713,15 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                 if let Some(document) = current_window.document() {
                     if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
                         if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
-                            if let Ok(volume_db) = html_slider.value().parse::<i8>() {
-                                CURRENT_TUNING_FORK_VOLUME_DB.store(volume_db, Ordering::Relaxed);
+                            if let Ok(position) = html_slider.value().parse::<f32>() {
+                                CURRENT_TUNING_FORK_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
                                 
-                                // Update volume display
+                                // Convert position to amplitude
+                                let amplitude = slider_position_to_amplitude(position);
+                                
+                                // Update volume display with dB value
                                 if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
-                                    display_element.set_text_content(Some(&format!("{} dB", volume_db)));
+                                    display_element.set_text_content(Some(&slider_position_to_db_display(position)));
                                 }
                                 
                                 // Update audio if enabled
@@ -666,7 +729,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                                     if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
                                         if html_checkbox.checked() {
                                             let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                                            presenter_clone.borrow_mut().on_root_note_audio_configured(true, current_root_note, volume_db as f32);
+                                            presenter_clone.borrow_mut().on_root_note_audio_configured(true, current_root_note, amplitude);
                                         }
                                     }
                                 }
@@ -765,14 +828,14 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
     }
     
     // Update volume slider and display
-    let current_volume = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed);
+    let current_position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
     if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
         if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
-            html_slider.set_value(&current_volume.to_string());
+            html_slider.set_value(&current_position.to_string());
         }
     }
     if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
-        display_element.set_text_content(Some(&format!("{} dB", current_volume)));
+        display_element.set_text_content(Some(&slider_position_to_db_display(current_position)));
     }
 }
 
