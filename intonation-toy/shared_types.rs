@@ -158,7 +158,7 @@ impl ColorScheme {
             surface: [0.8, 0.8, 0.8],
             primary: [0.0, 0.4, 0.8],
             secondary: [0.8, 0.0, 0.0],
-            accent: [0.8, 0.6, 0.0],
+            accent: [0.0, 1.0, 0.0],
             text: [0.0, 0.0, 0.0],
             muted: [0.6, 0.6, 0.6],
         }
