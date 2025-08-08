@@ -1149,37 +1149,28 @@ impl AudioWorkletManager {
     /// independent of the main AudioWorklet processing pipeline. Root note audio is always
     /// audible regardless of the output_to_speakers flag.
     pub fn update_root_note_audio_config(&mut self, config: RootNoteAudioConfig) {
-        dev_log!("[AudioWorkletManager] Updating root note audio config - enabled: {}, frequency: {} Hz", 
-                config.enabled, config.frequency);
+        dev_log!("[AudioWorkletManager] Updating root note audio config - frequency: {} Hz", 
+                config.frequency);
         
-        if config.enabled {
-            // Create or update the root note audio node
-            if let Some(ref mut node) = self.root_note_node {
-                // Update existing node
-                node.update_config(config.clone());
-            } else {
-                // Create new node
-                if let Some(ref audio_context) = self.audio_context {
-                    match RootNoteAudioNode::new(audio_context, config.clone()) {
-                        Ok(node) => {
-                            dev_log!("[AudioWorkletManager] Created new root note audio node");
-                            self.root_note_node = Some(node);
-                        }
-                        Err(e) => {
-                            dev_log!("[AudioWorkletManager] Failed to create root note audio node: {:?}", e);
-                        }
-                    }
-                } else {
-                    dev_log!("[AudioWorkletManager] No audio context available for root note audio");
-                }
-            }
+        // Always create or update the root note audio node
+        if let Some(ref mut node) = self.root_note_node {
+            // Update existing node
+            node.update_config(config.clone());
         } else {
-            // Disable or remove the root note audio node
-            if let Some(ref mut node) = self.root_note_node {
-                node.disable();
-                dev_log!("[AudioWorkletManager] Disabled root note audio node");
+            // Create new node
+            if let Some(ref audio_context) = self.audio_context {
+                match RootNoteAudioNode::new(audio_context, config.clone()) {
+                    Ok(node) => {
+                        dev_log!("[AudioWorkletManager] Created new root note audio node");
+                        self.root_note_node = Some(node);
+                    }
+                    Err(e) => {
+                        dev_log!("[AudioWorkletManager] Failed to create root note audio node: {:?}", e);
+                    }
+                }
+            } else {
+                dev_log!("[AudioWorkletManager] No audio context available for root note audio");
             }
-            // Note: We keep the node for potential re-enabling, only drop when disconnecting
         }
         
     }
@@ -1191,13 +1182,9 @@ impl AudioWorkletManager {
     /// 
     /// # Returns
     /// 
-    /// Returns `true` if root note audio is enabled, `false` otherwise.
+    /// Returns `true` if root note audio is enabled (always true now)
     pub fn is_root_note_audio_enabled(&self) -> bool {
-        if let Some(ref node) = self.root_note_node {
-            node.is_enabled()
-        } else {
-            false
-        }
+        true
     }
 
     /// Set whether to output audio stream to speakers
