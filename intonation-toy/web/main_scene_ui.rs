@@ -27,9 +27,6 @@ static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
 #[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = false, 1 = true
 
-// Debouncing for tuning fork clicks to prevent double-triggering
-#[cfg(target_arch = "wasm32")]
-static LAST_TUNING_FORK_CLICK_TIME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 // Global state for tuning fork volume
 #[cfg(target_arch = "wasm32")]

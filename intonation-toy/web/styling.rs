@@ -466,6 +466,14 @@ pub fn get_volume_display_style() -> String {
     )
 }
 
+pub fn get_tuning_fork_container_style() -> String {
+    "display: flex; flex-direction: column; gap: 8px; width: 100%;".to_string()
+}
+
+pub fn get_volume_slider_container_style() -> String {
+    "display: flex; align-items: center; gap: 8px; width: 100%;".to_string()
+}
+
 pub fn get_sidebar_header_style() -> String {
     format!(
         "color: {}; font-size: 24px; font-weight: 700; margin: 0 0 20px 0; padding: 16px 0; text-align: center; border-bottom: 2px solid {}; font-family: system-ui, -apple-system, sans-serif;",
