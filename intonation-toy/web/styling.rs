@@ -511,6 +511,7 @@ pub fn apply_color_scheme_styles() {
     apply_root_note_styles();
     apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
+    apply_about_section_styles();
 }
 
 pub fn apply_root_note_styles() {
@@ -546,6 +547,85 @@ pub fn apply_sidebar_header_styles() {
     }
 }
 
+// About Section Styles
+pub fn get_about_section_style() -> String {
+    format!(
+        "margin-top: 32px; padding-top: 20px; border-top: 1px solid {}; width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0;",
+        rgba_to_css(get_current_color_scheme().muted, 0.3)
+    )
+}
+
+pub fn get_about_header_style() -> String {
+    format!(
+        "color: {}; font-size: 15px; font-weight: 600; margin-bottom: 12px;",
+        rgb_to_css(get_current_color_scheme().text)
+    )
+}
+
+pub fn get_about_content_style() -> String {
+    format!(
+        "padding: 16px; background-color: {}; border-radius: 8px; overflow-y: auto; flex: 1;",
+        rgba_to_css(get_current_color_scheme().surface, 0.5)
+    )
+}
+
+pub fn get_about_text_style() -> String {
+    format!(
+        "color: {}; font-size: 13px; line-height: 1.6; margin-bottom: 12px;",
+        rgba_to_css(get_current_color_scheme().text, 0.9)
+    )
+}
+
+pub fn get_about_list_style() -> String {
+    format!(
+        "color: {}; font-size: 13px; line-height: 1.8; margin: 8px 0 8px 20px; padding-left: 0;",
+        rgba_to_css(get_current_color_scheme().text, 0.9)
+    )
+}
+
+pub fn apply_about_section_styles() {
+    let css = format!(
+        r#"
+        .about-section {{
+            {}
+        }}
+        .about-header {{
+            {}
+        }}
+        .about-content {{
+            {}
+        }}
+        .about-text {{
+            {}
+        }}
+        .about-list {{
+            {}
+        }}
+        .about-list li {{
+            margin-bottom: 4px;
+        }}
+        .about-section h3 {{
+            color: {};
+            font-size: 14px;
+            font-weight: 600;
+            margin: 16px 0 8px 0;
+        }}
+        .about-section strong {{
+            color: {};
+            font-weight: 600;
+        }}
+        "#,
+        get_about_section_style(),
+        get_about_header_style(),
+        get_about_content_style(),
+        get_about_text_style(),
+        get_about_list_style(),
+        rgb_to_css(get_current_color_scheme().primary),
+        rgb_to_css(get_current_color_scheme().text)
+    );
+    add_style_to_document(&css);
+}
+
 pub fn reapply_current_theme() {
     // Only reapply color-related styles, not layout/sizing
     apply_body_styles();
@@ -559,4 +639,5 @@ pub fn reapply_current_theme() {
     apply_root_note_styles();
     apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
+    apply_about_section_styles();
 }

@@ -266,6 +266,87 @@ pub fn setup_main_scene_ui() {
     // Assemble scale controls
     scale_container.append_child(&scale_select).ok();
 
+    // Create About section
+    let Ok(about_section) = document.create_element("div") else {
+        dev_log!("Failed to create about section");
+        return;
+    };
+    about_section.set_class_name("about-section");
+    about_section.set_attribute("style", &styling::get_about_section_style()).ok();
+
+    // Create About header
+    let Ok(about_header) = document.create_element("div") else {
+        dev_log!("Failed to create about header");
+        return;
+    };
+    about_header.set_class_name("about-header");
+    about_header.set_attribute("style", &styling::get_about_header_style()).ok();
+    about_header.set_text_content(Some("About"));
+
+    // Create About content
+    let Ok(about_content) = document.create_element("div") else {
+        dev_log!("Failed to create about content");
+        return;
+    };
+    about_content.set_class_name("about-content");
+    about_content.set_attribute("style", &styling::get_about_content_style()).ok();
+
+    // Create app description
+    let Ok(app_description) = document.create_element("p") else {
+        dev_log!("Failed to create app description");
+        return;
+    };
+    app_description.set_class_name("about-text");
+    app_description.set_attribute("style", &styling::get_about_text_style()).ok();
+    app_description.set_inner_html("<strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. It helps you explore musical intonation by analyzing audio input and displaying the relationship between detected pitches and your selected root note.");
+
+    // Create user guide section
+    let Ok(user_guide_header) = document.create_element("h3") else {
+        dev_log!("Failed to create user guide header");
+        return;
+    };
+    user_guide_header.set_text_content(Some("Quick Guide"));
+
+    let Ok(user_guide) = document.create_element("ul") else {
+        dev_log!("Failed to create user guide");
+        return;
+    };
+    user_guide.set_class_name("about-list");
+    user_guide.set_attribute("style", &styling::get_about_list_style()).ok();
+    user_guide.set_inner_html(r#"
+        <li><strong>Root Note:</strong> Use +/- buttons to adjust the tonic pitch</li>
+        <li><strong>Tuning Fork:</strong> Click to hear the root note as a reference tone</li>
+        <li><strong>Tuning System:</strong> Choose between Equal Temperament or Just Intonation</li>
+        <li><strong>Scale:</strong> Select the musical scale for pitch visualization</li>
+        <li><strong>Microphone:</strong> Grant permission when prompted to analyze live audio</li>
+    "#);
+
+    // Create browser requirements section
+    let Ok(browser_header) = document.create_element("h3") else {
+        dev_log!("Failed to create browser header");
+        return;
+    };
+    browser_header.set_text_content(Some("Browser Requirements"));
+
+    let Ok(browser_info) = document.create_element("p") else {
+        dev_log!("Failed to create browser info");
+        return;
+    };
+    browser_info.set_class_name("about-text");
+    browser_info.set_attribute("style", &styling::get_about_text_style()).ok();
+    browser_info.set_text_content(Some("Works best in modern browsers with WebAssembly and Web Audio API support. Chrome, Firefox, Safari, and Edge are recommended."));
+
+    // Assemble About content
+    about_content.append_child(&app_description).ok();
+    about_content.append_child(&user_guide_header).ok();
+    about_content.append_child(&user_guide).ok();
+    about_content.append_child(&browser_header).ok();
+    about_content.append_child(&browser_info).ok();
+
+    // Assemble About section
+    about_section.append_child(&about_header).ok();
+    about_section.append_child(&about_content).ok();
+
     // Assemble main container
     container.append_child(&root_note_header).ok();
     container.append_child(&root_note_container).ok();
@@ -273,6 +354,7 @@ pub fn setup_main_scene_ui() {
     container.append_child(&tuning_container).ok();
     container.append_child(&scale_header).ok();
     container.append_child(&scale_container).ok();
+    container.append_child(&about_section).ok();
 
 
     // Append header and container to sidebar
