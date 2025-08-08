@@ -382,7 +382,7 @@ async fn test_root_note_audio_independence() {
         .expect("Presenter creation should succeed");
     
     // Test that root note audio configuration is handled separately from main audio
-    presenter.on_root_note_audio_configured(true);
+    presenter.on_root_note_audio_configured(true, 69, -20.0);
     let debug_actions = presenter.get_debug_actions();
     
     // Verify root note audio configuration is captured
@@ -412,7 +412,7 @@ fn test_root_note_audio_frequency_auto_update() {
     presenter.on_root_note_adjusted(initial_root_note);
     
     // Enable root note audio
-    presenter.on_root_note_audio_configured(true);
+    presenter.on_root_note_audio_configured(true, initial_root_note, -20.0);
     
     let initial_actions = presenter.collect_debug_actions();
     let initial_config = &initial_actions.root_note_audio_configurations[0];
@@ -461,7 +461,7 @@ fn test_debug_panel_root_note_audio_controls() {
     // Test the debug panel's ability to configure root note audio through presenter
     {
         let mut borrowed_presenter = presenter.borrow_mut();
-        borrowed_presenter.on_root_note_audio_configured(true);
+        borrowed_presenter.on_root_note_audio_configured(true, 69, -20.0);
     }
     
     let borrowed_presenter = presenter.borrow();

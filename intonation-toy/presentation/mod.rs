@@ -636,13 +636,19 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `enabled` - Whether root note audio generation should be enabled
-    pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote) {
-        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}", enabled, root_note);
+    /// * `root_note` - The MIDI note to use as the root note  
+    /// * `volume_db` - Volume in decibels for UI (typically -40 to 0)
+    pub fn on_root_note_audio_configured(&mut self, enabled: bool, root_note: MidiNote, volume_db: f32) {
+        // Convert dB to amplitude (0.0-1.0) for internal representation
+        let volume = 10.0_f32.powf(volume_db / 20.0);
+        
+        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume_db: {}, volume: {}", 
+                                enabled, root_note, volume_db, volume);
         let frequency = Self::midi_note_to_frequency(root_note);
         self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
             frequency,
-            volume: 0.1, // Default volume for now, will be configurable from UI
+            volume,
         });
         crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.root_note_audio_configurations.len());
     }

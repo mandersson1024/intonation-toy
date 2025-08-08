@@ -425,7 +425,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                             if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
                                 if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
                                     if html_element.class_name().contains("active") {
-                                        presenter_mut.on_root_note_audio_configured(true, new_root);
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, -20.0);
                                     }
                                 }
                             }
@@ -460,7 +460,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                             if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
                                 if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
                                     if html_element.class_name().contains("active") {
-                                        presenter_mut.on_root_note_audio_configured(true, new_root);
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, -20.0);
                                     }
                                 }
                             }
@@ -583,7 +583,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                                 }
                                 let new_enabled = !enabled;
                                 let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                                presenter_clone.borrow_mut().on_root_note_audio_configured(new_enabled, current_root_note);
+                                presenter_clone.borrow_mut().on_root_note_audio_configured(new_enabled, current_root_note, -20.0);
                             }
                         }
                     }
