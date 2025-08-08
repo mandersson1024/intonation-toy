@@ -197,6 +197,7 @@ impl AudioEngine {
                         let root_note_config = crate::engine::audio::RootNoteAudioConfig {
                             enabled: true,
                             frequency: default_frequency,
+                            volume: 0.1,
                         };
                         borrowed_context.configure_root_note_audio(root_note_config);
                     }
@@ -372,6 +373,7 @@ impl AudioEngine {
                     let audio_config = crate::engine::audio::signal_generator::RootNoteAudioConfig {
                         enabled: config.enabled,
                         frequency: config.frequency,
+                        volume: config.volume,
                     };
                     
                     // Use the separate root note audio node architecture

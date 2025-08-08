@@ -180,6 +180,7 @@ pub struct UpdateTuningConfigurationAction {
 pub struct ConfigureRootNoteAudioAction {
     pub enabled: bool,
     pub frequency: f32,
+    pub volume: f32,
 }
 
 /// Container for all processed model layer actions
@@ -569,6 +570,7 @@ impl DataModel {
                     let config = ConfigureRootNoteAudioAction {
                         enabled: root_note_audio_config.enabled,
                         frequency: root_note_audio_config.frequency,
+                        volume: root_note_audio_config.volume,
                     };
                     
                     // Apply the state change to internal model state

@@ -48,8 +48,8 @@ impl RootNoteAudioNode {
         let gain_node = audio_context.create_gain()
             .map_err(|e| AudioError::Generic(format!("Failed to create gain node: {:?}", e)))?;
         
-        // Set initial volume based on config.enabled state
-        let initial_gain = if config.enabled { 0.1 } else { 0.0 };
+        // Set initial volume based on config.enabled state and volume setting
+        let initial_gain = if config.enabled { config.volume } else { 0.0 };
         gain_node.gain().set_value(initial_gain);
         
         // Connect oscillator -> gain -> destination
@@ -89,11 +89,11 @@ impl RootNoteAudioNode {
     
     /// Enable root note audio output
     /// 
-    /// Sets the gain to an audible level (0.1) to make the root note audible
+    /// Sets the gain to the configured volume level to make the root note audible
     pub fn enable(&mut self) {
         if !self.config.enabled {
             dev_log!("[RootNoteAudioNode] Enabling root note audio output");
-            self.gain_node.gain().set_value(0.1); // Moderate volume level
+            self.gain_node.gain().set_value(self.config.volume);
             self.config.enabled = true;
         }
     }
@@ -128,11 +128,19 @@ impl RootNoteAudioNode {
     /// # Arguments
     /// * `config` - New configuration to apply
     pub fn update_config(&mut self, config: RootNoteAudioConfig) {
-        dev_log!("[RootNoteAudioNode] Updating configuration - enabled: {}, frequency: {} Hz", 
-                config.enabled, config.frequency);
+        dev_log!("[RootNoteAudioNode] Updating configuration - enabled: {}, frequency: {} Hz, volume: {}", 
+                config.enabled, config.frequency, config.volume);
         
         // Update frequency if changed
         self.set_frequency(config.frequency);
+        
+        // Update volume if changed and enabled
+        if (self.config.volume - config.volume).abs() > f32::EPSILON {
+            self.config.volume = config.volume;
+            if self.config.enabled {
+                self.gain_node.gain().set_value(config.volume);
+            }
+        }
         
         // Update enabled state
         if config.enabled != self.config.enabled {

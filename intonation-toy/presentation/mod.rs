@@ -161,12 +161,13 @@ impl ConfigureTestSignal {
 pub struct ConfigureRootNoteAudio {
     pub enabled: bool,
     pub frequency: f32,
+    pub volume: f32,
 }
 
 #[cfg(all(debug_assertions, test))]
 impl ConfigureRootNoteAudio {
-    pub fn new(enabled: bool, frequency: f32) -> Self {
-        Self { enabled, frequency }
+    pub fn new(enabled: bool, frequency: f32, volume: f32) -> Self {
+        Self { enabled, frequency, volume }
     }
 }
 
@@ -641,8 +642,36 @@ impl Presenter {
         self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
             enabled,
             frequency,
+            volume: 0.1, // Default volume for now, will be configurable from UI
         });
         crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.root_note_audio_configurations.len());
+    }
+    
+    /// Handle root note audio configuration with volume control
+    /// 
+    /// This method should be called by UI components to configure root note audio
+    /// with specific volume settings. The volume is provided in decibels for
+    /// user-friendly control and converted to amplitude internally.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether root note audio generation should be enabled
+    /// * `root_note` - The MIDI note to use as the root note
+    /// * `volume_db` - Volume in decibels (typically -40 to 0)
+    pub fn on_root_note_audio_configured_with_volume(&mut self, enabled: bool, root_note: MidiNote, volume_db: f32) {
+        // Convert dB to amplitude (0.0-1.0)
+        let volume = 10.0_f32.powf(volume_db / 20.0);
+        
+        crate::common::dev_log!("PRESENTER: Root note audio configured - enabled: {}, root_note: {}, volume_db: {}, volume: {}", 
+                                enabled, root_note, volume_db, volume);
+        
+        let frequency = Self::midi_note_to_frequency(root_note);
+        self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+            enabled,
+            frequency,
+            volume,
+        });
+        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions with volume control");
     }
 
 
