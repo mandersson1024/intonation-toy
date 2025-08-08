@@ -208,7 +208,6 @@ pub async fn start_render_loop(
                 audio_analysis: None,
                 audio_errors: Vec::new(),
                 permission_state: crate::shared_types::PermissionState::NotRequested,
-                root_note_audio_enabled: !cfg!(debug_assertions), // Default: on in release, off in debug
             }
         };
         
@@ -317,7 +316,6 @@ pub async fn start_render_loop(
                 cents_offset: 0.0,
                 interval_semitones: 0,
                 root_note: 53,
-                root_note_audio_enabled: false,
             }
         };
         

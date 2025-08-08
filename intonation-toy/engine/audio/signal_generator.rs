@@ -17,8 +17,6 @@ pub struct SignalGeneratorConfig {
 /// Configuration for root note audio generation
 #[derive(Debug, Clone, PartialEq)]
 pub struct RootNoteAudioConfig {
-    /// Whether root note audio is enabled
-    pub enabled: bool,
     /// Root note frequency in Hz
     pub frequency: f32,
     /// Volume amplitude (0.0-1.0)
@@ -39,9 +37,8 @@ impl Default for SignalGeneratorConfig {
 impl Default for RootNoteAudioConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
             frequency: 220.0,
-            volume: 0.1,
+            volume: 0.0,
         }
     }
 }

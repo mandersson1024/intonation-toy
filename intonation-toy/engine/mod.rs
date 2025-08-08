@@ -187,20 +187,17 @@ impl AudioEngine {
                 
                 let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
                 
-                // Initialize default root note audio if it should be enabled
-                if !cfg!(debug_assertions) { // Enable by default in release mode
-                    crate::common::dev_log!("Initializing default root note audio (release mode)");
-                    let default_root_note = 57; // A3
-                    let default_frequency = crate::theory::tuning::midi_note_to_standard_frequency(default_root_note);
-                    
-                    if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
-                        let root_note_config = crate::engine::audio::RootNoteAudioConfig {
-                            enabled: true,
-                            frequency: default_frequency,
-                            volume: 0.1,
-                        };
-                        borrowed_context.configure_root_note_audio(root_note_config);
-                    }
+                // Initialize default root note audio with zero volume
+                crate::common::dev_log!("Initializing default root note audio with zero volume");
+                let default_root_note = 57; // A3
+                let default_frequency = crate::theory::tuning::midi_note_to_standard_frequency(default_root_note);
+                
+                if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
+                    let root_note_config = crate::engine::audio::RootNoteAudioConfig {
+                        frequency: default_frequency,
+                        volume: 0.0,
+                    };
+                    borrowed_context.configure_root_note_audio(root_note_config);
                 }
                 
                 Ok(Self {
@@ -245,14 +242,11 @@ impl AudioEngine {
             let mut audio_errors = borrowed_context.collect_audio_errors();
             let permission_state = borrowed_context.collect_permission_state();
             
-            // Get root note audio state from audio system
-            let root_note_audio_enabled = borrowed_context.get_root_note_audio_enabled();
             
             EngineUpdateResult {
                 audio_analysis,
                 audio_errors,
                 permission_state,
-                root_note_audio_enabled,
             }
         } else {
             // No audio context available
@@ -260,7 +254,6 @@ impl AudioEngine {
                 audio_analysis: None,
                 audio_errors: vec![crate::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
                 permission_state: crate::shared_types::PermissionState::NotRequested,
-                root_note_audio_enabled: !cfg!(debug_assertions), // Default: on in release, off in debug
             }
         }
     }
@@ -361,8 +354,8 @@ impl AudioEngine {
         // Process root note audio configurations
         for config in &model_actions.root_note_audio_configurations {
             crate::common::dev_log!(
-                "Engine layer: Executing root note audio configuration - enabled: {}, frequency: {} Hz",
-                config.enabled, config.frequency
+                "Engine layer: Executing root note audio configuration - frequency: {} Hz",
+                config.frequency
             );
             
             // Execute the root note audio configuration using the audio system
@@ -371,7 +364,6 @@ impl AudioEngine {
                 if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
                     // Convert model action to audio system config
                     let audio_config = crate::engine::audio::signal_generator::RootNoteAudioConfig {
-                        enabled: config.enabled,
                         frequency: config.frequency,
                         volume: config.volume,
                     };
@@ -379,8 +371,8 @@ impl AudioEngine {
                     // Use the separate root note audio node architecture
                     worklet_manager.update_root_note_audio_config(audio_config);
                     crate::common::dev_log!(
-                        "Engine layer: ✓ Root note audio control updated - enabled: {}, frequency: {} Hz", 
-                        config.enabled, config.frequency
+                        "Engine layer: ✓ Root note audio control updated - frequency: {} Hz", 
+                        config.frequency
                     );
                 } else {
                     crate::common::dev_log!(

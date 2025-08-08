@@ -325,7 +325,6 @@ pub struct EngineUpdateResult {
     pub audio_analysis: Option<AudioAnalysis>,
     pub audio_errors: Vec<Error>,
     pub permission_state: PermissionState,
-    pub root_note_audio_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -342,8 +341,6 @@ pub struct ModelUpdateResult {
     pub cents_offset: f32,
     pub interval_semitones: i32,
     pub root_note: MidiNote,
-    /// Controls whether root note audio generation is enabled
-    pub root_note_audio_enabled: bool,
 }
 
 /// Converts a semitone interval to a musical interval name.
@@ -479,7 +476,6 @@ mod tests {
             audio_analysis: Some(test_analysis.clone()),
             audio_errors: test_errors.clone(),
             permission_state: PermissionState::Granted,
-            root_note_audio_enabled: false,
         };
 
         assert_eq!(update_result.audio_analysis, Some(test_analysis));
@@ -507,7 +503,6 @@ mod tests {
             cents_offset: -10.0,
             interval_semitones: 0,
             root_note: 53,
-            root_note_audio_enabled: false,
         };
 
         assert_eq!(update_result.volume, test_volume);

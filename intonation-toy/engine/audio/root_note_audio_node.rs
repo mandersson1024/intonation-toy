@@ -51,9 +51,8 @@ impl RootNoteAudioNode {
         let gain_node = audio_context.create_gain()
             .map_err(|e| AudioError::Generic(format!("Failed to create gain node: {:?}", e)))?;
         
-        // Set initial volume based on config.enabled state and volume setting
-        let initial_gain = if config.enabled { config.volume } else { 0.0 };
-        gain_node.gain().set_value(initial_gain);
+        // Set initial volume
+        gain_node.gain().set_value(config.volume);
         
         // Connect oscillator -> gain -> destination
         oscillator.connect_with_audio_node(&gain_node)
@@ -66,8 +65,8 @@ impl RootNoteAudioNode {
         oscillator.start()
             .map_err(|e| AudioError::Generic(format!("Failed to start oscillator: {:?}", e)))?;
         
-        dev_log!("[RootNoteAudioNode] Successfully created and started root note audio node - enabled: {}, gain: {}", 
-                config.enabled, initial_gain);
+        dev_log!("[RootNoteAudioNode] Successfully created and started root note audio node - gain: {}", 
+                config.volume);
         
         Ok(Self {
             audio_context: audio_context.clone(),
@@ -90,35 +89,13 @@ impl RootNoteAudioNode {
         }
     }
     
-    /// Enable root note audio output
-    /// 
-    /// Sets the gain to the configured volume level to make the root note audible
-    pub fn enable(&mut self) {
-        if !self.config.enabled {
-            dev_log!("[RootNoteAudioNode] Enabling root note audio output");
-            self.gain_node.gain().set_value(self.config.volume);
-            self.config.enabled = true;
-        }
-    }
-    
-    /// Disable root note audio output
-    /// 
-    /// Sets the gain to zero to mute the root note while keeping the oscillator running
-    pub fn disable(&mut self) {
-        if self.config.enabled {
-            dev_log!("[RootNoteAudioNode] Disabling root note audio output");
-            self.gain_node.gain().set_value(0.0);
-            self.config.enabled = false;
-        }
-    }
     
     /// Check if the root note audio is currently enabled
     /// 
     /// # Returns
-    /// * `true` if enabled and audible
-    /// * `false` if disabled or muted
+    /// * Always returns `true` since the node is always running
     pub fn is_enabled(&self) -> bool {
-        self.config.enabled
+        true
     }
     
     /// Get the current configuration
@@ -147,21 +124,10 @@ impl RootNoteAudioNode {
         // Update frequency if changed
         self.set_frequency(config.frequency);
         
-        // Update volume if changed and enabled
+        // Update volume if changed
         if (self.config.volume - config.volume).abs() > f32::EPSILON {
             self.config.volume = config.volume;
-            if self.config.enabled {
-                self.ramp_gain(config.volume);
-            }
-        }
-        
-        // Update enabled state
-        if config.enabled != self.config.enabled {
-            if config.enabled {
-                self.enable();
-            } else {
-                self.disable();
-            }
+            self.ramp_gain(config.volume);
         }
     }
     

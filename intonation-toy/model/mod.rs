@@ -178,7 +178,6 @@ pub struct UpdateTuningConfigurationAction {
 /// including enabled state and frequency.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureRootNoteAudioAction {
-    pub enabled: bool,
     pub frequency: f32,
     pub volume: f32,
 }
@@ -458,7 +457,6 @@ impl DataModel {
             cents_offset: accuracy.cents_offset,
             interval_semitones,
             root_note: self.root_note,
-            root_note_audio_enabled: engine_data.root_note_audio_enabled,
         };
         
         result
@@ -563,12 +561,11 @@ impl DataModel {
         // Process root note audio configurations
         crate::common::dev_log!("MODEL: Processing {} root note audio configurations", presentation_actions.root_note_audio_configurations.len());
         for root_note_audio_config in presentation_actions.root_note_audio_configurations {
-            crate::common::dev_log!("MODEL: Processing root note audio config - enabled: {}", root_note_audio_config.enabled);
+            crate::common::dev_log!("MODEL: Processing root note audio config");
             
             match self.validate_root_note_audio_configuration_with_error(&root_note_audio_config) {
                 Ok(()) => {
                     let config = ConfigureRootNoteAudioAction {
-                        enabled: root_note_audio_config.enabled,
                         frequency: root_note_audio_config.frequency,
                         volume: root_note_audio_config.volume,
                     };
@@ -883,10 +880,9 @@ impl DataModel {
     /// - State change notifications
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
-    fn apply_root_note_audio_change(&mut self, action: &ConfigureRootNoteAudioAction) {
+    fn apply_root_note_audio_change(&mut self, _action: &ConfigureRootNoteAudioAction) {
         crate::common::dev_log!(
-            "Model layer: Root note audio configuration passed through - enabled: {}",
-            if action.enabled { "enabled" } else { "disabled" }
+            "Model layer: Root note audio configuration passed through"
         );
         // Model no longer stores root note audio state - engine owns this state
     }
