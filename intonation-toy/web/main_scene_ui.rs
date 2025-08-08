@@ -3,14 +3,14 @@ use wasm_bindgen::JsCast;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::closure::Closure;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{window, Document, HtmlElement, HtmlSelectElement, EventTarget};
+use web_sys::{window, Document, HtmlElement, HtmlSelectElement, HtmlInputElement, EventTarget};
 
 #[cfg(target_arch = "wasm32")]
 use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicI8, Ordering};
 
 #[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
@@ -30,6 +30,10 @@ static CURRENT_ROOT_NOTE_AUDIO_ENABLED: AtomicU8 = AtomicU8::new(0); // 0 = fals
 // Debouncing for tuning fork clicks to prevent double-triggering
 #[cfg(target_arch = "wasm32")]
 static LAST_TUNING_FORK_CLICK_TIME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+// Global state for tuning fork volume
+#[cfg(target_arch = "wasm32")]
+static CURRENT_TUNING_FORK_VOLUME_DB: AtomicI8 = AtomicI8::new(-20);
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
 #[cfg(target_arch = "wasm32")]
@@ -112,39 +116,10 @@ pub fn setup_main_scene_ui() {
     plus_button.set_text_content(Some("+"));
     plus_button.set_attribute("style", &styling::get_small_button_style()).ok();
 
-    // Create tuning fork icon (for WASM targets only)
-    #[cfg(target_arch = "wasm32")]
-    {
-        let Ok(tuning_fork_icon) = document.create_element("div") else {
-            dev_log!("Failed to create tuning fork icon");
-            return;
-        };
-        tuning_fork_icon.set_id("root-note-audio-icon");
-        tuning_fork_icon.set_class_name("tuning-fork-icon");
-        
-        let tuning_fork_svg = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v16"/>
-                <path d="M8 2h8"/>
-                <path d="M8 2v4c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V2"/>
-                <path d="M6 18c-2 0-2 2-2 2s0 2 2 2 2-2 2-2-0-2-2-2"/>
-                <path d="M18 18c2 0 2 2 2 2s0 2-2 2-2-2-2-2 0-2 2-2"/>
-            </svg>"#;
-        tuning_fork_icon.set_inner_html(&tuning_fork_svg);
-
-        // Assemble root note controls with tuning fork
-        root_note_container.append_child(&minus_button).ok();
-        root_note_container.append_child(&root_note_display).ok();
-        root_note_container.append_child(&plus_button).ok();
-        root_note_container.append_child(&tuning_fork_icon).ok();
-    }
-    
-    // For non-WASM targets, assemble without tuning fork
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        root_note_container.append_child(&minus_button).ok();
-        root_note_container.append_child(&root_note_display).ok();
-        root_note_container.append_child(&plus_button).ok();
-    }
+    // Assemble root note controls
+    root_note_container.append_child(&minus_button).ok();
+    root_note_container.append_child(&root_note_display).ok();
+    root_note_container.append_child(&plus_button).ok();
 
     // Create tuning section header
     let Ok(tuning_header) = document.create_element("div") else {
@@ -266,6 +241,96 @@ pub fn setup_main_scene_ui() {
     // Assemble scale controls
     scale_container.append_child(&scale_select).ok();
 
+    // Create Tuning Fork section header
+    let Ok(tuning_fork_header) = document.create_element("div") else {
+        dev_log!("Failed to create tuning fork header");
+        return;
+    };
+    tuning_fork_header.set_text_content(Some("Tuning Fork"));
+    tuning_fork_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+
+    // Create tuning fork container
+    let Ok(tuning_fork_container) = document.create_element("div") else {
+        dev_log!("Failed to create tuning fork container");
+        return;
+    };
+    tuning_fork_container.set_attribute("style", "display: flex; flex-direction: column; gap: 8px;").ok();
+
+    // Create enable checkbox container
+    let Ok(checkbox_container) = document.create_element("div") else {
+        dev_log!("Failed to create checkbox container");
+        return;
+    };
+    checkbox_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
+
+    // Create enable checkbox
+    let Ok(enable_checkbox) = document.create_element("input") else {
+        dev_log!("Failed to create enable checkbox");
+        return;
+    };
+    enable_checkbox.set_id("tuning-fork-enable");
+    enable_checkbox.set_attribute("type", "checkbox").ok();
+    enable_checkbox.set_attribute("style", &styling::get_checkbox_style()).ok();
+
+    // Create enable label
+    let Ok(enable_label) = document.create_element("label") else {
+        dev_log!("Failed to create enable label");
+        return;
+    };
+    enable_label.set_attribute("for", "tuning-fork-enable").ok();
+    enable_label.set_text_content(Some("Enable"));
+    enable_label.set_attribute("style", "color: var(--text-color); font-size: 14px;").ok();
+
+    // Assemble checkbox container
+    checkbox_container.append_child(&enable_checkbox).ok();
+    checkbox_container.append_child(&enable_label).ok();
+
+    // Create volume container
+    let Ok(volume_container) = document.create_element("div") else {
+        dev_log!("Failed to create volume container");
+        return;
+    };
+    volume_container.set_attribute("style", "display: flex; flex-direction: column; gap: 4px;").ok();
+
+    // Create volume label
+    let Ok(volume_label) = document.create_element("label") else {
+        dev_log!("Failed to create volume label");
+        return;
+    };
+    volume_label.set_attribute("for", "tuning-fork-volume").ok();
+    volume_label.set_text_content(Some("Volume (dB)"));
+    volume_label.set_attribute("style", "color: var(--text-color); font-size: 14px;").ok();
+
+    // Create volume slider
+    let Ok(volume_slider) = document.create_element("input") else {
+        dev_log!("Failed to create volume slider");
+        return;
+    };
+    volume_slider.set_id("tuning-fork-volume");
+    volume_slider.set_attribute("type", "range").ok();
+    volume_slider.set_attribute("min", "-40").ok();
+    volume_slider.set_attribute("max", "0").ok();
+    volume_slider.set_attribute("value", "-20").ok();
+    volume_slider.set_attribute("style", &styling::get_range_input_style()).ok();
+
+    // Create volume display
+    let Ok(volume_display) = document.create_element("span") else {
+        dev_log!("Failed to create volume display");
+        return;
+    };
+    volume_display.set_id("tuning-fork-volume-display");
+    volume_display.set_text_content(Some("-20 dB"));
+    volume_display.set_attribute("style", &styling::get_volume_display_style()).ok();
+
+    // Assemble volume container
+    volume_container.append_child(&volume_label).ok();
+    volume_container.append_child(&volume_slider).ok();
+    volume_container.append_child(&volume_display).ok();
+
+    // Assemble tuning fork controls
+    tuning_fork_container.append_child(&checkbox_container).ok();
+    tuning_fork_container.append_child(&volume_container).ok();
+
     // Create About section
     let Ok(about_section) = document.create_element("div") else {
         dev_log!("Failed to create about section");
@@ -315,7 +380,7 @@ pub fn setup_main_scene_ui() {
     user_guide.set_attribute("style", &styling::get_about_list_style()).ok();
     user_guide.set_inner_html(r#"
         <li><strong>Root Note:</strong> Use +/- buttons to adjust the tonic pitch</li>
-        <li><strong>Tuning Fork:</strong> Click to hear the root note as a reference tone</li>
+        <li><strong>Tuning Fork:</strong> Enable to hear the root note as a reference tone, adjust volume with slider</li>
         <li><strong>Tuning System:</strong> Choose between Equal Temperament or Just Intonation</li>
         <li><strong>Scale:</strong> Select the musical scale for pitch visualization</li>
         <li><strong>Microphone:</strong> Grant permission when prompted to analyze live audio</li>
@@ -354,6 +419,8 @@ pub fn setup_main_scene_ui() {
     container.append_child(&tuning_container).ok();
     container.append_child(&scale_header).ok();
     container.append_child(&scale_container).ok();
+    container.append_child(&tuning_fork_header).ok();
+    container.append_child(&tuning_fork_container).ok();
     container.append_child(&about_section).ok();
 
 
@@ -422,10 +489,11 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                     // Also update root note audio frequency if it's currently enabled
                     if let Some(current_window) = web_sys::window() {
                         if let Some(document) = current_window.document() {
-                            if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
-                                if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
-                                    if html_element.class_name().contains("active") {
-                                        presenter_mut.on_root_note_audio_configured(true, new_root, -20.0);
+                            if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
+                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                                    if html_checkbox.checked() {
+                                        let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, volume_db);
                                     }
                                 }
                             }
@@ -457,10 +525,11 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                     // Also update root note audio frequency if it's currently enabled
                     if let Some(current_window) = web_sys::window() {
                         if let Some(document) = current_window.document() {
-                            if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
-                                if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
-                                    if html_element.class_name().contains("active") {
-                                        presenter_mut.on_root_note_audio_configured(true, new_root, -20.0);
+                            if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
+                                if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                                    if html_checkbox.checked() {
+                                        let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
+                                        presenter_mut.on_root_note_audio_configured(true, new_root, volume_db);
                                     }
                                 }
                             }
@@ -551,54 +620,74 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         dev_log!("Failed to find scale-select dropdown");
     }
 
-    // Set up root note audio tuning fork icon event listener
-    #[cfg(target_arch = "wasm32")]
-    {
-        if let Some(icon) = document.get_element_by_id("root-note-audio-icon") {
-            let presenter_clone = presenter.clone();
-            let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
-                event.prevent_default();
-                event.stop_propagation();
-                
-                // Debounce to prevent double-clicks within 200ms
-                let now = js_sys::Date::now() as u64;
-                let last_click = LAST_TUNING_FORK_CLICK_TIME.load(Ordering::Relaxed);
-                if now - last_click < 200 {
-                    return;
+    // Set up tuning fork enable checkbox event listener
+    if let Some(checkbox) = document.get_element_by_id("tuning-fork-enable") {
+        let presenter_clone = presenter.clone();
+        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            if let Some(current_window) = web_sys::window() {
+                if let Some(document) = current_window.document() {
+                    if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
+                        if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                            let enabled = html_checkbox.checked();
+                            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
+                            let volume_db = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed) as f32;
+                            presenter_clone.borrow_mut().on_root_note_audio_configured(enabled, current_root_note, volume_db);
+                        }
+                    }
                 }
-                LAST_TUNING_FORK_CLICK_TIME.store(now, Ordering::Relaxed);
-                
-                if let Some(current_window) = web_sys::window() {
-                    if let Some(document) = current_window.document() {
-                        if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
-                            if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
-                                // Toggle the active class
-                                let current_classes = html_element.class_name();
-                                let enabled = current_classes.contains("active");
-                                if enabled {
-                                    let new_classes = current_classes.replace(" active", "").replace("active ", "").replace("active", "");
-                                    html_element.set_class_name(&new_classes);
-                                } else {
-                                    html_element.set_class_name(&format!("{} active", current_classes));
+            }
+        }) as Box<dyn FnMut(_)>);
+
+        if let Some(event_target) = checkbox.dyn_ref::<EventTarget>() {
+            if let Err(err) = event_target.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref()) {
+                dev_log!("Failed to add change listener to tuning fork checkbox: {:?}", err);
+            }
+        }
+        closure.forget();
+    } else {
+        dev_log!("Failed to find tuning-fork-enable checkbox");
+    }
+
+    // Set up tuning fork volume slider event listener
+    if let Some(slider) = document.get_element_by_id("tuning-fork-volume") {
+        let presenter_clone = presenter.clone();
+        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            if let Some(current_window) = web_sys::window() {
+                if let Some(document) = current_window.document() {
+                    if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
+                        if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
+                            if let Ok(volume_db) = html_slider.value().parse::<i8>() {
+                                CURRENT_TUNING_FORK_VOLUME_DB.store(volume_db, Ordering::Relaxed);
+                                
+                                // Update volume display
+                                if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+                                    display_element.set_text_content(Some(&format!("{} dB", volume_db)));
                                 }
-                                let new_enabled = !enabled;
-                                let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                                presenter_clone.borrow_mut().on_root_note_audio_configured(new_enabled, current_root_note, -20.0);
+                                
+                                // Update audio if enabled
+                                if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
+                                    if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+                                        if html_checkbox.checked() {
+                                            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
+                                            presenter_clone.borrow_mut().on_root_note_audio_configured(true, current_root_note, volume_db as f32);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }) as Box<dyn FnMut(_)>);
-
-            if let Some(event_target) = icon.dyn_ref::<EventTarget>() {
-                if let Err(err) = event_target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()) {
-                    dev_log!("Failed to add click listener to root note audio icon: {:?}", err);
-                }
             }
-            closure.forget();
-        } else {
-            dev_log!("Failed to find root-note-audio-icon");
+        }) as Box<dyn FnMut(_)>);
+
+        if let Some(event_target) = slider.dyn_ref::<EventTarget>() {
+            if let Err(err) = event_target.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref()) {
+                dev_log!("Failed to add input listener to volume slider: {:?}", err);
+            }
         }
+        closure.forget();
+    } else {
+        dev_log!("Failed to find tuning-fork-volume slider");
     }
 }
 
@@ -668,21 +757,25 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
         }
     }
 
-    // Update root note audio icon state
+    // Update tuning fork controls state
     CURRENT_ROOT_NOTE_AUDIO_ENABLED.store(if model_data.root_note_audio_enabled { 1 } else { 0 }, Ordering::Relaxed);
     
-    if let Some(icon_element) = document.get_element_by_id("root-note-audio-icon") {
-        if let Some(html_element) = icon_element.dyn_ref::<HtmlElement>() {
-            let current_classes = html_element.class_name();
-            if model_data.root_note_audio_enabled {
-                if !current_classes.contains("active") {
-                    html_element.set_class_name(&format!("{} active", current_classes));
-                }
-            } else {
-                let new_classes = current_classes.replace(" active", "").replace("active ", "").replace("active", "");
-                html_element.set_class_name(&new_classes);
-            }
+    // Update checkbox state
+    if let Some(checkbox_element) = document.get_element_by_id("tuning-fork-enable") {
+        if let Some(html_checkbox) = checkbox_element.dyn_ref::<HtmlInputElement>() {
+            html_checkbox.set_checked(model_data.root_note_audio_enabled);
         }
+    }
+    
+    // Update volume slider and display
+    let current_volume = CURRENT_TUNING_FORK_VOLUME_DB.load(Ordering::Relaxed);
+    if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
+        if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
+            html_slider.set_value(&current_volume.to_string());
+        }
+    }
+    if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+        display_element.set_text_content(Some(&format!("{} dB", current_volume)));
     }
 }
 

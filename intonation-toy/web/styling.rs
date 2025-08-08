@@ -407,41 +407,6 @@ pub fn get_svg_accent_color() -> String {
     rgb_to_css(get_current_color_scheme().accent)
 }
 
-pub fn get_tuning_fork_icon_style() -> String {
-    format!(
-        "cursor: pointer; color: {};",
-        get_svg_muted_color()
-    )
-}
-
-pub fn get_tuning_fork_icon_active_style() -> String {
-    format!(
-        "color: {}; filter: drop-shadow(0 0 8px {});",
-        rgb_to_css(get_current_color_scheme().accent),
-        rgba_to_css(get_current_color_scheme().accent, 0.6)
-    )
-}
-
-pub fn apply_tuning_fork_icon_styles() {
-    let css = format!(
-        r#"
-        .tuning-fork-icon {{
-            {}
-        }}
-        .tuning-fork-icon.active {{
-            {}
-        }}
-        .tuning-fork-icon svg {{
-            width: 24px;
-            height: 24px;
-            display: block;
-        }}
-        "#,
-        get_tuning_fork_icon_style(),
-        get_tuning_fork_icon_active_style()
-    );
-    add_style_to_document(&css);
-}
 
 // Main Scene UI Styles
 pub fn get_root_note_display_style() -> String {
@@ -487,6 +452,20 @@ pub fn get_checkbox_style() -> String {
     )
 }
 
+pub fn get_range_input_style() -> String {
+    format!(
+        "width: 100%; height: 6px; cursor: pointer; appearance: none; background: {}; border-radius: 3px; outline: none; transition: all 0.2s;",
+        rgba_to_css(get_current_color_scheme().muted, 0.3)
+    )
+}
+
+pub fn get_volume_display_style() -> String {
+    format!(
+        "font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace; font-size: 12px; color: {}; min-width: 40px; text-align: right;",
+        rgba_to_css(get_current_color_scheme().text, 0.8)
+    )
+}
+
 pub fn get_sidebar_header_style() -> String {
     format!(
         "color: {}; font-size: 24px; font-weight: 700; margin: 0 0 20px 0; padding: 16px 0; text-align: center; border-bottom: 2px solid {}; font-family: system-ui, -apple-system, sans-serif;",
@@ -509,9 +488,9 @@ pub fn apply_color_scheme_styles() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
-    apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
     apply_about_section_styles();
+    apply_range_input_styles();
 }
 
 pub fn apply_root_note_styles() {
@@ -626,6 +605,56 @@ pub fn apply_about_section_styles() {
     add_style_to_document(&css);
 }
 
+pub fn apply_range_input_styles() {
+    let primary_color = rgb_to_css(get_current_color_scheme().primary);
+    let muted_bg = rgba_to_css(get_current_color_scheme().muted, 0.3);
+    let css = format!(
+        r#"
+        input[type="range"] {{
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            appearance: none;
+            background: {};
+            border-radius: 3px;
+            outline: none;
+            transition: all 0.2s;
+        }}
+        input[type="range"]::-webkit-slider-thumb {{
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: {};
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }}
+        input[type="range"]::-moz-range-thumb {{
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: {};
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }}
+        input[type="range"]:focus::-webkit-slider-thumb {{
+            box-shadow: 0 0 0 3px {};
+        }}
+        input[type="range"]:focus::-moz-range-thumb {{
+            box-shadow: 0 0 0 3px {};
+        }}
+        "#,
+        muted_bg,
+        primary_color,
+        primary_color,
+        rgba_to_css(get_current_color_scheme().primary, 0.3),
+        rgba_to_css(get_current_color_scheme().primary, 0.3)
+    );
+    add_style_to_document(&css);
+}
+
 pub fn reapply_current_theme() {
     // Only reapply color-related styles, not layout/sizing
     apply_body_styles();
@@ -637,7 +666,7 @@ pub fn reapply_current_theme() {
     apply_permission_overlay_animations();
     apply_first_click_styles();
     apply_root_note_styles();
-    apply_tuning_fork_icon_styles();
     apply_sidebar_header_styles();
     apply_about_section_styles();
+    apply_range_input_styles();
 }
