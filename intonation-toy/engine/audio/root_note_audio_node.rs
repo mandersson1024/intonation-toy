@@ -1,4 +1,7 @@
-use web_sys::{AudioContext, OscillatorNode, GainNode, OscillatorType};
+use std::sync::Arc;
+
+use wasm_bindgen::JsValue;
+use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
 use crate::common::dev_log;
 use super::microphone::AudioError;
 use super::signal_generator::RootNoteAudioConfig;
@@ -123,13 +126,23 @@ impl RootNoteAudioNode {
         &self.config
     }
     
+    fn ramp_gain(&self, target : f32) {
+        let result: Result<AudioParam, _> = self.gain_node.gain().set_target_at_time(target, self.audio_context.current_time(), 0.1);
+        match result {
+            Ok(_) => {},
+            Err(_) => { 
+                dev_log!("[RootNoteAudioNode] Error gradually changing volume");
+                self.gain_node.gain().set_value(target);
+             },
+        }
+    }
+
     /// Update the entire configuration
     /// 
     /// # Arguments
     /// * `config` - New configuration to apply
     pub fn update_config(&mut self, config: RootNoteAudioConfig) {
-        dev_log!("[RootNoteAudioNode] Updating configuration - enabled: {}, frequency: {} Hz, volume: {}", 
-                config.enabled, config.frequency, config.volume);
+        //dev_log!("[RootNoteAudioNode] Updating configuration - enabled: {}, frequency: {} Hz, volume: {}", config.enabled, config.frequency, config.volume);
         
         // Update frequency if changed
         self.set_frequency(config.frequency);
@@ -138,7 +151,7 @@ impl RootNoteAudioNode {
         if (self.config.volume - config.volume).abs() > f32::EPSILON {
             self.config.volume = config.volume;
             if self.config.enabled {
-                self.gain_node.gain().set_value(config.volume);
+                self.ramp_gain(config.volume);
             }
         }
         
