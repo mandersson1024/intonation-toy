@@ -15,41 +15,47 @@
       <h1 class="sidebar-header">Intonation Toy</h1>
       <div id="main-scene-ui-container" class="ui-container">
         <!-- Root Note Section -->
-        <div class="subsection-header">Root Note</div>
-        <div class="control-row">
-          <button id="root-note-minus" class="small-button">-</button>
-          <span id="root-note-display" class="root-note-display">A3</span>
-          <button id="root-note-plus" class="small-button">+</button>
+        <div class="section-group">
+          <div class="subsection-header">Root Note</div>
+          <div class="control-row">
+            <button id="root-note-minus" class="small-button">-</button>
+            <span id="root-note-display" class="root-note-display">A3</span>
+            <button id="root-note-plus" class="small-button">+</button>
+          </div>
+          <div class="tuning-fork-controls">
+            <div alt="Volume" class="volume-icon"></div>
+            <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
+            <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
+          </div>
+          <div id="root-note-help" class="help-text"></div>
         </div>
-        <div class="tuning-fork-controls">
-          <div alt="Volume" class="volume-icon"></div>
-          <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
-          <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
-        </div>
-        <div id="root-note-help" class="help-text"></div>
 
         <!-- Tuning System Section -->
-        <div class="subsection-header">Tuning System</div>
-        <div class="control-row">
-          <select id="tuning-system-select" class="control-select">
-            <option value="equal">Equal Temperament</option>
-            <option value="just">Just Intonation</option>
-          </select>
+        <div class="section-group">
+          <div class="subsection-header">Tuning System</div>
+          <div class="control-row">
+            <select id="tuning-system-select" class="control-select">
+              <option value="equal">Equal Temperament</option>
+              <option value="just">Just Intonation</option>
+            </select>
+          </div>
+          <div id="tuning-system-help" class="help-text"></div>
         </div>
-        <div id="tuning-system-help" class="help-text"></div>
 
         <!-- Scale Section -->
-        <div class="subsection-header">Scale</div>
-        <div class="control-row">
-          <select id="scale-select" class="control-select">
-            <option value="chromatic" selected="true">Chromatic</option>
-            <option value="major">Major</option>
-            <option value="minor">Minor</option>
-            <option value="major_pentatonic">Major Pentatonic</option>
-            <option value="minor_pentatonic">Minor Pentatonic</option>
-          </select>
+        <div class="section-group">
+          <div class="subsection-header">Scale</div>
+          <div class="control-row">
+            <select id="scale-select" class="control-select">
+              <option value="chromatic" selected="true">Chromatic</option>
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+              <option value="major_pentatonic">Major Pentatonic</option>
+              <option value="minor_pentatonic">Minor Pentatonic</option>
+            </select>
+          </div>
+          <div id="scale-help" class="help-text"></div>
         </div>
-        <div id="scale-help" class="help-text"></div>
 
         <!-- About Section -->
         <div class="about-section">

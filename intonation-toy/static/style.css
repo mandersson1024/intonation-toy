@@ -359,8 +359,17 @@ body.permission-required #sidebar input {
 .ui-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
     width: 100%;
+    padding: 0 12px;
+}
+
+/* Section wrapper for visual grouping */
+.section-group {
+    background: color-mix(in srgb, var(--color-surface, #2a2a2a) 50%, transparent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-muted) 10%, transparent);
 }
 .control-container {
     display: flex;
@@ -404,17 +413,20 @@ body.permission-required #sidebar input {
 }
 .subsection-header {
     color: var(--color-text, #ffffff);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     margin-bottom: 8px;
-    margin-top: 24px;
+    margin-top: 0;
     display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
 }
 
 /* About Section Styles */
 .about-section {
-    margin-top: 32px;
-    padding-top: 20px;
+    margin-top: 24px;
+    padding-top: 16px;
     border-top: 1px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
     width: 100%;
     flex: 1;
@@ -579,6 +591,7 @@ input[type="range"]:focus::-moz-range-thumb {
     flex-direction: row;
     align-items: center;
     gap: 8px;
+    margin-top: 8px;
 }
 
 .volume-label {
@@ -621,15 +634,15 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* Help Text Styles */
 .help-text {
-    font-size: 12px;
-    color: color-mix(in srgb, var(--color-text, #ffffff) 70%, transparent);
-    line-height: 1.5;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--color-text, #ffffff) 55%, transparent);
+    line-height: 1.4;
     margin-top: 8px;
     margin-bottom: 0;
-    padding: 8px;
-    background: color-mix(in srgb, var(--color-surface, #2a2a2a) 30%, transparent);
-    border-radius: 4px;
-    border: 1px solid color-mix(in srgb, var(--color-muted, #666666) 20%, transparent);
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    border: none;
 }
 
 .help-text.help-text-compact {
