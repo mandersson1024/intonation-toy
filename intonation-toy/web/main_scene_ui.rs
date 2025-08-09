@@ -128,7 +128,7 @@ pub fn setup_main_scene_ui() {
     // Set up help text for root note controls
     if let Some(help_element) = document.get_element_by_id("root-note-help") {
         help_element.set_text_content(Some(
-            "The root note appears as the center line in the display. Play this reference tone and match it with your voice or instrument to explore intonation! Adjust volume with the slider. Use headphones to prevent the microphone from picking up the reference tone. Set volume to zero for silent visual-only tuning mode."
+            "The root note is at the center line. Match it with your voice or instrument to explore intonation. Headphones are recommended to prevent your microphone from picking up the signal. Leave the volume at zero for visual-only tuning mode."
         ));
     } else {
         dev_log!("Warning: root-note-help element not found in HTML");
@@ -137,7 +137,7 @@ pub fn setup_main_scene_ui() {
     // Set up help text for tuning system
     if let Some(help_element) = document.get_element_by_id("tuning-system-help") {
         help_element.set_text_content(Some(
-            "Equal Temperament divides the octave into 12 equal semitones (standard modern tuning). Just Intonation uses pure mathematical ratios for more harmonious intervals but may sound out of tune in some keys."
+            "Equal Temperament divides the octave into 12 equal semitones (standard modern tuning). Just Intonation uses pure mathematical ratios for more harmonious intervals."
         ));
     } else {
         dev_log!("Warning: tuning-system-help element not found in HTML");
@@ -146,7 +146,7 @@ pub fn setup_main_scene_ui() {
     // Set up help text for scale selection
     if let Some(help_element) = document.get_element_by_id("scale-help") {
         help_element.set_text_content(Some(
-            "Select which notes to highlight in the visualization. Chromatic shows all 12 semitones. Major/Minor are 7-note scales. Pentatonic scales use 5 notes and are common in folk music."
+            "Select which notes to highlight in the display. All scales are subsets of the 12-tone chromatic scale."
         ));
     } else {
         dev_log!("Warning: scale-help element not found in HTML");
