@@ -104,7 +104,7 @@ impl RootNoteAudioNode {
     }
     
     fn ramp_gain(&self, target : f32) {
-        let result: Result<AudioParam, _> = self.gain_node.gain().set_target_at_time(target, self.audio_context.current_time(), 0.1);
+        let result: Result<AudioParam, _> = self.gain_node.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05);
         match result {
             Ok(_) => {},
             Err(_) => { 

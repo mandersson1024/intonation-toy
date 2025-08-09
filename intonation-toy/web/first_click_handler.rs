@@ -99,8 +99,8 @@ pub fn setup_first_click_handler(
                         body.set_attribute("class", &new_class).ok();
                     }
                     
-                    // Use querySelectorAll to find all overlays
-                    if let Ok(Some(overlay_element)) = document.query_selector("div[style*='z-index: 9999']") {
+                    // Remove the first-click overlay
+                    if let Ok(Some(overlay_element)) = document.query_selector(".first-click-overlay") {
                         if let Some(parent) = overlay_element.parent_node() {
                             let _ = parent.remove_child(&overlay_element);
                         }
