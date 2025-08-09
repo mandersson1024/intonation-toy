@@ -58,3 +58,22 @@ When modifying the presentation layer, prefer passing data as method parameters 
 - For volume data, the internal representation is always amplitude, not dB.
 - We don't adapt algorithms on the fly to adapt for performace. We always hardcode the parameters affecting performance
 - The default sample rate should be 44100Hz. This is the most common standard on consumer devices
+
+## Icon styling
+- Icons should use CSS mask and background-color for proper theming
+- Use var(--color-primary) or other CSS variables for icon colors
+- Example CSS pattern for icon coloring:
+  ```css
+  .icon-class {
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      -webkit-mask-size: contain;
+      mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: contain;
+      mask-type: alpha;
+      mask: url("icons/icon-name.png") no-repeat center / contain;
+      -webkit-mask: url("icons/icon-name.png") no-repeat center / contain;
+      background-color: var(--color-primary);
+  }
+  ```
