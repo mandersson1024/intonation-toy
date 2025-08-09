@@ -131,6 +131,9 @@ pub struct ColorScheme {
     pub accent: [f32; 3],
     pub text: [f32; 3],
     pub muted: [f32; 3],
+    pub border: [f32; 3],
+    pub error: [f32; 3],
+    
 }
 
 impl Default for ColorScheme {
@@ -149,6 +152,8 @@ impl ColorScheme {
             accent:     [0.88, 0.80, 0.62],  // #E1CC9F (Sand)
             text:       [0.89, 0.91, 0.95],  // #E5E9F0
             muted:      [0.64, 0.68, 0.75],  // #A3ADBf
+            border:     [0.28, 0.28, 0.32],  // #474852 (Subtle outline for panels/inputs)
+            error:      [0.90, 0.35, 0.38],  // #E65A60 (Desaturated red for errors)
         }
     }
     
@@ -161,6 +166,8 @@ impl ColorScheme {
             accent: [0.0, 1.0, 0.0],
             text: [0.0, 0.0, 0.0],
             muted: [0.6, 0.6, 0.6],
+            border:     [0.28, 0.28, 0.32],  // #474852 (Subtle outline for panels/inputs)
+            error:      [0.90, 0.35, 0.38],  // #E65A60 (Desaturated red for errors)
         }
     }
     
@@ -173,6 +180,8 @@ impl ColorScheme {
             accent: [0.95, 0.8, 0.3],
             text: [0.95, 0.9, 0.8],
             muted: [0.5, 0.4, 0.3],
+            border:     [0.28, 0.28, 0.32],  // #474852 (Subtle outline for panels/inputs)
+            error:      [0.90, 0.35, 0.38],  // #E65A60 (Desaturated red for errors)
         }
     }
     
@@ -185,6 +194,8 @@ impl ColorScheme {
             accent: [1.0, 0.7, 0.0],
             text: [1.0, 0.95, 0.9],
             muted: [0.6, 0.4, 0.4],
+            border:     [0.28, 0.28, 0.32],  // #474852 (Subtle outline for panels/inputs)
+            error:      [0.90, 0.35, 0.38],  // #E65A60 (Desaturated red for errors)
         }
     }
 }

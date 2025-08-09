@@ -89,6 +89,8 @@ pub fn apply_css_variables() {
             --color-accent: {};
             --color-text: {};
             --color-muted: {};
+            --color-border: {};
+            --color-error: {};
         }}"#,
         rgb_to_css(color_scheme.background),
         rgb_to_css(color_scheme.surface),
@@ -96,7 +98,9 @@ pub fn apply_css_variables() {
         rgb_to_css(color_scheme.secondary),
         rgb_to_css(color_scheme.accent),
         rgb_to_css(color_scheme.text),
-        rgb_to_css(color_scheme.muted)
+        rgb_to_css(color_scheme.muted),
+        rgb_to_css(color_scheme.border),
+        rgb_to_css(color_scheme.error),
     );
     
     add_style_to_document(&css);
@@ -109,17 +113,6 @@ pub fn apply_css_variables() {
 /// Works seamlessly with static/style.css which references these CSS custom properties.
 pub fn update_css_variables() {
     let color_scheme = get_current_color_scheme();
-    
-    let style = format!(
-        "--color-background: {}; --color-surface: {}; --color-primary: {}; --color-secondary: {}; --color-accent: {}; --color-text: {}; --color-muted: {};",
-        rgb_to_css(color_scheme.background),
-        rgb_to_css(color_scheme.surface),
-        rgb_to_css(color_scheme.primary),
-        rgb_to_css(color_scheme.secondary),
-        rgb_to_css(color_scheme.accent),
-        rgb_to_css(color_scheme.text),
-        rgb_to_css(color_scheme.muted)
-    );
     
     // Apply to document.documentElement (html element) instead of :root selector
     let document = get_document();
@@ -145,6 +138,12 @@ pub fn update_css_variables() {
             }
             if let Err(_) = html_element.style().set_property("--color-muted", &rgb_to_css(color_scheme.muted)) {
                 crate::common::dev_log!("Failed to set CSS variable --color-muted");
+            }
+            if let Err(_) = html_element.style().set_property("--color-border", &rgb_to_css(color_scheme.border)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-border");
+            }
+            if let Err(_) = html_element.style().set_property("--color-error", &rgb_to_css(color_scheme.error)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-error");
             }
             crate::common::dev_log!("Successfully updated CSS custom properties");
         }
@@ -177,21 +176,4 @@ fn try_apply_style_to_element(selector: &str, style: &str) -> Result<(), String>
     } else {
         Err("Element is not an HTML element".to_string())
     }
-}
-
-/// Get the current CSS custom property values for testing and verification.
-/// Returns a formatted string with all current CSS variable values.
-#[allow(dead_code)]
-pub fn get_current_css_variables() -> String {
-    let color_scheme = get_current_color_scheme();
-    format!(
-        "CSS Variables - Background: {}, Surface: {}, Primary: {}, Secondary: {}, Accent: {}, Text: {}, Muted: {}",
-        rgb_to_css(color_scheme.background),
-        rgb_to_css(color_scheme.surface),
-        rgb_to_css(color_scheme.primary),
-        rgb_to_css(color_scheme.secondary),
-        rgb_to_css(color_scheme.accent),
-        rgb_to_css(color_scheme.text),
-        rgb_to_css(color_scheme.muted)
-    )
 }

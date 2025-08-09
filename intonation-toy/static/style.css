@@ -278,7 +278,7 @@ body.permission-required #sidebar input {
     font-size: 28px;
     font-weight: 700;
     margin-bottom: 20px;
-    color: var(--color-secondary, #ff6b35);
+    color: var(--color-error);
 }
 .error-details {
     font-size: 16px;
@@ -369,7 +369,7 @@ body.permission-required #sidebar input {
     background: color-mix(in srgb, var(--color-surface, #2a2a2a) 50%, transparent);
     border-radius: 8px;
     padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--color-muted) 10%, transparent);
+    border: 1px solid var(--color-border);
 }
 .control-container {
     display: flex;
@@ -408,7 +408,7 @@ body.permission-required #sidebar input {
     margin: 0 0 20px 0;
     padding: 16px 0;
     text-align: center;
-    border-bottom: 2px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
+    border-bottom: 2px solid var(--color-border);
     font-family: system-ui, -apple-system, sans-serif;
 }
 .subsection-header {
@@ -425,7 +425,7 @@ body.permission-required #sidebar input {
 
 /* About Section Styles */
 .about-container {
-    border-top: 2px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
+    border-top: 2px solid var(--color-border);
     padding-top: 16px;
     margin-top: 24px;
 }
@@ -657,5 +657,5 @@ input[type="range"]:focus::-moz-range-thumb {
 .help-text.help-text-emphasized {
     color: color-mix(in srgb, var(--color-text, #ffffff) 85%, transparent);
     background: color-mix(in srgb, var(--color-surface, #2a2a2a) 50%, transparent);
-    border-color: color-mix(in srgb, var(--color-muted, #666666) 35%, transparent);
+    border-color: var(--color-border);
 }
