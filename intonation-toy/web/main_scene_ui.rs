@@ -112,7 +112,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     header.set_text_content(Some("Intonation Toy"));
-    header.set_attribute("style", &styling::get_sidebar_header_style()).ok();
+    header.set_attribute("class", "sidebar-header").ok();
 
     // Create container div
     let Ok(container) = document.create_element("div") else {
@@ -122,7 +122,7 @@ pub fn setup_main_scene_ui() {
     
     container.set_id("main-scene-ui-container");
     
-    container.set_attribute("style", &styling::get_container_style()).ok();
+    container.set_attribute("class", "ui-container").ok();
 
     // Create root note section header
     let Ok(root_note_header) = document.create_element("div") else {
@@ -130,7 +130,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     root_note_header.set_text_content(Some("Root Note"));
-    root_note_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+    root_note_header.set_attribute("class", "subsection-header").ok();
 
     // Create root note controls container
     let Ok(root_note_container) = document.create_element("div") else {
@@ -146,7 +146,7 @@ pub fn setup_main_scene_ui() {
     };
     minus_button.set_id("root-note-minus");
     minus_button.set_text_content(Some("-"));
-    minus_button.set_attribute("style", &styling::get_small_button_style()).ok();
+    minus_button.set_attribute("class", "small-button").ok();
 
     // Create root note display
     let Ok(root_note_display) = document.create_element("span") else {
@@ -155,7 +155,7 @@ pub fn setup_main_scene_ui() {
     };
     root_note_display.set_id("root-note-display");
     root_note_display.set_text_content(Some("A3")); // Default root note is 57 (A3)
-    root_note_display.set_attribute("style", &styling::get_root_note_display_style()).ok();
+    root_note_display.set_attribute("class", "root-note-display").ok();
 
     // Create plus button
     let Ok(plus_button) = document.create_element("button") else {
@@ -164,7 +164,7 @@ pub fn setup_main_scene_ui() {
     };
     plus_button.set_id("root-note-plus");
     plus_button.set_text_content(Some("+"));
-    plus_button.set_attribute("style", &styling::get_small_button_style()).ok();
+    plus_button.set_attribute("class", "small-button").ok();
 
     // Assemble root note controls
     root_note_container.append_child(&minus_button).ok();
@@ -177,7 +177,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_header.set_text_content(Some("Tuning System"));
-    tuning_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+    tuning_header.set_attribute("class", "subsection-header").ok();
 
     // Create tuning system controls container
     let Ok(tuning_container) = document.create_element("div") else {
@@ -192,7 +192,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_select.set_id("tuning-system-select");
-    tuning_select.set_attribute("style", &styling::get_select_style()).ok();
+    tuning_select.set_attribute("class", "control-select").ok();
 
     // Create Equal Temperament option
     let Ok(equal_option) = document.create_element("option") else {
@@ -223,7 +223,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     scale_header.set_text_content(Some("Scale"));
-    scale_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+    scale_header.set_attribute("class", "subsection-header").ok();
 
     // Create scale controls container
     let Ok(scale_container) = document.create_element("div") else {
@@ -238,7 +238,7 @@ pub fn setup_main_scene_ui() {
         return;
     };
     scale_select.set_id("scale-select");
-    scale_select.set_attribute("style", &styling::get_select_style()).ok();
+    scale_select.set_attribute("class", "control-select").ok();
 
     // Create Chromatic option (first in enum, so default)
     let Ok(chromatic_option) = document.create_element("option") else {
@@ -297,14 +297,14 @@ pub fn setup_main_scene_ui() {
         return;
     };
     tuning_fork_header.set_text_content(Some("Tuning Fork"));
-    tuning_fork_header.set_attribute("style", &styling::get_subsection_header_style()).ok();
+    tuning_fork_header.set_attribute("class", "subsection-header").ok();
 
     // Create tuning fork container
     let Ok(tuning_fork_container) = document.create_element("div") else {
         dev_log!("Failed to create tuning fork container");
         return;
     };
-    tuning_fork_container.set_attribute("style", "display: flex; flex-direction: column; gap: 8px;").ok();
+    tuning_fork_container.set_attribute("class", "tuning-fork-container").ok();
 
 
     // Create volume container
@@ -333,7 +333,8 @@ pub fn setup_main_scene_ui() {
     volume_slider.set_attribute("min", "0").ok();
     volume_slider.set_attribute("max", "100").ok();
     volume_slider.set_attribute("value", "0").ok();
-    volume_slider.set_attribute("style", &styling::get_range_input_style()).ok();
+    // Range input styling is applied globally via apply_range_input_styles()
+    // No need for individual styling
 
     // Create volume display
     let Ok(volume_display) = document.create_element("span") else {
@@ -342,7 +343,7 @@ pub fn setup_main_scene_ui() {
     };
     volume_display.set_id("tuning-fork-volume-display");
     volume_display.set_text_content(Some(&slider_position_to_db_display(0.0)));
-    volume_display.set_attribute("style", &styling::get_volume_display_style()).ok();
+    volume_display.set_attribute("class", "volume-display").ok();
 
     // Assemble volume container
     volume_container.append_child(&volume_label).ok();
@@ -357,16 +358,14 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create about section");
         return;
     };
-    about_section.set_class_name("about-section");
-    about_section.set_attribute("style", &styling::get_about_section_style()).ok();
+    about_section.set_attribute("class", "about-section").ok();
 
     // Create About header
     let Ok(about_header) = document.create_element("div") else {
         dev_log!("Failed to create about header");
         return;
     };
-    about_header.set_class_name("about-header");
-    about_header.set_attribute("style", &styling::get_about_header_style()).ok();
+    about_header.set_attribute("class", "about-header").ok();
     about_header.set_text_content(Some("About"));
 
     // Create About content
@@ -374,16 +373,14 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create about content");
         return;
     };
-    about_content.set_class_name("about-content");
-    about_content.set_attribute("style", &styling::get_about_content_style()).ok();
+    about_content.set_attribute("class", "about-content").ok();
 
     // Create app description
     let Ok(app_description) = document.create_element("p") else {
         dev_log!("Failed to create app description");
         return;
     };
-    app_description.set_class_name("about-text");
-    app_description.set_attribute("style", &styling::get_about_text_style()).ok();
+    app_description.set_attribute("class", "about-text").ok();
     app_description.set_inner_html("<strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. It helps you explore musical intonation by analyzing audio input and displaying the relationship between detected pitches and your selected root note.");
 
     // Create user guide section
@@ -397,8 +394,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create user guide");
         return;
     };
-    user_guide.set_class_name("about-list");
-    user_guide.set_attribute("style", &styling::get_about_list_style()).ok();
+    user_guide.set_attribute("class", "about-list").ok();
     user_guide.set_inner_html(r#"
         <li><strong>Root Note:</strong> Use +/- buttons to adjust the tonic pitch</li>
         <li><strong>Tuning Fork:</strong> Adjust volume of the root note reference tone with slider</li>
@@ -418,8 +414,7 @@ pub fn setup_main_scene_ui() {
         dev_log!("Failed to create browser info");
         return;
     };
-    browser_info.set_class_name("about-text");
-    browser_info.set_attribute("style", &styling::get_about_text_style()).ok();
+    browser_info.set_attribute("class", "about-text").ok();
     browser_info.set_text_content(Some("Works best in modern browsers with WebAssembly and Web Audio API support. Chrome, Firefox, Safari, and Edge are recommended."));
 
     // Assemble About content

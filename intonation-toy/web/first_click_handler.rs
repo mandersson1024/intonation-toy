@@ -50,8 +50,7 @@ pub fn setup_first_click_handler(
         }
     };
     
-    // Style the overlay to be full-screen with semi-transparent background
-    overlay.set_attribute("style", &styling::get_first_click_overlay_style()).unwrap();
+    // Style the overlay using CSS class
     overlay.set_attribute("class", "first-click-overlay").unwrap();
     
     // Apply first click styles to document
@@ -60,8 +59,9 @@ pub fn setup_first_click_handler(
     // Add simple instructions text with header
     let panel_html = "<div id='permission-panel' class='first-click-panel'>
         <h2 class='first-click-title'>Intonation Toy</h2>
-        Click anywhere to start<br>
+        <div class='first-click-description'>Click anywhere to start<br>
         <small style='opacity: 0.7;'>(Microphone permission will be requested)</small>
+        </div>
     </div>";
     
     overlay.set_inner_html(panel_html);

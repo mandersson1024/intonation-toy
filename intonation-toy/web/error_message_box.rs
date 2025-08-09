@@ -48,10 +48,8 @@ pub fn show_error_message(title: &str, details: &str) {
         dev_log!("Failed to set overlay id: {:?}", e);
     }
 
-    let overlay_style = styling::get_error_overlay_style();
-    
-    if let Err(e) = overlay.set_attribute("style", &overlay_style) {
-        dev_log!("Failed to set overlay style: {:?}", e);
+    if let Err(e) = overlay.set_attribute("class", "error-overlay") {
+        dev_log!("Failed to set overlay class: {:?}", e);
     }
 
     // Create error panel
@@ -63,10 +61,8 @@ pub fn show_error_message(title: &str, details: &str) {
         }
     };
 
-    let panel_style = styling::get_error_panel_style();
-    
-    if let Err(e) = panel.set_attribute("style", &panel_style) {
-        dev_log!("Failed to set panel style: {:?}", e);
+    if let Err(e) = panel.set_attribute("class", "error-panel") {
+        dev_log!("Failed to set panel class: {:?}", e);
     }
 
     // Create title element
@@ -80,11 +76,8 @@ pub fn show_error_message(title: &str, details: &str) {
 
     title_el.set_text_content(Some(title));
 
-    if let Err(e) = title_el.set_attribute(
-        "style",
-        &styling::get_error_title_style(),
-    ) {
-        dev_log!("Failed to set title style: {:?}", e);
+    if let Err(e) = title_el.set_attribute("class", "error-title") {
+        dev_log!("Failed to set title class: {:?}", e);
     }
 
     // Create details element
@@ -98,11 +91,8 @@ pub fn show_error_message(title: &str, details: &str) {
 
     details_el.set_text_content(Some(details));
 
-    if let Err(e) = details_el.set_attribute(
-        "style",
-        &styling::get_error_details_style(),
-    ) {
-        dev_log!("Failed to set details style: {:?}", e);
+    if let Err(e) = details_el.set_attribute("class", "error-details") {
+        dev_log!("Failed to set details class: {:?}", e);
     }
 
     // Assemble the error panel
