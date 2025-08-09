@@ -20,6 +20,11 @@
           <span id="root-note-display" class="root-note-display">A3</span>
           <button id="root-note-plus" class="small-button">+</button>
         </div>
+        <div class="tuning-fork-controls">
+          <label for="tuning-fork-volume" class="volume-label">Volume (dB)</label>
+          <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
+          <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
+        </div>
 
         <!-- Tuning System Section -->
         <div class="subsection-header">Tuning System</div>
@@ -40,16 +45,6 @@
             <option value="major_pentatonic">Major Pentatonic</option>
             <option value="minor_pentatonic">Minor Pentatonic</option>
           </select>
-        </div>
-
-        <!-- Tuning Fork Section -->
-        <div class="subsection-header">Tuning Fork</div>
-        <div class="tuning-fork-container">
-          <div class="tuning-fork-controls">
-            <label for="tuning-fork-volume" class="volume-label">Volume (dB)</label>
-            <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
-            <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
-          </div>
         </div>
 
         <!-- About Section -->
