@@ -112,11 +112,6 @@ span.status-inactive {
     font-weight: 500;
     transition: all 0.2s;
 }
-.control-button:hover {
-    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary, #4a9eff) 20%, transparent);
-}
 .control-select {
     background-color: var(--color-surface, #2a2a2a);
     color: var(--color-primary);
@@ -195,10 +190,6 @@ span.status-inactive {
     box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
     transition: background 0.3s ease, box-shadow 0.3s ease;
     cursor: pointer;
-}
-.permission-panel:hover, #permission-panel:hover {
-    background: rgba(30, 30, 80, 0.9);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(100, 100, 255, 0.5);
 }
 .permission-title {
     font-size: 24px;
@@ -312,21 +303,16 @@ body.permission-required #sidebar input {
     cursor: pointer;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-.first-click-panel:hover {
-    transform: scale(1.02);
-    box-shadow: 0 30px 90px color-mix(in srgb, var(--color-background) 70%, transparent);
-}
-.first-click-svg { margin-bottom: 30px; }
 .first-click-title {
     font-size: 32px;
     font-weight: 700;
     margin-bottom: 20px;
-    color: var(--color-text, #ffffff);
+    color: var(--color-text);
 }
 .first-click-description {
     font-size: 18px;
     line-height: 1.6;
-    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
+    color: var(--color-accent);
 }
 
 /* Component Styles */
@@ -352,10 +338,7 @@ body.permission-required #sidebar input {
     font-weight: 600;
     transition: all 0.2s;
 }
-.small-button:hover {
-    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
-    transform: translateY(-1px);
-}
+
 .ui-container {
     display: flex;
     flex-direction: column;
@@ -537,7 +520,6 @@ input[type="range"]:focus::-moz-range-thumb {
     box-shadow: 0 25px 75px color-mix(in srgb, var(--color-background, #1a1a1a) 60%, transparent);
     text-align: center;
     max-width: 500px;
-    animation: fadeInUp 0.5s ease-out;
 }
 
 .first-click-title {
@@ -564,22 +546,6 @@ input[type="range"]:focus::-moz-range-thumb {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-}
-
-.first-click-button:hover {
-    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 85%, var(--color-background, #1a1a1a));
-    transform: translateY(-2px);
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 /* Extracted inline styles from index.html */
