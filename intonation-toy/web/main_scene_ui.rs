@@ -104,381 +104,46 @@ pub fn setup_main_scene_ui() {
         return;
     };
 
-    // No need for local style constants - will use centralized styling functions
+    // Verify that essential HTML elements exist and set initial values
+    if let Some(root_note_display) = document.get_element_by_id("root-note-display") {
+        root_note_display.set_text_content(Some("A3")); // Default root note is 57 (A3)
+    } else {
+        dev_log!("Warning: root-note-display element not found in HTML");
+    }
 
-    // Create header for sidebar
-    let Ok(header) = document.create_element("h1") else {
-        dev_log!("Failed to create header");
-        return;
-    };
-    header.set_text_content(Some("Intonation Toy"));
-    header.set_attribute("class", "sidebar-header").ok();
+    if let Some(volume_display) = document.get_element_by_id("tuning-fork-volume-display") {
+        volume_display.set_text_content(Some(&slider_position_to_db_display(0.0)));
+    } else {
+        dev_log!("Warning: tuning-fork-volume-display element not found in HTML");
+    }
 
-    // Create container div
-    let Ok(container) = document.create_element("div") else {
-        dev_log!("Failed to create container div");
-        return;
-    };
-    
-    container.set_id("main-scene-ui-container");
-    
-    container.set_attribute("class", "ui-container").ok();
-
-    // Create root note section header
-    let Ok(root_note_header) = document.create_element("div") else {
-        dev_log!("Failed to create root note header");
-        return;
-    };
-    root_note_header.set_text_content(Some("Root Note"));
-    root_note_header.set_attribute("class", "subsection-header").ok();
-
-    // Create root note controls container
-    let Ok(root_note_container) = document.create_element("div") else {
-        dev_log!("Failed to create root note container");
-        return;
-    };
-    root_note_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create minus button
-    let Ok(minus_button) = document.create_element("button") else {
-        dev_log!("Failed to create minus button");
-        return;
-    };
-    minus_button.set_id("root-note-minus");
-    minus_button.set_text_content(Some("-"));
-    minus_button.set_attribute("class", "small-button").ok();
-
-    // Create root note display
-    let Ok(root_note_display) = document.create_element("span") else {
-        dev_log!("Failed to create root note display");
-        return;
-    };
-    root_note_display.set_id("root-note-display");
-    root_note_display.set_text_content(Some("A3")); // Default root note is 57 (A3)
-    root_note_display.set_attribute("class", "root-note-display").ok();
-
-    // Create plus button
-    let Ok(plus_button) = document.create_element("button") else {
-        dev_log!("Failed to create plus button");
-        return;
-    };
-    plus_button.set_id("root-note-plus");
-    plus_button.set_text_content(Some("+"));
-    plus_button.set_attribute("class", "small-button").ok();
-
-    // Assemble root note controls
-    root_note_container.append_child(&minus_button).ok();
-    root_note_container.append_child(&root_note_display).ok();
-    root_note_container.append_child(&plus_button).ok();
-
-    // Create tuning section header
-    let Ok(tuning_header) = document.create_element("div") else {
-        dev_log!("Failed to create tuning header");
-        return;
-    };
-    tuning_header.set_text_content(Some("Tuning System"));
-    tuning_header.set_attribute("class", "subsection-header").ok();
-
-    // Create tuning system controls container
-    let Ok(tuning_container) = document.create_element("div") else {
-        dev_log!("Failed to create tuning container");
-        return;
-    };
-    tuning_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create tuning system dropdown
-    let Ok(tuning_select) = document.create_element("select") else {
-        dev_log!("Failed to create tuning select");
-        return;
-    };
-    tuning_select.set_id("tuning-system-select");
-    tuning_select.set_attribute("class", "control-select").ok();
-
-    // Create Equal Temperament option
-    let Ok(equal_option) = document.create_element("option") else {
-        dev_log!("Failed to create equal temperament option");
-        return;
-    };
-    equal_option.set_attribute("value", "equal").ok();
-    equal_option.set_text_content(Some("Equal Temperament"));
-
-    // Create Just Intonation option
-    let Ok(just_option) = document.create_element("option") else {
-        dev_log!("Failed to create just intonation option");
-        return;
-    };
-    just_option.set_attribute("value", "just").ok();
-    just_option.set_text_content(Some("Just Intonation"));
-
-    // Assemble tuning system dropdown
-    tuning_select.append_child(&equal_option).ok();
-    tuning_select.append_child(&just_option).ok();
-
-    // Assemble tuning controls
-    tuning_container.append_child(&tuning_select).ok();
-
-    // Create scale section header
-    let Ok(scale_header) = document.create_element("div") else {
-        dev_log!("Failed to create scale header");
-        return;
-    };
-    scale_header.set_text_content(Some("Scale"));
-    scale_header.set_attribute("class", "subsection-header").ok();
-
-    // Create scale controls container
-    let Ok(scale_container) = document.create_element("div") else {
-        dev_log!("Failed to create scale container");
-        return;
-    };
-    scale_container.set_attribute("style", "display: flex; align-items: center; gap: 8px;").ok();
-
-    // Create scale dropdown
-    let Ok(scale_select) = document.create_element("select") else {
-        dev_log!("Failed to create scale select");
-        return;
-    };
-    scale_select.set_id("scale-select");
-    scale_select.set_attribute("class", "control-select").ok();
-
-    // Create Chromatic option (first in enum, so default)
-    let Ok(chromatic_option) = document.create_element("option") else {
-        dev_log!("Failed to create chromatic option");
-        return;
-    };
-    chromatic_option.set_attribute("value", "chromatic").ok();
-    chromatic_option.set_attribute("selected", "true").ok();
-    chromatic_option.set_text_content(Some("Chromatic"));
-
-    // Create Major option
-    let Ok(major_option) = document.create_element("option") else {
-        dev_log!("Failed to create major option");
-        return;
-    };
-    major_option.set_attribute("value", "major").ok();
-    major_option.set_text_content(Some("Major"));
-
-    // Create Minor option
-    let Ok(minor_option) = document.create_element("option") else {
-        dev_log!("Failed to create minor option");
-        return;
-    };
-    minor_option.set_attribute("value", "minor").ok();
-    minor_option.set_text_content(Some("Minor"));
-
-    // Create Major Pentatonic option
-    let Ok(major_pentatonic_option) = document.create_element("option") else {
-        dev_log!("Failed to create major pentatonic option");
-        return;
-    };
-    major_pentatonic_option.set_attribute("value", "major_pentatonic").ok();
-    major_pentatonic_option.set_text_content(Some("Major Pentatonic"));
-
-    // Create Minor Pentatonic option
-    let Ok(minor_pentatonic_option) = document.create_element("option") else {
-        dev_log!("Failed to create minor pentatonic option");
-        return;
-    };
-    minor_pentatonic_option.set_attribute("value", "minor_pentatonic").ok();
-    minor_pentatonic_option.set_text_content(Some("Minor Pentatonic"));
-
-    // Assemble scale dropdown (order matches enum)
-    scale_select.append_child(&chromatic_option).ok();
-    scale_select.append_child(&major_option).ok();
-    scale_select.append_child(&minor_option).ok();
-    scale_select.append_child(&major_pentatonic_option).ok();
-    scale_select.append_child(&minor_pentatonic_option).ok();
-
-    // Assemble scale controls
-    scale_container.append_child(&scale_select).ok();
-
-    // Create Tuning Fork section header
-    let Ok(tuning_fork_header) = document.create_element("div") else {
-        dev_log!("Failed to create tuning fork header");
-        return;
-    };
-    tuning_fork_header.set_text_content(Some("Tuning Fork"));
-    tuning_fork_header.set_attribute("class", "subsection-header").ok();
-
-    // Create tuning fork container
-    let Ok(tuning_fork_container) = document.create_element("div") else {
-        dev_log!("Failed to create tuning fork container");
-        return;
-    };
-    tuning_fork_container.set_attribute("class", "tuning-fork-container").ok();
-
-
-    // Create volume container
-    let Ok(volume_container) = document.create_element("div") else {
-        dev_log!("Failed to create volume container");
-        return;
-    };
-    volume_container.set_attribute("style", "display: flex; flex-direction: column; gap: 4px;").ok();
-
-    // Create volume label
-    let Ok(volume_label) = document.create_element("label") else {
-        dev_log!("Failed to create volume label");
-        return;
-    };
-    volume_label.set_attribute("for", "tuning-fork-volume").ok();
-    volume_label.set_text_content(Some("Volume (dB)"));
-    volume_label.set_attribute("style", "color: var(--text-color); font-size: 14px;").ok();
-
-    // Create volume slider
-    let Ok(volume_slider) = document.create_element("input") else {
-        dev_log!("Failed to create volume slider");
-        return;
-    };
-    volume_slider.set_id("tuning-fork-volume");
-    volume_slider.set_attribute("type", "range").ok();
-    volume_slider.set_attribute("min", "0").ok();
-    volume_slider.set_attribute("max", "100").ok();
-    volume_slider.set_attribute("value", "0").ok();
-    // Range input styling is applied globally via apply_range_input_styles()
-    // No need for individual styling
-
-    // Create volume display
-    let Ok(volume_display) = document.create_element("span") else {
-        dev_log!("Failed to create volume display");
-        return;
-    };
-    volume_display.set_id("tuning-fork-volume-display");
-    volume_display.set_text_content(Some(&slider_position_to_db_display(0.0)));
-    volume_display.set_attribute("class", "volume-display").ok();
-
-    // Assemble volume container
-    volume_container.append_child(&volume_label).ok();
-    volume_container.append_child(&volume_slider).ok();
-    volume_container.append_child(&volume_display).ok();
-
-    // Assemble tuning fork controls
-    tuning_fork_container.append_child(&volume_container).ok();
-
-    // Create About section
-    let Ok(about_section) = document.create_element("div") else {
-        dev_log!("Failed to create about section");
-        return;
-    };
-    about_section.set_attribute("class", "about-section").ok();
-
-    // Create About header
-    let Ok(about_header) = document.create_element("div") else {
-        dev_log!("Failed to create about header");
-        return;
-    };
-    about_header.set_attribute("class", "about-header").ok();
-    about_header.set_text_content(Some("About"));
-
-    // Create About content
-    let Ok(about_content) = document.create_element("div") else {
-        dev_log!("Failed to create about content");
-        return;
-    };
-    about_content.set_attribute("class", "about-content").ok();
-
-    // Create app description
-    let Ok(app_description) = document.create_element("p") else {
-        dev_log!("Failed to create app description");
-        return;
-    };
-    app_description.set_attribute("class", "about-text").ok();
-    app_description.set_inner_html("<strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. It helps you explore musical intonation by analyzing audio input and displaying the relationship between detected pitches and your selected root note.");
-
-    // Create user guide section
-    let Ok(user_guide_header) = document.create_element("h3") else {
-        dev_log!("Failed to create user guide header");
-        return;
-    };
-    user_guide_header.set_text_content(Some("Quick Guide"));
-
-    let Ok(user_guide) = document.create_element("ul") else {
-        dev_log!("Failed to create user guide");
-        return;
-    };
-    user_guide.set_attribute("class", "about-list").ok();
-    user_guide.set_inner_html(r#"
-        <li><strong>Root Note:</strong> Use +/- buttons to adjust the tonic pitch</li>
-        <li><strong>Tuning Fork:</strong> Adjust volume of the root note reference tone with slider</li>
-        <li><strong>Tuning System:</strong> Choose between Equal Temperament or Just Intonation</li>
-        <li><strong>Scale:</strong> Select the musical scale for pitch visualization</li>
-        <li><strong>Microphone:</strong> Grant permission when prompted to analyze live audio</li>
-    "#);
-
-    // Create browser requirements section
-    let Ok(browser_header) = document.create_element("h3") else {
-        dev_log!("Failed to create browser header");
-        return;
-    };
-    browser_header.set_text_content(Some("Browser Requirements"));
-
-    let Ok(browser_info) = document.create_element("p") else {
-        dev_log!("Failed to create browser info");
-        return;
-    };
-    browser_info.set_attribute("class", "about-text").ok();
-    browser_info.set_text_content(Some("Works best in modern browsers with WebAssembly and Web Audio API support. Chrome, Firefox, Safari, and Edge are recommended."));
-
-    // Assemble About content
-    about_content.append_child(&app_description).ok();
-    about_content.append_child(&user_guide_header).ok();
-    about_content.append_child(&user_guide).ok();
-    about_content.append_child(&browser_header).ok();
-    about_content.append_child(&browser_info).ok();
-
-    // Assemble About section
-    about_section.append_child(&about_header).ok();
-    about_section.append_child(&about_content).ok();
-
-    // Assemble main container
-    container.append_child(&root_note_header).ok();
-    container.append_child(&root_note_container).ok();
-    container.append_child(&tuning_header).ok();
-    container.append_child(&tuning_container).ok();
-    container.append_child(&scale_header).ok();
-    container.append_child(&scale_container).ok();
-    container.append_child(&tuning_fork_header).ok();
-    container.append_child(&tuning_fork_container).ok();
-    container.append_child(&about_section).ok();
-
-
-    // Append header and container to sidebar
-    let sidebar = document.get_element_by_id("sidebar");
-    
-    if let Some(sidebar) = sidebar {
-        // Append header first
-        if let Err(err) = sidebar.append_child(&header) {
-            dev_log!("Failed to append header to sidebar: {:?}", err);
-        }
-        // Then append the main container
-        if let Err(err) = sidebar.append_child(&container) {
-            dev_log!("Failed to append UI container to sidebar: {:?}", err);
+    if let Some(volume_slider) = document.get_element_by_id("tuning-fork-volume") {
+        if let Some(html_slider) = volume_slider.dyn_ref::<HtmlInputElement>() {
+            html_slider.set_value("0");
         }
     } else {
-        // Fallback to body if sidebar doesn't exist
-        if let Some(body) = document.body() {
-            if let Err(err) = body.append_child(&header) {
-                dev_log!("Failed to append header to body: {:?}", err);
-            }
-            if let Err(err) = body.append_child(&container) {
-                dev_log!("Failed to append UI container to body: {:?}", err);
-            }
-        }
+        dev_log!("Warning: tuning-fork-volume element not found in HTML");
+    }
+
+    // Verify other essential elements exist
+    if document.get_element_by_id("root-note-plus").is_none() {
+        dev_log!("Warning: root-note-plus element not found in HTML");
+    }
+    if document.get_element_by_id("root-note-minus").is_none() {
+        dev_log!("Warning: root-note-minus element not found in HTML");
+    }
+    if document.get_element_by_id("tuning-system-select").is_none() {
+        dev_log!("Warning: tuning-system-select element not found in HTML");
+    }
+    if document.get_element_by_id("scale-select").is_none() {
+        dev_log!("Warning: scale-select element not found in HTML");
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn cleanup_main_scene_ui() {
-    let Some(window) = window() else {
-        return;
-    };
-
-    let Some(document) = window.document() else {
-        return;
-    };
-
-    // Remove the main container
-    if let Some(container) = document.get_element_by_id("main-scene-ui-container") {
-        container.remove();
-    }
+    // No cleanup needed since we're now using static HTML elements
+    // The HTML elements remain in the DOM and can be reused
 }
 
 #[cfg(target_arch = "wasm32")]

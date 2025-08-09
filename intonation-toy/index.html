@@ -9,7 +9,67 @@
   </head>
   <body class="app-body">
     <div id="sidebar" class="app-sidebar">
-      <!-- UI controls will be inserted here by JavaScript/WASM -->
+      <h1 class="sidebar-header">Intonation Toy</h1>
+      <div id="main-scene-ui-container" class="ui-container">
+        <!-- Root Note Section -->
+        <div class="subsection-header">Root Note</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="root-note-minus" class="small-button">-</button>
+          <span id="root-note-display" class="root-note-display">A3</span>
+          <button id="root-note-plus" class="small-button">+</button>
+        </div>
+
+        <!-- Tuning System Section -->
+        <div class="subsection-header">Tuning System</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select id="tuning-system-select" class="control-select">
+            <option value="equal">Equal Temperament</option>
+            <option value="just">Just Intonation</option>
+          </select>
+        </div>
+
+        <!-- Scale Section -->
+        <div class="subsection-header">Scale</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select id="scale-select" class="control-select">
+            <option value="chromatic" selected="true">Chromatic</option>
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+            <option value="major_pentatonic">Major Pentatonic</option>
+            <option value="minor_pentatonic">Minor Pentatonic</option>
+          </select>
+        </div>
+
+        <!-- Tuning Fork Section -->
+        <div class="subsection-header">Tuning Fork</div>
+        <div class="tuning-fork-container">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="tuning-fork-volume" style="color: var(--text-color); font-size: 14px;">Volume (dB)</label>
+            <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
+            <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
+          </div>
+        </div>
+
+        <!-- About Section -->
+        <div class="about-section">
+          <div class="about-header">About</div>
+          <div class="about-content">
+            <p class="about-text"><strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. It helps you explore musical intonation by analyzing audio input and displaying the relationship between detected pitches and your selected root note.</p>
+            
+            <h3>Quick Guide</h3>
+            <ul class="about-list">
+              <li><strong>Root Note:</strong> Use +/- buttons to adjust the tonic pitch</li>
+              <li><strong>Tuning Fork:</strong> Adjust volume of the root note reference tone with slider</li>
+              <li><strong>Tuning System:</strong> Choose between Equal Temperament or Just Intonation</li>
+              <li><strong>Scale:</strong> Select the musical scale for pitch visualization</li>
+              <li><strong>Microphone:</strong> Grant permission when prompted to analyze live audio</li>
+            </ul>
+            
+            <h3>Browser Requirements</h3>
+            <p class="about-text">Works best in modern browsers with WebAssembly and Web Audio API support. Chrome, Firefox, Safari, and Edge are recommended.</p>
+          </div>
+        </div>
+      </div>
     </div>
     <main id="canvas-container" class="app-canvas-container">
       <!-- Canvas will be created dynamically by Rust -->
