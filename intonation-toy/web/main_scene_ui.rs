@@ -125,6 +125,33 @@ pub fn setup_main_scene_ui() {
         dev_log!("Warning: tuning-fork-volume element not found in HTML");
     }
 
+    // Set up help text for root note controls
+    if let Some(help_element) = document.get_element_by_id("root-note-help") {
+        help_element.set_text_content(Some(
+            "Use +/- buttons to adjust the root note (tonic). The volume slider controls the reference tone amplitude from silent (-∞ dB) to full volume (0 dB). The reference tone helps you tune instruments or compare pitches."
+        ));
+    } else {
+        dev_log!("Warning: root-note-help element not found in HTML");
+    }
+
+    // Set up help text for tuning system
+    if let Some(help_element) = document.get_element_by_id("tuning-system-help") {
+        help_element.set_text_content(Some(
+            "Equal Temperament divides the octave into 12 equal semitones (standard modern tuning). Just Intonation uses pure mathematical ratios for more harmonious intervals but may sound out of tune in some keys."
+        ));
+    } else {
+        dev_log!("Warning: tuning-system-help element not found in HTML");
+    }
+
+    // Set up help text for scale selection
+    if let Some(help_element) = document.get_element_by_id("scale-help") {
+        help_element.set_text_content(Some(
+            "Select which notes to highlight in the visualization. Chromatic shows all 12 semitones. Major/Minor are 7-note scales. Pentatonic scales use 5 notes and are common in folk music."
+        ));
+    } else {
+        dev_log!("Warning: scale-help element not found in HTML");
+    }
+
     // Verify other essential elements exist
     if document.get_element_by_id("root-note-plus").is_none() {
         dev_log!("Warning: root-note-plus element not found in HTML");

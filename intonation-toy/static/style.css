@@ -596,3 +596,28 @@ input[type="range"]:focus::-moz-range-thumb {
 .permission-note {
     opacity: 0.7;
 }
+
+/* Help Text Styles */
+.help-text {
+    font-size: 12px;
+    color: color-mix(in srgb, var(--color-text, #ffffff) 70%, transparent);
+    line-height: 1.5;
+    margin-top: 8px;
+    margin-bottom: 0;
+    padding: 8px;
+    background: color-mix(in srgb, var(--color-surface, #2a2a2a) 30%, transparent);
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--color-muted, #666666) 20%, transparent);
+}
+
+.help-text.help-text-compact {
+    padding: 4px 8px;
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.help-text.help-text-emphasized {
+    color: color-mix(in srgb, var(--color-text, #ffffff) 85%, transparent);
+    background: color-mix(in srgb, var(--color-surface, #2a2a2a) 50%, transparent);
+    border-color: color-mix(in srgb, var(--color-muted, #666666) 35%, transparent);
+}
