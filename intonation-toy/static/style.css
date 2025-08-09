@@ -587,8 +587,8 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .volume-icon {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     opacity: 0.8;
     -webkit-mask-repeat: no-repeat;
