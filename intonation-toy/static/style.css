@@ -576,13 +576,21 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .tuning-fork-controls {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
 }
 
 .volume-label {
     color: var(--color-text);
     font-size: 14px;
+}
+
+.volume-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.8;
 }
 
 .error-overlay-hidden {

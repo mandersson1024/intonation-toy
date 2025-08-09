@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <link data-trunk rel="copy-file" href="static/audio-processor.js" />
     <link data-trunk rel="rust" data-wasm-opt="4" />
+    <link data-trunk rel="copy-dir" href="static/icons/" data-trunk-copy-dest="icons/"/>
   </head>
   <body class="app-body">
     <div id="sidebar" class="app-sidebar">
@@ -21,7 +22,7 @@
           <button id="root-note-plus" class="small-button">+</button>
         </div>
         <div class="tuning-fork-controls">
-          <label for="tuning-fork-volume" class="volume-label">Volume (dB)</label>
+          <img src="icons/speaker.png" alt="Volume" class="volume-icon" />
           <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
           <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
         </div>
