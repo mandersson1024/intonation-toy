@@ -69,7 +69,7 @@ pub fn show_error_message(title: &str, details: &str) {
 
     // Show the overlay
     if let Ok(html_element) = overlay.dyn_into::<HtmlElement>() {
-        if let Err(e) = html_element.style().set_property("display", "block") {
+        if let Err(e) = html_element.style().set_property("display", "flex") {
             web_sys::console::error_1(&format!("Failed to show overlay: {:?}", e).into());
         } else {
             web_sys::console::log_1(&"Successfully showed error overlay".into());
