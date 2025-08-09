@@ -37,3 +37,6 @@ pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 /// Octave line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 3.0;
 pub const REGULAR_LINE_THICKNESS: f32 = 1.0;
+
+/// Overlay alpha configuration
+pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;

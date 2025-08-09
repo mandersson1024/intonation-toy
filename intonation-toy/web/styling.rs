@@ -1,3 +1,4 @@
+use crate::app_config::OVERLAY_BACKGROUND_ALPHA;
 use crate::theme::get_current_color_scheme;
 use crate::web::utils::{rgb_to_css, rgba_to_css};
 use wasm_bindgen::JsCast;
@@ -320,7 +321,7 @@ pub fn apply_permission_overlay_animations() {
 pub fn get_error_overlay_style() -> String {
     format!(
         "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: {}; display: flex; justify-content: center; align-items: center; z-index: 10000;",
-        rgba_to_css(get_current_color_scheme().background, 0.95)
+        rgba_to_css(get_current_color_scheme().background, OVERLAY_BACKGROUND_ALPHA)
     )
 }
 
@@ -351,7 +352,7 @@ pub fn get_error_details_style() -> String {
 pub fn get_first_click_overlay_style() -> String {
     format!(
         "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: {}; display: flex; justify-content: center; align-items: center; z-index: 9999; cursor: pointer;",
-        rgba_to_css(get_current_color_scheme().background, 0.95)
+        rgba_to_css(get_current_color_scheme().background, OVERLAY_BACKGROUND_ALPHA)
     )
 }
 
