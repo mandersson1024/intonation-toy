@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Intonation Toy</title>
     <link data-trunk rel="copy-file" href="static/style.css" />
-    <link rel="stylesheet" href="static/style.css" />
+    <link rel="stylesheet" href="style.css" />
     <link data-trunk rel="copy-file" href="static/audio-processor.js" />
     <link data-trunk rel="rust" data-wasm-opt="4" />
   </head>
@@ -46,7 +46,7 @@
         <div class="subsection-header">Tuning Fork</div>
         <div class="tuning-fork-container">
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label for="tuning-fork-volume" style="color: var(--text-color); font-size: 14px;">Volume (dB)</label>
+            <label for="tuning-fork-volume" style="color: var(--color-text); font-size: 14px;">Volume (dB)</label>
             <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
             <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
           </div>

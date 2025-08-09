@@ -121,10 +121,33 @@ pub fn update_css_variables() {
         rgb_to_css(color_scheme.muted)
     );
     
-    if let Err(e) = try_apply_style_to_element(":root", &style) {
-        crate::common::dev_log!("Failed to update CSS variables: {:?}", e);
-    } else {
-        crate::common::dev_log!("Successfully updated CSS custom properties");
+    // Apply to document.documentElement (html element) instead of :root selector
+    let document = get_document();
+    if let Some(root) = document.document_element() {
+        if let Some(html_element) = root.dyn_ref::<HtmlElement>() {
+            if let Err(_) = html_element.style().set_property("--color-background", &rgb_to_css(color_scheme.background)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-background");
+            }
+            if let Err(_) = html_element.style().set_property("--color-surface", &rgb_to_css(color_scheme.surface)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-surface");
+            }
+            if let Err(_) = html_element.style().set_property("--color-primary", &rgb_to_css(color_scheme.primary)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-primary");
+            }
+            if let Err(_) = html_element.style().set_property("--color-secondary", &rgb_to_css(color_scheme.secondary)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-secondary");
+            }
+            if let Err(_) = html_element.style().set_property("--color-accent", &rgb_to_css(color_scheme.accent)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-accent");
+            }
+            if let Err(_) = html_element.style().set_property("--color-text", &rgb_to_css(color_scheme.text)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-text");
+            }
+            if let Err(_) = html_element.style().set_property("--color-muted", &rgb_to_css(color_scheme.muted)) {
+                crate::common::dev_log!("Failed to set CSS variable --color-muted");
+            }
+            crate::common::dev_log!("Successfully updated CSS custom properties");
+        }
     }
 }
 
