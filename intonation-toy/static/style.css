@@ -424,10 +424,13 @@ body.permission-required #sidebar input {
 }
 
 /* About Section Styles */
-.about-section {
-    margin-top: 24px;
-    padding-top: 16px;
+.about-container {
     border-top: 2px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
+    padding-top: 16px;
+    margin-top: 24px;
+}
+
+.about-section {
     width: 100%;
     flex: 1;
     display: flex;
@@ -438,10 +441,10 @@ body.permission-required #sidebar input {
     color: var(--color-text, #ffffff);
     font-size: 15px;
     font-weight: 600;
-    margin-bottom: 12px;
+    margin-top: 6px;
 }
 .about-content {
-    padding: 12px;
+    padding: 16px 8px;
     background-color: color-mix(in srgb, var(--color-surface) 50%, transparent);
     border-radius: 8px;
     overflow-y: auto;
