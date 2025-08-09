@@ -7,11 +7,11 @@
     <link data-trunk rel="copy-file" href="static/audio-processor.js" />
     <link data-trunk rel="rust" data-wasm-opt="4" />
   </head>
-  <body>
-    <div id="sidebar">
+  <body class="app-body">
+    <div id="sidebar" class="app-sidebar">
       <!-- UI controls will be inserted here by JavaScript/WASM -->
     </div>
-    <main id="canvas-container">
+    <main id="canvas-container" class="app-canvas-container">
       <!-- Canvas will be created dynamically by Rust -->
     </main>
     <!-- Trunk will inject the JS/WASM for you -->

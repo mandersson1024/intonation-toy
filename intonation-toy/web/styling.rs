@@ -47,32 +47,65 @@ pub fn apply_css_reset() {
 }
 
 pub fn apply_body_styles() {
-    let style = format!(
-        "background-color: {}; color: {}; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: row; min-height: 100vh; overflow: hidden;",
-        rgb_to_css(get_current_color_scheme().background),
-        rgb_to_css(get_current_color_scheme().text)
-    );
-    apply_style_to_element("body", &style);
+    let css = r#"
+        .app-body {
+            background-color: var(--color-background);
+            color: var(--color-text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+    "#;
+    add_style_to_document(css);
 }
 
 pub fn apply_sidebar_styles() {
-    let gradient_start = rgba_to_css(get_current_color_scheme().surface, 0.95);
-    let gradient_end = rgba_to_css(get_current_color_scheme().surface, 0.85);
-    let border_color = rgba_to_css(get_current_color_scheme().muted, 0.3);
-    
-    let style = format!(
-        "position: fixed; top: 0; left: 0; bottom: 0; width: {}px; background: linear-gradient(to right, {}, {}); border-right: 1px solid {}; display: flex; flex-direction: column; padding: 20px; z-index: 1000; backdrop-filter: blur(10px); overflow-y: auto;",
-        SIDEBAR_WIDTH,
-        gradient_start,
-        gradient_end,
-        border_color
+    let css = format!(
+        r#"
+        .app-sidebar {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: {}px;
+            background: linear-gradient(to right, 
+                color-mix(in srgb, var(--color-surface) 95%, transparent),
+                color-mix(in srgb, var(--color-surface) 85%, transparent));
+            border-right: 1px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }}
+        "#,
+        SIDEBAR_WIDTH
     );
-    apply_style_to_element("#sidebar", &style);
+    add_style_to_document(&css);
 }
 
 pub fn apply_canvas_container_styles() {
-    let style = &format!("position: fixed; top: 0; left: {}px; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;", SIDEBAR_WIDTH);
-    apply_style_to_element("#canvas-container", &style);
+    let css = format!(
+        r#"
+        .app-canvas-container {{
+            position: fixed;
+            top: 0;
+            left: {}px;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }}
+        "#,
+        SIDEBAR_WIDTH
+    );
+    add_style_to_document(&css);
 }
 
 pub fn apply_canvas_styles() {
@@ -433,6 +466,8 @@ pub fn get_sidebar_header_style() -> String {
 pub fn apply_color_scheme_styles() {
     // Apply CSS reset first
     apply_css_reset();
+    // Apply CSS variables before other styles that depend on them
+    apply_css_variables();
     apply_body_styles();
     apply_sidebar_styles();
     apply_canvas_container_styles();
@@ -660,9 +695,10 @@ pub fn update_css_variables() {
 }
 
 pub fn reapply_current_theme() {
-    // Only reapply color-related styles, not layout/sizing
-    apply_body_styles();
-    apply_sidebar_styles();
+    // Only update CSS variables for efficient theme switching
+    // The CSS classes will automatically use the new custom property values
+    update_css_variables();
+    // Still need to reapply styles that use dynamic colors directly
     apply_status_classes();
     apply_control_styles();
     apply_control_range_styles();
