@@ -148,7 +148,6 @@ pub fn apply_status_classes() {
         }
         .permission-required {
             color: #6b7280 !important;
-            font-style: italic !important;
             font-weight: 400;
         }
     "#;
@@ -390,23 +389,6 @@ pub fn apply_first_click_styles() {
     );
     add_style_to_document(&css);
 }
-
-pub fn get_svg_muted_color() -> String {
-    rgb_to_css(get_current_color_scheme().muted)
-}
-
-pub fn get_svg_secondary_color() -> String {
-    rgb_to_css(get_current_color_scheme().secondary)
-}
-
-pub fn get_svg_surface_color() -> String {
-    rgb_to_css(get_current_color_scheme().surface)
-}
-
-pub fn get_svg_accent_color() -> String {
-    rgb_to_css(get_current_color_scheme().accent)
-}
-
 
 // Main Scene UI Styles
 pub fn get_root_note_display_style() -> String {
