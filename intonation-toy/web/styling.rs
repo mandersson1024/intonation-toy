@@ -76,6 +76,7 @@ pub fn apply_color_scheme_styles() {
 /// Create and set CSS custom properties on the document root based on the current theme's ColorScheme.
 /// This function creates CSS variables that can be used by CSS classes for efficient theme switching.
 /// Variables follow the pattern: --color-background, --color-surface, etc.
+/// Works with static/style.css which provides fallback values for better browser compatibility.
 pub fn apply_css_variables() {
     let color_scheme = get_current_color_scheme();
     
@@ -99,11 +100,13 @@ pub fn apply_css_variables() {
     );
     
     add_style_to_document(&css);
+    crate::common::dev_log!("Applied CSS custom properties for theme initialization");
 }
 
 /// Update only the CSS custom properties for efficient theme switching.
 /// This function directly updates the CSS variables on the document root element
 /// without creating new style elements, making it more efficient than apply_css_variables().
+/// Works seamlessly with static/style.css which references these CSS custom properties.
 pub fn update_css_variables() {
     let color_scheme = get_current_color_scheme();
     
@@ -118,12 +121,54 @@ pub fn update_css_variables() {
         rgb_to_css(color_scheme.muted)
     );
     
-    apply_style_to_element(":root", &style);
+    if let Err(e) = try_apply_style_to_element(":root", &style) {
+        crate::common::dev_log!("Failed to update CSS variables: {:?}", e);
+    } else {
+        crate::common::dev_log!("Successfully updated CSS custom properties");
+    }
 }
 
 /// Reapply the current theme by updating CSS custom properties.
-/// All styling is now CSS class-based with custom properties, so only updating
-/// the CSS variables is needed for efficient theme switching.
+/// All styling is now handled by static/style.css with CSS custom properties, 
+/// so only updating the CSS variables is needed for efficient theme switching.
+/// This approach ensures theme changes are applied instantly across all UI elements.
 pub fn reapply_current_theme() {
     update_css_variables();
+}
+
+
+/// Helper function to safely apply styles to DOM elements with error handling.
+/// Returns Result for better error management in theme switching operations.
+fn try_apply_style_to_element(selector: &str, style: &str) -> Result<(), String> {
+    let document = get_document();
+    let element = document
+        .query_selector(selector)
+        .map_err(|_| "Failed to query selector")?
+        .ok_or("Element not found")?;
+    
+    if let Some(html_element) = element.dyn_ref::<HtmlElement>() {
+        html_element
+            .set_attribute("style", style)
+            .map_err(|_| "Failed to set style attribute")?;
+        Ok(())
+    } else {
+        Err("Element is not an HTML element".to_string())
+    }
+}
+
+/// Get the current CSS custom property values for testing and verification.
+/// Returns a formatted string with all current CSS variable values.
+#[allow(dead_code)]
+pub fn get_current_css_variables() -> String {
+    let color_scheme = get_current_color_scheme();
+    format!(
+        "CSS Variables - Background: {}, Surface: {}, Primary: {}, Secondary: {}, Accent: {}, Text: {}, Muted: {}",
+        rgb_to_css(color_scheme.background),
+        rgb_to_css(color_scheme.surface),
+        rgb_to_css(color_scheme.primary),
+        rgb_to_css(color_scheme.secondary),
+        rgb_to_css(color_scheme.accent),
+        rgb_to_css(color_scheme.text),
+        rgb_to_css(color_scheme.muted)
+    )
 }

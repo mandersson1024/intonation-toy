@@ -546,7 +546,8 @@ pub async fn start() {
     // Initialize theme system
     crate::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
     
-    // Apply color scheme styles to DOM elements
+    // Apply CSS custom properties for theme switching (static CSS already loaded)
+    dev_log!("Applying CSS custom properties for theme initialization...");
     crate::web::styling::apply_color_scheme_styles();
     
     // Create three-layer architecture instances

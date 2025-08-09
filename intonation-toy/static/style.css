@@ -7,8 +7,8 @@
 
 /* Body Styles */
 .app-body {
-    background-color: var(--color-background);
-    color: var(--color-text);
+    background-color: var(--color-background, #1a1a1a);
+    color: var(--color-text, #ffffff);
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     margin: 0;
     padding: 0;
@@ -26,9 +26,9 @@
     bottom: 0;
     width: 300px;
     background: linear-gradient(to right, 
-        color-mix(in srgb, var(--color-surface) 95%, transparent),
-        color-mix(in srgb, var(--color-surface) 85%, transparent));
-    border-right: 1px solid color-mix(in srgb, var(--color-muted) 30%, transparent);
+        color-mix(in srgb, var(--color-surface, #2a2a2a) 95%, transparent),
+        color-mix(in srgb, var(--color-surface, #2a2a2a) 85%, transparent));
+    border-right: 1px solid color-mix(in srgb, var(--color-muted, #666666) 30%, transparent);
     display: flex;
     flex-direction: column;
     padding: 20px;
@@ -102,9 +102,9 @@ span.status-inactive {
 
 /* Control Styles */
 .control-button {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
     padding: 8px 16px;
     border-radius: 6px;
     cursor: pointer;
@@ -113,14 +113,14 @@ span.status-inactive {
     transition: all 0.2s;
 }
 .control-button:hover {
-    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 20%, transparent);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary, #4a9eff) 20%, transparent);
 }
 .control-select {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 14px;
@@ -128,15 +128,15 @@ span.status-inactive {
     min-width: 120px;
 }
 .control-input {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 14px;
 }
 .control-label {
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
     font-size: 14px;
     font-weight: 500;
     margin-right: 8px;
@@ -204,17 +204,17 @@ span.status-inactive {
     font-size: 24px;
     font-weight: 600;
     margin-bottom: 16px;
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
 }
 .permission-description {
     font-size: 16px;
     margin-bottom: 24px;
-    color: color-mix(in srgb, var(--color-text) 80%, transparent);
+    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
 }
 .permission-button {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
     padding: 8px 16px;
     border-radius: 6px;
     cursor: pointer;
@@ -259,15 +259,15 @@ body.permission-required #sidebar input {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
+    background-color: color-mix(in srgb, var(--color-background, #1a1a1a) 80%, transparent);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 10000;
 }
 .error-panel {
-    background-color: var(--color-surface);
-    color: var(--color-text);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
     padding: 40px;
     border-radius: 12px;
     box-shadow: 0 20px 60px color-mix(in srgb, var(--color-background) 50%, transparent);
@@ -278,12 +278,12 @@ body.permission-required #sidebar input {
     font-size: 28px;
     font-weight: 700;
     margin-bottom: 20px;
-    color: var(--color-secondary);
+    color: var(--color-secondary, #ff6b35);
 }
 .error-details {
     font-size: 16px;
     line-height: 1.5;
-    color: color-mix(in srgb, var(--color-text) 80%, transparent);
+    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
     white-space: pre-wrap;
 }
 
@@ -294,7 +294,7 @@ body.permission-required #sidebar input {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
+    background-color: color-mix(in srgb, var(--color-background, #1a1a1a) 80%, transparent);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -302,8 +302,8 @@ body.permission-required #sidebar input {
     cursor: pointer;
 }
 .first-click-panel {
-    background-color: var(--color-surface);
-    color: var(--color-text);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
     padding: 60px;
     border-radius: 16px;
     box-shadow: 0 25px 75px color-mix(in srgb, var(--color-background) 60%, transparent);
@@ -321,18 +321,18 @@ body.permission-required #sidebar input {
     font-size: 32px;
     font-weight: 700;
     margin-bottom: 20px;
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
 }
 .first-click-description {
     font-size: 18px;
     line-height: 1.6;
-    color: color-mix(in srgb, var(--color-text) 80%, transparent);
+    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
 }
 
 /* Component Styles */
 .root-note-display {
-    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
-    color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
+    color: var(--color-primary, #4a9eff);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 16px;
@@ -342,9 +342,9 @@ body.permission-required #sidebar input {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
 }
 .small-button {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
     padding: 4px 12px;
     border-radius: 4px;
     cursor: pointer;
@@ -353,7 +353,7 @@ body.permission-required #sidebar input {
     transition: all 0.2s;
 }
 .small-button:hover {
-    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
     transform: translateY(-1px);
 }
 .ui-container {
@@ -371,12 +371,12 @@ body.permission-required #sidebar input {
 .monospace-display {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
     font-size: 14px;
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
 }
 .volume-display {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
     font-size: 12px;
-    color: color-mix(in srgb, var(--color-text) 80%, transparent);
+    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
     min-width: 40px;
     text-align: right;
 }
@@ -393,7 +393,7 @@ body.permission-required #sidebar input {
     width: 100%;
 }
 .sidebar-header {
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
     font-size: 24px;
     font-weight: 700;
     margin: 0 0 20px 0;
@@ -403,7 +403,7 @@ body.permission-required #sidebar input {
     font-family: system-ui, -apple-system, sans-serif;
 }
 .subsection-header {
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
     font-size: 13px;
     font-weight: 600;
     margin-bottom: 8px;
@@ -423,7 +423,7 @@ body.permission-required #sidebar input {
     min-height: 0;
 }
 .about-header {
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
     font-size: 15px;
     font-weight: 600;
     margin-bottom: 12px;
@@ -452,13 +452,13 @@ body.permission-required #sidebar input {
     margin-bottom: 4px;
 }
 .about-section h3 {
-    color: var(--color-primary);
+    color: var(--color-primary, #4a9eff);
     font-size: 14px;
     font-weight: 600;
     margin: 16px 0 8px 0;
 }
 .about-section strong {
-    color: var(--color-text);
+    color: var(--color-text, #ffffff);
     font-weight: 600;
 }
 
@@ -468,7 +468,7 @@ input[type="range"] {
     height: 6px;
     cursor: pointer;
     appearance: none;
-    background: color-mix(in srgb, var(--color-muted) 30%, transparent);
+    background: color-mix(in srgb, var(--color-muted, #666666) 30%, transparent);
     border-radius: 3px;
     outline: none;
     transition: all 0.2s;
@@ -478,7 +478,7 @@ input[type="range"]::-webkit-slider-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--color-primary);
+    background: var(--color-primary, #4a9eff);
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
@@ -487,14 +487,82 @@ input[type="range"]::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--color-primary);
+    background: var(--color-primary, #4a9eff);
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 input[type="range"]:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
 }
 input[type="range"]:focus::-moz-range-thumb {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
+}
+
+/* First Click Handler Styles */
+.first-click-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: color-mix(in srgb, var(--color-background, #1a1a1a) 90%, transparent);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    cursor: pointer;
+}
+
+.first-click-panel {
+    background-color: var(--color-surface, #2a2a2a);
+    color: var(--color-text, #ffffff);
+    padding: 60px;
+    border-radius: 16px;
+    box-shadow: 0 25px 75px color-mix(in srgb, var(--color-background, #1a1a1a) 60%, transparent);
+    text-align: center;
+    max-width: 500px;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.first-click-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: var(--color-text, #ffffff);
+}
+
+.first-click-message {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    color: color-mix(in srgb, var(--color-text, #ffffff) 80%, transparent);
+}
+
+.first-click-button {
+    background-color: var(--color-primary, #4a9eff);
+    color: var(--color-text, #ffffff);
+    border: none;
+    padding: 16px 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.first-click-button:hover {
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 85%, var(--color-background, #1a1a1a));
+    transform: translateY(-2px);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

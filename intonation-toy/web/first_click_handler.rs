@@ -60,8 +60,7 @@ pub fn setup_first_click_handler(
         }
     };
     
-    // Apply first click styles to document
-    styling::apply_first_click_styles();
+    // First click styles are now handled by static/style.css
     
     // Get audio context from engine for the permission request
     let audio_context = engine.as_ref()

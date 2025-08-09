@@ -80,9 +80,12 @@ impl ConsoleCommand for ThemeCommand {
         if args.is_empty() {
             // Show current theme and available options
             let current = crate::theme::get_current_theme().name();
+            let current_colors = crate::theme::get_current_color_scheme();
             
             let mut outputs = Vec::new();
             outputs.push(ConsoleOutput::info(&format!("Current theme: {}", current)));
+            outputs.push(ConsoleOutput::info(&format!("Current color scheme: background={:?}, surface={:?}, text={:?}", 
+                current_colors.background, current_colors.surface, current_colors.text)));
             outputs.push(ConsoleOutput::info("Available themes: light, dark, autumn, sunset"));
             outputs.push(ConsoleOutput::info("Usage: theme <theme_name>"));
             
@@ -105,11 +108,12 @@ impl ConsoleCommand for ThemeCommand {
         // Set the new theme
         crate::theme::set_current_theme(new_theme);
         
-        // Reapply styles
+        // Reapply styles - updates CSS custom properties
         crate::web::styling::reapply_current_theme();
+        crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
-            ConsoleOutput::success(&format!("Theme set to {} (CSS and WebGL components updated)", theme_name))
+            ConsoleOutput::success(&format!("Theme set to {} (CSS custom properties and WebGL components updated)", theme_name))
         ])
     }
 }
