@@ -81,34 +81,6 @@ pub fn apply_canvas_styles() {
     apply_style_to_element("#three-d-canvas", &style);
 }
 
-pub fn get_status_success_style() -> String {
-    "color: #10b981;".to_string()
-}
-
-pub fn get_status_neutral_style() -> String {
-    "color: #ffffff;".to_string()
-}
-
-pub fn get_status_active_style() -> String {
-    "color: #06b6d4;".to_string()
-}
-
-pub fn get_status_pending_style() -> String {
-    "color: #f59e0b;".to_string()
-}
-
-pub fn get_status_warning_style() -> String {
-    "color: #fb923c;".to_string()
-}
-
-pub fn get_status_error_style() -> String {
-    "color: #ef4444;".to_string()
-}
-
-pub fn get_status_inactive_style() -> String {
-    "color: #6b7280;".to_string()
-}
-
 pub fn apply_status_classes() {
     // Enhanced status classes with !important and font-weight as in index.css
     let css = r#"
@@ -425,13 +397,6 @@ pub fn get_monospace_display_style() -> String {
     format!(
         "font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace; font-size: 14px; color: {};",
         rgb_to_css(get_current_color_scheme().text)
-    )
-}
-
-pub fn get_checkbox_style() -> String {
-    format!(
-        "width: 18px; height: 18px; cursor: pointer; accent-color: {};",
-        rgb_to_css(get_current_color_scheme().primary)
     )
 }
 
