@@ -125,32 +125,6 @@ pub fn setup_main_scene_ui() {
         dev_log!("Warning: tuning-fork-volume element not found in HTML");
     }
 
-    // Set up help text for root note controls
-    if let Some(help_element) = document.get_element_by_id("root-note-help") {
-        help_element.set_text_content(Some(
-            "The root note is at the center line. Match it with your voice or instrument to explore intonation. Headphones are recommended to prevent your microphone from picking up the signal. Leave the volume at zero for visual-only tuning mode."
-        ));
-    } else {
-        dev_log!("Warning: root-note-help element not found in HTML");
-    }
-
-    // Set up help text for tuning system
-    if let Some(help_element) = document.get_element_by_id("tuning-system-help") {
-        help_element.set_text_content(Some(
-            "Equal Temperament divides the octave into 12 equal semitones (standard modern tuning). Just Intonation uses pure mathematical ratios for more harmonious intervals."
-        ));
-    } else {
-        dev_log!("Warning: tuning-system-help element not found in HTML");
-    }
-
-    // Set up help text for scale selection
-    if let Some(help_element) = document.get_element_by_id("scale-help") {
-        help_element.set_text_content(Some(
-            "Select which notes to highlight in the display. All scales are subsets of the 12-tone chromatic scale."
-        ));
-    } else {
-        dev_log!("Warning: scale-help element not found in HTML");
-    }
 
     // Verify other essential elements exist
     if document.get_element_by_id("root-note-plus").is_none() {
