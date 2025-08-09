@@ -566,3 +566,33 @@ input[type="range"]:focus::-moz-range-thumb {
         transform: translateY(0);
     }
 }
+
+/* Extracted inline styles from index.html */
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tuning-fork-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.volume-label {
+    color: var(--color-text);
+    font-size: 14px;
+}
+
+.error-overlay-hidden {
+    display: none;
+}
+
+.first-click-overlay-hidden {
+    display: none;
+}
+
+.permission-note {
+    opacity: 0.7;
+}
