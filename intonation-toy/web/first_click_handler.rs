@@ -41,30 +41,27 @@ pub fn setup_first_click_handler(
         }
     };
     
-    // Create full-screen overlay div
-    let overlay = match document.create_element("div") {
-        Ok(el) => el.dyn_into::<HtmlElement>().unwrap(),
+    // Get existing first-click overlay
+    let overlay = match document.query_selector(".first-click-overlay") {
+        Ok(Some(el)) => match el.dyn_into::<HtmlElement>() {
+            Ok(html_el) => html_el,
+            Err(_) => {
+                dev_log!("⚠ Failed to cast overlay to HtmlElement");
+                return;
+            }
+        },
+        Ok(None) => {
+            dev_log!("⚠ No first-click overlay found in DOM");
+            return;
+        },
         Err(_) => {
-            dev_log!("⚠ Failed to create overlay div");
+            dev_log!("⚠ Failed to query for first-click overlay");
             return;
         }
     };
     
-    // Style the overlay using CSS class
-    overlay.set_attribute("class", "first-click-overlay").unwrap();
-    
     // Apply first click styles to document
     styling::apply_first_click_styles();
-    
-    // Add simple instructions text with header
-    let panel_html = "<div id='permission-panel' class='first-click-panel'>
-        <h2 class='first-click-title'>Intonation Toy</h2>
-        <div class='first-click-description'>Click anywhere to start<br>
-        <small style='opacity: 0.7;'>(Microphone permission will be requested)</small>
-        </div>
-    </div>";
-    
-    overlay.set_inner_html(panel_html);
     
     // Get audio context from engine for the permission request
     let audio_context = engine.as_ref()
@@ -99,10 +96,10 @@ pub fn setup_first_click_handler(
                         body.set_attribute("class", &new_class).ok();
                     }
                     
-                    // Remove the first-click overlay
+                    // Hide the first-click overlay
                     if let Ok(Some(overlay_element)) = document.query_selector(".first-click-overlay") {
-                        if let Some(parent) = overlay_element.parent_node() {
-                            let _ = parent.remove_child(&overlay_element);
+                        if let Ok(html_element) = overlay_element.dyn_into::<web_sys::HtmlElement>() {
+                            let _ = html_element.style().set_property("display", "none");
                         }
                     }
                 }
@@ -213,7 +210,7 @@ pub fn setup_first_click_handler(
         }
     }) as Box<dyn FnMut(_)>);
     
-    // Append overlay to body and add click listener to entire overlay
+    // Show overlay and add click listener
     if let Some(body) = document.body() {
         // Add permission-required class to body to disable sidebar controls
         let current_class = body.get_attribute("class").unwrap_or_default();
@@ -224,8 +221,12 @@ pub fn setup_first_click_handler(
         };
         body.set_attribute("class", &new_class).ok();
         
-        body.append_child(&overlay).unwrap();
-        dev_log!("✓ First click handler overlay added");
+        // Show the existing overlay
+        if let Err(e) = overlay.style().set_property("display", "block") {
+            dev_log!("⚠ Failed to show first click overlay: {:?}", e);
+            return;
+        }
+        dev_log!("✓ First click handler overlay shown");
         
         // Add click listener to the entire overlay
         let target: &EventTarget = overlay.as_ref();
@@ -236,7 +237,7 @@ pub fn setup_first_click_handler(
         
         dev_log!("✓ Click handler attached to entire overlay");
     } else {
-        dev_log!("⚠ No body element available to append overlay");
+        dev_log!("⚠ No body element available to set permission class");
     }
 }
 

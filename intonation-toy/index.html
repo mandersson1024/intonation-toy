@@ -72,8 +72,24 @@
       </div>
     </div>
     <main id="canvas-container" class="app-canvas-container">
-      <!-- Canvas will be created dynamically by Rust -->
+      <canvas id="three-d-canvas"></canvas>
     </main>
+
+    <!-- Error Message Overlay -->
+    <div id="error-message-overlay" class="error-overlay" style="display: none;">
+      <div class="error-panel">
+        <h2 id="error-title" class="error-title"></h2>
+        <p id="error-details" class="error-details"></p>
+      </div>
+    </div>
+
+    <!-- First Click Permission Overlay -->
+    <div class="first-click-overlay" style="display: none;">
+      <div id="permission-panel" class="first-click-panel">
+        <h2 class="first-click-title">Intonation Toy</h2>
+        <div class="first-click-description">Click anywhere to start<br><small style="opacity: 0.7;">(Microphone permission will be requested)</small></div>
+      </div>
+    </div>
     <!-- Trunk will inject the JS/WASM for you -->
   </body>
 </html>

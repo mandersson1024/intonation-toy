@@ -27,106 +27,55 @@ pub fn show_error_message(title: &str, details: &str) {
         }
     };
 
-    // Remove any existing error message
-    web_sys::console::log_1(&"About to hide existing error messages".into());
-    hide_error_message();
-
-    // Create overlay
-    web_sys::console::log_1(&"Creating overlay element".into());
-    let overlay = match document.create_element("div") {
-        Ok(el) => {
-            web_sys::console::log_1(&"Overlay element created successfully".into());
+    // Get existing error overlay elements
+    web_sys::console::log_1(&"Getting existing error overlay elements".into());
+    
+    let overlay = match document.get_element_by_id("error-message-overlay") {
+        Some(el) => {
+            web_sys::console::log_1(&"Found existing error overlay".into());
             el
         },
-        Err(e) => {
-            web_sys::console::error_1(&format!("Failed to create overlay element: {:?}", e).into());
+        None => {
+            web_sys::console::error_1(&"Failed to find error overlay element".into());
             return;
         }
     };
 
-    if let Err(e) = overlay.set_attribute("id", "error-message-overlay") {
-        dev_log!("Failed to set overlay id: {:?}", e);
-    }
-
-    if let Err(e) = overlay.set_attribute("class", "error-overlay") {
-        dev_log!("Failed to set overlay class: {:?}", e);
-    }
-
-    // Create error panel
-    let panel = match document.create_element("div") {
-        Ok(el) => el,
-        Err(e) => {
-            dev_log!("Failed to create panel element: {:?}", e);
+    let title_el = match document.get_element_by_id("error-title") {
+        Some(el) => {
+            web_sys::console::log_1(&"Found existing error title element".into());
+            el
+        },
+        None => {
+            web_sys::console::error_1(&"Failed to find error title element".into());
             return;
         }
     };
 
-    if let Err(e) = panel.set_attribute("class", "error-panel") {
-        dev_log!("Failed to set panel class: {:?}", e);
-    }
-
-    // Create title element
-    let title_el = match document.create_element("h2") {
-        Ok(el) => el,
-        Err(e) => {
-            dev_log!("Failed to create title element: {:?}", e);
+    let details_el = match document.get_element_by_id("error-details") {
+        Some(el) => {
+            web_sys::console::log_1(&"Found existing error details element".into());
+            el
+        },
+        None => {
+            web_sys::console::error_1(&"Failed to find error details element".into());
             return;
         }
     };
 
+    // Update content of existing elements
     title_el.set_text_content(Some(title));
-
-    if let Err(e) = title_el.set_attribute("class", "error-title") {
-        dev_log!("Failed to set title class: {:?}", e);
-    }
-
-    // Create details element
-    let details_el = match document.create_element("p") {
-        Ok(el) => el,
-        Err(e) => {
-            dev_log!("Failed to create details element: {:?}", e);
-            return;
-        }
-    };
-
     details_el.set_text_content(Some(details));
 
-    if let Err(e) = details_el.set_attribute("class", "error-details") {
-        dev_log!("Failed to set details class: {:?}", e);
-    }
-
-    // Assemble the error panel
-    if let Err(e) = panel.append_child(&title_el) {
-        dev_log!("Failed to append title to panel: {:?}", e);
-    }
-
-    if let Err(e) = panel.append_child(&details_el) {
-        dev_log!("Failed to append details to panel: {:?}", e);
-    }
-
-    if let Err(e) = overlay.append_child(&panel) {
-        dev_log!("Failed to append panel to overlay: {:?}", e);
-    }
-
-    // Add to document body
-    web_sys::console::log_1(&"About to append overlay to body".into());
-    match document.body() {
-        Some(body) => {
-            if let Err(e) = body.append_child(&overlay) {
-                web_sys::console::error_1(&format!("Failed to append overlay to body: {:?}", e).into());
-            } else {
-                web_sys::console::log_1(&"Successfully appended overlay to body".into());
-                // Verify it's actually there
-                if let Some(check_overlay) = document.get_element_by_id("error-message-overlay") {
-                    web_sys::console::log_1(&"Overlay confirmed to exist in DOM".into());
-                } else {
-                    web_sys::console::error_1(&"Overlay NOT found in DOM immediately after append!".into());
-                }
-            }
+    // Show the overlay
+    if let Ok(html_element) = overlay.dyn_into::<HtmlElement>() {
+        if let Err(e) = html_element.style().set_property("display", "block") {
+            web_sys::console::error_1(&format!("Failed to show overlay: {:?}", e).into());
+        } else {
+            web_sys::console::log_1(&"Successfully showed error overlay".into());
         }
-        None => {
-            web_sys::console::error_1(&"Failed to get document body".into());
-        }
+    } else {
+        web_sys::console::error_1(&"Failed to cast overlay to HtmlElement".into());
     }
 }
 
@@ -166,8 +115,16 @@ pub fn hide_error_message() {
     };
 
     if let Some(overlay) = document.get_element_by_id("error-message-overlay") {
-        web_sys::console::log_1(&"Found overlay to hide - removing it".into());
-        overlay.remove();
+        web_sys::console::log_1(&"Found overlay to hide - hiding it".into());
+        if let Ok(html_element) = overlay.dyn_into::<HtmlElement>() {
+            if let Err(e) = html_element.style().set_property("display", "none") {
+                web_sys::console::error_1(&format!("Failed to hide overlay: {:?}", e).into());
+            } else {
+                web_sys::console::log_1(&"Successfully hid error overlay".into());
+            }
+        } else {
+            web_sys::console::error_1(&"Failed to cast overlay to HtmlElement in hide".into());
+        }
     } else {
         web_sys::console::log_1(&"No overlay found to hide".into());
     }

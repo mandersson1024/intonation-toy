@@ -105,18 +105,14 @@ pub async fn start_render_loop(
 ) {
     dev_log!("Starting three-d with three-layer architecture");
     
-    // Create canvas element dynamically with proper sizing
+    // Get existing canvas element and set up resize handling
     #[cfg(target_arch = "wasm32")]
     let canvas = {
         let window_obj = web_sys::window().unwrap();
         let document = window_obj.document().unwrap();
-        let canvas_container = document.get_element_by_id("canvas-container").unwrap();
         
-        let canvas = document.create_element("canvas").unwrap()
+        let canvas = document.get_element_by_id("three-d-canvas").unwrap()
             .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-        canvas.set_id("three-d-canvas");
-        
-        canvas_container.append_child(&canvas).unwrap();
         
         // Set up resize event handler
         let canvas_clone = canvas.clone();

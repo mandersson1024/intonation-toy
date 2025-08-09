@@ -109,8 +109,8 @@ pub fn apply_canvas_container_styles() {
 }
 
 pub fn apply_canvas_styles() {
-    // Using red border and black background as specified in index.css
-    let style = "border: 3px solid red; border-radius: 4px; background-color: #000; display: block; width: 100%; height: 100%;";
+    // Using drop-shadow and black background
+    let style = "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); border-radius: 4px; background-color: #000; display: block; width: 100%; height: 100%;";
     apply_style_to_element("#three-d-canvas", &style);
 }
 
