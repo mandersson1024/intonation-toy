@@ -142,13 +142,13 @@ impl Default for ColorScheme {
 impl ColorScheme {
     pub const fn dark() -> Self {
         Self {
-        background: [0.16, 0.18, 0.21],  // #2E3440
-        surface:    [0.19, 0.21, 0.25],  // #3B4252
-        primary:    [0.58, 0.74, 0.81],  // #94B7CF (Frost Blue)
-        secondary:  [0.78, 0.87, 0.90],  // #C7E0E6 (Lighter Frost)
-        accent:     [0.88, 0.80, 0.62],  // #E1CC9F (Sand)
-        text:       [0.89, 0.91, 0.95],  // #E5E9F0
-        muted:      [0.64, 0.68, 0.75],  // #A3ADBf
+            background: [0.16, 0.18, 0.21],  // #2E3440
+            surface:    [0.19, 0.21, 0.25],  // #3B4252
+            primary:    [0.58, 0.74, 0.81],  // #94B7CF (Frost Blue)
+            secondary:  [0.78, 0.87, 0.90],  // #C7E0E6 (Lighter Frost)
+            accent:     [0.88, 0.80, 0.62],  // #E1CC9F (Sand)
+            text:       [0.89, 0.91, 0.95],  // #E5E9F0
+            muted:      [0.64, 0.68, 0.75],  // #A3ADBf
         }
     }
     
