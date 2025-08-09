@@ -1,6 +1,6 @@
 use crate::app_config::OVERLAY_BACKGROUND_ALPHA;
 use crate::theme::get_current_color_scheme;
-use crate::web::utils::{rgb_to_css, rgba_to_css};
+use crate::web::utils::rgb_to_css;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement};
 
@@ -165,9 +165,6 @@ pub fn apply_status_classes() {
 
 
 
-pub fn get_control_range_style() -> String {
-    "display: flex; align-items: center; gap: 12px;".to_string()
-}
 
 pub fn apply_control_range_styles() {
     // Enhanced control range styling with proper layout from index.css
@@ -615,53 +612,44 @@ pub fn apply_about_section_styles() {
 }
 
 pub fn apply_range_input_styles() {
-    let primary_color = rgb_to_css(get_current_color_scheme().primary);
-    let muted_bg = rgba_to_css(get_current_color_scheme().muted, 0.3);
-    let css = format!(
-        r#"
-        input[type="range"] {{
+    let css = r#"
+        input[type="range"] {
             width: 100%;
             height: 6px;
             cursor: pointer;
             appearance: none;
-            background: {};
+            background: color-mix(in srgb, var(--color-muted) 30%, transparent);
             border-radius: 3px;
             outline: none;
             transition: all 0.2s;
-        }}
-        input[type="range"]::-webkit-slider-thumb {{
+        }
+        input[type="range"]::-webkit-slider-thumb {
             appearance: none;
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            background: {};
+            background: var(--color-primary);
             cursor: pointer;
             border: 2px solid #fff;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }}
-        input[type="range"]::-moz-range-thumb {{
+        }
+        input[type="range"]::-moz-range-thumb {
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            background: {};
+            background: var(--color-primary);
             cursor: pointer;
             border: 2px solid #fff;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }}
-        input[type="range"]:focus::-webkit-slider-thumb {{
-            box-shadow: 0 0 0 3px {};
-        }}
-        input[type="range"]:focus::-moz-range-thumb {{
-            box-shadow: 0 0 0 3px {};
-        }}
-        "#,
-        muted_bg,
-        primary_color,
-        primary_color,
-        rgba_to_css(get_current_color_scheme().primary, 0.3),
-        rgba_to_css(get_current_color_scheme().primary, 0.3)
-    );
-    add_style_to_document(&css);
+        }
+        input[type="range"]:focus::-webkit-slider-thumb {
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
+        }
+        input[type="range"]:focus::-moz-range-thumb {
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
+        }
+        "#;
+    add_style_to_document(css);
 }
 
 /// Create and set CSS custom properties on the document root based on the current theme's ColorScheme.
@@ -712,10 +700,9 @@ pub fn update_css_variables() {
     apply_style_to_element(":root", &style);
 }
 
+/// Reapply the current theme by updating CSS custom properties.
+/// All styling is now CSS class-based with custom properties, so only updating
+/// the CSS variables is needed for efficient theme switching.
 pub fn reapply_current_theme() {
-    // Only update CSS variables for efficient theme switching
-    // The CSS classes will automatically use the new custom property values
     update_css_variables();
-    // The range input styles need dynamic colors for gradients
-    apply_range_input_styles();
 }
