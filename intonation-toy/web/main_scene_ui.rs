@@ -128,7 +128,7 @@ pub fn setup_main_scene_ui() {
     // Set up help text for root note controls
     if let Some(help_element) = document.get_element_by_id("root-note-help") {
         help_element.set_text_content(Some(
-            "The root note is the center line in the diagram. Listen to it and sing/play to it. Adjust the volume with the slider. Use headphones to prevent your microphone might pick up the sound. You can leave the volume off and just use the diagram as a glorified tuner."
+            "The root note appears as the center line in the display. Play this reference tone and match it with your voice or instrument to explore intonation! Adjust volume with the slider. Use headphones to prevent the microphone from picking up the reference tone. Set volume to zero for silent visual-only tuning mode."
         ));
     } else {
         dev_log!("Warning: root-note-help element not found in HTML");
