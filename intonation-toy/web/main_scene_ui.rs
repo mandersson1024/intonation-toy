@@ -128,7 +128,7 @@ pub fn setup_main_scene_ui() {
     // Set up help text for root note controls
     if let Some(help_element) = document.get_element_by_id("root-note-help") {
         help_element.set_text_content(Some(
-            "Use +/- buttons to adjust the root note (tonic). The volume slider controls the reference tone amplitude from silent (-∞ dB) to full volume (0 dB). The reference tone helps you tune instruments or compare pitches."
+            "The root note is the center line in the diagram. Listen to it and sing/play to it. Adjust the volume with the slider. Use headphones to prevent your microphone might pick up the sound. You can leave the volume off and just use the diagram as a glorified tuner."
         ));
     } else {
         dev_log!("Warning: root-note-help element not found in HTML");
