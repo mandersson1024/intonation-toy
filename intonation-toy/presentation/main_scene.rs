@@ -252,7 +252,7 @@ impl MainScene {
 
         let primary_material = create_color_material(rgb_to_srgba(scheme.accent), false);
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.text));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
