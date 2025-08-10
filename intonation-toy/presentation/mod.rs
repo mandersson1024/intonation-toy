@@ -447,6 +447,13 @@ impl Presenter {
             Pitch::NotDetected => (false, None),
         };
         
+        // Extract closest MIDI note from accuracy data when pitch is detected
+        let closest_note = if pitch_detected {
+            Some(model_data.accuracy.closest_midi_note)
+        } else {
+            None
+        };
+        
         // Get tuning line data for the active tuning system
         let tuning_line_data = if matches!(self.scene, Scene::Main(_)) {
             Self::get_tuning_line_positions(
@@ -468,6 +475,8 @@ impl Presenter {
                 
                 // Update tuning lines - MainScene doesn't know about music theory
                 main_scene.update_tuning_lines(viewport, &tuning_line_data);
+                
+                main_scene.update_closest_note(closest_note);
                 
                 main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity);
             }

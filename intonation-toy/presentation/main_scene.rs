@@ -43,12 +43,15 @@ pub struct TuningLines {
     context: Context,
     regular_material: ColorMaterial,
     octave_material: ColorMaterial,
+    accent_material: ColorMaterial,
+    closest_midi_note: Option<MidiNote>,
 }
 
 impl TuningLines {
-    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba) -> Self {
+    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba, accent_color: Srgba) -> Self {
         let regular_material = create_color_material(regular_color, false);
         let octave_material = create_color_material(octave_color, false);
+        let accent_material = create_color_material(accent_color, false);
         
         Self {
             lines: Vec::new(),
@@ -58,6 +61,8 @@ impl TuningLines {
             context: context.clone(),
             regular_material,
             octave_material,
+            accent_material,
+            closest_midi_note: None,
         }
     }
 
@@ -100,10 +105,12 @@ impl TuningLines {
         
         // Set positions, MIDI notes, and thickness for all lines
         for (i, &(y, midi_note, thickness)) in line_data.iter().enumerate() {
-            // Determine if this is an octave line (root note or ±12 semitones from root)
-            // Octave lines have a specific thickness defined in app_config
+            // Determine material priority: accent > octave > regular
+            let is_closest = Some(midi_note) == self.closest_midi_note;
             let is_octave = thickness == crate::app_config::OCTAVE_LINE_THICKNESS;
-            let material = if is_octave { 
+            let material = if is_closest {
+                &self.accent_material
+            } else if is_octave { 
                 &self.octave_material 
             } else { 
                 &self.regular_material 
@@ -118,7 +125,12 @@ impl TuningLines {
                     thickness
                 );
                 self.lines[i] = Gm::new(line, material.clone());
-            } else if i < self.thicknesses.len() && (self.thicknesses[i] == crate::app_config::OCTAVE_LINE_THICKNESS) != is_octave {
+            } else if i < self.thicknesses.len() && {
+                let prev_was_closest = i < self.midi_notes.len() && Some(self.midi_notes[i]) == self.closest_midi_note;
+                let prev_was_octave = self.thicknesses[i] == crate::app_config::OCTAVE_LINE_THICKNESS;
+                // Check if material status changed (accent or octave status changed)
+                is_closest != prev_was_closest || is_octave != prev_was_octave
+            } {
                 // Material needs to change even if thickness didn't
                 let line = Line::new(
                     &self.context,
@@ -160,6 +172,11 @@ impl TuningLines {
         self.midi_notes.iter().copied()
     }
     
+    /// Set the closest MIDI note that should be highlighted with accent color
+    pub fn set_closest_note(&mut self, note: Option<MidiNote>) {
+        self.closest_midi_note = note;
+    }
+    
     /// Render note labels above each tuning line
     pub fn render_note_labels(&self, text_renderer: &mut TextRenderer) {
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
@@ -173,13 +190,14 @@ impl TuningLines {
             let text_y = y_position + NOTE_NAME_Y_OFFSET;
             let text_x = NOTE_NAME_X_OFFSET;
             
-            // Determine color based on whether this is an octave line
-            // Octave lines have a specific thickness defined in app_config
-            let is_octave = thickness == crate::app_config::OCTAVE_LINE_THICKNESS;
-            let text_color = if is_octave {
-                get_current_color_scheme().secondary
+            // Determine color with priority: accent > octave > muted
+            let scheme = get_current_color_scheme();
+            let text_color = if Some(midi_note) == self.closest_midi_note {
+                scheme.accent
+            } else if thickness == crate::app_config::OCTAVE_LINE_THICKNESS {
+                scheme.secondary
             } else {
-                get_current_color_scheme().muted
+                scheme.muted
             };
             
             text_renderer.queue_text(&note_name, text_x, text_y, 14.0, [text_color[0], text_color[1], text_color[2], 1.0]);
@@ -287,7 +305,7 @@ impl MainScene {
 
         let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme)), false);
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary), rgb_to_srgba(scheme.accent));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
@@ -325,6 +343,7 @@ impl MainScene {
         // Update tuning lines materials
         self.tuning_lines.regular_material = create_color_material(rgb_to_srgba(scheme.muted), false);
         self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.secondary), false);
+        self.tuning_lines.accent_material = create_color_material(rgb_to_srgba(scheme.accent), false);
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
@@ -433,6 +452,10 @@ impl MainScene {
     pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
         // Use the new thickness-aware method
         self.tuning_lines.update_lines(viewport, line_data);
+    }
+    
+    pub fn update_closest_note(&mut self, note: Option<MidiNote>) {
+        self.tuning_lines.set_closest_note(note);
     }
     
 }
