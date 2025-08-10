@@ -36,12 +36,14 @@ pub struct TuningLines {
     y_positions: Vec<f32>,
     thicknesses: Vec<f32>,
     context: Context,
-    material: ColorMaterial,
+    regular_material: ColorMaterial,
+    octave_material: ColorMaterial,
 }
 
 impl TuningLines {
-    pub fn new(context: &Context, color: Srgba) -> Self {
-        let material = create_color_material(color, false);
+    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba) -> Self {
+        let regular_material = create_color_material(regular_color, false);
+        let octave_material = create_color_material(octave_color, false);
         
         Self {
             lines: Vec::new(),
@@ -49,7 +51,8 @@ impl TuningLines {
             y_positions: Vec::new(),
             thicknesses: Vec::new(),
             context: context.clone(),
-            material,
+            regular_material,
+            octave_material,
         }
     }
 
@@ -69,7 +72,8 @@ impl TuningLines {
                 PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
                 1.0  // Default thickness, will be updated
             );
-            self.lines.push(Gm::new(line, self.material.clone()));
+            // Use regular material as default, will be updated if needed
+            self.lines.push(Gm::new(line, self.regular_material.clone()));
         }
         
         // Remove excess lines, midi notes, y_positions, and thicknesses if we have too many
@@ -91,7 +95,16 @@ impl TuningLines {
         
         // Set positions, MIDI notes, and thickness for all lines
         for (i, &(y, midi_note, thickness)) in line_data.iter().enumerate() {
-            // If thickness changed, we need to recreate the line
+            // Determine if this is an octave line (root note or ±12 semitones from root)
+            // Octave lines have a specific thickness defined in app_config
+            let is_octave = thickness == crate::app_config::OCTAVE_LINE_THICKNESS;
+            let material = if is_octave { 
+                &self.octave_material 
+            } else { 
+                &self.regular_material 
+            };
+            
+            // If thickness changed or material needs to change, recreate the line
             if i < self.thicknesses.len() && self.thicknesses[i] != thickness {
                 let line = Line::new(
                     &self.context,
@@ -99,9 +112,18 @@ impl TuningLines {
                     PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y },
                     thickness
                 );
-                self.lines[i] = Gm::new(line, self.material.clone());
+                self.lines[i] = Gm::new(line, material.clone());
+            } else if i < self.thicknesses.len() && (self.thicknesses[i] == crate::app_config::OCTAVE_LINE_THICKNESS) != is_octave {
+                // Material needs to change even if thickness didn't
+                let line = Line::new(
+                    &self.context,
+                    PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
+                    PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y },
+                    thickness
+                );
+                self.lines[i] = Gm::new(line, material.clone());
             } else {
-                // Just update endpoints if thickness hasn't changed
+                // Just update endpoints if neither thickness nor material changed
                 self.lines[i].set_endpoints(
                     PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
                     PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y }
@@ -137,6 +159,7 @@ impl TuningLines {
     pub fn render_note_labels(&self, text_renderer: &mut TextRenderer) {
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];
+            let thickness = self.thicknesses[i];
             
             // Convert MIDI note to name
             let note_name = crate::shared_types::midi_note_to_name(midi_note);
@@ -145,8 +168,15 @@ impl TuningLines {
             let text_y = y_position + NOTE_NAME_Y_OFFSET;
             let text_x = NOTE_NAME_X_OFFSET;
             
-            // Queue the text for rendering (using theme muted color, larger size)
-            let text_color = get_current_color_scheme().muted;
+            // Determine color based on whether this is an octave line
+            // Octave lines have a specific thickness defined in app_config
+            let is_octave = thickness == crate::app_config::OCTAVE_LINE_THICKNESS;
+            let text_color = if is_octave {
+                get_current_color_scheme().secondary
+            } else {
+                get_current_color_scheme().muted
+            };
+            
             text_renderer.queue_text(&note_name, text_x, text_y, 14.0, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
@@ -252,7 +282,7 @@ impl MainScene {
 
         let primary_material = create_color_material(rgb_to_srgba(scheme.accent), false);
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
@@ -287,8 +317,9 @@ impl MainScene {
             self.user_pitch_line_thickness);
         self.user_pitch_line = Gm::new(line, primary_material);
         
-        // Update tuning lines material
-        self.tuning_lines.material = create_color_material(rgb_to_srgba(scheme.text), false);
+        // Update tuning lines materials
+        self.tuning_lines.regular_material = create_color_material(rgb_to_srgba(scheme.muted), false);
+        self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.secondary), false);
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
