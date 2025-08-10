@@ -1,7 +1,7 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
 use crate::shared_types::{MidiNote, ColorScheme, Volume};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
-use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
+use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD, PITCH_VISUALIZATION_ZOOM_DEFAULT};
 
 // Left margin to reserve space for note names
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
@@ -23,8 +23,7 @@ fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offs
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
-    let scale_factor = 0.95;
-    let y: f32 = viewport_height * (0.5 + interval * scale_factor * 0.5);
+    let y: f32 = viewport_height * (0.5 + interval * PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
     y
 }
 
@@ -670,22 +669,26 @@ mod tests {
         // Test the helper function directly
         let viewport_height = 600.0;
         
-        // Test standard intervals
+        // Test standard intervals with scale factor
         let y_middle = interval_to_screen_y_position(0.0, viewport_height);
         assert_eq!(y_middle, 300.0, "Interval 0.0 should map to middle of screen");
         
         let y_top = interval_to_screen_y_position(-1.0, viewport_height);
-        assert_eq!(y_top, 0.0, "Interval -1.0 should map to top of screen");
+        let expected_top = viewport_height * (0.5 - PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
+        assert!((y_top - expected_top).abs() < 0.01, "Interval -1.0 should map correctly with scale factor");
         
         let y_bottom = interval_to_screen_y_position(1.0, viewport_height);
-        assert_eq!(y_bottom, 600.0, "Interval 1.0 should map to bottom of screen");
+        let expected_bottom = viewport_height * (0.5 + PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
+        assert!((y_bottom - expected_bottom).abs() < 0.01, "Interval 1.0 should map correctly with scale factor");
         
         // Test intermediate values
         let y_quarter = interval_to_screen_y_position(-0.5, viewport_height);
-        assert_eq!(y_quarter, 150.0, "Interval -0.5 should map to quarter way down");
+        let expected_quarter = viewport_height * (0.5 - PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.25);
+        assert!((y_quarter - expected_quarter).abs() < 0.01, "Interval -0.5 should map correctly with scale factor");
         
         let y_three_quarters = interval_to_screen_y_position(0.5, viewport_height);
-        assert_eq!(y_three_quarters, 450.0, "Interval 0.5 should map to three quarters down");
+        let expected_three_quarters = viewport_height * (0.5 + PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.25);
+        assert!((y_three_quarters - expected_three_quarters).abs() < 0.01, "Interval 0.5 should map correctly with scale factor");
     }
 
     #[wasm_bindgen_test]

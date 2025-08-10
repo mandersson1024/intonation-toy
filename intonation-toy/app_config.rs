@@ -65,3 +65,9 @@ pub const REGULAR_LINE_THICKNESS: f32 = 2.0;
 
 /// Overlay alpha configuration
 pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;
+
+/// Controls how much of the viewport height is used for pitch visualization.
+/// A value of 0.95 means 95% of the viewport height is used for two octaves.
+/// This provides a small margin at the top and bottom of the screen.
+pub const PITCH_VISUALIZATION_ZOOM_DEFAULT: f32 = 0.95;
+pub const PITCH_VISUALIZATION_ZOOM_MAX: f32 = 1.5;
