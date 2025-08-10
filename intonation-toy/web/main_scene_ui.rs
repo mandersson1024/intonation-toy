@@ -93,22 +93,25 @@ fn format_midi_note(midi_note: MidiNote) -> String {
     crate::shared_types::midi_note_to_name(midi_note)
 }
 
-/// Convert zoom slider percentage (50-150) to zoom factor (0.5-1.5)
-/// The slider value represents a percentage where 100% = 1.0 zoom factor
+/// Convert zoom slider percentage (50-150) to zoom factor (0.95-1.5)
+/// Bottom position (50) maps to PITCH_VISUALIZATION_ZOOM_DEFAULT (0.95)
+/// Top position (150) maps to PITCH_VISUALIZATION_ZOOM_MAX (1.5)
 #[cfg(target_arch = "wasm32")]
 fn slider_percentage_to_zoom_factor(percentage: f32) -> f32 {
-    // Clamp to valid range and convert percentage to factor
     let clamped = percentage.max(50.0).min(150.0);
-    let factor = clamped / 100.0;
-    // Apply the maximum zoom constraint from config
-    factor.min(crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX)
+    // Map 50-150 to 0.95-1.5
+    let normalized = (clamped - 50.0) / 100.0; // 0.0 to 1.0
+    let zoom_range = crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT;
+    crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT + normalized * zoom_range
 }
 
-/// Convert zoom factor (0.5-1.5) to slider percentage (50-150)
+/// Convert zoom factor (0.95-1.5) to slider percentage (50-150)
 #[cfg(target_arch = "wasm32")]
 fn zoom_factor_to_slider_percentage(factor: f32) -> f32 {
-    // Convert factor to percentage
-    (factor * 100.0).max(50.0).min(150.0)
+    let zoom_range = crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT;
+    let normalized = (factor - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT) / zoom_range;
+    let percentage = 50.0 + normalized * 100.0;
+    percentage.max(50.0).min(150.0)
 }
 
 /// Format zoom percentage for display (e.g., "95%")

@@ -17,7 +17,7 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 /// Set to Chromatic scale, which includes all 12 semitones and provides
 /// the most comprehensive pitch reference for users. Other scales can be
 /// selected through the UI to focus on specific musical contexts.
-pub const DEFAULT_SCALE: Scale = Scale::Major;
+pub const DEFAULT_SCALE: Scale = Scale::Chromatic;
 
 /// Configuration constants
 /// 
@@ -70,4 +70,4 @@ pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;
 /// A value of 0.95 means 95% of the viewport height is used for two octaves.
 /// This provides a small margin at the top and bottom of the screen.
 pub const PITCH_VISUALIZATION_ZOOM_DEFAULT: f32 = 0.95;
-pub const PITCH_VISUALIZATION_ZOOM_MAX: f32 = 1.5;
+pub const PITCH_VISUALIZATION_ZOOM_MAX: f32 = 2.85;
