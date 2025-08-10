@@ -61,11 +61,11 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     let window_obj = web_sys::window().unwrap();
     
     let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
-    let padding = 40; // 20px on each side
+    let margin = crate::web::styling::CANVAS_MARGIN;
     
-    // Calculate available space (subtract sidebar width from width, full height available)
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - padding;
-    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - padding;
+    // Calculate available space (subtract sidebar width and margins)
+    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2);
+    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
     
     dev_log!("RESIZE: available {}x{}", available_width, available_height);
     
@@ -74,7 +74,12 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     size = std::cmp::min(size, crate::app_config::CANVAS_MAX_SIZE);
     size = std::cmp::max(size, crate::app_config::CANVAS_MIN_SIZE);
     
-    dev_log!("RESIZE: setting canvas size to {}px", size);
+    dev_log!("RESIZE: setting canvas size to {}px, positioning at top-left with {}px margin", size, margin);
+    
+    // Set CSS positioning to absolute with top-left anchoring
+    canvas.style().set_property("position", "absolute").unwrap();
+    canvas.style().set_property("top", &format!("{}px", margin)).unwrap();
+    canvas.style().set_property("left", &format!("{}px", margin)).unwrap();
     
     // Set both CSS dimensions
     let size_str = format!("{}px", size);

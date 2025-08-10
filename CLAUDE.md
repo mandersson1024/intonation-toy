@@ -59,6 +59,15 @@ When modifying the presentation layer, prefer passing data as method parameters 
 - We don't adapt algorithms on the fly to adapt for performace. We always hardcode the parameters affecting performance
 - The default sample rate should be 44100Hz. This is the most common standard on consumer devices
 
+## HTML and CSS guidelines
+- All static HTML should be in index.html and all static CSS should be in style.css
+- Never generate HTML or CSS in Rust code unless it needs to change dynamically
+- The only cases where we create HTML/CSS in Rust code:
+  - When values need to be calculated or updated dynamically (e.g., canvas positioning based on window size)
+  - When styles need to change based on runtime state or user interaction
+  - When elements need to be created/destroyed dynamically
+- If something can be static, it belongs in index.html or style.css, not in Rust code
+
 ## Icon styling
 - Icons should use CSS mask and background-color for proper theming
 - Use var(--color-primary) or other CSS variables for icon colors

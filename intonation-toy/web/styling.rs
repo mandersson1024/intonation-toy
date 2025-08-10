@@ -6,6 +6,9 @@ use web_sys::{Document, HtmlElement};
 /// Sidebar width in pixels - used consistently across styling and canvas sizing
 pub const SIDEBAR_WIDTH: i32 = 300;
 
+/// Canvas margin in pixels - matches the CSS #three-d-canvas top/left values
+pub const CANVAS_MARGIN: i32 = 100;
+
 fn get_document() -> Document {
     web_sys::window()
         .expect("no global window exists")
@@ -117,34 +120,23 @@ pub fn update_css_variables() {
     // Apply to document.documentElement (html element) instead of :root selector
     let document = get_document();
     if let Some(root) = document.document_element() {
-        if let Some(html_element) = root.dyn_ref::<HtmlElement>() {
-            if let Err(_) = html_element.style().set_property("--color-background", &rgb_to_css(color_scheme.background)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-background");
-            }
-            if let Err(_) = html_element.style().set_property("--color-surface", &rgb_to_css(color_scheme.surface)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-surface");
-            }
-            if let Err(_) = html_element.style().set_property("--color-primary", &rgb_to_css(color_scheme.primary)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-primary");
-            }
-            if let Err(_) = html_element.style().set_property("--color-secondary", &rgb_to_css(color_scheme.secondary)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-secondary");
-            }
-            if let Err(_) = html_element.style().set_property("--color-accent", &rgb_to_css(color_scheme.accent)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-accent");
-            }
-            if let Err(_) = html_element.style().set_property("--color-text", &rgb_to_css(color_scheme.text)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-text");
-            }
-            if let Err(_) = html_element.style().set_property("--color-muted", &rgb_to_css(color_scheme.muted)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-muted");
-            }
-            if let Err(_) = html_element.style().set_property("--color-border", &rgb_to_css(color_scheme.border)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-border");
-            }
-            if let Err(_) = html_element.style().set_property("--color-error", &rgb_to_css(color_scheme.error)) {
-                crate::common::dev_log!("Failed to set CSS variable --color-error");
-            }
+        // Use set_attribute to set style properties directly on the element
+        let style_str = format!(
+            "--color-background: {}; --color-surface: {}; --color-primary: {}; --color-secondary: {}; --color-accent: {}; --color-text: {}; --color-muted: {}; --color-border: {}; --color-error: {};",
+            rgb_to_css(color_scheme.background),
+            rgb_to_css(color_scheme.surface),
+            rgb_to_css(color_scheme.primary),
+            rgb_to_css(color_scheme.secondary),
+            rgb_to_css(color_scheme.accent),
+            rgb_to_css(color_scheme.text),
+            rgb_to_css(color_scheme.muted),
+            rgb_to_css(color_scheme.border),
+            rgb_to_css(color_scheme.error)
+        );
+        
+        if let Err(_) = root.set_attribute("style", &style_str) {
+            crate::common::dev_log!("Failed to set CSS variables on root element");
+        } else {
             crate::common::dev_log!("Successfully updated CSS custom properties");
         }
     }
