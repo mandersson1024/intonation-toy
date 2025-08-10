@@ -2,10 +2,24 @@
 /// 
 /// This module contains all configuration constants used throughout the application
 
-use crate::shared_types::Theme;
+use crate::shared_types::{Theme, MidiNote, Scale};
 
 /// Default theme configuration
 pub const DEFAULT_THEME: Theme = Theme::Dark;
+
+/// Default musical configuration
+/// 
+/// Default root note for the tuning system and pitch analysis.
+/// Set to MIDI note 57 (A3, 220 Hz), which serves as a comfortable reference
+/// pitch for most vocal ranges and instruments. This is one octave below
+/// the standard concert pitch A4 (440 Hz).
+pub const DEFAULT_ROOT_NOTE: MidiNote = 57;
+
+/// Default scale for pitch visualization and analysis.
+/// Set to Chromatic scale, which includes all 12 semitones and provides
+/// the most comprehensive pitch reference for users. Other scales can be
+/// selected through the UI to focus on specific musical contexts.
+pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Configuration constants
 /// 

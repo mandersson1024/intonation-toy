@@ -306,8 +306,8 @@ impl DataModel {
         // Model layer initialization without interface dependencies
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
-            root_note: 57, // Standard A3 root note (MIDI 57)
-            current_scale: Scale::Chromatic,
+            root_note: crate::app_config::DEFAULT_ROOT_NOTE,
+            current_scale: crate::app_config::DEFAULT_SCALE,
         })
     }
 

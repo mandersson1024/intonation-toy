@@ -19,9 +19,9 @@ use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, de
 #[cfg(target_arch = "wasm32")]
 use crate::web::styling;
 
-// Global state for current root note - initialized to A3 (57)
+// Global state for current root note - initialized to default from config
 #[cfg(target_arch = "wasm32")]
-static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(57);
+static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_ROOT_NOTE);
 
 
 // Global state for tuning fork volume slider position (0-100)
