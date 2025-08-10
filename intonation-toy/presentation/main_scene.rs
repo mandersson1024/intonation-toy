@@ -7,6 +7,7 @@ use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
 const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
@@ -95,7 +96,7 @@ impl TuningLines {
                 let line = Line::new(
                     &self.context,
                     PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
-                    PhysicalPoint { x: width, y },
+                    PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y },
                     thickness
                 );
                 self.lines[i] = Gm::new(line, self.material.clone());
@@ -103,7 +104,7 @@ impl TuningLines {
                 // Just update endpoints if thickness hasn't changed
                 self.lines[i].set_endpoints(
                     PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
-                    PhysicalPoint { x: width, y }
+                    PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y }
                 );
             }
             self.midi_notes[i] = midi_note;
@@ -144,9 +145,9 @@ impl TuningLines {
             let text_y = y_position + NOTE_NAME_Y_OFFSET;
             let text_x = NOTE_NAME_X_OFFSET;
             
-            // Queue the text for rendering (using theme text color, larger size)
-            let text_color = get_current_color_scheme().text;
-            text_renderer.queue_text(&note_name, text_x, text_y, 16.0, [text_color[0], text_color[1], text_color[2], 1.0]);
+            // Queue the text for rendering (using theme muted color, larger size)
+            let text_color = get_current_color_scheme().muted;
+            text_renderer.queue_text(&note_name, text_x, text_y, 14.0, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
 }
