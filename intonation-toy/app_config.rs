@@ -26,6 +26,13 @@ pub const WINDOW_TITLE: &str = "intonation-toy";
 pub const CLARITY_THRESHOLD: f32 = 0.7;
 pub const POWER_THRESHOLD: f32 = 5.0;
 
+/// Volume peak threshold configuration
+/// (Since we don't calculate true peak)
+/// Peak amplitude threshold for determining when volume is considered "peaking"
+/// This affects the color of the user pitch line (error color when above threshold)
+/// Set to -0.1dB converted to amplitude: 10^(-0.1/20) ≈ 0.9886
+pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
+
 /// User pitch line thickness configuration
 pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 3.0;
 pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 20.0;

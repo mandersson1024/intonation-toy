@@ -409,8 +409,8 @@ impl DataModel {
             }
         };
         
-        // Calculate volume peak flag
-        let volume_peak = volume.peak_amplitude >= 1.0;
+        // Calculate volume peak flag using configurable threshold
+        let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
