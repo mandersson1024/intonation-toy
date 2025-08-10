@@ -9,6 +9,11 @@ const NOTE_NAME_Y_OFFSET: f32 = 2.0;
 const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
 const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
 
+// Helper function to get the user pitch line color from the color scheme
+fn get_user_pitch_line_color(scheme: &ColorScheme) -> [f32; 3] {
+    scheme.primary
+}
+
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
     let scale_factor = 0.95;
@@ -280,7 +285,7 @@ impl MainScene {
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
         let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, initial_thickness);
 
-        let primary_material = create_color_material(rgb_to_srgba(scheme.accent), false);
+        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme)), false);
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
         let text_renderer = TextRenderer::new(context)?;
@@ -308,7 +313,7 @@ impl MainScene {
         
         // Recreate user pitch line with new color (it will be repositioned on next update)
         let primary_material = create_color_material(
-            rgb_to_srgba_with_alpha(scheme.accent, self.user_pitch_line_alpha),
+            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme), self.user_pitch_line_alpha),
             true
         );
         let line = Line::new(&self.context, 
@@ -409,7 +414,7 @@ impl MainScene {
             
             if thickness_changed || alpha_changed {
                 let primary_material = create_color_material(
-                    rgb_to_srgba_with_alpha(self.current_scheme.accent, new_alpha),
+                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme), new_alpha),
                     true
                 );
                 let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
