@@ -293,11 +293,11 @@ impl Error {
     /// Note: ProcessingError returns a dynamically allocated string, not a static string.
     pub fn details(&self) -> &str {
         match self {
-            Error::MicrophonePermissionDenied => "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted. (Mac users: the microphone may also be blocked in System Settings.)",
+            Error::MicrophonePermissionDenied => "Please allow microphone access to use the pitch detection features. Refresh the page and click 'Allow' when prompted. (Mac users: the microphone may be blocked in System Settings.)",
             Error::MicrophoneNotAvailable => "No microphone device found. Please ensure a microphone is connected and try again.",
             Error::ProcessingError(msg) => msg,
-            Error::BrowserApiNotSupported => "This browser doesn't support the required audio features ({}). Please try a modern browser like Chrome, Firefox, or Safari.",
-            Error::MobileDeviceNotSupported => "This application is not optimized for mobile devices. For the best experience, please use a desktop computer with a microphone.",
+            Error::BrowserApiNotSupported => "This browser doesn't support the required audio features ({}). Please try Chrome, Firefox, or Edge.",
+            Error::MobileDeviceNotSupported => "This application is not optimized for mobile devices. Please use a desktop computer.",
             Error::BrowserError => "An unexpected browser error occurred. Please try refreshing the page.",
         }
     }
