@@ -341,6 +341,7 @@ pub struct EngineUpdateResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelUpdateResult {
     pub volume: Volume,
+    pub volume_peak: bool,
     pub pitch: Pitch,
     pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,
@@ -504,6 +505,7 @@ mod tests {
 
         let update_result = ModelUpdateResult {
             volume: test_volume.clone(),
+            volume_peak: false,
             pitch: test_pitch.clone(),
             accuracy: test_accuracy.clone(),
             tuning_system: test_tuning_system.clone(),

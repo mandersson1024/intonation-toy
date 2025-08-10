@@ -228,12 +228,14 @@ fn test_layer_separation_boundaries() {
     // Model result includes musical interpretation
     let model_result = ModelUpdateResult {
         volume: Volume { peak_amplitude: -10.0, rms_amplitude: -15.0 },
+        volume_peak: false,  // Add this field to test data
         pitch: Pitch::Detected(440.0, 0.95),
         accuracy: IntonationData {
             closest_midi_note: 69,
             cents_offset: 1.0,
         },
         tuning_system: TuningSystem::EqualTemperament,
+        scale: Scale::Chromatic,
         errors: Vec::new(),
         permission_state: PermissionState::Granted,
         closest_midi_note: 69,

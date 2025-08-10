@@ -1,5 +1,5 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
-use crate::shared_types::{MidiNote, ColorScheme};
+use crate::shared_types::{MidiNote, ColorScheme, Volume};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD};
 
@@ -10,8 +10,13 @@ const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
 const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
 
 // Helper function to get the user pitch line color from the color scheme
-fn get_user_pitch_line_color(scheme: &ColorScheme) -> [f32; 3] {
-    scheme.primary
+// Returns error color when volume peak flag is true, otherwise primary color
+fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool) -> [f32; 3] {
+    if volume_peak {
+        scheme.error
+    } else {
+        scheme.primary
+    }
 }
 
 pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
@@ -285,6 +290,7 @@ pub struct MainScene {
     current_scheme: ColorScheme,
     user_pitch_line_thickness: f32,
     user_pitch_line_alpha: f32,
+    volume_peak: bool,
 }
 
 impl MainScene {
@@ -293,7 +299,8 @@ impl MainScene {
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
         let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, initial_thickness);
 
-        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme)), false);
+        let initial_volume_peak = false;
+        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme, initial_volume_peak)), false);
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary), rgb_to_srgba(scheme.accent));
         let text_renderer = TextRenderer::new(context)?;
@@ -309,6 +316,7 @@ impl MainScene {
             current_scheme: scheme,
             user_pitch_line_thickness: initial_thickness,
             user_pitch_line_alpha: USER_PITCH_LINE_TRANSPARENCY_MAX,
+            volume_peak: initial_volume_peak,
         })
     }
     
@@ -321,7 +329,7 @@ impl MainScene {
         
         // Recreate user pitch line with new color (it will be repositioned on next update)
         let primary_material = create_color_material(
-            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme), self.user_pitch_line_alpha),
+            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme, self.volume_peak), self.user_pitch_line_alpha),
             true
         );
         let line = Line::new(&self.context, 
@@ -423,7 +431,7 @@ impl MainScene {
             
             if thickness_changed || alpha_changed {
                 let primary_material = create_color_material(
-                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme), new_alpha),
+                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme, self.volume_peak), new_alpha),
                     true
                 );
                 let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
@@ -446,6 +454,11 @@ impl MainScene {
     
     pub fn update_closest_note(&mut self, note: Option<MidiNote>) {
         self.tuning_lines.set_closest_note(note);
+    }
+    
+    /// Update the volume peak state for color determination
+    pub fn update_volume_peak(&mut self, volume_peak: bool) {
+        self.volume_peak = volume_peak;
     }
     
 }

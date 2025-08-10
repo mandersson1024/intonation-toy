@@ -409,6 +409,9 @@ impl DataModel {
             }
         };
         
+        // Calculate volume peak flag
+        let volume_peak = volume.peak_amplitude >= 1.0;
+        
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
             Pitch::Detected(frequency, clarity) => {
@@ -446,6 +449,7 @@ impl DataModel {
         // Return processed model data with both legacy and flattened fields
         let result = ModelUpdateResult {
             volume,
+            volume_peak,
             pitch,
             accuracy: accuracy.clone(), // Keep for backward compatibility
             tuning_system: self.tuning_system.clone(),

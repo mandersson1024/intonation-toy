@@ -440,6 +440,7 @@ impl Presenter {
     pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
         // Extract values we need before the match to avoid borrowing issues
         let interval_position = self.interval_position;
+        let volume_peak = model_data.volume_peak;
         
         // Determine if pitch is detected and extract clarity
         let (pitch_detected, clarity) = match model_data.pitch {
@@ -472,6 +473,9 @@ impl Presenter {
             }
             Scene::Main(main_scene) => {
                 main_scene.update_viewport(viewport);
+                
+                // Update volume peak state before updating pitch position
+                main_scene.update_volume_peak(volume_peak);
                 
                 // Update tuning lines - MainScene doesn't know about music theory
                 main_scene.update_tuning_lines(viewport, &tuning_line_data);

@@ -303,6 +303,7 @@ pub async fn start_render_loop(
             // Provide default model data when model is not available
             crate::shared_types::ModelUpdateResult {
                 volume: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
+                volume_peak: false,  // Default to no peak when model is not available
                 pitch: crate::shared_types::Pitch::NotDetected,
                 accuracy: crate::shared_types::IntonationData {
                     closest_midi_note: 69,
