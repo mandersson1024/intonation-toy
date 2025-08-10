@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
-use wasm_bindgen::JsValue;
-use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
+use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode};
 use crate::common::dev_log;
 use super::microphone::AudioError;
 use super::signal_generator::RootNoteAudioConfig;
@@ -41,8 +38,30 @@ impl RootNoteAudioNode {
         let oscillator = audio_context.create_oscillator()
             .map_err(|e| AudioError::Generic(format!("Failed to create oscillator: {:?}", e)))?;
         
-        // Set oscillator to sine wave
-        oscillator.set_type(OscillatorType::Sine);
+        let n = 16;
+        let mut real = vec![0.0f32; n];
+        let mut imag = vec![0.0f32; n];
+        
+        let amps: [f32; 9] = [
+            0.0,   // DC offset
+            1.0,   // fundamental
+            0.85,  // 2nd
+            0.55,  // 3rd
+            0.40,  // 4th
+            0.25,  // 5th
+            0.18,  // 6th
+            0.12,  // 7th
+            0.08   // 8th
+        ];
+
+        for (i, &amp) in amps.iter().enumerate() {
+            real[i] = amp;
+        }
+
+        let periodic_wave = audio_context.create_periodic_wave(&mut real, &mut imag)
+            .map_err(|e| AudioError::Generic(format!("Failed to create periodic wave: {:?}", e)))?;
+        
+        oscillator.set_periodic_wave(&periodic_wave);
         
         // Set initial frequency
         oscillator.frequency().set_value(config.frequency);
