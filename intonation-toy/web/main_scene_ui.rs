@@ -3,21 +3,19 @@ use wasm_bindgen::JsCast;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::closure::Closure;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{window, Document, HtmlElement, HtmlSelectElement, HtmlInputElement, EventTarget};
+use web_sys::{window, HtmlSelectElement, HtmlInputElement, EventTarget};
 
 #[cfg(target_arch = "wasm32")]
 use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
-use std::sync::atomic::{AtomicU8, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 #[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
-#[cfg(target_arch = "wasm32")]
-use crate::web::styling;
 
 // Global state for current root note - initialized to default from config
 #[cfg(target_arch = "wasm32")]
@@ -27,6 +25,10 @@ static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_RO
 // Global state for tuning fork volume slider position (0-100)
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
+
+// Global state for zoom level slider position (50-150, representing percentage)
+#[cfg(target_arch = "wasm32")]
+static CURRENT_ZOOM_LEVEL: AtomicU8 = AtomicU8::new(95);
 
 /// Convert slider position (0-100) to amplitude (0.0-1.0) using dual-scale approach
 /// - 0-20%: Linear scaling from 0.0 to 0.01 amplitude
@@ -91,6 +93,30 @@ fn format_midi_note(midi_note: MidiNote) -> String {
     crate::shared_types::midi_note_to_name(midi_note)
 }
 
+/// Convert zoom slider percentage (50-150) to zoom factor (0.5-1.5)
+/// The slider value represents a percentage where 100% = 1.0 zoom factor
+#[cfg(target_arch = "wasm32")]
+fn slider_percentage_to_zoom_factor(percentage: f32) -> f32 {
+    // Clamp to valid range and convert percentage to factor
+    let clamped = percentage.max(50.0).min(150.0);
+    let factor = clamped / 100.0;
+    // Apply the maximum zoom constraint from config
+    factor.min(crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX)
+}
+
+/// Convert zoom factor (0.5-1.5) to slider percentage (50-150)
+#[cfg(target_arch = "wasm32")]
+fn zoom_factor_to_slider_percentage(factor: f32) -> f32 {
+    // Convert factor to percentage
+    (factor * 100.0).max(50.0).min(150.0)
+}
+
+/// Format zoom percentage for display (e.g., "95%")
+#[cfg(target_arch = "wasm32")]
+fn format_zoom_percentage(percentage: f32) -> String {
+    format!("{:.0}%", percentage)
+}
+
 
 #[cfg(target_arch = "wasm32")]
 pub fn setup_main_scene_ui() {
@@ -124,6 +150,24 @@ pub fn setup_main_scene_ui() {
         }
     } else {
         dev_log!("Warning: tuning-fork-volume element not found in HTML");
+    }
+
+    // Initialize zoom control elements
+    let default_zoom_percentage = zoom_factor_to_slider_percentage(crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
+    CURRENT_ZOOM_LEVEL.store(default_zoom_percentage as u8, Ordering::Relaxed);
+    
+    if let Some(zoom_slider) = document.get_element_by_id("zoom-slider") {
+        if let Some(html_slider) = zoom_slider.dyn_ref::<HtmlInputElement>() {
+            html_slider.set_value(&default_zoom_percentage.to_string());
+        }
+    } else {
+        dev_log!("Warning: zoom-slider element not found in HTML");
+    }
+    
+    if let Some(zoom_display) = document.get_element_by_id("zoom-display") {
+        zoom_display.set_text_content(Some(&format_zoom_percentage(default_zoom_percentage)));
+    } else {
+        dev_log!("Warning: zoom-display element not found in HTML");
     }
 
 
@@ -323,6 +367,41 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     } else {
         dev_log!("Failed to find tuning-fork-volume slider");
     }
+
+    // Set up zoom slider event listener
+    if let Some(slider) = document.get_element_by_id("zoom-slider") {
+        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
+            if let Some(current_window) = web_sys::window() {
+                if let Some(document) = current_window.document() {
+                    if let Some(slider_element) = document.get_element_by_id("zoom-slider") {
+                        if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
+                            if let Ok(percentage) = html_slider.value().parse::<f32>() {
+                                // Store the percentage value
+                                CURRENT_ZOOM_LEVEL.store(percentage as u8, Ordering::Relaxed);
+                                
+                                // Update zoom display with percentage
+                                if let Some(display_element) = document.get_element_by_id("zoom-display") {
+                                    display_element.set_text_content(Some(&format_zoom_percentage(percentage)));
+                                }
+                                
+                                // Note: The actual zoom factor will be retrieved when needed
+                                // using slider_percentage_to_zoom_factor(percentage)
+                            }
+                        }
+                    }
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+
+        if let Some(event_target) = slider.dyn_ref::<EventTarget>() {
+            if let Err(err) = event_target.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref()) {
+                dev_log!("Failed to add input listener to zoom slider: {:?}", err);
+            }
+        }
+        closure.forget();
+    } else {
+        dev_log!("Failed to find zoom-slider");
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -401,8 +480,32 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
     if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
         display_element.set_text_content(Some(&slider_position_to_db_display(current_position)));
     }
+
+    // Update zoom slider and display
+    let current_zoom_percentage = CURRENT_ZOOM_LEVEL.load(Ordering::Relaxed) as f32;
+    if let Some(slider_element) = document.get_element_by_id("zoom-slider") {
+        if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
+            html_slider.set_value(&current_zoom_percentage.to_string());
+        }
+    }
+    if let Some(display_element) = document.get_element_by_id("zoom-display") {
+        display_element.set_text_content(Some(&format_zoom_percentage(current_zoom_percentage)));
+    }
 }
 
+/// Get the current zoom factor for pitch visualization
+/// Returns a value between 0.5 and 1.5 representing the zoom level
+#[cfg(target_arch = "wasm32")]
+pub fn get_current_zoom_factor() -> f32 {
+    let percentage = CURRENT_ZOOM_LEVEL.load(Ordering::Relaxed) as f32;
+    slider_percentage_to_zoom_factor(percentage)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn get_current_zoom_factor() -> f32 {
+    // Return default zoom factor for non-WASM targets
+    crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {

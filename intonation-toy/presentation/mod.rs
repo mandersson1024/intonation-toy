@@ -980,6 +980,7 @@ impl Presenter {
             let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                 interval,
                 viewport.height as f32,
+                crate::web::main_scene_ui::get_current_zoom_factor(),
             );
             let thickness = get_thickness(0);
             line_data.push((y_position, root_note, thickness));
@@ -998,6 +999,7 @@ impl Presenter {
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
+                    crate::web::main_scene_ui::get_current_zoom_factor(),
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
@@ -1018,6 +1020,7 @@ impl Presenter {
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
+                    crate::web::main_scene_ui::get_current_zoom_factor(),
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);

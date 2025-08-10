@@ -21,9 +21,9 @@ fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offs
     }
 }
 
-pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
+pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32, zoom_factor: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
-    let y: f32 = viewport_height * (0.5 + interval * PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
+    let y: f32 = viewport_height * (0.5 + interval * zoom_factor * 0.5);
     y
 }
 
@@ -411,7 +411,7 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         self.cents_offset = cents_offset;
         if pitch_detected {
-            let y = interval_to_screen_y_position(interval, viewport.height as f32);
+            let y = interval_to_screen_y_position(interval, viewport.height as f32, crate::web::main_scene_ui::get_current_zoom_factor());
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
             
             // Calculate thickness and alpha based on clarity
@@ -524,7 +524,7 @@ mod tests {
         
         // Verify that the line position would be updated (we can't directly test the line position
         // due to Line being opaque, but we can verify the state was set)
-        let expected_y = interval_to_screen_y_position(interval, viewport.height as f32);
+        let expected_y = interval_to_screen_y_position(interval, viewport.height as f32, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         assert!(expected_y > 0.0 && expected_y < viewport.height as f32, "Y position should be within viewport bounds");
     }
 
@@ -638,7 +638,7 @@ mod tests {
             );
             
             // Verify y position calculation doesn't panic
-            let y = interval_to_screen_y_position(*interval, viewport.height as f32);
+            let y = interval_to_screen_y_position(*interval, viewport.height as f32, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
             assert!(!y.is_nan(), "Y position should not be NaN for interval {}", interval);
         }
         
@@ -670,23 +670,23 @@ mod tests {
         let viewport_height = 600.0;
         
         // Test standard intervals with scale factor
-        let y_middle = interval_to_screen_y_position(0.0, viewport_height);
+        let y_middle = interval_to_screen_y_position(0.0, viewport_height, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         assert_eq!(y_middle, 300.0, "Interval 0.0 should map to middle of screen");
         
-        let y_top = interval_to_screen_y_position(-1.0, viewport_height);
+        let y_top = interval_to_screen_y_position(-1.0, viewport_height, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         let expected_top = viewport_height * (0.5 - PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
         assert!((y_top - expected_top).abs() < 0.01, "Interval -1.0 should map correctly with scale factor");
         
-        let y_bottom = interval_to_screen_y_position(1.0, viewport_height);
+        let y_bottom = interval_to_screen_y_position(1.0, viewport_height, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         let expected_bottom = viewport_height * (0.5 + PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.5);
         assert!((y_bottom - expected_bottom).abs() < 0.01, "Interval 1.0 should map correctly with scale factor");
         
         // Test intermediate values
-        let y_quarter = interval_to_screen_y_position(-0.5, viewport_height);
+        let y_quarter = interval_to_screen_y_position(-0.5, viewport_height, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         let expected_quarter = viewport_height * (0.5 - PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.25);
         assert!((y_quarter - expected_quarter).abs() < 0.01, "Interval -0.5 should map correctly with scale factor");
         
-        let y_three_quarters = interval_to_screen_y_position(0.5, viewport_height);
+        let y_three_quarters = interval_to_screen_y_position(0.5, viewport_height, crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT);
         let expected_three_quarters = viewport_height * (0.5 + PITCH_VISUALIZATION_ZOOM_DEFAULT * 0.25);
         assert!((y_three_quarters - expected_three_quarters).abs() < 0.01, "Interval 0.5 should map correctly with scale factor");
     }
