@@ -17,7 +17,7 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 /// Set to Chromatic scale, which includes all 12 semitones and provides
 /// the most comprehensive pitch reference for users. Other scales can be
 /// selected through the UI to focus on specific musical contexts.
-pub const DEFAULT_SCALE: Scale = Scale::Chromatic;
+pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Configuration constants
 /// 
