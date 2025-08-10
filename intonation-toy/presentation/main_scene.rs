@@ -412,7 +412,7 @@ impl MainScene {
         self.cents_offset = cents_offset;
         if pitch_detected {
             let y = interval_to_screen_y_position(interval, viewport.height as f32, crate::web::main_scene_ui::get_current_zoom_factor());
-            let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
+            let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
             
             // Calculate thickness and alpha based on clarity
             let (new_thickness, new_alpha) = if let Some(clarity_value) = clarity {
