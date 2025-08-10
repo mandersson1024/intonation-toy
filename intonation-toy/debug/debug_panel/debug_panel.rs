@@ -36,22 +36,14 @@ impl DebugPanel {
         debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
-        Self::with_initial_frequency(debug_data, presenter, None)
+        Self::with_initial_frequency(debug_data, presenter)
     }
     
     /// Create a new DebugPanel with an optional initial frequency
     pub fn with_initial_frequency(
         debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
-        initial_frequency: Option<f32>,
     ) -> Self {
-        // Default to A3 (220 Hz) if no frequency provided
-        let initial_freq = initial_frequency.unwrap_or(220.0);
-        let initial_midi_note = Self::frequency_to_closest_midi_note(
-            initial_freq,
-            TuningSystem::EqualTemperament,  // Use Equal Temperament for initialization
-        );
-        
         Self {
             debug_data,
             presenter,
@@ -60,7 +52,7 @@ impl DebugPanel {
             // Initialize UI state
             test_signal_enabled: false,
             test_signal_volume: 15.0,
-            test_signal_midi_note: initial_midi_note,
+            test_signal_midi_note: crate::app_config::DEFAULT_ROOT_NOTE,
             test_signal_nudge_percent: 0.0,
         }
     }

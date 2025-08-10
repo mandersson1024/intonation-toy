@@ -10,10 +10,8 @@ pub const DEFAULT_THEME: Theme = Theme::Dark;
 /// Default musical configuration
 /// 
 /// Default root note for the tuning system and pitch analysis.
-/// Set to MIDI note 57 (A3, 220 Hz), which serves as a comfortable reference
-/// pitch for most vocal ranges and instruments. This is one octave below
-/// the standard concert pitch A4 (440 Hz).
-pub const DEFAULT_ROOT_NOTE: MidiNote = 57;
+/// C4 = 60
+pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 
 /// Default scale for pitch visualization and analysis.
 /// Set to Chromatic scale, which includes all 12 semitones and provides

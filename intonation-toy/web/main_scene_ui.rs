@@ -106,7 +106,8 @@ pub fn setup_main_scene_ui() {
 
     // Verify that essential HTML elements exist and set initial values
     if let Some(root_note_display) = document.get_element_by_id("root-note-display") {
-        root_note_display.set_text_content(Some("A3")); // Default root note is 57 (A3)
+        let default_note_name = format_midi_note(crate::app_config::DEFAULT_ROOT_NOTE);
+        root_note_display.set_text_content(Some(&default_note_name));
     } else {
         dev_log!("Warning: root-note-display element not found in HTML");
     }

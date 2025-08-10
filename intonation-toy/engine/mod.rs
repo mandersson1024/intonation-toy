@@ -189,7 +189,7 @@ impl AudioEngine {
                 
                 // Initialize default root note audio with zero volume
                 crate::common::dev_log!("Initializing default root note audio with zero volume");
-                let default_root_note = 57; // A3
+                let default_root_note = crate::app_config::DEFAULT_ROOT_NOTE;
                 let default_frequency = crate::theory::tuning::midi_note_to_standard_frequency(default_root_note);
                 
                 if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
