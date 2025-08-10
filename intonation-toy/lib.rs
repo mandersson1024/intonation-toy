@@ -59,32 +59,44 @@ use engine::platform::{Platform, PlatformValidationResult};
 fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     dev_log!("RESIZE: resize_canvas called");
     let window_obj = web_sys::window().unwrap();
+    let document = window_obj.document().unwrap();
     
     let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
     let margin = crate::web::styling::CANVAS_MARGIN;
     
-    // Calculate available space (subtract sidebar width and margins)
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2);
+    // Estimate zoom control width (padding + slider + margins)
+    let zoom_control_width = 80; // Approximate width of zoom control
+    let gap = 16; // Gap between canvas and zoom control
+    
+    // Calculate available space (subtract sidebar width, margins, zoom control, and gap)
+    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2) - zoom_control_width - gap;
     let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
     
     dev_log!("RESIZE: available {}x{}", available_width, available_height);
     
     // Take the smaller dimension to maintain square aspect ratio
-    let mut size = std::cmp::min(available_width, available_height);
-    size = std::cmp::min(size, crate::app_config::CANVAS_MAX_SIZE);
-    size = std::cmp::max(size, crate::app_config::CANVAS_MIN_SIZE);
+    let mut canvas_size = std::cmp::min(available_width, available_height);
+    canvas_size = std::cmp::min(canvas_size, crate::app_config::CANVAS_MAX_SIZE);
+    canvas_size = std::cmp::max(canvas_size, crate::app_config::CANVAS_MIN_SIZE);
     
-    dev_log!("RESIZE: setting canvas size to {}px, positioning at top-left with {}px margin", size, margin);
+    // Scene wrapper width includes canvas + gap + zoom control
+    let wrapper_width = canvas_size + gap + zoom_control_width;
+    let wrapper_height = canvas_size;
     
-    // Set CSS positioning to absolute with top-left anchoring
-    canvas.style().set_property("position", "absolute").unwrap();
-    canvas.style().set_property("top", &format!("{}px", margin)).unwrap();
-    canvas.style().set_property("left", &format!("{}px", margin)).unwrap();
+    dev_log!("RESIZE: setting canvas size to {}px, wrapper size to {}x{}", canvas_size, wrapper_width, wrapper_height);
     
-    // Set both CSS dimensions
-    let size_str = format!("{}px", size);
-    canvas.style().set_property("width", &size_str).unwrap();
-    canvas.style().set_property("height", &size_str).unwrap();
+    // Get the scene wrapper element
+    let scene_wrapper = document.get_element_by_id("scene-wrapper").unwrap();
+    
+    // Set CSS positioning and sizing for scene wrapper
+    scene_wrapper.set_attribute("style", &format!(
+        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px; display: flex; flex-direction: row; align-items: center; gap: 16px;",
+        margin, margin, wrapper_width, wrapper_height
+    )).unwrap();
+    
+    // Set canvas to specific size
+    canvas.style().set_property("width", &format!("{}px", canvas_size)).unwrap();
+    canvas.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
 }
 
 #[cfg(debug_assertions)]

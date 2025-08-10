@@ -6,8 +6,11 @@ use web_sys::{Document, HtmlElement};
 /// Sidebar width in pixels - used consistently across styling and canvas sizing
 pub const SIDEBAR_WIDTH: i32 = 300;
 
-/// Canvas margin in pixels - matches the CSS #three-d-canvas top/left values
+/// Canvas margin in pixels - now applies to the scene wrapper container
 pub const CANVAS_MARGIN: i32 = 100;
+
+/// Zoom control offset from canvas edge in pixels
+pub const ZOOM_CONTROL_OFFSET: i32 = 12;
 
 fn get_document() -> Document {
     web_sys::window()
