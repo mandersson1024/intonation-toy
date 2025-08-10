@@ -626,6 +626,49 @@ input[type="range"]:focus::-moz-range-thumb {
     margin: 100px 0;
 }
 
+/* Firefox-specific fixes for rotated range input */
+@-moz-document url-prefix() {
+    .zoom-slider {
+        -moz-appearance: none;
+        background: transparent;
+        /* Force proper dimensions in Firefox */
+        width: 130px !important;
+        height: 6px !important;
+        /* Ensure touch/click events work properly */
+        pointer-events: auto;
+        position: relative;
+    }
+    
+    .zoom-slider::-moz-range-track {
+        background: color-mix(in srgb, var(--color-muted, #666666) 30%, transparent);
+        height: 6px;
+        width: 100%;
+        border-radius: 3px;
+        border: none;
+    }
+    
+    .zoom-slider::-moz-range-thumb {
+        -moz-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--color-primary, #4a9eff);
+        cursor: pointer;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        /* Ensure thumb responds to mouse events */
+        pointer-events: auto;
+        position: relative;
+    }
+    
+    /* Container adjustments for Firefox */
+    #zoom-control-container {
+        pointer-events: auto;
+        position: relative;
+        z-index: 1;
+    }
+}
+
 .zoom-slider::-webkit-slider-thumb {
     appearance: none;
     width: 18px;
