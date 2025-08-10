@@ -220,16 +220,32 @@ impl Scale {
     /// Index 0 represents the root note (always true), index 1 represents +1 semitone from root, etc.
     pub fn pattern(&self) -> [bool; 12] {
         match self {
-            // Chromatic scale: all semitones including root
             Scale::Chromatic => [true; 12],
-            // Major scale: Root + W-W-H-W-W-W-H (semitones: 0,2,4,5,7,9,11)
             Scale::Major => [true, false, true, false, true, true, false, true, false, true, false, true],
-            // Minor scale: Root + W-H-W-W-H-W-W (semitones: 0,2,3,5,7,8,10)
             Scale::Minor => [true, false, true, true, false, true, false, true, true, false, true, false],
-            // Major Pentatonic scale: Root + W-W-m3-W-m3 (semitones: 0,2,4,7,9)
-            Scale::MajorPentatonic => [true, false, true, false, true, false, false, true, false, true, false, false],
-            // Minor Pentatonic scale: Root + m3-W-W-m3-W (semitones: 0,3,5,7,10)
-            Scale::MinorPentatonic => [true, false, false, true, false, true, false, true, false, false, true, false],
+            Scale::HarmonicMinor =>    [true, false, true, true, false, true, false, true, true, false, false, true],
+            Scale::MelodicMinor =>     [true, false, true, true, false, true, false, true, false, true, false, true],
+            Scale::MajorPentatonic =>  [true, false, true, false, true, false, false, true, false, true, false, false],
+            Scale::MinorPentatonic =>  [true, false, false, true, false, true, false, true, false, false, true, false],
+            Scale::Blues =>            [true, false, false, true, true, true, false, true, false, false, true, false],
+            Scale::Dorian =>           [true, false, true, true, false, true, false, true, true, false, true, false],
+            Scale::Phrygian =>         [true, true, false, true, false, true, false, true, true, false, true, false],
+            Scale::Lydian =>           [true, false, true, false, true, false, true, true, false, true, false, true],
+            Scale::Mixolydian =>       [true, false, true, false, true, true, false, true, false, true, true, false],
+            Scale::Locrian =>          [true, true, false, true, false, true, true, false, true, false, true, false],
+            Scale::WholeTone =>        [true, false, true, false, true, false, true, false, true, false, true, false],
+            Scale::Augmented =>        [true, false, true, false, true, false, false, true, false, true, false, false],
+            Scale::DiminishedHalfWhole => [true, true, false, true, false, true, true, false, true, false, true, false],
+            Scale::DiminishedWholeHalf => [true, false, true, true, false, true, false, true, true, false, true, false],
+            Scale::HungarianMinor =>   [true, false, true, true, false, false, true, true, false, true, false, true],
+            Scale::NeapolitanMinor =>  [true, true, false, true, false, true, false, true, true, false, true, false],
+            Scale::NeapolitanMajor =>  [true, true, false, true, false, true, false, true, false, true, false, true],
+            Scale::Enigmatic =>        [true, false, false, true, false, true, true, true, true, false, true, false],
+            Scale::Persian =>          [true, true, false, false, true, true, false, true, true, false, true, false],
+            Scale::DoubleHarmonicMajor => [true, true, false, false, true, true, false, true, true, false, false, true],
+            Scale::Altered =>          [true, true, false, true, false, true, true, false, true, true, true, false],
+            Scale::BebopMajor =>       [true, false, true, false, true, true, true, false, true, false, true, false],
+            Scale::BebopDominant =>    [true, false, true, false, true, true, false, true, true, false, true, false],
         }
     }
 }
