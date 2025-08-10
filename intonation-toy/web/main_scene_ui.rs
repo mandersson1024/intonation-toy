@@ -76,14 +76,14 @@ fn slider_position_to_db_display(position: f32) -> String {
         let amplitude = slider_position_to_amplitude(position);
         if amplitude > 0.0 {
             let db = 20.0 * amplitude.log10();
-            format!("{:.1} dB", db)
+            format!("{:.0} dB", db)
         } else {
             "-∞ dB".to_string()
         }
     } else {
         // Direct dB mapping for 20-100% range
         let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
-        format!("{:.1} dB", db)
+        format!("{:.0} dB", db)
     }
 }
 
