@@ -116,7 +116,7 @@ impl TuningLines {
                 &self.regular_material 
             };
             
-            // If thickness changed or material needs to change, recreate the line
+            // If thickness changed, recreate the line
             if i < self.thicknesses.len() && self.thicknesses[i] != thickness {
                 let line = Line::new(
                     &self.context,
@@ -125,13 +125,9 @@ impl TuningLines {
                     thickness
                 );
                 self.lines[i] = Gm::new(line, material.clone());
-            } else if i < self.thicknesses.len() && {
-                let prev_was_closest = i < self.midi_notes.len() && Some(self.midi_notes[i]) == self.closest_midi_note;
-                let prev_was_octave = self.thicknesses[i] == crate::app_config::OCTAVE_LINE_THICKNESS;
-                // Check if material status changed (accent or octave status changed)
-                is_closest != prev_was_closest || is_octave != prev_was_octave
-            } {
-                // Material needs to change even if thickness didn't
+            } else {
+                // Always recreate the line to ensure material is up to date
+                // This is simpler and ensures accent highlighting works correctly
                 let line = Line::new(
                     &self.context,
                     PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
@@ -139,12 +135,6 @@ impl TuningLines {
                     thickness
                 );
                 self.lines[i] = Gm::new(line, material.clone());
-            } else {
-                // Just update endpoints if neither thickness nor material changed
-                self.lines[i].set_endpoints(
-                    PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
-                    PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y }
-                );
             }
             self.midi_notes[i] = midi_note;
             self.y_positions[i] = y;
