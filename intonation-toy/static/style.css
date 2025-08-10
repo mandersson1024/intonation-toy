@@ -300,12 +300,7 @@ body.permission-required #sidebar input {
     cursor: pointer;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-.first-click-title {
-    font-size: 32px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    color: var(--color-text);
-}
+
 .first-click-description {
     font-size: 18px;
     line-height: 1.6;
@@ -523,7 +518,7 @@ input[type="range"]:focus::-moz-range-thumb {
     font-size: 28px;
     font-weight: 600;
     margin-bottom: 24px;
-    color: var(--color-text, #ffffff);
+    color: var(--color-primary);
 }
 
 .first-click-message {
