@@ -26,6 +26,12 @@ pub const WINDOW_TITLE: &str = "intonation-toy";
 pub const CLARITY_THRESHOLD: f32 = 0.7;
 pub const POWER_THRESHOLD: f32 = 5.0;
 
+/// Intonation accuracy configuration
+/// Threshold in cents for considering pitch "accurate" and showing accent color
+/// When the detected pitch is within ±INTONATION_ACCURACY_THRESHOLD cents of a note,
+/// the user pitch line will display in accent color (unless volume is peaking)
+pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
+
 /// Volume peak threshold configuration
 /// (Since we don't calculate true peak)
 /// Peak amplitude threshold for determining when volume is considered "peaking"

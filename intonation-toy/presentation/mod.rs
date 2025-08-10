@@ -482,7 +482,7 @@ impl Presenter {
                 
                 main_scene.update_closest_note(closest_note);
                 
-                main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity);
+                main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity, model_data.accuracy.cents_offset);
             }
         }
     }
@@ -804,8 +804,8 @@ impl Presenter {
         // Future: Change colors based on accuracy (green=good, red=off)
         // Future: Display note name and cents deviation
         
-        if accuracy.cents_offset.abs() < 10.0 {
-            // Very accurate - could show green indicator
+        if accuracy.cents_offset.abs() < crate::app_config::INTONATION_ACCURACY_THRESHOLD {
+            // Very accurate - main scene will show accent color for user pitch line
         } else if accuracy.cents_offset.abs() > 30.0 {
             // Very inaccurate - could show red indicator  
         }

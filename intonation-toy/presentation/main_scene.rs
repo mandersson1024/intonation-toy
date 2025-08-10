@@ -1,7 +1,7 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
 use crate::shared_types::{MidiNote, ColorScheme, Volume};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
-use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD};
+use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
@@ -10,10 +10,12 @@ const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
 const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
 
 // Helper function to get the user pitch line color from the color scheme
-// Returns error color when volume peak flag is true, otherwise primary color
-fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool) -> [f32; 3] {
+// Returns error color when volume peak flag is true, accent color when within configured threshold, otherwise primary color
+fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offset: f32) -> [f32; 3] {
     if volume_peak {
         scheme.error
+    } else if cents_offset.abs() < INTONATION_ACCURACY_THRESHOLD {
+        scheme.accent
     } else {
         scheme.primary
     }
@@ -291,6 +293,7 @@ pub struct MainScene {
     user_pitch_line_thickness: f32,
     user_pitch_line_alpha: f32,
     volume_peak: bool,
+    cents_offset: f32,
 }
 
 impl MainScene {
@@ -300,7 +303,8 @@ impl MainScene {
         let user_pitch_line = Line::new(context, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, initial_thickness);
 
         let initial_volume_peak = false;
-        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme, initial_volume_peak)), false);
+        let initial_cents_offset = 0.0;
+        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme, initial_volume_peak, initial_cents_offset)), false);
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary), rgb_to_srgba(scheme.accent));
         let text_renderer = TextRenderer::new(context)?;
@@ -317,6 +321,7 @@ impl MainScene {
             user_pitch_line_thickness: initial_thickness,
             user_pitch_line_alpha: USER_PITCH_LINE_TRANSPARENCY_MAX,
             volume_peak: initial_volume_peak,
+            cents_offset: initial_cents_offset,
         })
     }
     
@@ -329,7 +334,7 @@ impl MainScene {
         
         // Recreate user pitch line with new color (it will be repositioned on next update)
         let primary_material = create_color_material(
-            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme, self.volume_peak), self.user_pitch_line_alpha),
+            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme, self.volume_peak, self.cents_offset), self.user_pitch_line_alpha),
             true
         );
         let line = Line::new(&self.context, 
@@ -403,8 +408,9 @@ impl MainScene {
         }
     }
     
-    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>) {
+    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>, cents_offset: f32) {
         self.pitch_detected = pitch_detected;
+        self.cents_offset = cents_offset;
         if pitch_detected {
             let y = interval_to_screen_y_position(interval, viewport.height as f32);
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32, y});
@@ -431,7 +437,7 @@ impl MainScene {
             
             if thickness_changed || alpha_changed {
                 let primary_material = create_color_material(
-                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme, self.volume_peak), new_alpha),
+                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme, self.volume_peak, self.cents_offset), new_alpha),
                     true
                 );
                 let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
@@ -512,7 +518,7 @@ mod tests {
         
         // Test updating with pitch detected
         let interval = 1.0; // Middle of the range
-        scene.update_pitch_position(viewport, interval, true, Some(0.8));
+        scene.update_pitch_position(viewport, interval, true, Some(0.8), 0.0);
         
         // Verify pitch_detected state is stored
         assert_eq!(scene.pitch_detected, true, "pitch_detected should be true after update with detection");
@@ -531,11 +537,11 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // First set it to detected
-        scene.update_pitch_position(viewport, 1.0, true, Some(0.8));
+        scene.update_pitch_position(viewport, 1.0, true, Some(0.8), 0.0);
         assert_eq!(scene.pitch_detected, true);
         
         // Now update without detection
-        scene.update_pitch_position(viewport, 1.5, false, None);
+        scene.update_pitch_position(viewport, 1.5, false, None, 0.0);
         
         // Verify pitch_detected state is stored as false
         assert_eq!(scene.pitch_detected, false, "pitch_detected should be false after update without detection");
@@ -549,16 +555,16 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // Test state persistence through multiple updates
-        scene.update_pitch_position(viewport, 1.0, true, Some(0.8));
+        scene.update_pitch_position(viewport, 1.0, true, Some(0.8), 0.0);
         assert_eq!(scene.pitch_detected, true, "State should persist as true");
         
-        scene.update_pitch_position(viewport, 1.2, true, Some(0.9));
+        scene.update_pitch_position(viewport, 1.2, true, Some(0.9), 0.0);
         assert_eq!(scene.pitch_detected, true, "State should remain true");
         
-        scene.update_pitch_position(viewport, 1.3, false, None);
+        scene.update_pitch_position(viewport, 1.3, false, None, 0.0);
         assert_eq!(scene.pitch_detected, false, "State should change to false");
         
-        scene.update_pitch_position(viewport, 1.4, false, None);
+        scene.update_pitch_position(viewport, 1.4, false, None, 0.0);
         assert_eq!(scene.pitch_detected, false, "State should remain false");
     }
 
@@ -591,7 +597,7 @@ mod tests {
             let detected = i % 2 == 0;
             let interval = 0.5 + (i as f32) * 0.15; // Vary the interval
             
-            scene.update_pitch_position(viewport, interval, detected, if detected { Some(0.8) } else { None });
+            scene.update_pitch_position(viewport, interval, detected, if detected { Some(0.8) } else { None }, 0.0);
             
             assert_eq!(
                 scene.pitch_detected, 
@@ -623,7 +629,7 @@ mod tests {
         ];
         
         for (interval, detected) in edge_cases.iter() {
-            scene.update_pitch_position(viewport, *interval, *detected, if *detected { Some(0.8) } else { None });
+            scene.update_pitch_position(viewport, *interval, *detected, if *detected { Some(0.8) } else { None }, 0.0);
             assert_eq!(
                 scene.pitch_detected, 
                 *detected, 
@@ -645,7 +651,7 @@ mod tests {
             height: 1,
         };
         
-        scene.update_pitch_position(small_viewport, 1.0, true, Some(0.8));
+        scene.update_pitch_position(small_viewport, 1.0, true, Some(0.8), 0.0);
         assert_eq!(scene.pitch_detected, true, "Should handle small viewport");
         
         let large_viewport = Viewport {
@@ -655,7 +661,7 @@ mod tests {
             height: 10000,
         };
         
-        scene.update_pitch_position(large_viewport, 1.0, false, None);
+        scene.update_pitch_position(large_viewport, 1.0, false, None, 0.0);
         assert_eq!(scene.pitch_detected, false, "Should handle large viewport");
     }
 
@@ -714,7 +720,7 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // Set up initial state
-        scene.update_pitch_position(viewport, 1.0, true, Some(0.8));
+        scene.update_pitch_position(viewport, 1.0, true, Some(0.8), 0.0);
         assert_eq!(scene.pitch_detected, true);
         
         // Add tuning lines
@@ -722,7 +728,7 @@ mod tests {
         scene.update_tuning_lines(viewport, &line_data);
         
         // Change pitch detection state
-        scene.update_pitch_position(viewport, 1.2, false, None);
+        scene.update_pitch_position(viewport, 1.2, false, None, 0.0);
         assert_eq!(scene.pitch_detected, false);
         
         // Verify tuning lines are still there
@@ -737,7 +743,7 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // Test high clarity (near 1.0) produces thin lines
-        scene.update_pitch_position(viewport, 1.0, true, Some(0.95));
+        scene.update_pitch_position(viewport, 1.0, true, Some(0.95), 0.0);
         assert_eq!(scene.pitch_detected, true);
         
         // Verify thickness is near minimum
@@ -753,7 +759,7 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // Test low clarity (near threshold) produces thick lines
-        scene.update_pitch_position(viewport, 1.0, true, Some(CLARITY_THRESHOLD + 0.01));
+        scene.update_pitch_position(viewport, 1.0, true, Some(CLARITY_THRESHOLD + 0.01), 0.0);
         assert_eq!(scene.pitch_detected, true);
         
         // Verify thickness is near maximum
@@ -768,11 +774,11 @@ mod tests {
         let mut scene = MainScene::new(&context, viewport).unwrap();
         
         // Set initial thickness with high clarity
-        scene.update_pitch_position(viewport, 1.0, true, Some(0.95));
+        scene.update_pitch_position(viewport, 1.0, true, Some(0.95), 0.0);
         let initial_thickness = scene.user_pitch_line_thickness;
         
         // Change to low clarity - this should trigger line recreation
-        scene.update_pitch_position(viewport, 1.0, true, Some(CLARITY_THRESHOLD + 0.01));
+        scene.update_pitch_position(viewport, 1.0, true, Some(CLARITY_THRESHOLD + 0.01), 0.0);
         let new_thickness = scene.user_pitch_line_thickness;
         
         // Verify thickness actually changed
