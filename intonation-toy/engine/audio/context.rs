@@ -124,18 +124,13 @@ pub struct AudioDevices {
 
 impl Default for AudioDevices {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl AudioDevices {
-    pub fn new() -> Self {
         Self {
             input_devices: Vec::new(),
             output_devices: Vec::new(),
         }
     }
 }
+
 
 /// AudioContext manager handles Web Audio API context lifecycle
 pub struct AudioContextManager {
@@ -749,45 +744,9 @@ impl AudioSystemContext {
         self.pitch_analyzer.as_ref().cloned()
     }
 
-    /// Check if AudioContext is supported
-    pub fn is_audio_context_supported() -> bool {
-        AudioContextManager::is_supported()
-    }
 
-    /// Get current AudioContext configuration
-    pub fn get_audio_config(&self) -> AudioContextConfig {
-        match self.audio_context_manager.try_borrow() {
-            Ok(borrowed) => borrowed.config().clone(),
-            Err(_) => AudioContextConfig::default()
-        }
-    }
 
-    /// Resume audio context if suspended
-    pub async fn resume_if_suspended(&mut self) -> Result<(), String> {
-        let resume_result = {
-            let mut manager = self.audio_context_manager.borrow_mut();
-            manager.resume().await
-        };
-        resume_result.map_err(|e| format!("Failed to resume AudioContext: {}", e))
-    }
     
-    /// Handle microphone connection result
-    pub fn handle_microphone_connection_result(&self, result: Result<(), String>) {
-        match result {
-            Ok(()) => {
-                self.set_permission_state(super::AudioPermission::Granted);
-                dev_log!("Microphone connected successfully - permission granted");
-            }
-            Err(e) => {
-                if e.contains("denied") || e.contains("NotAllowedError") {
-                    self.set_permission_state(super::AudioPermission::Denied);
-                } else {
-                    self.set_permission_state(super::AudioPermission::Unavailable);
-                }
-                dev_log!("Microphone connection failed: {}", e);
-            }
-        }
-    }
 
     /// Collect current audio analysis data (return-based pattern)
     /// 

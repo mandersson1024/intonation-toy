@@ -1,28 +1,7 @@
 use wasm_bindgen::prelude::*;
-use web_sys::MediaStream;
 use std::fmt;
-use super::permission::{PermissionManager, AudioPermission};
-use super::buffer::STANDARD_SAMPLE_RATE;
+use super::permission::PermissionManager;
 
-/// Audio stream information
-#[derive(Debug, Clone)]
-pub struct AudioStreamInfo {
-    pub sample_rate: u32,
-    pub buffer_size: u32,
-    pub device_id: Option<String>,
-    pub device_label: Option<String>,
-}
-
-impl Default for AudioStreamInfo {
-    fn default() -> Self {
-        Self {
-            sample_rate: STANDARD_SAMPLE_RATE,
-            buffer_size: 1024,    // Production buffer size
-            device_id: None,
-            device_label: None,
-        }
-    }
-}
 
 /// Audio processing errors
 #[derive(Debug, Clone)]
@@ -52,61 +31,12 @@ impl fmt::Display for AudioError {
 }
 
 /// Microphone manager handles getUserMedia permissions and device access
-pub struct MicrophoneManager {
-    state: AudioPermission,
-    stream: Option<MediaStream>,
-}
-
-impl Default for MicrophoneManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub struct MicrophoneManager;
 
 impl MicrophoneManager {
-    /// Create new microphone manager
-    pub fn new() -> Self {
-        Self {
-            state: AudioPermission::Uninitialized,
-            stream: None,
-        }
-    }
-
-    /// Get current microphone state
-    pub fn state(&self) -> &AudioPermission {
-        &self.state
-    }
-
-
     /// Check if getUserMedia API is supported
     pub fn is_supported() -> bool {
         PermissionManager::is_supported()
-    }
-
-
-
-
-    /// Stop current microphone stream
-    pub fn stop_stream(&mut self) {
-        if let Some(stream) = &self.stream {
-            let tracks = stream.get_tracks();
-            for i in 0..tracks.length() {
-                if let Some(track) = tracks.get(i).dyn_ref::<web_sys::MediaStreamTrack>() {
-                    track.stop();
-                }
-            }
-        }
-        
-        self.stream = None;
-        self.state = AudioPermission::Uninitialized;
-    }
-
-
-}
-
-impl Drop for MicrophoneManager {
-    fn drop(&mut self) {
-        self.stop_stream();
     }
 }
 
