@@ -14,12 +14,6 @@ use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 
 
 
-/// Tuning Command - switch tuning system
-
-
-
-
-
 /// Base Audio Command - shows audio system status and configuration
 pub struct AudioCommand;
 

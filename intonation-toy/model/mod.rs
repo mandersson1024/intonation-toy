@@ -131,8 +131,7 @@ pub struct ProcessedActions {
 /// These structs represent validated business logic actions that are processed
 /// by the model layer after receiving presentation layer actions. They contain
 /// validated data that has passed business logic checks.
-
-
+///
 /// Validated audio system configuration
 /// 
 /// This struct represents an audio system configuration that has been validated

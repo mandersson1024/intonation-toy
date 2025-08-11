@@ -69,11 +69,6 @@ use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 #[cfg(debug_assertions)]
 use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
 
-/// Execution action for microphone permission requests
-/// 
-
-
-
 // Debug execution action structs (only available in debug builds)
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]

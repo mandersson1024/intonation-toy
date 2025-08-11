@@ -1,8 +1,8 @@
-/// First Click Handler for Microphone Permission
-/// 
-/// This module handles the browser requirement that getUserMedia() must be called
-/// within a user gesture context. It creates a full-screen overlay that captures
-/// the user's first click and uses that gesture to request microphone permission.
+//! First Click Handler for Microphone Permission
+//! 
+//! This module handles the browser requirement that getUserMedia() must be called
+//! within a user gesture context. It creates a full-screen overlay that captures
+//! the user's first click and uses that gesture to request microphone permission.
 
 use crate::common::dev_log;
 

@@ -606,8 +606,6 @@ pub struct AudioSystemContext {
 impl AudioSystemContext {
 
 
-    /// Create new AudioSystemContext with custom AudioContext configuration
-
     /// Create new AudioSystemContext without setters (return-based pattern)
     /// 
     /// This constructor creates an AudioSystemContext that works with the
@@ -1045,7 +1043,7 @@ impl AudioSystemContext {
 /// 
 /// These functions convert raw audio engine data types to interface types
 /// without using the observable/setter pattern.
-
+///
 /// Convert VolumeLevelData to Volume interface type
 pub fn convert_volume_data(volume_data: Option<super::data_types::VolumeLevelData>) -> Option<crate::shared_types::Volume> {
     volume_data.map(|data| crate::shared_types::Volume {

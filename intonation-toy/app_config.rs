@@ -1,6 +1,6 @@
-/// Application configuration constants
-/// 
-/// This module contains all configuration constants used throughout the application
+//! Application configuration constants
+//! 
+//! This module contains all configuration constants used throughout the application
 
 use crate::shared_types::{Theme, MidiNote, Scale};
 
@@ -18,12 +18,6 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 /// the most comprehensive pitch reference for users. Other scales can be
 /// selected through the UI to focus on specific musical contexts.
 pub const DEFAULT_SCALE: Scale = Scale::Major;
-
-/// Configuration constants
-/// 
-/// This module should contain only configuration constants, not functions.
-/// Functions that compute or retrieve dynamic configuration values belong 
-/// in their respective domain modules (e.g., theme module for color schemes).
 
 /// Viewport configuration
 pub const VIEWPORT_WIDTH: u32 = 768;

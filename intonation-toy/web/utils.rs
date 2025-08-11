@@ -1,4 +1,4 @@
-/// Web utility functions for color conversion and other common operations
+//! Web utility functions for color conversion and other common operations
 
 /// Convert RGB values to CSS rgba() string
 pub fn rgba_to_css(rgb: [f32; 3], alpha: f32) -> String {

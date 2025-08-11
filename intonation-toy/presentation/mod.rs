@@ -87,8 +87,7 @@ enum Scene {
 /// These structs represent user actions that are collected by the presentation layer
 /// and processed by the main loop. This provides a foundation for the new action flow
 /// that moves away from direct action firing.
-
-
+///
 /// Request to change the tuning system
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChangeTuningSystem {

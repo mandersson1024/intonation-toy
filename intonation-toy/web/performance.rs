@@ -1,7 +1,7 @@
-/// Performance monitoring utilities for web browsers
-/// 
-/// This module provides browser-specific performance monitoring functionality,
-/// including memory usage sampling via the Performance API.
+//! Performance monitoring utilities for web browsers
+//! 
+//! This module provides browser-specific performance monitoring functionality,
+//! including memory usage sampling via the Performance API.
 
 /// Sample current JavaScript heap memory usage from the browser's Performance API.
 /// 
