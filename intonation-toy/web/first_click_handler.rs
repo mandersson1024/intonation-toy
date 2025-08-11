@@ -5,7 +5,6 @@
 /// the user's first click and uses that gesture to request microphone permission.
 
 use crate::common::dev_log;
-use crate::web::styling;
 
 /// Sets up a first-click handler overlay for WASM targets
 /// 
@@ -21,7 +20,7 @@ pub fn setup_first_click_handler(
     permission_granted: std::rc::Rc<std::cell::RefCell<bool>>,
     engine: &mut Option<crate::engine::AudioEngine>,
 ) {
-    use web_sys::{window, HtmlElement, EventTarget, Element};
+    use web_sys::{window, HtmlElement, EventTarget};
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
     

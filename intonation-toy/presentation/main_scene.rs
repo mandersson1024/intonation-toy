@@ -1,5 +1,5 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
-use crate::shared_types::{MidiNote, ColorScheme, Volume};
+use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD, PITCH_VISUALIZATION_ZOOM_DEFAULT};
 
@@ -472,7 +472,6 @@ impl MainScene {
 mod tests {
     use super::*;
     use wasm_bindgen_test::*;
-    use wasm_bindgen::JsCast;
 
     fn create_test_context() -> Context {
         // For tests, create a context using the Window API which handles

@@ -1116,7 +1116,6 @@ impl Drop for Presenter {
 mod tests {
     use super::*;
     use wasm_bindgen_test::*;
-    use three_d::*;
     
     /// Create test model data for testing purposes
     fn create_test_model_data() -> ModelUpdateResult {

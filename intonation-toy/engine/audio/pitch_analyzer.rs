@@ -829,7 +829,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_integration() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
@@ -869,7 +869,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_insufficient_data() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
@@ -891,7 +891,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_buffer_analyzer_size_mismatch() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
@@ -913,7 +913,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_continuous_processing() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::{BufferAnalyzer, WindowFunction};
 
         let config = create_test_config();
@@ -958,7 +958,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_circular_buffer_integration() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();
@@ -995,7 +995,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_pitch_analyzer_windowing_functions() {
-        use crate::engine::audio::buffer::{CircularBuffer, BUFFER_SIZE};
+        use crate::engine::audio::buffer::CircularBuffer;
         use crate::engine::audio::buffer_analyzer::WindowFunction;
 
         let config = create_test_config();

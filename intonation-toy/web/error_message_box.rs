@@ -3,8 +3,6 @@ use wasm_bindgen::JsCast;
 #[cfg(target_arch = "wasm32")]
 use web_sys::{Document, HtmlElement, Window};
 
-use crate::common::dev_log;
-use crate::web::styling;
 
 #[cfg(target_arch = "wasm32")]
 pub fn show_error_message(title: &str, details: &str) {
