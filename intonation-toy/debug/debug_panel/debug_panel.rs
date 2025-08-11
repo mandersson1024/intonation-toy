@@ -396,9 +396,7 @@ impl DebugPanel {
                         if let (Some(interval_semitones), Some(_)) = 
                             (self.debug_data.get_interval_semitones(), self.debug_data.get_root_note()) {
                             let interval_name = crate::shared_types::interval_name_from_semitones(interval_semitones);
-                            let (color, display_text) = if interval_semitones == 0 {
-                                (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
-                            } else if interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
+                            let (color, display_text) = if interval_semitones == 0 || interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
                                 (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
                             } else if interval_semitones.abs() <= 12 {
                                 (Color32::YELLOW, format!("{} ({:+} st)", interval_name, interval_semitones))

@@ -249,8 +249,6 @@ pub async fn connect_microphone_with_context(
             // Map error to permission state
             if e.contains("denied") || e.contains("NotAllowedError") {
                 AudioPermission::Denied
-            } else if e.contains("NotFoundError") || e.contains("unavailable") {
-                AudioPermission::Unavailable
             } else {
                 AudioPermission::Unavailable
             }

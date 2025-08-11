@@ -909,8 +909,6 @@ impl AudioSystemContext {
             Err(e) => {
                 if e.contains("denied") || e.contains("NotAllowedError") {
                     self.set_permission_state(super::AudioPermission::Denied);
-                } else if e.contains("NotFoundError") || e.contains("unavailable") {
-                    self.set_permission_state(super::AudioPermission::Unavailable);
                 } else {
                     self.set_permission_state(super::AudioPermission::Unavailable);
                 }
