@@ -605,7 +605,6 @@ pub struct AudioSystemContext {
 
 impl AudioSystemContext {
 
-
     /// Create new AudioSystemContext without setters (return-based pattern)
     /// 
     /// This constructor creates an AudioSystemContext that works with the
@@ -1038,7 +1037,6 @@ impl AudioSystemContext {
     }
 }
 
-
 /// Conversion functions for audio data types (return-based pattern)
 /// 
 /// These functions convert raw audio engine data types to interface types
@@ -1085,5 +1083,4 @@ pub fn merge_audio_analysis(
         None
     }
 }
-
 

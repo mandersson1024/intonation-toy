@@ -62,8 +62,6 @@ thread_local! {
     static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = const { RefCell::new(None) };
 }
 
-
-
 /// Initialize audio system with dependency injection
 /// 
 /// This function creates and initializes a complete AudioSystemContext with all required
@@ -177,7 +175,6 @@ pub async fn initialize_audio_system_with_interfaces_and_debug() -> Result<conte
     Ok(context)
 }
 
-
 /// Store AudioContextManager globally for backward compatibility
 pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContextManager>>) {
     AUDIO_CONTEXT_MANAGER.with(|global_manager| {
@@ -219,6 +216,4 @@ pub use test_signal_node::TestSignalAudioNode;
 use microphone::{AudioError};
 use context::{AudioContextManager, AudioContextState};
 use volume_detector::{VolumeDetector, VolumeAnalysis};
-
-
 

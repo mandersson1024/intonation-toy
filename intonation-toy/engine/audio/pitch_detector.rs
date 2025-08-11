@@ -22,7 +22,6 @@ impl PitchResult {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct PitchDetectorConfig {
     pub sample_window_size: usize,
@@ -106,7 +105,6 @@ impl PitchDetector {
 
         let mcleod_detector = McLeodDetector::new(config.sample_window_size, config.padding_size);
 
-
         Ok(Self {
             config,
             detector: mcleod_detector,
@@ -149,7 +147,6 @@ impl PitchDetector {
         }
     }
 
-
     /// Get optimal window size recommendation balancing accuracy and latency
     pub fn get_optimal_window_size_for_latency(target_latency_ms: f32, sample_rate: u32) -> usize {
         // Calculate maximum samples we can process within the target latency
@@ -188,8 +185,6 @@ impl PitchDetector {
             window_size.max(1024) // Minimum 1024 for good accuracy
         }
     }
-
-
 
     /// Get performance characteristics of current configuration
     pub fn get_performance_characteristics(&self) -> (f32, &'static str) {
@@ -285,7 +280,6 @@ impl PitchDetector {
             self.detector = McLeodDetector::new(new_config.sample_window_size, new_config.padding_size);
         }
 
-
         self.config = new_config;
         Ok(())
     }
@@ -326,7 +320,6 @@ impl PitchDetector {
         
         Ok(())
     }
-
 
     fn get_current_timestamp(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]

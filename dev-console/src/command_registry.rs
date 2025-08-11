@@ -102,7 +102,6 @@ impl ConsoleCommand for ClearCommand {
     }
 }
 
-
 // Built-in Test Command - Shows examples of all ConsoleOutput variants
 struct TestCommand;
 

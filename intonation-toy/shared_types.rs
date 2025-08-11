@@ -14,7 +14,6 @@ pub struct Volume {
     pub rms_amplitude: f32,
 }
 
-
 /// MIDI note number type (0-127).
 /// 
 /// Standard MIDI note numbers where:
@@ -28,8 +27,6 @@ pub type MidiNote = u8;
 pub fn is_valid_midi_note(value: MidiNote) -> bool {
     value <= 127
 }
-
-
 
 /// Safely increment a MIDI note number.
 /// 
@@ -301,7 +298,6 @@ pub struct AudioAnalysis {
     pub timestamp: f64,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     MicrophonePermissionDenied,
@@ -503,5 +499,4 @@ pub fn interval_name_from_semitones(semitones: i32) -> String {
         result
     }
 }
-
 

@@ -7,8 +7,6 @@ pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed ch
 pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 32;   // 4096 - IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
 pub const STANDARD_SAMPLE_RATE: u32 = 44100;            // Standard consumer audio sample rate (44.1 kHz)
 
-
-
 /// Buffer state tracking for efficient processing
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BufferState {
@@ -71,7 +69,6 @@ where
             overflow_count: 0,
         }
     }
-
 
     /// Get the current buffer state
     pub fn state(&self) -> BufferState {

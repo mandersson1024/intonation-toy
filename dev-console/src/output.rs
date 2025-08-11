@@ -41,7 +41,6 @@ impl ConsoleOutput {
         Self::Error(message.into())
     }
 
-
     /// Create a command echo message
     pub fn echo(message: impl Into<String>) -> Self {
         Self::Echo(message.into())
@@ -51,7 +50,6 @@ impl ConsoleOutput {
     pub fn empty() -> Self {
         Self::Empty
     }
-
 
     /// Get the output type as a string (for CSS classes)
     pub fn output_type(&self) -> &'static str {
@@ -64,7 +62,6 @@ impl ConsoleOutput {
             Self::Empty => "empty",
         }
     }
-
 
     /// Get the message content as a string
     pub fn message(&self) -> &str {
@@ -121,7 +118,6 @@ impl ConsoleOutputManager {
         }
     }
 
-
     /// Add a new output entry
     pub fn add_output(&mut self, output: ConsoleOutput) {
         let entry = ConsoleEntry::new(output);
@@ -143,7 +139,6 @@ impl ConsoleOutputManager {
         self.entries.iter().collect()
     }
 
-
 }
 
 impl Default for ConsoleOutputManager {
@@ -151,5 +146,4 @@ impl Default for ConsoleOutputManager {
         Self::new()
     }
 }
-
 

@@ -22,7 +22,6 @@ pub mod theme;
 // Theory modules
 pub mod theory;
 
-
 // Supporting modules
 pub(crate) mod common;
 #[cfg(debug_assertions)]
@@ -492,7 +491,6 @@ pub async fn start_render_loop(
         FrameOutput::default()
     });
 }
-
 
 /// Application entry point
 #[wasm_bindgen(start)]

@@ -18,7 +18,6 @@ fn get_document() -> Document {
         .expect("should have a document on window")
 }
 
-
 fn add_style_to_document(css: &str) {
     let document = get_document();
     let style = document.create_element("style").expect("Failed to create style element");
@@ -31,44 +30,10 @@ fn add_style_to_document(css: &str) {
         .expect("Failed to append style to head");
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub fn apply_color_scheme_styles() {
     // Apply CSS variables - all other styles are now handled by static/style.css
     apply_css_variables();
 }
-
-
-
-
 
 /// Create and set CSS custom properties on the document root based on the current theme's ColorScheme.
 /// This function creates CSS variables that can be used by CSS classes for efficient theme switching.
@@ -143,5 +108,4 @@ pub fn update_css_variables() {
 pub fn reapply_current_theme() {
     update_css_variables();
 }
-
 

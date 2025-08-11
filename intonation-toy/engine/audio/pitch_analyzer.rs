@@ -52,7 +52,6 @@ impl Default for PitchPerformanceMetrics {
     }
 }
 
-
 /// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
 /// and returns pitch data through the engine update system.
 /// 
@@ -108,14 +107,10 @@ impl PitchAnalyzer {
         })
     }
 
-
-
-
     /// Update volume analysis for confidence weighting
     pub fn update_volume_analysis(&mut self, volume_analysis: VolumeAnalysis) {
         self.last_volume_analysis = Some(volume_analysis);
     }
-
 
     /// Analyze audio samples and publish pitch events
     /// 
@@ -609,7 +604,6 @@ impl PitchAnalyzer {
         Ok(())
     }
 
-
     fn publish_metrics_update(&mut self) {
         // Log metrics only occasionally to avoid spam (every 1000 cycles)
         if self.metrics.analysis_cycles % 1000 == 0 {
@@ -634,7 +628,6 @@ impl PitchAnalyzer {
             }
         }
     }
-
 
     fn get_high_resolution_time(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]

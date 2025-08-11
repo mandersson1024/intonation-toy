@@ -168,7 +168,6 @@ impl Drop for MicrophoneManager {
     }
 }
 
-
 /// Connect microphone to AudioWorklet using AudioSystemContext
 /// 
 /// This function establishes the complete audio processing pipeline from microphone input

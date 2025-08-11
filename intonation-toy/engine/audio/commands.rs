@@ -7,13 +7,6 @@
 use egui_dev_console::{ConsoleCommand, ConsoleCommandResult, ConsoleOutput, ConsoleCommandRegistry};
 use super::{AudioContextState, AudioContextManager, get_audio_context_manager};
 
-
-
-
-
-
-
-
 /// Base Audio Command - shows audio system status and configuration
 pub struct AudioCommand;
 
@@ -64,12 +57,6 @@ impl ConsoleCommand for AudioCommand {
         ConsoleCommandResult::MultipleOutputs(outputs)
     }
 }
-
-
-
-
-
-
 
 /// Performance Monitor Command - shows buffer pool and audio processing metrics
 pub struct PerformanceCommand;

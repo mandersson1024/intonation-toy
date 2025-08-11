@@ -31,7 +31,6 @@ pub enum CriticalApi {
     WebGL2,
 }
 
-
 /// API support status
 #[derive(Debug, Clone)]
 pub struct ApiStatus {
@@ -51,8 +50,6 @@ impl std::fmt::Display for CriticalApi {
         }
     }
 }
-
-
 
 /// Platform feature detection and initialization
 pub struct Platform;
@@ -216,7 +213,6 @@ impl Platform {
         }
     }
 
-
     /// Validate all critical platform features required for application startup
     /// Returns validation result that caller MUST handle - application should not start if APIs are missing
     pub fn check_feature_support() -> PlatformValidationResult {
@@ -243,7 +239,6 @@ impl Platform {
             PlatformValidationResult::MissingCriticalApis(missing_apis)
         }
     }
-
 
     /// Get platform information string for debugging
     pub fn get_platform_info() -> String {

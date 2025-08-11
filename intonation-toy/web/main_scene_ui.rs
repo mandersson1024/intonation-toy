@@ -21,7 +21,6 @@ use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, de
 #[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_ROOT_NOTE);
 
-
 // Global state for tuning fork volume slider position (0-100)
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
@@ -107,7 +106,6 @@ fn format_zoom_display(position: f32) -> String {
     format!("{:.0}%", percentage)
 }
 
-
 #[cfg(target_arch = "wasm32")]
 pub fn setup_main_scene_ui() {
     let Some(window) = window() else {
@@ -159,7 +157,6 @@ pub fn setup_main_scene_ui() {
     } else {
         dev_log!("Warning: zoom-display element not found in HTML");
     }
-
 
     // Verify other essential elements exist
     if document.get_element_by_id("root-note-plus").is_none() {

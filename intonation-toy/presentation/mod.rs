@@ -57,8 +57,6 @@
 //! - Advanced animations and visual transitions
 //! - Complete screen layout and UI element management
 
-
-
 mod main_scene;
 pub use main_scene::{MainScene, TuningLines};
 
@@ -81,7 +79,6 @@ enum Scene {
     Main(MainScene),
 }
 
-
 /// Action structs for the new action collection system
 /// 
 /// These structs represent user actions that are collected by the presentation layer
@@ -94,13 +91,11 @@ pub struct ChangeTuningSystem {
     pub tuning_system: TuningSystem,
 }
 
-
 /// Request to adjust the root note
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdjustRootNote {
     pub root_note: MidiNote,
 }
-
 
 /// Action for changing the active scale
 /// 
@@ -111,7 +106,6 @@ pub struct ScaleChangeAction {
     pub scale: Scale,
 }
 
-
 // Debug action structs (only available in debug builds)
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq)]
@@ -121,13 +115,11 @@ pub struct ConfigureTestSignal {
     pub volume: f32,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureRootNoteAudio {
     pub frequency: f32,
     pub volume: f32,
 }
-
 
 /// Container for all collected user actions from the presentation layer
 /// 
@@ -160,7 +152,6 @@ impl PresentationLayerActions {
     }
 }
 
-
 /// Container for all collected debug actions from the presentation layer
 /// 
 /// This struct is only available in debug builds and contains actions that
@@ -181,7 +172,6 @@ impl DebugLayerActions {
         }
     }
 }
-
 
 /// Presenter - The presentation layer of the three-layer architecture
 /// 
@@ -477,7 +467,6 @@ impl Presenter {
         self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale });
     }
 
-
     /// Retrieve and clear all pending debug actions (debug builds only)
     /// 
     /// This method is called by the main loop to get all debug actions that have
@@ -567,7 +556,6 @@ impl Presenter {
         });
         crate::common::dev_log!("PRESENTER: Added action to pending_user_actions with volume control");
     }
-
 
     /// Render the presentation layer to the screen
     /// 
@@ -933,7 +921,6 @@ impl Presenter {
         let interval_semitones = (midi_note as i32) - (root_note as i32);
         crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
-
 
     /// Synchronize HTML UI with specified presenter state
     #[cfg(all(target_arch = "wasm32", debug_assertions))]

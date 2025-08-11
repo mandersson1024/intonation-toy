@@ -380,7 +380,6 @@ impl<T> MessageEnvelope<T> {
     }
 }
 
-
 /// Get current timestamp in milliseconds
 fn get_current_timestamp() -> f64 {
     // Use performance.now() for high-resolution timing
@@ -1489,8 +1488,6 @@ impl MessageValidator for SignalGeneratorConfig {
     }
 }
 
-
-
 impl ToJsMessage for WorkletError {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
@@ -1922,7 +1919,6 @@ impl FromJsMessage for SystemState {
         })
     }
 }
-
 
 // ================================
 // Message Construction Utilities
