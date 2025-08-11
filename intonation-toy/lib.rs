@@ -22,25 +22,6 @@ pub mod theme;
 // Theory modules
 pub mod theory;
 
-// Re-export types for test usage
-#[cfg(test)]
-pub use shared_types::{MidiNote, TuningSystem, Scale};
-#[cfg(test)]
-pub use presentation::{
-    ChangeTuningSystem, AdjustRootNote, ScaleChangeAction,
-    PresentationLayerActions,
-};
-#[cfg(all(debug_assertions, test))]
-pub use presentation::{
-    ConfigureTestSignal,
-    DebugLayerActions,
-};
-#[cfg(test)]
-pub use model::{ProcessedActions, ModelLayerActions};
-#[cfg(test)]
-pub use presentation::{PresentationLayerActionsBuilder};
-#[cfg(all(debug_assertions, test))]
-pub use presentation::{DebugLayerActionsBuilder};
 
 // Supporting modules
 pub(crate) mod common;

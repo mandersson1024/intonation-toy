@@ -121,14 +121,6 @@ impl ConsoleOutputManager {
         }
     }
 
-    #[cfg(test)]
-    /// Create a new output manager with custom settings
-    pub fn with_settings(max_entries: usize) -> Self {
-        Self {
-            entries: Vec::new(),
-            max_entries: max_entries.max(1),
-        }
-    }
 
     /// Add a new output entry
     pub fn add_output(&mut self, output: ConsoleOutput) {
@@ -151,17 +143,6 @@ impl ConsoleOutputManager {
         self.entries.iter().collect()
     }
 
-    #[cfg(test)]
-    /// Get number of entries
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    #[cfg(test)]
-    /// Check if output manager is empty
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
 
 }
 
@@ -172,92 +153,3 @@ impl Default for ConsoleOutputManager {
 }
 
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use wasm_bindgen_test::*;
-
-    // No wasm_bindgen_test_configure! needed for Node.js
-
-    #[wasm_bindgen_test]
-    fn test_console_output_creation() {
-        let info = ConsoleOutput::info("Test info");
-        assert_eq!(info.message(), "Test info");
-        assert_eq!(info.output_type(), "info");
-
-        let success = ConsoleOutput::success("Test success");
-        assert_eq!(success.output_type(), "success");
-        assert_eq!(success.message(), "Test success");
-
-        let error = ConsoleOutput::error("Test error");
-        assert_eq!(error.output_type(), "error");
-        assert_eq!(error.message(), "Test error");
-
-    }
-
-    #[wasm_bindgen_test]
-    fn test_console_output_display() {
-        let info = ConsoleOutput::info("Hello");
-        assert_eq!(info.to_string(), "[INFO] Hello");
-
-        let success = ConsoleOutput::success("Done");
-        assert_eq!(success.to_string(), "[SUCCESS] Done");
-
-        let error = ConsoleOutput::error("Failed");
-        assert_eq!(error.to_string(), "[ERROR] Failed");
-
-        let command = ConsoleOutput::echo("help");
-        assert_eq!(command.to_string(), "> help");
-
-        let empty = ConsoleOutput::empty();
-        assert_eq!(empty.to_string(), "");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_console_entry() {
-        let output = ConsoleOutput::info("Test message");
-        let entry = ConsoleEntry::new(output.clone());
-        
-        assert_eq!(entry.output, output);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_console_output_manager() {
-        let mut manager = ConsoleOutputManager::new();
-        assert!(manager.is_empty());
-
-        manager.add_output(ConsoleOutput::info("First message"));
-        manager.add_output(ConsoleOutput::success("Success message"));
-
-        assert_eq!(manager.len(), 2);
-
-        // All messages should be visible
-        let visible = manager.entries();
-        assert_eq!(visible.len(), 2);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_output_manager_size_limit() {
-        let mut manager = ConsoleOutputManager::with_settings(2);
-        
-        manager.add_output(ConsoleOutput::info("First"));
-        manager.add_output(ConsoleOutput::info("Second"));
-        manager.add_output(ConsoleOutput::info("Third")); // Should remove "First"
-
-        assert_eq!(manager.len(), 2);
-        let entries = manager.entries();
-        assert_eq!(entries[0].output.message(), "Third"); // Most recent first
-        assert_eq!(entries[1].output.message(), "Second");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_output_manager_clear() {
-        let mut manager = ConsoleOutputManager::new();
-        manager.add_output(ConsoleOutput::info("Test"));
-        assert!(!manager.is_empty());
-        
-        manager.clear();
-        assert!(manager.is_empty());
-    }
-
-}

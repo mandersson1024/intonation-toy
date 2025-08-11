@@ -580,10 +580,6 @@ impl DataModel {
         }
     }
 
-    #[cfg(test)]
-    pub fn process_user_actions_test(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
-        self.process_user_actions(presentation_actions)
-    }
     
     /// Convert a frequency to the closest musical note with tuning system and scale awareness
     /// 

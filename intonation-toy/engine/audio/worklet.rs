@@ -138,25 +138,6 @@ impl Default for AudioWorkletConfig {
 }
 
 impl AudioWorkletConfig {
-    /// Create configuration for stereo processing
-    #[cfg(test)]
-    pub fn stereo() -> Self {
-        Self {
-            input_channels: 2,
-            output_channels: 2,
-            ..Default::default()
-        }
-    }
-    
-    /// Create configuration with custom channel count
-    #[cfg(test)]
-    pub fn with_channels(input_channels: u32, output_channels: u32) -> Self {
-        Self {
-            input_channels,
-            output_channels,
-            ..Default::default()
-        }
-    }
     
 }
 
