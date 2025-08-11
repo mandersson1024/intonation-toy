@@ -1028,46 +1028,6 @@ impl AudioSystemContext {
     }
 }
 
-/// Merger that combines volume and pitch data into AudioAnalysis
-/// 
-/// This merger combines volume and pitch updates into a unified AudioAnalysis
-/// structure. It stores the current state and provides methods to update individual
-/// components and retrieve the merged result.
-struct AudioAnalysisMerger {
-    current_volume: std::cell::RefCell<crate::shared_types::Volume>,
-    current_pitch: std::cell::RefCell<crate::shared_types::Pitch>,
-    last_timestamp: std::cell::Cell<f64>,
-}
-
-impl AudioAnalysisMerger {
-    fn new() -> Self {
-        Self {
-            current_volume: std::cell::RefCell::new(crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }),
-            current_pitch: std::cell::RefCell::new(crate::shared_types::Pitch::NotDetected),
-            last_timestamp: std::cell::Cell::new(0.0),
-        }
-    }
-    
-    fn update_volume(&self, volume: crate::shared_types::Volume) {
-        *self.current_volume.borrow_mut() = volume;
-    }
-    
-    fn update_pitch(&self, pitch: crate::shared_types::Pitch, timestamp: f64) {
-        *self.current_pitch.borrow_mut() = pitch;
-        self.last_timestamp.set(timestamp);
-    }
-    
-    
-    /// Get current audio analysis data
-    fn get_current_analysis(&self) -> crate::shared_types::AudioAnalysis {
-        crate::shared_types::AudioAnalysis {
-            volume_level: self.current_volume.borrow().clone(),
-            pitch: self.current_pitch.borrow().clone(),
-            fft_data: None,
-            timestamp: self.last_timestamp.get().max(js_sys::Date::now()),
-        }
-    }
-}
 
 /// Conversion functions for audio data types (return-based pattern)
 /// 

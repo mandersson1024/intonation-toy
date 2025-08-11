@@ -71,33 +71,8 @@ use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPool
 
 /// Execution action for microphone permission requests
 /// 
-/// This unit struct represents the execution of a microphone permission request 
-/// at the engine layer. It contains no additional data as the execution process
-/// is handled entirely by the existing microphone connection functionality.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ExecuteMicrophonePermissionRequest;
 
 
-/// Container for all executed engine layer actions
-/// 
-/// This struct is reserved for future engine-specific actions. The engine layer
-/// in the three-layer architecture handles only raw audio processing and hardware
-/// interface operations. All musical interpretation (tuning systems, root notes,
-/// pitch analysis, interval calculations) is exclusively handled by the model layer.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct EngineLayerActions {
-    // Reserved for future engine-specific action types
-}
-
-impl EngineLayerActions {
-    /// Create a new instance with empty action collections
-    /// 
-    /// Returns a new `EngineLayerActions` struct. Currently empty as all
-    /// musical interpretation has been moved to the model layer.
-    pub(crate) fn new() -> Self {
-        Self {}
-    }
-}
 
 // Debug execution action structs (only available in debug builds)
 #[cfg(debug_assertions)]

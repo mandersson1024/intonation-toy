@@ -142,13 +142,6 @@ pub struct ProcessedActions {
 /// by the model layer after receiving presentation layer actions. They contain
 /// validated data that has passed business logic checks.
 
-/// Validated request for microphone permission
-/// 
-/// This struct represents a microphone permission request that has been validated
-/// by the model layer's business logic. It is a unit struct as the validation
-/// ensures that the request is appropriate given the current state.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct RequestMicrophonePermissionAction;
 
 /// Validated audio system configuration
 /// 

@@ -1,7 +1,6 @@
 use crate::theme::get_current_color_scheme;
 use crate::web::utils::rgb_to_css;
-use wasm_bindgen::JsCast;
-use web_sys::{Document, HtmlElement};
+use web_sys::Document;
 
 /// Sidebar width in pixels - used consistently across styling and canvas sizing
 pub const SIDEBAR_WIDTH: i32 = 300;
@@ -19,14 +18,6 @@ fn get_document() -> Document {
         .expect("should have a document on window")
 }
 
-fn apply_style_to_element(selector: &str, style: &str) {
-    let document = get_document();
-    if let Some(element) = document.query_selector(selector).ok().flatten() {
-        if let Some(html_element) = element.dyn_ref::<HtmlElement>() {
-            html_element.set_attribute("style", style).ok();
-        }
-    }
-}
 
 fn add_style_to_document(css: &str) {
     let document = get_document();
@@ -154,21 +145,3 @@ pub fn reapply_current_theme() {
 }
 
 
-/// Helper function to safely apply styles to DOM elements with error handling.
-/// Returns Result for better error management in theme switching operations.
-fn try_apply_style_to_element(selector: &str, style: &str) -> Result<(), String> {
-    let document = get_document();
-    let element = document
-        .query_selector(selector)
-        .map_err(|_| "Failed to query selector")?
-        .ok_or("Element not found")?;
-    
-    if let Some(html_element) = element.dyn_ref::<HtmlElement>() {
-        html_element
-            .set_attribute("style", style)
-            .map_err(|_| "Failed to set style attribute")?;
-        Ok(())
-    } else {
-        Err("Element is not an HTML element".to_string())
-    }
-}
