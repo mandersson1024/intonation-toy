@@ -70,7 +70,6 @@ pub fn setup_first_click_handler(
         return;
     }
     
-    let audio_context = audio_context.unwrap();
     let permission_granted_clone = permission_granted.clone();
     
     // Get engine reference for passing MediaStream
