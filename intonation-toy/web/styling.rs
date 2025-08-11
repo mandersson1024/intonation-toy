@@ -93,7 +93,7 @@ pub fn update_css_variables() {
             rgb_to_css(color_scheme.error)
         );
         
-        if let Err(_) = root.set_attribute("style", &style_str) {
+        if root.set_attribute("style", &style_str).is_err() {
             crate::common::dev_log!("Failed to set CSS variables on root element");
         } else {
             crate::common::dev_log!("Successfully updated CSS custom properties");

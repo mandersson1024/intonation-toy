@@ -264,7 +264,7 @@ pub async fn connect_microphone_to_audioworklet_with_context(
             window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 10).unwrap();
         });
         
-        if let Err(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
+        if wasm_bindgen_futures::JsFuture::from(promise).await.is_err() {
             // If delay fails, just continue
         }
         
@@ -394,7 +394,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
     
     // Await resume promise if needed (borrows are dropped here)
     if let Some(promise) = resume_promise {
-        if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
+        if wasm_bindgen_futures::JsFuture::from(promise).await.is_ok() {
         } 
     }
     
@@ -466,7 +466,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                 wasm_bindgen_futures::spawn_local(async move {
                     match manager_rc.try_borrow_mut() {
                         Ok(mut manager) => {
-                            if let Err(_) = manager.refresh_audio_devices().await {
+                            if manager.refresh_audio_devices().await.is_err() {
                                 // Handle error if needed
                             }
                         }
