@@ -522,10 +522,9 @@ impl PitchAnalyzer {
                 
                 // Use existing analyze_samples method which handles all the
                 // pitch detection, event publishing, and metrics
-                match self.analyze_samples(chunk)? {
-                    Some(result) => results.push(result),
-                    None => {} // No pitch detected in this chunk
-                }
+                if let Some(result) = self.analyze_samples(chunk)? {
+                    results.push(result);
+                } // No pitch detected in this chunk
             }
         }
         
@@ -567,10 +566,9 @@ impl PitchAnalyzer {
         while position + window_size <= batch_data.len() {
             let chunk = &batch_data[position..position + window_size];
             
-            match self.analyze_samples(chunk)? {
-                Some(result) => results.push(result),
-                None => {} // No pitch detected
-            }
+            if let Some(result) = self.analyze_samples(chunk)? {
+                results.push(result);
+            } // No pitch detected
             
             position += step_size;
         }
