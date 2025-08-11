@@ -116,21 +116,11 @@ impl AudioContextConfig {
 }
 
 /// Cached audio device information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AudioDevices {
     pub input_devices: Vec<(String, String)>,
     pub output_devices: Vec<(String, String)>,
 }
-
-impl Default for AudioDevices {
-    fn default() -> Self {
-        Self {
-            input_devices: Vec::new(),
-            output_devices: Vec::new(),
-        }
-    }
-}
-
 
 /// AudioContext manager handles Web Audio API context lifecycle
 pub struct AudioContextManager {
