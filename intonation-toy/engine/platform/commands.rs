@@ -82,12 +82,13 @@ impl ConsoleCommand for ThemeCommand {
             let current = crate::theme::get_current_theme().name();
             let current_colors = crate::theme::get_current_color_scheme();
             
-            let mut outputs = Vec::new();
-            outputs.push(ConsoleOutput::info(format!("Current theme: {}", current)));
-            outputs.push(ConsoleOutput::info(format!("Current color scheme: background={:?}, surface={:?}, text={:?}", 
-                current_colors.background, current_colors.surface, current_colors.text)));
-            outputs.push(ConsoleOutput::info("Available themes: light, dark, autumn, sunset"));
-            outputs.push(ConsoleOutput::info("Usage: theme <theme_name>"));
+            let outputs = vec![
+                ConsoleOutput::info(format!("Current theme: {}", current)),
+                ConsoleOutput::info(format!("Current color scheme: background={:?}, surface={:?}, text={:?}", 
+                    current_colors.background, current_colors.surface, current_colors.text)),
+                ConsoleOutput::info("Available themes: light, dark, autumn, sunset"),
+                ConsoleOutput::info("Usage: theme <theme_name>"),
+            ];
             
             return ConsoleCommandResult::MultipleOutputs(outputs);
         }
@@ -133,14 +134,15 @@ impl ConsoleCommand for ErrorCommand {
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show help with available error scenarios
-            let mut outputs = Vec::new();
-            outputs.push(ConsoleOutput::info("Available error scenarios:"));
-            outputs.push(ConsoleOutput::info("  browser-unsupported  - Show browser compatibility error"));
-            outputs.push(ConsoleOutput::info("  mobile-unsupported   - Show mobile device not supported error"));
-            outputs.push(ConsoleOutput::info("  mic-unavailable      - Show microphone not available error"));
-            outputs.push(ConsoleOutput::info("  mic-permission       - Show microphone permission error"));
-            outputs.push(ConsoleOutput::info("  browser-error        - Show general browser error"));
-            outputs.push(ConsoleOutput::info("Usage: error <scenario>"));
+            let outputs = vec![
+                ConsoleOutput::info("Available error scenarios:"),
+                ConsoleOutput::info("  browser-unsupported  - Show browser compatibility error"),
+                ConsoleOutput::info("  mobile-unsupported   - Show mobile device not supported error"),
+                ConsoleOutput::info("  mic-unavailable      - Show microphone not available error"),
+                ConsoleOutput::info("  mic-permission       - Show microphone permission error"),
+                ConsoleOutput::info("  browser-error        - Show general browser error"),
+                ConsoleOutput::info("Usage: error <scenario>"),
+            ];
             
             return ConsoleCommandResult::MultipleOutputs(outputs);
         }

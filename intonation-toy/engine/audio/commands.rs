@@ -65,57 +65,63 @@ impl ConsoleCommand for PerformanceCommand {
     fn name(&self) -> &str { "perf" }
     fn description(&self) -> &str { "Show audio processing performance metrics" }
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        let mut outputs = Vec::new();
-        
         // Check for subcommands
         if !args.is_empty() {
             match args[0] {
                 "reset" => {
-                    outputs.push(ConsoleOutput::info("Performance metrics reset"));
-                    outputs.push(ConsoleOutput::warning("Note: Reset functionality not yet implemented"));
+                    let outputs = vec![
+                        ConsoleOutput::info("Performance metrics reset"),
+                        ConsoleOutput::warning("Note: Reset functionality not yet implemented"),
+                    ];
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
                 "help" => {
-                    outputs.push(ConsoleOutput::info("Performance Monitor Commands:"));
-                    outputs.push(ConsoleOutput::info("  perf        - Show current performance metrics"));
-                    outputs.push(ConsoleOutput::info("  perf reset  - Reset performance counters"));
+                    let outputs = vec![
+                        ConsoleOutput::info("Performance Monitor Commands:"),
+                        ConsoleOutput::info("  perf        - Show current performance metrics"),
+                        ConsoleOutput::info("  perf reset  - Reset performance counters"),
+                    ];
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
                 _ => {
-                    outputs.push(ConsoleOutput::error(format!("Unknown perf subcommand: {}", args[0])));
-                    outputs.push(ConsoleOutput::info("Use 'perf help' for available commands"));
+                    let outputs = vec![
+                        ConsoleOutput::error(format!("Unknown perf subcommand: {}", args[0])),
+                        ConsoleOutput::info("Use 'perf help' for available commands"),
+                    ];
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
             }
         }
         
         // Show performance metrics
-        outputs.push(ConsoleOutput::success("🔬 Audio Processing Performance Metrics"));
-        
-        // Buffer pool metrics (placeholder - would need access to actual buffer pool)
-        outputs.push(ConsoleOutput::info("Buffer Pool Performance:"));
-        outputs.push(ConsoleOutput::info("  Pool Size: 16 buffers"));
-        outputs.push(ConsoleOutput::info("  Available: 12 buffers"));
-        outputs.push(ConsoleOutput::info("  Hit Rate: 98.5%"));
-        outputs.push(ConsoleOutput::info("  Avg Acquisition: 0.05ms"));
-        outputs.push(ConsoleOutput::info("  Total Allocations: 47"));
-        
-        // Audio processing metrics
-        outputs.push(ConsoleOutput::info("Audio Processing:"));
-        outputs.push(ConsoleOutput::info("  Avg Process Time: 0.12ms"));
-        outputs.push(ConsoleOutput::info("  Max Process Time: 0.48ms"));
-        outputs.push(ConsoleOutput::info("  GC Pauses: 2"));
-        outputs.push(ConsoleOutput::info("  Dropped Chunks: 0"));
-        outputs.push(ConsoleOutput::info("  Processed Chunks: 45,231"));
-        
-        // Memory and efficiency metrics
-        outputs.push(ConsoleOutput::info("Memory & Efficiency:"));
-        outputs.push(ConsoleOutput::success("  Zero-Copy Transfers: ✓"));
-        outputs.push(ConsoleOutput::success("  Pool Exhaustion: 0.1%"));
-        outputs.push(ConsoleOutput::success("  Buffer Reuse Rate: 94.2%"));
-        
-        // Add note about real-time metrics
-        outputs.push(ConsoleOutput::warning("Note: Real-time metrics integration in progress"));
+        let outputs = vec![
+            ConsoleOutput::success("🔬 Audio Processing Performance Metrics"),
+            
+            // Buffer pool metrics (placeholder - would need access to actual buffer pool)
+            ConsoleOutput::info("Buffer Pool Performance:"),
+            ConsoleOutput::info("  Pool Size: 16 buffers"),
+            ConsoleOutput::info("  Available: 12 buffers"),
+            ConsoleOutput::info("  Hit Rate: 98.5%"),
+            ConsoleOutput::info("  Avg Acquisition: 0.05ms"),
+            ConsoleOutput::info("  Total Allocations: 47"),
+            
+            // Audio processing metrics
+            ConsoleOutput::info("Audio Processing:"),
+            ConsoleOutput::info("  Avg Process Time: 0.12ms"),
+            ConsoleOutput::info("  Max Process Time: 0.48ms"),
+            ConsoleOutput::info("  GC Pauses: 2"),
+            ConsoleOutput::info("  Dropped Chunks: 0"),
+            ConsoleOutput::info("  Processed Chunks: 45,231"),
+            
+            // Memory and efficiency metrics
+            ConsoleOutput::info("Memory & Efficiency:"),
+            ConsoleOutput::success("  Zero-Copy Transfers: ✓"),
+            ConsoleOutput::success("  Pool Exhaustion: 0.1%"),
+            ConsoleOutput::success("  Buffer Reuse Rate: 94.2%"),
+            
+            // Add note about real-time metrics
+            ConsoleOutput::warning("Note: Real-time metrics integration in progress"),
+        ];
         
         ConsoleCommandResult::MultipleOutputs(outputs)
     }
