@@ -146,7 +146,7 @@ pub async fn start_render_loop(
     crate::engine::audio::register_audio_commands(&mut command_registry);
 
     #[cfg(debug_assertions)]
-    let mut dev_console = egui_dev_console::DevConsole::new_with_registry(command_registry);
+    let mut dev_console = egui_dev_console::DevConsole::new(command_registry);
     
     #[cfg(debug_assertions)]
     let debug_data = debug::debug_data::DebugData::new();

@@ -15,36 +15,8 @@ pub struct DevConsole {
     is_visible: bool
 }
 
-impl Default for DevConsole {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl DevConsole {
-    pub fn new() -> Self {
-        let mut output_manager = ConsoleOutputManager::new();
-        
-        // Add welcome message
-        output_manager.add_output(ConsoleOutput::info("EGUI Dev Console initialized"));
-        output_manager.add_output(ConsoleOutput::info("Type 'help' for available commands"));
-        
-        // Load command history from local storage
-        let command_history = Self::load_history_from_storage();
-        if !command_history.is_empty() {
-            output_manager.add_output(ConsoleOutput::info(format!("Restored {} commands from history", command_history.len())));
-        }
-        
-        Self {
-            command_registry: ConsoleCommandRegistry::new(),
-            output_manager,
-            history: command_history,
-            input_text: String::new(),
-            is_visible: true
-        }
-    }
-
-    pub fn new_with_registry(registry: ConsoleCommandRegistry) -> Self {
+    pub fn new(registry: ConsoleCommandRegistry) -> Self {
         let mut output_manager = ConsoleOutputManager::new();
         
         // Add welcome message
