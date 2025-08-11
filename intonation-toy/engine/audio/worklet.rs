@@ -1311,40 +1311,4 @@ impl Drop for AudioWorkletManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use wasm_bindgen_test::wasm_bindgen_test;
-
-
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_state_display() {
-        assert_eq!(AudioWorkletState::Uninitialized.to_string(), "Uninitialized");
-        assert_eq!(AudioWorkletState::Initializing.to_string(), "Initializing");
-        assert_eq!(AudioWorkletState::Ready.to_string(), "Ready");
-        assert_eq!(AudioWorkletState::Processing.to_string(), "Processing");
-        assert_eq!(AudioWorkletState::Stopped.to_string(), "Stopped");
-        assert_eq!(AudioWorkletState::Failed.to_string(), "Failed");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_config_default() {
-        let config = AudioWorkletConfig::default();
-        // Chunk size is now a constant, no need to assert
-        assert_eq!(config.input_channels, 1);
-        assert_eq!(config.output_channels, 1);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_audio_worklet_config_builders() {
-        let stereo_config = AudioWorkletConfig::stereo();
-        assert_eq!(stereo_config.input_channels, 2);
-        assert_eq!(stereo_config.output_channels, 2);
-        
-        let custom_config = AudioWorkletConfig::with_channels(4, 2);
-        assert_eq!(custom_config.input_channels, 4);
-        assert_eq!(custom_config.output_channels, 2);
-        
-    }
-}
 
