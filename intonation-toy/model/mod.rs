@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note, semitone_in_scale};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::warn_log;
 
@@ -407,7 +407,7 @@ impl DataModel {
         
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
-            Pitch::Detected(frequency, clarity) => {
+            Pitch::Detected(frequency, _clarity) => {
                 // Processing detected pitch with tuning system and root note
                 
                 // Apply tuning-aware frequency to note conversion

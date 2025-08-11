@@ -214,7 +214,7 @@ impl AudioEngine {
             // Borrow once and collect all data to avoid multiple borrows
             let borrowed_context = context.borrow();
             let audio_analysis = borrowed_context.collect_audio_analysis(timestamp);
-            let mut audio_errors = borrowed_context.collect_audio_errors();
+            let audio_errors = borrowed_context.collect_audio_errors();
             let permission_state = borrowed_context.collect_permission_state();
             
             

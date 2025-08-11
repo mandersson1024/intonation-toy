@@ -520,9 +520,6 @@ impl Presenter {
         // Handle error states and user feedback
         self.process_error_states(&model_data.errors);
         
-        // Update permission status display
-        self.process_permission_state(&model_data.permission_state);
-        
         // Update tuning system display
         self.process_tuning_system(&model_data.tuning_system);
         
@@ -851,17 +848,6 @@ impl Presenter {
                 }
             }
         }
-    }
-    
-    /// Process permission state for UI updates
-    /// 
-    /// Updates permission-related UI elements and user prompts.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `permission_state` - Current microphone permission state
-    fn process_permission_state(&mut self, permission_state: &crate::shared_types::PermissionState) {
-        // Process permission state without caching
     }
     
     /// Process tuning system updates

@@ -2523,7 +2523,6 @@ impl AudioWorkletMessageFactory {
         code: WorkletErrorCode, 
         message: String, 
         location: String,
-        system_state: Option<String>
     ) -> MessageConstructionResult<FromWorkletEnvelope> {
         let context = ErrorContext::new(location);
         let error = WorkletError::new(code, message, Some(context))?;
@@ -2881,7 +2880,6 @@ mod tests {
             WorkletErrorCode::BufferOverflow,
             "Test error".to_string(),
             "test_location".to_string(),
-            Some("test_state".to_string())
         ).unwrap();
         assert!(matches!(error_msg.payload, FromWorkletMessage::ProcessingError { .. }));
     }

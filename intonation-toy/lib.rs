@@ -1,4 +1,4 @@
-use three_d::{Window, WindowSettings, FrameOutput, egui, egui::Color32};
+use three_d::{Window, WindowSettings, FrameOutput, egui};
 use std::rc::Rc;
 use std::cell::RefCell;
 use wasm_bindgen::closure::Closure;

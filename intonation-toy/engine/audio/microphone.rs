@@ -227,14 +227,8 @@ pub async fn connect_microphone_to_audioworklet_with_context(
             .clone()
     };
     
-    // Resume AudioContext if suspended (required for processing to start)
-    let resume_result = {
-        let mut context_borrowed = audio_context.borrow_mut();
-        context_borrowed.resume_if_suspended().await
-    };
-    if let Err(e) = resume_result {
-        } else {
-        }
+    let mut context_borrowed = audio_context.borrow_mut();
+    context_borrowed.resume_if_suspended().await;
     
     // Wait for AudioContext to actually be running  
     let audio_context_ref = {
@@ -396,7 +390,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                     Ok(promise) => {
                         Some(promise)
                     }
-                    Err(e) => {
+                    Err(_) => {
                         None
                     }
                 }

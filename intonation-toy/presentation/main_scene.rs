@@ -1,7 +1,7 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
 use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
-use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD, PITCH_VISUALIZATION_ZOOM_DEFAULT};
+use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
