@@ -325,7 +325,6 @@ impl DebugLayerActionsBuilder {
 ///     .expect("Presenter creation should always succeed");
 /// 
 /// // Later in render loop:
-/// // let model_data = get_model_data(); // From model layer
 /// // presenter.update(timestamp, model_data);
 /// // let mut screen = frame_input.screen();
 /// // presenter.render(&mut screen);
@@ -1566,7 +1565,6 @@ mod tests {
         let presenter = Presenter::create()
             .expect("Presenter creation should succeed");
         
-        // Presenter no longer stores scale state - this test just verifies creation succeeds
         assert!(true);
     }
 

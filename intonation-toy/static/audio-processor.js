@@ -123,8 +123,6 @@ class TransferableBufferPool {
     acquire() {
         const startTime = getCurrentTime();
         this.stats.acquireCount++;
-        // Debug logging removed
-        // Milestone logging removed
         
         // Check for timed out buffers periodically (since setInterval is not available in AudioWorklet)
         if (this.timeoutCheckEnabled && this.lastTimeoutCheck > 0) {
@@ -169,7 +167,6 @@ class TransferableBufferPool {
     
     markTransferred(buffer) {
         this.stats.transferCount++;
-        // Debug logging removed
         
         const index = this.inUseBuffers.get(buffer);
         if (index === undefined) {
@@ -988,17 +985,14 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
         const processStartTime = getCurrentTime();
         
-        // Debug logging removed - functionality is working
         
         const input = inputs[0];
         const output = outputs[0];
         
-        // Debug logging removed
         
         // Check if we have valid input
         if (!input || input.length === 0) {
             // No input available, pass through silence
-            // Debug logging disabled
             // if (this.chunkCounter % 100 === 0) {
             //     console.log(`AudioWorklet: No input available - inputs array length: ${inputs.length}`);
             // }
@@ -1017,7 +1011,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         if (!inputChannel || inputChannel.length !== this.chunkSize) {
             // Invalid input chunk size, pass through silence
-            // Debug logging disabled
             // if (this.chunkCounter % 100 === 0) {
             //     console.log(`AudioWorklet: Invalid input - channel: ${!!inputChannel}, length: ${inputChannel ? inputChannel.length : 0}, expected: ${this.chunkSize}`);
             // }
@@ -1042,10 +1035,8 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         }
         
         // Accumulate processed audio data for batching
-        // Debug logging removed to reduce spam
         if (this.isProcessing) {
-            // Debug logging removed - functionality is working
-            try {
+                try {
                 // Debug: Check buffer state at start of each process call
                 
                 // Ensure we have a buffer to write to

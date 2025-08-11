@@ -62,8 +62,6 @@ thread_local! {
     static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
 }
 
-// Note: Buffer pool global state removed - using direct processing with transferable buffers
-
 
 
 /// Initialize audio system with dependency injection
@@ -138,13 +136,7 @@ pub async fn initialize_audio_system_with_context() -> Result<context::AudioSyst
 /// 
 /// # Example
 /// ```rust
-/// let engine_to_model = EngineToModelInterface::new();
-/// let model_to_engine = ModelToEngineInterface::new();
-/// 
-/// let context = initialize_audio_system_with_interfaces(
-///     &engine_to_model,
-///     &model_to_engine,
-/// ).await?;
+/// let context = initialize_audio_system_with_interfaces().await?;
 /// ```
 pub async fn initialize_audio_system_with_interfaces() -> Result<context::AudioSystemContext, String> {
     dev_log!("Initializing audio system with three-layer architecture interfaces");
@@ -154,7 +146,7 @@ pub async fn initialize_audio_system_with_interfaces() -> Result<context::AudioS
         return Err("Web Audio API not supported".to_string());
     }
     
-    // Create AudioSystemContext using return-based pattern (interfaces no longer needed)
+    // Create AudioSystemContext using return-based pattern
     let mut context = context::AudioSystemContext::new_return_based();
     
     // Initialize the context (this handles all component initialization)
@@ -174,7 +166,7 @@ pub async fn initialize_audio_system_with_interfaces_and_debug() -> Result<conte
         return Err("Web Audio API not supported".to_string());
     }
     
-    // Create AudioSystemContext using return-based pattern (interfaces no longer needed)
+    // Create AudioSystemContext using return-based pattern
     let mut context = context::AudioSystemContext::new_return_based();
     
     // Initialize the context (this handles all component initialization)

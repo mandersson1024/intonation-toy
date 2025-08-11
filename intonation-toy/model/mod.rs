@@ -871,7 +871,6 @@ impl DataModel {
         crate::common::dev_log!(
             "Model layer: Root note audio configuration passed through"
         );
-        // Model no longer stores root note audio state - engine owns this state
     }
 }
 

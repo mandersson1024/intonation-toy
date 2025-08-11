@@ -290,9 +290,6 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     // Connect microphone source to AudioWorklet
     dev_log!("DEBUG: Connecting microphone source to AudioWorklet");
     
-    // Note: We need to use global access here because the context provides read-only access
-    // This is a limitation of the current design that could be improved in future iterations
-    // Note: Global access has been removed as part of migration to AudioSystemContext
     // Use the context parameter to access the AudioWorklet manager
     let result = {
         let mut context_borrowed = audio_context.borrow_mut();
