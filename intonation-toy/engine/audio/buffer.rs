@@ -151,9 +151,9 @@ where
     pub fn read_chunk(&mut self, output: &mut [T]) -> usize {
         let mut read_count = 0;
         
-        for i in 0..output.len() {
+        for item in output.iter_mut() {
             if let Some(sample) = self.read() {
-                output[i] = sample;
+                *item = sample;
                 read_count += 1;
             } else {
                 break;
@@ -201,9 +201,9 @@ where
     pub fn peek_chunk(&self, offset: usize, output: &mut [T]) -> usize {
         let mut read_count = 0;
         
-        for i in 0..output.len() {
+        for (i, item) in output.iter_mut().enumerate() {
             if let Some(sample) = self.buffer.get(offset + i) {
-                output[i] = sample.clone();
+                *item = sample.clone();
                 read_count += 1;
             } else {
                 break;
