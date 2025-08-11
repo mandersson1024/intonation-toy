@@ -107,29 +107,6 @@ impl Default for AudioContextConfig {
 }
 
 impl AudioContextConfig {
-    /// Create configuration with 44.1kHz sample rate
-    pub fn with_44_1khz() -> Self {
-        Self {
-            sample_rate: STANDARD_SAMPLE_RATE,
-            ..Default::default()
-        }
-    }
-    
-    /// Create configuration with 48kHz sample rate
-    pub fn with_48khz() -> Self {
-        Self {
-            sample_rate: 48000,
-            ..Default::default()
-        }
-    }
-    
-    /// Create configuration with custom sample rate
-    pub fn with_sample_rate(sample_rate: u32) -> Self {
-        Self {
-            sample_rate,
-            ..Default::default()
-        }
-    }
     
     /// Set buffer size
     pub fn with_buffer_size(mut self, buffer_size: u32) -> Self {
@@ -190,17 +167,6 @@ impl AudioContextManager {
         }
     }
     
-    /// Create new AudioContext manager with custom configuration
-    pub fn with_config(config: AudioContextConfig) -> Self {
-        Self {
-            context: None,
-            state: AudioContextState::Uninitialized,
-            config,
-            recreation_attempts: 0,
-            cached_devices: None,
-            device_change_callback: None,
-        }
-    }
     
     /// Get current AudioContext state
     pub fn state(&self) -> &AudioContextState {
@@ -288,30 +254,6 @@ impl AudioContextManager {
         }
     }
     
-    /// Suspend AudioContext (useful for power management)
-    pub async fn suspend(&mut self) -> Result<(), AudioError> {
-        let context = self.context.as_ref()
-            .ok_or_else(|| AudioError::Generic("No AudioContext available".to_string()))?;
-            
-        if context.state() == web_sys::AudioContextState::Running {
-            dev_log!("Suspending AudioContext");
-            
-            match context.suspend() {
-                Ok(_promise) => {
-                    self.state = AudioContextState::Suspended;
-                    dev_log!("✓ AudioContext suspended");
-                    Ok(())
-                }
-                Err(e) => {
-                    dev_log!("✗ Failed to suspend AudioContext: {:?}", e);
-                    Err(AudioError::Generic(format!("Failed to suspend AudioContext: {:?}", e)))
-                }
-            }
-        } else {
-            dev_log!("AudioContext is not running, current state: {:?}", context.state());
-            Ok(())
-        }
-    }
     
     /// Close current AudioContext
     pub async fn close(&mut self) -> Result<(), AudioError> {
@@ -334,38 +276,12 @@ impl AudioContextManager {
         Ok(())
     }
     
-    /// Recreate AudioContext after error (automatic recovery)
-    pub async fn recreate(&mut self) -> Result<(), AudioError> {
-        if self.recreation_attempts >= self.config.max_recreation_attempts {
-            return Err(AudioError::Generic(
-                format!("Max recreation attempts ({}) exceeded", self.config.max_recreation_attempts)
-            ));
-        }
-        
-        self.recreation_attempts += 1;
-        self.state = AudioContextState::Recreating;
-        
-        dev_log!("Recreating AudioContext (attempt {}/{})", 
-                self.recreation_attempts, self.config.max_recreation_attempts);
-        
-        // Close existing context
-        if self.context.is_some() {
-            let _ = self.close().await; // Ignore errors during cleanup
-        }
-        
-        // Create new context
-        self.initialize().await
-    }
     
     /// Get current AudioContext reference
     pub fn get_context(&self) -> Option<&AudioContext> {
         self.context.as_ref()
     }
     
-    /// Get actual sample rate from AudioContext
-    pub fn actual_sample_rate(&self) -> Option<u32> {
-        self.context.as_ref().map(|ctx| ctx.sample_rate() as u32)
-    }
     
     /// Check if AudioContext is active and running
     pub fn is_running(&self) -> bool {
@@ -377,21 +293,7 @@ impl AudioContextManager {
         }
     }
     
-    /// Update configuration (requires recreation to take effect)
-    pub fn update_config(&mut self, config: AudioContextConfig) {
-        self.config = config;
-        dev_log!("AudioContext configuration updated (recreation required)");
-    }
     
-    /// Get recreation attempts count
-    pub fn recreation_attempts(&self) -> u32 {
-        self.recreation_attempts
-    }
-    
-    /// Reset recreation attempts counter
-    pub fn reset_recreation_attempts(&mut self) {
-        self.recreation_attempts = 0;
-    }
     
     /// Private helper to perform the actual device enumeration
     async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
@@ -536,10 +438,6 @@ impl AudioContextManager {
         Ok(())
     }
     
-    /// Check if device change listener is active
-    pub fn has_device_change_listener(&self) -> bool {
-        self.device_change_callback.is_some()
-    }
 }
 
 impl Drop for AudioContextManager {
@@ -622,17 +520,6 @@ impl AudioSystemContext {
         }
     }
 
-    /// Create new AudioSystemContext with custom config (return-based pattern)
-    pub fn new_return_based_with_config(audio_config: AudioContextConfig) -> Self {
-        Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::with_config(audio_config))),
-            audioworklet_manager: None,
-            pitch_analyzer: None,
-            is_initialized: false,
-            initialization_error: None,
-            permission_state: std::cell::Cell::new(super::AudioPermission::Uninitialized),
-        }
-    }
 
     /// Initialize all audio components with proper dependency order
     pub async fn initialize(&mut self) -> Result<(), String> {
@@ -812,22 +699,7 @@ impl AudioSystemContext {
         Ok(())
     }
 
-    /// Check if the audio system is ready for operation
-    pub fn is_ready(&self) -> bool {
-        if !self.is_initialized || self.audioworklet_manager.is_none() || self.pitch_analyzer.is_none() {
-            return false;
-        }
-        
-        match self.audio_context_manager.try_borrow() {
-            Ok(borrowed) => borrowed.is_running(),
-            Err(_) => false
-        }
-    }
 
-    /// Get the last initialization error if any
-    pub fn get_initialization_error(&self) -> Option<&str> {
-        self.initialization_error.as_deref()
-    }
 
     /// Get reference to AudioContextManager
     pub fn get_audio_context_manager(&self) -> &std::rc::Rc<std::cell::RefCell<AudioContextManager>> {
