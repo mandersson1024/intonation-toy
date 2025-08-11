@@ -196,7 +196,7 @@ pub fn frequency_to_interval_semitones_scale_aware(
         
         // Calculate the frequency for this scale note
         let scale_note_frequency = interval_frequency(
-            tuning_system.clone(),
+            tuning_system,
             root_frequency_hz,
             semitone,
         );

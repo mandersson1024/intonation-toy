@@ -385,7 +385,7 @@ impl MainScene {
         // Render lines
         screen.render(
             &self.camera,
-            renderable_lines.into_iter(),
+            renderable_lines,
             &[&self.light],
         );
         

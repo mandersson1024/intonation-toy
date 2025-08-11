@@ -180,6 +180,12 @@ pub struct AudioWorkletManager {
     prev_output_to_speakers: Option<bool>,
 }
 
+impl Default for AudioWorkletManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioWorkletManager {
     /// Create new AudioWorklet manager
     pub fn new() -> Self {
@@ -648,8 +654,7 @@ impl AudioWorkletManager {
             // We need to access the manager instance to store this
             // This is done through a separate method call after processing
             shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
-        } else {
-        }
+        } 
         
         // Perform pitch analysis
         let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
@@ -886,8 +891,7 @@ impl AudioWorkletManager {
     /// Check if audio processing is active
     pub fn is_processing(&self) -> bool {
         let is_proc = matches!(self.state, AudioWorkletState::Processing);
-        if !is_proc {
-        }
+        
         is_proc
     }
         

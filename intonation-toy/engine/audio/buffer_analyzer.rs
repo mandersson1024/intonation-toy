@@ -242,7 +242,7 @@ impl<'a> SlidingWindowProcessor<'a> {
         if block_size > buffer.capacity() {
             return Err("Block size cannot exceed buffer capacity".to_string());
         }
-        if overlap_ratio < 0.0 || overlap_ratio >= 1.0 {
+        if !(0.0..1.0).contains(&overlap_ratio) {
             return Err("Overlap ratio must be between 0.0 and 1.0".to_string());
         }
         

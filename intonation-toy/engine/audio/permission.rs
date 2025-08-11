@@ -205,7 +205,7 @@ impl PermissionManager {
                         warn_log!("⚠️ Microphone permission issue: {:?}", error);
                     }
                 }
-                callback(permission_state.clone());
+                callback(permission_state);
                 permission_state
             }
         }

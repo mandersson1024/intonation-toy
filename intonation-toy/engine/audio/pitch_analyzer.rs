@@ -247,7 +247,7 @@ impl PitchAnalyzer {
                     max_frequency: 2000.0,
                 };
                 
-                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate as u32) {
+                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate) {
                     let _ = detector.analyze(&test_samples);
                 }
                 

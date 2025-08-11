@@ -467,7 +467,7 @@ impl DebugPanel {
                     match self.calculate_midi_note_frequency_safe(
                         self.test_signal_midi_note, 
                         model_data.root_note, 
-                        model_data.tuning_system.clone()
+                        model_data.tuning_system
                     ) {
                         Ok(frequency) => {
                             ui.label(format!("({:.1} Hz)", frequency));
@@ -521,7 +521,7 @@ impl DebugPanel {
                         self.test_signal_midi_note,
                         self.test_signal_nudge_percent,
                         model_data.root_note,
-                        model_data.tuning_system.clone()
+                        model_data.tuning_system
                     ) {
                         Ok((base_freq, final_freq)) => {
                             ui.label(format!("({:.1} Hz → {:.1} Hz)", base_freq, final_freq));
@@ -543,10 +543,8 @@ impl DebugPanel {
                             .clamp_to_range(true)
                     );
                     
-                    if volume_response.changed() {
-                        if self.test_signal_enabled {
-                            self.send_test_signal_action(model_data);
-                        }
+                    if volume_response.changed() && self.test_signal_enabled {
+                        self.send_test_signal_action(model_data);
                     }
                     
                     // Show amplitude value as tooltip
@@ -568,7 +566,7 @@ impl DebugPanel {
                 self.test_signal_midi_note,
                 self.test_signal_nudge_percent,
                 model_data.root_note,
-                model_data.tuning_system.clone()
+                model_data.tuning_system
             ) {
                 Ok((_, final_frequency)) => {
                     // Ensure frequency is within audio range
@@ -651,7 +649,7 @@ impl DebugPanel {
         let base_frequency = self.calculate_midi_note_frequency_safe(midi_note, root_note, tuning_system)?;
         
         // Validate nudge percentage
-        if nudge_percent < -50.0 || nudge_percent > 50.0 {
+        if !(-50.0..=50.0).contains(&nudge_percent) {
             return Err("Nudge percentage out of range");
         }
         

@@ -59,7 +59,7 @@ use std::rc::Rc;
 // This is a planned future task. Do NOT refactor this during unrelated work.
 // See docs/global_variables_refactoring_guide.md for refactoring strategy.
 thread_local! {
-    static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = RefCell::new(None);
+    static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = const { RefCell::new(None) };
 }
 
 

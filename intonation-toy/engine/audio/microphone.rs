@@ -58,6 +58,12 @@ pub struct MicrophoneManager {
     stream_info: AudioStreamInfo,
 }
 
+impl Default for MicrophoneManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MicrophoneManager {
     /// Create new microphone manager
     pub fn new() -> Self {
@@ -249,9 +255,7 @@ pub async fn connect_microphone_to_audioworklet_with_context(
         };
         
         if state == web_sys::AudioContextState::Running || attempts >= MAX_ATTEMPTS {
-            if state == web_sys::AudioContextState::Running {
-            } else {
-            }
+            state == web_sys::AudioContextState::Running; 
             break;
         }
         
@@ -309,10 +313,8 @@ pub async fn connect_microphone_to_audioworklet_with_context(
             // Ensure processing is active after connection
             let mut context_borrowed = audio_context.borrow_mut();
             if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
-                if !worklet_manager.is_processing() {
-                    if let Err(_) = worklet_manager.start_processing() {
-                        // Processing start failed - AudioWorklet will handle error reporting
-                    }
+                if !worklet_manager.is_processing() && worklet_manager.start_processing().is_err() {
+                    // Processing start failed - AudioWorklet will handle error reporting
                 }
                 
             } else {
@@ -383,14 +385,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
             
             // Check if resume is needed
             if context.state() == web_sys::AudioContextState::Suspended {
-                match context.resume() {
-                    Ok(promise) => {
-                        Some(promise)
-                    }
-                    Err(_) => {
-                        None
-                    }
-                }
+                context.resume().ok()
             } else {
                 None
             }
@@ -402,8 +397,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
     // Await resume promise if needed (borrows are dropped here)
     if let Some(promise) = resume_promise {
         if let Ok(_) = wasm_bindgen_futures::JsFuture::from(promise).await {
-        } else {
-        }
+        } 
     }
     
     // Create media source (new borrow after async operation)
@@ -456,10 +450,8 @@ pub async fn connect_existing_mediastream_to_audioworklet(
             {
                 let mut context_borrowed = audio_context.borrow_mut();
                 if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
-                    if !worklet_manager.is_processing() {
-                        if let Err(_) = worklet_manager.start_processing() {
-                            // Processing start failed - AudioWorklet will handle error reporting
-                        }
+                    if !worklet_manager.is_processing() && worklet_manager.start_processing().is_err() {
+                        // Processing start failed - AudioWorklet will handle error reporting
                     }
                     
                 } else {

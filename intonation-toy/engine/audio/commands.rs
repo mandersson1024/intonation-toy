@@ -42,11 +42,11 @@ impl ConsoleCommand for AudioCommand {
             
             // Show configuration
             let config = manager.config();
-            outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} samples", config.buffer_size)));
+            outputs.push(ConsoleOutput::info(format!("  Buffer Size: {} samples", config.buffer_size)));
             
             // Show context details if available
             if let Some(context) = manager.get_context() {
-                outputs.push(ConsoleOutput::info(&format!("  Sample Rate: {} Hz", context.sample_rate())));
+                outputs.push(ConsoleOutput::info(format!("  Sample Rate: {} Hz", context.sample_rate())));
             } else {
                 outputs.push(ConsoleOutput::warning("  No active context"));
             }
@@ -101,7 +101,7 @@ impl ConsoleCommand for PerformanceCommand {
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
                 _ => {
-                    outputs.push(ConsoleOutput::error(&format!("Unknown perf subcommand: {}", args[0])));
+                    outputs.push(ConsoleOutput::error(format!("Unknown perf subcommand: {}", args[0])));
                     outputs.push(ConsoleOutput::info("Use 'perf help' for available commands"));
                     return ConsoleCommandResult::MultipleOutputs(outputs);
                 }
@@ -154,7 +154,7 @@ impl ConsoleCommand for PoolConfigCommand {
             outputs.push(ConsoleOutput::success("🔧 Buffer Pool Configuration"));
             outputs.push(ConsoleOutput::info("Current Settings:"));
             outputs.push(ConsoleOutput::info("  Pool Size: 16 buffers"));
-            outputs.push(ConsoleOutput::info(&format!("  Buffer Size: {} bytes ({} samples)", 
+            outputs.push(ConsoleOutput::info(format!("  Buffer Size: {} bytes ({} samples)", 
                 crate::engine::audio::buffer::BUFFER_SIZE * 4, 
                 crate::engine::audio::buffer::BUFFER_SIZE)));
             outputs.push(ConsoleOutput::info("  Timeout: 5000ms"));
@@ -182,10 +182,10 @@ impl ConsoleCommand for PoolConfigCommand {
                 
                 match args[1].parse::<u32>() {
                     Ok(size) => {
-                        if size < 2 || size > 128 {
+                        if !(2..=128).contains(&size) {
                             outputs.push(ConsoleOutput::error("Pool size must be between 2 and 128"));
                         } else {
-                            outputs.push(ConsoleOutput::success(&format!("Pool size set to {}", size)));
+                            outputs.push(ConsoleOutput::success(format!("Pool size set to {}", size)));
                             outputs.push(ConsoleOutput::warning("Note: Configuration changes not yet implemented"));
                         }
                     }
@@ -203,10 +203,10 @@ impl ConsoleCommand for PoolConfigCommand {
                 
                 match args[1].parse::<u32>() {
                     Ok(timeout) => {
-                        if timeout < 100 || timeout > 30000 {
+                        if !(100..=30000).contains(&timeout) {
                             outputs.push(ConsoleOutput::error("Timeout must be between 100ms and 30000ms"));
                         } else {
-                            outputs.push(ConsoleOutput::success(&format!("Buffer timeout set to {}ms", timeout)));
+                            outputs.push(ConsoleOutput::success(format!("Buffer timeout set to {}ms", timeout)));
                             outputs.push(ConsoleOutput::warning("Note: Configuration changes not yet implemented"));
                         }
                     }
@@ -237,7 +237,7 @@ impl ConsoleCommand for PoolConfigCommand {
                 outputs.push(ConsoleOutput::info("  pool optimize  - Show optimization recommendations"));
             }
             _ => {
-                outputs.push(ConsoleOutput::error(&format!("Unknown pool command: {}", args[0])));
+                outputs.push(ConsoleOutput::error(format!("Unknown pool command: {}", args[0])));
                 outputs.push(ConsoleOutput::info("Use 'pool help' for available commands"));
             }
         }

@@ -145,6 +145,12 @@ pub struct AudioDevices {
     pub output_devices: Vec<(String, String)>,
 }
 
+impl Default for AudioDevices {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioDevices {
     pub fn new() -> Self {
         Self {
@@ -163,6 +169,12 @@ pub struct AudioContextManager {
     cached_devices: Option<AudioDevices>,
     /// Device change event listener callback (kept alive)
     device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
+}
+
+impl Default for AudioContextManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AudioContextManager {
@@ -652,7 +664,7 @@ impl AudioSystemContext {
         // Initialize the worklet with the audio context
         let worklet_init_result = {
             let manager = self.audio_context_manager.borrow();
-            worklet_manager.initialize(&*manager).await
+            worklet_manager.initialize(&manager).await
         };
         if let Err(e) = worklet_init_result {
             let error_msg = format!("Failed to initialize AudioWorkletManager: {:?}", e);
@@ -671,7 +683,7 @@ impl AudioSystemContext {
             borrowed.config().sample_rate
         };
         
-        match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate as u32) {
+        match super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
             Ok(analyzer) => {
                 // Create analyzer without setter (return-based pattern)
                 let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));

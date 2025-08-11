@@ -7,6 +7,12 @@ pub struct StartupScene {
     current_scheme: ColorScheme,
 }
 
+impl Default for StartupScene {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StartupScene {
     pub fn new() -> Self {
         Self {

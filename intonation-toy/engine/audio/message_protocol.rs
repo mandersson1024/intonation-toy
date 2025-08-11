@@ -625,6 +625,12 @@ pub trait MessageValidator {
 /// Message serializer for efficient serialization
 pub struct MessageSerializer;
 
+impl Default for MessageSerializer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MessageSerializer {
     /// Create a new message serializer
     pub fn new() -> Self {
@@ -662,6 +668,12 @@ impl MessageSerializer {
 
 /// Message deserializer for efficient deserialization
 pub struct MessageDeserializer;
+
+impl Default for MessageDeserializer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MessageDeserializer {
     /// Create a new message deserializer
@@ -1625,7 +1637,7 @@ impl FromJsMessage for ErrorContext {
         let timestamp = Reflect::get(obj, &"timestamp".into())
             .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get timestamp: {:?}", e)))?
             .as_f64()
-            .unwrap_or_else(|| js_sys::Date::now());
+            .unwrap_or_else(js_sys::Date::now);
         
         let stack_trace = match Reflect::get(obj, &"stackTrace".into()) {
             Ok(value) if !value.is_undefined() => {
@@ -2304,6 +2316,12 @@ impl MessageContext {
             message_timestamp: None,
             message_size: None,
         }
+    }
+}
+
+impl Default for SystemState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

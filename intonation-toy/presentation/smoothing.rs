@@ -62,7 +62,7 @@ impl EmaSmoother {
     /// 
     /// Panics if the smoothing factor is not between 0.0 and 1.0 (inclusive)
     pub fn new(smoothing_factor: f32) -> Self {
-        assert!(smoothing_factor >= 0.0 && smoothing_factor <= 1.0, 
+        assert!((0.0..=1.0).contains(&smoothing_factor), 
                 "EMA smoothing factor must be between 0.0 and 1.0");
         
         Self {
@@ -165,7 +165,7 @@ impl EmaSmoother {
     /// 
     /// Panics if the factor is not between 0.0 and 1.0 (inclusive)
     pub fn set_smoothing_factor(&mut self, factor: f32) {
-        assert!(factor >= 0.0 && factor <= 1.0, "EMA smoothing factor must be between 0.0 and 1.0");
+        assert!((0.0..=1.0).contains(&factor), "EMA smoothing factor must be between 0.0 and 1.0");
         self.smoothing_factor = factor;
     }
     

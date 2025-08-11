@@ -154,14 +154,10 @@ pub async fn start_render_loop(
     
     // Create debug panel
     #[cfg(debug_assertions)]
-    let mut debug_panel = if let Some(ref presenter_ref) = presenter {
-        Some(DebugPanel::new(
+    let mut debug_panel = presenter.as_ref().map(|presenter_ref| DebugPanel::new(
             debug_data,
             presenter_ref.clone(),
-        ))
-    } else {
-        None
-    };
+        ));
 
     dev_log!("Starting render loop");
     
@@ -192,9 +188,9 @@ pub async fn start_render_loop(
         
         // Update engine layer and get results
         let engine_data = if let Some(ref mut engine) = engine {
-            let result = engine.update(timestamp);
             
-            result
+            
+            engine.update(timestamp)
         } else {
             // Provide default engine data when engine is not available
             crate::shared_types::EngineUpdateResult {
@@ -288,9 +284,9 @@ pub async fn start_render_loop(
         
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
-            let result = model.update(timestamp, engine_data.clone());
             
-            result
+            
+            model.update(timestamp, engine_data.clone())
         } else {
             // Provide default model data when model is not available
             crate::shared_types::ModelUpdateResult {

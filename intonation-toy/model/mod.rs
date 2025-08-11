@@ -185,6 +185,12 @@ pub struct ModelLayerActions {
     pub root_note_audio_configurations: Vec<ConfigureRootNoteAudioAction>,
 }
 
+impl Default for ModelLayerActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelLayerActions {
     /// Create a new instance with empty action collections
     /// 
@@ -430,13 +436,15 @@ impl DataModel {
         // Interval calculation: detected MIDI - root MIDI = interval semitones
 
         // Return processed model data with both legacy and flattened fields
-        let result = ModelUpdateResult {
+        
+        
+        ModelUpdateResult {
             volume,
             volume_peak,
             pitch,
             accuracy: accuracy.clone(), // Keep for backward compatibility
-            tuning_system: self.tuning_system.clone(),
-            scale: self.current_scale.clone(),
+            tuning_system: self.tuning_system,
+            scale: self.current_scale,
             errors,
             permission_state,
             // New flattened fields for easier access
@@ -444,9 +452,7 @@ impl DataModel {
             cents_offset: accuracy.cents_offset,
             interval_semitones,
             root_note: self.root_note,
-        };
-        
-        result
+        }
     }
     
     /// Process user actions from the presentation layer
@@ -496,7 +502,7 @@ impl DataModel {
             match self.validate_tuning_system_change_with_error(&tuning_change.tuning_system) {
                 Ok(()) => {
                     let config = ConfigureAudioSystemAction {
-                        tuning_system: tuning_change.tuning_system.clone(),
+                        tuning_system: tuning_change.tuning_system,
                     };
                     
                     // Apply the state change to internal model state
@@ -519,7 +525,7 @@ impl DataModel {
             match self.validate_root_note_adjustment_with_error(&midi_note) {
                     Ok(()) => {
                         let config = UpdateTuningConfigurationAction {
-                            tuning_system: self.tuning_system.clone(),
+                            tuning_system: self.tuning_system,
                             root_note: midi_note,
                         };
                         
@@ -644,7 +650,7 @@ impl DataModel {
         
         // Use the scale-aware calculation from the tuning module
         let interval_result = crate::theory::tuning::frequency_to_interval_semitones_scale_aware(
-            self.tuning_system.clone(),
+            self.tuning_system,
             root_pitch,
             frequency,
             self.current_scale,
@@ -725,7 +731,7 @@ impl DataModel {
     /// - State consistency checks
     fn validate_tuning_system_change_with_error(&self, new_tuning_system: &TuningSystem) -> Result<(), ValidationError> {
         if *new_tuning_system == self.tuning_system {
-            Err(ValidationError::TuningSystemAlreadyActive(new_tuning_system.clone()))
+            Err(ValidationError::TuningSystemAlreadyActive(*new_tuning_system))
         } else {
             Ok(())
         }
@@ -801,7 +807,7 @@ impl DataModel {
             "Model layer: Tuning system changed from {:?} to {:?}",
             self.tuning_system, action.tuning_system
         );
-        self.tuning_system = action.tuning_system.clone();
+        self.tuning_system = action.tuning_system;
     }
     
     /// Apply scale change to internal state
@@ -850,7 +856,7 @@ impl DataModel {
             "Model layer: Root note changed from {} to {}",
             self.root_note, action.root_note
         );
-        self.tuning_system = action.tuning_system.clone();
+        self.tuning_system = action.tuning_system;
         self.root_note = action.root_note;
     }
     

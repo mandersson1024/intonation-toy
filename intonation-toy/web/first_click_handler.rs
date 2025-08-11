@@ -73,7 +73,7 @@ pub fn setup_first_click_handler(
     let permission_granted_clone = permission_granted.clone();
     
     // Get engine reference for passing MediaStream
-    let engine_ref = engine.as_ref().map(|e| e.get_audio_context()).flatten();
+    let engine_ref = engine.as_ref().and_then(|e| e.get_audio_context());
     
     // Create click handler closure
     let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {

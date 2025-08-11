@@ -103,6 +103,12 @@ pub struct DebugEngineActions {
 }
 
 #[cfg(debug_assertions)]
+impl Default for DebugEngineActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebugEngineActions {
     /// Create a new instance with empty debug action collections
     /// 

@@ -143,6 +143,12 @@ pub struct PresentationLayerActions {
     pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
 }
 
+impl Default for PresentationLayerActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PresentationLayerActions {
     /// Create a new instance with empty action collections
     pub fn new() -> Self {
@@ -435,7 +441,7 @@ impl Presenter {
     /// This method should be called once per render loop by the main application
     /// to process user actions that occurred during the previous frame.
     pub fn get_user_actions(&mut self) -> PresentationLayerActions {
-        std::mem::replace(&mut self.pending_user_actions, PresentationLayerActions::new())
+        std::mem::take(&mut self.pending_user_actions)
     }
 
     /// Handle user request to change the tuning system
@@ -447,7 +453,7 @@ impl Presenter {
     /// 
     /// * `tuning_system` - The new tuning system selected by the user
     pub fn on_tuning_system_changed(&mut self, tuning_system: TuningSystem) {
-        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system: tuning_system.clone() });
+        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system });
     }
 
     /// Handle user request to adjust the root note
@@ -469,7 +475,7 @@ impl Presenter {
     /// * `scale` - The new scale to set
     pub fn on_scale_changed(&mut self, scale: Scale) {
         // Queue scale change action for collection by model layer
-        self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale: scale.clone() });
+        self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale });
     }
 
 
@@ -599,7 +605,7 @@ impl Presenter {
                 }
                 
                 // Synchronize UI state with current model data values
-                self.sync_html_ui(&model_data);
+                self.sync_html_ui(model_data);
             }
         }
         

@@ -28,11 +28,11 @@ impl ConsoleCommand for ApiStatusCommand {
         
         // Application status
         let build_type = if cfg!(debug_assertions) { "Development" } else { "Production" };
-        outputs.push(ConsoleOutput::info(&format!("Application Status: {} Build Running", build_type)));
+        outputs.push(ConsoleOutput::info(format!("Application Status: {} Build Running", build_type)));
         
         // Platform information
         let platform_info = Platform::get_platform_info();
-        outputs.push(ConsoleOutput::info(&format!("Platform: {}", platform_info)));
+        outputs.push(ConsoleOutput::info(format!("Platform: {}", platform_info)));
         
         // Critical API status
         outputs.push(ConsoleOutput::info("Critical API Status:"));
@@ -83,8 +83,8 @@ impl ConsoleCommand for ThemeCommand {
             let current_colors = crate::theme::get_current_color_scheme();
             
             let mut outputs = Vec::new();
-            outputs.push(ConsoleOutput::info(&format!("Current theme: {}", current)));
-            outputs.push(ConsoleOutput::info(&format!("Current color scheme: background={:?}, surface={:?}, text={:?}", 
+            outputs.push(ConsoleOutput::info(format!("Current theme: {}", current)));
+            outputs.push(ConsoleOutput::info(format!("Current color scheme: background={:?}, surface={:?}, text={:?}", 
                 current_colors.background, current_colors.surface, current_colors.text)));
             outputs.push(ConsoleOutput::info("Available themes: light, dark, autumn, sunset"));
             outputs.push(ConsoleOutput::info("Usage: theme <theme_name>"));
@@ -100,7 +100,7 @@ impl ConsoleCommand for ThemeCommand {
             "sunset" => Theme::Sunset,
             _ => {
                 return ConsoleCommandResult::MultipleOutputs(vec![
-                    ConsoleOutput::error(&format!("Unknown theme '{}'. Available themes: light, dark, autumn, sunset", theme_name))
+                    ConsoleOutput::error(format!("Unknown theme '{}'. Available themes: light, dark, autumn, sunset", theme_name))
                 ]);
             }
         };
@@ -113,7 +113,7 @@ impl ConsoleCommand for ThemeCommand {
         crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
-            ConsoleOutput::success(&format!("Theme set to {} (CSS custom properties and WebGL components updated)", theme_name))
+            ConsoleOutput::success(format!("Theme set to {} (CSS custom properties and WebGL components updated)", theme_name))
         ])
     }
 }
@@ -179,7 +179,7 @@ impl ConsoleCommand for ErrorCommand {
             }
             _ => {
                 ConsoleCommandResult::MultipleOutputs(vec![
-                    ConsoleOutput::error(&format!("Unknown error scenario '{}'. Available scenarios: browser-unsupported, mobile-unsupported, mic-unavailable, mic-permission, browser-error", scenario))
+                    ConsoleOutput::error(format!("Unknown error scenario '{}'. Available scenarios: browser-unsupported, mobile-unsupported, mic-unavailable, mic-permission, browser-error", scenario))
                 ])
             }
         }
