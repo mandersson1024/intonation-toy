@@ -255,7 +255,6 @@ pub async fn connect_microphone_to_audioworklet_with_context(
         };
         
         if state == web_sys::AudioContextState::Running || attempts >= MAX_ATTEMPTS {
-            state == web_sys::AudioContextState::Running; 
             break;
         }
         
