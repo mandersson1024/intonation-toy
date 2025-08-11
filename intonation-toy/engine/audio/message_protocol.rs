@@ -665,80 +665,6 @@ impl MessageSerializer {
     }
 }
 
-/// Message deserializer for efficient deserialization
-pub struct MessageDeserializer;
-
-impl Default for MessageDeserializer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MessageDeserializer {
-    /// Create a new message deserializer
-    pub fn new() -> Self {
-        Self
-    }
-    
-    /// Deserialize a message envelope from JavaScript
-    pub fn deserialize_envelope<T: FromJsMessage + MessageValidator>(
-        &self,
-        obj: &Object,
-    ) -> SerializationResult<MessageEnvelope<T>> {
-        let message_id = self.get_u32_property(obj, "messageId")?;
-        let timestamp = self.get_f64_property(obj, "timestamp")?;
-        
-        let payload_obj = self.get_object_property(obj, "payload")?;
-        let payload = T::from_js_object(&payload_obj)?;
-        
-        // Validate the deserialized message
-        payload.validate()?;
-        
-        Ok(MessageEnvelope {
-            message_id,
-            timestamp,
-            payload,
-        })
-    }
-    
-    /// Helper method to get u32 property
-    fn get_u32_property(&self, obj: &Object, key: &str) -> SerializationResult<u32> {
-        let value = self.get_property(obj, key)?;
-        value.as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType(format!("Property '{}' is not a number", key)))
-            .map(|n| n as u32)
-    }
-    
-    /// Helper method to get f64 property
-    fn get_f64_property(&self, obj: &Object, key: &str) -> SerializationResult<f64> {
-        let value = self.get_property(obj, key)?;
-        value.as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType(format!("Property '{}' is not a number", key)))
-    }
-    
-    
-    /// Helper method to get object property
-    fn get_object_property(&self, obj: &Object, key: &str) -> SerializationResult<Object> {
-        let value = self.get_property(obj, key)?;
-        value.dyn_into::<Object>()
-            .map_err(|_| SerializationError::InvalidPropertyType(format!("Property '{}' is not an object", key)))
-    }
-    
-    
-    /// Helper method to get property from object
-    fn get_property(&self, obj: &Object, key: &str) -> SerializationResult<JsValue> {
-        Reflect::get(obj, &key.into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get '{}': {:?}", key, e)))
-            .and_then(|value| {
-                if value.is_undefined() {
-                    Err(SerializationError::MissingProperty(key.to_string()))
-                } else {
-                    Ok(value)
-                }
-            })
-    }
-    
-}
 
 // ================================
 // Message Type Implementations
@@ -1974,10 +1900,6 @@ impl MessageIdGenerator {
         *counter
     }
     
-    /// Reset the counter (for testing)
-    pub fn reset(&self) {
-        *self.counter.borrow_mut() = 0;
-    }
 }
 
 impl Default for MessageIdGenerator {
@@ -2005,32 +1927,6 @@ pub fn get_high_resolution_timestamp() -> f64 {
     js_sys::Date::now()
 }
 
-/// Message construction utilities
-pub struct MessageBuilder;
-
-impl MessageBuilder {
-    /// Create a new message envelope with auto-generated ID and timestamp
-    pub fn envelope<T: MessageValidator>(payload: T) -> MessageConstructionResult<MessageEnvelope<T>> {
-        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        
-        Ok(MessageEnvelope {
-            message_id: generate_unique_message_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload,
-        })
-    }
-    
-    /// Create a new message envelope with specific ID
-    pub fn envelope_with_id<T: MessageValidator>(payload: T, message_id: u32) -> MessageConstructionResult<MessageEnvelope<T>> {
-        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        
-        Ok(MessageEnvelope {
-            message_id,
-            timestamp: get_high_resolution_timestamp(),
-            payload,
-        })
-    }
-}
 
 // Constructor implementations for message types
 impl ToWorkletMessage {
@@ -2114,27 +2010,6 @@ impl AudioDataBatch {
         Ok(batch)
     }
     
-    /// Create a new audio data batch with current timestamp
-    pub fn with_timestamp(
-        sample_rate: u32,
-        sample_count: usize,
-        buffer_length: usize,
-        timestamp: f64,
-        sequence_number: Option<u32>,
-    ) -> MessageConstructionResult<Self> {
-        let batch = Self {
-            sample_rate,
-            sample_count,
-            buffer_length,
-            timestamp,
-            sequence_number,
-            buffer_id: None,
-            buffer_pool_stats: None,
-        };
-        
-        batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(batch)
-    }
 }
 
 impl ProcessorStatus {
@@ -2161,29 +2036,6 @@ impl ProcessorStatus {
         Ok(status)
     }
     
-    /// Create a new processor status with buffer pool statistics
-    pub fn with_buffer_pool_stats(
-        active: bool,
-        sample_rate: u32,
-        buffer_size: usize,
-        processed_batches: u32,
-        avg_processing_time_ms: f64,
-        memory_usage: Option<MemoryUsage>,
-        buffer_pool_stats: Option<BufferPoolStats>,
-    ) -> MessageConstructionResult<Self> {
-        let status = Self {
-            active,
-            sample_rate,
-            buffer_size,
-            processed_batches,
-            avg_processing_time_ms,
-            memory_usage,
-            buffer_pool_stats,
-        };
-        
-        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(status)
-    }
 }
 
 impl MemoryUsage {
@@ -2238,23 +2090,6 @@ impl WorkletError {
         Ok(error)
     }
     
-    /// Create a new worklet error with custom timestamp
-    pub fn with_timestamp(
-        code: WorkletErrorCode,
-        message: String,
-        timestamp: f64,
-        context: Option<ErrorContext>,
-    ) -> MessageConstructionResult<Self> {
-        let error = Self {
-            code,
-            message,
-            timestamp,
-            context,
-        };
-        
-        error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(error)
-    }
 }
 
 impl ErrorContext {
@@ -2406,22 +2241,12 @@ impl AudioWorkletMessageFactory {
         }
     }
     
-    /// Create a message factory with custom ID generator
-    pub fn with_id_generator(id_generator: MessageIdGenerator) -> Self {
-        Self {
-            id_generator,
-        }
-    }
     
     /// Generate a unique message ID
     pub fn generate_id(&self) -> u32 {
         self.id_generator.next_id()
     }
     
-    /// Reset the ID generator (for testing)
-    pub fn reset_id_generator(&self) {
-        self.id_generator.reset();
-    }
     
     // ToWorkletMessage factory methods
     
@@ -2519,75 +2344,7 @@ impl AudioWorkletMessageFactory {
     }
     
     
-    // Convenience methods for common patterns
     
-    /// Create an audio data batch with metadata
-    pub fn create_audio_data_batch(&self, 
-        sample_rate: u32, 
-        sample_count: usize, 
-        buffer_length: usize,
-        sequence_number: Option<u32>
-    ) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let data = AudioDataBatch::new(sample_rate, sample_count, buffer_length, sequence_number)?;
-        self.audio_data_batch(data)
-    }
-    
-    /// Create a worklet error with context
-    pub fn create_worklet_error(&self, 
-        code: WorkletErrorCode, 
-        message: String, 
-        location: String,
-    ) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let context = ErrorContext::new(location);
-        let error = WorkletError::new(code, message, Some(context))?;
-        self.processing_error(error)
-    }
-    
-    
-    /// Create memory usage info
-    pub fn create_memory_usage(&self, 
-        heap_size: usize, 
-        used_heap: usize, 
-        active_buffers: usize
-    ) -> MessageConstructionResult<MemoryUsage> {
-        MemoryUsage::new(heap_size, used_heap, active_buffers)
-    }
-    
-    /// Create a batch config
-    pub fn create_batch_config(&self,
-        batch_size: usize,
-        max_queue_size: usize,
-        timeout_ms: u32,
-        enable_compression: bool
-    ) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let config = BatchConfig::new(batch_size, max_queue_size, timeout_ms, enable_compression)?;
-        self.update_batch_config(config)
-    }
-    
-    // Request/response correlation support
-    
-    /// Create a response message with correlation to a request
-    pub fn create_response<T: MessageValidator>(&self, request_id: u32, payload: T) -> MessageConstructionResult<MessageEnvelope<T>> {
-        payload.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        
-        Ok(MessageEnvelope {
-            message_id: request_id, // Use same ID for correlation
-            timestamp: get_high_resolution_timestamp(),
-            payload,
-        })
-    }
-    
-    /// Create a correlated processor ready response
-    pub fn processor_ready_response(&self, request_id: u32, batch_size: Option<usize>) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processor_ready(batch_size)?;
-        self.create_response(request_id, message)
-    }
-    
-    /// Create a correlated error response
-    pub fn error_response(&self, request_id: u32, error: WorkletError) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processing_error(error)?;
-        self.create_response(request_id, message)
-    }
 }
 
 impl Default for AudioWorkletMessageFactory {
