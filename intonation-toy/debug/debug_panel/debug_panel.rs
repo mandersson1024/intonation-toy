@@ -568,7 +568,7 @@ impl DebugPanel {
             ) {
                 Ok((_, final_frequency)) => {
                     // Ensure frequency is within audio range
-                    let clamped_frequency = final_frequency.max(20.0).min(20_000.0);
+                    let clamped_frequency = final_frequency.clamp(20.0, 20_000.0);
                     
                     presenter.on_test_signal_configured(
                         self.test_signal_enabled,

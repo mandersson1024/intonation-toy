@@ -659,7 +659,7 @@ impl DataModel {
         let raw_midi_note = self.root_note as i32 + interval_result.semitones;
         
         // Clamp to valid MIDI range (0-127)
-        let clamped_midi_note = raw_midi_note.max(0).min(127) as u8;
+        let clamped_midi_note = raw_midi_note.clamp(0, 127) as u8;
         
         // Validate using the utility function
         let final_midi_note = if is_valid_midi_note(clamped_midi_note) {

@@ -81,7 +81,7 @@ fn format_midi_note(midi_note: MidiNote) -> String {
 /// Position 1000 maps to PITCH_VISUALIZATION_ZOOM_MAX (2.85)
 #[cfg(target_arch = "wasm32")]
 fn slider_position_to_zoom_factor(position: f32) -> f32 {
-    let clamped = position.max(0.0).min(1000.0);
+    let clamped = position.clamp(0.0, 1000.0);
     // Map 0-1000 to 0.95-2.85
     let normalized = clamped / 1000.0; // 0.0 to 1.0
     let zoom_range = crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT;
@@ -94,7 +94,7 @@ fn zoom_factor_to_slider_position(factor: f32) -> f32 {
     let zoom_range = crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT;
     let normalized = (factor - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT) / zoom_range;
     let position = normalized * 1000.0;
-    position.max(0.0).min(1000.0)
+    position.clamp(0.0, 1000.0)
 }
 
 /// Format zoom position for display (e.g., "100%")
