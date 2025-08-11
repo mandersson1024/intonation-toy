@@ -801,7 +801,7 @@ impl Presenter {
     /// - Each semitone up multiplies frequency by 2^(1/12)
     /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
-        crate::theory::tuning::midi_note_to_standard_frequency(midi_note)
+        crate::music_theory::midi_note_to_standard_frequency(midi_note)
     }
 
     
@@ -813,7 +813,7 @@ impl Presenter {
         scale: Scale,
         viewport: Viewport
     ) -> Vec<(f32, MidiNote, f32)> {
-        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
+        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note);
         
         // Helper function to determine line thickness based on semitone offset
         let get_thickness = |semitone: i32| -> f32 {
@@ -845,7 +845,7 @@ impl Presenter {
         for semitone in 1..=12 {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(scale, semitone) {
-                let frequency = crate::theory::tuning::interval_frequency(
+                let frequency = crate::music_theory::interval_frequency(
                     tuning_system,
                     root_frequency,
                     semitone,
@@ -866,7 +866,7 @@ impl Presenter {
         for semitone in -12..=-1 {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(scale, semitone) {
-                let frequency = crate::theory::tuning::interval_frequency(
+                let frequency = crate::music_theory::interval_frequency(
                     tuning_system,
                     root_frequency,
                     semitone,
@@ -917,9 +917,9 @@ impl Presenter {
         root_note: MidiNote,
         tuning_system: TuningSystem,
     ) -> f32 {
-        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
+        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note);
         let interval_semitones = (midi_note as i32) - (root_note as i32);
-        crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
+        crate::music_theory::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
 
     /// Synchronize HTML UI with specified presenter state

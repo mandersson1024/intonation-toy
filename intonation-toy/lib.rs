@@ -19,8 +19,8 @@ pub mod shared_types;
 // Theme management
 pub mod theme;
 
-// Theory modules
-pub mod theory;
+// Music theory module
+pub mod music_theory;
 
 // Supporting modules
 pub(crate) mod common;

@@ -617,9 +617,9 @@ impl DebugPanel {
         root_note: MidiNote,
         tuning_system: TuningSystem,
     ) -> f32 {
-        let root_frequency = crate::theory::tuning::midi_note_to_standard_frequency(root_note);
+        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note);
         let interval_semitones = (midi_note as i32) - (root_note as i32);
-        crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
+        crate::music_theory::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
     
     /// Safely calculate MIDI note frequency with error handling

@@ -648,7 +648,7 @@ impl DataModel {
         // Converting frequency with tuning system and root pitch
         
         // Use the scale-aware calculation from the tuning module
-        let interval_result = crate::theory::tuning::frequency_to_interval_semitones_scale_aware(
+        let interval_result = crate::music_theory::frequency_to_interval_semitones_scale_aware(
             self.tuning_system,
             root_pitch,
             frequency,
@@ -694,7 +694,7 @@ impl DataModel {
     /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
         // Use the centralized function for consistency
-        crate::theory::tuning::midi_note_to_standard_frequency(self.root_note)
+        crate::music_theory::midi_note_to_standard_frequency(self.root_note)
     }
     
     /// Validate microphone permission request with detailed error reporting
