@@ -76,7 +76,7 @@ use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setu
 
 enum Scene {
     Startup(StartupScene),
-    Main(MainScene),
+    Main(Box<MainScene>),
 }
 
 /// Action structs for the new action collection system
@@ -572,7 +572,7 @@ impl Presenter {
             // Permission was granted - switch to MainScene
             let viewport = screen.viewport();
             match MainScene::new(context, viewport) {
-                Ok(main_scene) => self.scene = Scene::Main(main_scene),
+                Ok(main_scene) => self.scene = Scene::Main(Box::new(main_scene)),
                 Err(e) => {
                     crate::common::dev_log!("Failed to create MainScene: {}", e);
                     return; // Stay in startup scene
