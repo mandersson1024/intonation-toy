@@ -88,10 +88,6 @@ enum Scene {
 /// and processed by the main loop. This provides a foundation for the new action flow
 /// that moves away from direct action firing.
 
-/// Request for microphone permission from the user interface
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct RequestMicrophonePermission;
-
 #[cfg(test)]
 impl RequestMicrophonePermission {
     pub fn new() -> Self {

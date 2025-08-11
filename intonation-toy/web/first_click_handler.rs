@@ -79,7 +79,6 @@ pub fn setup_first_click_handler(
     // Create click handler closure
     let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
         let permission_granted = permission_granted_clone.clone();
-        let audio_context = audio_context.clone();
         let engine_context = engine_ref.clone();
         
         dev_log!("First click detected - requesting microphone permission");
@@ -111,7 +110,7 @@ pub fn setup_first_click_handler(
         // Get navigator.mediaDevices
         if let Some(navigator) = web_sys::window().and_then(|w| w.navigator().media_devices().ok()) {
             // Create constraints for audio only
-            let mut constraints = MediaStreamConstraints::new();
+            let constraints = MediaStreamConstraints::new();
             constraints.set_audio(&true.into());
             constraints.set_video(&false.into());
             

@@ -228,7 +228,7 @@ pub async fn connect_microphone_to_audioworklet_with_context(
     };
     
     let mut context_borrowed = audio_context.borrow_mut();
-    context_borrowed.resume_if_suspended().await;
+    let _ = context_borrowed.resume_if_suspended().await;
     
     // Wait for AudioContext to actually be running  
     let audio_context_ref = {

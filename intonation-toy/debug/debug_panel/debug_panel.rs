@@ -617,49 +617,6 @@ impl DebugPanel {
         crate::theory::tuning::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
     
-    /// Find the closest MIDI note for a given frequency
-    /// 
-    /// # Arguments
-    /// 
-    /// * `frequency` - The frequency in Hz
-    /// * `tuning_system` - The tuning system to use for the conversion
-    /// 
-    /// # Returns
-    /// 
-    /// The closest MIDI note (0-127)
-    fn frequency_to_closest_midi_note(
-        frequency: f32,
-        tuning_system: TuningSystem,
-    ) -> MidiNote {
-        // Handle edge cases
-        if frequency <= 0.0 {
-            return 69; // Default to A4
-        }
-        
-        // For Equal Temperament, use the standard formula
-        // MIDI note = 69 + 12 * log2(frequency / 440)
-        let midi_note_float = match tuning_system {
-            TuningSystem::EqualTemperament => {
-                69.0 + 12.0 * (frequency / 440.0).log2()
-            }
-            TuningSystem::JustIntonation => {
-                // For Just Intonation, we still use Equal Temperament 
-                // to find the closest note for initialization purposes
-                69.0 + 12.0 * (frequency / 440.0).log2()
-            }
-        };
-        
-        // Round to nearest integer and clamp to valid MIDI range
-        let midi_note = midi_note_float.round() as i32;
-        midi_note.max(0).min(127) as MidiNote
-    }
-    
-    /// Initialize the test signal from a target frequency
-    pub fn initialize_from_frequency(&mut self, frequency: f32, tuning_system: TuningSystem) {
-        self.test_signal_midi_note = Self::frequency_to_closest_midi_note(frequency, tuning_system);
-        self.test_signal_nudge_percent = 0.0; // Reset nudge when initializing from frequency
-    }
-    
     /// Safely calculate MIDI note frequency with error handling
     fn calculate_midi_note_frequency_safe(
         &self,

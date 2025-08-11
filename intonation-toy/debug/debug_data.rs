@@ -138,16 +138,6 @@ impl DebugData {
         self.pitch_data.clone()
     }
 
-    /// Get microphone permission
-    pub fn get_microphone_permission(&self) -> AudioPermission {
-        self.microphone_permission
-    }
-    
-    /// Get audio errors
-    pub fn get_audio_errors(&self) -> &[crate::shared_types::Error] {
-        &self.audio_errors
-    }
-    
     /// Get accuracy data
     pub fn get_intonation_data(&self) -> Option<IntonationData> {
         self.intonation_data.clone()

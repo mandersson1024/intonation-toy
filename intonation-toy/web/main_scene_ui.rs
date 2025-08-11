@@ -47,22 +47,6 @@ fn slider_position_to_amplitude(position: f32) -> f32 {
     }
 }
 
-/// Convert amplitude (0.0-1.0) to slider position (0-100) for UI synchronization
-#[cfg(target_arch = "wasm32")]
-fn amplitude_to_slider_position(amplitude: f32) -> f32 {
-    if amplitude <= 0.0 {
-        0.0
-    } else if amplitude <= 0.01 {
-        // Linear range: 0.0-0.01 amplitude maps to 0-20% position
-        amplitude * 20.0 / 0.01
-    } else {
-        // dB range: calculate dB from amplitude and map to 20-100% position
-        let db = 20.0 * amplitude.log10();
-        let db = db.max(-40.0).min(0.0); // Clamp to valid range
-        20.0 + (db + 40.0) * 80.0 / 40.0
-    }
-}
-
 /// Convert slider position to dB display string
 /// - 0%: Shows "-∞ dB"
 /// - 0-20%: Calculates dB from amplitude

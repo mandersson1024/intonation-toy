@@ -4,7 +4,6 @@ use super::microphone::AudioError;
 use super::signal_generator::SignalGeneratorConfig;
 
 pub struct TestSignalAudioNode {
-    audio_context: AudioContext,
     oscillator: OscillatorNode,
     gain_node: GainNode,
     config: SignalGeneratorConfig,
@@ -51,7 +50,6 @@ impl TestSignalAudioNode {
         dev_log!("TestSignalAudioNode created successfully");
         
         Ok(Self {
-            audio_context: audio_context.clone(),
             oscillator,
             gain_node,
             config,

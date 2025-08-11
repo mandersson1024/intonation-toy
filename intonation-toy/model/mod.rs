@@ -105,18 +105,8 @@ use crate::common::warn_log;
 /// about why an action was rejected by business logic validation.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ValidationError {
-    /// Microphone permission already granted
-    PermissionAlreadyGranted,
-    /// Microphone permission already denied
-    PermissionAlreadyDenied,
-    /// Microphone permission request already pending
-    PermissionRequestPending,
-    /// Microphone API not available on this platform
-    MicrophoneApiUnavailable,
     /// Tuning system is already active
     TuningSystemAlreadyActive(TuningSystem),
-    /// Unsupported tuning system requested
-    UnsupportedTuningSystem(String),
     /// Root note is already set to requested value
     RootNoteAlreadySet(MidiNote),
     /// Invalid frequency value
@@ -129,7 +119,7 @@ pub(crate) enum ValidationError {
 /// validation errors that occurred during processing. This allows the
 /// presentation layer to understand what succeeded and what failed.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ProcessedActions {
+pub(crate) struct ProcessedActions {
     /// Successfully validated actions ready for execution
     pub actions: ModelLayerActions,
     /// Validation errors for actions that failed business logic checks

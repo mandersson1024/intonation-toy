@@ -143,15 +143,6 @@ impl VolumeDetector {
         (rms, peak)
     }
 
-    /// Convert linear amplitude to dB
-    fn linear_to_db(&self, linear: f32) -> f32 {
-        if linear <= 0.0 {
-            -f32::INFINITY
-        } else {
-            20.0 * linear.log10()
-        }
-    }
-
     /// Convert dB to linear amplitude
     fn db_to_linear(&self, db: f32) -> f32 {
         if db == -f32::INFINITY {
