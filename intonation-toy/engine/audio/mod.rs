@@ -35,7 +35,6 @@
 pub mod microphone;
 pub mod context;
 pub mod worklet;
-pub mod stream;
 pub mod permission;
 pub mod buffer;
 pub mod buffer_analyzer;
