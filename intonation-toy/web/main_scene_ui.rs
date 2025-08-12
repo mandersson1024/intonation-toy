@@ -1,38 +1,26 @@
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::closure::Closure;
-#[cfg(target_arch = "wasm32")]
 use web_sys::{window, HtmlSelectElement, HtmlInputElement, EventTarget};
 
-#[cfg(target_arch = "wasm32")]
 use std::rc::Rc;
-#[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
-#[cfg(target_arch = "wasm32")]
 use std::sync::atomic::{AtomicU8, Ordering};
 
-#[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
-#[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
 
 // Global state for current root note - initialized to default from config
-#[cfg(target_arch = "wasm32")]
 static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_ROOT_NOTE);
 
 // Global state for tuning fork volume slider position (0-100)
-#[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
 // Global state for zoom level slider position (0-1000)
-#[cfg(target_arch = "wasm32")]
 static CURRENT_ZOOM_LEVEL: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
 /// Convert slider position (0-100) to amplitude (0.0-1.0) using dual-scale approach
 /// - 0-20%: Linear scaling from 0.0 to 0.01 amplitude
 /// - 20-100%: dB scaling from -40dB to 0dB
-#[cfg(target_arch = "wasm32")]
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
         0.0
@@ -50,7 +38,6 @@ fn slider_position_to_amplitude(position: f32) -> f32 {
 /// - 0%: Shows "-∞ dB"
 /// - 0-20%: Calculates dB from amplitude
 /// - 20-100%: Maps directly to dB scale
-#[cfg(target_arch = "wasm32")]
 fn slider_position_to_db_display(position: f32) -> String {
     if position <= 0.0 {
         "-∞ dB".to_string()
@@ -71,7 +58,6 @@ fn slider_position_to_db_display(position: f32) -> String {
 }
 
 /// Format a MIDI note number as a string (e.g., 60 -> "C4")
-#[cfg(target_arch = "wasm32")]
 fn format_midi_note(midi_note: MidiNote) -> String {
     crate::shared_types::midi_note_to_name(midi_note)
 }
@@ -79,7 +65,6 @@ fn format_midi_note(midi_note: MidiNote) -> String {
 /// Convert zoom slider position (0-1000) to zoom factor (0.95-2.85)
 /// Position 0 maps to PITCH_VISUALIZATION_ZOOM_DEFAULT (0.95)
 /// Position 1000 maps to PITCH_VISUALIZATION_ZOOM_MAX (2.85)
-#[cfg(target_arch = "wasm32")]
 fn slider_position_to_zoom_factor(position: f32) -> f32 {
     let clamped = position.clamp(0.0, 1000.0);
     // Map 0-1000 to 0.95-2.85
@@ -89,7 +74,6 @@ fn slider_position_to_zoom_factor(position: f32) -> f32 {
 }
 
 /// Convert zoom factor (0.95-2.85) to slider position (0-1000)
-#[cfg(target_arch = "wasm32")]
 fn zoom_factor_to_slider_position(factor: f32) -> f32 {
     let zoom_range = crate::app_config::PITCH_VISUALIZATION_ZOOM_MAX - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT;
     let normalized = (factor - crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT) / zoom_range;
@@ -99,14 +83,12 @@ fn zoom_factor_to_slider_position(factor: f32) -> f32 {
 
 /// Format zoom position for display (e.g., "100%")
 /// Position 0 shows as 100%, position 1000 shows as 250%
-#[cfg(target_arch = "wasm32")]
 fn format_zoom_display(position: f32) -> String {
     // Map 0-1000 to 100%-250%
     let percentage = 100.0 + (position / 1000.0) * 150.0;
     format!("{:.0}%", percentage)
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn setup_main_scene_ui() {
     let Some(window) = window() else {
         dev_log!("Failed to get window");
@@ -173,13 +155,11 @@ pub fn setup_main_scene_ui() {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn cleanup_main_scene_ui() {
     // No cleanup needed since we're now using static HTML elements
     // The HTML elements remain in the DOM and can be reused
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for event listeners");
@@ -412,15 +392,6 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn setup_main_scene_ui() {
-    // No-op for non-WASM targets
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn cleanup_main_scene_ui() {
-    // No-op for non-WASM targets
-}
 
 /// Synchronize UI elements with current presenter state
 /// 
@@ -434,7 +405,6 @@ pub fn cleanup_main_scene_ui() {
 /// * `tuning_system` - The current tuning system from the presenter
 /// * `scale` - The current scale from the presenter
 /// * `root_note_audio_enabled` - The current root note audio state
-#[cfg(target_arch = "wasm32")]
 pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
         return;
@@ -524,24 +494,8 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
 
 /// Get the current zoom factor for pitch visualization
 /// Returns a value between 0.5 and 1.5 representing the zoom level
-#[cfg(target_arch = "wasm32")]
 pub fn get_current_zoom_factor() -> f32 {
     let position = CURRENT_ZOOM_LEVEL.load(Ordering::Relaxed) as f32;
     slider_position_to_zoom_factor(position)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn get_current_zoom_factor() -> f32 {
-    // Return default zoom factor for non-WASM targets
-    crate::app_config::PITCH_VISUALIZATION_ZOOM_DEFAULT
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
-    // No-op for non-WASM targets
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn sync_ui_with_presenter_state(_model_data: &crate::shared_types::ModelUpdateResult) {
-    // No-op for non-WASM targets
-}

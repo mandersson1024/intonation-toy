@@ -3,6 +3,8 @@
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
+#[cfg(target_arch = "wasm32")]
+use crate::platform::UiController;
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -111,7 +113,7 @@ impl ConsoleCommand for ThemeCommand {
         
         // Reapply styles - updates CSS custom properties
         #[cfg(target_arch = "wasm32")]
-        crate::web::styling::reapply_current_theme();
+        UiController::apply_theme_styles();
         crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![

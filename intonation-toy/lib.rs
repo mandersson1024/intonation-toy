@@ -41,50 +41,9 @@ use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
-
 #[cfg(target_arch = "wasm32")]
-fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
-    dev_log!("RESIZE: resize_canvas called");
-    let window_obj = web_sys::window().unwrap();
-    let document = window_obj.document().unwrap();
-    
-    let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
-    let margin = crate::web::styling::CANVAS_MARGIN;
-    
-    // Estimate zoom control width (padding + slider + margins)
-    let zoom_control_width = 80; // Approximate width of zoom control
-    let gap = 16; // Gap between canvas and zoom control
-    
-    // Calculate available space (subtract sidebar width, margins, zoom control, and gap)
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2) - zoom_control_width - gap;
-    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
-    
-    dev_log!("RESIZE: available {}x{}", available_width, available_height);
-    
-    // Take the smaller dimension to maintain square aspect ratio
-    let mut canvas_size = std::cmp::min(available_width, available_height);
-    canvas_size = std::cmp::min(canvas_size, crate::app_config::CANVAS_MAX_SIZE);
-    canvas_size = std::cmp::max(canvas_size, crate::app_config::CANVAS_MIN_SIZE);
-    
-    // Scene wrapper width includes canvas + gap + zoom control
-    let wrapper_width = canvas_size + gap + zoom_control_width;
-    let wrapper_height = canvas_size;
-    
-    dev_log!("RESIZE: setting canvas size to {}px, wrapper size to {}x{}", canvas_size, wrapper_width, wrapper_height);
-    
-    // Get the scene wrapper element
-    let scene_wrapper = document.get_element_by_id("scene-wrapper").unwrap();
-    
-    // Set CSS positioning and sizing for scene wrapper
-    scene_wrapper.set_attribute("style", &format!(
-        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px; display: flex; flex-direction: row; align-items: center; gap: 16px;",
-        margin, margin, wrapper_width, wrapper_height
-    )).unwrap();
-    
-    // Set canvas to specific size
-    canvas.style().set_property("width", &format!("{}px", canvas_size)).unwrap();
-    canvas.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
-}
+use crate::platform::{PerformanceMonitor, UiController};
+
 
 #[cfg(debug_assertions)]
 use debug::debug_panel::DebugPanel;
@@ -111,7 +70,7 @@ pub async fn start_render_loop(
     
     // Get existing canvas element and set up resize handling
     #[cfg(target_arch = "wasm32")]
-    let canvas = {
+    let _canvas = {
         let window_obj = web_sys::window().unwrap();
         let document = window_obj.document().unwrap();
         
@@ -119,9 +78,8 @@ pub async fn start_render_loop(
             .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
         
         // Set up resize event handler
-        let canvas_clone = canvas.clone();
         let resize_callback = Closure::wrap(Box::new(move || {
-            resize_canvas(&canvas_clone);
+            UiController::resize_canvas();
         }) as Box<dyn FnMut()>);
         
         window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
@@ -139,9 +97,7 @@ pub async fn start_render_loop(
     
     // Apply initial canvas sizing after three_d window initialization
     #[cfg(target_arch = "wasm32")]
-    if let Some(ref canvas_element) = canvas {
-        resize_canvas(canvas_element);
-    }
+    UiController::resize_canvas();
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
@@ -329,7 +285,7 @@ pub async fn start_render_loop(
         #[cfg(debug_assertions)]
         {
             #[cfg(target_arch = "wasm32")]
-            let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
+            let (memory_usage_mb, memory_usage_percent) = PerformanceMonitor::sample_memory_usage().unwrap_or((0.0, 0.0));
             #[cfg(not(target_arch = "wasm32"))]
             let (memory_usage_mb, memory_usage_percent) = (0.0, 0.0);
             let audio_latency = if let Some(ref engine) = engine {

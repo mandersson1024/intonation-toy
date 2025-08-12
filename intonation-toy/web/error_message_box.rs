@@ -1,9 +1,6 @@
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
 use web_sys::{Document, HtmlElement, Window};
 
-#[cfg(target_arch = "wasm32")]
 pub fn show_error_message(title: &str, details: &str) {
     // Debug logging to console
     web_sys::console::log_1(&format!("show_error_message called with title: {}, details: {}", title, details).into());
@@ -78,20 +75,17 @@ pub fn show_error_message(title: &str, details: &str) {
 
 /// Convenience function to show an error message from an Error enum variant.
 /// For errors with dynamic content, use show_error_message_with_params instead.
-#[cfg(target_arch = "wasm32")]
 pub fn show_error(error: &crate::shared_types::Error) {
     show_error_message(error.title(), error.details());
 }
 
 /// Convenience function to show an error message from an Error enum variant with parameters.
 /// Use this for errors that need dynamic content like missing API names.
-#[cfg(target_arch = "wasm32")]
 pub fn show_error_with_params(error: &crate::shared_types::Error, params: &[&str]) {
     let details = error.details_with(params);
     show_error_message(error.title(), &details);
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn hide_error_message() {
     web_sys::console::log_1(&"hide_error_message called".into());
     
@@ -127,22 +121,3 @@ pub fn hide_error_message() {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn show_error_message(_title: &str, _details: &str) {
-    // No-op for non-WASM targets
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn show_error(_error: &crate::shared_types::Error) {
-    // No-op for non-WASM targets
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn show_error_with_params(_error: &crate::shared_types::Error, _params: &[&str]) {
-    // No-op for non-WASM targets
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn hide_error_message() {
-    // No-op for non-WASM targets
-}
