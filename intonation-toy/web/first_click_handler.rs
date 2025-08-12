@@ -1,10 +1,11 @@
+#![cfg(target_arch = "wasm32")]
+
 //! First Click Handler for Microphone Permission
 //! 
 //! This module handles the browser requirement that getUserMedia() must be called
 //! within a user gesture context. It creates a full-screen overlay that captures
 //! the user's first click and uses that gesture to request microphone permission.
 
-#[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 
 /// Sets up a first-click handler overlay for WASM targets
@@ -16,7 +17,6 @@ use crate::common::dev_log;
 /// # Arguments
 /// * `permission_granted` - Shared state to track permission status
 /// * `engine` - Mutable reference to the audio engine for MediaStream connection
-#[cfg(target_arch = "wasm32")]
 pub fn setup_first_click_handler(
     permission_granted: std::rc::Rc<std::cell::RefCell<bool>>,
     engine: &mut Option<crate::engine::AudioEngine>,
@@ -236,13 +236,4 @@ pub fn setup_first_click_handler(
     } else {
         dev_log!("⚠ No body element available to set permission class");
     }
-}
-
-/// No-op implementation for non-WASM targets
-#[cfg(not(target_arch = "wasm32"))]
-pub fn setup_first_click_handler(
-    _permission_granted: std::rc::Rc<std::cell::RefCell<bool>>,
-    _engine: &mut Option<crate::engine::AudioEngine>,
-) {
-    // No-op for non-wasm targets
 }

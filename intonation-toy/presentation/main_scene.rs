@@ -2,6 +2,7 @@ use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, G
 use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
+use crate::platform::traits::*;
 
 // Left margin to reserve space for note names
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
@@ -411,7 +412,8 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         self.cents_offset = cents_offset;
         if pitch_detected {
-            let y = interval_to_screen_y_position(interval, viewport.height as f32, crate::web::main_scene_ui::get_current_zoom_factor());
+            let platform = crate::platform::get_platform();
+            let y = interval_to_screen_y_position(interval, viewport.height as f32, platform.get_current_zoom_factor());
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
             
             // Calculate thickness and alpha based on clarity

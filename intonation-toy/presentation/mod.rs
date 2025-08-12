@@ -71,8 +71,7 @@ use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch, PermissionState};
 
-#[cfg(target_arch = "wasm32")]
-use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
+use crate::platform::traits::*;
 
 enum Scene {
     Startup(StartupScene),
@@ -269,7 +268,8 @@ impl Presenter {
         // Set up HTML UI for sidebar immediately so it's available during startup scene
         #[cfg(target_arch = "wasm32")]
         {
-            setup_main_scene_ui();
+            let platform = crate::platform::get_platform();
+            platform.setup_main_scene_ui();
         }
         
         Ok(Self {
@@ -299,7 +299,8 @@ impl Presenter {
         self.self_reference = Some(self_ref.clone());
         
         // Set up event listeners now that we have the self-reference
-        setup_event_listeners(self_ref);
+        let platform = crate::platform::get_platform();
+        platform.setup_event_listeners(self_ref);
     }
 
     /// No-op version for non-WASM targets
@@ -586,7 +587,8 @@ impl Presenter {
                 
                 // Set up event listeners if we have a self-reference
                 if let Some(ref self_ref) = self.self_reference {
-                    setup_event_listeners(self_ref.clone());
+                    let platform = crate::platform::get_platform();
+                    platform.setup_event_listeners(self_ref.clone());
                 } else {
                     crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
                 }
@@ -698,7 +700,8 @@ impl Presenter {
                 }
                 crate::shared_types::Error::MicrophoneNotAvailable => {
                     // Show microphone not available message - this is a critical error
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                    let platform = crate::platform::get_platform();
+                    platform.show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 }
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
@@ -709,11 +712,13 @@ impl Presenter {
                 }
                 crate::shared_types::Error::MobileDeviceNotSupported => {
                     // Show mobile device not supported message
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                    let platform = crate::platform::get_platform();
+                    platform.show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
                 }
                 crate::shared_types::Error::BrowserError => {
                     // Show browser error message
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                    let platform = crate::platform::get_platform();
+                    platform.show_error(&crate::shared_types::Error::BrowserError);
                 }
             }
         }
@@ -835,7 +840,10 @@ impl Presenter {
             let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                 interval,
                 viewport.height as f32,
-                crate::web::main_scene_ui::get_current_zoom_factor(),
+                {
+                    let platform = crate::platform::get_platform();
+                    platform.get_current_zoom_factor()
+                },
             );
             let thickness = get_thickness(0);
             line_data.push((y_position, root_note, thickness));
@@ -854,7 +862,10 @@ impl Presenter {
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    {
+                    let platform = crate::platform::get_platform();
+                    platform.get_current_zoom_factor()
+                },
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
@@ -875,7 +886,10 @@ impl Presenter {
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    {
+                    let platform = crate::platform::get_platform();
+                    platform.get_current_zoom_factor()
+                },
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
@@ -923,15 +937,10 @@ impl Presenter {
     }
 
     /// Synchronize HTML UI with specified presenter state
-    #[cfg(all(target_arch = "wasm32", debug_assertions))]
+    #[cfg(target_arch = "wasm32")]
     fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
-    }
-    
-    /// Synchronize HTML UI with specified presenter state (non-debug version)
-    #[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
-    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
+        let platform = crate::platform::get_platform();
+        platform.sync_ui_with_presenter_state(model_data);
     }
 
     /// No-op version for non-WASM targets
@@ -947,7 +956,8 @@ impl Presenter {
     #[cfg(target_arch = "wasm32")]
     fn cleanup_main_scene_ui_if_active(&mut self) {
         if self.main_scene_ui_active {
-            cleanup_main_scene_ui();
+            let platform = crate::platform::get_platform();
+            platform.cleanup_main_scene_ui();
             self.main_scene_ui_active = false;
         }
     }

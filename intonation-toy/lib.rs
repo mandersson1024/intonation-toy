@@ -1,6 +1,7 @@
 use three_d::{Window, WindowSettings, FrameOutput, egui};
 use std::rc::Rc;
 use std::cell::RefCell;
+use crate::platform::traits::*;
 
 // Configuration module
 pub mod app_config;
@@ -12,6 +13,7 @@ pub mod presentation;
 
 // Platform-specific modules
 pub mod web;
+pub mod platform;
 
 // Module interfaces
 pub mod shared_types;
@@ -40,8 +42,9 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     let window_obj = web_sys::window().unwrap();
     let document = window_obj.document().unwrap();
     
-    let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
-    let margin = crate::web::styling::CANVAS_MARGIN;
+    let platform = crate::platform::get_platform();
+    let sidebar_width = platform.get_sidebar_width();
+    let margin = platform.get_canvas_margin();
     
     // Estimate zoom control width (padding + slider + margins)
     let zoom_control_width = 80; // Approximate width of zoom control
@@ -162,7 +165,8 @@ pub async fn start_render_loop(
     
     // Set up user gesture handler for microphone permission
     let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
-    web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
+    let platform = crate::platform::get_platform();
+    platform.setup_first_click_handler(permission_granted.clone(), &mut engine);
     
     // Performance tracking
     let mut frame_count = 0u32;
@@ -317,7 +321,8 @@ pub async fn start_render_loop(
         // Update debug panel data with performance metrics
         #[cfg(debug_assertions)]
         {
-            let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
+            let platform = crate::platform::get_platform();
+            let (memory_usage_mb, memory_usage_percent) = platform.sample_memory_usage().unwrap_or((0.0, 0.0));
             let audio_latency = if let Some(ref engine) = engine {
                 engine.get_pitch_analyzer_metrics()
                     .map(|metrics| metrics.average_latency_ms)
@@ -515,7 +520,8 @@ pub async fn start() {
             #[cfg(target_arch = "wasm32")]
             {
                 let missing_apis_str = api_list.join(", ");
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
+                let platform = crate::platform::get_platform();
+                platform.show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
             }
             return;
         }
@@ -526,7 +532,8 @@ pub async fn start() {
             // Display error overlay for mobile device
             #[cfg(target_arch = "wasm32")]
             {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                let platform = crate::platform::get_platform();
+                platform.show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
             }
             return;
         }
@@ -540,7 +547,8 @@ pub async fn start() {
     
     // Apply CSS custom properties for theme switching (static CSS already loaded)
     dev_log!("Applying CSS custom properties for theme initialization...");
-    crate::web::styling::apply_color_scheme_styles();
+    let platform = crate::platform::get_platform();
+    platform.apply_color_scheme_styles();
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");
