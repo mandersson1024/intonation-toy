@@ -55,4 +55,55 @@ impl UiController for StubUiController {
         // This allows theme-switching code to be tested without
         // requiring actual style application
     }
+    
+    /// No-op implementation for UI setup.
+    ///
+    /// This method does nothing since there are no UI elements to set up in
+    /// headless test environments. The method can be safely called without errors.
+    fn setup_ui() {
+        // No-op: No UI setup needed in headless/test environments
+        // This allows initialization code to be tested without
+        // requiring actual UI elements
+    }
+    
+    /// No-op implementation for UI cleanup.
+    ///
+    /// This method does nothing since there are no UI elements to clean up in
+    /// headless test environments. The method can be safely called without errors.
+    fn cleanup_ui() {
+        // No-op: No UI cleanup needed in headless/test environments
+        // This allows cleanup code to be tested without
+        // requiring actual UI elements
+    }
+    
+    /// No-op implementation for event listener setup.
+    ///
+    /// This method does nothing since there are no event listeners to set up in
+    /// headless test environments. The method can be safely called without errors.
+    fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
+        // No-op: No event listeners needed in headless/test environments
+        // This allows event handling code to be tested without
+        // requiring actual DOM or input events
+    }
+    
+    /// No-op implementation for UI state synchronization.
+    ///
+    /// This method does nothing since there are no UI elements to synchronize in
+    /// headless test environments. The method can be safely called without errors.
+    fn sync_ui_state(_model_data: &crate::shared_types::ModelUpdateResult) {
+        // No-op: No UI state to sync in headless/test environments
+        // This allows UI synchronization code to be tested without
+        // requiring actual UI elements
+    }
+    
+    /// Returns default zoom factor for native targets.
+    ///
+    /// Since there is no actual zoom UI in native/test environments,
+    /// this returns 1.0 as a neutral default zoom level.
+    fn get_zoom_factor() -> f32 {
+        // Return default zoom factor (no zoom) for native targets
+        // This allows zoom-dependent calculations to work in tests
+        // without requiring actual zoom controls
+        1.0
+    }
 }

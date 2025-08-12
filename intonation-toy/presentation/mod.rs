@@ -72,7 +72,10 @@ use three_d::{RenderTarget, Context, Viewport};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch, PermissionState};
 
 #[cfg(target_arch = "wasm32")]
-use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
+use crate::platform::{UiController, ErrorDisplay, WebUiController, WebErrorDisplay};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{UiController, ErrorDisplay, StubUiController, StubErrorDisplay};
 
 enum Scene {
     Startup(StartupScene),
@@ -234,12 +237,10 @@ pub struct Presenter {
     
     /// Tracks whether the main scene UI is currently active
     /// Used to manage HTML UI lifecycle during scene transitions
-    #[cfg(target_arch = "wasm32")]
     main_scene_ui_active: bool,
 
     /// Self-reference for passing to UI event handlers
     /// This enables UI elements to call back into the presenter
-    #[cfg(target_arch = "wasm32")]
     self_reference: Option<Rc<RefCell<Self>>>,
     
     
@@ -268,9 +269,9 @@ impl Presenter {
         
         // Set up HTML UI for sidebar immediately so it's available during startup scene
         #[cfg(target_arch = "wasm32")]
-        {
-            setup_main_scene_ui();
-        }
+        <WebUiController as UiController>::setup_ui();
+        #[cfg(not(target_arch = "wasm32"))]
+        <StubUiController as UiController>::setup_ui();
         
         Ok(Self {
             scene: Scene::Startup(StartupScene::new()),
@@ -279,9 +280,7 @@ impl Presenter {
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
             ema_smoother: EmaSmoother::new(0.1),
-            #[cfg(target_arch = "wasm32")]
             main_scene_ui_active: true, // UI is now active from the start
-            #[cfg(target_arch = "wasm32")]
             self_reference: None,
         })
     }
@@ -294,18 +293,14 @@ impl Presenter {
     /// # Arguments
     /// 
     /// * `self_ref` - The Rc<RefCell<>> wrapped presenter reference
-    #[cfg(target_arch = "wasm32")]
     pub fn set_self_reference(&mut self, self_ref: Rc<RefCell<Self>>) {
         self.self_reference = Some(self_ref.clone());
         
         // Set up event listeners now that we have the self-reference
-        setup_event_listeners(self_ref);
-    }
-
-    /// No-op version for non-WASM targets
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn set_self_reference(&mut self, _self_ref: Rc<RefCell<Self>>) {
-        // No-op for non-WASM targets
+        #[cfg(target_arch = "wasm32")]
+        <WebUiController as UiController>::setup_event_listeners(self_ref.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        <StubUiController as UiController>::setup_event_listeners(self_ref);
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
@@ -395,7 +390,10 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         
         // Sync HTML UI with updated state
-        self.sync_html_ui(&model_data);
+        #[cfg(target_arch = "wasm32")]
+        <WebUiController as UiController>::sync_ui_state(&model_data);
+        #[cfg(not(target_arch = "wasm32"))]
+        <StubUiController as UiController>::sync_ui_state(&model_data);
         
         // Calculate interval position with EMA smoothing for detected pitch
         let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
@@ -580,20 +578,23 @@ impl Presenter {
             }
             
             // Set up HTML UI for main scene
-            #[cfg(target_arch = "wasm32")]
-            {
-                // UI was already set up during presenter creation
-                
-                // Set up event listeners if we have a self-reference
-                if let Some(ref self_ref) = self.self_reference {
-                    setup_event_listeners(self_ref.clone());
-                } else {
-                    crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
-                }
-                
-                // Synchronize UI state with current model data values
-                self.sync_html_ui(model_data);
+            // UI was already set up during presenter creation
+            
+            // Set up event listeners if we have a self-reference
+            if let Some(ref self_ref) = self.self_reference {
+                #[cfg(target_arch = "wasm32")]
+                <WebUiController as UiController>::setup_event_listeners(self_ref.clone());
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubUiController as UiController>::setup_event_listeners(self_ref.clone());
+            } else {
+                crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
             }
+            
+            // Synchronize UI state with current model data values
+            #[cfg(target_arch = "wasm32")]
+            <WebUiController as UiController>::sync_ui_state(model_data);
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubUiController as UiController>::sync_ui_state(model_data);
         }
         
         // Delegate rendering to the active scene
@@ -699,7 +700,9 @@ impl Presenter {
                 crate::shared_types::Error::MicrophoneNotAvailable => {
                     // Show microphone not available message - this is a critical error
                     #[cfg(target_arch = "wasm32")]
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                    <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 }
                 crate::shared_types::Error::BrowserApiNotSupported => {
                     // Show browser compatibility message
@@ -711,12 +714,16 @@ impl Presenter {
                 crate::shared_types::Error::MobileDeviceNotSupported => {
                     // Show mobile device not supported message
                     #[cfg(target_arch = "wasm32")]
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                    <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
                 }
                 crate::shared_types::Error::BrowserError => {
                     // Show browser error message
                     #[cfg(target_arch = "wasm32")]
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                    <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
                 }
             }
         }
@@ -836,9 +843,9 @@ impl Presenter {
             // Root frequency stays at interval 0.0 (log2(1) = 0)
             let interval = 0.0;
             #[cfg(target_arch = "wasm32")]
-            let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            let zoom_factor = <WebUiController as UiController>::get_zoom_factor();
             #[cfg(not(target_arch = "wasm32"))]
-            let zoom_factor = 1.0;
+            let zoom_factor = <StubUiController as UiController>::get_zoom_factor();
             let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                 interval,
                 viewport.height as f32,
@@ -859,7 +866,9 @@ impl Presenter {
                 );
                 let interval = (frequency / root_frequency).log2();
                 #[cfg(target_arch = "wasm32")]
-                let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            let zoom_factor = <WebUiController as UiController>::get_zoom_factor();
+            #[cfg(not(target_arch = "wasm32"))]
+            let zoom_factor = <StubUiController as UiController>::get_zoom_factor();
                 #[cfg(not(target_arch = "wasm32"))]
                 let zoom_factor = 1.0;
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
@@ -884,7 +893,9 @@ impl Presenter {
                 );
                 let interval = (frequency / root_frequency).log2();
                 #[cfg(target_arch = "wasm32")]
-                let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            let zoom_factor = <WebUiController as UiController>::get_zoom_factor();
+            #[cfg(not(target_arch = "wasm32"))]
+            let zoom_factor = <StubUiController as UiController>::get_zoom_factor();
                 #[cfg(not(target_arch = "wasm32"))]
                 let zoom_factor = 1.0;
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
@@ -937,40 +948,20 @@ impl Presenter {
         crate::music_theory::interval_frequency(tuning_system, root_frequency, interval_semitones)
     }
 
-    /// Synchronize HTML UI with specified presenter state
-    #[cfg(all(target_arch = "wasm32", debug_assertions))]
-    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
-    }
-    
-    /// Synchronize HTML UI with specified presenter state (non-debug version)
-    #[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
-    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
-    }
 
-    /// No-op version for non-WASM targets
-    #[cfg(not(target_arch = "wasm32"))]
-    fn sync_html_ui(&self, _model_data: &ModelUpdateResult) {
-        // No-op for non-WASM targets
-    }
     
     /// Clean up HTML UI elements if they are currently active
     /// 
     /// This method ensures proper cleanup of DOM elements when the presenter
     /// is dropped or when transitioning away from the main scene.
-    #[cfg(target_arch = "wasm32")]
     fn cleanup_main_scene_ui_if_active(&mut self) {
         if self.main_scene_ui_active {
-            cleanup_main_scene_ui();
+            #[cfg(target_arch = "wasm32")]
+            <WebUiController as UiController>::cleanup_ui();
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubUiController as UiController>::cleanup_ui();
             self.main_scene_ui_active = false;
         }
-    }
-
-    /// No-op version for non-WASM targets
-    #[cfg(not(target_arch = "wasm32"))]
-    fn cleanup_main_scene_ui_if_active(&mut self) {
-        // No-op for non-WASM targets
     }
 }
 

@@ -7,13 +7,16 @@
 //! The stub implementations are designed to:
 //! - Provide real timing functionality for tests that depend on time progression
 //! - Offer no-op implementations for UI and performance monitoring (not needed in headless tests)
+//! - Provide console-based error display for debugging and development
 //! - Maintain the exact same API as web implementations for seamless platform switching
 //! - Enable development and testing on native platforms without browser dependencies
 
 mod timer;
 mod performance;
 mod ui_controller;
+mod error_display;
 
 pub use timer::StubTimer;
 pub use performance::StubPerformanceMonitor;
 pub use ui_controller::StubUiController;
+pub use error_display::StubErrorDisplay;

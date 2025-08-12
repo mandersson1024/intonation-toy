@@ -4,10 +4,11 @@
 //! allowing the application to run on different targets (web, native) without scattering
 //! conditional compilation throughout the codebase.
 //! 
-//! The abstraction is organized around three core concepts:
+//! The abstraction is organized around four core concepts:
 //! - **Timer**: High-resolution timing functionality
 //! - **PerformanceMonitor**: System performance metrics and monitoring
 //! - **UiController**: Platform-specific UI operations like canvas management
+//! - **ErrorDisplay**: Platform-specific error message display
 //! 
 //! Different implementations are selected at compile time based on the target platform:
 //! - Web/WASM targets use browser-specific implementations
@@ -33,7 +34,7 @@ pub mod web;
 
 // Re-export web platform implementations when on WASM targets
 #[cfg(target_arch = "wasm32")]
-pub use web::{WebTimer, WebPerformanceMonitor, WebUiController};
+pub use web::{WebTimer, WebPerformanceMonitor, WebUiController, WebErrorDisplay};
 
 // Stub implementations for non-web targets
 #[cfg(not(target_arch = "wasm32"))]
@@ -41,4 +42,4 @@ pub mod stubs;
 
 // Re-export stub platform implementations when on non-WASM targets
 #[cfg(not(target_arch = "wasm32"))]
-pub use stubs::{StubTimer, StubPerformanceMonitor, StubUiController};
+pub use stubs::{StubTimer, StubPerformanceMonitor, StubUiController, StubErrorDisplay};

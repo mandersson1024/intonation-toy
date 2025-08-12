@@ -4,9 +4,9 @@
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
 #[cfg(target_arch = "wasm32")]
-use crate::platform::{WebUiController, UiController};
+use crate::platform::{WebUiController, WebErrorDisplay, UiController, ErrorDisplay};
 #[cfg(not(target_arch = "wasm32"))]
-use crate::platform::{StubUiController, UiController};
+use crate::platform::{StubUiController, StubErrorDisplay, UiController, ErrorDisplay};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -160,35 +160,45 @@ impl ConsoleCommand for ErrorCommand {
         match scenario.as_str() {
             "browser-unsupported" => {
                 #[cfg(target_arch = "wasm32")]
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                <WebErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser unsupported error")
                 ])
             }
             "mobile-unsupported" => {
                 #[cfg(target_arch = "wasm32")]
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed mobile unsupported error")
                 ])
             }
             "mic-unavailable" => {
                 #[cfg(target_arch = "wasm32")]
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone unavailable error")
                 ])
             }
             "mic-permission" => {
                 #[cfg(target_arch = "wasm32")]
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone permission error")
                 ])
             }
             "browser-error" => {
                 #[cfg(target_arch = "wasm32")]
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser error")
                 ])

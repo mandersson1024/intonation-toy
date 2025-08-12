@@ -42,7 +42,10 @@ use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
 #[cfg(target_arch = "wasm32")]
-use crate::platform::{WebPerformanceMonitor, WebUiController, UiController, PerformanceMonitor};
+use crate::platform::{WebPerformanceMonitor, WebUiController, WebErrorDisplay, UiController, PerformanceMonitor, ErrorDisplay};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubPerformanceMonitor, StubUiController, StubErrorDisplay, UiController, PerformanceMonitor, ErrorDisplay};
 
 
 #[cfg(debug_assertions)]
@@ -98,6 +101,8 @@ pub async fn start_render_loop(
     // Apply initial canvas sizing after three_d window initialization
     #[cfg(target_arch = "wasm32")]
     <WebUiController as UiController>::resize_canvas();
+    #[cfg(not(target_arch = "wasm32"))]
+    <StubUiController as UiController>::resize_canvas();
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
@@ -482,11 +487,11 @@ pub async fn start() {
             error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
             
             // Display error overlay for unsupported browser
+            let missing_apis_str = api_list.join(", ");
             #[cfg(target_arch = "wasm32")]
-            {
-                let missing_apis_str = api_list.join(", ");
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
-            }
+            <WebErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
             return;
         }
         PlatformValidationResult::MobileDevice => {
@@ -495,9 +500,9 @@ pub async fn start() {
             
             // Display error overlay for mobile device
             #[cfg(target_arch = "wasm32")]
-            {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
-            }
+            <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
             return;
         }
         PlatformValidationResult::AllSupported => {
@@ -511,7 +516,9 @@ pub async fn start() {
     // Apply CSS custom properties for theme switching (static CSS already loaded)
     dev_log!("Applying CSS custom properties for theme initialization...");
     #[cfg(target_arch = "wasm32")]
-    crate::web::styling::apply_color_scheme_styles();
+    <WebUiController as UiController>::apply_theme_styles();
+    #[cfg(not(target_arch = "wasm32"))]
+    <StubUiController as UiController>::apply_theme_styles();
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");

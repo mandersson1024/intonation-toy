@@ -3,6 +3,12 @@ use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
+#[cfg(target_arch = "wasm32")]
+use crate::platform::{UiController, WebUiController};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{UiController, StubUiController};
+
 // Left margin to reserve space for note names
 const NOTE_NAME_X_OFFSET: f32 = 18.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
@@ -412,9 +418,9 @@ impl MainScene {
         self.cents_offset = cents_offset;
         if pitch_detected {
             #[cfg(target_arch = "wasm32")]
-            let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            let zoom_factor = <WebUiController as UiController>::get_zoom_factor();
             #[cfg(not(target_arch = "wasm32"))]
-            let zoom_factor = 1.0; // Default zoom for non-web platforms
+            let zoom_factor = <StubUiController as UiController>::get_zoom_factor();
             let y = interval_to_screen_y_position(interval, viewport.height as f32, zoom_factor);
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
             
