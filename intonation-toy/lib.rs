@@ -42,7 +42,7 @@ use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
 #[cfg(target_arch = "wasm32")]
-use crate::platform::{PerformanceMonitor, UiController};
+use crate::platform::{WebPerformanceMonitor, WebUiController, UiController, PerformanceMonitor};
 
 
 #[cfg(debug_assertions)]
@@ -79,7 +79,7 @@ pub async fn start_render_loop(
         
         // Set up resize event handler
         let resize_callback = Closure::wrap(Box::new(move || {
-            UiController::resize_canvas();
+            <WebUiController as UiController>::resize_canvas();
         }) as Box<dyn FnMut()>);
         
         window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
@@ -97,7 +97,7 @@ pub async fn start_render_loop(
     
     // Apply initial canvas sizing after three_d window initialization
     #[cfg(target_arch = "wasm32")]
-    UiController::resize_canvas();
+    <WebUiController as UiController>::resize_canvas();
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
@@ -285,7 +285,7 @@ pub async fn start_render_loop(
         #[cfg(debug_assertions)]
         {
             #[cfg(target_arch = "wasm32")]
-            let (memory_usage_mb, memory_usage_percent) = PerformanceMonitor::sample_memory_usage().unwrap_or((0.0, 0.0));
+            let (memory_usage_mb, memory_usage_percent) = <WebPerformanceMonitor as PerformanceMonitor>::sample_memory_usage().unwrap_or((0.0, 0.0));
             #[cfg(not(target_arch = "wasm32"))]
             let (memory_usage_mb, memory_usage_percent) = (0.0, 0.0);
             let audio_latency = if let Some(ref engine) = engine {
