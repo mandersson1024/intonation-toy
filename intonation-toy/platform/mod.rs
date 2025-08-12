@@ -11,7 +11,16 @@
 //! 
 //! Different implementations are selected at compile time based on the target platform:
 //! - Web/WASM targets use browser-specific implementations
-//! - Native targets will use OS-specific implementations (future)
+//! - Native targets use stub implementations for testing and development
+//! 
+//! ## Module Organization
+//! 
+//! The platform module maintains parallel structure between implementations:
+//! - `web/` - Browser-based implementations using Web APIs
+//! - `stubs/` - Minimal working implementations for native testing
+//! 
+//! Both implementations provide the same public API, allowing seamless switching
+//! between platforms through conditional compilation.
 
 pub mod traits;
 
@@ -20,8 +29,16 @@ pub use traits::*;
 
 // Platform-specific implementations
 #[cfg(target_arch = "wasm32")]
-pub mod web_impl;
+pub mod web;
 
-// Stub implementations for non-web targets (placeholder for future phases)
+// Re-export web platform implementations when on WASM targets
+#[cfg(target_arch = "wasm32")]
+pub use web::{WebTimer, WebPerformanceMonitor, WebUiController};
+
+// Stub implementations for non-web targets
 #[cfg(not(target_arch = "wasm32"))]
 pub mod stubs;
+
+// Re-export stub platform implementations when on non-WASM targets
+#[cfg(not(target_arch = "wasm32"))]
+pub use stubs::{StubTimer, StubPerformanceMonitor, StubUiController};
