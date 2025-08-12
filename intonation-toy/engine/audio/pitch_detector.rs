@@ -1,5 +1,9 @@
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
 use crate::app_config::{CLARITY_THRESHOLD, POWER_THRESHOLD};
+#[cfg(target_arch = "wasm32")]
+use crate::platform::{WebTimer, Timer};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubTimer, Timer};
 
 use super::buffer::BUFFER_SIZE;
 
@@ -323,23 +327,9 @@ impl PitchDetector {
 
     fn get_current_timestamp(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                if let Some(performance) = window.performance() {
-                    return performance.now();
-                }
-            }
-            0.0
-        }
-        
+        { <crate::platform::WebTimer as Timer>::now_ms() }
         #[cfg(not(target_arch = "wasm32"))]
-        {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as f64
-        }
+        { <crate::platform::StubTimer as Timer>::now_ms() }
     }
 }
 

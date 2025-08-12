@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Web platform specific functionality
 //! This module contains browser-specific code that handles web APIs and DOM interactions
 

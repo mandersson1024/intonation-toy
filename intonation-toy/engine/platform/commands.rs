@@ -3,6 +3,10 @@
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
 use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
+#[cfg(target_arch = "wasm32")]
+use crate::platform::{WebUiController, WebErrorDisplay, UiController, ErrorDisplay};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubUiController, StubErrorDisplay, UiController, ErrorDisplay};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -110,7 +114,10 @@ impl ConsoleCommand for ThemeCommand {
         crate::theme::set_current_theme(new_theme);
         
         // Reapply styles - updates CSS custom properties
-        crate::web::styling::reapply_current_theme();
+        #[cfg(target_arch = "wasm32")]
+        { <crate::platform::WebUiController as UiController>::apply_theme_styles(); }
+        #[cfg(not(target_arch = "wasm32"))]
+        { <crate::platform::StubUiController as UiController>::apply_theme_styles(); }
         crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
@@ -148,33 +155,50 @@ impl ConsoleCommand for ErrorCommand {
         }
         
         let scenario = args[0].to_lowercase();
+        // Error display functions remain conditionally compiled because they're UI-specific operations
+        // that will be addressed in the presentation layer phase
         match scenario.as_str() {
             "browser-unsupported" => {
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                #[cfg(target_arch = "wasm32")]
+                <WebErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser unsupported error")
                 ])
             }
             "mobile-unsupported" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                #[cfg(target_arch = "wasm32")]
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed mobile unsupported error")
                 ])
             }
             "mic-unavailable" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                #[cfg(target_arch = "wasm32")]
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone unavailable error")
                 ])
             }
             "mic-permission" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                #[cfg(target_arch = "wasm32")]
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone permission error")
                 ])
             }
             "browser-error" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                #[cfg(target_arch = "wasm32")]
+                <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
+                #[cfg(not(target_arch = "wasm32"))]
+                <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::BrowserError);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser error")
                 ])

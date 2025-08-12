@@ -1,3 +1,9 @@
+#![cfg(target_arch = "wasm32")]
+//! Browser-specific permission management module
+//! 
+//! This module provides browser-specific permission management and will be part of
+//! future audio platform abstraction work.
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{MediaStream, MediaStreamConstraints};

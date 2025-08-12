@@ -1,3 +1,18 @@
 [workspace]
 members = ["intonation-toy", "dev-console"]
 resolver = "2"
+
+[workspace.dependencies]
+# Shared dependencies that both packages use
+three-d = { version = "0.17.1", features = ["egui-gui"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Web-specific shared dependencies
+web-sys = { version = "0.3" }
+js-sys = "0.3"
+wasm-bindgen = "0.2.100"
+
+[workspace.metadata.docs.rs]
+features = ["web"]
+targets = ["wasm32-unknown-unknown"]

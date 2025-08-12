@@ -1,6 +1,6 @@
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode};
 use crate::common::dev_log;
-use super::microphone::AudioError;
+use super::AudioError;
 use super::signal_generator::RootNoteAudioConfig;
 
 /// Dedicated root note audio node using Web Audio API's OscillatorNode

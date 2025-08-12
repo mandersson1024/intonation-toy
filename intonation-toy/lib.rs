@@ -10,7 +10,15 @@ pub mod engine;
 pub mod model;
 pub mod presentation;
 
+// Platform abstraction layer
+// Provides trait-based abstractions for platform-specific functionality,
+// enabling clean separation between web/native implementations
+pub mod platform;
+
 // Platform-specific modules
+// Web module contains browser-specific implementations
+// Conditionally compiled only for WASM targets
+#[cfg(target_arch = "wasm32")]
 pub mod web;
 
 // Module interfaces
@@ -33,50 +41,12 @@ use wasm_bindgen::prelude::*;
 use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
-
 #[cfg(target_arch = "wasm32")]
-fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
-    dev_log!("RESIZE: resize_canvas called");
-    let window_obj = web_sys::window().unwrap();
-    let document = window_obj.document().unwrap();
-    
-    let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
-    let margin = crate::web::styling::CANVAS_MARGIN;
-    
-    // Estimate zoom control width (padding + slider + margins)
-    let zoom_control_width = 80; // Approximate width of zoom control
-    let gap = 16; // Gap between canvas and zoom control
-    
-    // Calculate available space (subtract sidebar width, margins, zoom control, and gap)
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2) - zoom_control_width - gap;
-    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
-    
-    dev_log!("RESIZE: available {}x{}", available_width, available_height);
-    
-    // Take the smaller dimension to maintain square aspect ratio
-    let mut canvas_size = std::cmp::min(available_width, available_height);
-    canvas_size = std::cmp::min(canvas_size, crate::app_config::CANVAS_MAX_SIZE);
-    canvas_size = std::cmp::max(canvas_size, crate::app_config::CANVAS_MIN_SIZE);
-    
-    // Scene wrapper width includes canvas + gap + zoom control
-    let wrapper_width = canvas_size + gap + zoom_control_width;
-    let wrapper_height = canvas_size;
-    
-    dev_log!("RESIZE: setting canvas size to {}px, wrapper size to {}x{}", canvas_size, wrapper_width, wrapper_height);
-    
-    // Get the scene wrapper element
-    let scene_wrapper = document.get_element_by_id("scene-wrapper").unwrap();
-    
-    // Set CSS positioning and sizing for scene wrapper
-    scene_wrapper.set_attribute("style", &format!(
-        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px; display: flex; flex-direction: row; align-items: center; gap: 16px;",
-        margin, margin, wrapper_width, wrapper_height
-    )).unwrap();
-    
-    // Set canvas to specific size
-    canvas.style().set_property("width", &format!("{}px", canvas_size)).unwrap();
-    canvas.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
-}
+use crate::platform::{WebPerformanceMonitor, WebUiController, WebErrorDisplay, UiController, PerformanceMonitor, ErrorDisplay};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubPerformanceMonitor, StubUiController, StubErrorDisplay, UiController, PerformanceMonitor, ErrorDisplay};
+
 
 #[cfg(debug_assertions)]
 use debug::debug_panel::DebugPanel;
@@ -103,7 +73,7 @@ pub async fn start_render_loop(
     
     // Get existing canvas element and set up resize handling
     #[cfg(target_arch = "wasm32")]
-    let canvas = {
+    let _canvas = {
         let window_obj = web_sys::window().unwrap();
         let document = window_obj.document().unwrap();
         
@@ -111,9 +81,8 @@ pub async fn start_render_loop(
             .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
         
         // Set up resize event handler
-        let canvas_clone = canvas.clone();
         let resize_callback = Closure::wrap(Box::new(move || {
-            resize_canvas(&canvas_clone);
+            <WebUiController as UiController>::resize_canvas();
         }) as Box<dyn FnMut()>);
         
         window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
@@ -131,9 +100,9 @@ pub async fn start_render_loop(
     
     // Apply initial canvas sizing after three_d window initialization
     #[cfg(target_arch = "wasm32")]
-    if let Some(ref canvas_element) = canvas {
-        resize_canvas(canvas_element);
-    }
+    <WebUiController as UiController>::resize_canvas();
+    #[cfg(not(target_arch = "wasm32"))]
+    <StubUiController as UiController>::resize_canvas();
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
@@ -161,8 +130,11 @@ pub async fn start_render_loop(
     dev_log!("Starting render loop");
     
     // Set up user gesture handler for microphone permission
-    let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
-    web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
+        web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
+    }
     
     // Performance tracking
     let mut frame_count = 0u32;
@@ -317,7 +289,10 @@ pub async fn start_render_loop(
         // Update debug panel data with performance metrics
         #[cfg(debug_assertions)]
         {
-            let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
+            #[cfg(target_arch = "wasm32")]
+            let (memory_usage_mb, memory_usage_percent) = <WebPerformanceMonitor as PerformanceMonitor>::sample_memory_usage().unwrap_or((0.0, 0.0));
+            #[cfg(not(target_arch = "wasm32"))]
+            let (memory_usage_mb, memory_usage_percent) = (0.0, 0.0);
             let audio_latency = if let Some(ref engine) = engine {
                 engine.get_pitch_analyzer_metrics()
                     .map(|metrics| metrics.average_latency_ms)
@@ -512,11 +487,11 @@ pub async fn start() {
             error_log!("✗ Application cannot start. Please upgrade your browser or use a supported browser:");
             
             // Display error overlay for unsupported browser
+            let missing_apis_str = api_list.join(", ");
             #[cfg(target_arch = "wasm32")]
-            {
-                let missing_apis_str = api_list.join(", ");
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
-            }
+            <WebErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubErrorDisplay as ErrorDisplay>::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
             return;
         }
         PlatformValidationResult::MobileDevice => {
@@ -525,9 +500,9 @@ pub async fn start() {
             
             // Display error overlay for mobile device
             #[cfg(target_arch = "wasm32")]
-            {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
-            }
+            <WebErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+            #[cfg(not(target_arch = "wasm32"))]
+            <StubErrorDisplay as ErrorDisplay>::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
             return;
         }
         PlatformValidationResult::AllSupported => {
@@ -540,7 +515,10 @@ pub async fn start() {
     
     // Apply CSS custom properties for theme switching (static CSS already loaded)
     dev_log!("Applying CSS custom properties for theme initialization...");
-    crate::web::styling::apply_color_scheme_styles();
+    #[cfg(target_arch = "wasm32")]
+    <WebUiController as UiController>::apply_theme_styles();
+    #[cfg(not(target_arch = "wasm32"))]
+    <StubUiController as UiController>::apply_theme_styles();
     
     // Create three-layer architecture instances
     dev_log!("Creating three-layer architecture instances...");

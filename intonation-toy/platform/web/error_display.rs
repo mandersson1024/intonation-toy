@@ -1,7 +1,60 @@
+//! Error display implementation for web browsers.
+//! 
+//! Provides error message display functionality using DOM APIs to show
+//! error overlays and messages to users in a platform-appropriate way.
+//! 
+//! This implementation moves functionality from web/error_message_box.rs
+//! into the platform abstraction layer.
+
+use crate::platform::traits::ErrorDisplay;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement, Window};
 
-pub fn show_error_message(title: &str, details: &str) {
+/// Web-based error display implementation.
+/// 
+/// Manages error message overlays and user notifications through
+/// browser DOM APIs.
+pub struct WebErrorDisplay;
+
+impl ErrorDisplay for WebErrorDisplay {
+    fn show_error(error: &crate::shared_types::Error) {
+        show_error_message(error.title(), error.details());
+    }
+    
+    fn show_error_with_params(error: &crate::shared_types::Error, params: &[&str]) {
+        let details = error.details_with(params);
+        show_error_message(error.title(), &details);
+    }
+}
+
+impl WebErrorDisplay {
+    /// Creates a new WebErrorDisplay instance.
+    pub fn new() -> Self {
+        WebErrorDisplay
+    }
+}
+
+impl Default for WebErrorDisplay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Displays an error message using DOM overlay elements
+/// 
+/// This function updates existing HTML error overlay elements and makes them visible.
+/// The error overlay elements must exist in the HTML document for this to work properly.
+/// 
+/// # Arguments
+/// * `title` - The error title to display
+/// * `details` - The error details/description to display
+/// 
+/// # Implementation Notes
+/// - Uses existing DOM elements with IDs: error-message-overlay, error-title, error-details
+/// - Shows the overlay by setting display: flex CSS property
+/// - Logs debug information to browser console
+/// - Gracefully handles missing DOM elements
+fn show_error_message(title: &str, details: &str) {
     // Debug logging to console
     web_sys::console::log_1(&format!("show_error_message called with title: {}, details: {}", title, details).into());
     
@@ -73,19 +126,16 @@ pub fn show_error_message(title: &str, details: &str) {
     }
 }
 
-/// Convenience function to show an error message from an Error enum variant.
-/// For errors with dynamic content, use show_error_message_with_params instead.
-pub fn show_error(error: &crate::shared_types::Error) {
-    show_error_message(error.title(), error.details());
-}
-
-/// Convenience function to show an error message from an Error enum variant with parameters.
-/// Use this for errors that need dynamic content like missing API names.
-pub fn show_error_with_params(error: &crate::shared_types::Error, params: &[&str]) {
-    let details = error.details_with(params);
-    show_error_message(error.title(), &details);
-}
-
+/// Hides the error message overlay
+/// 
+/// This function hides the error overlay by setting display: none CSS property.
+/// Used internally for error message management.
+/// 
+/// # Implementation Notes
+/// - Sets display: none on the error-message-overlay element
+/// - Logs debug information to browser console
+/// - Gracefully handles missing DOM elements
+#[allow(dead_code)]
 pub fn hide_error_message() {
     web_sys::console::log_1(&"hide_error_message called".into());
     
@@ -120,4 +170,3 @@ pub fn hide_error_message() {
         web_sys::console::log_1(&"No overlay found to hide".into());
     }
 }
-

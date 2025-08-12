@@ -31,9 +31,73 @@ cargo clean                     # Clean Rust build artifacts
 rm -rf dist/                    # Clean Trunk build output
 ```
 
-### Testing
+### Building and Testing
 
-This project uses `wasm-pack test --node` for all testing. See [TESTING.md](TESTING.md) for complete testing guidelines and configuration.
+This project supports both web (WASM) and native builds with conditional dependencies and feature flags.
+
+#### Feature Flags
+
+- `web` (default): Enables web-specific dependencies and browser APIs
+- `test-native`: Enables native testing without web dependencies  
+- `separation-logging`: Enables additional debug logging
+
+#### Building
+
+```bash
+# Web build (default)
+trunk build                          # Development build
+trunk build --release                # Production build
+
+# Native build for testing
+cargo build --features test-native   # Native development build
+cargo build --features test-native --release # Native release build
+
+# Check compilation for both targets
+cargo check --features test-native   # Check native compilation
+wasm-pack build intonation-toy       # Check web compilation
+```
+
+#### Testing
+
+```bash
+# Run all tests (both web and native)
+./scripts/test-all.sh
+
+# Run only native tests
+./scripts/test-native.sh
+
+# Run only web tests  
+./scripts/test-all.sh web
+
+# Run specific test pattern on native
+./scripts/test-native.sh platform
+```
+
+#### Development Workflow
+
+For web development:
+```bash
+trunk serve                          # Start dev server
+./scripts/test-all.sh web           # Test web build
+```
+
+For native development/testing:
+```bash
+cargo check --features test-native  # Quick compilation check
+./scripts/test-native.sh            # Full native test suite
+```
+
+#### Troubleshooting
+
+**Build Issues:**
+- Ensure web features are only used with `wasm32` targets
+- Use `--features test-native` for native builds
+- Check that all required tools are installed (trunk, wasm-pack)
+
+**Test Issues:**
+- Native tests require `--features test-native` flag
+- Web tests require Node.js and wasm-pack
+- Some tests are platform-specific and won't run on both targets
 
 ### Browser Compatibility
 
