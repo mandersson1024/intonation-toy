@@ -4,6 +4,10 @@ use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
 use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
 #[cfg(target_arch = "wasm32")]
+use crate::platform::{WebTimer, Timer};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubTimer, Timer};
+#[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 
 pub type PitchAnalysisError = String;
@@ -630,23 +634,9 @@ impl PitchAnalyzer {
 
     fn get_high_resolution_time(&self) -> f64 {
         #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                if let Some(performance) = window.performance() {
-                    return performance.now();
-                }
-            }
-            0.0
-        }
-        
+        { <crate::platform::WebTimer as Timer>::now_ms() }
         #[cfg(not(target_arch = "wasm32"))]
-        {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as f64
-        }
+        { <crate::platform::StubTimer as Timer>::now_ms() }
     }
 
     /// Get the latest pitch detection result

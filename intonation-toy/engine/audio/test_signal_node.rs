@@ -1,6 +1,6 @@
 use web_sys::{AudioContext, OscillatorNode, GainNode, OscillatorType, AudioNode};
 use crate::common::dev_log;
-use super::microphone::AudioError;
+use super::AudioError;
 use super::signal_generator::SignalGeneratorConfig;
 
 pub struct TestSignalAudioNode {

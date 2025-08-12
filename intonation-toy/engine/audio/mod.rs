@@ -32,9 +32,11 @@
 // The AudioSystemContext provides centralized access to all audio components,
 // eliminating the need for global state management.
 
+#[cfg(target_arch = "wasm32")]
 pub mod microphone;
 pub mod context;
 pub mod worklet;
+#[cfg(target_arch = "wasm32")]
 pub mod permission;
 pub mod buffer;
 pub mod buffer_analyzer;
@@ -201,18 +203,54 @@ pub fn is_audio_system_ready() -> bool {
 }
 
 // Re-export public API for external usage
+#[cfg(target_arch = "wasm32")]
 pub use microphone::MicrophoneManager;
+#[cfg(not(target_arch = "wasm32"))]
+pub struct MicrophoneManager;
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
 pub use signal_generator::{SignalGeneratorConfig, RootNoteAudioConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
+#[cfg(target_arch = "wasm32")]
 pub use permission::AudioPermission;
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AudioPermission {
+    Uninitialized,
+    Requesting,
+    Granted,
+    Denied,
+    Unavailable,
+}
 pub use root_note_audio_node::RootNoteAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 
 // Private re-exports for internal module use only
+#[cfg(target_arch = "wasm32")]
 use microphone::{AudioError};
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone)]
+pub enum AudioError {
+    PermissionDenied(String),
+    DeviceUnavailable(String),
+    NotSupported(String),
+    StreamInitFailed(String),
+    Generic(String),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for AudioError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AudioError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
+            AudioError::DeviceUnavailable(msg) => write!(f, "Device unavailable: {}", msg),
+            AudioError::NotSupported(msg) => write!(f, "Not supported: {}", msg),
+            AudioError::StreamInitFailed(msg) => write!(f, "Stream initialization failed: {}", msg),
+            AudioError::Generic(msg) => write!(f, "Audio error: {}", msg),
+        }
+    }
+}
 use context::{AudioContextManager, AudioContextState};
 use volume_detector::{VolumeDetector, VolumeAnalysis};
 

@@ -5,6 +5,8 @@ use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandRes
 use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
 #[cfg(target_arch = "wasm32")]
 use crate::platform::{WebUiController, UiController};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::platform::{StubUiController, UiController};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -113,7 +115,9 @@ impl ConsoleCommand for ThemeCommand {
         
         // Reapply styles - updates CSS custom properties
         #[cfg(target_arch = "wasm32")]
-        <WebUiController as UiController>::apply_theme_styles();
+        { <crate::platform::WebUiController as UiController>::apply_theme_styles(); }
+        #[cfg(not(target_arch = "wasm32"))]
+        { <crate::platform::StubUiController as UiController>::apply_theme_styles(); }
         crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
@@ -151,6 +155,8 @@ impl ConsoleCommand for ErrorCommand {
         }
         
         let scenario = args[0].to_lowercase();
+        // Error display functions remain conditionally compiled because they're UI-specific operations
+        // that will be addressed in the presentation layer phase
         match scenario.as_str() {
             "browser-unsupported" => {
                 #[cfg(target_arch = "wasm32")]

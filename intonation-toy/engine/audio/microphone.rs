@@ -1,3 +1,9 @@
+#![cfg(target_arch = "wasm32")]
+//! Browser-specific microphone access module
+//! 
+//! This module provides browser-specific microphone access and will be part of
+//! future audio platform abstraction work.
+
 use wasm_bindgen::prelude::*;
 use std::fmt;
 use super::permission::PermissionManager;

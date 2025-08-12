@@ -5,8 +5,15 @@ pub mod commands;
 
 use crate::common::dev_log;
 
+/// Browser-specific API detection logic isolated behind conditional compilation
 #[cfg(target_arch = "wasm32")]
-use super::audio::MicrophoneManager;
+mod browser_detection {
+    use super::super::audio::MicrophoneManager;
+    
+    pub fn is_microphone_supported() -> bool {
+        MicrophoneManager::is_supported()
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
@@ -92,7 +99,7 @@ impl Platform {
         let document = window.document();
         
         // Check getUserMedia (safe, no popup)
-        let is_supported = MicrophoneManager::is_supported();
+        let is_supported = browser_detection::is_microphone_supported();
         results.push(ApiStatus {
             api: CriticalApi::GetUserMedia,
             supported: is_supported,
@@ -149,7 +156,7 @@ impl Platform {
         });
         
         // Create shared canvas for Canvas + WebGL2 checks
-        let canvas = document.and_then(|doc| {
+        let canvas: Option<web_sys::HtmlCanvasElement> = document.and_then(|doc| {
             doc.create_element("canvas").ok().and_then(|canvas| {
                 canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok()
             })

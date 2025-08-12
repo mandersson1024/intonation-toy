@@ -286,12 +286,21 @@ impl AudioEngine {
     /// # Returns
     /// 
     /// Returns `Result<(), String>` indicating success or failure of the connection.
+    /// 
+    /// Note: MediaStream handling is inherently browser-specific and will be addressed
+    /// in future audio platform abstraction work.
+    #[cfg(target_arch = "wasm32")]
     pub async fn connect_mediastream(&self, media_stream: web_sys::MediaStream) -> Result<(), String> {
         if let Some(ref audio_context) = self.audio_context {
             audio::microphone::connect_existing_mediastream_to_audioworklet(media_stream, audio_context).await
         } else {
             Err("Audio system not initialized".to_string())
         }
+    }
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn connect_mediastream(&self, _media_stream: ()) -> Result<(), String> {
+        Err("MediaStream connection not supported on this platform".to_string())
     }
     
     /// Execute model layer actions (currently reserved for future engine-specific actions)
