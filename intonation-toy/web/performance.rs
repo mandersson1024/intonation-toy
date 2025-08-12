@@ -35,10 +35,12 @@
 /// # Example
 /// 
 /// ```rust
+/// use crate::common::log;
+/// 
 /// if let Some((memory_mb, memory_percent)) = sample_memory_usage() {
-///     println!("Memory usage: {:.1} MB ({:.1}%)", memory_mb, memory_percent);
+///     log!("Memory usage: {:.1} MB ({:.1}%)", memory_mb, memory_percent);
 /// } else {
-///     println!("Memory information not available");
+///     log!("Memory information not available");
 /// }
 /// ```
 pub fn sample_memory_usage() -> Option<(f64, f64)> {

@@ -19,6 +19,7 @@
 //!
 //! ```rust,no_run
 //! use pitch_toy::audio::{AudioWorkletManager, AudioContextManager};
+//! use pitch_toy::common::log;
 //!
 //! async fn setup_audio_processing() {
 //!     let mut context_manager = AudioContextManager::new();
@@ -29,7 +30,7 @@
 //!     worklet_manager.set_ping_pong_enabled(true);
 //!     
 //!     if let Ok(()) = worklet_manager.initialize(&context_manager).await {
-//!         println!("AudioWorklet ready for real-time processing with buffer recycling");
+//!         log!("AudioWorklet ready for real-time processing with buffer recycling");
 //!     }
 //! }
 //! ```

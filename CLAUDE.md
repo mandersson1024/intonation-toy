@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - IMPORTANT: Read docs/general_coding_guidelines.md
 - IMPORTANT: Read docs/rust_coding_guidelines.md
 
+## Configuration encapsulation
+We practice "Configuration Encapsulation" by "Pushing Configuration Down" to the lowest level possible. This means:
+- Platform-specific code (like `#[cfg(target_arch = "wasm32")]`) should be encapsulated within utility functions or macros
+- Call sites should not need to know about platform differences
+- Example: Our logging macros in `intonation-toy/common/mod.rs` handle platform detection internally, so callers just use `log!()` without conditional compilation
+- This reduces configuration surface area and makes the codebase more maintainable
+
 ## Building and testing
 - The main language is Rust compiled to WASM, with some JavaScript for the audio worklet
 - We only support moden browsers, with no fallback code for older browsers.

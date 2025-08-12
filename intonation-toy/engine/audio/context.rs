@@ -17,6 +17,7 @@
 //!
 //! ```rust,no_run
 //! use pitch_toy::audio::{AudioContextManager, AudioContextConfig};
+//! use pitch_toy::common::log;
 //!
 //! async fn setup_audio() {
 //!     // Create manager with default configuration (44.1kHz, 1024 buffer)
@@ -28,7 +29,7 @@
 //!
 //!     // Initialize the audio context
 //!     if let Ok(()) = manager.initialize().await {
-//!         println!("AudioContext ready for audio processing");
+//!         log!("AudioContext ready for audio processing");
 //!     }
 //! }
 //! ```

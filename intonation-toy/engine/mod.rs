@@ -24,6 +24,7 @@
 //!
 //! ```rust
 //! use intonation_toy::engine::AudioEngine;
+//! use intonation_toy::common::{log, error_log};
 //!
 //! // Create engine without dependencies
 //! let mut engine = AudioEngine::create().await?;
@@ -34,24 +35,24 @@
 //! 
 //! // Access the aggregated data
 //! if let Some(analysis) = result.audio_analysis {
-//!     println!("Volume: {} dB", analysis.volume_level.peak);
+//!     log!("Volume: {} dB", analysis.volume_level.peak);
 //!     match analysis.pitch {
 //!         Pitch::Detected(freq, clarity) => {
-//!             println!("Pitch: {} Hz (clarity: {})", freq, clarity);
+//!             log!("Pitch: {} Hz (clarity: {})", freq, clarity);
 //!         }
-//!         Pitch::NotDetected => println!("No pitch detected"),
+//!         Pitch::NotDetected => log!("No pitch detected"),
 //!     }
 //! }
 //! 
 //! // Check for errors
 //! for error in &result.audio_errors {
-//!     eprintln!("Audio error: {:?}", error);
+//!     error_log!("Audio error: {:?}", error);
 //! }
 //! 
 //! // Check permission state
 //! match result.permission_state {
-//!     PermissionState::Granted => println!("Microphone access granted"),
-//!     PermissionState::Denied => println!("Microphone access denied"),
+//!     PermissionState::Granted => log!("Microphone access granted"),
+//!     PermissionState::Denied => log!("Microphone access denied"),
 //!     _ => {}
 //! }
 //! ```

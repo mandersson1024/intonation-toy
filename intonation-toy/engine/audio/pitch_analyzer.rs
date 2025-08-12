@@ -64,16 +64,18 @@ impl Default for PitchPerformanceMetrics {
 /// ## Usage Example
 /// 
 /// ```rust,no_run
+/// use crate::common::log;
+/// 
 /// let mut analyzer = PitchAnalyzer::new(config, sample_rate)?;
 /// 
 /// // Analyze samples and get immediate result
 /// if let Some(result) = analyzer.analyze_samples(&samples)? {
-///     println!("Detected pitch: {} Hz", result.frequency);
+///     log!("Detected pitch: {} Hz", result.frequency);
 /// }
 /// 
 /// // Get latest detection for data collection
 /// if let Some(pitch_data) = analyzer.get_latest_pitch_data() {
-///     println!("Latest pitch: {} Hz", pitch_data.frequency);
+///     log!("Latest pitch: {} Hz", pitch_data.frequency);
 /// }
 /// ```
 pub struct PitchAnalyzer {
@@ -605,25 +607,12 @@ impl PitchAnalyzer {
     fn publish_metrics_update(&mut self) {
         // Log metrics only occasionally to avoid spam (every 1000 cycles)
         if self.metrics.analysis_cycles % 1000 == 0 {
-            #[cfg(target_arch = "wasm32")]
-            {
-                dev_log!(
-                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                    self.metrics.processing_latency_ms, 
-                    self.metrics.analysis_cycles,
-                    self.metrics.successful_detections
-                );
-            }
-            
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                println!(
-                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                    self.metrics.processing_latency_ms, 
-                    self.metrics.analysis_cycles,
-                    self.metrics.successful_detections
-                );
-            }
+            dev_log!(
+                "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
+                self.metrics.processing_latency_ms, 
+                self.metrics.analysis_cycles,
+                self.metrics.successful_detections
+            );
         }
     }
 

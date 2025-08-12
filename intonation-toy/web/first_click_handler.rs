@@ -4,6 +4,7 @@
 //! within a user gesture context. It creates a full-screen overlay that captures
 //! the user's first click and uses that gesture to request microphone permission.
 
+#[cfg(target_arch = "wasm32")]
 use crate::common::dev_log;
 
 /// Sets up a first-click handler overlay for WASM targets
