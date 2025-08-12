@@ -10,7 +10,15 @@ pub mod engine;
 pub mod model;
 pub mod presentation;
 
+// Platform abstraction layer
+// Provides trait-based abstractions for platform-specific functionality,
+// enabling clean separation between web/native implementations
+pub mod platform;
+
 // Platform-specific modules
+// Web module contains browser-specific implementations
+// Conditionally compiled only for WASM targets
+#[cfg(target_arch = "wasm32")]
 pub mod web;
 
 // Module interfaces
@@ -161,8 +169,11 @@ pub async fn start_render_loop(
     dev_log!("Starting render loop");
     
     // Set up user gesture handler for microphone permission
-    let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
-    web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
+        web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
+    }
     
     // Performance tracking
     let mut frame_count = 0u32;
@@ -317,7 +328,10 @@ pub async fn start_render_loop(
         // Update debug panel data with performance metrics
         #[cfg(debug_assertions)]
         {
+            #[cfg(target_arch = "wasm32")]
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
+            #[cfg(not(target_arch = "wasm32"))]
+            let (memory_usage_mb, memory_usage_percent) = (0.0, 0.0);
             let audio_latency = if let Some(ref engine) = engine {
                 engine.get_pitch_analyzer_metrics()
                     .map(|metrics| metrics.average_latency_ms)
@@ -540,6 +554,7 @@ pub async fn start() {
     
     // Apply CSS custom properties for theme switching (static CSS already loaded)
     dev_log!("Applying CSS custom properties for theme initialization...");
+    #[cfg(target_arch = "wasm32")]
     crate::web::styling::apply_color_scheme_styles();
     
     // Create three-layer architecture instances

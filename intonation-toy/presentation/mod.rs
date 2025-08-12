@@ -698,6 +698,7 @@ impl Presenter {
                 }
                 crate::shared_types::Error::MicrophoneNotAvailable => {
                     // Show microphone not available message - this is a critical error
+                    #[cfg(target_arch = "wasm32")]
                     crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
                 }
                 crate::shared_types::Error::BrowserApiNotSupported => {
@@ -709,10 +710,12 @@ impl Presenter {
                 }
                 crate::shared_types::Error::MobileDeviceNotSupported => {
                     // Show mobile device not supported message
+                    #[cfg(target_arch = "wasm32")]
                     crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
                 }
                 crate::shared_types::Error::BrowserError => {
                     // Show browser error message
+                    #[cfg(target_arch = "wasm32")]
                     crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
                 }
             }
@@ -832,10 +835,14 @@ impl Presenter {
         if crate::shared_types::semitone_in_scale(scale, 0) {
             // Root frequency stays at interval 0.0 (log2(1) = 0)
             let interval = 0.0;
+            #[cfg(target_arch = "wasm32")]
+            let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            #[cfg(not(target_arch = "wasm32"))]
+            let zoom_factor = 1.0;
             let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                 interval,
                 viewport.height as f32,
-                crate::web::main_scene_ui::get_current_zoom_factor(),
+                zoom_factor,
             );
             let thickness = get_thickness(0);
             line_data.push((y_position, root_note, thickness));
@@ -851,10 +858,14 @@ impl Presenter {
                     semitone,
                 );
                 let interval = (frequency / root_frequency).log2();
+                #[cfg(target_arch = "wasm32")]
+                let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+                #[cfg(not(target_arch = "wasm32"))]
+                let zoom_factor = 1.0;
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    zoom_factor,
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
@@ -872,10 +883,14 @@ impl Presenter {
                     semitone,
                 );
                 let interval = (frequency / root_frequency).log2();
+                #[cfg(target_arch = "wasm32")]
+                let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+                #[cfg(not(target_arch = "wasm32"))]
+                let zoom_factor = 1.0;
                 let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
                     interval,
                     viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    zoom_factor,
                 );
                 let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);

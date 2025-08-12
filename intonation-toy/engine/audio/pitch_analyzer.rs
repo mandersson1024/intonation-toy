@@ -2,8 +2,9 @@ use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::common::dev_log;
 use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
+#[cfg(target_arch = "wasm32")]
+use crate::common::dev_log;
 
 pub type PitchAnalysisError = String;
 

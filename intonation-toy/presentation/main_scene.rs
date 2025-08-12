@@ -411,7 +411,11 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         self.cents_offset = cents_offset;
         if pitch_detected {
-            let y = interval_to_screen_y_position(interval, viewport.height as f32, crate::web::main_scene_ui::get_current_zoom_factor());
+            #[cfg(target_arch = "wasm32")]
+            let zoom_factor = crate::web::main_scene_ui::get_current_zoom_factor();
+            #[cfg(not(target_arch = "wasm32"))]
+            let zoom_factor = 1.0; // Default zoom for non-web platforms
+            let y = interval_to_screen_y_position(interval, viewport.height as f32, zoom_factor);
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
             
             // Calculate thickness and alpha based on clarity
