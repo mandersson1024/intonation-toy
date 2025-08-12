@@ -7,6 +7,10 @@ license = "MIT"
 
 [dependencies]
 three-d = { version = "0.17.1", features = ["egui-gui"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Web-specific dependencies (conditional)
 web-sys = { version = "0.3", features = [
   "console",
   "Performance",
@@ -42,14 +46,17 @@ web-sys = { version = "0.3", features = [
   "ScriptProcessorNode",
   "AudioProcessingEvent",
   "AudioBuffer",
-] }
-js-sys = "0.3"
-wasm-bindgen = "0.2.100"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+], optional = true }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2.100", optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
+
+[features]
+default = ["web"]
+web = ["dep:web-sys", "dep:js-sys", "dep:wasm-bindgen"]
+test-native = []
 
 [lib]
 name = "egui_dev_console"
