@@ -581,21 +581,21 @@ impl Presenter {
             }
             
             // Set up HTML UI for main scene
+            // UI was already set up during presenter creation
+            
+            // Set up event listeners if we have a self-reference
             #[cfg(target_arch = "wasm32")]
             {
-                // UI was already set up during presenter creation
-                
-                // Set up event listeners if we have a self-reference
                 if let Some(ref self_ref) = self.self_reference {
                     let platform = crate::platform::get_platform();
                     platform.setup_event_listeners(self_ref.clone());
                 } else {
                     crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
                 }
-                
-                // Synchronize UI state with current model data values
-                self.sync_html_ui(model_data);
             }
+            
+            // Synchronize UI state with current model data values
+            self.sync_html_ui(model_data);
         }
         
         // Delegate rendering to the active scene
