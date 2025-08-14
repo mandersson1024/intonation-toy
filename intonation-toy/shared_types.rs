@@ -291,6 +291,12 @@ pub enum Pitch {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct PitchSmoothed {
+    pub frequency: f32,
+    pub clarity: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct AudioAnalysis {
     pub volume_level: Volume,
     pub pitch: Pitch,
@@ -376,6 +382,7 @@ pub struct ModelUpdateResult {
     pub volume: Volume,
     pub volume_peak: bool,
     pub pitch: Pitch,
+    pub pitch_smoothed: PitchSmoothed,
     pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
