@@ -96,6 +96,7 @@
 
 use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
+use crate::presentation::EmaSmoother;
 use crate::common::warn_log;
 
 /// Validation error types for action processing
@@ -249,6 +250,28 @@ pub struct DataModel {
     
     /// Current scale for note filtering
     current_scale: Scale,
+    
+    /// EMA smoother for frequency values
+    /// 
+    /// This smoother applies exponential moving average filtering to the detected
+    /// frequency values, reducing jitter and providing more stable pitch detection.
+    /// The smoothing factor is configured via PITCH_SMOOTHING_FACTOR in app_config.
+    frequency_smoother: EmaSmoother,
+    
+    /// EMA smoother for clarity values
+    /// 
+    /// This smoother applies exponential moving average filtering to the clarity
+    /// (confidence) values from the pitch detection algorithm. This helps maintain
+    /// stable visual feedback even when the detection confidence fluctuates.
+    clarity_smoother: EmaSmoother,
+    
+    /// Tracks the last detected pitch as (frequency, clarity) tuple
+    /// 
+    /// This field maintains the previous pitch detection state to handle smooth
+    /// transitions between detected and not-detected states. When pitch detection
+    /// fails, the smoothers can continue to provide decaying values based on the
+    /// last known good pitch, creating a more natural visual transition.
+    last_detected_pitch: Option<(f32, f32)>,
 }
 
 impl DataModel {
@@ -271,6 +294,9 @@ impl DataModel {
             tuning_system: TuningSystem::EqualTemperament,
             root_note: crate::app_config::DEFAULT_ROOT_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
+            frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            last_detected_pitch: None,
         })
     }
 
