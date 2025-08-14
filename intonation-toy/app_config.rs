@@ -31,6 +31,19 @@ pub const WINDOW_TITLE: &str = "intonation-toy";
 pub const CLARITY_THRESHOLD: f32 = 0.3;
 pub const POWER_THRESHOLD: f32 = 1.0;
 
+/// Pitch smoothing factor for exponential moving average (EMA)
+/// 
+/// Controls how much the pitch detection is smoothed over time to reduce jitter
+/// and noise while maintaining responsiveness to actual pitch changes.
+/// 
+/// Range: 0.0 to 1.0
+/// - Higher values (closer to 1.0): More responsive to changes, less smoothing
+/// - Lower values (closer to 0.0): More smoothing, slower response to changes
+/// - Default 0.1: Provides moderate smoothing while maintaining good responsiveness
+/// 
+/// This factor is used in the EMA formula: smoothed = factor * new_value + (1 - factor) * old_value
+pub const PITCH_SMOOTHING_FACTOR: f32 = 0.1;
+
 /// Intonation accuracy configuration
 /// Threshold in cents for considering pitch "accurate" and showing accent color
 /// When the detected pitch is within ±INTONATION_ACCURACY_THRESHOLD cents of a note,
