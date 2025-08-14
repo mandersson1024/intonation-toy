@@ -819,9 +819,9 @@ impl Presenter {
         let get_thickness = |semitone: i32| -> f32 {
             // Octave lines (multiples of 12 semitones) get configurable thickness, others get regular thickness
             if semitone % 12 == 0 {
-                crate::app_config::OCTAVE_LINE_THICKNESS
+                crate::presentation::main_scene::OCTAVE_LINE_THICKNESS
             } else {
-                crate::app_config::REGULAR_LINE_THICKNESS
+                crate::presentation::main_scene::REGULAR_LINE_THICKNESS
             }
         };
         

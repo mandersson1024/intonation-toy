@@ -103,6 +103,7 @@ impl Default for DebugEngineActions {
     }
 }
 
+#[cfg(debug_assertions)]
 impl DebugEngineActions {
     /// Create a new instance with empty debug action collections
     /// 

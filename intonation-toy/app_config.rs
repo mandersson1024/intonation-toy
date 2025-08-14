@@ -20,9 +20,9 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Viewport configuration
-pub const VIEWPORT_RENDER_SIZE: u32 = 512;
+pub const VIEWPORT_RENDER_SIZE: u32 = 1024;
 pub const CANVAS_MIN_SIZE: i32 = 384;
-pub const CANVAS_MAX_SIZE: i32 = 2048;
+pub const CANVAS_MAX_SIZE: i32 = 4096;
 
 /// Window configuration
 pub const WINDOW_TITLE: &str = "intonation-toy";
@@ -45,22 +45,16 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
 /// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 3.0;
-pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 20.0;
+pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 10.0;
+pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
 
 /// User pitch line transparency configuration
 pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;
 pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 
-/// Octave line thickness configuration
-pub const OCTAVE_LINE_THICKNESS: f32 = 4.0;
-pub const REGULAR_LINE_THICKNESS: f32 = 2.0;
 
 /// Overlay alpha configuration
 pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;
 
-/// Controls how much of the viewport height is used for pitch visualization.
-/// A value of 0.95 means 95% of the viewport height is used for two octaves.
-/// This provides a small margin at the top and bottom of the screen.
-pub const PITCH_VISUALIZATION_ZOOM_DEFAULT: f32 = 0.95;
+pub const PITCH_VISUALIZATION_ZOOM_DEFAULT: f32 = 0.92;
 pub const PITCH_VISUALIZATION_ZOOM_MAX: f32 = 2.85;

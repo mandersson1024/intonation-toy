@@ -4,10 +4,18 @@ use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alp
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
-const NOTE_NAME_X_OFFSET: f32 = 18.0;
+const NOTE_NAME_X_OFFSET: f32 = 28.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
-const NOTE_LINE_LEFT_MARGIN: f32 = 40.0;
-const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
+const NOTE_LINE_LEFT_MARGIN: f32 = 60.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 20.0;
+
+// Font size for note labels
+const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
+
+// Line thickness values
+pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
+pub const REGULAR_LINE_THICKNESS: f32 = 5.0;
+const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 // Helper function to get the user pitch line color from the color scheme
 // Returns error color when volume peak flag is true, accent color when within configured threshold, otherwise primary color
@@ -86,7 +94,7 @@ impl TuningLines {
                 &self.context,
                 PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
                 PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
-                1.0  // Default thickness, will be updated
+                DEFAULT_LINE_THICKNESS  // Default thickness, will be updated
             );
             // Use regular material as default, will be updated if needed
             self.lines.push(Gm::new(line, self.regular_material.clone()));
@@ -106,14 +114,14 @@ impl TuningLines {
             self.y_positions.push(0.0); // Temporary value, will be set below
         }
         while self.thicknesses.len() < needed_lines {
-            self.thicknesses.push(1.0); // Temporary value, will be set below
+            self.thicknesses.push(DEFAULT_LINE_THICKNESS); // Temporary value, will be set below
         }
         
         // Set positions, MIDI notes, and thickness for all lines
         for (i, &(y, midi_note, thickness)) in line_data.iter().enumerate() {
             // Determine material priority: accent > octave > regular
             let is_closest = Some(midi_note) == self.closest_midi_note;
-            let is_octave = thickness == crate::app_config::OCTAVE_LINE_THICKNESS;
+            let is_octave = thickness == OCTAVE_LINE_THICKNESS;
             let material = if is_closest {
                 &self.accent_material
             } else if is_octave { 
@@ -149,12 +157,12 @@ impl TuningLines {
     }
     
     /// Backward compatibility method that accepts old format without thickness
-    /// Calls the new update_lines method with default thickness of 1.0
+    /// Calls the new update_lines method with default thickness of DEFAULT_LINE_THICKNESS
     pub fn update_lines_legacy(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote)]) {
         // Convert old format to new format with default thickness
         let with_thickness: Vec<(f32, MidiNote, f32)> = line_data
             .iter()
-            .map(|&(y, midi_note)| (y, midi_note, 1.0))
+            .map(|&(y, midi_note)| (y, midi_note, DEFAULT_LINE_THICKNESS))
             .collect();
         self.update_lines(viewport, &with_thickness);
     }
@@ -177,7 +185,6 @@ impl TuningLines {
     pub fn render_note_labels(&self, text_renderer: &mut TextRenderer) {
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];
-            let thickness = self.thicknesses[i];
             
             // Convert MIDI note to name
             let note_name = crate::shared_types::midi_note_to_name(midi_note);
@@ -190,13 +197,11 @@ impl TuningLines {
             let scheme = get_current_color_scheme();
             let text_color = if Some(midi_note) == self.closest_midi_note {
                 scheme.accent
-            } else if thickness == crate::app_config::OCTAVE_LINE_THICKNESS {
-                scheme.secondary
             } else {
                 scheme.muted
             };
             
-            text_renderer.queue_text(&note_name, text_x, text_y, 14.0, [text_color[0], text_color[1], text_color[2], 1.0]);
+            text_renderer.queue_text(&note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
 }
@@ -305,7 +310,7 @@ impl MainScene {
         let initial_cents_offset = 0.0;
         let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme, initial_volume_peak, initial_cents_offset)), false);
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary), rgb_to_srgba(scheme.accent));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.accent));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
@@ -344,7 +349,7 @@ impl MainScene {
         
         // Update tuning lines materials
         self.tuning_lines.regular_material = create_color_material(rgb_to_srgba(scheme.muted), false);
-        self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.secondary), false);
+        self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.muted), false);
         self.tuning_lines.accent_material = create_color_material(rgb_to_srgba(scheme.accent), false);
         
         // Clear and recreate all tuning lines with new material
