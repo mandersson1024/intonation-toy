@@ -39,7 +39,7 @@
 
 // Buffer size constants - IMPORTANT: Must match Rust BUFFER_SIZE constant in engine/audio/buffer.rs
 const AUDIO_CHUNK_SIZE = 128;  // Fixed AudioWorklet chunk size
-const BUFFER_SIZE = AUDIO_CHUNK_SIZE * 32;  // 4096 samples - matches Rust constant
+const BUFFER_SIZE = AUDIO_CHUNK_SIZE * 16;  // 4096 samples - matches Rust constant
 
 // AudioWorklet compatibility helpers
 // Note: performance and other APIs are not available in AudioWorklet context
