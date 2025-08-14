@@ -4,17 +4,17 @@ use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alp
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
-const NOTE_NAME_X_OFFSET: f32 = 28.0;
+const NOTE_NAME_X_OFFSET: f32 = 22.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
-const NOTE_LINE_LEFT_MARGIN: f32 = 60.0;
-const NOTE_LINE_RIGHT_MARGIN: f32 = 20.0;
+const NOTE_LINE_LEFT_MARGIN: f32 = 50.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
 
 // Font size for note labels
-const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
+const NOTE_LABEL_FONT_SIZE: f32 = 20.0;
 
 // Line thickness values
-pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
-pub const REGULAR_LINE_THICKNESS: f32 = 5.0;
+pub const OCTAVE_LINE_THICKNESS: f32 = 6.0;
+pub const REGULAR_LINE_THICKNESS: f32 = 3.0;
 const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 // Helper function to get the user pitch line color from the color scheme
@@ -23,9 +23,9 @@ fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offs
     if volume_peak {
         scheme.error
     } else if cents_offset.abs() < INTONATION_ACCURACY_THRESHOLD {
-        [1.000, 0.722, 0.420]
-    } else {
         [0.431, 0.905, 0.718]
+    } else {
+        [1.000, 0.722, 0.420]
     }
 }
 

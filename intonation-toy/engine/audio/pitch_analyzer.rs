@@ -238,7 +238,7 @@ impl PitchAnalyzer {
                     power_threshold: POWER_THRESHOLD,
                     clarity_threshold: CLARITY_THRESHOLD,
                     padding_size: window_size / 2,
-                    min_frequency: 80.0,
+                    min_frequency: 60.0,
                     max_frequency: 2000.0,
                 };
                 
