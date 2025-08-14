@@ -124,7 +124,7 @@ pub async fn start_render_loop(
     
     let window = Window::new(WindowSettings {
         title: app_config::WINDOW_TITLE.to_string(),
-        max_size: Some((app_config::VIEWPORT_WIDTH, app_config::VIEWPORT_HEIGHT)),
+        max_size: Some((app_config::VIEWPORT_RENDER_SIZE, app_config::VIEWPORT_RENDER_SIZE)),
         ..Default::default()
     })
     .unwrap();

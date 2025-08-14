@@ -20,10 +20,9 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Viewport configuration
-pub const VIEWPORT_WIDTH: u32 = 768;
-pub const VIEWPORT_HEIGHT: u32 = 768;
+pub const VIEWPORT_RENDER_SIZE: u32 = 512;
 pub const CANVAS_MIN_SIZE: i32 = 384;
-pub const CANVAS_MAX_SIZE: i32 = 768;
+pub const CANVAS_MAX_SIZE: i32 = 2048;
 
 /// Window configuration
 pub const WINDOW_TITLE: &str = "intonation-toy";

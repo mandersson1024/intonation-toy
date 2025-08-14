@@ -6,7 +6,7 @@ use web_sys::Document;
 pub const SIDEBAR_WIDTH: i32 = 300;
 
 /// Canvas margin in pixels - now applies to the scene wrapper container
-pub const CANVAS_MARGIN: i32 = 100;
+pub const CANVAS_MARGIN: i32 = 50;
 
 /// Zoom control offset from canvas edge in pixels
 pub const ZOOM_CONTROL_OFFSET: i32 = 12;
