@@ -96,7 +96,7 @@
 
 use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
-use crate::presentation::EmaSmoother;
+use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
 
 /// Validation error types for action processing

@@ -63,9 +63,6 @@ pub use main_scene::{MainScene, TuningLines};
 mod startup_scene;
 pub use startup_scene::StartupScene;
 
-mod smoothing;
-pub use smoothing::EmaSmoother;
-
 use std::rc::Rc;
 use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
@@ -229,9 +226,6 @@ pub struct Presenter {
     /// Processed interval position for rendering
     interval_position: f32,
     
-    /// EMA smoother for interval position smoothing
-    pub ema_smoother: EmaSmoother,
-    
     /// Tracks whether the main scene UI is currently active
     /// Used to manage HTML UI lifecycle during scene transitions
     #[cfg(target_arch = "wasm32")]
@@ -278,7 +272,6 @@ impl Presenter {
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
-            ema_smoother: EmaSmoother::new(0.1),
             #[cfg(target_arch = "wasm32")]
             main_scene_ui_active: true, // UI is now active from the start
             #[cfg(target_arch = "wasm32")]
@@ -397,21 +390,7 @@ impl Presenter {
         // Sync HTML UI with updated state
         self.sync_html_ui(&model_data);
         
-        // Calculate interval position with EMA smoothing for detected pitch
-        let raw_interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
-        
-        match model_data.pitch {
-            Pitch::Detected(_, _) => {
-                // Apply EMA smoothing when pitch is detected
-                self.interval_position = self.ema_smoother.apply(raw_interval_position);
-            }
-            Pitch::NotDetected => {
-                // Maintain existing behavior for undetected pitch (no smoothing)
-                self.interval_position = raw_interval_position; // This will be 0.0
-                // Reset EMA state for clean restart when pitch detection resumes
-                self.ema_smoother.reset();
-            }
-        }
+        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
     }
 
     /// Retrieve and clear all pending user actions
