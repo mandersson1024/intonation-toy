@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, PitchSmoothed, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::presentation::EmaSmoother;
 use crate::common::warn_log;
@@ -398,6 +398,41 @@ impl DataModel {
             }
         };
         
+        // Apply pitch smoothing
+        let pitch_smoothed = match pitch {
+            Pitch::Detected(frequency, clarity) => {
+                // Apply smoothing to detected values
+                let smoothed_frequency = self.frequency_smoother.apply(frequency);
+                let smoothed_clarity = self.clarity_smoother.apply(clarity);
+                
+                // Update last detected pitch for future use
+                self.last_detected_pitch = Some((frequency, clarity));
+                
+                PitchSmoothed {
+                    frequency: smoothed_frequency,
+                    clarity: smoothed_clarity,
+                }
+            }
+            Pitch::NotDetected => {
+                // Use last detected frequency with decaying clarity
+                if let Some((last_freq, _)) = self.last_detected_pitch {
+                    let smoothed_frequency = self.frequency_smoother.apply(last_freq);
+                    let smoothed_clarity = self.clarity_smoother.apply(0.0); // Decay to 0
+                    
+                    PitchSmoothed {
+                        frequency: smoothed_frequency,
+                        clarity: smoothed_clarity,
+                    }
+                } else {
+                    // No previous detection - use defaults
+                    PitchSmoothed {
+                        frequency: 0.0,
+                        clarity: 0.0,
+                    }
+                }
+            }
+        };
+        
         // Calculate volume peak flag using configurable threshold
         let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
@@ -442,6 +477,7 @@ impl DataModel {
             volume,
             volume_peak,
             pitch,
+            pitch_smoothed,
             accuracy: accuracy.clone(), // Keep for backward compatibility
             tuning_system: self.tuning_system,
             scale: self.current_scale,
