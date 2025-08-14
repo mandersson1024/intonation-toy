@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, PitchSmoothed, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::presentation::EmaSmoother;
 use crate::common::warn_log;
@@ -332,20 +332,45 @@ impl DataModel {
     /// - Normalizes accuracy to 0.0-1.0 range (0.0 = perfect, 1.0 = 50+ cents off)
     /// - Returns maximum inaccuracy (1.0) when no pitch is detected
     pub fn update(&mut self, _timestamp: f64, engine_data: EngineUpdateResult) -> ModelUpdateResult {
-        // Process audio analysis from engine data
+        // Process audio analysis from engine data with smoothing
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
-            // Extract volume and pitch from audio analysis
+            // Extract volume from audio analysis
             let volume = Volume {
                 peak_amplitude: audio_analysis.volume_level.peak_amplitude,
                 rms_amplitude: audio_analysis.volume_level.rms_amplitude,
             };
             
+            // Apply smoothing to pitch data
             let pitch = match audio_analysis.pitch {
                 crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                    Pitch::Detected(frequency, clarity)
+                    // Apply smoothing to detected values
+                    let smoothed_frequency = self.frequency_smoother.apply(frequency);
+                    let smoothed_clarity = self.clarity_smoother.apply(clarity);
+                    
+                    // Update last detected pitch for future use
+                    self.last_detected_pitch = Some((frequency, clarity));
+
+                    Pitch::Detected(smoothed_frequency, smoothed_clarity)
                 }
                 crate::shared_types::Pitch::NotDetected => {
-                    Pitch::NotDetected
+                    // Use last detected frequency and clarity for smooth transitions
+                    if let Some((last_freq, _)) = self.last_detected_pitch {
+                        let smoothed_clarity = self.clarity_smoother.apply(0.0);
+                        
+                        if smoothed_clarity < crate::app_config::CLARITY_THRESHOLD * 0.5 {
+                            self.last_detected_pitch = None;
+                            self.frequency_smoother.reset();
+                            self.clarity_smoother.reset();
+                            Pitch::NotDetected
+                        } else {
+                            Pitch::Detected(last_freq, smoothed_clarity)
+                        }
+                    } else {
+                        self.last_detected_pitch = None;
+                        self.frequency_smoother.reset();
+                        self.clarity_smoother.reset();
+                        Pitch::NotDetected
+                    }
                 }
             };
             
@@ -398,41 +423,6 @@ impl DataModel {
             }
         };
         
-        // Apply pitch smoothing
-        let pitch_smoothed = match pitch {
-            Pitch::Detected(frequency, clarity) => {
-                // Apply smoothing to detected values
-                let smoothed_frequency = self.frequency_smoother.apply(frequency);
-                let smoothed_clarity = self.clarity_smoother.apply(clarity);
-                
-                // Update last detected pitch for future use
-                self.last_detected_pitch = Some((frequency, clarity));
-                
-                PitchSmoothed {
-                    frequency: smoothed_frequency,
-                    clarity: smoothed_clarity,
-                }
-            }
-            Pitch::NotDetected => {
-                // Use last detected frequency with decaying clarity
-                if let Some((last_freq, _)) = self.last_detected_pitch {
-                    let smoothed_frequency = self.frequency_smoother.apply(last_freq);
-                    let smoothed_clarity = self.clarity_smoother.apply(0.0); // Decay to 0
-                    
-                    PitchSmoothed {
-                        frequency: smoothed_frequency,
-                        clarity: smoothed_clarity,
-                    }
-                } else {
-                    // No previous detection - use defaults
-                    PitchSmoothed {
-                        frequency: 0.0,
-                        clarity: 0.0,
-                    }
-                }
-            }
-        };
-        
         // Calculate volume peak flag using configurable threshold
         let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
@@ -477,7 +467,6 @@ impl DataModel {
             volume,
             volume_peak,
             pitch,
-            pitch_smoothed,
             accuracy: accuracy.clone(), // Keep for backward compatibility
             tuning_system: self.tuning_system,
             scale: self.current_scale,

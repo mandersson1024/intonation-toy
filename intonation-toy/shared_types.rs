@@ -382,7 +382,6 @@ pub struct ModelUpdateResult {
     pub volume: Volume,
     pub volume_peak: bool,
     pub pitch: Pitch,
-    pub pitch_smoothed: PitchSmoothed,
     pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
