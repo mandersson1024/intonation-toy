@@ -17,15 +17,19 @@ pub const OCTAVE_LINE_THICKNESS: f32 = 6.0;
 pub const REGULAR_LINE_THICKNESS: f32 = 3.0;
 const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
+// User pitch line colors
+const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];  // Light green/cyan for accurate intonation
+const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];  // Orange for inaccurate intonation
+
 // Helper function to get the user pitch line color from the color scheme
 // Returns error color when volume peak flag is true, more saturated accent color when within configured threshold, otherwise regular accent color
 fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offset: f32) -> [f32; 3] {
     if volume_peak {
         scheme.error
     } else if cents_offset.abs() < INTONATION_ACCURACY_THRESHOLD {
-        [0.431, 0.905, 0.718]
+        COLOR_SUCCESS
     } else {
-        [1.000, 0.722, 0.420]
+        COLOR_WARNING
     }
 }
 
@@ -182,7 +186,7 @@ impl TuningLines {
     }
     
     /// Render note labels above each tuning line
-    pub fn render_note_labels(&self, text_renderer: &mut TextRenderer) {
+    pub fn render_note_labels(&self, text_renderer: &mut TextRenderer, volume_peak: bool, cents_offset: f32) {
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];
             
@@ -193,10 +197,11 @@ impl TuningLines {
             let text_y = y_position + NOTE_NAME_Y_OFFSET;
             let text_x = NOTE_NAME_X_OFFSET;
             
-            // Determine color with priority: accent > octave > muted
+            // Determine color based on whether this is the closest note
             let scheme = get_current_color_scheme();
             let text_color = if Some(midi_note) == self.closest_midi_note {
-                scheme.accent
+                // Use the same color logic as the user pitch line for the closest note
+                get_user_pitch_line_color(&scheme, volume_peak, cents_offset)
             } else {
                 scheme.muted
             };
@@ -416,7 +421,7 @@ impl MainScene {
         self.text_renderer.clear_queue();
         
         // Render note labels above tuning lines
-        self.tuning_lines.render_note_labels(&mut self.text_renderer);
+        self.tuning_lines.render_note_labels(&mut self.text_renderer, self.volume_peak, self.cents_offset);
         
         // Render text models using actual Roboto font  
         let viewport = self.camera.viewport();
