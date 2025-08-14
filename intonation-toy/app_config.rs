@@ -45,7 +45,7 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
 /// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 10.0;
+pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 8.0;
 pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
 
 /// User pitch line transparency configuration

@@ -18,14 +18,14 @@ pub const REGULAR_LINE_THICKNESS: f32 = 5.0;
 const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 // Helper function to get the user pitch line color from the color scheme
-// Returns error color when volume peak flag is true, accent color when within configured threshold, otherwise primary color
+// Returns error color when volume peak flag is true, more saturated accent color when within configured threshold, otherwise regular accent color
 fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offset: f32) -> [f32; 3] {
     if volume_peak {
         scheme.error
     } else if cents_offset.abs() < INTONATION_ACCURACY_THRESHOLD {
-        scheme.accent
+        [1.000, 0.722, 0.420]
     } else {
-        scheme.primary
+        [0.431, 0.905, 0.718]
     }
 }
 
@@ -57,15 +57,15 @@ pub struct TuningLines {
     context: Context,
     regular_material: ColorMaterial,
     octave_material: ColorMaterial,
-    accent_material: ColorMaterial,
+    closest_line_material: ColorMaterial,
     closest_midi_note: Option<MidiNote>,
 }
 
 impl TuningLines {
-    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba, accent_color: Srgba) -> Self {
+    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba, closest_line_color: Srgba) -> Self {
         let regular_material = create_color_material(regular_color, false);
         let octave_material = create_color_material(octave_color, false);
-        let accent_material = create_color_material(accent_color, false);
+        let closest_line_material = create_color_material(closest_line_color, false);
         
         Self {
             lines: Vec::new(),
@@ -75,7 +75,7 @@ impl TuningLines {
             context: context.clone(),
             regular_material,
             octave_material,
-            accent_material,
+            closest_line_material,
             closest_midi_note: None,
         }
     }
@@ -123,7 +123,7 @@ impl TuningLines {
             let is_closest = Some(midi_note) == self.closest_midi_note;
             let is_octave = thickness == OCTAVE_LINE_THICKNESS;
             let material = if is_closest {
-                &self.accent_material
+                &self.closest_line_material
             } else if is_octave { 
                 &self.octave_material 
             } else { 
@@ -288,6 +288,7 @@ impl TextRenderer {
 pub struct MainScene {
     camera: Camera,
     user_pitch_line: Gm<Line, ColorMaterial>,
+    user_pitch_line_material: ColorMaterial,
     light: AmbientLight,
     pub tuning_lines: TuningLines,
     text_renderer: TextRenderer,
@@ -301,6 +302,16 @@ pub struct MainScene {
 }
 
 impl MainScene {
+    /// Creates the material for the user pitch line based on current state
+    fn create_user_pitch_line_material(&self) -> ColorMaterial {
+        let color = get_user_pitch_line_color(&self.current_scheme, self.volume_peak, self.cents_offset);
+        let has_transparency = self.user_pitch_line_alpha < 1.0;
+        create_color_material(
+            rgb_to_srgba_with_alpha(color, self.user_pitch_line_alpha),
+            has_transparency
+        )
+    }
+    
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
@@ -308,14 +319,22 @@ impl MainScene {
 
         let initial_volume_peak = false;
         let initial_cents_offset = 0.0;
-        let primary_material = create_color_material(rgb_to_srgba(get_user_pitch_line_color(&scheme, initial_volume_peak, initial_cents_offset)), false);
+        let initial_alpha = USER_PITCH_LINE_TRANSPARENCY_MAX;
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.accent));
+        // Create initial material
+        let color = get_user_pitch_line_color(&scheme, initial_volume_peak, initial_cents_offset);
+        let user_pitch_line_material = create_color_material(
+            rgb_to_srgba_with_alpha(color, initial_alpha), 
+            initial_alpha < 1.0
+        );
+        
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
         let text_renderer = TextRenderer::new(context)?;
         
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line: Gm::new(user_pitch_line, primary_material.clone()),
+            user_pitch_line: Gm::new(user_pitch_line, user_pitch_line_material.clone()),
+            user_pitch_line_material,
             light: AmbientLight::new(context, 1.0, rgb_to_srgba(scheme.secondary)),
             tuning_lines,
             text_renderer,
@@ -323,7 +342,7 @@ impl MainScene {
             pitch_detected: false,
             current_scheme: scheme,
             user_pitch_line_thickness: initial_thickness,
-            user_pitch_line_alpha: USER_PITCH_LINE_TRANSPARENCY_MAX,
+            user_pitch_line_alpha: initial_alpha,
             volume_peak: initial_volume_peak,
             cents_offset: initial_cents_offset,
         })
@@ -336,21 +355,20 @@ impl MainScene {
     fn refresh_colors(&mut self) {
         let scheme = self.current_scheme.clone();
         
-        // Recreate user pitch line with new color (it will be repositioned on next update)
-        let primary_material = create_color_material(
-            rgb_to_srgba_with_alpha(get_user_pitch_line_color(&scheme, self.volume_peak, self.cents_offset), self.user_pitch_line_alpha),
-            true
-        );
+        // Update user pitch line material with new color
+        self.user_pitch_line_material = self.create_user_pitch_line_material();
+        
+        // Recreate user pitch line with updated material
         let line = Line::new(&self.context, 
             PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, 
             PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y:0.0}, 
             self.user_pitch_line_thickness);
-        self.user_pitch_line = Gm::new(line, primary_material);
+        self.user_pitch_line = Gm::new(line, self.user_pitch_line_material.clone());
         
         // Update tuning lines materials
         self.tuning_lines.regular_material = create_color_material(rgb_to_srgba(scheme.muted), false);
         self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.muted), false);
-        self.tuning_lines.accent_material = create_color_material(rgb_to_srgba(scheme.accent), false);
+        self.tuning_lines.closest_line_material = create_color_material(rgb_to_srgba(scheme.secondary), false);
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
@@ -440,14 +458,15 @@ impl MainScene {
             let alpha_changed = (new_alpha - self.user_pitch_line_alpha).abs() > f32::EPSILON;
             
             if thickness_changed || alpha_changed {
-                let primary_material = create_color_material(
-                    rgb_to_srgba_with_alpha(get_user_pitch_line_color(&self.current_scheme, self.volume_peak, self.cents_offset), new_alpha),
-                    true
-                );
-                let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
-                self.user_pitch_line = Gm::new(line, primary_material);
+                // Update thickness and alpha first so the material creation uses new values
                 self.user_pitch_line_thickness = new_thickness;
                 self.user_pitch_line_alpha = new_alpha;
+                
+                // Update the user pitch line material
+                self.user_pitch_line_material = self.create_user_pitch_line_material();
+                
+                let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
+                self.user_pitch_line = Gm::new(line, self.user_pitch_line_material.clone());
             } else {
                 // Only position changed, use existing line
                 self.user_pitch_line.set_endpoints(endpoints.0, endpoints.1);
