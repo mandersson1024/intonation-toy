@@ -4,17 +4,17 @@ use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alp
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
-const NOTE_NAME_X_OFFSET: f32 = 22.0;
+const NOTE_NAME_X_OFFSET: f32 = 14.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
-const NOTE_LINE_LEFT_MARGIN: f32 = 50.0;
-const NOTE_LINE_RIGHT_MARGIN: f32 = 15.0;
+const NOTE_LINE_LEFT_MARGIN: f32 = 30.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 10.0;
 
 // Font size for note labels
-const NOTE_LABEL_FONT_SIZE: f32 = 20.0;
+const NOTE_LABEL_FONT_SIZE: f32 = 16.0;
 
 // Line thickness values
-pub const OCTAVE_LINE_THICKNESS: f32 = 6.0;
-pub const REGULAR_LINE_THICKNESS: f32 = 3.0;
+pub const OCTAVE_LINE_THICKNESS: f32 = 4.0;
+pub const REGULAR_LINE_THICKNESS: f32 = 2.0;
 const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 // User pitch line colors
@@ -158,17 +158,6 @@ impl TuningLines {
             self.y_positions[i] = y;
             self.thicknesses[i] = thickness;
         }
-    }
-    
-    /// Backward compatibility method that accepts old format without thickness
-    /// Calls the new update_lines method with default thickness of DEFAULT_LINE_THICKNESS
-    pub fn update_lines_legacy(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote)]) {
-        // Convert old format to new format with default thickness
-        let with_thickness: Vec<(f32, MidiNote, f32)> = line_data
-            .iter()
-            .map(|&(y, midi_note)| (y, midi_note, DEFAULT_LINE_THICKNESS))
-            .collect();
-        self.update_lines(viewport, &with_thickness);
     }
     
     pub fn lines(&self) -> impl Iterator<Item = &Gm<Line, ColorMaterial>> {
@@ -400,10 +389,7 @@ impl MainScene {
         // Collect all lines to render: tuning lines and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
         
-        // Only add user pitch line if pitch is detected
-        if self.pitch_detected {
-            renderable_lines.push(&self.user_pitch_line); // first in list is on top
-        }
+        renderable_lines.push(&self.user_pitch_line); // first in list is on top
 
         // Add all tuning lines
         for line in self.tuning_lines.lines() {

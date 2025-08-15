@@ -20,7 +20,8 @@ pub const DEFAULT_ROOT_NOTE: MidiNote = 60;
 pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Viewport configuration
-pub const VIEWPORT_RENDER_SIZE: u32 = 768;
+pub const VIEWPORT_RENDER_SIZE: u32 = 512;
+pub const VIEWPORT_RENDER_SIZE_RETINA: u32 = 256;
 pub const CANVAS_MIN_SIZE: i32 = 384;
 pub const CANVAS_MAX_SIZE: i32 = 4096;
 
@@ -58,8 +59,8 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
 /// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 6.0;
-pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 25.0;
+pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 4.0;
+pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 15.0;
 
 /// User pitch line transparency configuration
 pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;

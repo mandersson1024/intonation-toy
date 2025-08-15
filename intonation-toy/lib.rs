@@ -121,10 +121,15 @@ pub async fn start_render_loop(
         
         Some(canvas)
     };
+
+    let dpr = web_sys::window().unwrap().device_pixel_ratio();
+    dev_log!("device pixel ratio: {}", dpr);
     
+    let render_size: u32 = if dpr <= 1.0 { app_config::VIEWPORT_RENDER_SIZE } else { app_config::VIEWPORT_RENDER_SIZE_RETINA };
+
     let window = Window::new(WindowSettings {
         title: app_config::WINDOW_TITLE.to_string(),
-        max_size: Some((app_config::VIEWPORT_RENDER_SIZE, app_config::VIEWPORT_RENDER_SIZE)),
+        max_size: Some((render_size, render_size)),
         ..Default::default()
     })
     .unwrap();
