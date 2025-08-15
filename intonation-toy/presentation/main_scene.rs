@@ -1,4 +1,6 @@
-use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Viewport, WriteMask};
+use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
+use three_d::core::{Texture2D, DepthTexture2D, Interpolation, Wrapping};
+use three_d::renderer::geometry::Rectangle;
 use crate::shared_types::{MidiNote, ColorScheme};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
@@ -293,6 +295,11 @@ pub struct MainScene {
     user_pitch_line_alpha: f32,
     volume_peak: bool,
     cents_offset: f32,
+    // Background texture system: pre-rendered texture with large white "A" on dark green background
+    // These resources are automatically cleaned up by three-d's RAII when replaced or dropped
+    background_texture: Texture2DRef,
+    background_depth_texture: DepthTexture2D,
+    background_quad: Gm<Rectangle, ColorMaterial>,
 }
 
 impl MainScene {
@@ -304,6 +311,104 @@ impl MainScene {
             rgb_to_srgba_with_alpha(color, self.user_pitch_line_alpha),
             has_transparency
         )
+    }
+    
+    fn create_background_texture(context: &Context, viewport: Viewport, text_renderer: &mut TextRenderer) -> Result<(Texture2DRef, DepthTexture2D, Gm<Rectangle, ColorMaterial>), String> {
+        // Validate viewport dimensions
+        if viewport.width == 0 || viewport.height == 0 {
+            return Err("Invalid viewport dimensions: width and height must be greater than 0".to_string());
+        }
+        
+        // Create a Texture2D for the background
+        let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
+            context,
+            viewport.width as u32,
+            viewport.height as u32,
+            Interpolation::Linear,
+            Interpolation::Linear,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        // Create depth texture for the render target
+        let mut depth_texture = DepthTexture2D::new::<f32>(
+            context,
+            viewport.width as u32,
+            viewport.height as u32,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        // Create render target with the texture and render the "A" character
+        {
+            let render_target = RenderTarget::new(
+                background_texture.as_color_target(None),
+                depth_texture.as_depth_target(),
+            );
+            
+            // Clear with dark green background
+            render_target.clear(ClearState::color_and_depth(0.0, 0.4, 0.0, 1.0, 1.0));
+            
+            // Set up camera for off-screen rendering
+            let camera = Camera::new_2d(viewport);
+            
+            // Clear text renderer queue to ensure clean state
+            text_renderer.clear_queue();
+            
+            // Calculate position for large "A" character (centered)
+            // Scale font size based on viewport dimensions for consistent appearance
+            let font_size = (viewport.height as f32 * 0.6).min(viewport.width as f32 * 0.8); // Responsive font size
+            let text_x = viewport.width as f32 * 0.5 - font_size * 0.3; // Approximate centering
+            let text_y = viewport.height as f32 * 0.5 + font_size * 0.2; // Approximate centering
+            
+            // Queue the large white "A" character
+            text_renderer.queue_text("A", text_x, text_y, font_size, [1.0, 1.0, 1.0, 1.0]); // White color
+            
+            // Create text models and render to the background texture
+            let text_models = text_renderer.create_text_models(context, viewport);
+            if !text_models.is_empty() {
+                // Create a simple ambient light for text rendering
+                let light = AmbientLight::new(context, 1.0, Srgba::WHITE);
+                render_target.render(
+                    &camera,
+                    &text_models,
+                    &[&light],
+                );
+            }
+            
+            // Clear the text queue after rendering to ensure clean state
+            text_renderer.clear_queue();
+        } // render_target goes out of scope here, automatically cleaned up
+        
+        // Create background quad that fills the entire viewport
+        let quad_width = viewport.width as f32;
+        let quad_height = viewport.height as f32;
+        let quad_center_x = quad_width * 0.5;
+        let quad_center_y = quad_height * 0.5;
+        
+        let background_rectangle = Rectangle::new(
+            context,
+            (quad_center_x, quad_center_y), // center position as tuple
+            Deg(0.0),                       // no rotation
+            quad_width,                     // full viewport width
+            quad_height,                    // full viewport height
+        );
+        
+        // Wrap texture in Texture2DRef (which is Arc<Texture2D>) for shared ownership
+        let background_texture_ref = Texture2DRef::from_texture(background_texture);
+        
+        // Create material with the background texture
+        let background_material = ColorMaterial {
+            color: Srgba::WHITE, // White tint to show texture as-is
+            texture: Some(background_texture_ref.clone()),
+            is_transparent: false,
+            render_states: RenderStates::default(),
+        };
+        
+        let background_quad = Gm::new(background_rectangle, background_material);
+        
+        Ok((background_texture_ref, depth_texture, background_quad))
     }
     
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
@@ -323,7 +428,10 @@ impl MainScene {
         );
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
-        let text_renderer = TextRenderer::new(context)?;
+        let mut text_renderer = TextRenderer::new(context)?;
+        
+        // Create background texture with large white "A" on dark green background and background quad
+        let (background_texture, background_depth_texture, background_quad) = Self::create_background_texture(context, viewport, &mut text_renderer)?;
         
         Ok(Self {
             camera: Camera::new_2d(viewport),
@@ -339,11 +447,39 @@ impl MainScene {
             user_pitch_line_alpha: initial_alpha,
             volume_peak: initial_volume_peak,
             cents_offset: initial_cents_offset,
+            background_texture,
+            background_depth_texture,
+            background_quad,
         })
     }
     
     pub fn update_viewport(&mut self, viewport: Viewport) {
+        let current_viewport = self.camera.viewport();
+        
+        // Check if viewport size actually changed
+        let size_changed = current_viewport.width != viewport.width || current_viewport.height != viewport.height;
+        
+        // Always update camera viewport
         self.camera.set_viewport(viewport);
+        
+        // Only recreate background texture if size changed
+        if size_changed {
+            // Recreate background texture with new viewport size
+            match Self::create_background_texture(&self.context, viewport, &mut self.text_renderer) {
+                Ok((new_background_texture, new_background_depth_texture, new_background_quad)) => {
+                    // Replace old resources with new ones
+                    // The old textures and render targets will be automatically cleaned up
+                    // when they go out of scope due to RAII in three-d
+                    self.background_texture = new_background_texture;
+                    self.background_depth_texture = new_background_depth_texture;
+                    self.background_quad = new_background_quad;
+                },
+                Err(e) => {
+                    // Log error but continue with old background texture
+                    crate::common::dev_log!("Failed to recreate background texture on viewport change: {}", e);
+                }
+            }
+        }
     }
     
     fn refresh_colors(&mut self) {
@@ -385,6 +521,14 @@ impl MainScene {
         
         let bg = scheme.background;
         screen.clear(ClearState::color_and_depth(bg[0], bg[1], bg[2], 1.0, 1.0));
+
+        // Render background quad FIRST (behind all other elements)
+        // This displays the pre-rendered texture with the large white "A" on dark green background
+        screen.render(
+            &self.camera,
+            &[&self.background_quad],
+            &[&self.light],
+        );
 
         // Collect all lines to render: tuning lines and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
