@@ -394,6 +394,14 @@ pub struct ModelUpdateResult {
     pub root_note: MidiNote,
 }
 
+/// Context data passed from presentation layer to main scene for rendering calculations
+#[derive(Debug, Clone, PartialEq)]
+pub struct PresentationContext {
+    pub root_note: MidiNote,
+    pub tuning_system: TuningSystem,
+    pub current_scale: Option<Scale>,
+}
+
 /// Converts a semitone interval to a musical interval name.
 /// 
 /// This function takes the number of semitones between two notes and returns

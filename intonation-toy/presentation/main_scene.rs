@@ -23,12 +23,6 @@ const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];  // Light green/cyan for accurate intonation
 const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];  // Orange for inaccurate intonation
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PresentationContext {
-    pub root_note: MidiNote,
-    pub tuning_system: TuningSystem,
-    pub scale: Scale,
-}
 
 // Helper function to get the user pitch line color from the color scheme
 // Returns error color when volume peak flag is true, more saturated accent color when within configured threshold, otherwise regular accent color
@@ -296,7 +290,7 @@ pub struct MainScene {
     background_texture: Texture2DRef,
     background_depth_texture: DepthTexture2D,
     background_quad: Gm<Rectangle, ColorMaterial>,
-    presentation_context: Option<PresentationContext>,
+    presentation_context: Option<crate::shared_types::PresentationContext>,
 }
 
 impl MainScene {
@@ -625,19 +619,76 @@ impl MainScene {
     }
     
     /// Update the presentation context with new root note, tuning system, and scale
-    pub fn change_presentation_context(&mut self, new_context: Option<PresentationContext>) {
-        if self.presentation_context == new_context {
+    pub fn update_presentation_context(&mut self, context: &crate::shared_types::PresentationContext, viewport: Viewport) {
+        if self.presentation_context.as_ref() == Some(context) {
             return;
         }
         
-        self.presentation_context = new_context;
+        self.presentation_context = Some(context.clone());
         
-        // TODO: Clear existing background texture
-        // TODO: Generate new tuning lines based on scale
-        // TODO: Calculate line positions using root_note and tuning_system
-        // TODO: Render static background quad with lines
-        // TODO: Add note names to background quad
-        // TODO: Cache the rendered background for performance
+        // Calculate tuning line positions and update them
+        let tuning_line_data = self.get_tuning_line_positions(
+            context.root_note,
+            context.tuning_system,
+            context.current_scale.as_ref().unwrap_or(&Scale::Chromatic),
+            viewport,
+        );
+        
+        // Update tuning lines with calculated data
+        self.update_tuning_lines(viewport, &tuning_line_data);
+    }
+    
+    /// Get tuning line positions for the active tuning system
+    /// Returns tuning line data with positions, MIDI notes, and thickness
+    fn get_tuning_line_positions(
+        &self,
+        root_note_midi: MidiNote,
+        tuning_system: TuningSystem,
+        scale: &Scale,
+        viewport: Viewport,
+    ) -> Vec<(f32, MidiNote, f32)> {
+        let mut lines = Vec::new();
+        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note_midi);
+
+        // Add lines for intervals from -12 to +12 semitones
+        for semitone_offset in -12i32..=12i32 {
+            // Calculate thickness - thicker for octaves
+            let thickness = if semitone_offset == 0 || semitone_offset.abs() == 12 {
+                OCTAVE_LINE_THICKNESS
+            } else {
+                REGULAR_LINE_THICKNESS
+            };
+
+            // Calculate y position based on interval
+            let interval = semitone_offset as f32 / 12.0;
+            let y_position = interval_to_screen_y_position(
+                interval,
+                viewport.height as f32,
+                crate::web::main_scene_ui::get_current_zoom_factor(),
+            );
+
+            // Skip lines outside viewport
+            if y_position < 0.0 || y_position > viewport.height as f32 {
+                continue;
+            }
+
+            // Check if this semitone is in the current scale
+            let normalized_semitone = ((semitone_offset % 12 + 12) % 12) as u8;
+            let is_in_scale = crate::shared_types::semitone_in_scale(*scale, normalized_semitone as i32);
+            
+            if !is_in_scale {
+                continue;
+            }
+
+            // Calculate MIDI note with proper clamping
+            let midi_note = (root_note_midi as i32 + semitone_offset)
+                .max(0)
+                .min(127) as u8;
+
+            lines.push((y_position, midi_note, thickness));
+        }
+
+        lines
     }
     
 }
