@@ -366,11 +366,16 @@ impl MainScene {
         let background_texture_ref = Texture2DRef::from_texture(background_texture);
         
         // Create material with the background texture
+        // Disable depth testing so it doesn't block the user pitch line
         let background_material = ColorMaterial {
             color: Srgba::WHITE, // White tint to show texture as-is
             texture: Some(background_texture_ref.clone()),
             is_transparent: false,
-            render_states: RenderStates::default(),
+            render_states: RenderStates {
+                depth_test: three_d::DepthTest::Always,
+                write_mask: WriteMask::COLOR,
+                ..Default::default()
+            },
         };
         
         let background_quad = Gm::new(background_rectangle, background_material);
@@ -469,11 +474,16 @@ impl MainScene {
         let background_texture_ref = Texture2DRef::from_texture(background_texture);
         
         // Create material with the background texture
+        // Disable depth testing so it doesn't block the user pitch line
         let background_material = ColorMaterial {
             color: Srgba::WHITE,
             texture: Some(background_texture_ref.clone()),
             is_transparent: false,
-            render_states: RenderStates::default(),
+            render_states: RenderStates {
+                depth_test: three_d::DepthTest::Always,
+                write_mask: WriteMask::COLOR,
+                ..Default::default()
+            },
         };
         
         let background_quad = Gm::new(background_rectangle, background_material);
