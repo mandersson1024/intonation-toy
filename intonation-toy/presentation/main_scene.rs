@@ -1,4 +1,4 @@
-use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
+use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
 use three_d::core::{Texture2D, DepthTexture2D, Interpolation, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 use crate::shared_types::{MidiNote, ColorScheme, TuningSystem, Scale};
@@ -285,7 +285,7 @@ pub struct MainScene {
     user_pitch_line_alpha: f32,
     volume_peak: bool,
     cents_offset: f32,
-    // Background texture system: pre-rendered texture with large white "A" on dark green background
+    // Background texture system: pre-rendered texture with dark green background
     // These resources are automatically cleaned up by three-d's RAII when replaced or dropped
     background_texture: Texture2DRef,
     background_depth_texture: DepthTexture2D,
@@ -338,38 +338,14 @@ impl MainScene {
                 depth_texture.as_depth_target(),
             );
             
-            // Clear with dark green background
-            render_target.clear(ClearState::color_and_depth(0.0, 0.4, 0.0, 1.0, 1.0));
+            // Clear with current theme background color
+            let scheme = get_current_color_scheme();
+            let [r, g, b] = scheme.background;
+            render_target.clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0));
             
             // Set up camera for off-screen rendering
             let camera = Camera::new_2d(viewport);
             
-            // Clear text renderer queue to ensure clean state
-            text_renderer.clear_queue();
-            
-            // Calculate position for large "A" character (centered)
-            // Scale font size based on viewport dimensions for consistent appearance
-            let font_size = (viewport.height as f32 * 0.6).min(viewport.width as f32 * 0.8); // Responsive font size
-            let text_x = viewport.width as f32 * 0.5 - font_size * 0.3; // Approximate centering
-            let text_y = viewport.height as f32 * 0.5 + font_size * 0.2; // Approximate centering
-            
-            // Queue the large white "A" character
-            text_renderer.queue_text("A", text_x, text_y, font_size, [1.0, 1.0, 1.0, 1.0]); // White color
-            
-            // Create text models and render to the background texture
-            let text_models = text_renderer.create_text_models(context, viewport);
-            if !text_models.is_empty() {
-                // Create a simple ambient light for text rendering
-                let light = AmbientLight::new(context, 1.0, Srgba::WHITE);
-                render_target.render(
-                    &camera,
-                    &text_models,
-                    &[&light],
-                );
-            }
-            
-            // Clear the text queue after rendering to ensure clean state
-            text_renderer.clear_queue();
         } // render_target goes out of scope here, automatically cleaned up
         
         // Create background quad that fills the entire viewport
@@ -402,6 +378,112 @@ impl MainScene {
         Ok((background_texture_ref, depth_texture, background_quad))
     }
     
+    /// Renders tuning lines and note labels to the background texture by recreating it.
+    /// This method recreates the background texture with the tuning lines and note labels
+    /// rendered to it, replacing the existing background texture.
+    pub fn render_to_background_texture(&mut self, viewport: Viewport) {
+        // Validate viewport dimensions
+        if viewport.width == 0 || viewport.height == 0 {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for background texture");
+            return;
+        }
+        
+        // Create a new Texture2D for the background
+        let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
+            &self.context,
+            viewport.width as u32,
+            viewport.height as u32,
+            Interpolation::Linear,
+            Interpolation::Linear,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        // Create new depth texture for the render target
+        let mut depth_texture = DepthTexture2D::new::<f32>(
+            &self.context,
+            viewport.width as u32,
+            viewport.height as u32,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        // Create render target and render content to the texture
+        {
+            let render_target = RenderTarget::new(
+                background_texture.as_color_target(None),
+                depth_texture.as_depth_target(),
+            );
+            
+            // Clear with current theme background color
+            let scheme = get_current_color_scheme();
+            let [r, g, b] = scheme.background;
+            render_target.clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0));
+            
+            // Set up camera for off-screen rendering
+            let camera = Camera::new_2d(viewport);
+            
+            // Render tuning lines to background texture
+            let tuning_lines_vec: Vec<&dyn Object> = self.tuning_lines.lines()
+                .map(|line| line as &dyn Object)
+                .collect();
+            
+            if !tuning_lines_vec.is_empty() {
+                render_target.render(&camera, tuning_lines_vec, &[&self.light]);
+            }
+            
+            // Clear and queue note labels
+            self.text_renderer.clear_queue();
+            self.tuning_lines.render_note_labels(
+                &mut self.text_renderer,
+                self.volume_peak,
+                self.cents_offset
+            );
+            
+            // Render text models to background texture
+            let text_models = self.text_renderer.create_text_models(&self.context, viewport);
+            if !text_models.is_empty() {
+                let text_objects: Vec<&dyn Object> = text_models.iter()
+                    .map(|model| model as &dyn Object)
+                    .collect();
+                render_target.render(&camera, text_objects, &[&self.light]);
+            }
+        } // render_target goes out of scope here
+        
+        // Create new background quad with the updated texture
+        let quad_width = viewport.width as f32;
+        let quad_height = viewport.height as f32;
+        let quad_center_x = quad_width * 0.5;
+        let quad_center_y = quad_height * 0.5;
+        
+        let background_rectangle = Rectangle::new(
+            &self.context,
+            (quad_center_x, quad_center_y),
+            Deg(0.0),
+            quad_width,
+            quad_height,
+        );
+        
+        // Wrap texture in Texture2DRef for shared ownership
+        let background_texture_ref = Texture2DRef::from_texture(background_texture);
+        
+        // Create material with the background texture
+        let background_material = ColorMaterial {
+            color: Srgba::WHITE,
+            texture: Some(background_texture_ref.clone()),
+            is_transparent: false,
+            render_states: RenderStates::default(),
+        };
+        
+        let background_quad = Gm::new(background_rectangle, background_material);
+        
+        // Replace the old background resources with the new ones
+        self.background_texture = background_texture_ref;
+        self.background_depth_texture = depth_texture;
+        self.background_quad = background_quad;
+    }
+    
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let initial_thickness = USER_PITCH_LINE_THICKNESS_MAX;
@@ -421,7 +503,7 @@ impl MainScene {
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
         let mut text_renderer = TextRenderer::new(context)?;
         
-        // Create background texture with large white "A" on dark green background and background quad
+        // Create background texture with dark green background and background quad
         let (background_texture, background_depth_texture, background_quad) = Self::create_background_texture(context, viewport, &mut text_renderer)?;
         
         Ok(Self {
@@ -513,49 +595,21 @@ impl MainScene {
         let bg = scheme.background;
         screen.clear(ClearState::color_and_depth(bg[0], bg[1], bg[2], 1.0, 1.0));
 
-        // Render background quad FIRST (behind all other elements)
-        // This displays the pre-rendered texture with the large white "A" on dark green background
-        /*
-        screen.render(
-            &self.camera,
-            &[&self.background_quad],
-            &[&self.light],
-        );
-        */
-
-        // Collect all lines to render: tuning lines and user pitch line
-        let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
-        
-        renderable_lines.push(&self.user_pitch_line); // first in list is on top
-
-        // Add all tuning lines
-        for line in self.tuning_lines.lines() {
-            renderable_lines.push(line);
-        }
-        
-        // Render lines
-        screen.render(
-            &self.camera,
-            renderable_lines, // TODO: this should be in the same render() call
-            &[&self.light],
-        );
-        
-        // Clear previous frame's text queue
-        self.text_renderer.clear_queue();
-        
-        // Render note labels above tuning lines
-        self.tuning_lines.render_note_labels(&mut self.text_renderer, self.volume_peak, self.cents_offset);
-        
-        // Render text models using actual Roboto font  
-        let viewport = self.camera.viewport();
-        let text_models = self.text_renderer.create_text_models(&self.context, viewport);
-        if !text_models.is_empty() {
+        // Render background quad with pre-rendered tuning lines and note labels when presentation context is active
+        if self.presentation_context.is_some() {
             screen.render(
                 &self.camera,
-                &text_models,
+                &[&self.background_quad],
                 &[&self.light],
             );
         }
+
+        // Render only the user pitch line for real-time updates
+        screen.render(
+            &self.camera,
+            &[&self.user_pitch_line],
+            &[&self.light],
+        );
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>, cents_offset: f32) {
@@ -618,7 +672,8 @@ impl MainScene {
         self.volume_peak = volume_peak;
     }
     
-    /// Update the presentation context with new root note, tuning system, and scale
+    /// Update the presentation context with new root note, tuning system, and scale.
+    /// Also re-renders the background texture when the presentation context changes.
     pub fn update_presentation_context(&mut self, context: &crate::shared_types::PresentationContext, viewport: Viewport) {
         if self.presentation_context.as_ref() == Some(context) {
             return;
@@ -636,6 +691,9 @@ impl MainScene {
         
         // Update tuning lines with calculated data
         self.update_tuning_lines(viewport, &tuning_line_data);
+        
+        // Re-render background texture with new tuning lines
+        self.render_to_background_texture(viewport);
     }
     
     /// Get tuning line positions for the active tuning system
