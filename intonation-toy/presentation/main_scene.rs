@@ -1,7 +1,7 @@
 use three_d::{AmbientLight, Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
 use three_d::core::{Texture2D, DepthTexture2D, Interpolation, Wrapping};
 use three_d::renderer::geometry::Rectangle;
-use crate::shared_types::{MidiNote, ColorScheme};
+use crate::shared_types::{MidiNote, ColorScheme, TuningSystem, Scale};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
@@ -22,6 +22,13 @@ const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 // User pitch line colors
 const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];  // Light green/cyan for accurate intonation
 const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];  // Orange for inaccurate intonation
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PresentationContext {
+    pub root_note: MidiNote,
+    pub tuning_system: TuningSystem,
+    pub scale: Scale,
+}
 
 // Helper function to get the user pitch line color from the color scheme
 // Returns error color when volume peak flag is true, more saturated accent color when within configured threshold, otherwise regular accent color
@@ -289,6 +296,7 @@ pub struct MainScene {
     background_texture: Texture2DRef,
     background_depth_texture: DepthTexture2D,
     background_quad: Gm<Rectangle, ColorMaterial>,
+    presentation_context: Option<PresentationContext>,
 }
 
 impl MainScene {
@@ -439,6 +447,7 @@ impl MainScene {
             background_texture,
             background_depth_texture,
             background_quad,
+            presentation_context: None,
         })
     }
     
@@ -613,6 +622,22 @@ impl MainScene {
     /// Update the volume peak state for color determination
     pub fn update_volume_peak(&mut self, volume_peak: bool) {
         self.volume_peak = volume_peak;
+    }
+    
+    /// Update the presentation context with new root note, tuning system, and scale
+    pub fn change_presentation_context(&mut self, new_context: Option<PresentationContext>) {
+        if self.presentation_context == new_context {
+            return;
+        }
+        
+        self.presentation_context = new_context;
+        
+        // TODO: Clear existing background texture
+        // TODO: Generate new tuning lines based on scale
+        // TODO: Calculate line positions using root_note and tuning_system
+        // TODO: Render static background quad with lines
+        // TODO: Add note names to background quad
+        // TODO: Cache the rendered background for performance
     }
     
 }
