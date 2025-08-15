@@ -63,15 +63,13 @@ pub struct TuningLines {
     context: Context,
     regular_material: ColorMaterial,
     octave_material: ColorMaterial,
-    closest_line_material: ColorMaterial,
     closest_midi_note: Option<MidiNote>,
 }
 
 impl TuningLines {
-    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba, closest_line_color: Srgba) -> Self {
+    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba) -> Self {
         let regular_material = create_color_material(regular_color, false);
         let octave_material = create_color_material(octave_color, false);
-        let closest_line_material = create_color_material(closest_line_color, false);
         
         Self {
             lines: Vec::new(),
@@ -81,7 +79,6 @@ impl TuningLines {
             context: context.clone(),
             regular_material,
             octave_material,
-            closest_line_material,
             closest_midi_note: None,
         }
     }
@@ -126,11 +123,8 @@ impl TuningLines {
         // Set positions, MIDI notes, and thickness for all lines
         for (i, &(y, midi_note, thickness)) in line_data.iter().enumerate() {
             // Determine material priority: accent > octave > regular
-            let is_closest = Some(midi_note) == self.closest_midi_note;
             let is_octave = thickness == OCTAVE_LINE_THICKNESS;
-            let material = if is_closest {
-                &self.closest_line_material
-            } else if is_octave { 
+            let material = if is_octave { 
                 &self.octave_material 
             } else { 
                 &self.regular_material 
@@ -190,13 +184,8 @@ impl TuningLines {
             
             // Determine color based on whether this is the closest note
             let scheme = get_current_color_scheme();
-            let text_color = if Some(midi_note) == self.closest_midi_note {
-                // Use the same color logic as the user pitch line for the closest note
-                get_user_pitch_line_color(&scheme, volume_peak, cents_offset)
-            } else {
-                scheme.muted
-            };
-            
+            let text_color = scheme.muted;
+
             text_renderer.queue_text(&note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
@@ -427,7 +416,7 @@ impl MainScene {
             initial_alpha < 1.0
         );
         
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.secondary));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
         let mut text_renderer = TextRenderer::new(context)?;
         
         // Create background texture with large white "A" on dark green background and background quad
@@ -498,7 +487,6 @@ impl MainScene {
         // Update tuning lines materials
         self.tuning_lines.regular_material = create_color_material(rgb_to_srgba(scheme.muted), false);
         self.tuning_lines.octave_material = create_color_material(rgb_to_srgba(scheme.muted), false);
-        self.tuning_lines.closest_line_material = create_color_material(rgb_to_srgba(scheme.secondary), false);
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
@@ -524,11 +512,13 @@ impl MainScene {
 
         // Render background quad FIRST (behind all other elements)
         // This displays the pre-rendered texture with the large white "A" on dark green background
+        /*
         screen.render(
             &self.camera,
             &[&self.background_quad],
             &[&self.light],
         );
+        */
 
         // Collect all lines to render: tuning lines and user pitch line
         let mut renderable_lines: Vec<&Gm<Line, ColorMaterial>> = Vec::new();
@@ -543,7 +533,7 @@ impl MainScene {
         // Render lines
         screen.render(
             &self.camera,
-            renderable_lines,
+            renderable_lines, // TODO: this should be in the same render() call
             &[&self.light],
         );
         
