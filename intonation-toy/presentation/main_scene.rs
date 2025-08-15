@@ -647,48 +647,77 @@ impl MainScene {
         scale: &Scale,
         viewport: Viewport,
     ) -> Vec<(f32, MidiNote, f32)> {
-        let mut lines = Vec::new();
         let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note_midi);
-
-        // Add lines for intervals from -12 to +12 semitones
-        for semitone_offset in -12i32..=12i32 {
-            // Calculate thickness - thicker for octaves
-            let thickness = if semitone_offset == 0 || semitone_offset.abs() == 12 {
+        
+        // Helper function to determine line thickness based on semitone offset
+        let get_thickness = |semitone: i32| -> f32 {
+            // Octave lines (multiples of 12 semitones) get configurable thickness, others get regular thickness
+            if semitone % 12 == 0 {
                 OCTAVE_LINE_THICKNESS
             } else {
                 REGULAR_LINE_THICKNESS
-            };
-
-            // Calculate y position based on interval
-            let interval = semitone_offset as f32 / 12.0;
+            }
+        };
+        
+        // Show intervals from -12 to +12 semitones including root (0)
+        let mut line_data = Vec::new();
+        
+        // Add center line (root note, 0 semitones)
+        if crate::shared_types::semitone_in_scale(*scale, 0) {
+            // Root frequency stays at interval 0.0 (log2(1) = 0)
+            let interval = 0.0;
             let y_position = interval_to_screen_y_position(
                 interval,
                 viewport.height as f32,
                 crate::web::main_scene_ui::get_current_zoom_factor(),
             );
-
-            // Skip lines outside viewport
-            if y_position < 0.0 || y_position > viewport.height as f32 {
-                continue;
-            }
-
-            // Check if this semitone is in the current scale
-            let normalized_semitone = ((semitone_offset % 12 + 12) % 12) as u8;
-            let is_in_scale = crate::shared_types::semitone_in_scale(*scale, normalized_semitone as i32);
-            
-            if !is_in_scale {
-                continue;
-            }
-
-            // Calculate MIDI note with proper clamping
-            let midi_note = (root_note_midi as i32 + semitone_offset)
-                .max(0)
-                .min(127) as u8;
-
-            lines.push((y_position, midi_note, thickness));
+            let thickness = get_thickness(0);
+            line_data.push((y_position, root_note_midi, thickness));
         }
-
-        lines
+        
+        // Add intervals above root: +1 to +12 semitones
+        for semitone in 1..=12 {
+            // Only show intervals that are in the current scale
+            if crate::shared_types::semitone_in_scale(*scale, semitone) {
+                let frequency = crate::music_theory::interval_frequency(
+                    tuning_system,
+                    root_frequency,
+                    semitone,
+                );
+                let interval = (frequency / root_frequency).log2();
+                let y_position = interval_to_screen_y_position(
+                    interval,
+                    viewport.height as f32,
+                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                );
+                let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let thickness = get_thickness(semitone);
+                line_data.push((y_position, midi_note, thickness));
+            }
+        }
+        
+        // Add intervals below root: -12 to -1 semitones
+        for semitone in -12..=-1 {
+            // Only show intervals that are in the current scale
+            if crate::shared_types::semitone_in_scale(*scale, semitone) {
+                let frequency = crate::music_theory::interval_frequency(
+                    tuning_system,
+                    root_frequency,
+                    semitone,
+                );
+                let interval = (frequency / root_frequency).log2();
+                let y_position = interval_to_screen_y_position(
+                    interval,
+                    viewport.height as f32,
+                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                );
+                let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let thickness = get_thickness(semitone);
+                line_data.push((y_position, midi_note, thickness));
+            }
+        }
+        
+        line_data
     }
     
 }
