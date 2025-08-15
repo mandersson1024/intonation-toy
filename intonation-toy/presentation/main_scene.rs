@@ -562,27 +562,26 @@ impl MainScene {
     }
     
     pub fn render(&mut self, screen: &mut RenderTarget) {
-        /*
         let scheme = get_current_color_scheme();
         if scheme != self.current_scheme {
             self.current_scheme = scheme.clone();
             self.refresh_colors();
         }
-        */
 
         //let bg = scheme.background;
         //screen.clear(ClearState::color_and_depth(bg[0], bg[1], bg[2], 1.0, 1.0));
 
         if self.presentation_context.is_some() {
             self.camera.disable_tone_and_color_mapping();
+            // the background was already rendered with tone and color mapping
             screen.render(
                 &self.camera,
                 &[&self.background_quad],
                 &[],
             );
+            self.camera.set_default_tone_and_color_mapping();
         }
 
-        self.camera.set_default_tone_and_color_mapping();
         screen.render(&self.camera, &[&self.user_pitch_line], &[]);
     }
     
@@ -653,8 +652,6 @@ impl MainScene {
             return;
         }
 
-        crate::common::log!("Updating Pesentation Context");
-        
         self.presentation_context = Some(context.clone());
         
         // Calculate tuning line positions and update them
