@@ -1,9 +1,9 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
-use web_sys::{console, window};
+use web_sys::window;
 
-/// Execute a function and wrap it with User Timing marks and console.time measurements
+/// Execute a function and wrap it with User Timing marks
 /// for profiling in Chrome DevTools Performance panel.
 #[cfg(target_arch = "wasm32")]
 pub fn profiled<F, R>(name: &str, f: F) -> R
@@ -18,14 +18,8 @@ where
         }
     }
     
-    // Start console timer
-    console::time_with_label(name);
-    
     // Execute the function
     let result = f();
-    
-    // End console timer
-    console::time_end_with_label(name);
     
     // End User Timing mark and create measure
     if let Some(window) = window() {

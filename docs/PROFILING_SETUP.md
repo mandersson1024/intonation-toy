@@ -7,11 +7,13 @@ This document describes how to profile the Intonation Toy application using the 
 To build and run the application with profiling enabled:
 
 ```bash
-# Build and serve with profiling instrumentation using the profiling HTML file
-trunk serve --release --features profiling --index intonation-toy/index.profiling.html -- --profile profiling
+# Build and serve with profiling instrumentation in debug mode
+trunk serve --features profiling
 ```
 
 Then open Chrome DevTools Performance panel and record while using the application.
+
+**Note**: The profiling feature automatically excludes the dev console and debug panel to reduce overhead during performance measurements.
 
 ## Configuration
 
@@ -19,13 +21,13 @@ The profiling setup includes:
 
 ### Build Configuration
 
-- **Profiling build profile** in `Cargo.toml` that inherits from release but preserves debug information
 - **Feature flag** (`profiling`) to conditionally compile profiling instrumentation
-- **Trunk configuration** with `data-wasm-opt="0"` to preserve symbols (configured in `index.profiling.html`)
+- **Debug mode execution** to preserve function names and symbols without wasm-opt optimization
+- **Automatic exclusion** of dev console and debug panel when profiling is enabled
 
 ### Instrumented Code Sections
 
-The following performance-critical areas are instrumented with User Timing marks and console.time measurements:
+The following performance-critical areas are instrumented with User Timing marks visible in Chrome DevTools Performance panel:
 
 1. **Engine Layer Update** (`engine_update`) - Audio processing and pitch detection pipeline
 2. **Model Layer Update** (`model_update`) - Data processing and tuning system calculations  
@@ -43,7 +45,7 @@ The following performance-critical areas are instrumented with User Timing marks
 7. **Analyze the results**:
    - Look for the User Timing marks in the timeline
    - Check function names in the flame chart (they should be preserved)
-   - Review console.time measurements in the Console panel
+   - The profiling marks appear silently without console spam
 
 ## Interpreting Results
 
@@ -75,13 +77,13 @@ These metrics complement the profiling data and can be viewed in the debug conso
 ```bash
 trunk serve
 ```
-Standard development build with full debug info.
+Standard development build with full debug info, dev console, and debug panel.
 
 ### Profiling  
 ```bash
-trunk serve --release --features profiling --index intonation-toy/index.profiling.html -- --profile profiling
+trunk serve --features profiling
 ```
-Optimized build with debug symbols preserved for profiling.
+Debug build with profiling instrumentation enabled. Dev console and debug panel are automatically excluded.
 
 ### Production
 ```bash
@@ -91,7 +93,7 @@ Fully optimized production build without profiling instrumentation.
 
 ## Troubleshooting
 
-**No function names in profiler**: Ensure you're using the profiling build profile with `--index intonation-toy/index.profiling.html` which has `data-wasm-opt="0"` configured.
+**No function names in profiler**: Ensure you're running in debug mode (not release mode) by using `trunk serve --features profiling` without the `--release` flag.
 
 **No User Timing marks**: Check that the `profiling` feature is enabled and the application is running the instrumented code paths.
 

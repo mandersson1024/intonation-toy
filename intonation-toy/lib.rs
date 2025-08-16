@@ -29,7 +29,7 @@ pub(crate) mod debug;
 
 use common::{dev_log, trace_log, log, error_log};
 use wasm_bindgen::prelude::*;
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, not(feature = "profiling")))]
 use egui_dev_console::ConsoleCommandRegistry;
 
 use engine::platform::{Platform, PlatformValidationResult};
@@ -74,7 +74,7 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     canvas.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
 }
 
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, not(feature = "profiling")))]
 use debug::debug_panel::DebugPanel;
 
 /// Run three-d with three-layer architecture
@@ -139,21 +139,21 @@ pub async fn start_render_loop(
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
     
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     let mut command_registry = ConsoleCommandRegistry::new();
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     crate::engine::platform::commands::register_platform_commands(&mut command_registry);
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     crate::engine::audio::register_audio_commands(&mut command_registry);
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     let mut dev_console = egui_dev_console::DevConsole::new(command_registry);
     
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     let debug_data = debug::debug_data::DebugData::new();
     
     // Create debug panel
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "profiling")))]
     let mut debug_panel = presenter.as_ref().map(|presenter_ref| DebugPanel::new(
             debug_data,
             presenter_ref.clone(),
@@ -336,13 +336,13 @@ pub async fn start_render_loop(
         };
         
         // Update debug panel data with engine and model results
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(feature = "profiling")))]
         if let Some(ref mut panel) = debug_panel {
             panel.update_data(&engine_data, Some(&model_data));
         }
         
         // Update debug panel data with performance metrics
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(feature = "profiling")))]
         {
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
             let audio_latency = if let Some(ref engine) = engine {
@@ -459,8 +459,8 @@ pub async fn start_render_loop(
             viewport,
             device_pixel_ratio,
             |gui_context| {
-                // In debug mode, use dark theme for debug panels and console
-                #[cfg(debug_assertions)]
+                // In debug mode (but not profiling), use dark theme for debug panels and console
+                #[cfg(all(debug_assertions, not(feature = "profiling")))]
                 {
                     // Set dark theme visuals for debug UI
                     gui_context.set_visuals(egui::Visuals::dark());
