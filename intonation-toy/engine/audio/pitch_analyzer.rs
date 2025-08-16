@@ -30,8 +30,8 @@ pub struct PitchPerformanceMetrics {
     pub latency_violations: u64,
     /// Success rate (successful_detections / analysis_cycles)
     pub success_rate: f32,
-    /// Time spent in YIN algorithm specifically (microseconds)
-    pub yin_processing_time_us: f64,
+    /// Time spent in pitch detection algorithm (microseconds)
+    pub detection_processing_time_us: f64,
 }
 
 impl Default for PitchPerformanceMetrics {
@@ -47,7 +47,7 @@ impl Default for PitchPerformanceMetrics {
             memory_usage_bytes: 0,
             latency_violations: 0,
             success_rate: 0.0,
-            yin_processing_time_us: 0.0,
+            detection_processing_time_us: 0.0,
         }
     }
 }
@@ -137,8 +137,8 @@ impl PitchAnalyzer {
         // Copy samples to pre-allocated buffer (minimal allocation)
         self.analysis_buffer.copy_from_slice(samples);
         
-        // Measure YIN algorithm performance specifically
-        let yin_start = self.get_high_resolution_time();
+        // Measure pitch detection algorithm performance
+        let detection_start = self.get_high_resolution_time();
         let pitch_result = match self.pitch_detector.analyze(&self.analysis_buffer) {
             Ok(result) => result,
             Err(e) => {
@@ -147,8 +147,8 @@ impl PitchAnalyzer {
                 return Err(format!("Pitch detection failed: {}", e));
             }
         };
-        let yin_end = self.get_high_resolution_time();
-        let yin_time_us = (yin_end - yin_start) * 1000.0; // Convert to microseconds
+        let detection_end = self.get_high_resolution_time();
+        let detection_time_us = (detection_end - detection_start) * 1000.0; // Convert to microseconds
 
         let end_time = self.get_high_resolution_time();
 
@@ -156,13 +156,13 @@ impl PitchAnalyzer {
         match pitch_result {
             Some(result) => {
                 self.handle_pitch_detected(result.clone())?;
-                self.update_metrics(start_time, end_time, yin_time_us, true);
+                self.update_metrics(start_time, end_time, detection_time_us, true);
                 self.last_detection = Some(result.clone());
                 Ok(Some(result))
             }
             None => {
                 self.handle_pitch_lost()?;
-                self.update_metrics(start_time, end_time, yin_time_us, false);
+                self.update_metrics(start_time, end_time, detection_time_us, false);
                 Ok(None)
             }
         }
@@ -179,12 +179,12 @@ impl PitchAnalyzer {
     }
 
     /// Update performance metrics with new timing data
-    fn update_metrics(&mut self, start_time: f64, end_time: f64, yin_time_us: f64, success: bool) {
+    fn update_metrics(&mut self, start_time: f64, end_time: f64, detection_time_us: f64, success: bool) {
         let latency_ms = end_time - start_time;
         
         self.metrics.analysis_cycles += 1;
         self.metrics.processing_latency_ms = latency_ms;
-        self.metrics.yin_processing_time_us = yin_time_us;
+        self.metrics.detection_processing_time_us = detection_time_us;
         
         // Update latency statistics
         if self.metrics.analysis_cycles == 1 {
@@ -438,8 +438,8 @@ impl PitchAnalyzer {
             return Ok(None); // Not enough data available
         }
 
-        // Measure YIN algorithm performance specifically
-        let yin_start = self.get_high_resolution_time();
+        // Measure pitch detection algorithm performance
+        let detection_start = self.get_high_resolution_time();
         let pitch_result = match self.pitch_detector.analyze(&self.analysis_buffer) {
             Ok(result) => result,
             Err(e) => {
@@ -448,8 +448,8 @@ impl PitchAnalyzer {
                 return Err(format!("Pitch detection failed: {}", e));
             }
         };
-        let yin_end = self.get_high_resolution_time();
-        let yin_time_us = (yin_end - yin_start) * 1000.0; // Convert to microseconds
+        let detection_end = self.get_high_resolution_time();
+        let detection_time_us = (detection_end - detection_start) * 1000.0; // Convert to microseconds
 
         let end_time = self.get_high_resolution_time();
 
@@ -457,13 +457,13 @@ impl PitchAnalyzer {
         match pitch_result {
             Some(result) => {
                 self.handle_pitch_detected(result.clone())?;
-                self.update_metrics(start_time, end_time, yin_time_us, true);
+                self.update_metrics(start_time, end_time, detection_time_us, true);
                 self.last_detection = Some(result.clone());
                 Ok(Some(result))
             }
             None => {
                 self.handle_pitch_lost()?;
-                self.update_metrics(start_time, end_time, yin_time_us, false);
+                self.update_metrics(start_time, end_time, detection_time_us, false);
                 Ok(None)
             }
         }
