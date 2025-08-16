@@ -189,11 +189,15 @@ pub async fn start_render_loop(
         // Update engine layer and get results
         let engine_data = if let Some(ref mut engine) = engine {
             #[cfg(feature = "profiling")]
-            crate::web::profiling::profiled("engine_update", || {
-                engine.update(timestamp)
-            })
+            {
+                crate::web::profiling::profiled("engine_update", || {
+                    engine.update(timestamp)
+                })
+            }
             #[cfg(not(feature = "profiling"))]
-            engine.update(timestamp)
+            {
+                engine.update(timestamp)
+            }
         } else {
             // Provide default engine data when engine is not available
             crate::shared_types::EngineUpdateResult {
@@ -205,72 +209,7 @@ pub async fn start_render_loop(
         
         // Process user actions through three-layer validation and execution
         if let (Some(presenter), Some(model), Some(engine)) = (&presenter, &mut model, &mut engine) {
-            #[cfg(feature = "profiling")]
-            crate::web::profiling::profiled("user_action_processing", || {
-                // Collect user actions from presentation layer
-                let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                    presenter_ref.get_user_actions()
-                } else {
-                    presentation::PresentationLayerActions::new()
-                };
-                
-                // Only process if there are actions to handle
-                let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
-                                      !user_actions.root_note_adjustments.is_empty() ||
-                                      !user_actions.scale_changes.is_empty() ||
-                                      !user_actions.root_note_audio_configurations.is_empty();
-                
-                if has_user_actions {
-                    trace_log!("Processing {} user actions (tuning: {}, root_note: {}, scale: {}, audio: {})", 
-                        user_actions.tuning_system_changes.len() + 
-                        user_actions.root_note_adjustments.len() +
-                        user_actions.scale_changes.len() +
-                        user_actions.root_note_audio_configurations.len(),
-                        user_actions.tuning_system_changes.len(),
-                        user_actions.root_note_adjustments.len(),
-                        user_actions.scale_changes.len(),
-                        user_actions.root_note_audio_configurations.len()
-                    );
-                
-                // Process and validate actions in model layer
-                let processed_actions = model.process_user_actions(user_actions);
-                
-                // Log validation errors if any
-                for error in &processed_actions.validation_errors {
-                    dev_log!("Action validation error: {:?}", error);
-                }
-                
-                // Execute validated actions in engine layer
-                let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
-                                       !processed_actions.actions.tuning_configurations.is_empty() ||
-                                       !processed_actions.actions.root_note_audio_configurations.is_empty();
-                
-                if has_model_actions {
-                    trace_log!("Actions ready for execution: {} audio system, {} tuning, {} root note audio", 
-                        processed_actions.actions.audio_system_configurations.len(),
-                        processed_actions.actions.tuning_configurations.len(),
-                        processed_actions.actions.root_note_audio_configurations.len()
-                    );
-                    
-                    // Execute actions synchronously
-                    let total_sync = processed_actions.actions.audio_system_configurations.len() + 
-                                   processed_actions.actions.tuning_configurations.len() +
-                                   processed_actions.actions.root_note_audio_configurations.len();
-                    match engine.execute_actions(processed_actions.actions) {
-                        Ok(()) => {
-                            if total_sync > 0 {
-                                trace_log!("✓ Executed {} actions", total_sync);
-                            }
-                        }
-                        Err(e) => {
-                            dev_log!("✗ Action execution failed: {}", e);
-                        }
-                    }
-                }
-            });
-            
-            #[cfg(not(feature = "profiling"))]
-            {
+            let mut user_action_processing = || {
                 // Collect user actions from presentation layer
                 let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                     presenter_ref.get_user_actions()
@@ -332,6 +271,16 @@ pub async fn start_render_loop(
                         }
                     }
                 }
+            };
+
+            #[cfg(feature = "profiling")]
+            {
+                crate::web::profiling::profiled("user_action_processing", user_action_processing);
+            }
+            
+            #[cfg(not(feature = "profiling"))]
+            {
+                user_action_processing();
             }
         } else {
             // Log if action processing is skipped due to missing layers
@@ -355,11 +304,15 @@ pub async fn start_render_loop(
         // Update model layer with engine data and capture result
         let model_data = if let Some(ref mut model) = model {
             #[cfg(feature = "profiling")]
-            crate::web::profiling::profiled("model_update", || {
-                model.update(timestamp, engine_data.clone())
-            })
+            {
+                crate::web::profiling::profiled("model_update", || {
+                    model.update(timestamp, engine_data.clone())
+                })
+            }
             #[cfg(not(feature = "profiling"))]
-            model.update(timestamp, engine_data.clone())
+            {
+                model.update(timestamp, engine_data.clone())
+            }
         } else {
             // Provide default model data when model is not available
             crate::shared_types::ModelUpdateResult {

@@ -7,8 +7,8 @@ This document describes how to profile the Intonation Toy application using the 
 To build and run the application with profiling enabled:
 
 ```bash
-# Build and serve with profiling instrumentation
-trunk serve --release --features profiling -- --profile profiling
+# Build and serve with profiling instrumentation using the profiling HTML file
+trunk serve --release --features profiling --index intonation-toy/index.profiling.html -- --profile profiling
 ```
 
 Then open Chrome DevTools Performance panel and record while using the application.
@@ -21,7 +21,7 @@ The profiling setup includes:
 
 - **Profiling build profile** in `Cargo.toml` that inherits from release but preserves debug information
 - **Feature flag** (`profiling`) to conditionally compile profiling instrumentation
-- **Trunk configuration** with `data-wasm-opt="0"` to preserve symbols
+- **Trunk configuration** with `data-wasm-opt="0"` to preserve symbols (configured in `index.profiling.html`)
 
 ### Instrumented Code Sections
 
@@ -34,7 +34,7 @@ The following performance-critical areas are instrumented with User Timing marks
 
 ## Using Chrome DevTools
 
-1. **Start profiling build**: `trunk serve --release --features profiling -- --profile profiling`
+1. **Start profiling build**: `trunk serve --release --features profiling --index intonation-toy/index.profiling.html -- --profile profiling`
 2. **Open Chrome DevTools** (F12)
 3. **Go to Performance panel**
 4. **Click Record** button
@@ -79,7 +79,7 @@ Standard development build with full debug info.
 
 ### Profiling  
 ```bash
-trunk serve --release --features profiling -- --profile profiling
+trunk serve --release --features profiling --index intonation-toy/index.profiling.html -- --profile profiling
 ```
 Optimized build with debug symbols preserved for profiling.
 
@@ -91,7 +91,7 @@ Fully optimized production build without profiling instrumentation.
 
 ## Troubleshooting
 
-**No function names in profiler**: Ensure you're using the profiling build profile and `data-wasm-opt="0"` is set.
+**No function names in profiler**: Ensure you're using the profiling build profile with `--index intonation-toy/index.profiling.html` which has `data-wasm-opt="0"` configured.
 
 **No User Timing marks**: Check that the `profiling` feature is enabled and the application is running the instrumented code paths.
 
