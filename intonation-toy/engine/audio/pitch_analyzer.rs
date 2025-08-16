@@ -2,7 +2,6 @@ use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::common::dev_log;
 use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
 
 pub type PitchAnalysisError = String;
@@ -626,28 +625,8 @@ impl PitchAnalyzer {
     }
 
     fn publish_metrics_update(&mut self) {
-        // Log metrics only occasionally to avoid spam (every 1000 cycles)
-        if self.metrics.analysis_cycles % 1000 == 0 {
-            #[cfg(target_arch = "wasm32")]
-            {
-                dev_log!(
-                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                    self.metrics.processing_latency_ms, 
-                    self.metrics.analysis_cycles,
-                    self.metrics.successful_detections
-                );
-            }
-            
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                println!(
-                    "Pitch Metrics: latency={:.1}ms, cycles={}, success={}", 
-                    self.metrics.processing_latency_ms, 
-                    self.metrics.analysis_cycles,
-                    self.metrics.successful_detections
-                );
-            }
-        }
+        // Metrics are now analyzed through proper profiling tools
+        // No console logging needed
     }
 
     fn get_high_resolution_time(&self) -> f64 {
