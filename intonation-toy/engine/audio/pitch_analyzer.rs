@@ -9,44 +9,17 @@ pub type PitchAnalysisError = String;
 /// Performance metrics for pitch analysis monitoring
 #[derive(Debug, Clone)]
 pub struct PitchPerformanceMetrics {
-    /// Processing latency in milliseconds (latest)
-    pub processing_latency_ms: f64,
     /// Average processing latency over recent samples
     pub average_latency_ms: f64,
-    /// Maximum observed processing latency
-    pub max_latency_ms: f64,
-    /// Minimum observed processing latency
-    pub min_latency_ms: f64,
-    /// Total number of analysis cycles completed
-    pub analysis_cycles: u64,
-    /// Number of successful pitch detections
-    pub successful_detections: u64,
-    /// Number of failed or no-pitch detections
-    pub failed_detections: u64,
-    /// Current memory usage for zero-allocation validation
-    pub memory_usage_bytes: usize,
-    /// Number of samples exceeding 50ms processing time
-    pub latency_violations: u64,
-    /// Success rate (successful_detections / analysis_cycles)
-    pub success_rate: f32,
-    /// Time spent in pitch detection algorithm (microseconds)
-    pub detection_processing_time_us: f64,
+    /// Total number of analysis cycles completed (needed for average calculation)
+    analysis_cycles: u64,
 }
 
 impl Default for PitchPerformanceMetrics {
     fn default() -> Self {
         Self {
-            processing_latency_ms: 0.0,
             average_latency_ms: 0.0,
-            max_latency_ms: 0.0,
-            min_latency_ms: f64::INFINITY,
             analysis_cycles: 0,
-            successful_detections: 0,
-            failed_detections: 0,
-            memory_usage_bytes: 0,
-            latency_violations: 0,
-            success_rate: 0.0,
-            detection_processing_time_us: 0.0,
         }
     }
 }
@@ -178,44 +151,19 @@ impl PitchAnalyzer {
     }
 
     /// Update performance metrics with new timing data
-    fn update_metrics(&mut self, start_time: f64, end_time: f64, detection_time_us: f64, success: bool) {
+    fn update_metrics(&mut self, start_time: f64, end_time: f64, _detection_time_us: f64, _success: bool) {
         let latency_ms = end_time - start_time;
         
         self.metrics.analysis_cycles += 1;
-        self.metrics.processing_latency_ms = latency_ms;
-        self.metrics.detection_processing_time_us = detection_time_us;
         
-        // Update latency statistics
+        // Update average latency
         if self.metrics.analysis_cycles == 1 {
             self.metrics.average_latency_ms = latency_ms;
-            self.metrics.max_latency_ms = latency_ms;
-            self.metrics.min_latency_ms = latency_ms;
         } else {
             // Exponential moving average for responsiveness
             let alpha = 0.1;
             self.metrics.average_latency_ms = alpha * latency_ms + (1.0 - alpha) * self.metrics.average_latency_ms;
-            self.metrics.max_latency_ms = self.metrics.max_latency_ms.max(latency_ms);
-            self.metrics.min_latency_ms = self.metrics.min_latency_ms.min(latency_ms);
         }
-        
-        // Check for latency violations (>50ms production requirement)
-        if latency_ms > 50.0 {
-            self.metrics.latency_violations += 1;
-        }
-        
-        // Update success counts and rate
-        if success {
-            self.metrics.successful_detections += 1;
-        } else {
-            self.metrics.failed_detections += 1;
-        }
-        self.metrics.success_rate = self.metrics.successful_detections as f32 / self.metrics.analysis_cycles as f32;
-        
-        // Update memory usage estimate (pre-allocated buffer + detector memory)
-        let buffer_memory = self.analysis_buffer.len() * std::mem::size_of::<f32>();
-        let detector_memory = self.pitch_detector.memory_usage_bytes();
-        let analyzer_memory = std::mem::size_of::<Self>();
-        self.metrics.memory_usage_bytes = buffer_memory + detector_memory + analyzer_memory;
     }
 
     /// Get performance benchmark for different window sizes
@@ -266,98 +214,6 @@ impl PitchAnalyzer {
         }
         
         results
-    }
-
-    /// Check if processing meets performance requirements
-    pub fn meets_performance_requirements(&self) -> bool {
-        // Check average latency requirement (≤50ms production)
-        self.metrics.average_latency_ms <= 50.0 && 
-        // Check that we don't have too many violations (max 5% of samples)
-        (self.metrics.latency_violations as f32 / self.metrics.analysis_cycles.max(1) as f32) <= 0.05
-    }
-
-    /// Get performance grade based on latency metrics
-    pub fn performance_grade(&self) -> &'static str {
-        if self.metrics.average_latency_ms <= 20.0 {
-            "Excellent"
-        } else if self.metrics.average_latency_ms <= 35.0 {
-            "Good"
-        } else if self.metrics.average_latency_ms <= 50.0 {
-            "Acceptable"
-        } else if self.metrics.average_latency_ms <= 100.0 {
-            "Poor"
-        } else {
-            "Unacceptable"
-        }
-    }
-
-    /// Validate zero-allocation compliance during steady-state processing
-    pub fn validate_zero_allocation(&self) -> bool {
-        // Check that we're using pre-allocated buffers
-        // During steady-state, memory usage should remain constant
-        // Note: memory_usage_bytes is only updated after first analysis
-        !self.analysis_buffer.is_empty()
-    }
-
-    /// Get memory efficiency metrics
-    pub fn get_memory_efficiency(&self) -> (usize, f32, bool) {
-        let total_memory = if self.metrics.memory_usage_bytes > 0 {
-            self.metrics.memory_usage_bytes
-        } else {
-            // Estimate if no analysis has been performed yet
-            let buffer_memory = self.analysis_buffer.len() * std::mem::size_of::<f32>();
-            let detector_memory = self.pitch_detector.memory_usage_bytes();
-            let analyzer_memory = std::mem::size_of::<Self>();
-            buffer_memory + detector_memory + analyzer_memory
-        };
-        
-        let memory_per_sample = total_memory as f32 / self.config().sample_window_size as f32;
-        let is_efficient = memory_per_sample < 100.0; // Less than 100 bytes per sample is efficient
-        
-        (total_memory, memory_per_sample, is_efficient)
-    }
-
-    /// Optimize configuration for target latency while prioritizing accuracy
-    pub fn optimize_for_latency(&mut self, target_latency_ms: f32) -> Result<(), PitchAnalysisError> {
-        // Get optimal window size for target latency (accuracy-prioritized)
-        let optimal_size = super::pitch_detector::PitchDetector::get_optimal_window_size_for_latency(
-            target_latency_ms, 
-            self.pitch_detector.sample_rate()
-        );
-        
-        if optimal_size != self.config().sample_window_size {
-            let mut new_config = self.config().clone();
-            new_config.sample_window_size = optimal_size;
-            
-            self.update_config(new_config)?;
-        }
-        
-        
-        Ok(())
-    }
-
-    /// Optimize configuration for maximum accuracy within reasonable latency bounds
-    pub fn optimize_for_accuracy(&mut self) -> Result<(), PitchAnalysisError> {
-        let optimal_size = super::pitch_detector::PitchDetector::get_accuracy_optimized_window_size(
-            self.pitch_detector.sample_rate(),
-            self.config().min_frequency
-        );
-        
-        if optimal_size != self.config().sample_window_size {
-            let mut new_config = self.config().clone();
-            new_config.sample_window_size = optimal_size;
-            
-            self.update_config(new_config)?;
-        }
-        
-        
-        Ok(())
-    }
-
-    /// Check if current configuration can meet performance requirements
-    pub fn meets_latency_requirement(&self, max_latency_ms: f32) -> bool {
-        self.metrics.average_latency_ms <= max_latency_ms as f64 && 
-        self.meets_performance_requirements()
     }
 
     /// Update pitch detector configuration
