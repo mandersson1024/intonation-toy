@@ -58,16 +58,6 @@ impl PitchAnalyzer {
     /// This is the main processing function that should be called with new audio data.
     /// It performs pitch detection and publishes appropriate events.
     pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
-        if cfg!(feature = "profiling") {
-            crate::web::profiling::profiled("pitch_analyze_samples", || {
-                self.analyze_samples_impl(samples)
-            })
-        } else {
-            self.analyze_samples_impl(samples)
-        }
-    }
-    
-    fn analyze_samples_impl(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
         // Validate input size
         if samples.len() != self.analysis_buffer.len() {
             return Err(format!("Expected {} samples, got {}", self.analysis_buffer.len(), samples.len()));
@@ -76,7 +66,15 @@ impl PitchAnalyzer {
         // Copy samples to pre-allocated buffer (minimal allocation)
         self.analysis_buffer.copy_from_slice(samples);
         
-        let pitch_result = match self.pitch_detector.analyze(&self.analysis_buffer) {
+        let pitch_result = if cfg!(feature = "profiling") {
+            crate::web::profiling::profiled("pitch_detector.analyze", || {
+                self.pitch_detector.analyze(&self.analysis_buffer)
+            })
+        } else {
+            self.pitch_detector.analyze(&self.analysis_buffer)
+        };
+
+        let pitch_result = match pitch_result {
             Ok(result) => result,
             Err(e) => {
                 return Err(format!("Pitch detection failed: {}", e));
