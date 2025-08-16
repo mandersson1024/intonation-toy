@@ -9,8 +9,63 @@
     <link data-trunk rel="copy-file" href="static/audio-processor.js" />
     <link data-trunk rel="rust" data-wasm-opt="4" />
     <link data-trunk rel="copy-dir" href="static/icons/" data-trunk-copy-dest="icons/"/>
+    
+    <!-- Minimal inline CSS for preloader overlay -->
+    <style>
+      #preloader-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #1a1a1a;
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+    
+    <!-- Inline JavaScript for preloader removal -->
+    <script>
+      // Global function that WASM can call to remove the preloader
+      window.removePreloader = function() {
+        const preloader = document.getElementById('preloader-overlay');
+        if (preloader) {
+          // Add fade-out class for smooth transition
+          preloader.classList.add('preloader-fade-out');
+          
+          // Set up transitionend listener
+          let removed = false;
+          const removeElement = function() {
+            if (!removed && preloader && preloader.parentNode) {
+              removed = true;
+              preloader.parentNode.removeChild(preloader);
+            }
+          };
+          
+          // Remove on transitionend
+          preloader.addEventListener('transitionend', removeElement);
+          
+          // Fallback: Remove after timeout if transitionend doesn't fire
+          setTimeout(removeElement, 350); // Slightly longer than CSS animation
+        }
+      };
+      
+      // Remove preloader on any error
+      window.addEventListener('error', () => window.removePreloader());
+      window.addEventListener('unhandledrejection', () => window.removePreloader());
+    </script>
   </head>
   <body class="app-body">
+    <!-- Preloader Overlay (visible by default) -->
+    <div id="preloader-overlay" class="preloader-overlay">
+      <div class="preloader-content">
+        <h1 class="preloader-title">Intonation Toy</h1>
+        <div class="preloader-spinner"></div>
+        <p class="preloader-text">Loading...</p>
+      </div>
+    </div>
     <div id="sidebar" class="app-sidebar">
       <h1 class="sidebar-header">Intonation Toy</h1>
       <div id="main-scene-ui-container" class="ui-container">
@@ -110,6 +165,7 @@
         <div class="first-click-description">Click anywhere to start<br><small class="permission-note">(Microphone permission will be requested)</small></div>
       </div>
     </div>
+    
     <!-- Trunk will inject the JS/WASM for you -->
   </body>
 </html>

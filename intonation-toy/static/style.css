@@ -5,6 +5,14 @@
     box-sizing: border-box;
 }
 
+/* Z-Index Tiers */
+:root {
+    --z-index-sidebar: 1000;
+    --z-index-first-click: 9999;
+    --z-index-preloader: 10001;
+    --z-index-error: 10002;
+}
+
 /* Body Styles */
 .app-body {
     background-color: var(--color-background, #1a1a1a);
@@ -32,7 +40,7 @@
     display: flex;
     flex-direction: column;
     padding: 20px;
-    z-index: 1000;
+    z-index: var(--z-index-sidebar);
     backdrop-filter: blur(10px);
 }
 
@@ -175,7 +183,7 @@ span.status-inactive {
     right: 0;
     bottom: 0;
     background: transparent;
-    z-index: 9999;
+    z-index: var(--z-index-first-click);
     cursor: pointer;
 }
 .permission-panel, #permission-panel {
@@ -258,7 +266,7 @@ body.permission-required #sidebar input {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10000;
+    z-index: var(--z-index-error);
 }
 .error-panel {
     background-color: var(--color-surface, #2a2a2a);
@@ -293,7 +301,7 @@ body.permission-required #sidebar input {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999;
+    z-index: var(--z-index-first-click);
     cursor: pointer;
 }
 .first-click-panel {
@@ -496,31 +504,6 @@ input[type="range"]:focus::-moz-range-thumb {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #4a9eff) 30%, transparent);
 }
 
-/* First Click Handler Styles */
-.first-click-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: color-mix(in srgb, var(--color-background, #1a1a1a) 90%, transparent);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    cursor: pointer;
-}
-
-.first-click-panel {
-    background-color: var(--color-surface, #2a2a2a);
-    color: var(--color-text, #ffffff);
-    padding: 60px;
-    border-radius: 16px;
-    box-shadow: 0 25px 75px color-mix(in srgb, var(--color-background, #1a1a1a) 60%, transparent);
-    text-align: center;
-    max-width: 500px;
-}
-
 .first-click-title {
     font-size: 28px;
     font-weight: 600;
@@ -624,4 +607,65 @@ input[type="range"]:focus::-moz-range-thumb {
     color: color-mix(in srgb, var(--color-text, #ffffff) 85%, transparent);
     background: color-mix(in srgb, var(--color-surface, #2a2a2a) 50%, transparent);
     border-color: var(--color-border);
+}
+
+/* Preloader Styles */
+.preloader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-background, #1a1a1a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-index-preloader);
+    transition: opacity 0.3s ease;
+}
+
+.preloader-overlay.preloader-fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.preloader-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.preloader-title {
+    font-family: var(--font-primary, "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Ubuntu", "Helvetica Neue", sans-serif);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--color-primary, #4a9eff);
+    margin: 0;
+}
+
+.preloader-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid color-mix(in srgb, var(--color-primary, #4a9eff) 20%, transparent);
+    border-top-color: var(--color-primary, #4a9eff);
+    border-radius: 50%;
+    animation: preloader-spin 1s linear infinite;
+}
+
+.preloader-text {
+    font-family: var(--font-primary, "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Ubuntu", "Helvetica Neue", sans-serif);
+    font-size: 14px;
+    color: color-mix(in srgb, var(--color-text, #ffffff) 60%, transparent);
+    margin: 0;
+}
+
+@keyframes preloader-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
