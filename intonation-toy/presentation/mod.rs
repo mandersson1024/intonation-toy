@@ -319,17 +319,6 @@ impl Presenter {
             None
         };
         
-        // Get tuning line data for the active tuning system
-        let tuning_line_data = if matches!(self.scene, Scene::Main(_)) {
-            Self::get_tuning_line_positions(
-                model_data.root_note,
-                model_data.tuning_system,
-                model_data.scale,
-                viewport
-            )
-        } else {
-            Vec::new()
-        };
         
         match &mut self.scene {
             Scene::Startup(_) => {
@@ -341,8 +330,12 @@ impl Presenter {
                 // Update volume peak state before updating pitch position
                 main_scene.update_volume_peak(volume_peak);
                 
-                // Update tuning lines - MainScene doesn't know about music theory
-                main_scene.update_tuning_lines(viewport, &tuning_line_data);
+                // Update main scene with presentation context
+                main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
+                    root_note: model_data.root_note,
+                    tuning_system: model_data.tuning_system,
+                    current_scale: Some(model_data.scale),
+                }, viewport);
                 
                 main_scene.update_closest_note(closest_note);
                 
@@ -784,86 +777,6 @@ impl Presenter {
     }
 
     
-    /// Get tuning line positions for the active tuning system
-    /// Returns only the positions for intervals that are relevant to the current tuning system
-    pub fn get_tuning_line_positions(
-        root_note: MidiNote,
-        tuning_system: TuningSystem,
-        scale: Scale,
-        viewport: Viewport
-    ) -> Vec<(f32, MidiNote, f32)> {
-        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note);
-        
-        // Helper function to determine line thickness based on semitone offset
-        let get_thickness = |semitone: i32| -> f32 {
-            // Octave lines (multiples of 12 semitones) get configurable thickness, others get regular thickness
-            if semitone % 12 == 0 {
-                crate::presentation::main_scene::OCTAVE_LINE_THICKNESS
-            } else {
-                crate::presentation::main_scene::REGULAR_LINE_THICKNESS
-            }
-        };
-        
-        // Show intervals from -12 to +12 semitones including root (0)
-        let mut line_data = Vec::new();
-        
-        // Add center line (root note, 0 semitones)
-        if crate::shared_types::semitone_in_scale(scale, 0) {
-            // Root frequency stays at interval 0.0 (log2(1) = 0)
-            let interval = 0.0;
-            let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
-                interval,
-                viewport.height as f32,
-                crate::web::main_scene_ui::get_current_zoom_factor(),
-            );
-            let thickness = get_thickness(0);
-            line_data.push((y_position, root_note, thickness));
-        }
-        
-        // Add intervals above root: +1 to +12 semitones
-        for semitone in 1..=12 {
-            // Only show intervals that are in the current scale
-            if crate::shared_types::semitone_in_scale(scale, semitone) {
-                let frequency = crate::music_theory::interval_frequency(
-                    tuning_system,
-                    root_frequency,
-                    semitone,
-                );
-                let interval = (frequency / root_frequency).log2();
-                let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
-                    interval,
-                    viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
-                );
-                let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                let thickness = get_thickness(semitone);
-                line_data.push((y_position, midi_note, thickness));
-            }
-        }
-        
-        // Add intervals below root: -12 to -1 semitones
-        for semitone in -12..=-1 {
-            // Only show intervals that are in the current scale
-            if crate::shared_types::semitone_in_scale(scale, semitone) {
-                let frequency = crate::music_theory::interval_frequency(
-                    tuning_system,
-                    root_frequency,
-                    semitone,
-                );
-                let interval = (frequency / root_frequency).log2();
-                let y_position = crate::presentation::main_scene::interval_to_screen_y_position(
-                    interval,
-                    viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
-                );
-                let midi_note = (root_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                let thickness = get_thickness(semitone);
-                line_data.push((y_position, midi_note, thickness));
-            }
-        }
-        
-        line_data
-    }
     
 
     /// Convert MIDI note to frequency using specified tuning system and root note.
