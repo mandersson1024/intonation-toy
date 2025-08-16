@@ -1,3 +1,10 @@
 [workspace]
 members = ["intonation-toy", "dev-console"]
 resolver = "2"
+
+[profile.profiling]
+inherits = "release"
+opt-level = 2
+debug = 2
+strip = "none"
+lto = "off"

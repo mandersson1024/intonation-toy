@@ -86,6 +86,7 @@ wasm-bindgen-test = "0.3.50"
 [features]
 default = []
 separation-logging = []
+profiling = []
 
 [lib]
 name = "intonation_toy"

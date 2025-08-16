@@ -117,6 +117,16 @@ impl PitchAnalyzer {
     /// This is the main processing function that should be called with new audio data.
     /// It performs pitch detection and publishes appropriate events.
     pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
+        #[cfg(feature = "profiling")]
+        return crate::web::profiling::profiled("pitch_analyze_samples", || {
+            self.analyze_samples_impl(samples)
+        });
+        
+        #[cfg(not(feature = "profiling"))]
+        self.analyze_samples_impl(samples)
+    }
+    
+    fn analyze_samples_impl(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
         let start_time = self.get_high_resolution_time();
         
         // Validate input size
@@ -390,6 +400,19 @@ impl PitchAnalyzer {
     /// This method integrates with the existing BufferAnalyzer for sequential processing.
     /// It uses the pre-allocated buffer to avoid heap allocations during steady-state.
     pub fn analyze_from_buffer_analyzer(
+        &mut self, 
+        buffer_analyzer: &mut BufferAnalyzer
+    ) -> Result<Option<PitchResult>, PitchAnalysisError> {
+        #[cfg(feature = "profiling")]
+        return crate::web::profiling::profiled("pitch_analyze_from_buffer", || {
+            self.analyze_from_buffer_analyzer_impl(buffer_analyzer)
+        });
+        
+        #[cfg(not(feature = "profiling"))]
+        self.analyze_from_buffer_analyzer_impl(buffer_analyzer)
+    }
+    
+    fn analyze_from_buffer_analyzer_impl(
         &mut self, 
         buffer_analyzer: &mut BufferAnalyzer
     ) -> Result<Option<PitchResult>, PitchAnalysisError> {
