@@ -69,6 +69,3 @@ pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 
 /// Overlay alpha configuration
 pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;
-
-pub const PITCH_VISUALIZATION_ZOOM_DEFAULT: f32 = 0.92;
-pub const PITCH_VISUALIZATION_ZOOM_MAX: f32 = 2.85;

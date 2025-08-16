@@ -43,12 +43,8 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
     let margin = crate::web::styling::CANVAS_MARGIN;
     
-    // Estimate zoom control width (padding + slider + margins)
-    let zoom_control_width = 80; // Approximate width of zoom control
-    let gap = 16; // Gap between canvas and zoom control
-    
-    // Calculate available space (subtract sidebar width, margins, zoom control, and gap)
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2) - zoom_control_width - gap;
+    // Calculate available space (subtract sidebar width and margins)
+    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2);
     let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
     
     dev_log!("RESIZE: available {}x{}", available_width, available_height);
@@ -58,8 +54,8 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     canvas_size = std::cmp::min(canvas_size, crate::app_config::CANVAS_MAX_SIZE);
     canvas_size = std::cmp::max(canvas_size, crate::app_config::CANVAS_MIN_SIZE);
     
-    // Scene wrapper width includes canvas + gap + zoom control
-    let wrapper_width = canvas_size + gap + zoom_control_width;
+    // Scene wrapper size is just the canvas size
+    let wrapper_width = canvas_size;
     let wrapper_height = canvas_size;
     
     dev_log!("RESIZE: setting canvas size to {}px, wrapper size to {}x{}", canvas_size, wrapper_width, wrapper_height);
@@ -69,7 +65,7 @@ fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     
     // Set CSS positioning and sizing for scene wrapper
     scene_wrapper.set_attribute("style", &format!(
-        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px; display: flex; flex-direction: row; align-items: center; gap: 16px;",
+        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px;",
         margin, margin, wrapper_width, wrapper_height
     )).unwrap();
     

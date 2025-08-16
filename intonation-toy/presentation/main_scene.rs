@@ -36,9 +36,11 @@ fn get_user_pitch_line_color(scheme: &ColorScheme, volume_peak: bool, cents_offs
     }
 }
 
-pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32, zoom_factor: f32) -> f32 {
+pub fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // interval of [0.5, 2.0] means [-1, +1] octaves
-    let y: f32 = viewport_height * (0.5 + interval * zoom_factor * 0.5);
+    // Using fixed zoom factor of 0.92
+    const ZOOM_FACTOR: f32 = 0.92;
+    let y: f32 = viewport_height * (0.5 + interval * ZOOM_FACTOR * 0.5);
     y
 }
 
@@ -589,7 +591,7 @@ impl MainScene {
         self.pitch_detected = pitch_detected;
         self.cents_offset = cents_offset;
         if pitch_detected {
-            let y = interval_to_screen_y_position(interval, viewport.height as f32, crate::web::main_scene_ui::get_current_zoom_factor());
+            let y = interval_to_screen_y_position(interval, viewport.height as f32);
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
             
             // Calculate thickness and alpha based on clarity
@@ -699,8 +701,7 @@ impl MainScene {
             let interval = 0.0;
             let y_position = interval_to_screen_y_position(
                 interval,
-                viewport.height as f32,
-                crate::web::main_scene_ui::get_current_zoom_factor(),
+                viewport.height as f32
             );
             let thickness = get_thickness(0);
             line_data.push((y_position, root_note_midi, thickness));
@@ -718,8 +719,7 @@ impl MainScene {
                 let interval = (frequency / root_frequency).log2();
                 let y_position = interval_to_screen_y_position(
                     interval,
-                    viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    viewport.height as f32
                 );
                 let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
@@ -739,8 +739,7 @@ impl MainScene {
                 let interval = (frequency / root_frequency).log2();
                 let y_position = interval_to_screen_y_position(
                     interval,
-                    viewport.height as f32,
-                    crate::web::main_scene_ui::get_current_zoom_factor(),
+                    viewport.height as f32
                 );
                 let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
