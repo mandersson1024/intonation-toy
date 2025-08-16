@@ -47,3 +47,4 @@ macro_rules! warn_log {
 pub(crate) use {dev_log, trace_log, log, error_log, warn_log};
 
 pub mod smoothing;
+pub mod utils;

@@ -1,7 +1,5 @@
 use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
-use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
-use super::buffer::CircularBuffer;
-use super::volume_detector::VolumeAnalysis;
+use crate::common::utils;
 
 pub type PitchAnalysisError = String;
 
@@ -118,26 +116,6 @@ impl PitchAnalyzer {
         Ok(())
     }
 
-    fn get_high_resolution_time(&self) -> f64 {
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                if let Some(performance) = window.performance() {
-                    return performance.now();
-                }
-            }
-            0.0
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as f64
-        }
-    }
 
     /// Get the latest pitch detection result
     /// 
@@ -148,7 +126,7 @@ impl PitchAnalyzer {
             super::PitchData {
                 frequency: result.frequency,
                 clarity: result.clarity,
-                timestamp: self.get_high_resolution_time(),
+                timestamp: utils::get_high_resolution_time(),
             }
         })
     }

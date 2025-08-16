@@ -14,6 +14,7 @@
 //   let js_message = serializer.serialize_envelope(&return_msg)?;
 
 use crate::engine::audio::signal_generator::SignalGeneratorConfig;
+use crate::common::utils;
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -1923,8 +1924,7 @@ pub fn generate_unique_message_id() -> u32 {
 
 /// Get current high-resolution timestamp
 pub fn get_high_resolution_timestamp() -> f64 {
-    // Use performance.now() for high-resolution timing
-    js_sys::Date::now()
+    utils::get_high_resolution_time()
 }
 
 
