@@ -89,13 +89,13 @@ impl PitchAnalyzer {
     /// This is the main processing function that should be called with new audio data.
     /// It performs pitch detection and publishes appropriate events.
     pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
-        #[cfg(feature = "profiling")]
-        return crate::web::profiling::profiled("pitch_analyze_samples", || {
+        if cfg!(feature = "profiling") {
+            crate::web::profiling::profiled("pitch_analyze_samples", || {
+                self.analyze_samples_impl(samples)
+            })
+        } else {
             self.analyze_samples_impl(samples)
-        });
-        
-        #[cfg(not(feature = "profiling"))]
-        self.analyze_samples_impl(samples)
+        }
     }
     
     fn analyze_samples_impl(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
@@ -258,13 +258,13 @@ impl PitchAnalyzer {
         &mut self, 
         buffer_analyzer: &mut BufferAnalyzer
     ) -> Result<Option<PitchResult>, PitchAnalysisError> {
-        #[cfg(feature = "profiling")]
-        return crate::web::profiling::profiled("pitch_analyze_from_buffer", || {
+        if cfg!(feature = "profiling") {
+            crate::web::profiling::profiled("pitch_analyze_from_buffer", || {
+                self.analyze_from_buffer_analyzer_impl(buffer_analyzer)
+            })
+        } else {
             self.analyze_from_buffer_analyzer_impl(buffer_analyzer)
-        });
-        
-        #[cfg(not(feature = "profiling"))]
-        self.analyze_from_buffer_analyzer_impl(buffer_analyzer)
+        }
     }
     
     fn analyze_from_buffer_analyzer_impl(
