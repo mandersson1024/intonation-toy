@@ -2,27 +2,8 @@ use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 use super::buffer_analyzer::{BufferAnalyzer, BufferProcessor};
 use super::buffer::CircularBuffer;
 use super::volume_detector::VolumeAnalysis;
-use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
 
 pub type PitchAnalysisError = String;
-
-/// Performance metrics for pitch analysis monitoring
-#[derive(Debug, Clone)]
-pub struct PitchPerformanceMetrics {
-    /// Average processing latency over recent samples
-    pub average_latency_ms: f64,
-    /// Total number of analysis cycles completed (needed for average calculation)
-    analysis_cycles: u64,
-}
-
-impl Default for PitchPerformanceMetrics {
-    fn default() -> Self {
-        Self {
-            average_latency_ms: 0.0,
-            analysis_cycles: 0,
-        }
-    }
-}
 
 /// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
 /// and returns pitch data through the engine update system.
@@ -50,7 +31,6 @@ impl Default for PitchPerformanceMetrics {
 /// ```
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
-    metrics: PitchPerformanceMetrics,
     last_detection: Option<PitchResult>,
     // Pre-allocated buffer for zero-allocation processing
     analysis_buffer: Vec<f32>,
@@ -72,7 +52,6 @@ impl PitchAnalyzer {
         
         Ok(Self {
             pitch_detector,
-            metrics: PitchPerformanceMetrics::default(),
             last_detection: None,
             analysis_buffer,
             last_volume_analysis: None,
@@ -99,8 +78,6 @@ impl PitchAnalyzer {
     }
     
     fn analyze_samples_impl(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
-        let start_time = self.get_high_resolution_time();
-        
         // Validate input size
         if samples.len() != self.analysis_buffer.len() {
             return Err(format!("Expected {} samples, got {}", self.analysis_buffer.len(), samples.len()));
@@ -109,145 +86,25 @@ impl PitchAnalyzer {
         // Copy samples to pre-allocated buffer (minimal allocation)
         self.analysis_buffer.copy_from_slice(samples);
         
-        // Measure pitch detection algorithm performance
-        let detection_start = self.get_high_resolution_time();
         let pitch_result = match self.pitch_detector.analyze(&self.analysis_buffer) {
             Ok(result) => result,
             Err(e) => {
-                let end_time = self.get_high_resolution_time();
-                self.update_metrics(start_time, end_time, 0.0, false);
                 return Err(format!("Pitch detection failed: {}", e));
             }
         };
-        let detection_end = self.get_high_resolution_time();
-        let detection_time_us = (detection_end - detection_start) * 1000.0; // Convert to microseconds
-
-        let end_time = self.get_high_resolution_time();
 
         // Process the result and publish events
         match pitch_result {
             Some(result) => {
                 self.handle_pitch_detected(result.clone())?;
-                self.update_metrics(start_time, end_time, detection_time_us, true);
                 self.last_detection = Some(result.clone());
                 Ok(Some(result))
             }
             None => {
                 self.handle_pitch_lost()?;
-                self.update_metrics(start_time, end_time, detection_time_us, false);
                 Ok(None)
             }
         }
-    }
-
-    /// Get current performance metrics
-    pub fn metrics(&self) -> &PitchPerformanceMetrics {
-        &self.metrics
-    }
-
-    /// Reset performance metrics
-    pub fn reset_metrics(&mut self) {
-        self.metrics = PitchPerformanceMetrics::default();
-    }
-
-    /// Update performance metrics with new timing data
-    fn update_metrics(&mut self, start_time: f64, end_time: f64, _detection_time_us: f64, _success: bool) {
-        let latency_ms = end_time - start_time;
-        
-        self.metrics.analysis_cycles += 1;
-        
-        // Update average latency
-        if self.metrics.analysis_cycles == 1 {
-            self.metrics.average_latency_ms = latency_ms;
-        } else {
-            // Exponential moving average for responsiveness
-            let alpha = 0.1;
-            self.metrics.average_latency_ms = alpha * latency_ms + (1.0 - alpha) * self.metrics.average_latency_ms;
-        }
-    }
-
-    /// Get performance benchmark for different window sizes
-    pub fn benchmark_window_sizes(&mut self, sample_rate: u32) -> Vec<(usize, f64, f64)> {
-        let window_sizes = vec![256, 512, 1024, 2048, 4096];
-        let mut results = Vec::new();
-        
-        // Generate test signal (440Hz sine wave)
-        let test_frequency = 440.0;
-        for &window_size in &window_sizes {
-            let test_samples: Vec<f32> = (0..window_size)
-                .map(|i| {
-                    let t = i as f32 / sample_rate as f32;
-                    (2.0 * std::f32::consts::PI * test_frequency * t).sin()
-                })
-                .collect();
-            
-            // Measure performance over multiple iterations
-            let iterations = 10;
-            let mut total_time = 0.0;
-            let mut min_time = f64::INFINITY;
-            
-            for _ in 0..iterations {
-                let start = self.get_high_resolution_time();
-                
-                // Create temporary detector for this window size
-                let config = super::pitch_detector::PitchDetectorConfig {
-                    sample_window_size: window_size,
-                    power_threshold: POWER_THRESHOLD,
-                    clarity_threshold: CLARITY_THRESHOLD,
-                    padding_size: window_size / 2,
-                    min_frequency: 60.0,
-                    max_frequency: 2000.0,
-                };
-                
-                if let Ok(mut detector) = super::pitch_detector::PitchDetector::new(config, sample_rate) {
-                    let _ = detector.analyze(&test_samples);
-                }
-                
-                let end = self.get_high_resolution_time();
-                let elapsed = end - start;
-                total_time += elapsed;
-                min_time = min_time.min(elapsed);
-            }
-            
-            let avg_time = total_time / iterations as f64;
-            results.push((window_size, avg_time, min_time));
-        }
-        
-        results
-    }
-
-    /// Update pitch detector configuration
-    pub fn update_config(&mut self, config: PitchDetectorConfig) -> Result<(), PitchAnalysisError> {
-        self.pitch_detector.update_config(config.clone())
-            .map_err(|e| format!("Failed to update pitch detector config: {}", e))?;
-        
-        
-        // Resize analysis buffer if needed
-        if config.sample_window_size != self.analysis_buffer.len() {
-            self.analysis_buffer.resize(config.sample_window_size, 0.0);
-        }
-
-        Ok(())
-    }
-
-    /// Get current pitch detector configuration
-    pub fn config(&self) -> &PitchDetectorConfig {
-        self.pitch_detector.config()
-    }
-
-    /// Get a reference to the pitch detector for optimization access
-    pub fn pitch_detector(&self) -> &super::pitch_detector::PitchDetector {
-        &self.pitch_detector
-    }
-
-    /// Get a mutable reference to the pitch detector for optimization access
-    pub fn pitch_detector_mut(&mut self) -> &mut super::pitch_detector::PitchDetector {
-        &mut self.pitch_detector
-    }
-
-    /// Check if the analyzer is ready for processing
-    pub fn is_ready(&self) -> bool {
-        !self.analysis_buffer.is_empty()
     }
 
     /// Analyze audio data from a BufferAnalyzer using zero-allocation processing
@@ -285,7 +142,6 @@ impl PitchAnalyzer {
             ));
         }
 
-        let start_time = self.get_high_resolution_time();
 
         // Use zero-allocation processing
         let success = buffer_analyzer.process_next_into(&mut self.analysis_buffer);
@@ -293,32 +149,22 @@ impl PitchAnalyzer {
             return Ok(None); // Not enough data available
         }
 
-        // Measure pitch detection algorithm performance
-        let detection_start = self.get_high_resolution_time();
         let pitch_result = match self.pitch_detector.analyze(&self.analysis_buffer) {
             Ok(result) => result,
             Err(e) => {
-                let end_time = self.get_high_resolution_time();
-                self.update_metrics(start_time, end_time, 0.0, false);
                 return Err(format!("Pitch detection failed: {}", e));
             }
         };
-        let detection_end = self.get_high_resolution_time();
-        let detection_time_us = (detection_end - detection_start) * 1000.0; // Convert to microseconds
-
-        let end_time = self.get_high_resolution_time();
 
         // Process the result and publish events
         match pitch_result {
             Some(result) => {
                 self.handle_pitch_detected(result.clone())?;
-                self.update_metrics(start_time, end_time, detection_time_us, true);
                 self.last_detection = Some(result.clone());
                 Ok(Some(result))
             }
             None => {
                 self.handle_pitch_lost()?;
-                self.update_metrics(start_time, end_time, detection_time_us, false);
                 Ok(None)
             }
         }

@@ -345,19 +345,11 @@ pub async fn start_render_loop(
         #[cfg(all(debug_assertions, not(feature = "profiling")))]
         {
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
-            let audio_latency = if let Some(ref engine) = engine {
-                engine.get_pitch_analyzer_metrics()
-                    .map(|metrics| metrics.average_latency_ms)
-                    .unwrap_or(0.0)
-            } else {
-                0.0
-            };
             
             let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
                 fps,
                 memory_usage_mb,
                 memory_usage_percent,
-                audio_latency,
             };
             if let Some(ref mut panel) = debug_panel {
                 // Collect real debug data from the engine

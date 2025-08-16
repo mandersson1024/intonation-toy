@@ -228,13 +228,6 @@ impl DebugPanel {
                     ui.colored_label(color, format!("{:.1}%", metrics.memory_usage_percent));
                 });
                 
-                ui.horizontal(|ui| {
-                    ui.label("Audio Latency:");
-                    let color = if metrics.audio_latency < 20.0 { Color32::GREEN } 
-                              else if metrics.audio_latency < 50.0 { Color32::YELLOW } 
-                              else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1}ms", metrics.audio_latency));
-                });
             });
     }
     

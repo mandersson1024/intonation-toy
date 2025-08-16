@@ -837,23 +837,6 @@ impl AudioSystemContext {
         self.permission_state.set(state);
     }
     
-    /// Get pitch analyzer performance metrics for monitoring
-    /// 
-    /// Returns the latest performance metrics from the pitch analyzer, including
-    /// audio latency measurements. Used for performance monitoring in the debug panel.
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Option<super::pitch_analyzer::PitchPerformanceMetrics>` containing
-    /// latency and processing metrics, or None if the pitch analyzer is not available.
-    pub fn get_pitch_analyzer_metrics(&self) -> Option<super::pitch_analyzer::PitchPerformanceMetrics> {
-        self.pitch_analyzer.as_ref().and_then(|analyzer| {
-            match analyzer.try_borrow() {
-                Ok(borrowed) => Some(borrowed.metrics().clone()),
-                Err(_) => None
-            }
-        })
-    }
 }
 
 /// Conversion functions for audio data types (return-based pattern)

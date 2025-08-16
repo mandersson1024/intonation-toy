@@ -15,8 +15,6 @@ pub struct PerformanceMetrics {
     /// Percentage of allocated heap being used (estimated via Performance API)
     /// Note: Memory metrics are estimates and may not be available on all browsers
     pub memory_usage_percent: f64,
-    /// Audio processing latency in milliseconds (from PitchAnalyzer)
-    pub audio_latency: f64,
 }
 
 impl Default for PerformanceMetrics {
@@ -25,7 +23,6 @@ impl Default for PerformanceMetrics {
             fps: 0.0,
             memory_usage_mb: 0.0,
             memory_usage_percent: 0.0,
-            audio_latency: 0.0,
         }
     }
 }
