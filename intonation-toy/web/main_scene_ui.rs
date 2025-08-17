@@ -17,9 +17,9 @@ use crate::common::dev_log;
 #[cfg(target_arch = "wasm32")]
 use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
 
-// Global state for current root note - initialized to default from config
+// Global state for current tuning fork - initialized to default from config
 #[cfg(target_arch = "wasm32")]
-static CURRENT_ROOT_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_ROOT_NOTE);
+static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
 
 // Global state for tuning fork volume slider position (0-100)
 #[cfg(target_arch = "wasm32")]
@@ -88,11 +88,11 @@ pub fn setup_main_scene_ui() {
     };
 
     // Verify that essential HTML elements exist and set initial values
-    if let Some(root_note_display) = document.get_element_by_id("root-note-display") {
-        let default_note_name = format_midi_note(crate::app_config::DEFAULT_ROOT_NOTE);
-        root_note_display.set_text_content(Some(&default_note_name));
+    if let Some(tuning_fork_display) = document.get_element_by_id("tuning-fork-display") {
+        let default_note_name = format_midi_note(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
+        tuning_fork_display.set_text_content(Some(&default_note_name));
     } else {
-        dev_log!("Warning: root-note-display element not found in HTML");
+        dev_log!("Warning: tuning-fork-display element not found in HTML");
     }
 
     if let Some(volume_display) = document.get_element_by_id("tuning-fork-volume-display") {
@@ -110,11 +110,11 @@ pub fn setup_main_scene_ui() {
     }
 
     // Verify essential elements exist
-    if document.get_element_by_id("root-note-plus").is_none() {
-        dev_log!("Warning: root-note-plus element not found in HTML");
+    if document.get_element_by_id("tuning-fork-plus").is_none() {
+        dev_log!("Warning: tuning-fork-plus element not found in HTML");
     }
-    if document.get_element_by_id("root-note-minus").is_none() {
-        dev_log!("Warning: root-note-minus element not found in HTML");
+    if document.get_element_by_id("tuning-fork-minus").is_none() {
+        dev_log!("Warning: tuning-fork-minus element not found in HTML");
     }
     if document.get_element_by_id("tuning-system-select").is_none() {
         dev_log!("Warning: tuning-system-select element not found in HTML");
@@ -143,18 +143,18 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     };
 
     // Set up plus button event listener
-    if let Some(plus_button) = document.get_element_by_id("root-note-plus") {
+    if let Some(plus_button) = document.get_element_by_id("tuning-fork-plus") {
         let presenter_clone = presenter.clone();
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-            if let Some(new_root) = increment_midi_note(current_root_note) {
+            let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+            if let Some(new_tuning_fork_note) = increment_midi_note(current_tuning_fork_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                    presenter_mut.on_root_note_adjusted(new_root);
+                    presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
                     
-                    // Also update root note audio frequency
+                    // Also update tuning fork audio frequency
                     let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                     let amplitude = slider_position_to_amplitude(position);
-                    presenter_mut.on_root_note_audio_configured(true, new_root, amplitude);
+                    presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -166,22 +166,22 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         }
         closure.forget();
     } else {
-        dev_log!("Failed to find root-note-plus button");
+        dev_log!("Failed to find tuning-fork-plus button");
     }
 
     // Set up minus button event listener
-    if let Some(minus_button) = document.get_element_by_id("root-note-minus") {
+    if let Some(minus_button) = document.get_element_by_id("tuning-fork-minus") {
         let presenter_clone = presenter.clone();
         let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-            if let Some(new_root) = decrement_midi_note(current_root_note) {
+            let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+            if let Some(new_tuning_fork_note) = decrement_midi_note(current_tuning_fork_note) {
                 if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                    presenter_mut.on_root_note_adjusted(new_root);
+                    presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
                     
-                    // Also update root note audio frequency
+                    // Also update tuning fork audio frequency
                     let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                     let amplitude = slider_position_to_amplitude(position);
-                    presenter_mut.on_root_note_audio_configured(true, new_root, amplitude);
+                    presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -193,7 +193,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         }
         closure.forget();
     } else {
-        dev_log!("Failed to find root-note-minus button");
+        dev_log!("Failed to find tuning-fork-minus button");
     }
 
     // Set up tuning system dropdown event listener
@@ -308,8 +308,8 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
                                 }
                                 
                                 // Update audio
-                                let current_root_note = CURRENT_ROOT_NOTE.load(Ordering::Relaxed);
-                                presenter_clone.borrow_mut().on_root_note_audio_configured(true, current_root_note, amplitude);
+                                let current_tuning_fork = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+                                presenter_clone.borrow_mut().on_tuning_fork_configured(true, current_tuning_fork, amplitude);
                             }
                         }
                     }
@@ -341,16 +341,16 @@ pub fn cleanup_main_scene_ui() {
 
 /// Synchronize UI elements with current presenter state
 /// 
-/// This function updates the UI to reflect the current root note and tuning system
+/// This function updates the UI to reflect the current tuning fork and tuning system
 /// values from the presenter, ensuring the UI stays in sync when values change
 /// from sources other than direct user interaction.
 /// 
 /// # Arguments
 /// 
-/// * `root_note` - The current root note from the presenter
+/// * `tuning_fork` - The current tuning fork from the presenter
 /// * `tuning_system` - The current tuning system from the presenter
 /// * `scale` - The current scale from the presenter
-/// * `root_note_audio_enabled` - The current root note audio state
+/// * `tuning_fork_audio_enabled` - The current tuning fork audio state
 #[cfg(target_arch = "wasm32")]
 pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
@@ -361,12 +361,12 @@ pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdat
         return;
     };
 
-    // Update stored root note state
-    CURRENT_ROOT_NOTE.store(model_data.root_note, Ordering::Relaxed);
+    // Update stored tuning fork state
+    CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
 
-    // Update root note display
-    if let Some(display) = document.get_element_by_id("root-note-display") {
-        let formatted_note = format_midi_note(model_data.root_note);
+    // Update tuning fork display
+    if let Some(display) = document.get_element_by_id("tuning-fork-display") {
+        let formatted_note = format_midi_note(model_data.tuning_fork_note);
         display.set_text_content(Some(&formatted_note));
     }
 

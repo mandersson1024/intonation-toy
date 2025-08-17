@@ -825,10 +825,10 @@ impl AudioSystemContext {
     /// 
     /// # Arguments
     /// 
-    /// * `config` - The root note audio configuration
-    pub fn configure_root_note_audio(&mut self, config: super::RootNoteAudioConfig) {
+    /// * `config` - The tuning fork audio configuration
+    pub fn configure_tuning_fork(&mut self, config: super::TuningForkConfig) {
         if let Some(ref mut worklet) = self.audioworklet_manager {
-            worklet.update_root_note_audio_config(config);
+            worklet.update_tuning_fork_config(config);
         }
     }
     

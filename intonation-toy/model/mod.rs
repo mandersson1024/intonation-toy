@@ -65,21 +65,21 @@
 //! ### Input: PresentationLayerActions
 //! - `microphone_permission_requests` - User requests for microphone access
 //! - `tuning_system_changes` - User selections of different tuning systems
-//! - `root_note_adjustments` - User modifications to the root note
+//! - `tuning_fork_adjustments` - User modifications to the tuning fork
 //! 
 //! ### Processing: Business Logic Validation
 //! - `validate_microphone_permission_request_with_error()` - Ensures permission requests are appropriate
 //! - `validate_tuning_system_change_with_error()` - Validates tuning system changes
-//! - `validate_root_note_adjustment_with_error()` - Validates root note adjustments
+//! - `validate_tuning_fork_adjustment_with_error()` - Validates tuning fork adjustments
 //! 
 //! ### Output: ModelLayerActions
 //! - `microphone_permission_requests` - Validated permission requests
 //! - `audio_system_configurations` - Validated tuning system configurations
-//! - `tuning_configurations` - Validated tuning and root note configurations
+//! - `tuning_configurations` - Validated tuning and tuning fork configurations
 //! 
 //! ### State Management
 //! - `apply_tuning_system_change()` - Updates internal tuning system state
-//! - `apply_root_note_change()` - Updates internal root note state
+//! - `apply_tuning_fork_change()` - Updates internal tuning fork state
 //! 
 //! This system ensures that all user actions pass through business logic validation
 //! before being executed, maintaining system consistency and preventing invalid states.
@@ -108,8 +108,8 @@ use crate::common::warn_log;
 pub enum ValidationError {
     /// Tuning system is already active
     TuningSystemAlreadyActive(TuningSystem),
-    /// Root note is already set to requested value
-    RootNoteAlreadySet(MidiNote),
+    /// Tuning fork is already set to requested value
+    TuningForkNoteAlreadySet(MidiNote),
     /// Invalid frequency value
     InvalidFrequency(f32),
 }
@@ -147,20 +147,20 @@ pub struct ConfigureAudioSystemAction {
 /// 
 /// This struct represents a tuning configuration update that has been validated
 /// by the model layer's business logic. It contains the complete tuning configuration
-/// including tuning system and root note.
+/// including tuning system and tuning fork.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateTuningConfigurationAction {
     pub tuning_system: TuningSystem,
-    pub root_note: MidiNote,
+    pub tuning_fork_note: MidiNote,
 }
 
-/// Validated root note audio configuration
+/// Validated tuning fork audio configuration
 /// 
-/// This struct represents a root note audio configuration that has been validated
+/// This struct represents a tuning fork audio configuration that has been validated
 /// by the model layer's business logic. It contains the audio generation settings
 /// including enabled state and frequency.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureRootNoteAudioAction {
+pub struct ConfigureTuningForkAction {
     pub frequency: f32,
     pub volume: f32,
 }
@@ -181,8 +181,8 @@ pub struct ModelLayerActions {
     /// Validated tuning configuration updates
     pub tuning_configurations: Vec<UpdateTuningConfigurationAction>,
     
-    /// Validated root note audio configurations
-    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudioAction>,
+    /// Validated tuning fork audio configurations
+    pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
 }
 
 impl Default for ModelLayerActions {
@@ -200,7 +200,7 @@ impl ModelLayerActions {
         Self {
             audio_system_configurations: Vec::new(),
             tuning_configurations: Vec::new(),
-            root_note_audio_configurations: Vec::new(),
+            tuning_fork_configurations: Vec::new(),
         }
     }
 }
@@ -245,8 +245,8 @@ pub struct DataModel {
     /// Current tuning system used for pitch calculations
     tuning_system: TuningSystem,
     
-    /// Current root note for tuning calculations
-    root_note: MidiNote,
+    /// Current tuning fork for tuning calculations
+    tuning_fork_note: MidiNote,
     
     /// Current scale for note filtering
     current_scale: Scale,
@@ -292,7 +292,7 @@ impl DataModel {
         // Model layer initialization without interface dependencies
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
-            root_note: crate::app_config::DEFAULT_ROOT_NOTE,
+            tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
             frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
             clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
@@ -429,7 +429,7 @@ impl DataModel {
         // Calculate accuracy based on detected pitch with full tuning context
         let accuracy = match pitch {
             Pitch::Detected(frequency, _clarity) => {
-                // Processing detected pitch with tuning system and root note
+                // Processing detected pitch with tuning system and tuning fork
                 
                 // Apply tuning-aware frequency to note conversion
                 let (closest_midi_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
@@ -444,21 +444,21 @@ impl DataModel {
             Pitch::NotDetected => {
                 // No pitch detected - return default values
                 IntonationData {
-                    closest_midi_note: self.root_note, // Use MidiNote directly
+                    closest_midi_note: self.tuning_fork_note, // Use MidiNote directly
                     cents_offset: 0.0, // No offset when no pitch is detected
                 }
             }
         };
         
-        // Calculate interval semitones between detected note and root note
+        // Calculate interval semitones between detected note and tuning fork
         let interval_semitones = match pitch {
             Pitch::Detected(_, _) => {
-                (accuracy.closest_midi_note as i32) - (self.root_note as i32)
+                (accuracy.closest_midi_note as i32) - (self.tuning_fork_note as i32)
             }
             Pitch::NotDetected => 0, // No interval when no pitch detected
         };
 
-        // Interval calculation: detected MIDI - root MIDI = interval semitones
+        // Interval calculation: detected MIDI - tuning fork MIDI = interval semitones
 
         // Return processed model data with both legacy and flattened fields
         
@@ -476,7 +476,7 @@ impl DataModel {
             closest_midi_note: accuracy.closest_midi_note,
             cents_offset: accuracy.cents_offset,
             interval_semitones,
-            root_note: self.root_note,
+            tuning_fork_note: self.tuning_fork_note,
         }
     }
     
@@ -501,7 +501,7 @@ impl DataModel {
     /// This method applies business logic validation to ensure that:
     /// - Microphone permission requests are appropriate for the current state
     /// - Tuning system changes are valid and different from the current system
-    /// - Root note adjustments are valid and result in proper frequency calculations
+    /// - Tuning fork adjustments are valid and result in proper frequency calculations
     /// - All actions maintain system consistency and state integrity
     /// 
     /// # Current Implementation
@@ -509,14 +509,14 @@ impl DataModel {
     /// The validation logic:
     /// 1. Validates microphone permission requests against current permission state
     /// 2. Validates tuning system changes and updates internal state when valid
-    /// 3. Validates root note adjustments and updates internal state when valid
+    /// 3. Validates tuning fork adjustments and updates internal state when valid
     /// 4. Combines validated actions into complete system configurations
     /// 5. Collects validation errors for failed actions
     /// 
     /// # State Updates
     /// 
     /// When actions pass validation, the model's internal state is immediately updated
-    /// using `apply_tuning_system_change()` and `apply_root_note_change()` methods.
+    /// using `apply_tuning_system_change()` and `apply_tuning_fork_change()` methods.
     /// This ensures the model's state remains synchronized with validated user actions.
     pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
         let mut model_actions = ModelLayerActions::new();
@@ -543,19 +543,19 @@ impl DataModel {
             }
         }
         
-        // Process root note adjustments
-        for root_note_adjustment in presentation_actions.root_note_adjustments {
-            // root_note is already a MidiNote
-            let midi_note = root_note_adjustment.root_note;
-            match self.validate_root_note_adjustment_with_error(&midi_note) {
+        // Process tuning fork adjustments
+        for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
+            // tuning_fork is already a MidiNote
+            let midi_note = tuning_fork_adjustment.note;
+            match self.validate_tuning_fork_adjustment_with_error(&midi_note) {
                     Ok(()) => {
                         let config = UpdateTuningConfigurationAction {
                             tuning_system: self.tuning_system,
-                            root_note: midi_note,
+                            tuning_fork_note: midi_note,
                         };
                         
                         // Apply the state change to internal model state
-                        self.apply_root_note_change(&config);
+                        self.apply_tuning_fork_change(&config);
                         
                         model_actions.tuning_configurations.push(config);
                     }
@@ -576,29 +576,26 @@ impl DataModel {
             }
         }
         
-        // Process root note audio configurations
-        crate::common::dev_log!("MODEL: Processing {} root note audio configurations", presentation_actions.root_note_audio_configurations.len());
-        for root_note_audio_config in presentation_actions.root_note_audio_configurations {
-            crate::common::dev_log!("MODEL: Processing root note audio config");
+        // Process tuning fork audio configurations
+        crate::common::dev_log!("MODEL: Processing {} tuning fork audio configurations", presentation_actions.tuning_fork_configurations.len());
+        for tuning_fork_config in presentation_actions.tuning_fork_configurations {
+            crate::common::dev_log!("MODEL: Processing tuning fork audio config");
             
-            match self.validate_root_note_audio_configuration_with_error(&root_note_audio_config) {
+            match self.validate_tuning_fork_audio_configuration_with_error(&tuning_fork_config) {
                 Ok(()) => {
-                    let config = ConfigureRootNoteAudioAction {
-                        frequency: root_note_audio_config.frequency,
-                        volume: root_note_audio_config.volume,
+                    let config = ConfigureTuningForkAction {
+                        frequency: tuning_fork_config.frequency,
+                        volume: tuning_fork_config.volume,
                     };
-                    
-                    // Apply the state change to internal model state
-                    self.apply_root_note_audio_change(&config);
-                    
+
                     // Add validated action for engine execution
-                    model_actions.root_note_audio_configurations.push(config);
+                    model_actions.tuning_fork_configurations.push(config);
                     
-                    crate::common::dev_log!("MODEL: ✓ Root note audio configuration validated and queued for engine execution");
+                    crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
                 }
                 Err(error) => {
                     // Log validation error but continue processing other actions
-                    let error_message = format!("Root note audio configuration validation failed: {:?}", error);
+                    let error_message = format!("Tuning fork audio configuration validation failed: {:?}", error);
                     crate::common::warn_log!("{}", error_message);
                     validation_errors.push(error);
                 }
@@ -614,11 +611,11 @@ impl DataModel {
     
     /// Convert a frequency to the closest musical note with tuning system and scale awareness
     /// 
-    /// This method applies the current tuning system, root note context, and scale filtering
+    /// This method applies the current tuning system, tuning fork context, and scale filtering
     /// to convert raw frequency data into musical note identification. The conversion process:
     /// 
     /// 1. Validates the input frequency (must be positive)
-    /// 2. Calculates a root pitch frequency based on tuning system and root note
+    /// 2. Calculates a root pitch frequency based on tuning system and tuning fork
     /// 3. Converts frequency to MIDI note space using tuning-specific formulas
     /// 4. Maps MIDI note to the closest musical note
     /// 5. Applies scale filtering to find the nearest scale member if needed
@@ -636,9 +633,9 @@ impl DataModel {
     /// - Equal Temperament: Each semitone is exactly 2^(1/12) ratio apart
     /// - Future systems (Just Intonation, etc.) will use different ratios
     /// 
-    /// # Root Note Context
+    /// # Tuning Fork Context
     /// 
-    /// The root note determines the reference point for all calculations:
+    /// The tuning fork determines the reference point for all calculations:
     /// - Changes the root pitch frequency used for MIDI conversion
     /// - Affects which frequencies are considered "in tune"
     /// - Allows the same frequency to map to different accuracy values
@@ -667,7 +664,7 @@ impl DataModel {
             // Still process but warn in debug mode
         }
         
-        // Get root pitch frequency based on current tuning system and root note
+        // Get root pitch frequency based on current tuning system and tuning fork
         // This is the key to tuning-aware processing
         let root_pitch = self.get_root_pitch();
         
@@ -681,8 +678,8 @@ impl DataModel {
             self.current_scale,
         );
         
-        // Calculate MIDI note from root note plus interval
-        let raw_midi_note = self.root_note as i32 + interval_result.semitones;
+        // Calculate MIDI note from tuning fork plus interval
+        let raw_midi_note = self.tuning_fork_note as i32 + interval_result.semitones;
         
         // Clamp to valid MIDI range (0-127)
         let clamped_midi_note = raw_midi_note.clamp(0, 127) as u8;
@@ -699,7 +696,7 @@ impl DataModel {
     
     
     
-    /// Get the root pitch frequency for the current root note
+    /// Get the root pitch frequency for the current tuning fork
     /// 
     /// Root pitch is always calculated using Equal Temperament regardless of the 
     /// active tuning system. This is distinct from the `REFERENCE_FREQUENCY` 
@@ -712,15 +709,15 @@ impl DataModel {
     /// This ensures consistent frequency mapping regardless of which tuning system
     /// is used for interval calculations in other parts of the application.
     /// 
-    /// # Root Note Impact
+    /// # Tuning Fork Impact
     /// 
-    /// The root note changes which frequency is considered the "tonic":
+    /// The tuning fork changes which frequency is considered the "tonic":
     /// - If root is A, then A4 = 440Hz is the root pitch
     /// - If root is C, then C4 = 261.63Hz becomes the root pitch
     /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
         // Use the centralized function for consistency
-        crate::music_theory::midi_note_to_standard_frequency(self.root_note)
+        crate::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note)
     }
     
     /// Validate microphone permission request with detailed error reporting
@@ -763,44 +760,44 @@ impl DataModel {
     }
     
     
-    /// Validate root note adjustment request with detailed error reporting
+    /// Validate tuning fork adjustment request with detailed error reporting
     /// 
-    /// Ensures that a root note adjustment is valid and results in proper frequency
+    /// Ensures that a tuning fork adjustment is valid and results in proper frequency
     /// calculations. This validation maintains musical accuracy and prevents
     /// invalid note configurations.
     /// 
     /// # Arguments
     /// 
-    /// * `new_root_note` - The requested root note to validate
+    /// * `new_tuning_fork` - The requested tuning fork to validate
     /// 
     /// # Returns
     /// 
-    /// Returns `Ok(())` if the root note adjustment should be processed, or a specific
+    /// Returns `Ok(())` if the tuning fork adjustment should be processed, or a specific
     /// `ValidationError` describing why the adjustment was rejected.
     /// 
     /// # Current Implementation
     /// 
-    /// Validates that the new root note is different from the current one and is
+    /// Validates that the new tuning fork is different from the current one and is
     /// a valid musical note. Future implementations will add:
     /// - Compatibility checks with current tuning system
     /// - Musical theory validation
-    fn validate_root_note_adjustment_with_error(&self, new_root_note: &MidiNote) -> Result<(), ValidationError> {
-        if *new_root_note == self.root_note {
-            Err(ValidationError::RootNoteAlreadySet(*new_root_note))
+    fn validate_tuning_fork_adjustment_with_error(&self, new_tuning_fork: &MidiNote) -> Result<(), ValidationError> {
+        if *new_tuning_fork == self.tuning_fork_note {
+            Err(ValidationError::TuningForkNoteAlreadySet(*new_tuning_fork))
         } else {
             Ok(())
         }
     }
     
-    /// Validate root note audio configuration request
+    /// Validate tuning fork audio configuration request
     /// 
-    /// Validates a root note audio configuration request by checking that the frequency
+    /// Validates a tuning fork audio configuration request by checking that the frequency
     /// is valid and the configuration is different from the current state.
     /// Future implementations will add:
     /// - Frequency range validation
     /// - Audio system compatibility checks
     /// - Volume level validation
-    fn validate_root_note_audio_configuration_with_error(&self, config: &crate::presentation::ConfigureRootNoteAudio) -> Result<(), ValidationError> {
+    fn validate_tuning_fork_audio_configuration_with_error(&self, config: &crate::presentation::ConfigureTuningFork) -> Result<(), ValidationError> {
         // Validate frequency is positive
         if config.frequency <= 0.0 {
             return Err(ValidationError::InvalidFrequency(config.frequency));
@@ -859,9 +856,9 @@ impl DataModel {
         self.current_scale = action.scale;
     }
     
-    /// Apply root note change to internal state
+    /// Apply tuning fork change to internal state
     /// 
-    /// Updates the internal root note based on a validated root note adjustment.
+    /// Updates the internal tuning fork based on a validated tuning fork adjustment.
     /// This method should only be called with actions that have passed business logic validation.
     /// 
     /// # Arguments
@@ -870,34 +867,19 @@ impl DataModel {
     /// 
     /// # Current Implementation
     /// 
-    /// Updates the internal tuning system and root note directly from the validated action.
+    /// Updates the internal tuning system and tuning fork directly from the validated action.
     /// Future implementations will add:
     /// - State change notifications
     /// - Logging of configuration changes
     /// - Validation of state consistency after changes
     /// - Recalculation of derived values
-    fn apply_root_note_change(&mut self, action: &UpdateTuningConfigurationAction) {
+    fn apply_tuning_fork_change(&mut self, action: &UpdateTuningConfigurationAction) {
         crate::common::dev_log!(
-            "Model layer: Root note changed from {} to {}",
-            self.root_note, action.root_note
+            "Model layer: Tuning fork changed from {} to {}",
+            self.tuning_fork_note, action.tuning_fork_note
         );
         self.tuning_system = action.tuning_system;
-        self.root_note = action.root_note;
-    }
-    
-    /// Apply root note audio configuration change to internal state
-    /// 
-    /// Updates the internal root note audio enabled state based on a validated
-    /// root note audio configuration change. This method should only be called with
-    /// actions that have passed business logic validation.
-    /// Future implementations will add:
-    /// - State change notifications
-    /// - Logging of configuration changes
-    /// - Validation of state consistency after changes
-    fn apply_root_note_audio_change(&mut self, _action: &ConfigureRootNoteAudioAction) {
-        crate::common::dev_log!(
-            "Model layer: Root note audio configuration passed through"
-        );
+        self.tuning_fork_note = action.tuning_fork_note;
     }
 }
 

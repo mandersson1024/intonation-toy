@@ -323,7 +323,7 @@ body.permission-required #sidebar input {
 }
 
 /* Component Styles */
-.root-note-display {
+.tuning-fork-display {
     background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
     color: var(--color-primary, #4a9eff);
     padding: 6px 12px;

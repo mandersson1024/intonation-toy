@@ -80,25 +80,25 @@ This document provides a structured approach for manually testing the intonation
 - Analysis updates immediately
 - UI reflects current mode
 
-### 3. Root Note Configuration
-**Goal**: Verify root note changes affect pitch analysis correctly.
+### 3. Tuning Fork Configuration
+**Goal**: Verify tuning fork changes affect pitch analysis correctly.
 
-#### Root Note Selection
+#### Tuning Fork Selection
 **Steps:**
-1. Change root note (e.g., from C to D)
+1. Change tuning fork (e.g., from C to D)
 2. Play a consistent pitch
 3. Observe interval analysis changes
 
 **Expected Result:**
-- Root note updates immediately
-- Interval calculations adjust to new root
+- Tuning fork updates immediately
+- Interval calculations adjust to new tuning fork
 - Visual representation updates
 
 #### Standard Tuning Reference
 **Steps:**
-1. Set root note to A (MIDI 69)
+1. Set tuning fork to A (MIDI 69)
 2. Play A4=440Hz
-3. Verify it shows as root/unison
+3. Verify it shows as tuning fork/unison
 
 **Expected Result:**
 - Shows 0 semitones, 0 cents

@@ -22,7 +22,7 @@ pub struct DebugData {
     pub microphone_permission: AudioPermission,
     pub audio_errors: Vec<crate::shared_types::Error>,
     pub interval_semitones: Option<i32>,
-    pub root_note: Option<crate::shared_types::MidiNote>,
+    pub tuning_fork_note: Option<crate::shared_types::MidiNote>,
 }
 
 impl Default for DebugData {
@@ -51,7 +51,7 @@ impl DebugData {
             microphone_permission: AudioPermission::Uninitialized,
             audio_errors: Vec::new(),
             interval_semitones: None,
-            root_note: None,
+            tuning_fork_note: None,
         }
     }
 
@@ -102,7 +102,7 @@ impl DebugData {
         if let Some(model) = model_result {
             self.intonation_data = Some(model.accuracy.clone());
             self.interval_semitones = Some(model.interval_semitones);
-            self.root_note = Some(model.root_note);
+            self.tuning_fork_note = Some(model.tuning_fork_note);
         }
     }
     
@@ -148,8 +148,8 @@ impl DebugData {
         self.interval_semitones
     }
     
-    /// Get root note
-    pub fn get_root_note(&self) -> Option<crate::shared_types::MidiNote> {
-        self.root_note
+    /// Get tuning fork
+    pub fn get_tuning_fork_note(&self) -> Option<crate::shared_types::MidiNote> {
+        self.tuning_fork_note
     }
 }

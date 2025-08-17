@@ -219,20 +219,20 @@ pub async fn start_render_loop(
                 
                 // Only process if there are actions to handle
                 let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
-                                      !user_actions.root_note_adjustments.is_empty() ||
+                                      !user_actions.tuning_fork_adjustments.is_empty() ||
                                       !user_actions.scale_changes.is_empty() ||
-                                      !user_actions.root_note_audio_configurations.is_empty();
+                                      !user_actions.tuning_fork_configurations.is_empty();
                 
                 if has_user_actions {
-                    trace_log!("Processing {} user actions (tuning: {}, root_note: {}, scale: {}, audio: {})", 
+                    trace_log!("Processing {} user actions (tuning: {}, tuning_fork: {}, scale: {}, audio: {})", 
                         user_actions.tuning_system_changes.len() + 
-                        user_actions.root_note_adjustments.len() +
+                        user_actions.tuning_fork_adjustments.len() +
                         user_actions.scale_changes.len() +
-                        user_actions.root_note_audio_configurations.len(),
+                        user_actions.tuning_fork_configurations.len(),
                         user_actions.tuning_system_changes.len(),
-                        user_actions.root_note_adjustments.len(),
+                        user_actions.tuning_fork_adjustments.len(),
                         user_actions.scale_changes.len(),
-                        user_actions.root_note_audio_configurations.len()
+                        user_actions.tuning_fork_configurations.len()
                     );
                     
                     // Process and validate actions in model layer
@@ -246,19 +246,19 @@ pub async fn start_render_loop(
                     // Execute validated actions in engine layer
                     let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
                                            !processed_actions.actions.tuning_configurations.is_empty() ||
-                                           !processed_actions.actions.root_note_audio_configurations.is_empty();
+                                           !processed_actions.actions.tuning_fork_configurations.is_empty();
                     
                     if has_model_actions {
-                        trace_log!("Actions ready for execution: {} audio system, {} tuning, {} root note audio", 
+                        trace_log!("Actions ready for execution: {} audio system, {} tuning, {} tuning fork audio", 
                             processed_actions.actions.audio_system_configurations.len(),
                             processed_actions.actions.tuning_configurations.len(),
-                            processed_actions.actions.root_note_audio_configurations.len()
+                            processed_actions.actions.tuning_fork_configurations.len()
                         );
                         
                         // Execute actions synchronously
                         let total_sync = processed_actions.actions.audio_system_configurations.len() + 
                                        processed_actions.actions.tuning_configurations.len() +
-                                       processed_actions.actions.root_note_audio_configurations.len();
+                                       processed_actions.actions.tuning_fork_configurations.len();
                         match engine.execute_actions(processed_actions.actions) {
                             Ok(()) => {
                                 if total_sync > 0 {
@@ -331,7 +331,7 @@ pub async fn start_render_loop(
                 closest_midi_note: 69,
                 cents_offset: 0.0,
                 interval_semitones: 0,
-                root_note: 53,
+                tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
             }
         };
         

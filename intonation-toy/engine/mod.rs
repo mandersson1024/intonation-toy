@@ -163,17 +163,17 @@ impl AudioEngine {
                 
                 let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
                 
-                // Initialize default root note audio with zero volume
-                crate::common::dev_log!("Initializing default root note audio with zero volume");
-                let default_root_note = crate::app_config::DEFAULT_ROOT_NOTE;
-                let default_frequency = crate::music_theory::midi_note_to_standard_frequency(default_root_note);
+                // Initialize default tuning fork audio with zero volume
+                crate::common::dev_log!("Initializing default tuning fork audio with zero volume");
+                let default_tuning_fork_note = crate::app_config::DEFAULT_TUNING_FORK_NOTE;
+                let default_frequency = crate::music_theory::midi_note_to_standard_frequency(default_tuning_fork_note);
                 
                 if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
-                    let root_note_config = crate::engine::audio::RootNoteAudioConfig {
+                    let tuning_fork_config = crate::engine::audio::TuningForkConfig {
                         frequency: default_frequency,
                         volume: 0.0,
                     };
-                    borrowed_context.configure_root_note_audio(root_note_config);
+                    borrowed_context.configure_tuning_fork(tuning_fork_config);
                 }
                 
                 Ok(Self {
@@ -320,49 +320,49 @@ impl AudioEngine {
     /// 
     /// Musical interpretation is handled by the model layer:
     /// - Tuning system calculations
-    /// - Root note relationships
+    /// - Relationship to tuning fork note
     /// - Pitch analysis and interval calculations
     pub fn execute_actions(&mut self, model_actions: ModelLayerActions) -> Result<(), String> {
         // The engine layer handles only raw audio processing and hardware interface.
-        // All musical interpretation including tuning systems, root notes, and
+        // All musical interpretation including tuning systems, tuning forks, and
         // pitch analysis is handled exclusively by the model layer.
         
-        // Process root note audio configurations
-        for config in &model_actions.root_note_audio_configurations {
+        // Process tuning fork audio configurations
+        for config in &model_actions.tuning_fork_configurations {
             crate::common::dev_log!(
-                "Engine layer: Executing root note audio configuration - frequency: {} Hz",
+                "Engine layer: Executing tuning fork audio configuration - frequency: {} Hz",
                 config.frequency
             );
             
-            // Execute the root note audio configuration using the audio system
+            // Execute the tuning fork audio configuration using the audio system
             if let Some(ref audio_context) = self.audio_context {
                 let mut borrowed_context = audio_context.borrow_mut();
                 if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
                     // Convert model action to audio system config
-                    let audio_config = crate::engine::audio::signal_generator::RootNoteAudioConfig {
+                    let audio_config = crate::engine::audio::signal_generator::TuningForkConfig {
                         frequency: config.frequency,
                         volume: config.volume,
                     };
                     
-                    // Use the separate root note audio node architecture
-                    worklet_manager.update_root_note_audio_config(audio_config);
+                    // Use the separate tuning fork audio node architecture
+                    worklet_manager.update_tuning_fork_config(audio_config);
                     crate::common::dev_log!(
-                        "Engine layer: ✓ Root note audio control updated - frequency: {} Hz", 
+                        "Engine layer: ✓ Tuning fork audio control updated - frequency: {} Hz", 
                         config.frequency
                     );
                 } else {
                     crate::common::dev_log!(
-                        "Engine layer: ⚠ AudioWorkletManager not available for root note audio control"
+                        "Engine layer: ⚠ AudioWorkletManager not available for tuning fork audio control"
                     );
                 }
             } else {
-                return Err("Audio context not available for root note audio execution".to_string());
+                return Err("Audio context not available for tuning fork audio execution".to_string());
             }
         }
         
-        let total_root_note_audio = model_actions.root_note_audio_configurations.len();
-        if total_root_note_audio > 0 {
-            crate::common::dev_log!("Engine layer: ✓ Executed {} root note audio configurations", total_root_note_audio);
+        let total_tuning_fork_audio = model_actions.tuning_fork_configurations.len();
+        if total_tuning_fork_audio > 0 {
+            crate::common::dev_log!("Engine layer: ✓ Executed {} tuning fork audio configurations", total_tuning_fork_audio);
         }
         
         crate::common::dev_log!("Engine layer: Action execution completed");

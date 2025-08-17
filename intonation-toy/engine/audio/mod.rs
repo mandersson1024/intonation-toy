@@ -45,7 +45,7 @@ pub mod volume_detector;
 pub mod signal_generator;
 pub mod message_protocol;
 pub mod data_types;
-pub mod root_note_audio_node;
+pub mod tuning_fork_node;
 pub mod test_signal_node;
 
 use crate::common::dev_log;
@@ -205,10 +205,10 @@ pub use microphone::MicrophoneManager;
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub(crate) use commands::register_audio_commands;
-pub use signal_generator::{SignalGeneratorConfig, RootNoteAudioConfig};
+pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
-pub use root_note_audio_node::RootNoteAudioNode;
+pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 
 // Private re-exports for internal module use only

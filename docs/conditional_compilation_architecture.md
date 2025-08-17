@@ -298,7 +298,7 @@ fn measure_performance(timer: &impl Timer) {
 ```rust
 // platform/traits.rs
 pub trait UIController: Send + Sync {
-    fn update_root_note(&self, note: MidiNote);
+    fn update_tuning_fork(&self, note: MidiNote);
     fn update_tuning_system(&self, system: TuningSystem);
     fn show_error(&self, message: &str);
 }
@@ -309,7 +309,7 @@ pub struct WebUIController {
 }
 
 impl UIController for WebUIController {
-    fn update_root_note(&self, note: MidiNote) {
+    fn update_tuning_fork(&self, note: MidiNote) {
         // DOM manipulation code
     }
     // ... other methods

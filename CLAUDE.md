@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The visualization is rendered using the three_d crate
 - `three_d` external documentation: https://docs.rs/three-d/latest/three_d/index.html
 - UI action from the presentation layers include:
-  - set root note
+  - set tuning fork note
   - set tuning system
 
 ### Debug layer
@@ -42,19 +42,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The application follows a stateless architecture where higher layers should receive fresh data each frame rather than caching data from lower layers:
 
-- **Model layer**: Maintains only configuration state (tuning_system, root_note, current_scale). Receives fresh EngineUpdateResult data each frame and returns processed ModelUpdateResult data.
+- **Model layer**: Maintains only configuration state (tuning_system, tuning_fork, current_scale). Receives fresh EngineUpdateResult data each frame and returns processed ModelUpdateResult data.
 - **Presentation layer**: Should avoid caching model data. Methods should receive required configuration data as parameters rather than storing cached copies of model state. This ensures single source of truth and eliminates synchronization complexity.
 - **Data flow**: Each layer processes fresh data from the layer below and passes results upward without caching intermediate state from other layers.
 
 When modifying the presentation layer, prefer passing data as method parameters over storing cached state from the model layer. Note that HTML elements and UI components may need to maintain their own display state separately from model data.
 
 ## Functional requirements and general information
-- The application is all about analyzing the relation of audio input to the root note; in musical terms - intonation
+- The application is all about analyzing the relation of audio input to the tuning fork; in musical terms - intonation
 - We visualize the intonation by realtime graphic rendering to the screen
 - The tuning systems we use are equal temperament and just intonation
-- The root note is always a note in standard tuning and represents the tonic pitch, from which intervals are calculated
+- The tuning fork is always a note in standard tuning and represents the tonic pitch, from which intervals are calculated
 - Standard tuning means equal temperament where A4=440Hz
-- The notes of just intonation are not fixed, but relative to the selected root note.
+- The notes of just intonation are not fixed, but relative to the selected tuning fork.
+- The tuning fork defines the root note. In our documentation and code, "root note" and "tuning fork note" are used interchangeably to refer to the same concept - the reference pitch from which all intervals are calculated.
 - For volume data, the internal representation is always amplitude, not dB.
 - We don't adapt algorithms on the fly to adapt for performace. We always hardcode the parameters affecting performance
 - The default sample rate should be 44100Hz. This is the most common standard on consumer devices

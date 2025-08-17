@@ -6,17 +6,17 @@ use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alp
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
 // Left margin to reserve space for note names
-const NOTE_NAME_X_OFFSET: f32 = 14.0;
+const NOTE_NAME_X_OFFSET: f32 = 30.0;
 const NOTE_NAME_Y_OFFSET: f32 = 2.0;
-const NOTE_LINE_LEFT_MARGIN: f32 = 30.0;
-const NOTE_LINE_RIGHT_MARGIN: f32 = 10.0;
+const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 20.0;
 
 // Font size for note labels
-const NOTE_LABEL_FONT_SIZE: f32 = 16.0;
+const NOTE_LABEL_FONT_SIZE: f32 = 26.0;
 
 // Line thickness values
-pub const OCTAVE_LINE_THICKNESS: f32 = 4.0;
-pub const REGULAR_LINE_THICKNESS: f32 = 2.0;
+pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
+pub const REGULAR_LINE_THICKNESS: f32 = 4.0;
 const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 // User pitch line colors
@@ -669,7 +669,7 @@ impl MainScene {
         self.volume_peak = volume_peak;
     }
     
-    /// Update the presentation context with new root note, tuning system, and scale.
+    /// Update the presentation context with new tuning fork, tuning system, and scale.
     /// Also re-renders the background texture when the presentation context changes.
     pub fn update_presentation_context(&mut self, context: &crate::shared_types::PresentationContext, viewport: Viewport) {
         if self.presentation_context.as_ref() == Some(context) {
@@ -686,7 +686,7 @@ impl MainScene {
         
         // Calculate tuning line positions and update them
         let tuning_line_data = self.get_tuning_line_positions(
-            context.root_note,
+            context.tuning_fork_note,
             context.tuning_system,
             context.current_scale.as_ref().unwrap_or(&Scale::Chromatic),
             viewport,
@@ -703,12 +703,12 @@ impl MainScene {
     /// Returns tuning line data with positions, MIDI notes, and thickness
     fn get_tuning_line_positions(
         &self,
-        root_note_midi: MidiNote,
+        tuning_fork_midi: MidiNote,
         tuning_system: TuningSystem,
         scale: &Scale,
         viewport: Viewport,
     ) -> Vec<(f32, MidiNote, f32)> {
-        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note_midi);
+        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(tuning_fork_midi);
         
         // Helper function to determine line thickness based on semitone offset
         let get_thickness = |semitone: i32| -> f32 {
@@ -723,53 +723,53 @@ impl MainScene {
         // Show intervals from -12 to +12 semitones including root (0)
         let mut line_data = Vec::new();
         
-        // Add center line (root note, 0 semitones)
+        // Add center line (tuning fork, 0 semitones)
         if crate::shared_types::semitone_in_scale(*scale, 0) {
-            // Root frequency stays at interval 0.0 (log2(1) = 0)
+            // Tuning fork frequency stays at interval 0.0 (log2(1) = 0)
             let interval = 0.0;
             let y_position = interval_to_screen_y_position(
                 interval,
                 viewport.height as f32
             );
             let thickness = get_thickness(0);
-            line_data.push((y_position, root_note_midi, thickness));
+            line_data.push((y_position, tuning_fork_midi, thickness));
         }
         
-        // Add intervals above root: +1 to +12 semitones
+        // Add intervals above tuning fork: +1 to +12 semitones
         for semitone in 1..=12 {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(*scale, semitone) {
                 let frequency = crate::music_theory::interval_frequency(
                     tuning_system,
-                    root_frequency,
+                    tuning_fork_frequency,
                     semitone,
                 );
-                let interval = (frequency / root_frequency).log2();
+                let interval = (frequency / tuning_fork_frequency).log2();
                 let y_position = interval_to_screen_y_position(
                     interval,
                     viewport.height as f32
                 );
-                let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let midi_note = (tuning_fork_midi as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
                 line_data.push((y_position, midi_note, thickness));
             }
         }
         
-        // Add intervals below root: -12 to -1 semitones
+        // Add intervals below tuning fork: -12 to -1 semitones
         for semitone in -12..=-1 {
             // Only show intervals that are in the current scale
             if crate::shared_types::semitone_in_scale(*scale, semitone) {
                 let frequency = crate::music_theory::interval_frequency(
                     tuning_system,
-                    root_frequency,
+                    tuning_fork_frequency,
                     semitone,
                 );
-                let interval = (frequency / root_frequency).log2();
+                let interval = (frequency / tuning_fork_frequency).log2();
                 let y_position = interval_to_screen_y_position(
                     interval,
                     viewport.height as f32
                 );
-                let midi_note = (root_note_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let midi_note = (tuning_fork_midi as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
                 line_data.push((y_position, midi_note, thickness));
             }

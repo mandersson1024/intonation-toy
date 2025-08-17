@@ -391,13 +391,13 @@ pub struct ModelUpdateResult {
     pub closest_midi_note: MidiNote,
     pub cents_offset: f32,
     pub interval_semitones: i32,
-    pub root_note: MidiNote,
+    pub tuning_fork_note: MidiNote,
 }
 
 /// Context data passed from presentation layer to main scene for rendering calculations
 #[derive(Debug, Clone, PartialEq)]
 pub struct PresentationContext {
-    pub root_note: MidiNote,
+    pub tuning_fork_note: MidiNote,
     pub tuning_system: TuningSystem,
     pub current_scale: Option<Scale>,
 }

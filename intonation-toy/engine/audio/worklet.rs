@@ -58,8 +58,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig};
-use super::signal_generator::RootNoteAudioConfig;
-use super::root_note_audio_node::RootNoteAudioNode;
+use super::signal_generator::TuningForkConfig;
+use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use super::buffer::AUDIO_CHUNK_SIZE;
@@ -161,8 +161,8 @@ pub struct AudioWorkletManager {
     ping_pong_enabled: bool,
     // Batch size for audio processing (received from AudioWorklet processor)
     batch_size: u32,
-    // Dedicated root note audio node
-    root_note_node: Option<RootNoteAudioNode>,
+    // Dedicated tuning fork audio node
+    tuning_fork_node: Option<TuningForkAudioNode>,
     // Test signal audio node for local signal generation
     test_signal_node: Option<TestSignalAudioNode>,
     // Mixer gain node for combining microphone and test signal
@@ -201,7 +201,7 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
-            root_note_node: None,
+            tuning_fork_node: None,
             test_signal_node: None,
             mixer_gain: None,
             microphone_gain: None,
@@ -244,7 +244,7 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
-            root_note_node: None,
+            tuning_fork_node: None,
             test_signal_node: None,
             mixer_gain: None,
             microphone_gain: None,
@@ -860,10 +860,10 @@ impl AudioWorkletManager {
         self.prev_microphone_volume = None;
         self.prev_output_to_speakers = None;
         
-        // Clean up the root note audio node
-        if self.root_note_node.is_some() {
-            dev_log!("[AudioWorkletManager] Cleaning up root note audio node");
-            self.root_note_node = None; // Drop triggers cleanup
+        // Clean up the tuning fork audio node
+        if self.tuning_fork_node.is_some() {
+            dev_log!("[AudioWorkletManager] Cleaning up tuning fork audio node");
+            self.tuning_fork_node = None; // Drop triggers cleanup
         }
         
         self.worklet_node = None;
@@ -1125,33 +1125,33 @@ impl AudioWorkletManager {
         }
     }
 
-    /// Update root note audio configuration
+    /// Update tuning fork audio configuration
     /// 
-    /// This method manages the dedicated RootNoteAudioNode that connects directly to speakers,
-    /// independent of the main AudioWorklet processing pipeline. Root note audio is always
+    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
+    /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
     /// audible regardless of the output_to_speakers flag.
-    pub fn update_root_note_audio_config(&mut self, config: RootNoteAudioConfig) {
-        dev_log!("[AudioWorkletManager] Updating root note audio config - frequency: {} Hz", 
+    pub fn update_tuning_fork_config(&mut self, config: TuningForkConfig) {
+        dev_log!("[AudioWorkletManager] Updating tuning fork audio config - frequency: {} Hz", 
                 config.frequency);
         
-        // Always create or update the root note audio node
-        if let Some(ref mut node) = self.root_note_node {
+        // Always create or update the tuning fork audio node
+        if let Some(ref mut node) = self.tuning_fork_node {
             // Update existing node
             node.update_config(config.clone());
         } else {
             // Create new node
             if let Some(ref audio_context) = self.audio_context {
-                match RootNoteAudioNode::new(audio_context, config.clone()) {
+                match TuningForkAudioNode::new(audio_context, config.clone()) {
                     Ok(node) => {
-                        dev_log!("[AudioWorkletManager] Created new root note audio node");
-                        self.root_note_node = Some(node);
+                        dev_log!("[AudioWorkletManager] Created new tuning fork audio node");
+                        self.tuning_fork_node = Some(node);
                     }
                     Err(e) => {
-                        dev_log!("[AudioWorkletManager] Failed to create root note audio node: {:?}", e);
+                        dev_log!("[AudioWorkletManager] Failed to create tuning fork audio node: {:?}", e);
                     }
                 }
             } else {
-                dev_log!("[AudioWorkletManager] No audio context available for root note audio");
+                dev_log!("[AudioWorkletManager] No audio context available for tuning fork audio");
             }
         }
         

@@ -46,7 +46,7 @@
 //! - ✅ Error state management and user feedback
 //! - ✅ Permission state tracking and UI updates
 //! - ✅ Tuning system display management
-//! - ✅ User action collection system for microphone permission, tuning system changes, and root note adjustments
+//! - ✅ User action collection system for microphone permission, tuning system changes, and tuning fork adjustments
 //! 
 //! ## Future Implementation
 //! 
@@ -82,10 +82,10 @@ pub struct ChangeTuningSystem {
     pub tuning_system: TuningSystem,
 }
 
-/// Request to adjust the root note
+/// Request to adjust the tuning fork
 #[derive(Debug, Clone, PartialEq)]
-pub struct AdjustRootNote {
-    pub root_note: MidiNote,
+pub struct AdjustTuningFork {
+    pub note: MidiNote,
 }
 
 /// Action for changing the active scale
@@ -107,7 +107,7 @@ pub struct ConfigureTestSignal {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureRootNoteAudio {
+pub struct ConfigureTuningFork {
     pub frequency: f32,
     pub volume: f32,
 }
@@ -120,9 +120,9 @@ pub struct ConfigureRootNoteAudio {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PresentationLayerActions {
     pub tuning_system_changes: Vec<ChangeTuningSystem>,
-    pub root_note_adjustments: Vec<AdjustRootNote>,
+    pub tuning_fork_adjustments: Vec<AdjustTuningFork>,
     pub scale_changes: Vec<ScaleChangeAction>,
-    pub root_note_audio_configurations: Vec<ConfigureRootNoteAudio>,
+    pub tuning_fork_configurations: Vec<ConfigureTuningFork>,
 }
 
 impl Default for PresentationLayerActions {
@@ -136,9 +136,9 @@ impl PresentationLayerActions {
     pub fn new() -> Self {
         Self {
             tuning_system_changes: Vec::new(),
-            root_note_adjustments: Vec::new(),
+            tuning_fork_adjustments: Vec::new(),
             scale_changes: Vec::new(),
-            root_note_audio_configurations: Vec::new(),
+            tuning_fork_configurations: Vec::new(),
         }
     }
 }
@@ -206,7 +206,7 @@ pub struct Presenter {
     /// Collection of pending user actions to be processed by the main loop
     /// 
     /// This field stores user actions (like requesting microphone permission,
-    /// changing tuning system, or adjusting root note) until they are retrieved
+    /// changing tuning system, or adjusting tuning fork) until they are retrieved
     /// by the main loop via get_user_actions().
     pending_user_actions: PresentationLayerActions,
     
@@ -332,7 +332,7 @@ impl Presenter {
             
             // Update main scene with presentation context
             main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
-                root_note: model_data.root_note,
+                tuning_fork_note: model_data.tuning_fork_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: Some(model_data.scale),
             }, viewport);
@@ -382,7 +382,7 @@ impl Presenter {
         // Sync HTML UI with updated state
         self.sync_html_ui(&model_data);
         
-        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.root_note);
+        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.tuning_fork_note);
     }
 
     /// Retrieve and clear all pending user actions
@@ -416,16 +416,16 @@ impl Presenter {
         self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system });
     }
 
-    /// Handle user request to adjust the root note
+    /// Handle user request to adjust the tuning fork
     /// 
     /// This method should be called by UI components when the user selects
-    /// a different root note from a control or input field.
+    /// a different tuning fork from a control or input field.
     /// 
     /// # Arguments
     /// 
-    /// * `root_note` - The new root note selected by the user
-    pub fn on_root_note_adjusted(&mut self, root_note: MidiNote) {
-        self.pending_user_actions.root_note_adjustments.push(AdjustRootNote { root_note });
+    /// * `tuning_fork` - The new tuning fork selected by the user
+    pub fn on_tuning_fork_adjusted(&mut self, note: MidiNote) {
+        self.pending_user_actions.tuning_fork_adjustments.push(AdjustTuningFork { note });
     }
 
     /// Handle scale change action
@@ -477,51 +477,51 @@ impl Presenter {
         });
     }
 
-    /// Handle debug request to configure root note audio generation (debug builds only)
+    /// Handle debug request to configure tuning fork audio generation (debug builds only)
     /// 
     /// This method should be called by debug UI components to enable or disable
-    /// root note audio generation for testing and audio reference.
-    /// The frequency is automatically calculated from the current root note.
+    /// tuning fork audio generation for testing and audio reference.
+    /// The frequency is automatically calculated from the current tuning fork.
     /// 
     /// # Arguments
     /// 
-    /// * `enabled` - Whether root note audio generation should be enabled
-    /// * `root_note` - The MIDI note to use as the root note  
+    /// * `enabled` - Whether tuning fork audio generation should be enabled
+    /// * `tuning_fork` - The MIDI note to use as the tuning fork  
     /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
-    pub fn on_root_note_audio_configured(&mut self, _enabled: bool, root_note: MidiNote, volume_amplitude: f32) {
+    pub fn on_tuning_fork_configured(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
         // Use the amplitude value directly
         let volume = volume_amplitude;
         
-        crate::common::dev_log!("PRESENTER: Root note audio configured - root_note: {}, volume: {}", 
-                                root_note, volume);
-        let frequency = Self::midi_note_to_frequency(root_note);
-        self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+        crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
+                                note, volume);
+        let frequency = Self::midi_note_to_frequency(note);
+        self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
             frequency,
             volume,
         });
-        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.root_note_audio_configurations.len());
+        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.tuning_fork_configurations.len());
     }
     
-    /// Handle root note audio configuration with volume control
+    /// Handle tuning fork audio configuration with volume control
     /// 
-    /// This method should be called by UI components to configure root note audio
+    /// This method should be called by UI components to configure tuning fork audio
     /// with specific volume settings. The volume is provided in decibels for
     /// user-friendly control and converted to amplitude internally.
     /// 
     /// # Arguments
     /// 
-    /// * `enabled` - Whether root note audio generation should be enabled
-    /// * `root_note` - The MIDI note to use as the root note
+    /// * `enabled` - Whether tuning fork audio generation should be enabled
+    /// * `tuning_fork` - The MIDI note to use as the tuning fork
     /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
-    pub fn on_root_note_audio_configured_with_volume(&mut self, _enabled: bool, root_note: MidiNote, volume_amplitude: f32) {
+    pub fn on_tuning_fork_audio_configured_with_volume(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
         // Use the amplitude value directly
         let volume = volume_amplitude;
         
-        crate::common::dev_log!("PRESENTER: Root note audio configured - root_note: {}, volume: {}", 
-                                root_note, volume);
+        crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
+                                note, volume);
         
-        let frequency = Self::midi_note_to_frequency(root_note);
-        self.pending_user_actions.root_note_audio_configurations.push(ConfigureRootNoteAudio {
+        let frequency = Self::midi_note_to_frequency(note);
+        self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
             frequency,
             volume,
         });
@@ -536,7 +536,7 @@ impl Presenter {
     /// 
     /// * `_context` - The WebGL context for rendering (currently unused)
     /// * `screen` - The render target to draw to
-    /// * `model_data` - The current model data containing root note, tuning system, and scale
+    /// * `model_data` - The current model data containing tuning fork, tuning system, and scale
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {
         // Create MainScene on first render if it doesn't exist and context is available
         if self.main_scene.is_none() {
@@ -709,17 +709,17 @@ impl Presenter {
         }
     }
     
-    /// Calculate interval position directly from frequency and root note
+    /// Calculate interval position directly from frequency and tuning fork
     /// 
     /// This method provides a more accurate calculation by working directly with
     /// frequency data rather than pre-quantized MIDI note values. It calculates
     /// the musical interval using the frequency ratio between the detected pitch
-    /// and the root note frequency.
+    /// and the tuning fork frequency.
     /// 
     /// # Arguments
     /// 
     /// * `pitch` - The detected pitch data containing frequency and clarity
-    /// * `root_note` - The MIDI note number of the root note
+    /// * `tuning_fork` - The MIDI note number of the tuning fork
     /// 
     /// # Returns
     /// 
@@ -734,18 +734,18 @@ impl Presenter {
     /// 
     /// This provides an intuitive octave-based scaling where each unit represents
     /// one octave of musical distance.
-    fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, root_note: MidiNote) -> f32 {
+    fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, note: MidiNote) -> f32 {
         match pitch {
             Pitch::Detected(frequency, _clarity) => {
-                // Calculate root note frequency using standard A4=440Hz reference
-                let root_frequency = Self::midi_note_to_frequency(root_note);
+                // Calculate tuning fork frequency using standard A4=440Hz reference
+                let tuning_fork_frequency = Self::midi_note_to_frequency(note);
                 
                 // Calculate interval position using log2 of frequency ratio
                 // This maps frequency ratios directly to position values:
                 // - ratio 1.0 (unison) -> position 0.0
                 // - ratio 2.0 (octave up) -> position 1.0
                 // - ratio 0.5 (octave down) -> position -1.0
-                (frequency / root_frequency).log2()
+                (frequency / tuning_fork_frequency).log2()
             }
             Pitch::NotDetected => 0.0,
         }
@@ -778,15 +778,15 @@ impl Presenter {
     
     
 
-    /// Convert MIDI note to frequency using specified tuning system and root note.
+    /// Convert MIDI note to frequency using specified tuning system and tuning fork.
     /// 
-    /// This method calculates frequency based on the tuning system and root note,
+    /// This method calculates frequency based on the tuning system and tuning fork,
     /// enabling proper support for both Equal Temperament and Just Intonation.
     /// 
     /// # Arguments
     /// 
     /// * `midi_note` - The MIDI note number to convert
-    /// * `root_note` - The root note for calculating intervals
+    /// * `tuning_fork` - The tuning fork for calculating intervals
     /// * `tuning_system` - The tuning system to use (Equal Temperament or Just Intonation)
     /// 
     /// # Returns
@@ -798,19 +798,19 @@ impl Presenter {
     /// ```ignore
     /// let frequency = presenter.midi_note_to_frequency_with_tuning(
     ///     60, // Middle C
-    ///     60, // C as root
+    ///     60, // C as tuning fork
     ///     TuningSystem::EqualTemperament
     /// );
     /// ```
     pub fn midi_note_to_frequency_with_tuning(
         &self,
         midi_note: MidiNote,
-        root_note: MidiNote,
+        note: MidiNote,
         tuning_system: TuningSystem,
     ) -> f32 {
-        let root_frequency = crate::music_theory::midi_note_to_standard_frequency(root_note);
-        let interval_semitones = (midi_note as i32) - (root_note as i32);
-        crate::music_theory::interval_frequency(tuning_system, root_frequency, interval_semitones)
+        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(note);
+        let interval_semitones = (midi_note as i32) - (note as i32);
+        crate::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
     }
 
     /// Synchronize HTML UI with specified presenter state

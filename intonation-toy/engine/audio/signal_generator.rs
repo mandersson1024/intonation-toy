@@ -14,10 +14,10 @@ pub struct SignalGeneratorConfig {
     pub sample_rate: u32,
 }
 
-/// Configuration for root note audio generation
+/// Configuration for tuning fork audio generation
 #[derive(Debug, Clone, PartialEq)]
-pub struct RootNoteAudioConfig {
-    /// Root note frequency in Hz
+pub struct TuningForkConfig {
+    /// Tuning fork frequency in Hz
     pub frequency: f32,
     /// Volume amplitude (0.0-1.0)
     pub volume: f32,
@@ -34,7 +34,7 @@ impl Default for SignalGeneratorConfig {
     }
 }
 
-impl Default for RootNoteAudioConfig {
+impl Default for TuningForkConfig {
     fn default() -> Self {
         Self {
             frequency: 220.0,

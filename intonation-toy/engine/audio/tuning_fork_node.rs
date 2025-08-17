@@ -1,38 +1,38 @@
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode};
 use crate::common::dev_log;
 use super::microphone::AudioError;
-use super::signal_generator::RootNoteAudioConfig;
+use super::signal_generator::TuningForkConfig;
 
-/// Dedicated root note audio node using Web Audio API's OscillatorNode
+/// Dedicated tuning fork audio node using Web Audio API's OscillatorNode
 /// 
 /// This node creates a separate audio path that connects directly to speakers,
 /// independent of the main AudioWorklet processing pipeline. This ensures
-/// root note audio is always audible regardless of main output settings.
-pub struct RootNoteAudioNode {
+/// tuning fork audio is always audible regardless of main output settings.
+pub struct TuningForkAudioNode {
     /// Reference to the AudioContext
     audio_context: AudioContext,
-    /// The oscillator node for generating root note audio
+    /// The oscillator node for generating tuning fork audio
     oscillator: OscillatorNode,
     /// Gain node for volume control
     gain_node: GainNode,
     /// Current configuration
-    config: RootNoteAudioConfig,
+    config: TuningForkConfig,
     /// Whether the node is currently connected and enabled
     is_connected: bool,
 }
 
-impl RootNoteAudioNode {
-    /// Create a new root note audio node
+impl TuningForkAudioNode {
+    /// Create a new tuning fork audio node
     /// 
     /// # Arguments
     /// * `audio_context` - The AudioContext to use for creating nodes
-    /// * `config` - Initial configuration for the root note audio
+    /// * `config` - Initial configuration for the tuning fork audio
     /// 
     /// # Returns
-    /// * `Ok(RootNoteAudioNode)` - Successfully created node
+    /// * `Ok(TuningForkAudioNode)` - Successfully created node
     /// * `Err(AudioError)` - Failed to create node
-    pub fn new(audio_context: &AudioContext, config: RootNoteAudioConfig) -> Result<Self, AudioError> {
-        dev_log!("[RootNoteAudioNode] Creating new root note audio node with frequency: {} Hz", config.frequency);
+    pub fn new(audio_context: &AudioContext, config: TuningForkConfig) -> Result<Self, AudioError> {
+        dev_log!("[TuningForkAudioNode] Creating new tuning fork audio node with frequency: {} Hz", config.frequency);
         
         // Create oscillator node
         let oscillator = audio_context.create_oscillator()
@@ -84,7 +84,7 @@ impl RootNoteAudioNode {
         oscillator.start()
             .map_err(|e| AudioError::Generic(format!("Failed to start oscillator: {:?}", e)))?;
         
-        dev_log!("[RootNoteAudioNode] Successfully created and started root note audio node - gain: {}", 
+        dev_log!("[TuningForkAudioNode] Successfully created and started tuning fork audio node - gain: {}", 
                 config.volume);
         
         Ok(Self {
@@ -96,20 +96,20 @@ impl RootNoteAudioNode {
         })
     }
     
-    /// Update the frequency of the root note oscillator
+    /// Update the frequency of the tuning fork oscillator
     /// 
     /// # Arguments
     /// * `frequency` - New frequency in Hz
     pub fn set_frequency(&mut self, frequency: f32) {
         if (self.config.frequency - frequency).abs() > f32::EPSILON {
-            dev_log!("[RootNoteAudioNode] Updating frequency from {} Hz to {} Hz", self.config.frequency, frequency);
+            dev_log!("[TuningForkAudioNode] Updating frequency from {} Hz to {} Hz", self.config.frequency, frequency);
             self.oscillator.frequency().set_value(frequency);
             self.config.frequency = frequency;
         }
     }
     
     
-    /// Check if the root note audio is currently enabled
+    /// Check if the tuning fork audio is currently enabled
     /// 
     /// # Returns
     /// * Always returns `true` since the node is always running
@@ -118,7 +118,7 @@ impl RootNoteAudioNode {
     }
     
     /// Get the current configuration
-    pub fn get_config(&self) -> &RootNoteAudioConfig {
+    pub fn get_config(&self) -> &TuningForkConfig {
         &self.config
     }
     
@@ -127,7 +127,7 @@ impl RootNoteAudioNode {
         match result {
             Ok(_) => {},
             Err(_) => { 
-                dev_log!("[RootNoteAudioNode] Error gradually changing volume");
+                dev_log!("[TuningForkAudioNode] Error gradually changing volume");
                 self.gain_node.gain().set_value(target);
              },
         }
@@ -137,8 +137,8 @@ impl RootNoteAudioNode {
     /// 
     /// # Arguments
     /// * `config` - New configuration to apply
-    pub fn update_config(&mut self, config: RootNoteAudioConfig) {
-        //dev_log!("[RootNoteAudioNode] Updating configuration - enabled: {}, frequency: {} Hz, volume: {}", config.enabled, config.frequency, config.volume);
+    pub fn update_config(&mut self, config: TuningForkConfig) {
+        //dev_log!("[TuningForkAudioNode] Updating configuration - enabled: {}, frequency: {} Hz, volume: {}", config.enabled, config.frequency, config.volume);
         
         // Update frequency if changed
         self.set_frequency(config.frequency);
@@ -156,11 +156,11 @@ impl RootNoteAudioNode {
     /// but can be called manually for explicit cleanup.
     fn cleanup(&mut self) {
         if self.is_connected {
-            dev_log!("[RootNoteAudioNode] Cleaning up root note audio node");
+            dev_log!("[TuningForkAudioNode] Cleaning up tuning fork audio node");
             
             // Stop the oscillator
             if let Err(e) = self.oscillator.stop() {
-                dev_log!("[RootNoteAudioNode] Warning: Failed to stop oscillator: {:?}", e);
+                dev_log!("[TuningForkAudioNode] Warning: Failed to stop oscillator: {:?}", e);
             }
             
             // Disconnect nodes
@@ -172,7 +172,7 @@ impl RootNoteAudioNode {
     }
 }
 
-impl Drop for RootNoteAudioNode {
+impl Drop for TuningForkAudioNode {
     fn drop(&mut self) {
         self.cleanup();
     }
