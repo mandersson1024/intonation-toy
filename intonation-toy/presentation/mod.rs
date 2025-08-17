@@ -60,21 +60,15 @@
 mod main_scene;
 pub use main_scene::{MainScene, TuningLines};
 
-mod startup_scene;
-pub use startup_scene::StartupScene;
 
 use std::rc::Rc;
 use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch, PermissionState};
+use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch};
 
 #[cfg(target_arch = "wasm32")]
 use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
 
-enum Scene {
-    Startup(StartupScene),
-    Main(Box<MainScene>),
-}
 
 /// Action structs for the new action collection system
 /// 
@@ -206,8 +200,8 @@ pub struct Presenter {
     /// Presentation layer now operates without interface dependencies
     /// Data flows through method parameters and return values
     
-    /// Current scene (startup or main)
-    scene: Scene,
+    /// Main scene (created once graphics context is available)
+    main_scene: Option<Box<MainScene>>,
     
     /// Collection of pending user actions to be processed by the main loop
     /// 
@@ -235,6 +229,11 @@ pub struct Presenter {
     /// This enables UI elements to call back into the presenter
     #[cfg(target_arch = "wasm32")]
     self_reference: Option<Rc<RefCell<Self>>>,
+    
+    /// Tracks whether UI event listeners have been attached
+    /// Prevents duplicate listener registration
+    #[cfg(target_arch = "wasm32")]
+    ui_listeners_attached: bool,
     
     
     
@@ -267,7 +266,7 @@ impl Presenter {
         }
         
         Ok(Self {
-            scene: Scene::Startup(StartupScene::new()),
+            main_scene: None,
             pending_user_actions: PresentationLayerActions::new(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
@@ -276,6 +275,8 @@ impl Presenter {
             main_scene_ui_active: true, // UI is now active from the start
             #[cfg(target_arch = "wasm32")]
             self_reference: None,
+            #[cfg(target_arch = "wasm32")]
+            ui_listeners_attached: false,
         })
     }
 
@@ -291,8 +292,11 @@ impl Presenter {
     pub fn set_self_reference(&mut self, self_ref: Rc<RefCell<Self>>) {
         self.self_reference = Some(self_ref.clone());
         
-        // Set up event listeners now that we have the self-reference
-        setup_event_listeners(self_ref);
+        // Set up event listeners if not already attached
+        if !self.ui_listeners_attached {
+            setup_event_listeners(self_ref);
+            self.ui_listeners_attached = true;
+        }
     }
 
     /// No-op version for non-WASM targets
@@ -320,27 +324,22 @@ impl Presenter {
         };
         
         
-        match &mut self.scene {
-            Scene::Startup(_) => {
-                // No viewport updates needed for startup scene
-            }
-            Scene::Main(main_scene) => {
-                main_scene.update_viewport(viewport);
-                
-                // Update volume peak state before updating pitch position
-                main_scene.update_volume_peak(volume_peak);
-                
-                // Update main scene with presentation context
-                main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
-                    root_note: model_data.root_note,
-                    tuning_system: model_data.tuning_system,
-                    current_scale: Some(model_data.scale),
-                }, viewport);
-                
-                main_scene.update_closest_note(closest_note);
-                
-                main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity, model_data.accuracy.cents_offset);
-            }
+        if let Some(main_scene) = &mut self.main_scene {
+            main_scene.update_viewport(viewport);
+            
+            // Update volume peak state before updating pitch position
+            main_scene.update_volume_peak(volume_peak);
+            
+            // Update main scene with presentation context
+            main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
+                root_note: model_data.root_note,
+                tuning_system: model_data.tuning_system,
+                current_scale: Some(model_data.scale),
+            }, viewport);
+            
+            main_scene.update_closest_note(closest_note);
+            
+            main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity, model_data.accuracy.cents_offset);
         }
     }
 
@@ -539,46 +538,46 @@ impl Presenter {
     /// * `screen` - The render target to draw to
     /// * `model_data` - The current model data containing root note, tuning system, and scale
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {
-        // Check if we need to switch from StartupScene to MainScene
-        if matches!(self.scene, Scene::Startup(_)) && model_data.permission_state == PermissionState::Granted {
-            // Permission was granted - switch to MainScene
+        // Create MainScene on first render if it doesn't exist and context is available
+        if self.main_scene.is_none() {
             let viewport = screen.viewport();
             match MainScene::new(context, viewport) {
-                Ok(main_scene) => self.scene = Scene::Main(Box::new(main_scene)),
+                Ok(main_scene) => {
+                    self.main_scene = Some(Box::new(main_scene));
+                    
+                    // Update graphics immediately after creating MainScene to populate tuning lines
+                    self.update_graphics(screen.viewport(), model_data);
+                    
+                    // Set up HTML UI for main scene
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        // UI was already set up during presenter creation
+                        // Event listeners are attached in set_self_reference()
+                        
+                        // Synchronize UI state with current model data values
+                        self.sync_html_ui(model_data);
+                    }
+                }
                 Err(e) => {
                     crate::common::dev_log!("Failed to create MainScene: {}", e);
-                    return; // Stay in startup scene
+                    // Show background while waiting for MainScene creation to succeed
+                    screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
+                    return;
                 }
-            }
-            
-            // Set up HTML UI for main scene
-            #[cfg(target_arch = "wasm32")]
-            {
-                // UI was already set up during presenter creation
-                
-                // Set up event listeners if we have a self-reference
-                if let Some(ref self_ref) = self.self_reference {
-                    setup_event_listeners(self_ref.clone());
-                } else {
-                    crate::common::dev_log!("Warning: self_reference not set, UI event listeners not attached");
-                }
-                
-                // Synchronize UI state with current model data values
-                self.sync_html_ui(model_data);
             }
         }
         
-        // Delegate rendering to the active scene
-        match &mut self.scene {
-            Scene::Startup(startup_scene) => {
-                startup_scene.render(screen);
-            }
-            Scene::Main(main_scene) => {
-                main_scene.render(screen);
-                
-                // HTML UI synchronization is handled immediately when state changes,
-                // not during render to prevent flickering
-            }
+        // Update graphics before rendering
+        if self.main_scene.is_some() {
+            self.update_graphics(screen.viewport(), model_data);
+        }
+        
+        // Render MainScene if it exists
+        if let Some(main_scene) = &mut self.main_scene {
+            main_scene.render(screen);
+        } else {
+            // Fallback: clear screen with background color
+            screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
         }
     }
 

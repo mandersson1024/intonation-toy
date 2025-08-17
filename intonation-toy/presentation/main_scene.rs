@@ -1,4 +1,4 @@
-use three_d::{AmbientLight, Blend, Camera, ClearState, Color, ColorMaterial, Context, CpuMaterial, Deg, Gm, Line, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
+use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
 use three_d::core::{Texture2D, DepthTexture2D, Interpolation, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 use crate::shared_types::{MidiNote, ColorScheme, TuningSystem, Scale};
@@ -303,7 +303,7 @@ impl MainScene {
         )
     }
     
-    fn create_background_texture(context: &Context, viewport: Viewport, text_renderer: &mut TextRenderer) -> Result<(Gm<Rectangle, ColorMaterial>), String> {
+    fn create_background_texture(context: &Context, viewport: Viewport) -> Result<Gm<Rectangle, ColorMaterial>, String> {
         // Validate viewport dimensions
         if viewport.width == 0 || viewport.height == 0 {
             return Err("Invalid viewport dimensions: width and height must be greater than 0".to_string());
@@ -341,10 +341,6 @@ impl MainScene {
             let scheme = get_current_color_scheme();
             let [r, g, b] = scheme.background;
             render_target.clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0));
-            
-            // Set up camera for off-screen rendering
-            let camera = Camera::new_2d(viewport);
-            
         } // render_target goes out of scope here, automatically cleaned up
         
         // Create background quad that fills the entire viewport
@@ -398,8 +394,8 @@ impl MainScene {
             &self.context,
             viewport.width,
             viewport.height,
-            Interpolation::Nearest,
-            Interpolation::Nearest,
+            Interpolation::Linear,
+            Interpolation::Linear,
             None,
             Wrapping::ClampToEdge,
             Wrapping::ClampToEdge,
@@ -489,9 +485,37 @@ impl MainScene {
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
         let mut text_renderer = TextRenderer::new(context)?;
-        
-        // Create background texture and background quad
-        let background_quad = Self::create_background_texture(context, viewport, &mut text_renderer)?;
+
+        // Create background texture and background quad with fallback handling
+        let background_quad = match Self::create_background_texture(context, viewport) {
+            Ok(quad) => quad,
+            Err(e) => {
+                crate::common::dev_log!("Warning: Failed to create background texture: {}, using fallback", e);
+                // Create a simple colored quad as fallback
+                let quad_width = viewport.width as f32;
+                let quad_height = viewport.height as f32;
+                let quad_center_x = quad_width * 0.5;
+                let quad_center_y = quad_height * 0.5;
+                
+                let background_rectangle = Rectangle::new(
+                    context,
+                    (quad_center_x, quad_center_y),
+                    Deg(0.0),
+                    quad_width,
+                    quad_height,
+                );
+                
+                let [r, g, b] = scheme.background;
+                let background_material = ColorMaterial {
+                    color: Srgba::new((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8, 255),
+                    texture: None,
+                    is_transparent: false,
+                    render_states: RenderStates::default(),
+                };
+                
+                Gm::new(background_rectangle, background_material)
+            }
+        };
         
         Ok(Self {
             camera: Camera::new_2d(viewport),
@@ -512,30 +536,7 @@ impl MainScene {
     }
     
     pub fn update_viewport(&mut self, viewport: Viewport) {
-        let current_viewport = self.camera.viewport();
-        
-        // Check if viewport size actually changed
-        let size_changed = current_viewport.width != viewport.width || current_viewport.height != viewport.height;
-        
-        // Always update camera viewport
         self.camera.set_viewport(viewport);
-        
-        // Only recreate background texture if size changed
-        if size_changed {
-            // Recreate background texture with new viewport size
-            match Self::create_background_texture(&self.context, viewport, &mut self.text_renderer) {
-                Ok(new_background_quad) => {
-                    // Replace old resources with new ones
-                    // The old textures and render targets will be automatically cleaned up
-                    // when they go out of scope due to RAII in three-d
-                    self.background_quad = new_background_quad;
-                },
-                Err(e) => {
-                    // Log error but continue with old background texture
-                    crate::common::dev_log!("Failed to recreate background texture on viewport change: {}", e);
-                }
-            }
-        }
     }
     
     fn refresh_colors(&mut self) {
@@ -570,26 +571,31 @@ impl MainScene {
             self.refresh_colors();
         }
 
-        //let bg = scheme.background;
-        //screen.clear(ClearState::color_and_depth(bg[0], bg[1], bg[2], 1.0, 1.0));
+        // Always render the background quad to provide a consistent baseline
+        self.camera.disable_tone_and_color_mapping();
+        screen.render(
+            &self.camera,
+            &[&self.background_quad],
+            &[],
+        );
+        self.camera.set_default_tone_and_color_mapping();
 
-        if self.presentation_context.is_some() {
-            self.camera.disable_tone_and_color_mapping();
-            // the background was already rendered with tone and color mapping
-            screen.render(
-                &self.camera,
-                &[&self.background_quad],
-                &[],
-            );
-            self.camera.set_default_tone_and_color_mapping();
+        // Only render user pitch line if pitch is detected
+        if self.pitch_detected {
+            screen.render(&self.camera, &[&self.user_pitch_line], &[]);
         }
-
-        screen.render(&self.camera, &[&self.user_pitch_line], &[]);
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>, cents_offset: f32) {
         self.pitch_detected = pitch_detected;
         self.cents_offset = cents_offset;
+        
+        // Validate viewport dimensions before proceeding
+        if viewport.width == 0 || viewport.height == 0 {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
+            return;
+        }
+        
         if pitch_detected {
             let y = interval_to_screen_y_position(interval, viewport.height as f32);
             let endpoints = (PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y});
@@ -634,6 +640,22 @@ impl MainScene {
     /// Update tuning lines with position, MIDI note, and thickness data provided by the presenter
     /// MainScene doesn't know about music theory - it just positions lines where told
     pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
+        // Validate viewport and line data before proceeding
+        if viewport.width == 0 || viewport.height == 0 {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
+            return;
+        }
+        
+        // Handle empty line data gracefully
+        if line_data.is_empty() {
+            crate::common::dev_log!("Warning: No tuning line data provided, clearing existing lines");
+            self.tuning_lines.lines.clear();
+            self.tuning_lines.midi_notes.clear();
+            self.tuning_lines.y_positions.clear();
+            self.tuning_lines.thicknesses.clear();
+            return;
+        }
+        
         // Use the new thickness-aware method
         self.tuning_lines.update_lines(viewport, line_data);
     }
@@ -655,6 +677,12 @@ impl MainScene {
         }
 
         self.presentation_context = Some(context.clone());
+        
+        // Validate viewport dimensions before proceeding
+        if viewport.width == 0 || viewport.height == 0 {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for presentation context update");
+            return;
+        }
         
         // Calculate tuning line positions and update them
         let tuning_line_data = self.get_tuning_line_positions(
