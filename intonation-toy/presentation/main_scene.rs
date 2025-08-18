@@ -192,6 +192,7 @@ impl TuningLines {
     
     /// Render note labels above each tuning line
     pub fn render_note_labels(&self, text_backend: &mut dyn TextRenderingBackend) {
+        crate::common::dev_log!("TEXT_DEBUG: Rendering {} note labels", self.midi_notes.len());
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];
             
@@ -206,6 +207,7 @@ impl TuningLines {
             let scheme = get_current_color_scheme();
             let text_color = scheme.muted;
 
+            crate::common::dev_log!("TEXT_DEBUG: Queuing text '{}' at ({}, {}) with size {}", note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE);
             text_backend.queue_text(&note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
@@ -266,17 +268,23 @@ fn convert_egui_mesh_to_three_d(
     viewport: Viewport,
     pixels_per_point: f32,
 ) -> Option<Box<dyn Object>> {
+    crate::common::dev_log!("TEXT_DEBUG: Converting mesh with {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
     if mesh.vertices.is_empty() || mesh.indices.is_empty() {
+        crate::common::dev_log!("TEXT_DEBUG: Skipping empty mesh");
         return None;
     }
 
     // Convert vertices from egui format to three-d format
-    let positions: Vec<Vec3> = mesh.vertices.iter().map(|v| {
-        Vec3::new(
+    let positions: Vec<Vec3> = mesh.vertices.iter().enumerate().map(|(i, v)| {
+        let converted_pos = Vec3::new(
             v.pos.x * pixels_per_point,
             (viewport.height as f32 / pixels_per_point - v.pos.y) * pixels_per_point, // Flip Y coordinate
             0.0
-        )
+        );
+        if i < 3 { // Log first 3 vertices for debugging
+            crate::common::dev_log!("TEXT_DEBUG: Vertex {}: egui({}, {}) -> three_d({}, {})", i, v.pos.x, v.pos.y, converted_pos.x, converted_pos.y);
+        }
+        converted_pos
     }).collect();
     
     let uvs: Vec<Vec2> = mesh.vertices.iter().map(|v| {
@@ -307,8 +315,18 @@ fn convert_egui_mesh_to_three_d(
     let gpu_mesh = Mesh::new(context, &cpu_mesh);
     
     // Create material with transparency for text rendering
-    let material = create_text_material(texture);
+    let material = ColorMaterial {
+        color: Srgba::WHITE, // White to show texture as-is
+        texture: Some(texture.clone()),
+        is_transparent: true,
+        render_states: RenderStates {
+            blend: Blend::TRANSPARENCY,
+            write_mask: WriteMask::COLOR,
+            ..Default::default()
+        },
+    };
     
+    crate::common::dev_log!("TEXT_DEBUG: Created mesh with {} vertices", mesh.vertices.len());
     Some(Box::new(Gm::new(gpu_mesh, material)) as Box<dyn Object>)
 }
 
@@ -494,6 +512,7 @@ impl EguiDirectBackend {
 
 impl TextRenderingBackend for EguiDirectBackend {
     fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]) {
+        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend queuing text: '{}'", text);
         self.queued_texts.push(QueuedText {
             text: text.to_string(),
             x,
@@ -508,7 +527,9 @@ impl TextRenderingBackend for EguiDirectBackend {
     }
     
     fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>> {
+        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend creating text models, {} queued texts", self.queued_texts.len());
         if self.queued_texts.is_empty() {
+            crate::common::dev_log!("TEXT_DEBUG: No queued texts, returning empty");
             return Vec::new();
         }
         
@@ -517,6 +538,7 @@ impl TextRenderingBackend for EguiDirectBackend {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for text rendering");
             return Vec::new();
         }
+        crate::common::dev_log!("TEXT_DEBUG: Viewport size: {}x{}", viewport.width, viewport.height);
         
         // Calculate pixels per point for the current display
         self.pixels_per_point = 1.0; // Could be adjusted for HiDPI displays
@@ -593,95 +615,39 @@ impl TextRenderingBackend for EguiDirectBackend {
         
         // If no primitives were generated, return empty
         if clipped_primitives.is_empty() {
+            crate::common::dev_log!("TEXT_DEBUG: No clipped primitives generated");
             return Vec::new();
         }
+        crate::common::dev_log!("TEXT_DEBUG: Generated {} clipped primitives", clipped_primitives.len());
         
-        // Create off-screen render target
-        let mut render_texture = Texture2D::new_empty::<[u8; 4]>(
-            context,
-            viewport.width,
-            viewport.height,
-            Interpolation::Linear,
-            Interpolation::Linear,
-            None,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
+        // Convert egui primitives directly to three-d renderables
+        // These will be rendered directly into the background texture alongside tuning lines
+        let mut render_objects: Vec<Box<dyn Object>> = Vec::new();
         
-        let mut depth_texture = DepthTexture2D::new::<f32>(
-            context,
-            viewport.width,
-            viewport.height,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-        
-        // Render tessellated text to texture
-        {
-            let render_target = RenderTarget::new(
-                render_texture.as_color_target(None),
-                depth_texture.as_depth_target(),
-            );
-            
-            // Clear with transparent background
-            render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
-            
-            let camera = Camera::new_2d(viewport);
-            
-            // Convert egui primitives to three-d renderables and render them
-            let mut render_objects: Vec<Box<dyn Object>> = Vec::new();
-            
-            for primitive in clipped_primitives {
-                if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
-                    // Get texture for this mesh
-                    if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
-                        // Convert egui mesh to three-d format using helper function
-                        if let Some(render_object) = convert_egui_mesh_to_three_d(
-                            context,
-                            &mesh,
-                            texture,
-                            viewport,
-                            self.pixels_per_point,
-                        ) {
-                            render_objects.push(render_object);
-                        }
+        for primitive in clipped_primitives {
+            if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
+                crate::common::dev_log!("TEXT_DEBUG: Processing mesh with texture_id: {:?}", mesh.texture_id);
+                // Get texture for this mesh
+                if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
+                    crate::common::dev_log!("TEXT_DEBUG: Found texture in atlas for id: {:?}", mesh.texture_id);
+                    // Convert egui mesh to three-d format using helper function
+                    if let Some(render_object) = convert_egui_mesh_to_three_d(
+                        context,
+                        &mesh,
+                        texture,
+                        viewport,
+                        self.pixels_per_point,
+                    ) {
+                        render_objects.push(render_object);
                     }
+                } else {
+                    crate::common::dev_log!("TEXT_DEBUG: No texture found in atlas for id: {:?}, atlas has {} entries", mesh.texture_id, self.texture_atlas.len());
                 }
-            }
-            
-            // Render all text meshes to the off-screen texture
-            if !render_objects.is_empty() {
-                let render_refs: Vec<&dyn Object> = render_objects.iter()
-                    .map(|obj| obj.as_ref())
-                    .collect();
-                render_target.render(&camera, render_refs, &[]);
             }
         }
         
-        // Create final textured quad with the rendered text
-        let texture_ref = Texture2DRef::from_texture(render_texture);
-        
-        let quad = Rectangle::new(
-            context,
-            (viewport.width as f32 * 0.5, viewport.height as f32 * 0.5),
-            Deg(0.0),
-            viewport.width as f32,
-            viewport.height as f32,
-        );
-        
-        let material = ColorMaterial {
-            color: Srgba::WHITE,
-            texture: Some(texture_ref),
-            is_transparent: true,
-            render_states: RenderStates {
-                depth_test: three_d::DepthTest::Always,
-                write_mask: WriteMask::COLOR,
-                blend: Blend::TRANSPARENCY,
-                ..Default::default()
-            },
-        };
-        
-        vec![Box::new(Gm::new(quad, material)) as Box<dyn Object>]
+        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend returning {} text mesh objects", render_objects.len());
+        render_objects
     }
 }
 
@@ -1286,6 +1252,7 @@ impl MainScene {
             self.text_backend.clear_queue();
             self.tuning_lines.render_note_labels(&mut *self.text_backend);
             let text_models = self.text_backend.create_text_models(&self.context, viewport);
+            crate::common::dev_log!("TEXT_DEBUG: Got {} text models from backend", text_models.len());
             let text_objects: Vec<&dyn Object> = 
                 text_models
                 .iter()
