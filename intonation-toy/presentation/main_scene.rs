@@ -13,7 +13,7 @@
  * high-quality text rendering, proper Unicode support, and integrated glyph atlas management.
  */
 
-use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Line, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
+use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, CpuMesh, Deg, Gm, Indices, Line, Mesh, Object, PhysicalPoint, Positions, RenderStates, RenderTarget, Srgba, Texture2DRef, Vec2, Vec3, Viewport, WriteMask};
 use three_d::core::{Texture2D, DepthTexture2D, Interpolation, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 use three_d::egui;
@@ -248,6 +248,101 @@ struct QueuedText {
     color: [f32; 4],
 }
 
+/// Helper function to convert egui mesh to three-d format
+/// 
+/// # Arguments
+/// * `context` - The three-d Context for GPU resource creation
+/// * `mesh` - The egui mesh to convert
+/// * `texture` - The texture to apply to the mesh
+/// * `viewport` - The viewport for coordinate conversion
+/// * `pixels_per_point` - Scaling factor for coordinate conversion
+/// 
+/// # Returns
+/// A three-d renderable object or None if conversion fails
+fn convert_egui_mesh_to_three_d(
+    context: &Context,
+    mesh: &egui::epaint::Mesh,
+    texture: Texture2DRef,
+    viewport: Viewport,
+    pixels_per_point: f32,
+) -> Option<Box<dyn Object>> {
+    if mesh.vertices.is_empty() || mesh.indices.is_empty() {
+        return None;
+    }
+
+    // Convert vertices from egui format to three-d format
+    let positions: Vec<Vec3> = mesh.vertices.iter().map(|v| {
+        Vec3::new(
+            v.pos.x * pixels_per_point,
+            (viewport.height as f32 / pixels_per_point - v.pos.y) * pixels_per_point, // Flip Y coordinate
+            0.0
+        )
+    }).collect();
+    
+    let uvs: Vec<Vec2> = mesh.vertices.iter().map(|v| {
+        Vec2::new(v.uv.x, v.uv.y)
+    }).collect();
+    
+    let colors: Vec<Srgba> = mesh.vertices.iter().map(|v| {
+        Srgba::new(
+            v.color.r(),
+            v.color.g(),
+            v.color.b(),
+            v.color.a(),
+        )
+    }).collect();
+    
+    // Convert indices
+    let indices: Vec<u32> = mesh.indices.iter().copied().collect();
+    
+    // Create mesh
+    let cpu_mesh = CpuMesh {
+        positions: Positions::F32(positions),
+        uvs: Some(uvs),
+        colors: Some(colors),
+        indices: Indices::U32(indices),
+        ..Default::default()
+    };
+    
+    let gpu_mesh = Mesh::new(context, &cpu_mesh);
+    
+    // Create material with transparency for text rendering
+    let material = create_text_material(texture);
+    
+    Some(Box::new(Gm::new(gpu_mesh, material)) as Box<dyn Object>)
+}
+
+/// Create a ColorMaterial with appropriate settings for text rendering
+/// 
+/// # Arguments
+/// * `texture` - The texture to apply to the text
+/// 
+/// # Returns
+/// A ColorMaterial configured for transparent text rendering
+fn create_text_material(texture: Texture2DRef) -> ColorMaterial {
+    ColorMaterial {
+        color: Srgba::WHITE,
+        texture: Some(texture),
+        is_transparent: true,
+        render_states: RenderStates {
+            blend: Blend::TRANSPARENCY,
+            write_mask: WriteMask::COLOR,
+            ..Default::default()
+        },
+    }
+}
+
+/// Validate viewport dimensions
+/// 
+/// # Arguments
+/// * `viewport` - The viewport to validate
+/// 
+/// # Returns
+/// true if viewport is valid, false otherwise
+fn validate_viewport(viewport: Viewport) -> bool {
+    viewport.width > 0 && viewport.height > 0
+}
+
 /// Backend implementation using egui's tessellation system for direct text rendering
 /// 
 /// This backend creates an off-screen egui context for text rendering and tessellation.
@@ -417,6 +512,12 @@ impl TextRenderingBackend for EguiDirectBackend {
             return Vec::new();
         }
         
+        // Validate viewport dimensions
+        if !validate_viewport(viewport) {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for text rendering");
+            return Vec::new();
+        }
+        
         // Calculate pixels per point for the current display
         self.pixels_per_point = 1.0; // Could be adjusted for HiDPI displays
         
@@ -525,28 +626,36 @@ impl TextRenderingBackend for EguiDirectBackend {
             // Clear with transparent background
             render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
             
-            let _camera = Camera::new_2d(viewport);
+            let camera = Camera::new_2d(viewport);
             
             // Convert egui primitives to three-d renderables and render them
-            let mut _render_objects: Vec<Box<dyn Object>> = Vec::new();
+            let mut render_objects: Vec<Box<dyn Object>> = Vec::new();
             
             for primitive in clipped_primitives {
                 if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
                     // Get texture for this mesh
-                    let _texture = self.texture_atlas.get(&mesh.texture_id).cloned();
-                    
-                    // Convert vertices to three-d format
-                    if !mesh.vertices.is_empty() && !mesh.indices.is_empty() {
-                        // For simplicity, we'll render each text mesh as a textured quad
-                        // In a full implementation, we'd convert the mesh vertices properly
-                        // For now, we'll skip the complex mesh conversion
-                        continue;
+                    if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
+                        // Convert egui mesh to three-d format using helper function
+                        if let Some(render_object) = convert_egui_mesh_to_three_d(
+                            context,
+                            &mesh,
+                            texture,
+                            viewport,
+                            self.pixels_per_point,
+                        ) {
+                            render_objects.push(render_object);
+                        }
                     }
                 }
             }
             
-            // Note: Full mesh rendering implementation would go here
-            // For now, we're using a simplified approach
+            // Render all text meshes to the off-screen texture
+            if !render_objects.is_empty() {
+                let render_refs: Vec<&dyn Object> = render_objects.iter()
+                    .map(|obj| obj.as_ref())
+                    .collect();
+                render_target.render(&camera, render_refs, &[]);
+            }
         }
         
         // Create final textured quad with the rendered text
@@ -615,26 +724,24 @@ impl EguiCompositeBackend {
         // Create off-screen egui context
         let egui_ctx = egui::Context::default();
         
-        // Configure fonts - use default fonts with graceful fallback
+        // Load and configure Roboto font
         let mut fonts = egui::FontDefinitions::default();
         
-        // Try to load Roboto font, fall back to defaults if not available
-        if let Ok(roboto_font_data) = std::fs::read("../static/fonts/Roboto-Regular.ttf") {
-            fonts.font_data.insert(
-                "Roboto".to_owned(),
-                egui::FontData::from_owned(roboto_font_data)
-            );
-            
-            // Configure font families to use Roboto
-            fonts.families.entry(egui::FontFamily::Proportional)
-                .or_default()
-                .insert(0, "Roboto".to_owned());
-            
-            fonts.families.entry(egui::FontFamily::Monospace)
-                .or_default()
-                .insert(0, "Roboto".to_owned());
-        }
-        // If Roboto fails to load, we'll use egui's default fonts
+        // Load the Roboto font from the static directory
+        let roboto_font_data = include_bytes!("../static/fonts/Roboto-Regular.ttf");
+        fonts.font_data.insert(
+            "Roboto".to_owned(),
+            egui::FontData::from_static(roboto_font_data)
+        );
+        
+        // Configure font families to use Roboto
+        fonts.families.entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "Roboto".to_owned());
+        
+        fonts.families.entry(egui::FontFamily::Monospace)
+            .or_default()
+            .insert(0, "Roboto".to_owned());
         
         // Set the fonts in the context
         egui_ctx.set_fonts(fonts);
@@ -744,10 +851,90 @@ impl EguiCompositeBackend {
     }
     
     /// Composite text texture onto background texture
-    fn composite_textures(&self, _context: &Context, _viewport: Viewport, _text_texture: Texture2DRef, background_texture: Texture2DRef) -> Texture2DRef {
-        // For now, we'll return the background texture
-        // In a full implementation, this would blend the text onto the background
-        background_texture
+    fn composite_textures(&self, context: &Context, viewport: Viewport, text_texture: Texture2DRef, background_texture: Texture2DRef) -> Texture2DRef {
+        // Create a new texture for the composited result
+        let mut composite_texture = Texture2D::new_empty::<[u8; 4]>(
+            context,
+            viewport.width,
+            viewport.height,
+            Interpolation::Linear,
+            Interpolation::Linear,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        let mut composite_depth_texture = DepthTexture2D::new::<f32>(
+            context,
+            viewport.width,
+            viewport.height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+        
+        // Render both textures onto the composite texture
+        {
+            let composite_render_target = RenderTarget::new(
+                composite_texture.as_color_target(None),
+                composite_depth_texture.as_depth_target(),
+            );
+            
+            // Clear with transparent background
+            composite_render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
+            
+            let camera = Camera::new_2d(viewport);
+            
+            // Create quads for both textures
+            let quad_width = viewport.width as f32;
+            let quad_height = viewport.height as f32;
+            let quad_center = (quad_width * 0.5, quad_height * 0.5);
+            
+            // Background quad
+            let background_quad = Rectangle::new(
+                context,
+                quad_center,
+                Deg(0.0),
+                quad_width,
+                quad_height,
+            );
+            
+            let background_material = ColorMaterial {
+                color: Srgba::WHITE,
+                texture: Some(background_texture),
+                is_transparent: false,
+                render_states: RenderStates::default(),
+            };
+            
+            // Text quad (rendered on top with transparency)
+            let text_quad = Rectangle::new(
+                context,
+                quad_center,
+                Deg(0.0),
+                quad_width,
+                quad_height,
+            );
+            
+            let text_material = ColorMaterial {
+                color: Srgba::WHITE,
+                texture: Some(text_texture),
+                is_transparent: true,
+                render_states: RenderStates {
+                    blend: Blend::TRANSPARENCY,
+                    write_mask: WriteMask::COLOR,
+                    ..Default::default()
+                },
+            };
+            
+            let background_gm = Gm::new(background_quad, background_material);
+            let text_gm = Gm::new(text_quad, text_material);
+            
+            // Render background first, then text on top
+            composite_render_target
+                .render(&camera, &[&background_gm], &[])
+                .render(&camera, &[&text_gm], &[]);
+        }
+        
+        Texture2DRef::from_texture(composite_texture)
     }
 }
 
@@ -768,6 +955,12 @@ impl TextRenderingBackend for EguiCompositeBackend {
     
     fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>> {
         if self.queued_texts.is_empty() {
+            return Vec::new();
+        }
+        
+        // Validate viewport dimensions
+        if !validate_viewport(viewport) {
+            crate::common::dev_log!("Warning: Invalid viewport dimensions for composite text rendering");
             return Vec::new();
         }
         
@@ -841,13 +1034,13 @@ impl TextRenderingBackend for EguiCompositeBackend {
             .collect();
         
         // Tessellate the shapes
-        let _clipped_primitives = self.egui_ctx.tessellate(clipped_shapes, self.pixels_per_point);
+        let clipped_primitives = self.egui_ctx.tessellate(clipped_shapes, self.pixels_per_point);
         
         // Update texture atlas with any new textures
         self.update_texture_atlas(context, output.textures_delta);
         
-        // Create text texture (simplified - in a full implementation this would render tessellated text)
-        let text_texture = Texture2D::new_empty::<[u8; 4]>(
+        // Create text texture and render tessellated text to it
+        let mut text_texture = Texture2D::new_empty::<[u8; 4]>(
             context,
             viewport.width,
             viewport.height,
@@ -858,10 +1051,57 @@ impl TextRenderingBackend for EguiCompositeBackend {
             Wrapping::ClampToEdge,
         );
         
-        let text_texture_ref = Texture2DRef::from_texture(text_texture);
+        let mut text_depth_texture = DepthTexture2D::new::<f32>(
+            context,
+            viewport.width,
+            viewport.height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
         
-        // For now, we skip the actual text rendering to the texture
-        // In a full implementation, we would render the tessellated text here
+        // Stage 1: Render text to separate texture
+        {
+            let text_render_target = RenderTarget::new(
+                text_texture.as_color_target(None),
+                text_depth_texture.as_depth_target(),
+            );
+            
+            // Clear with transparent background
+            text_render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
+            
+            let camera = Camera::new_2d(viewport);
+            
+            // Convert egui primitives to three-d renderables and render them
+            let mut text_render_objects: Vec<Box<dyn Object>> = Vec::new();
+            
+            for primitive in clipped_primitives {
+                if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
+                    // Get texture for this mesh
+                    if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
+                        // Convert egui mesh to three-d format using helper function
+                        if let Some(render_object) = convert_egui_mesh_to_three_d(
+                            context,
+                            &mesh,
+                            texture,
+                            viewport,
+                            self.pixels_per_point,
+                        ) {
+                            text_render_objects.push(render_object);
+                        }
+                    }
+                }
+            }
+            
+            // Render all text meshes to the text texture
+            if !text_render_objects.is_empty() {
+                let render_refs: Vec<&dyn Object> = text_render_objects.iter()
+                    .map(|obj| obj.as_ref())
+                    .collect();
+                text_render_target.render(&camera, render_refs, &[]);
+            }
+        }
+        
+        let text_texture_ref = Texture2DRef::from_texture(text_texture);
         
         // Stage 2: Create background texture and composite
         let background_texture = self.create_background_texture(context, viewport);
