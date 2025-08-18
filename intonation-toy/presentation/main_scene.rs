@@ -18,14 +18,11 @@ use crate::shared_types::{MidiNote, ColorScheme, TuningSystem, Scale};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD};
 
-// Left margin to reserve space for note names
-const NOTE_NAME_X_OFFSET: f32 = 30.0;
-const NOTE_NAME_Y_OFFSET: f32 = 2.0;
+const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
+const NOTE_LABEL_X_OFFSET: f32 = 10.0;
+const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
 const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
-const NOTE_LINE_RIGHT_MARGIN: f32 = 20.0;
-
-// Font size for note labels
-const NOTE_LABEL_FONT_SIZE: f32 = 26.0;
+const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
 
 // Line thickness values
 pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
@@ -196,8 +193,8 @@ impl TuningLines {
             let note_name = crate::shared_types::midi_note_to_name(midi_note);
             
             // Position text aligned with the line (same Y position)
-            let text_y = y_position + NOTE_NAME_Y_OFFSET;
-            let text_x = NOTE_NAME_X_OFFSET;
+            let text_y = y_position + NOTE_LABEL_Y_OFFSET;
+            let text_x = NOTE_LABEL_X_OFFSET;
             
             // Determine color based on whether this is the closest note
             let scheme = get_current_color_scheme();
@@ -536,7 +533,7 @@ impl EguiCompositeBackend {
                 let color = egui::Color32::WHITE;
                 
                 // Pre-load characters at the exact size we use for note labels
-                let sizes = [26.0];
+                let sizes = [NOTE_LABEL_FONT_SIZE];
                 let chars_to_preload = "CDEFGABb0123456789#";
                 
                 for &size in &sizes {
