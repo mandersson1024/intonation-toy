@@ -285,7 +285,9 @@ fn convert_egui_mesh_to_three_d(
         ..Default::default()
     };
     
+    crate::common::dev_log!("TEXT_DEBUG: Creating GPU mesh...");
     let gpu_mesh = Mesh::new(context, &cpu_mesh);
+    crate::common::dev_log!("TEXT_DEBUG: GPU mesh created successfully");
     
     // Create material with transparency for text rendering
     let material = ColorMaterial {
@@ -342,6 +344,8 @@ pub struct EguiCompositeBackend {
     texture_atlas: HashMap<egui::TextureId, Texture2DRef>,
     /// Pixels per point for the display
     pixels_per_point: f32,
+    /// Flag to track if glyph cache has been pre-loaded
+    glyph_cache_preloaded: bool,
 }
 
 impl EguiCompositeBackend {
@@ -383,33 +387,41 @@ impl EguiCompositeBackend {
             queued_texts: Vec::new(),
             texture_atlas: HashMap::new(),
             pixels_per_point: 1.0,
+            glyph_cache_preloaded: false,
         })
     }
     
     /// Update texture atlas with new textures from egui
     fn update_texture_atlas(&mut self, context: &Context, textures_delta: egui::TexturesDelta) {
+        crate::common::dev_log!("ATLAS_DEBUG: Updating texture atlas with {} textures to set, {} to free", 
+                                textures_delta.set.len(), textures_delta.free.len());
+        
         // Handle texture updates
         for (id, image_delta) in textures_delta.set {
-            let texture = if let Some(_pos) = image_delta.pos {
-                // Partial update - get existing texture and update region
-                if let Some(existing) = self.texture_atlas.get(&id) {
-                    existing.clone()
-                } else {
-                    // Create new texture if it doesn't exist
-                    self.create_texture_from_image(context, &image_delta.image)
-                }
-            } else {
-                // Full texture replacement
-                self.create_texture_from_image(context, &image_delta.image)
-            };
+            crate::common::dev_log!("ATLAS_DEBUG: Updating texture {:?}, pos: {:?}, image size: {}x{}", 
+                                    id, image_delta.pos, 
+                                    image_delta.image.width(), image_delta.image.height());
             
+            if image_delta.pos.is_some() {
+                // Partial update - skip it to avoid replacing the full texture with just the new glyph
+                crate::common::dev_log!("ATLAS_DEBUG: Skipping partial update - would lose existing glyphs");
+                continue;
+            }
+            
+            // Only process full texture updates (pos: None)
+            crate::common::dev_log!("ATLAS_DEBUG: Processing full texture update");
+            let texture = self.create_texture_from_image(context, &image_delta.image);
             self.texture_atlas.insert(id, texture);
+            crate::common::dev_log!("ATLAS_DEBUG: Texture {:?} inserted successfully", id);
         }
         
         // Handle texture removals
         for id in textures_delta.free {
+            crate::common::dev_log!("ATLAS_DEBUG: Removing texture {:?}", id);
             self.texture_atlas.remove(&id);
         }
+        
+        crate::common::dev_log!("ATLAS_DEBUG: Atlas now contains {} textures", self.texture_atlas.len());
     }
     
     /// Create a three-d texture from an egui image
@@ -464,110 +476,6 @@ impl EguiCompositeBackend {
         }
     }
     
-    /// Create background texture for compositing
-    fn create_background_texture(&self, context: &Context, viewport: Viewport) -> Texture2DRef {
-        use three_d::CpuTexture;
-        
-        // Create a simple background texture (transparent for now)
-        let pixels = vec![[0u8, 0, 0, 0]; (viewport.width * viewport.height) as usize];
-        
-        let cpu_texture = CpuTexture {
-            data: three_d::TextureData::RgbaU8(pixels),
-            width: viewport.width,
-            height: viewport.height,
-            ..Default::default()
-        };
-        
-        let texture = Texture2D::new(context, &cpu_texture);
-        Texture2DRef::from_texture(texture)
-    }
-    
-    /// Composite text texture onto background texture
-    fn composite_textures(&self, context: &Context, viewport: Viewport, text_texture: Texture2DRef, background_texture: Texture2DRef) -> Texture2DRef {
-        // Create a new texture for the composited result
-        let mut composite_texture = Texture2D::new_empty::<[u8; 4]>(
-            context,
-            viewport.width,
-            viewport.height,
-            Interpolation::Linear,
-            Interpolation::Linear,
-            None,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-        
-        let mut composite_depth_texture = DepthTexture2D::new::<f32>(
-            context,
-            viewport.width,
-            viewport.height,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-        
-        // Render both textures onto the composite texture
-        {
-            let composite_render_target = RenderTarget::new(
-                composite_texture.as_color_target(None),
-                composite_depth_texture.as_depth_target(),
-            );
-            
-            // Clear with transparent background
-            composite_render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
-            
-            let camera = Camera::new_2d(viewport);
-            
-            // Create quads for both textures
-            let quad_width = viewport.width as f32;
-            let quad_height = viewport.height as f32;
-            let quad_center = (quad_width * 0.5, quad_height * 0.5);
-            
-            // Background quad
-            let background_quad = Rectangle::new(
-                context,
-                quad_center,
-                Deg(0.0),
-                quad_width,
-                quad_height,
-            );
-            
-            let background_material = ColorMaterial {
-                color: Srgba::WHITE,
-                texture: Some(background_texture),
-                is_transparent: false,
-                render_states: RenderStates::default(),
-            };
-            
-            // Text quad (rendered on top with transparency)
-            let text_quad = Rectangle::new(
-                context,
-                quad_center,
-                Deg(0.0),
-                quad_width,
-                quad_height,
-            );
-            
-            let text_material = ColorMaterial {
-                color: Srgba::WHITE,
-                texture: Some(text_texture),
-                is_transparent: true,
-                render_states: RenderStates {
-                    blend: Blend::TRANSPARENCY,
-                    write_mask: WriteMask::COLOR,
-                    ..Default::default()
-                },
-            };
-            
-            let background_gm = Gm::new(background_quad, background_material);
-            let text_gm = Gm::new(text_quad, text_material);
-            
-            // Render background first, then text on top
-            composite_render_target
-                .render(&camera, &[&background_gm], &[])
-                .render(&camera, &[&text_gm], &[]);
-        }
-        
-        Texture2DRef::from_texture(composite_texture)
-    }
 }
 
 impl EguiCompositeBackend {
@@ -614,6 +522,67 @@ impl EguiCompositeBackend {
         };
         
         self.egui_ctx.begin_frame(raw_input);
+        
+        // Pre-load glyph cache with all possible note characters (one-time setup)
+        // Must be done after begin_frame so fonts are available
+        if !self.glyph_cache_preloaded {
+            crate::common::dev_log!("ATLAS_DEBUG: Pre-loading glyph cache with all note characters");
+            
+            // Create invisible shapes to force glyph loading
+            let mut preload_shapes = Vec::new();
+            
+            // Pre-render all possible note characters using current context
+            self.egui_ctx.fonts(|f| {
+                let color = egui::Color32::WHITE;
+                
+                // Pre-load characters at the exact size we use for note labels
+                let sizes = [26.0];
+                let chars_to_preload = "CDEFGABb0123456789#";
+                
+                for &size in &sizes {
+                    let font_id = egui::FontId::new(size, egui::FontFamily::Proportional);
+                    for ch in chars_to_preload.chars() {
+                        let galley = f.layout_no_wrap(ch.to_string(), font_id.clone(), color);
+                        
+                        // Create a text shape to force glyph atlas creation
+                        preload_shapes.push(egui::Shape::Text(egui::epaint::TextShape {
+                            pos: egui::Pos2::new(-1000.0, -1000.0), // Position off-screen
+                            galley,
+                            underline: egui::Stroke::NONE,
+                            fallback_color: color,
+                            override_text_color: Some(color),
+                            opacity_factor: 1.0,
+                            angle: 0.0,
+                        }));
+                    }
+                }
+                
+                crate::common::dev_log!("ATLAS_DEBUG: Pre-loaded {} characters at {} sizes", 
+                                        chars_to_preload.len(), sizes.len());
+            });
+            
+            // Convert preload shapes to clipped shapes and tessellate to force atlas creation
+            let preload_clipped_shapes: Vec<egui::epaint::ClippedShape> = preload_shapes.into_iter()
+                .map(|shape| egui::epaint::ClippedShape {
+                    clip_rect: egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::Vec2::new(
+                            viewport.width as f32 / self.pixels_per_point,
+                            viewport.height as f32 / self.pixels_per_point,
+                        ),
+                    ),
+                    shape,
+                })
+                .collect();
+            
+            // Force tessellation to create the font atlas
+            let _preload_primitives = self.egui_ctx.tessellate(preload_clipped_shapes, self.pixels_per_point);
+            
+            // Mark cache as preloaded
+            self.glyph_cache_preloaded = true;
+            
+            crate::common::dev_log!("ATLAS_DEBUG: Glyph cache pre-loading completed - atlas should now contain all characters");
+        }
         
         // Create text shapes for each queued text
         let mut shapes = Vec::new();
@@ -671,96 +640,51 @@ impl EguiCompositeBackend {
         // Update texture atlas with any new textures
         self.update_texture_atlas(context, output.textures_delta);
         
-        // Create text texture and render tessellated text to it
-        let mut text_texture = Texture2D::new_empty::<[u8; 4]>(
-            context,
-            viewport.width,
-            viewport.height,
-            Interpolation::Linear,
-            Interpolation::Linear,
-            None,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
         
-        let mut text_depth_texture = DepthTexture2D::new::<f32>(
-            context,
-            viewport.width,
-            viewport.height,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
+        // Convert egui primitives directly to three-d renderables
+        // These will be rendered directly into the background texture alongside tuning lines
+        let mut render_objects: Vec<Box<dyn Object>> = Vec::new();
         
-        // Stage 1: Render text to separate texture
-        {
-            let text_render_target = RenderTarget::new(
-                text_texture.as_color_target(None),
-                text_depth_texture.as_depth_target(),
-            );
-            
-            // Clear with transparent background
-            text_render_target.clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 0.0, 1.0));
-            
-            let camera = Camera::new_2d(viewport);
-            
-            // Convert egui primitives to three-d renderables and render them
-            let mut text_render_objects: Vec<Box<dyn Object>> = Vec::new();
-            
-            for primitive in clipped_primitives {
-                if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
-                    // Get texture for this mesh
-                    if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
+        crate::common::dev_log!("ATLAS_DEBUG: Processing {} clipped primitives", clipped_primitives.len());
+        
+        for (i, primitive) in clipped_primitives.iter().enumerate() {
+            if let egui::epaint::Primitive::Mesh(mesh) = &primitive.primitive {
+                crate::common::dev_log!("ATLAS_DEBUG: Primitive {}: Mesh with texture_id {:?}, {} vertices", 
+                                        i, mesh.texture_id, mesh.vertices.len());
+                
+                // Get texture for this mesh
+                match self.texture_atlas.get(&mesh.texture_id) {
+                    Some(texture) => {
+                        crate::common::dev_log!("ATLAS_DEBUG: Found texture for mesh {}", i);
+                        let texture = texture.clone();
+                        
                         // Convert egui mesh to three-d format using helper function
-                        if let Some(render_object) = convert_egui_mesh_to_three_d(
+                        match convert_egui_mesh_to_three_d(
                             context,
                             &mesh,
                             texture,
                             viewport,
                             self.pixels_per_point,
                         ) {
-                            text_render_objects.push(render_object);
+                            Some(render_object) => {
+                                render_objects.push(render_object);
+                                crate::common::dev_log!("ATLAS_DEBUG: Successfully converted mesh {} to render object", i);
+                            }
+                            None => {
+                                crate::common::dev_log!("ATLAS_DEBUG: Failed to convert mesh {} to render object", i);
+                            }
                         }
+                    }
+                    None => {
+                        crate::common::dev_log!("ATLAS_DEBUG: No texture found for mesh {} with texture_id {:?}", i, mesh.texture_id);
+                        crate::common::dev_log!("ATLAS_DEBUG: Available texture IDs: {:?}", 
+                                                self.texture_atlas.keys().collect::<Vec<_>>());
                     }
                 }
             }
-            
-            // Render all text meshes to the text texture
-            if !text_render_objects.is_empty() {
-                let render_refs: Vec<&dyn Object> = text_render_objects.iter()
-                    .map(|obj| obj.as_ref())
-                    .collect();
-                text_render_target.render(&camera, render_refs, &[]);
-            }
         }
         
-        let text_texture_ref = Texture2DRef::from_texture(text_texture);
-        
-        // Stage 2: Create background texture and composite
-        let background_texture = self.create_background_texture(context, viewport);
-        let final_texture = self.composite_textures(context, viewport, text_texture_ref, background_texture);
-        
-        // Create final textured quad with the composited result
-        let quad = Rectangle::new(
-            context,
-            (viewport.width as f32 * 0.5, viewport.height as f32 * 0.5),
-            Deg(0.0),
-            viewport.width as f32,
-            viewport.height as f32,
-        );
-        
-        let material = ColorMaterial {
-            color: Srgba::WHITE,
-            texture: Some(final_texture),
-            is_transparent: true,
-            render_states: RenderStates {
-                depth_test: three_d::DepthTest::Always,
-                write_mask: WriteMask::COLOR,
-                blend: Blend::TRANSPARENCY,
-                ..Default::default()
-            },
-        };
-        
-        vec![Box::new(Gm::new(quad, material)) as Box<dyn Object>]
+        render_objects
     }
 }
 
