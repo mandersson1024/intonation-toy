@@ -6,7 +6,7 @@ description = "Development console library using egui for debugging and developm
 license = "MIT"
 
 [dependencies]
-three-d = { version = "0.17.1", features = ["egui-gui"] }
+three-d = { version = "0.18.2", features = ["egui-gui"] }
 web-sys = { version = "0.3", features = [
   "console",
   "Performance",
