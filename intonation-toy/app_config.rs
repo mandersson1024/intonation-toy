@@ -69,3 +69,20 @@ pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 
 /// Overlay alpha configuration
 pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;
+
+/// Text rendering mode configuration
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TextRenderingMode {
+    /// Use egui for direct text rendering
+    EguiDirect,
+    /// Use egui for composite text rendering with two-stage approach
+    EguiComposite,
+}
+
+/// Default text rendering mode - set to EguiDirect
+/// 
+/// To test the EguiComposite backend, change this to:
+/// pub const DEFAULT_TEXT_RENDERING_MODE: TextRenderingMode = TextRenderingMode::EguiComposite;
+/// 
+/// Or use MainScene::set_text_rendering_mode() to switch at runtime.
+pub const DEFAULT_TEXT_RENDERING_MODE: TextRenderingMode = TextRenderingMode::EguiDirect;
