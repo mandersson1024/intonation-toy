@@ -1,15 +1,11 @@
 /*!
- * Text Rendering Backends for MainScene
+ * Text Rendering for MainScene
  * 
- * This module implements two egui-based text rendering backends:
+ * This module implements egui-based text rendering using a composite approach:
  * 
- * 1. **EguiDirectBackend** - Uses egui's tessellation system for direct text rendering (default)
- * 2. **EguiCompositeBackend** - Uses egui for composite text rendering with two-stage approach
+ * **EguiCompositeBackend** - Uses egui for composite text rendering with two-stage approach
  * 
- * The backend can be switched at compile time by changing DEFAULT_TEXT_RENDERING_MODE
- * in app_config.rs, or at runtime using MainScene::set_text_rendering_mode().
- * 
- * Both backends leverage egui's font rendering capabilities and provide
+ * The backend leverages egui's font rendering capabilities and provides
  * high-quality text rendering, proper Unicode support, and integrated glyph atlas management.
  */
 
@@ -191,7 +187,7 @@ impl TuningLines {
     }
     
     /// Render note labels above each tuning line
-    pub fn render_note_labels(&self, text_backend: &mut dyn TextRenderingBackend) {
+    pub fn render_note_labels(&self, text_backend: &mut EguiCompositeBackend) {
         crate::common::dev_log!("TEXT_DEBUG: Rendering {} note labels", self.midi_notes.len());
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];
@@ -208,37 +204,14 @@ impl TuningLines {
             let text_color = scheme.muted;
 
             crate::common::dev_log!("TEXT_DEBUG: Queuing text '{}' at ({}, {}) with size {}", note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE);
+            if note_name.contains('b') {
+                crate::common::dev_log!("TEXT_DEBUG: Note '{}' contains 'b' character", note_name);
+            }
             text_backend.queue_text(&note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0]);
         }
     }
 }
 
-/// Trait for abstracting text rendering functionality
-/// Allows different text rendering backends to be used interchangeably
-pub trait TextRenderingBackend {
-    /// Queue text for rendering at the specified position
-    /// 
-    /// # Arguments
-    /// * `text` - The text string to render
-    /// * `x` - X position in screen coordinates
-    /// * `y` - Y position in screen coordinates
-    /// * `size` - Font size
-    /// * `color` - RGBA color values in range [0.0, 1.0]
-    fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]);
-    
-    /// Clear all queued text (typically called each frame)
-    fn clear_queue(&mut self);
-    
-    /// Create renderable objects from queued text
-    /// 
-    /// # Arguments
-    /// * `context` - The three-d Context for GPU resource creation
-    /// * `viewport` - The current viewport for proper text positioning
-    /// 
-    /// # Returns
-    /// A vector of renderable objects that can be rendered by the three-d renderer
-    fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>>;
-}
 
 
 #[derive(Debug, Clone)]
@@ -330,25 +303,6 @@ fn convert_egui_mesh_to_three_d(
     Some(Box::new(Gm::new(gpu_mesh, material)) as Box<dyn Object>)
 }
 
-/// Create a ColorMaterial with appropriate settings for text rendering
-/// 
-/// # Arguments
-/// * `texture` - The texture to apply to the text
-/// 
-/// # Returns
-/// A ColorMaterial configured for transparent text rendering
-fn create_text_material(texture: Texture2DRef) -> ColorMaterial {
-    ColorMaterial {
-        color: Srgba::WHITE,
-        texture: Some(texture),
-        is_transparent: true,
-        render_states: RenderStates {
-            blend: Blend::TRANSPARENCY,
-            write_mask: WriteMask::COLOR,
-            ..Default::default()
-        },
-    }
-}
 
 /// Validate viewport dimensions
 /// 
@@ -361,295 +315,7 @@ fn validate_viewport(viewport: Viewport) -> bool {
     viewport.width > 0 && viewport.height > 0
 }
 
-/// Backend implementation using egui's tessellation system for direct text rendering
-/// 
-/// This backend creates an off-screen egui context for text rendering and tessellation.
-/// It uses egui's text layout and rendering capabilities to generate text shapes,
-/// which are then tessellated into triangular meshes. These meshes are rendered
-/// to an off-screen texture that is returned as a textured quad.
-/// 
-/// # Advantages over ThreeDTextBuilder
-/// - Better font rendering quality with proper anti-aliasing
-/// - Support for complex text layouts and Unicode
-/// - Integrated glyph atlas management
-/// - More efficient memory usage for text-heavy scenes
-/// 
-/// # Current Limitations
-/// - The mesh rendering implementation is simplified
-/// - Full egui mesh conversion to three-d format is not yet implemented
-/// - Currently returns a single textured quad for all text
-pub struct EguiDirectBackend {
-    /// Off-screen egui context for text rendering
-    egui_ctx: egui::Context,
-    /// Queue of text items to render
-    queued_texts: Vec<QueuedText>,
-    /// Texture atlas cache for egui textures
-    texture_atlas: HashMap<egui::TextureId, Texture2DRef>,
-    /// Pixels per point for the display
-    pixels_per_point: f32,
-}
 
-impl EguiDirectBackend {
-    /// Create a new EguiDirectBackend instance
-    /// 
-    /// # Arguments
-    /// * `context` - The three-d Context for GPU resource creation
-    /// 
-    /// # Returns
-    /// A Result containing the backend instance or an error string
-    pub fn new(_context: &Context) -> Result<Self, String> {
-        // Create off-screen egui context
-        let egui_ctx = egui::Context::default();
-        
-        // Load and configure Roboto font
-        let mut fonts = egui::FontDefinitions::default();
-        
-        // Load the Roboto font from the static directory
-        let roboto_font_data = include_bytes!("../static/fonts/Roboto-Regular.ttf");
-        fonts.font_data.insert(
-            "Roboto".to_owned(),
-            egui::FontData::from_static(roboto_font_data)
-        );
-        
-        // Configure font families to use Roboto
-        fonts.families.entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "Roboto".to_owned());
-        
-        fonts.families.entry(egui::FontFamily::Monospace)
-            .or_default()
-            .insert(0, "Roboto".to_owned());
-        
-        // Set the fonts in the context
-        egui_ctx.set_fonts(fonts);
-        
-        Ok(Self {
-            egui_ctx,
-            queued_texts: Vec::new(),
-            texture_atlas: HashMap::new(),
-            pixels_per_point: 1.0,
-        })
-    }
-    
-    /// Update texture atlas with new textures from egui
-    fn update_texture_atlas(&mut self, context: &Context, textures_delta: egui::TexturesDelta) {
-        // Handle texture updates
-        for (id, image_delta) in textures_delta.set {
-            let texture = if let Some(_pos) = image_delta.pos {
-                // Partial update - get existing texture and update region
-                if let Some(existing) = self.texture_atlas.get(&id) {
-                    existing.clone()
-                } else {
-                    // Create new texture if it doesn't exist
-                    self.create_texture_from_image(context, &image_delta.image)
-                }
-            } else {
-                // Full texture replacement
-                self.create_texture_from_image(context, &image_delta.image)
-            };
-            
-            self.texture_atlas.insert(id, texture);
-        }
-        
-        // Handle texture removals
-        for id in textures_delta.free {
-            self.texture_atlas.remove(&id);
-        }
-    }
-    
-    /// Create a three-d texture from an egui image
-    fn create_texture_from_image(&self, context: &Context, image: &egui::ImageData) -> Texture2DRef {
-        use three_d::CpuTexture;
-        match image {
-            egui::ImageData::Color(color_image) => {
-                // Convert egui Color32 image to RGBA bytes
-                let pixels: Vec<[u8; 4]> = color_image.pixels.iter()
-                    .map(|c| [c.r(), c.g(), c.b(), c.a()])
-                    .collect();
-                
-                let cpu_texture = CpuTexture {
-                    data: three_d::TextureData::RgbaU8(pixels),
-                    width: color_image.width() as u32,
-                    height: color_image.height() as u32,
-                    ..Default::default()
-                };
-                
-                let texture = Texture2D::new(context, &cpu_texture);
-                Texture2DRef::from_texture(texture)
-            },
-            egui::ImageData::Font(font_image) => {
-                // Convert font image (single channel) to RGBA
-                let pixels: Vec<[u8; 4]> = font_image.pixels.iter()
-                    .map(|coverage| {
-                        let alpha = (coverage * 255.0) as u8;
-                        [255, 255, 255, alpha]
-                    })
-                    .collect();
-                
-                let cpu_texture = CpuTexture {
-                    data: three_d::TextureData::RgbaU8(pixels),
-                    width: font_image.width() as u32,
-                    height: font_image.height() as u32,
-                    ..Default::default()
-                };
-                
-                let texture = Texture2D::new(context, &cpu_texture);
-                Texture2DRef::from_texture(texture)
-            },
-        }
-    }
-    
-    /// Convert screen coordinates to egui coordinates
-    fn screen_to_egui_pos(&self, x: f32, y: f32, viewport: Viewport) -> egui::Pos2 {
-        // egui uses top-left origin, our screen coords use bottom-left
-        // Also account for pixels_per_point scaling
-        egui::Pos2 {
-            x: x / self.pixels_per_point,
-            y: (viewport.height as f32 - y) / self.pixels_per_point,
-        }
-    }
-}
-
-impl TextRenderingBackend for EguiDirectBackend {
-    fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]) {
-        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend queuing text: '{}'", text);
-        self.queued_texts.push(QueuedText {
-            text: text.to_string(),
-            x,
-            y,
-            size,
-            color,
-        });
-    }
-    
-    fn clear_queue(&mut self) {
-        self.queued_texts.clear();
-    }
-    
-    fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>> {
-        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend creating text models, {} queued texts", self.queued_texts.len());
-        if self.queued_texts.is_empty() {
-            crate::common::dev_log!("TEXT_DEBUG: No queued texts, returning empty");
-            return Vec::new();
-        }
-        
-        // Validate viewport dimensions
-        if !validate_viewport(viewport) {
-            crate::common::dev_log!("Warning: Invalid viewport dimensions for text rendering");
-            return Vec::new();
-        }
-        crate::common::dev_log!("TEXT_DEBUG: Viewport size: {}x{}", viewport.width, viewport.height);
-        
-        // Calculate pixels per point for the current display
-        self.pixels_per_point = 1.0; // Could be adjusted for HiDPI displays
-        
-        // Begin egui frame
-        let raw_input = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::Vec2::new(
-                    viewport.width as f32 / self.pixels_per_point,
-                    viewport.height as f32 / self.pixels_per_point,
-                ),
-            )),
-            ..Default::default()
-        };
-        
-        self.egui_ctx.begin_frame(raw_input);
-        
-        // Create text shapes for each queued text
-        let mut shapes = Vec::new();
-        for queued in &self.queued_texts {
-            let pos = self.screen_to_egui_pos(queued.x, queued.y, viewport);
-            
-            // Convert color from float [0,1] to Color32
-            let color = egui::Color32::from_rgba_premultiplied(
-                (queued.color[0] * 255.0) as u8,
-                (queued.color[1] * 255.0) as u8,
-                (queued.color[2] * 255.0) as u8,
-                (queued.color[3] * 255.0) as u8,
-            );
-            
-            // Create text shape
-            let galley = self.egui_ctx.fonts(|f| {
-                f.layout_no_wrap(
-                    queued.text.clone(),
-                    egui::FontId::new(queued.size, egui::FontFamily::Proportional),
-                    color,
-                )
-            });
-            
-            shapes.push(egui::Shape::Text(egui::epaint::TextShape {
-                pos,
-                galley,
-                underline: egui::Stroke::NONE,
-                fallback_color: color,
-                override_text_color: Some(color),
-                opacity_factor: 1.0,
-                angle: 0.0,
-            }));
-        }
-        
-        // End frame and get output
-        let output = self.egui_ctx.end_frame();
-        
-        // Convert shapes to clipped shapes for tessellation
-        let clipped_shapes: Vec<egui::epaint::ClippedShape> = shapes.into_iter()
-            .map(|shape| egui::epaint::ClippedShape {
-                clip_rect: egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,
-                    egui::Vec2::new(
-                        viewport.width as f32 / self.pixels_per_point,
-                        viewport.height as f32 / self.pixels_per_point,
-                    ),
-                ),
-                shape,
-            })
-            .collect();
-        
-        // Tessellate the shapes
-        let clipped_primitives = self.egui_ctx.tessellate(clipped_shapes, self.pixels_per_point);
-        
-        // Update texture atlas with any new textures
-        self.update_texture_atlas(context, output.textures_delta);
-        
-        // If no primitives were generated, return empty
-        if clipped_primitives.is_empty() {
-            crate::common::dev_log!("TEXT_DEBUG: No clipped primitives generated");
-            return Vec::new();
-        }
-        crate::common::dev_log!("TEXT_DEBUG: Generated {} clipped primitives", clipped_primitives.len());
-        
-        // Convert egui primitives directly to three-d renderables
-        // These will be rendered directly into the background texture alongside tuning lines
-        let mut render_objects: Vec<Box<dyn Object>> = Vec::new();
-        
-        for primitive in clipped_primitives {
-            if let egui::epaint::Primitive::Mesh(mesh) = primitive.primitive {
-                crate::common::dev_log!("TEXT_DEBUG: Processing mesh with texture_id: {:?}", mesh.texture_id);
-                // Get texture for this mesh
-                if let Some(texture) = self.texture_atlas.get(&mesh.texture_id).cloned() {
-                    crate::common::dev_log!("TEXT_DEBUG: Found texture in atlas for id: {:?}", mesh.texture_id);
-                    // Convert egui mesh to three-d format using helper function
-                    if let Some(render_object) = convert_egui_mesh_to_three_d(
-                        context,
-                        &mesh,
-                        texture,
-                        viewport,
-                        self.pixels_per_point,
-                    ) {
-                        render_objects.push(render_object);
-                    }
-                } else {
-                    crate::common::dev_log!("TEXT_DEBUG: No texture found in atlas for id: {:?}, atlas has {} entries", mesh.texture_id, self.texture_atlas.len());
-                }
-            }
-        }
-        
-        crate::common::dev_log!("TEXT_DEBUG: EguiDirectBackend returning {} text mesh objects", render_objects.len());
-        render_objects
-    }
-}
 
 /// Backend implementation using egui's composite text rendering with two-stage approach
 /// 
@@ -904,8 +570,8 @@ impl EguiCompositeBackend {
     }
 }
 
-impl TextRenderingBackend for EguiCompositeBackend {
-    fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]) {
+impl EguiCompositeBackend {
+    pub fn queue_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: [f32; 4]) {
         self.queued_texts.push(QueuedText {
             text: text.to_string(),
             x,
@@ -915,11 +581,11 @@ impl TextRenderingBackend for EguiCompositeBackend {
         });
     }
     
-    fn clear_queue(&mut self) {
+    pub fn clear_queue(&mut self) {
         self.queued_texts.clear();
     }
     
-    fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>> {
+    pub fn create_text_models(&mut self, context: &Context, viewport: Viewport) -> Vec<Box<dyn Object>> {
         if self.queued_texts.is_empty() {
             return Vec::new();
         }
@@ -1105,8 +771,7 @@ pub struct MainScene {
     user_pitch_line: Gm<Line, ColorMaterial>,
     user_pitch_line_material: ColorMaterial,
     pub tuning_lines: TuningLines,
-    text_backend: Box<dyn TextRenderingBackend>,
-    current_text_rendering_mode: crate::app_config::TextRenderingMode,
+    text_backend: EguiCompositeBackend,
     context: Context,
     pitch_detected: bool,
     current_scheme: ColorScheme,
@@ -1250,7 +915,7 @@ impl MainScene {
                 .collect();            
 
             self.text_backend.clear_queue();
-            self.tuning_lines.render_note_labels(&mut *self.text_backend);
+            self.tuning_lines.render_note_labels(&mut self.text_backend);
             let text_models = self.text_backend.create_text_models(&self.context, viewport);
             crate::common::dev_log!("TEXT_DEBUG: Got {} text models from backend", text_models.len());
             let text_objects: Vec<&dyn Object> = 
@@ -1314,16 +979,8 @@ impl MainScene {
         
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
         
-        // Create text backend using the configured mode
-        let text_backend: Box<dyn TextRenderingBackend> = match crate::app_config::DEFAULT_TEXT_RENDERING_MODE {
-            crate::app_config::TextRenderingMode::EguiDirect => {
-                Box::new(EguiDirectBackend::new(context)?)
-            }
-            crate::app_config::TextRenderingMode::EguiComposite => {
-                Box::new(EguiCompositeBackend::new(context)?)
-            }
-        };
-        let current_text_rendering_mode = crate::app_config::DEFAULT_TEXT_RENDERING_MODE;
+        // Create text backend using EguiComposite
+        let text_backend = EguiCompositeBackend::new(context)?;
 
         // Create background texture and background quad with fallback handling
         let background_quad = match Self::create_background_texture(context, viewport) {
@@ -1362,7 +1019,6 @@ impl MainScene {
             user_pitch_line_material,
             tuning_lines,
             text_backend,
-            current_text_rendering_mode,
             context: context.clone(),
             pitch_detected: false,
             current_scheme: scheme,
@@ -1618,23 +1274,5 @@ impl MainScene {
         line_data
     }
     
-    /// Switch to a different text rendering backend
-    pub fn set_text_rendering_mode(&mut self, mode: crate::app_config::TextRenderingMode) -> Result<(), String> {
-        self.text_backend = match mode {
-            crate::app_config::TextRenderingMode::EguiDirect => {
-                Box::new(EguiDirectBackend::new(&self.context)?)
-            }
-            crate::app_config::TextRenderingMode::EguiComposite => {
-                Box::new(EguiCompositeBackend::new(&self.context)?)
-            }
-        };
-        self.current_text_rendering_mode = mode;
-        Ok(())
-    }
-    
-    /// Get the current text rendering mode
-    pub fn get_text_rendering_mode(&self) -> crate::app_config::TextRenderingMode {
-        self.current_text_rendering_mode
-    }
 }
 
