@@ -105,19 +105,116 @@ fn calculate_pitch_line_appearance(clarity: Option<f32>) -> (f32, f32) {
     }
 }
 
+/// Encapsulates audio analysis state from the engine
+struct AudioAnalysis {
+    pitch_detected: bool,
+    cents_offset: f32,
+    volume_peak: bool,
+}
+
+impl AudioAnalysis {
+    /// Creates a new AudioAnalysis with default values
+    fn new() -> Self {
+        Self {
+            pitch_detected: false,
+            cents_offset: 0.0,
+            volume_peak: false,
+        }
+    }
+    
+    /// Updates pitch detection state
+    fn update_pitch(&mut self, pitch_detected: bool, cents_offset: f32) {
+        self.pitch_detected = pitch_detected;
+        self.cents_offset = cents_offset;
+    }
+    
+    /// Updates volume peak state
+    fn update_volume_peak(&mut self, volume_peak: bool) {
+        self.volume_peak = volume_peak;
+    }
+}
+
+/// Encapsulates all user pitch line related data and rendering state
+struct UserPitchLine {
+    mesh: Option<Gm<Line, ColorMaterial>>,
+    material: ColorMaterial,
+    thickness: f32,
+    alpha: f32,
+}
+
+impl UserPitchLine {
+    /// Creates a new UserPitchLine with default values
+    fn new() -> Self {
+        Self {
+            mesh: None,
+            material: ColorMaterial::default(),
+            thickness: USER_PITCH_LINE_THICKNESS_MAX,
+            alpha: USER_PITCH_LINE_TRANSPARENCY_MIN,
+        }
+    }
+    
+    /// Creates the material for the user pitch line based on current state
+    fn create_material(&self, color_scheme: &ColorScheme, audio_analysis: &AudioAnalysis) -> ColorMaterial {
+        let color = get_user_pitch_line_color(color_scheme, audio_analysis.volume_peak, audio_analysis.cents_offset);
+        let has_transparency = self.alpha < 1.0;
+        create_color_material(
+            rgb_to_srgba_with_alpha(color, self.alpha),
+            has_transparency
+        )
+    }
+    
+    /// Updates the pitch line position and properties
+    fn update_position(
+        &mut self,
+        context: &Context,
+        endpoints: (PhysicalPoint, PhysicalPoint),
+        new_thickness: f32,
+        new_alpha: f32,
+        color_scheme: &ColorScheme,
+        audio_analysis: &AudioAnalysis,
+    ) {
+        let thickness_changed = (new_thickness - self.thickness).abs() > f32::EPSILON;
+        let alpha_changed = (new_alpha - self.alpha).abs() > f32::EPSILON;
+        
+        if thickness_changed || alpha_changed || self.mesh.is_none() {
+            // Update properties first
+            self.thickness = new_thickness;
+            self.alpha = new_alpha;
+            
+            // Update material
+            self.material = self.create_material(color_scheme, audio_analysis);
+            
+            // Create new mesh
+            let line = Line::new(context, endpoints.0, endpoints.1, new_thickness);
+            self.mesh = Some(Gm::new(line, self.material.clone()));
+        } else {
+            // Only position changed, update existing mesh
+            if let Some(ref mut mesh) = self.mesh {
+                mesh.set_endpoints(endpoints.0, endpoints.1);
+            }
+        }
+    }
+    
+    /// Refreshes colors by recreating the material and clearing the mesh
+    fn refresh_colors(&mut self, color_scheme: &ColorScheme, audio_analysis: &AudioAnalysis) {
+        self.material = self.create_material(color_scheme, audio_analysis);
+        self.mesh = None; // Will be recreated with new material when needed
+    }
+    
+    /// Returns a reference to the mesh if it exists
+    fn mesh(&self) -> Option<&Gm<Line, ColorMaterial>> {
+        self.mesh.as_ref()
+    }
+}
+
 pub struct MainScene {
     camera: Camera,
-    user_pitch_line_mesh: Option<Gm<Line, ColorMaterial>>,
-    user_pitch_line_material: ColorMaterial,
+    user_pitch_line: UserPitchLine,
+    audio_analysis: AudioAnalysis,
     tuning_lines: TuningLines,
     text_backend: EguiCompositeBackend,
     context: Context,
-    pitch_detected: bool,
     color_scheme: ColorScheme,
-    user_pitch_line_thickness: f32,
-    user_pitch_line_alpha: f32,
-    volume_peak: bool,
-    cents_offset: f32,
     // Background texture system: pre-rendered texture with background
     // These resources are automatically cleaned up by three-d's RAII when replaced or dropped
     background_quad: Option<Gm<Rectangle, ColorMaterial>>,
@@ -128,25 +225,17 @@ impl MainScene {
     // Associated functions
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
-        let initial_volume_peak = false;
-        let initial_cents_offset = 0.0;
-        let initial_alpha = USER_PITCH_LINE_TRANSPARENCY_MIN;        
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
         let text_backend = EguiCompositeBackend::new(context)?;
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line_mesh: None,
-            user_pitch_line_material: ColorMaterial::default(),
+            user_pitch_line: UserPitchLine::new(),
+            audio_analysis: AudioAnalysis::new(),
             tuning_lines,
             text_backend,
             context: context.clone(),
-            pitch_detected: false,
             color_scheme: scheme,
-            user_pitch_line_thickness: USER_PITCH_LINE_THICKNESS_MAX,
-            user_pitch_line_alpha: initial_alpha,
-            volume_peak: initial_volume_peak,
-            cents_offset: initial_cents_offset,
             background_quad: None,
             presentation_context: None,
         })
@@ -154,25 +243,13 @@ impl MainScene {
 
     // Private helper methods
     
-    /// Creates the material for the user pitch line based on current state
-    fn create_user_pitch_line_material(&self) -> ColorMaterial {
-        let color = get_user_pitch_line_color(&self.color_scheme, self.volume_peak, self.cents_offset);
-        let has_transparency = self.user_pitch_line_alpha < 1.0;
-        create_color_material(
-            rgb_to_srgba_with_alpha(color, self.user_pitch_line_alpha),
-            has_transparency
-        )
-    }
     
     
     fn refresh_colors(&mut self) {
         let scheme = self.color_scheme.clone();
         
-        // Update user pitch line material with new color
-        self.user_pitch_line_material = self.create_user_pitch_line_material();
-        
-        // Clear user pitch line - it will be recreated with new material when needed
-        self.user_pitch_line_mesh = None;
+        // Update user pitch line colors
+        self.user_pitch_line.refresh_colors(&scheme, &self.audio_analysis);
         
         // Update tuning lines materials
         self.tuning_lines.update_materials(rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
@@ -272,16 +349,15 @@ impl MainScene {
         }
 
         // Only render user pitch line if pitch is detected and line exists
-        if self.pitch_detected {
-            if let Some(ref user_pitch_line) = self.user_pitch_line_mesh {
-                screen.render(&self.camera, [user_pitch_line], &[]);
+        if self.audio_analysis.pitch_detected {
+            if let Some(ref mesh) = self.user_pitch_line.mesh() {
+                screen.render(&self.camera, [mesh], &[]);
             }
         }
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>, cents_offset: f32) {
-        self.pitch_detected = pitch_detected;
-        self.cents_offset = cents_offset;
+        self.audio_analysis.update_pitch(pitch_detected, cents_offset);
         
         // Validate viewport dimensions before proceeding
         if viewport.width == 0 || viewport.height == 0 {
@@ -298,26 +374,14 @@ impl MainScene {
             
             let (new_thickness, new_alpha) = calculate_pitch_line_appearance(clarity);
             
-            // Check if thickness or alpha changed - if so, recreate the line
-            let thickness_changed = (new_thickness - self.user_pitch_line_thickness).abs() > f32::EPSILON;
-            let alpha_changed = (new_alpha - self.user_pitch_line_alpha).abs() > f32::EPSILON;
-            
-            if thickness_changed || alpha_changed || self.user_pitch_line_mesh.is_none() {
-                // Update thickness and alpha first so the material creation uses new values
-                self.user_pitch_line_thickness = new_thickness;
-                self.user_pitch_line_alpha = new_alpha;
-                
-                // Update the user pitch line material
-                self.user_pitch_line_material = self.create_user_pitch_line_material();
-                
-                let line = Line::new(&self.context, endpoints.0, endpoints.1, new_thickness);
-                self.user_pitch_line_mesh = Some(Gm::new(line, self.user_pitch_line_material.clone()));
-            } else {
-                // Only position changed, use existing line
-                if let Some(ref mut user_pitch_line) = self.user_pitch_line_mesh {
-                    user_pitch_line.set_endpoints(endpoints.0, endpoints.1);
-                }
-            }
+            self.user_pitch_line.update_position(
+                &self.context,
+                endpoints,
+                new_thickness,
+                new_alpha,
+                &self.color_scheme,
+                &self.audio_analysis,
+            );
         }
     }
     
@@ -347,7 +411,7 @@ impl MainScene {
     
     /// Update the volume peak state for color determination
     pub fn update_volume_peak(&mut self, volume_peak: bool) {
-        self.volume_peak = volume_peak;
+        self.audio_analysis.update_volume_peak(volume_peak);
     }
     
     /// Renders tuning lines and note labels to the background texture by recreating it.
