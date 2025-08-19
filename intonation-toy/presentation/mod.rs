@@ -61,10 +61,12 @@ mod audio_analysis;
 mod main_scene;
 mod tuning_lines;
 mod egui_composite_backend;
+mod user_pitch_line;
 pub use audio_analysis::AudioAnalysis;
 pub use main_scene::MainScene;
 pub use tuning_lines::TuningLines;
 pub use egui_composite_backend::EguiCompositeBackend;
+pub use user_pitch_line::UserPitchLine;
 
 
 use std::rc::Rc;
