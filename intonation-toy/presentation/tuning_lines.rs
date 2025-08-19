@@ -1,18 +1,7 @@
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
 use crate::shared_types::MidiNote;
 use crate::theme::get_current_color_scheme;
-
-// Constants specific to tuning lines
-pub const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
-pub const NOTE_LABEL_X_OFFSET: f32 = 10.0;
-pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
-pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
-pub const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
-
-// Line thickness values
-pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
-pub const REGULAR_LINE_THICKNESS: f32 = 4.0;
-const DEFAULT_LINE_THICKNESS: f32 = 1.0;
+use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, DEFAULT_LINE_THICKNESS};
 
 /// Create a ColorMaterial with the given color and optional transparency
 pub fn create_color_material(color: Srgba, is_transparent: bool) -> ColorMaterial {
@@ -158,7 +147,7 @@ impl TuningLines {
     }
     
     /// Render note labels above each tuning line
-    pub fn render_note_labels(&self, text_backend: &mut crate::presentation::main_scene::EguiCompositeBackend) {
+    pub fn render_note_labels(&self, text_backend: &mut crate::presentation::EguiCompositeBackend) {
         crate::common::dev_log!("TEXT_DEBUG: Rendering {} note labels", self.midi_notes.len());
         for (i, &midi_note) in self.midi_notes.iter().enumerate() {
             let y_position = self.y_positions[i];

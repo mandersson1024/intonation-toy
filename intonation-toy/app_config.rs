@@ -66,6 +66,19 @@ pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
 pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;
 pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
 
+/// Note label configuration
+pub const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
+pub const NOTE_LABEL_X_OFFSET: f32 = 10.0;
+pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
+
+/// Tuning lines layout configuration
+pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
+pub const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
+
+/// Line thickness configuration
+pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
+pub const REGULAR_LINE_THICKNESS: f32 = 4.0;
+pub const DEFAULT_LINE_THICKNESS: f32 = 1.0;
 
 /// Overlay alpha configuration
 pub const OVERLAY_BACKGROUND_ALPHA: f32 = 0.8;

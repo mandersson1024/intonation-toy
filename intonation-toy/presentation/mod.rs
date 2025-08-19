@@ -59,8 +59,10 @@
 
 mod main_scene;
 mod tuning_lines;
+mod egui_composite_backend;
 pub use main_scene::MainScene;
 pub use tuning_lines::TuningLines;
+pub use egui_composite_backend::EguiCompositeBackend;
 
 
 use std::rc::Rc;
