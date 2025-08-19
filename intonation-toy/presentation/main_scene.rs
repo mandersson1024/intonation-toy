@@ -23,7 +23,7 @@ use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::egui_composite_backend::EguiCompositeBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
-use crate::shared_types::{ColorScheme, MidiNote, Scale, TuningSystem};
+use crate::shared_types::{ColorScheme, MidiNote};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba};
 
 // Helper functions
@@ -110,7 +110,7 @@ impl MainScene {
     // Associated functions
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
         let text_backend = EguiCompositeBackend::new(context)?;
 
         Ok(Self {
@@ -132,12 +132,8 @@ impl MainScene {
     
     fn refresh_colors(&mut self) {
         let scheme = self.color_scheme.clone();
-        
-        // Update user pitch line colors
         self.user_pitch_line.refresh_colors(&scheme, &self.audio_analysis);
-        
-        // Update tuning lines materials
-        self.tuning_lines.update_materials(rgb_to_srgba(scheme.muted), rgb_to_srgba(scheme.muted));
+        self.tuning_lines.update_material(rgb_to_srgba(scheme.muted));
         
         // Clear and recreate all tuning lines with new material
         // They will be recreated with correct positions and thickness on next update_lines call
@@ -146,14 +142,14 @@ impl MainScene {
     
     /// Get tuning line positions for the active tuning system
     /// Returns tuning line data with positions, MIDI notes, and thickness
-    fn get_tuning_line_positions(
-        &self,
-        tuning_fork_midi: MidiNote,
-        tuning_system: TuningSystem,
-        scale: &Scale,
-        viewport: Viewport,
-    ) -> Vec<(f32, MidiNote, f32)> {
-        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(tuning_fork_midi);
+    fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32)> {
+        // Use the stored presentation context for tuning line calculation
+        let context = match self.presentation_context.as_ref() {
+            Some(ctx) => ctx,
+            None => return Vec::new(),
+        };
+        
+        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
         
         // Helper function to determine line thickness based on semitone offset
         let get_thickness = |semitone: i32| -> f32 {
@@ -168,7 +164,7 @@ impl MainScene {
         // Helper function to calculate y position for a semitone interval
         let calculate_y_position = |semitone: i32| -> f32 {
             let frequency = crate::music_theory::interval_frequency(
-                tuning_system,
+                context.tuning_system,
                 tuning_fork_frequency,
                 semitone,
             );
@@ -180,17 +176,17 @@ impl MainScene {
         let mut line_data = Vec::new();
         
         // Add center line (tuning fork, 0 semitones)
-        if crate::shared_types::semitone_in_scale(*scale, 0) {
+        if crate::shared_types::semitone_in_scale(context.current_scale, 0) {
             let y_position = interval_to_screen_y_position(0.0, viewport.height as f32);
             let thickness = get_thickness(0);
-            line_data.push((y_position, tuning_fork_midi, thickness));
+            line_data.push((y_position, context.tuning_fork_note, thickness));
         }
         
         // Add intervals above tuning fork: +1 to +12 semitones
         for semitone in 1..=12 {
-            if crate::shared_types::semitone_in_scale(*scale, semitone) {
+            if crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
                 let y_position = calculate_y_position(semitone);
-                let midi_note = (tuning_fork_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
                 line_data.push((y_position, midi_note, thickness));
             }
@@ -198,9 +194,9 @@ impl MainScene {
         
         // Add intervals below tuning fork: -12 to -1 semitones
         for semitone in -12..=-1 {
-            if crate::shared_types::semitone_in_scale(*scale, semitone) {
+            if crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
                 let y_position = calculate_y_position(semitone);
-                let midi_note = (tuning_fork_midi as i32 + semitone).clamp(0, 127) as MidiNote;
+                let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
                 let thickness = get_thickness(semitone);
                 line_data.push((y_position, midi_note, thickness));
             }
@@ -380,12 +376,7 @@ impl MainScene {
         }
         
         // Calculate tuning line positions and update them
-        let tuning_line_data = self.get_tuning_line_positions(
-            context.tuning_fork_note,
-            context.tuning_system,
-            context.current_scale.as_ref().unwrap_or(&Scale::Chromatic),
-            viewport,
-        );
+        let tuning_line_data = self.get_tuning_line_positions(viewport);
         
         // Update tuning lines with calculated data
         self.update_tuning_lines(viewport, &tuning_line_data);

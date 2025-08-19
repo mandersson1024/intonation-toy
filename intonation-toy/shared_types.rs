@@ -399,7 +399,7 @@ pub struct ModelUpdateResult {
 pub struct PresentationContext {
     pub tuning_fork_note: MidiNote,
     pub tuning_system: TuningSystem,
-    pub current_scale: Option<Scale>,
+    pub current_scale: Scale,
 }
 
 /// Converts a semitone interval to a musical interval name.

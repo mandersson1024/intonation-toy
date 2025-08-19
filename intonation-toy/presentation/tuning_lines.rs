@@ -1,7 +1,7 @@
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
 use crate::shared_types::MidiNote;
 use crate::theme::get_current_color_scheme;
-use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, DEFAULT_LINE_THICKNESS};
+use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, DEFAULT_LINE_THICKNESS};
 
 /// Create a ColorMaterial with the given color and optional transparency
 pub fn create_color_material(color: Srgba, is_transparent: bool) -> ColorMaterial {
@@ -23,25 +23,18 @@ pub struct TuningLines {
     y_positions: Vec<f32>,
     thicknesses: Vec<f32>,
     context: Context,
-    regular_material: ColorMaterial,
-    octave_material: ColorMaterial,
-    closest_midi_note: Option<MidiNote>,
+    material: ColorMaterial,
 }
 
 impl TuningLines {
-    pub fn new(context: &Context, regular_color: Srgba, octave_color: Srgba) -> Self {
-        let regular_material = create_color_material(regular_color, false);
-        let octave_material = create_color_material(octave_color, false);
-        
+    pub fn new(context: &Context, color: Srgba) -> Self {
         Self {
             lines: Vec::new(),
             midi_notes: Vec::new(),
             y_positions: Vec::new(),
             thicknesses: Vec::new(),
             context: context.clone(),
-            regular_material,
-            octave_material,
-            closest_midi_note: None,
+            material: create_color_material(color, false),
         }
     }
 
@@ -61,8 +54,7 @@ impl TuningLines {
                 PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: 0.0 },
                 DEFAULT_LINE_THICKNESS  // Default thickness, will be updated
             );
-            // Use regular material as default, will be updated if needed
-            self.lines.push(Gm::new(line, self.regular_material.clone()));
+            self.lines.push(Gm::new(line, self.material.clone()));
         }
         
         // Remove excess lines, midi notes, y_positions, and thicknesses if we have too many
@@ -84,13 +76,7 @@ impl TuningLines {
         
         // Set positions, MIDI notes, and thickness for all lines
         for (i, &(y, midi_note, thickness)) in line_data.iter().enumerate() {
-            // Determine material priority: accent > octave > regular
-            let is_octave = thickness == OCTAVE_LINE_THICKNESS;
-            let material = if is_octave { 
-                &self.octave_material 
-            } else { 
-                &self.regular_material 
-            };
+            let material = &self.material;
             
             // If thickness changed, recreate the line
             if i < self.thicknesses.len() && self.thicknesses[i] != thickness {
@@ -128,14 +114,13 @@ impl TuningLines {
     }
     
     /// Set the closest MIDI note that should be highlighted with accent color
-    pub fn set_closest_note(&mut self, note: Option<MidiNote>) {
-        self.closest_midi_note = note;
+    pub fn set_closest_note(&mut self, _note: Option<MidiNote>) {
+        // Currently unused - field was removed as it wasn't being used
     }
     
-    /// Update the materials used for rendering tuning lines
-    pub fn update_materials(&mut self, regular_color: Srgba, octave_color: Srgba) {
-        self.regular_material = create_color_material(regular_color, false);
-        self.octave_material = create_color_material(octave_color, false);
+    /// Update the material used for rendering tuning lines
+    pub fn update_material(&mut self, color: Srgba) {
+        self.material = create_color_material(color, false);
     }
     
     /// Clear all tuning lines data

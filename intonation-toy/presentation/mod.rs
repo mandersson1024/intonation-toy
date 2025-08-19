@@ -342,7 +342,7 @@ impl Presenter {
             main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
                 tuning_fork_note: model_data.tuning_fork_note,
                 tuning_system: model_data.tuning_system,
-                current_scale: Some(model_data.scale),
+                current_scale: model_data.scale,
             }, viewport);
             
             main_scene.update_closest_note(closest_note);
