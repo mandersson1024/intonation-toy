@@ -19,6 +19,7 @@ use three_d::renderer::geometry::Rectangle;
 
 // Internal crate imports
 use crate::app_config::{CLARITY_THRESHOLD, INTONATION_ACCURACY_THRESHOLD, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_THICKNESS_MIN, USER_PITCH_LINE_TRANSPARENCY_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN};
+use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::egui_composite_backend::EguiCompositeBackend;
 use crate::presentation::tuning_lines::{TuningLines, create_color_material};
 use crate::shared_types::{ColorScheme, MidiNote, Scale, TuningSystem};
@@ -102,35 +103,6 @@ fn calculate_pitch_line_appearance(clarity: Option<f32>) -> (f32, f32) {
         (thickness, alpha)
     } else {
         (USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MAX)
-    }
-}
-
-/// Encapsulates audio analysis state from the engine
-struct AudioAnalysis {
-    pitch_detected: bool,
-    cents_offset: f32,
-    volume_peak: bool,
-}
-
-impl AudioAnalysis {
-    /// Creates a new AudioAnalysis with default values
-    fn new() -> Self {
-        Self {
-            pitch_detected: false,
-            cents_offset: 0.0,
-            volume_peak: false,
-        }
-    }
-    
-    /// Updates pitch detection state
-    fn update_pitch(&mut self, pitch_detected: bool, cents_offset: f32) {
-        self.pitch_detected = pitch_detected;
-        self.cents_offset = cents_offset;
-    }
-    
-    /// Updates volume peak state
-    fn update_volume_peak(&mut self, volume_peak: bool) {
-        self.volume_peak = volume_peak;
     }
 }
 

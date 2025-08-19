@@ -57,9 +57,11 @@
 //! - Advanced animations and visual transitions
 //! - Complete screen layout and UI element management
 
+mod audio_analysis;
 mod main_scene;
 mod tuning_lines;
 mod egui_composite_backend;
+pub use audio_analysis::AudioAnalysis;
 pub use main_scene::MainScene;
 pub use tuning_lines::TuningLines;
 pub use egui_composite_backend::EguiCompositeBackend;
