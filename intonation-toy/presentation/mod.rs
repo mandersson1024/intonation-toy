@@ -58,7 +58,9 @@
 //! - Complete screen layout and UI element management
 
 mod main_scene;
-pub use main_scene::{MainScene, TuningLines};
+mod tuning_lines;
+pub use main_scene::MainScene;
+pub use tuning_lines::TuningLines;
 
 
 use std::rc::Rc;
