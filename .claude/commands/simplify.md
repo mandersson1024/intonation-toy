@@ -50,6 +50,10 @@ Apply these transformations systematically:
 - Simplify ownership patterns (String to &str conversions)
 - **NEVER replace named constants with magic numbers** - this reduces readability
 
+### 6. Comments
+- Remove comments that state the obvious
+- Change comments that refer to historical versions of the code. Describe the code as it currently is, and not the relation to what the code once was
+
 ## Quality Assurance
 - Run `cargo check` to ensure compilation
 - Run `cargo clippy` to verify no new warnings
