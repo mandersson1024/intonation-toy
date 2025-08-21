@@ -280,7 +280,7 @@ pub fn semitone_in_scale(scale: Scale, semitone_offset: i32) -> bool {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IntonationData {
-    pub closest_midi_note: MidiNote,
+    pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32, // Distance in cents from the closest note (negative = flat, positive = sharp)
 }
 
@@ -388,7 +388,7 @@ pub struct ModelUpdateResult {
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
     // Flattened intonation data fields for easier access
-    pub closest_midi_note: MidiNote,
+    pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32,
     pub interval_semitones: i32,
     pub tuning_fork_note: MidiNote,

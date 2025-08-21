@@ -94,7 +94,7 @@
 //! - Handle user configuration changes
 //! - Provide processed data to the presentation layer
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, Error, PermissionState, MidiNote, is_valid_midi_note};
+use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
@@ -343,20 +343,14 @@ impl DataModel {
             // Apply smoothing to pitch data
             let pitch = match audio_analysis.pitch {
                 crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                    // Apply smoothing to detected values
                     let smoothed_frequency = self.frequency_smoother.apply(frequency);
                     let smoothed_clarity = self.clarity_smoother.apply(clarity);
-                    
-                    // Update last detected pitch for future use
                     self.last_detected_pitch = Some((frequency, clarity));
-
                     Pitch::Detected(smoothed_frequency, smoothed_clarity)
                 }
                 crate::shared_types::Pitch::NotDetected => {
-                    // Use last detected frequency and clarity for smooth transitions
                     if let Some((last_freq, _)) = self.last_detected_pitch {
                         let smoothed_clarity = self.clarity_smoother.apply(0.0);
-                        
                         if smoothed_clarity < crate::app_config::CLARITY_THRESHOLD * 0.5 {
                             self.last_detected_pitch = None;
                             self.frequency_smoother.reset();
@@ -376,103 +370,54 @@ impl DataModel {
             
             (volume, pitch)
         } else {
-            // No audio analysis available - return defaults
-            (
-                Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }, // Silent levels
-                Pitch::NotDetected
-            )
+            (Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }, Pitch::NotDetected)
         };
         
-        // Convert engine errors to model errors
-        let errors: Vec<Error> = engine_data.audio_errors.into_iter().map(|engine_error| {
-            match engine_error {
-                crate::shared_types::Error::ProcessingError(msg) => {
-                    Error::ProcessingError(msg)
-                }
-                crate::shared_types::Error::MicrophonePermissionDenied => {
-                    Error::MicrophonePermissionDenied
-                }
-                crate::shared_types::Error::MicrophoneNotAvailable => {
-                    Error::MicrophoneNotAvailable
-                }
-                crate::shared_types::Error::BrowserApiNotSupported => {
-                    Error::BrowserApiNotSupported
-                }
-                crate::shared_types::Error::MobileDeviceNotSupported => {
-                    Error::MobileDeviceNotSupported
-                }
-                crate::shared_types::Error::BrowserError => {
-                    Error::BrowserError
-                }
-            }
-        }).collect();
+        let errors = engine_data.audio_errors;
         
-        // Convert engine permission state to model permission state
-        let permission_state = match engine_data.permission_state {
-            crate::shared_types::PermissionState::NotRequested => {
-                PermissionState::NotRequested
-            }
-            crate::shared_types::PermissionState::Requested => {
-                PermissionState::Requested
-            }
-            crate::shared_types::PermissionState::Granted => {
-                PermissionState::Granted
-            }
-            crate::shared_types::PermissionState::Denied => {
-                PermissionState::Denied
-            }
-        };
+        let permission_state = engine_data.permission_state;
         
-        // Calculate volume peak flag using configurable threshold
         let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
-        // Calculate accuracy based on detected pitch with full tuning context
-        let accuracy = match pitch {
-            Pitch::Detected(frequency, _clarity) => {
-                // Processing detected pitch with tuning system and tuning fork
-                
-                // Apply tuning-aware frequency to note conversion
-                let (closest_midi_note, accuracy_cents) = self.frequency_to_note_and_accuracy(frequency);
-                
-                // Result: Note and cents offset calculated
-                
-                IntonationData {
-                    closest_midi_note,
-                    cents_offset: accuracy_cents,
+        // Handle out-of-bounds frequencies by treating them as NotDetected
+        let effective_pitch = match pitch {
+            Pitch::Detected(frequency, clarity) => {
+                if self.frequency_to_note_and_accuracy(frequency).is_some() {
+                    Pitch::Detected(frequency, clarity)
+                } else {
+                    // Frequency outside valid MIDI range - treat as not detected
+                    Pitch::NotDetected
                 }
+            }
+            Pitch::NotDetected => Pitch::NotDetected,
+        };
+
+        let (accuracy, interval_semitones) = match effective_pitch {
+            Pitch::Detected(frequency, _clarity) => {
+                // We know this will return Some() because we checked above
+                let (closest_midi_note, cents_offset) = self.frequency_to_note_and_accuracy(frequency).unwrap();
+                let accuracy = IntonationData { closest_midi_note: Some(closest_midi_note), cents_offset };
+                let interval = (closest_midi_note as i32) - (self.tuning_fork_note as i32);
+                (accuracy, interval)
             }
             Pitch::NotDetected => {
-                // No pitch detected - return default values
-                IntonationData {
-                    closest_midi_note: self.tuning_fork_note, // Use MidiNote directly
-                    cents_offset: 0.0, // No offset when no pitch is detected
-                }
+                let accuracy = IntonationData { 
+                    closest_midi_note: None,
+                    cents_offset: 0.0,
+                };
+                (accuracy, 0)
             }
         };
-        
-        // Calculate interval semitones between detected note and tuning fork
-        let interval_semitones = match pitch {
-            Pitch::Detected(_, _) => {
-                (accuracy.closest_midi_note as i32) - (self.tuning_fork_note as i32)
-            }
-            Pitch::NotDetected => 0, // No interval when no pitch detected
-        };
 
-        // Interval calculation: detected MIDI - tuning fork MIDI = interval semitones
-
-        // Return processed model data with both legacy and flattened fields
-        
-        
         ModelUpdateResult {
             volume,
             volume_peak,
-            pitch,
-            accuracy: accuracy.clone(), // Keep for backward compatibility
+            pitch: effective_pitch,
+            accuracy: accuracy.clone(),
             tuning_system: self.tuning_system,
             scale: self.current_scale,
             errors,
             permission_state,
-            // New flattened fields for easier access
             closest_midi_note: accuracy.closest_midi_note,
             cents_offset: accuracy.cents_offset,
             interval_semitones,
@@ -526,53 +471,34 @@ impl DataModel {
         for tuning_change in presentation_actions.tuning_system_changes {
             match self.validate_tuning_system_change_with_error(&tuning_change.tuning_system) {
                 Ok(()) => {
-                    let config = ConfigureAudioSystemAction {
-                        tuning_system: tuning_change.tuning_system,
-                    };
-                    
-                    // Apply the state change to internal model state
+                    let config = ConfigureAudioSystemAction { tuning_system: tuning_change.tuning_system };
                     self.apply_tuning_system_change(&config);
-                    
                     model_actions.audio_system_configurations.push(config);
                 }
-                Err(error) => {
-                    // Log validation failure for debugging
-                    // TODO: Add proper logging when log crate is integrated
-                    validation_errors.push(error);
-                }
+                Err(error) => validation_errors.push(error),
             }
         }
         
         // Process tuning fork adjustments
         for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
-            // tuning_fork is already a MidiNote
             let midi_note = tuning_fork_adjustment.note;
             match self.validate_tuning_fork_adjustment_with_error(&midi_note) {
-                    Ok(()) => {
-                        let config = UpdateTuningConfigurationAction {
-                            tuning_system: self.tuning_system,
-                            tuning_fork_note: midi_note,
-                        };
-                        
-                        // Apply the state change to internal model state
-                        self.apply_tuning_fork_change(&config);
-                        
-                        model_actions.tuning_configurations.push(config);
-                    }
-                    Err(error) => {
-                        // Log validation failure for debugging
-                        // TODO: Add proper logging when log crate is integrated
-                        validation_errors.push(error);
-                    }
+                Ok(()) => {
+                    let config = UpdateTuningConfigurationAction {
+                        tuning_system: self.tuning_system,
+                        tuning_fork_note: midi_note,
+                    };
+                    self.apply_tuning_fork_change(&config);
+                    model_actions.tuning_configurations.push(config);
                 }
+                Err(error) => validation_errors.push(error),
+            }
         }
         
         // Process scale changes
         for scale_change in presentation_actions.scale_changes {
-            // Only apply if scale is different from current
             if scale_change.scale != self.current_scale {
                 self.apply_scale_change(&scale_change);
-                // No model-layer action created since scale changes are internal
             }
         }
         
@@ -587,25 +513,17 @@ impl DataModel {
                         frequency: tuning_fork_config.frequency,
                         volume: tuning_fork_config.volume,
                     };
-
-                    // Add validated action for engine execution
                     model_actions.tuning_fork_configurations.push(config);
-                    
                     crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
                 }
                 Err(error) => {
-                    // Log validation error but continue processing other actions
-                    let error_message = format!("Tuning fork audio configuration validation failed: {:?}", error);
-                    crate::common::warn_log!("{}", error_message);
+                    crate::common::warn_log!("Tuning fork audio configuration validation failed: {:?}", error);
                     validation_errors.push(error);
                 }
             }
         }
         
-        ProcessedActions {
-            actions: model_actions,
-            validation_errors,
-        }
+        ProcessedActions { actions: model_actions, validation_errors }
     }
 
     
@@ -642,35 +560,18 @@ impl DataModel {
     /// 
     /// # Returns
     /// 
-    /// Returns a tuple of (Note, accuracy_cents) where:
+    /// Returns Some((Note, accuracy_cents)) where:
     /// - Note: The closest musical note to the frequency (filtered by scale)
     /// - accuracy_cents: Deviation in cents (negative = flat, positive = sharp)
-    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> (MidiNote, f32) {
-        // Handle edge case: invalid or zero frequency
+    /// 
+    /// Returns None if the frequency is outside the valid MIDI note range (0-127)
+    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> Option<(MidiNote, f32)> {
         if frequency <= 0.0 {
             warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
-            return (69, 0.0); // Return A4 (MIDI 69) as default
+            return None;
         }
         
-        // Handle edge case: extremely low frequency (below human hearing ~20Hz)
-        if frequency < 20.0 {
-            warn_log!("[MODEL] Extremely low frequency detected: {}Hz", frequency);
-            // Still process but warn in debug mode
-        }
-        
-        // Handle edge case: extremely high frequency (above typical musical range ~4186Hz for C8)
-        if frequency > 4186.0 {
-            warn_log!("[MODEL] Extremely high frequency detected: {}Hz", frequency);
-            // Still process but warn in debug mode
-        }
-        
-        // Get root pitch frequency based on current tuning system and tuning fork
-        // This is the key to tuning-aware processing
         let root_pitch = self.get_root_pitch();
-        
-        // Converting frequency with tuning system and root pitch
-        
-        // Use the scale-aware calculation from the tuning module
         let interval_result = crate::music_theory::frequency_to_interval_semitones_scale_aware(
             self.tuning_system,
             root_pitch,
@@ -678,45 +579,24 @@ impl DataModel {
             self.current_scale,
         );
         
-        // Calculate MIDI note from tuning fork plus interval
         let raw_midi_note = self.tuning_fork_note as i32 + interval_result.semitones;
         
-        // Clamp to valid MIDI range (0-127)
-        let clamped_midi_note = raw_midi_note.clamp(0, 127) as u8;
+        // Return None if outside valid MIDI range
+        if !(0..=127).contains(&raw_midi_note) {
+            return None;
+        }
         
-        // Validate using the utility function
-        let final_midi_note = if is_valid_midi_note(clamped_midi_note) {
-            clamped_midi_note
-        } else {
-            69 // Default to A4 if validation fails
-        };
+        let midi_note = raw_midi_note as u8;
+        if !is_valid_midi_note(midi_note) {
+            return None;
+        }
         
-        (final_midi_note, interval_result.cents)
+        Some((midi_note, interval_result.cents))
     }
     
     
     
-    /// Get the root pitch frequency for the current tuning fork
-    /// 
-    /// Root pitch is always calculated using Equal Temperament regardless of the 
-    /// active tuning system. This is distinct from the `REFERENCE_FREQUENCY` 
-    /// constant which always represents A4 = 440Hz.
-    /// 
-    /// # Root Pitch Calculation
-    /// - Uses A4 = 440Hz as the standard reference
-    /// - Calculates other notes using Equal Temperament formula
-    /// 
-    /// This ensures consistent frequency mapping regardless of which tuning system
-    /// is used for interval calculations in other parts of the application.
-    /// 
-    /// # Tuning Fork Impact
-    /// 
-    /// The tuning fork changes which frequency is considered the "tonic":
-    /// - If root is A, then A4 = 440Hz is the root pitch
-    /// - If root is C, then C4 = 261.63Hz becomes the root pitch
-    /// - All other frequencies are calculated relative to this root pitch
     fn get_root_pitch(&self) -> f32 {
-        // Use the centralized function for consistency
         crate::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note)
     }
     

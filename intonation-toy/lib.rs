@@ -320,7 +320,7 @@ pub async fn start_render_loop(
                 volume_peak: false,  // Default to no peak when model is not available
                 pitch: crate::shared_types::Pitch::NotDetected,
                 accuracy: crate::shared_types::IntonationData {
-                    closest_midi_note: 69,
+                    closest_midi_note: None,
                     cents_offset: 0.0,
                 },
                 tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
@@ -328,7 +328,7 @@ pub async fn start_render_loop(
                 errors: Vec::new(),
                 permission_state: crate::shared_types::PermissionState::NotRequested,
                 // New flattened fields with default values
-                closest_midi_note: 69,
+                closest_midi_note: None,
                 cents_offset: 0.0,
                 interval_semitones: 0,
                 tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,

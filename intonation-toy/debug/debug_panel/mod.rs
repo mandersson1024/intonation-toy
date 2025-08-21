@@ -374,9 +374,13 @@ impl DebugPanel {
                 // Always reserve space for consistent height
                 if let Some(intonation) = self.debug_data.get_intonation_data() {
                     // Display closest MIDI note
-                    let note_name = midi_note_to_display_name(intonation.closest_midi_note);
-                    let octave = (intonation.closest_midi_note as i16 / 12) - 1;
-                    ui.label(format!("Closest Note: {}{}", note_name, octave));
+                    if let Some(closest_midi_note) = intonation.closest_midi_note {
+                        let note_name = midi_note_to_display_name(closest_midi_note);
+                        let octave = (closest_midi_note as i16 / 12) - 1;
+                        ui.label(format!("Closest Note: {}{}", note_name, octave));
+                    } else {
+                        ui.label("Closest Note: None (no pitch detected)");
+                    }
                     
                     // Display cents offset with color coding
                     ui.horizontal(|ui| {
