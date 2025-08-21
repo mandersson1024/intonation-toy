@@ -5,7 +5,6 @@ use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
 
-/// Validation errors for action processing
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValidationError {
     TuningSystemAlreadyActive(TuningSystem),
@@ -13,65 +12,42 @@ pub enum ValidationError {
     InvalidFrequency(f32),
 }
 
-/// Result of processing user actions
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcessedActions {
     pub actions: ModelLayerActions,
     pub validation_errors: Vec<ValidationError>,
 }
 
-/// Validated audio system configuration
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureAudioSystemAction {
     pub tuning_system: TuningSystem,
 }
 
-/// Validated tuning configuration update
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateTuningConfigurationAction {
     pub tuning_system: TuningSystem,
     pub tuning_fork_note: MidiNote,
 }
 
-/// Validated tuning fork audio configuration
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningForkAction {
     pub frequency: f32,
     pub volume: f32,
 }
 
-/// Validated actions from the model layer
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModelLayerActions {
     pub audio_system_configurations: Vec<ConfigureAudioSystemAction>,
     pub tuning_configurations: Vec<UpdateTuningConfigurationAction>,
     pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
 }
 
-impl Default for ModelLayerActions {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ModelLayerActions {
-    pub fn new() -> Self {
-        Self {
-            audio_system_configurations: Vec::new(),
-            tuning_configurations: Vec::new(),
-            tuning_fork_configurations: Vec::new(),
-        }
-    }
-}
-
-/// Model layer - processes audio data and manages state
 pub struct DataModel {
     tuning_system: TuningSystem,
     tuning_fork_note: MidiNote,
     current_scale: Scale,
     frequency_smoother: EmaSmoother,
     clarity_smoother: EmaSmoother,
-    /// Last detected pitch for smooth transitions
     last_detected_pitch: Option<(f32, f32)>,
 }
 
@@ -104,17 +80,13 @@ impl DataModel {
                     if let Some((last_freq, _)) = self.last_detected_pitch {
                         let smoothed_clarity = self.clarity_smoother.apply(0.0);
                         if smoothed_clarity < crate::app_config::CLARITY_THRESHOLD * 0.5 {
-                            self.last_detected_pitch = None;
-                            self.frequency_smoother.reset();
-                            self.clarity_smoother.reset();
+                            self.reset_smoothers();
                             Pitch::NotDetected
                         } else {
                             Pitch::Detected(last_freq, smoothed_clarity)
                         }
                     } else {
-                        self.last_detected_pitch = None;
-                        self.frequency_smoother.reset();
-                        self.clarity_smoother.reset();
+                        self.reset_smoothers();
                         Pitch::NotDetected
                     }
                 }
@@ -175,32 +147,30 @@ impl DataModel {
     }
     
     pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
-        let mut model_actions = ModelLayerActions::new();
+        let mut model_actions = ModelLayerActions::default();
         let mut validation_errors = Vec::new();
         
         for tuning_change in presentation_actions.tuning_system_changes {
-            match self.validate_tuning_system_change_with_error(&tuning_change.tuning_system) {
-                Ok(()) => {
-                    let config = ConfigureAudioSystemAction { tuning_system: tuning_change.tuning_system };
-                    self.apply_tuning_system_change(&config);
-                    model_actions.audio_system_configurations.push(config);
-                }
-                Err(error) => validation_errors.push(error),
+            if let Some(error) = self.validate_tuning_system_change(&tuning_change.tuning_system) {
+                validation_errors.push(error);
+            } else {
+                let config = ConfigureAudioSystemAction { tuning_system: tuning_change.tuning_system };
+                self.apply_tuning_system_change(&config);
+                model_actions.audio_system_configurations.push(config);
             }
         }
         
         for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
             let midi_note = tuning_fork_adjustment.note;
-            match self.validate_tuning_fork_adjustment_with_error(&midi_note) {
-                Ok(()) => {
-                    let config = UpdateTuningConfigurationAction {
-                        tuning_system: self.tuning_system,
-                        tuning_fork_note: midi_note,
-                    };
-                    self.apply_tuning_fork_change(&config);
-                    model_actions.tuning_configurations.push(config);
-                }
-                Err(error) => validation_errors.push(error),
+            if let Some(error) = self.validate_tuning_fork_adjustment(&midi_note) {
+                validation_errors.push(error);
+            } else {
+                let config = UpdateTuningConfigurationAction {
+                    tuning_system: self.tuning_system,
+                    tuning_fork_note: midi_note,
+                };
+                self.apply_tuning_fork_change(&config);
+                model_actions.tuning_configurations.push(config);
             }
         }
         
@@ -214,34 +184,35 @@ impl DataModel {
         for tuning_fork_config in presentation_actions.tuning_fork_configurations {
             crate::common::dev_log!("MODEL: Processing tuning fork audio config");
             
-            match self.validate_tuning_fork_audio_configuration_with_error(&tuning_fork_config) {
-                Ok(()) => {
-                    let config = ConfigureTuningForkAction {
-                        frequency: tuning_fork_config.frequency,
-                        volume: tuning_fork_config.volume,
-                    };
-                    model_actions.tuning_fork_configurations.push(config);
-                    crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
-                }
-                Err(error) => {
-                    crate::common::warn_log!("Tuning fork audio configuration validation failed: {:?}", error);
-                    validation_errors.push(error);
-                }
+            if let Some(error) = self.validate_tuning_fork_audio_configuration(&tuning_fork_config) {
+                crate::common::warn_log!("Tuning fork audio configuration validation failed: {:?}", error);
+                validation_errors.push(error);
+            } else {
+                let config = ConfigureTuningForkAction {
+                    frequency: tuning_fork_config.frequency,
+                    volume: tuning_fork_config.volume,
+                };
+                model_actions.tuning_fork_configurations.push(config);
+                crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
             }
         }
         
         ProcessedActions { actions: model_actions, validation_errors }
     }
 
+    fn reset_smoothers(&mut self) {
+        self.last_detected_pitch = None;
+        self.frequency_smoother.reset();
+        self.clarity_smoother.reset();
+    }
     
-    /// Convert frequency to MIDI note and cents offset, or None if out of range
     fn frequency_to_note_and_accuracy(&self, frequency: f32) -> Option<(MidiNote, f32)> {
         if frequency <= 0.0 {
             warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
             return None;
         }
         
-        let root_pitch = self.get_root_pitch();
+        let root_pitch = crate::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note);
         let interval_result = crate::music_theory::frequency_to_interval_semitones_scale_aware(
             self.tuning_system,
             root_pitch,
@@ -265,32 +236,29 @@ impl DataModel {
     
     
     
-    fn get_root_pitch(&self) -> f32 {
-        crate::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note)
-    }
-    
-    fn validate_tuning_system_change_with_error(&self, new_tuning_system: &TuningSystem) -> Result<(), ValidationError> {
+    fn validate_tuning_system_change(&self, new_tuning_system: &TuningSystem) -> Option<ValidationError> {
         if *new_tuning_system == self.tuning_system {
-            Err(ValidationError::TuningSystemAlreadyActive(*new_tuning_system))
+            Some(ValidationError::TuningSystemAlreadyActive(*new_tuning_system))
         } else {
-            Ok(())
+            None
         }
     }
     
     
-    fn validate_tuning_fork_adjustment_with_error(&self, new_tuning_fork: &MidiNote) -> Result<(), ValidationError> {
+    fn validate_tuning_fork_adjustment(&self, new_tuning_fork: &MidiNote) -> Option<ValidationError> {
         if *new_tuning_fork == self.tuning_fork_note {
-            Err(ValidationError::TuningForkNoteAlreadySet(*new_tuning_fork))
+            Some(ValidationError::TuningForkNoteAlreadySet(*new_tuning_fork))
         } else {
-            Ok(())
+            None
         }
     }
     
-    fn validate_tuning_fork_audio_configuration_with_error(&self, config: &crate::presentation::ConfigureTuningFork) -> Result<(), ValidationError> {
+    fn validate_tuning_fork_audio_configuration(&self, config: &crate::presentation::ConfigureTuningFork) -> Option<ValidationError> {
         if config.frequency <= 0.0 {
-            return Err(ValidationError::InvalidFrequency(config.frequency));
+            Some(ValidationError::InvalidFrequency(config.frequency))
+        } else {
+            None
         }
-        Ok(())
     }
     
     fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
