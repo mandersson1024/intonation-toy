@@ -333,11 +333,6 @@ impl Presenter {
         
         
         if let Some(main_scene) = &mut self.main_scene {
-            main_scene.update_viewport(viewport);
-            
-            // Update volume peak state before updating pitch position
-            main_scene.update_volume_peak(volume_peak);
-            
             // Update main scene with presentation context
             main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
                 tuning_fork_note: model_data.tuning_fork_note,
@@ -345,9 +340,17 @@ impl Presenter {
                 current_scale: model_data.scale,
             }, viewport);
             
-            main_scene.update_closest_note(closest_note);
+            // Create AudioAnalysis struct with all the data
+            let audio_analysis = AudioAnalysis {
+                pitch_detected,
+                cents_offset: model_data.accuracy.cents_offset,
+                interval: interval_position,
+                clarity,
+                volume_peak,
+            };
             
-            main_scene.update_pitch_position(viewport, interval_position, pitch_detected, clarity, model_data.accuracy.cents_offset);
+            main_scene.update_audio_analysis(audio_analysis);
+            main_scene.update_pitch_position(viewport);
         }
     }
 
@@ -582,7 +585,7 @@ impl Presenter {
         
         // Render MainScene if it exists
         if let Some(main_scene) = &mut self.main_scene {
-            main_scene.render(screen);
+            main_scene.render(screen, screen.viewport());
         } else {
             // Fallback: clear screen with background color
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));

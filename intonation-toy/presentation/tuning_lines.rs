@@ -113,11 +113,6 @@ impl TuningLines {
         self.midi_notes.iter().copied()
     }
     
-    /// Set the closest MIDI note that should be highlighted with accent color
-    pub fn set_closest_note(&mut self, _note: Option<MidiNote>) {
-        // Currently unused - field was removed as it wasn't being used
-    }
-    
     /// Update the material used for rendering tuning lines
     pub fn update_material(&mut self, color: Srgba) {
         self.material = create_color_material(color, false);

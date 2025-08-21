@@ -116,7 +116,7 @@ impl MainScene {
         Ok(Self {
             camera: Camera::new_2d(viewport),
             user_pitch_line: UserPitchLine::new(),
-            audio_analysis: AudioAnalysis::new(),
+            audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,
             context: context.clone(),
@@ -207,11 +207,9 @@ impl MainScene {
 
     // Public API methods
     
-    pub fn update_viewport(&mut self, viewport: Viewport) {
+    pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
-    }
-    
-    pub fn render(&mut self, screen: &mut RenderTarget) {
+        
         let scheme = get_current_color_scheme();
         if scheme != self.color_scheme {
             self.color_scheme = scheme.clone();
@@ -237,23 +235,26 @@ impl MainScene {
         }
     }
     
-    pub fn update_pitch_position(&mut self, viewport: Viewport, interval: f32, pitch_detected: bool, clarity: Option<f32>, cents_offset: f32) {
-        self.audio_analysis.update_pitch(pitch_detected, cents_offset);
-        
+    /// Update the audio analysis data
+    pub fn update_audio_analysis(&mut self, audio_analysis: AudioAnalysis) {
+        self.audio_analysis = audio_analysis;
+    }
+    
+    pub fn update_pitch_position(&mut self, viewport: Viewport) {
         // Validate viewport dimensions before proceeding
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
             return;
         }
         
-        if pitch_detected {
-            let y = interval_to_screen_y_position(interval, viewport.height as f32);
+        if self.audio_analysis.pitch_detected {
+            let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
             let endpoints = (
                 PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, 
                 PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y}
             );
             
-            let (new_thickness, new_alpha) = calculate_pitch_line_appearance(clarity);
+            let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
             
             self.user_pitch_line.update_position(
                 &self.context,
@@ -284,15 +285,6 @@ impl MainScene {
         
         // Use the new thickness-aware method
         self.tuning_lines.update_lines(viewport, line_data);
-    }
-    
-    pub fn update_closest_note(&mut self, note: Option<MidiNote>) {
-        self.tuning_lines.set_closest_note(note);
-    }
-    
-    /// Update the volume peak state for color determination
-    pub fn update_volume_peak(&mut self, volume_peak: bool) {
-        self.audio_analysis.update_volume_peak(volume_peak);
     }
     
     /// Renders tuning lines and note labels to the background texture by recreating it.
