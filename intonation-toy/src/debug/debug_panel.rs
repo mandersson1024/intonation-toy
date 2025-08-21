@@ -1,31 +1,15 @@
-// EGUI Debug Interface Module
-// Handles the three-d + egui rendering for debug components
-// 
-// Note: Microphone permission is now handled directly from lib.rs
-// Debug controls use the new presenter action collection system
-// All debug functionality is only available in debug builds
-
-
-// Debug Data Panel
-// Real-time data visualization and monitoring
-
 use three_d::egui::{self, Color32, Vec2, Ui};
-use crate::engine::audio::{
-    AudioWorkletState,
-    buffer::AUDIO_CHUNK_SIZE,
-};
+use crate::engine::audio::{AudioWorkletState, buffer::AUDIO_CHUNK_SIZE};
 use crate::debug::debug_data::DebugData;
 use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+use std::rc::Rc;
+use std::cell::RefCell;
 
-/// Get just the note name (without octave) from a MIDI note number
 fn midi_note_to_display_name(midi_note: MidiNote) -> String {
     let full_name = crate::shared_types::midi_note_to_name(midi_note);
-    // Extract just the note name by removing the octave number
     let note_end = full_name.chars().position(|c| c.is_numeric() || c == '-').unwrap_or(full_name.len());
     full_name[..note_end].to_string()
 }
-use std::rc::Rc;
-use std::cell::RefCell;
 
 pub struct DebugPanel {
     debug_data: DebugData,
@@ -44,20 +28,10 @@ impl DebugPanel {
         debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
-        Self::with_initial_frequency(debug_data, presenter)
-    }
-    
-    /// Create a new DebugPanel with an optional initial frequency
-    pub fn with_initial_frequency(
-        debug_data: DebugData,
-        presenter: Rc<RefCell<crate::presentation::Presenter>>,
-    ) -> Self {
         Self {
             debug_data,
             presenter,
             last_metrics_update: 0.0,
-            
-            // Initialize UI state
             test_signal_enabled: false,
             test_signal_volume: 15.0,
             test_signal_midi_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
@@ -203,29 +177,9 @@ impl DebugPanel {
                     self.last_metrics_update = now;
                 }
                 
-                ui.horizontal(|ui| {
-                    ui.label("FPS:");
-                    let color = if metrics.fps >= 50.0 { Color32::GREEN } 
-                              else if metrics.fps >= 30.0 { Color32::YELLOW } 
-                              else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1}", metrics.fps));
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Memory:");
-                    let color = if metrics.memory_usage_mb < 100.0 { Color32::GREEN } 
-                              else if metrics.memory_usage_mb < 200.0 { Color32::YELLOW } 
-                              else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1} MB", metrics.memory_usage_mb));
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Heap Usage:");
-                    let color = if metrics.memory_usage_percent < 50.0 { Color32::GREEN } 
-                              else if metrics.memory_usage_percent < 80.0 { Color32::YELLOW } 
-                              else { Color32::RED };
-                    ui.colored_label(color, format!("{:.1}%", metrics.memory_usage_percent));
-                });
+                self.render_fps_metric(ui, metrics.fps);
+                self.render_memory_metric(ui, metrics.memory_usage_mb);
+                self.render_heap_metric(ui, metrics.memory_usage_percent);
                 
             });
     }
@@ -271,82 +225,64 @@ impl DebugPanel {
             });
     }
     
-    /// Render volume level section (core data via interface)
     fn render_volume_level_section(&self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Volume Level")
             .default_open(true)
             .show(ui, |ui| {
                 let bar_width = ui.available_width() - 100.0;
-                let bar_height = 20.0;
                 
-                // RMS Level Section
-                ui.label("RMS Level");
                 if let Some(ref volume) = self.debug_data.volume_level {
-                    ui.label(format!("Value: {:.3}", volume.rms_amplitude));
+                    self.render_volume_meter(ui, "RMS Level", volume.rms_amplitude, bar_width, |v| {
+                        if v >= 1.0 { Color32::RED } else if v > 0.5 { Color32::YELLOW } else { Color32::GREEN }
+                    });
+                    ui.add_space(10.0);
+                    self.render_volume_meter(ui, "Peak Level", volume.peak_amplitude, bar_width, |v| {
+                        if v >= 1.0 { Color32::RED } else if v > 0.7 { Color32::YELLOW } else { Color32::GREEN }
+                    });
                 } else {
-                    ui.label("Value: --");
+                    self.render_volume_meter(ui, "RMS Level", 0.0, bar_width, |_| Color32::GRAY);
+                    ui.add_space(10.0);
+                    self.render_volume_meter(ui, "Peak Level", 0.0, bar_width, |_| Color32::GRAY);
                 }
-                
-                // RMS meter visualization
-                let (rms_normalized, rms_bar_color) = if let Some(ref volume) = self.debug_data.volume_level {
-                    let rms_amplitude = volume.rms_amplitude.clamp(0.0, 1.0);
-                    
-                    // RMS-specific color thresholds (lower than peak)
-                    let rms_color = if rms_amplitude >= 1.0 {
-                        Color32::RED  // High RMS level
-                    } else if rms_amplitude > 0.5 {
-                        Color32::YELLOW  // Medium RMS level
-                    } else {
-                        Color32::GREEN  // Normal RMS level
-                    };
-                    
-                    (rms_amplitude, rms_color)
-                } else {
-                    (0.0, Color32::GRAY)
-                };
-                
-                let (rms_rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-                ui.painter().rect_filled(rms_rect, 2.0, Color32::from_gray(40));
-                
-                let rms_filled_width = rms_rect.width() * rms_normalized;
-                let rms_filled_rect = egui::Rect::from_min_size(rms_rect.min, Vec2::new(rms_filled_width, rms_rect.height()));
-                ui.painter().rect_filled(rms_filled_rect, 2.0, rms_bar_color);
-                
-                ui.add_space(10.0);
-                
-                // Peak Level Section
-                ui.label("Peak Level");
-                if let Some(ref volume) = self.debug_data.volume_level {
-                    ui.label(format!("Value: {:.3}", volume.peak_amplitude));
-                } else {
-                    ui.label("Value: --");
-                }
-                
-                // Peak meter visualization
-                let (peak_normalized, peak_bar_color) = if let Some(ref volume) = self.debug_data.volume_level {
-                    let peak_amplitude = volume.peak_amplitude.clamp(0.0, 1.0);
-                    
-                    // Peak-specific color thresholds
-                    let peak_color = if peak_amplitude >= 1.0 {
-                        Color32::RED  // Near clipping
-                    } else if peak_amplitude > 0.7 {
-                        Color32::YELLOW  // High level
-                    } else {
-                        Color32::GREEN  // Normal level
-                    };
-                    
-                    (peak_amplitude, peak_color)
-                } else {
-                    (0.0, Color32::GRAY)
-                };
-                
-                let (peak_rect, _response) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-                ui.painter().rect_filled(peak_rect, 2.0, Color32::from_gray(40));
-                
-                let peak_filled_width = peak_rect.width() * peak_normalized;
-                let peak_filled_rect = egui::Rect::from_min_size(peak_rect.min, Vec2::new(peak_filled_width, peak_rect.height()));
-                ui.painter().rect_filled(peak_filled_rect, 2.0, peak_bar_color);
             });
+    }
+
+    fn render_volume_meter(&self, ui: &mut Ui, label: &str, value: f32, bar_width: f32, color_fn: impl Fn(f32) -> Color32) {
+        ui.label(label);
+        ui.label(if value > 0.0 { format!("Value: {:.3}", value) } else { "Value: --".to_string() });
+        
+        let normalized = value.clamp(0.0, 1.0);
+        let color = color_fn(normalized);
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(bar_width, 20.0), egui::Sense::hover());
+        ui.painter().rect_filled(rect, 2.0, Color32::from_gray(40));
+        
+        let filled_width = rect.width() * normalized;
+        let filled_rect = egui::Rect::from_min_size(rect.min, Vec2::new(filled_width, rect.height()));
+        ui.painter().rect_filled(filled_rect, 2.0, color);
+    }
+
+    fn render_fps_metric(&self, ui: &mut Ui, fps: f64) {
+        ui.horizontal(|ui| {
+            ui.label("FPS:");
+            let color = if fps >= 50.0 { Color32::GREEN } else if fps >= 30.0 { Color32::YELLOW } else { Color32::RED };
+            ui.colored_label(color, format!("{:.1}", fps));
+        });
+    }
+
+    fn render_memory_metric(&self, ui: &mut Ui, memory_mb: f64) {
+        ui.horizontal(|ui| {
+            ui.label("Memory:");
+            let color = if memory_mb < 100.0 { Color32::GREEN } else if memory_mb < 200.0 { Color32::YELLOW } else { Color32::RED };
+            ui.colored_label(color, format!("{:.1} MB", memory_mb));
+        });
+    }
+
+    fn render_heap_metric(&self, ui: &mut Ui, heap_percent: f64) {
+        ui.horizontal(|ui| {
+            ui.label("Heap Usage:");
+            let color = if heap_percent < 50.0 { Color32::GREEN } else if heap_percent < 80.0 { Color32::YELLOW } else { Color32::RED };
+            ui.colored_label(color, format!("{:.1}%", heap_percent));
+        });
     }
     
     /// Render pitch detection section (core data via interface)
@@ -538,12 +474,10 @@ impl DebugPanel {
                 ui.horizontal(|ui| {
                     ui.label("Volume:");
                     
-                    // Volume slider with better formatting
                     let volume_response = ui.add(
                         egui::Slider::new(&mut self.test_signal_volume, 0.0..=100.0)
                             .suffix("%")
                             .show_value(true)
-                            .clamp_to_range(false)
                     );
                     
                     if volume_response.changed() && self.test_signal_enabled {
@@ -596,43 +530,18 @@ impl DebugPanel {
         }
     }
     
-    /// Convert MIDI note to frequency considering the tuning system
-    /// 
-    /// # Arguments
-    /// 
-    /// * `midi_note` - The MIDI note number (0-127)
-    /// * `tuning_fork` - The tuning fork for the tuning system
-    /// * `tuning_system` - The tuning system to use
-    /// 
-    /// # Returns
-    /// 
-    /// The frequency in Hz according to the specified tuning system
-    fn midi_note_to_frequency_with_tuning(
-        &self,
-        midi_note: MidiNote,
-        tuning_fork_note: MidiNote,
-        tuning_system: TuningSystem,
-    ) -> f32 {
+    fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> f32 {
         let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(tuning_fork_note);
         let interval_semitones = (midi_note as i32) - (tuning_fork_note as i32);
         crate::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
     }
     
-    /// Safely calculate MIDI note frequency with error handling
-    fn calculate_midi_note_frequency_safe(
-        &self,
-        midi_note: MidiNote,
-        tuning_fork_note: MidiNote,
-        tuning_system: TuningSystem,
-    ) -> Result<f32, &'static str> {
-        // Validate MIDI notes
+    fn calculate_midi_note_frequency_safe(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> Result<f32, &'static str> {
         if midi_note > 127 || tuning_fork_note > 127 {
             return Err("Invalid MIDI note");
         }
         
         let frequency = self.midi_note_to_frequency_with_tuning(midi_note, tuning_fork_note, tuning_system);
-        
-        // Validate frequency is in reasonable range
         if frequency <= 0.0 || frequency > 20_000.0 {
             return Err("Frequency out of range");
         }
@@ -640,26 +549,14 @@ impl DebugPanel {
         Ok(frequency)
     }
     
-    /// Safely calculate final frequency with nudge applied
-    fn calculate_final_frequency_safe(
-        &self,
-        midi_note: MidiNote,
-        nudge_percent: f32,
-        tuning_fork: MidiNote,
-        tuning_system: TuningSystem,
-    ) -> Result<(f32, f32), &'static str> {
-        // Calculate base frequency
+    fn calculate_final_frequency_safe(&self, midi_note: MidiNote, nudge_percent: f32, tuning_fork: MidiNote, tuning_system: TuningSystem) -> Result<(f32, f32), &'static str> {
         let base_frequency = self.calculate_midi_note_frequency_safe(midi_note, tuning_fork, tuning_system)?;
         
-        // Validate nudge percentage
         if !(-50.0..=50.0).contains(&nudge_percent) {
             return Err("Nudge percentage out of range");
         }
         
-        // Calculate final frequency with nudge
         let final_frequency = base_frequency * (1.0 + nudge_percent / 100.0);
-        
-        // Validate final frequency
         if final_frequency <= 0.0 || final_frequency > 20_000.0 {
             return Err("Final frequency out of range");
         }
