@@ -5,7 +5,6 @@
 // Debug controls use the new presenter action collection system
 // All debug functionality is only available in debug builds
 
-pub(crate) mod data_types;
 
 // Debug Data Panel
 // Real-time data visualization and monitoring
@@ -78,8 +77,8 @@ impl DebugPanel {
     pub fn update_debug_data(
         &mut self,
         audio_devices: Option<crate::engine::audio::AudioDevices>,
-        performance_metrics: Option<crate::debug::debug_panel::data_types::PerformanceMetrics>,
-        audioworklet_status: Option<crate::debug::debug_panel::data_types::AudioWorkletStatus>,
+        performance_metrics: Option<crate::debug::data_types::PerformanceMetrics>,
+        audioworklet_status: Option<crate::debug::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
         self.debug_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
@@ -544,7 +543,7 @@ impl DebugPanel {
                         egui::Slider::new(&mut self.test_signal_volume, 0.0..=100.0)
                             .suffix("%")
                             .show_value(true)
-                            .clamp_to_range(true)
+                            .clamp_to_range(false)
                     );
                     
                     if volume_response.changed() && self.test_signal_enabled {

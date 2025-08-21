@@ -327,7 +327,7 @@ pub async fn start_render_loop(
         {
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
             
-            let performance_metrics = debug::debug_panel::data_types::PerformanceMetrics {
+            let performance_metrics = debug::data_types::PerformanceMetrics {
                 fps,
                 memory_usage_mb,
                 memory_usage_percent,
@@ -338,7 +338,7 @@ pub async fn start_render_loop(
                     let devices = engine.get_debug_audio_devices();
                     let status = engine.get_debug_audioworklet_status().map(|s| {
                         // Convert from engine AudioWorkletStatus to debug AudioWorkletStatus
-                        debug::debug_panel::data_types::AudioWorkletStatus {
+                        debug::data_types::AudioWorkletStatus {
                             state: s.state,
                             processor_loaded: s.processor_loaded,
                             chunk_size: s.chunk_size,

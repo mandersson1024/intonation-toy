@@ -2,7 +2,7 @@ use crate::engine::audio::{
     AudioPermission,
     AudioDevices,
 };
-use crate::debug::debug_panel::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
+use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, IntonationData};
 
 /// HybridLiveData structure that holds actual data instead of observers
