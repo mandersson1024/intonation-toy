@@ -8,54 +8,7 @@
 //! - Visual feedback and animations
 //! - Debug visualization and overlays
 //! 
-//! ## Return-Based Data Flow in Presentation Layer
 //! 
-//! The presentation layer now uses a return-based pattern for data processing:
-//! - Receives `ModelUpdateResult` data as a parameter from the model layer
-//! - Processes visual data including volume, pitch, accuracy, errors, and permission state
-//! - Updates UI elements and visualizations based on the provided data
-//! 
-//! ```rust
-//! use intonation_toy::presentation::Presenter;
-//! use intonation_toy::shared_types::ModelUpdateResult;
-//! 
-//! // Create presenter without interface dependencies
-//! let mut presenter = Presenter::create()?;
-//! 
-//! // Update with model data
-//! let model_data = ModelUpdateResult {
-//!     volume: intonation_toy::shared_types::Volume { peak: -10.0, rms: -15.0 },
-//!     pitch: intonation_toy::shared_types::Pitch::Detected(440.0, 0.95),
-//!     accuracy: intonation_toy::shared_types::Accuracy { midi_note: 69, cents_offset: 5.0 },
-//!     tuning_system: intonation_toy::shared_types::TuningSystem::EqualTemperament,
-//!     errors: Vec::new(),
-//!     permission_state: intonation_toy::shared_types::PermissionState::Granted,
-//! };
-//! presenter.update(timestamp, model_data);
-//! ```
-//! 
-//! ## Current Status
-//! 
-//! The Presenter struct operates without interface dependencies and actively
-//! processes data through method parameters. It provides:
-//! 
-//! - ✅ Basic sprite scene rendering capabilities
-//! - ✅ Volume data processing for audio level visualization  
-//! - ✅ Pitch detection handling and musical note processing
-//! - ✅ Accuracy metrics processing for tuning feedback
-//! - ✅ Error state management and user feedback
-//! - ✅ Permission state tracking and UI updates
-//! - ✅ Tuning system display management
-//! - ✅ User action collection system for microphone permission, tuning system changes, and tuning fork adjustments
-//! 
-//! ## Future Implementation
-//! 
-//! Enhanced visual implementation will add:
-//! - Visual representations of pitch and volume (meters, waveforms)
-//! - Interactive tuning displays and note indicators
-//! - User interaction handling and input processing
-//! - Advanced animations and visual transitions
-//! - Complete screen layout and UI element management
 
 mod audio_analysis;
 mod renderer;
@@ -136,21 +89,6 @@ impl DebugLayerActions {
 
 /// Presenter - The presentation layer of the three-layer architecture
 /// 
-/// # Example
-/// 
-/// ```no_run
-/// use intonation_toy::presentation::Presenter;
-/// use intonation_toy::shared_types::model_to_presentation::ModelUpdateResult;
-/// use three_d::RenderTarget;
-/// 
-/// let mut presenter = Presenter::create()
-///     .expect("Presenter creation should always succeed");
-/// 
-/// // Later in render loop:
-/// // presenter.update(timestamp, model_data);
-/// // let mut screen = frame_input.screen();
-/// // presenter.render(&mut screen);
-/// ```
 pub struct Presenter {
     renderer: Option<Box<Renderer>>,
     pending_user_actions: PresentationLayerActions,
