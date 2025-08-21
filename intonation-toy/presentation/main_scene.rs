@@ -43,52 +43,40 @@ fn create_background_quad(
     height: u32,
     texture: Texture2DRef,
 ) -> Gm<Rectangle, ColorMaterial> {
-    assert!(width > 0, "Width must be greater than 0, got: {}", width);
-    assert!(height > 0, "Height must be greater than 0, got: {}", height);
+    assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
     
-    let quad_width = width as f32;
-    let quad_height = height as f32;
-    let quad_center_x = quad_width * 0.5;
-    let quad_center_y = quad_height * 0.5;
+    let (w, h) = (width as f32, height as f32);
     
-    let background_rectangle = Rectangle::new(
-        context,
-        (quad_center_x, quad_center_y),
-        Deg(0.0),
-        quad_width,
-        quad_height,
-    );
-    
-    let background_material = ColorMaterial {
-        color: Srgba::WHITE,
-        texture: Some(texture),
-        is_transparent: true,
-        render_states: RenderStates {
-            depth_test: three_d::DepthTest::Always,
-            write_mask: WriteMask::COLOR,
-            blend: Blend::TRANSPARENCY,
-            ..Default::default()
-        },
-    };
-    
-    Gm::new(background_rectangle, background_material)
+    Gm::new(
+        Rectangle::new(context, (w * 0.5, h * 0.5), Deg(0.0), w, h),
+        ColorMaterial {
+            color: Srgba::WHITE,
+            texture: Some(texture),
+            is_transparent: true,
+            render_states: RenderStates {
+                depth_test: three_d::DepthTest::Always,
+                write_mask: WriteMask::COLOR,
+                blend: Blend::TRANSPARENCY,
+                ..Default::default()
+            },
+        }
+    )
 }
 
 /// Calculates line thickness and alpha based on clarity value
 fn calculate_pitch_line_appearance(clarity: Option<f32>) -> (f32, f32) {
-    if let Some(clarity_value) = clarity {
-        let clamped_clarity = clarity_value.clamp(CLARITY_THRESHOLD, 1.0);
-        let normalized_clarity = (clamped_clarity - CLARITY_THRESHOLD) / (1.0 - CLARITY_THRESHOLD);
-        
-        let thickness = crate::app_config::USER_PITCH_LINE_THICKNESS_MAX + 
-            normalized_clarity * (crate::app_config::USER_PITCH_LINE_THICKNESS_MIN - crate::app_config::USER_PITCH_LINE_THICKNESS_MAX);
-        let alpha = crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN + 
-            normalized_clarity * (crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX - crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN);
-        
-        (thickness, alpha)
-    } else {
-        (crate::app_config::USER_PITCH_LINE_THICKNESS_MAX, crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX)
-    }
+    let Some(clarity_value) = clarity else {
+        return (crate::app_config::USER_PITCH_LINE_THICKNESS_MAX, crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX);
+    };
+    
+    let normalized_clarity = (clarity_value.clamp(CLARITY_THRESHOLD, 1.0) - CLARITY_THRESHOLD) / (1.0 - CLARITY_THRESHOLD);
+    
+    (
+        crate::app_config::USER_PITCH_LINE_THICKNESS_MAX + 
+            normalized_clarity * (crate::app_config::USER_PITCH_LINE_THICKNESS_MIN - crate::app_config::USER_PITCH_LINE_THICKNESS_MAX),
+        crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN + 
+            normalized_clarity * (crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX - crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN)
+    )
 }
 
 
@@ -131,72 +119,42 @@ impl MainScene {
     
     
     fn refresh_colors(&mut self) {
-        let scheme = self.color_scheme.clone();
-        self.user_pitch_line.refresh_colors(&scheme, &self.audio_analysis);
-        // Clear tuning lines - they will be recreated with new colors on next update
+        self.user_pitch_line.refresh_colors(&self.color_scheme, &self.audio_analysis);
         self.tuning_lines.clear();
     }
     
     /// Get tuning line positions for the active tuning system
     /// Returns tuning line data with positions, MIDI notes, and thickness
     fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32)> {
-        // Use the stored presentation context for tuning line calculation
-        let context = match self.presentation_context.as_ref() {
-            Some(ctx) => ctx,
-            None => return Vec::new(),
+        let Some(context) = &self.presentation_context else {
+            return Vec::new();
         };
         
         let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
-        
-        // Helper function to determine line thickness based on semitone offset
-        let get_thickness = |semitone: i32| -> f32 {
-            // Octave lines (multiples of 12 semitones) get configurable thickness, others get regular thickness
-            if semitone % 12 == 0 {
-                OCTAVE_LINE_THICKNESS
-            } else {
-                REGULAR_LINE_THICKNESS
-            }
-        };
-        
-        // Helper function to calculate y position for a semitone interval
-        let calculate_y_position = |semitone: i32| -> f32 {
-            let frequency = crate::music_theory::interval_frequency(
-                context.tuning_system,
-                tuning_fork_frequency,
-                semitone,
-            );
-            let interval = (frequency / tuning_fork_frequency).log2();
-            interval_to_screen_y_position(interval, viewport.height as f32)
-        };
-        
-        // Show intervals from -12 to +12 semitones including root (0)
         let mut line_data = Vec::new();
         
-        // Add center line (tuning fork, 0 semitones)
-        if crate::shared_types::semitone_in_scale(context.current_scale, 0) {
-            let y_position = interval_to_screen_y_position(0.0, viewport.height as f32);
-            let thickness = get_thickness(0);
-            line_data.push((y_position, context.tuning_fork_note, thickness));
-        }
-        
-        // Add intervals above tuning fork: +1 to +12 semitones
-        for semitone in 1..=12 {
-            if crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
-                let y_position = calculate_y_position(semitone);
-                let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                let thickness = get_thickness(semitone);
-                line_data.push((y_position, midi_note, thickness));
+        // Process all semitones from -12 to +12 including root (0)
+        for semitone in -12..=12 {
+            if !crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
+                continue;
             }
-        }
-        
-        // Add intervals below tuning fork: -12 to -1 semitones
-        for semitone in -12..=-1 {
-            if crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
-                let y_position = calculate_y_position(semitone);
-                let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
-                let thickness = get_thickness(semitone);
-                line_data.push((y_position, midi_note, thickness));
-            }
+            
+            let y_position = if semitone == 0 {
+                interval_to_screen_y_position(0.0, viewport.height as f32)
+            } else {
+                let frequency = crate::music_theory::interval_frequency(
+                    context.tuning_system,
+                    tuning_fork_frequency,
+                    semitone,
+                );
+                let interval = (frequency / tuning_fork_frequency).log2();
+                interval_to_screen_y_position(interval, viewport.height as f32)
+            };
+            
+            let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
+            let thickness = if semitone % 12 == 0 { OCTAVE_LINE_THICKNESS } else { REGULAR_LINE_THICKNESS };
+            
+            line_data.push((y_position, midi_note, thickness));
         }
         
         line_data
@@ -213,18 +171,12 @@ impl MainScene {
             self.refresh_colors();
         }
 
-        // Render the background quad if available
         if let Some(ref background_quad) = self.background_quad {
             self.camera.disable_tone_and_color_mapping();
-            screen.render(
-                &self.camera,
-                [background_quad],
-                &[],
-            );
+            screen.render(&self.camera, [background_quad], &[]);
             self.camera.set_default_tone_and_color_mapping();
         }
 
-        // Only render user pitch line if pitch is detected and line exists
         if self.audio_analysis.pitch_detected {
             if let Some(ref mesh) = self.user_pitch_line.mesh() {
                 screen.render(&self.camera, [mesh], &[]);
@@ -238,42 +190,41 @@ impl MainScene {
     }
     
     pub fn update_pitch_position(&mut self, viewport: Viewport) {
-        // Validate viewport dimensions before proceeding
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
             return;
         }
         
-        if self.audio_analysis.pitch_detected {
-            let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
-            let endpoints = (
-                PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, 
-                PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y}
-            );
-            
-            let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
-            
-            self.user_pitch_line.update_position(
-                &self.context,
-                endpoints,
-                new_thickness,
-                new_alpha,
-                &self.color_scheme,
-                &self.audio_analysis,
-            );
+        if !self.audio_analysis.pitch_detected {
+            return;
         }
+        
+        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
+        let endpoints = (
+            PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, 
+            PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y}
+        );
+        
+        let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
+        
+        self.user_pitch_line.update_position(
+            &self.context,
+            endpoints,
+            new_thickness,
+            new_alpha,
+            &self.color_scheme,
+            &self.audio_analysis,
+        );
     }
     
     /// Update tuning lines with position, MIDI note, and thickness data provided by the presenter
     /// MainScene doesn't know about music theory - it just positions lines where told
     pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
-        // Validate viewport and line data before proceeding
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
             return;
         }
         
-        // Handle empty line data gracefully
         if line_data.is_empty() {
             crate::common::dev_log!("Warning: No tuning line data provided, clearing existing lines");
             self.tuning_lines.clear();
@@ -288,13 +239,11 @@ impl MainScene {
     /// This method recreates the background texture with the tuning lines and note labels
     /// rendered to it, replacing the existing background texture.
     pub fn render_to_background_texture(&mut self, viewport: Viewport) {
-        // Validate viewport dimensions
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for background texture");
             return;
         }
         
-        // Create a new Texture2D for the background
         let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
             &self.context,
             viewport.width,
@@ -306,7 +255,6 @@ impl MainScene {
             Wrapping::ClampToEdge,
         );
         
-        // Create new depth texture for the render target
         let mut depth_texture = DepthTexture2D::new::<f32>(
             &self.context,
             viewport.width,
@@ -315,36 +263,26 @@ impl MainScene {
             Wrapping::ClampToEdge,
         );
         
-        // Create render target and render content to the texture
         {
             let camera = Camera::new_2d(viewport);
             let [r, g, b] = get_current_color_scheme().background;
 
-            let tuning_lines_vec: Vec<&dyn Object> = 
-                self.tuning_lines
-                .lines()
-                .map(|line| line as &dyn Object)
-                .collect();            
+            let tuning_lines: Vec<&dyn Object> = self.tuning_lines.lines().map(|line| line as &dyn Object).collect();
+            let text_models = self.text_backend.render_texts(&self.context, viewport, &self.tuning_lines.get_note_labels());
+            let text_objects: Vec<&dyn Object> = text_models.iter().map(|model| model.as_ref() as &dyn Object).collect();
 
-            let note_labels = self.tuning_lines.get_note_labels();
-            let text_models = self.text_backend.render_texts(&self.context, viewport, &note_labels);
-            let text_objects: Vec<&dyn Object> = 
-                text_models
-                .iter()
-                .map(|model| model.as_ref() as &dyn Object)
-                .collect();
-
-            RenderTarget::new(
-                background_texture.as_color_target(None),
-                depth_texture.as_depth_target(),
-            )
-            .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
-            .render(&camera, tuning_lines_vec, &[])
-            .render(&camera, text_objects, &[]);
-        } // render_target goes out of scope here
+            RenderTarget::new(background_texture.as_color_target(None), depth_texture.as_depth_target())
+                .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
+                .render(&camera, tuning_lines, &[])
+                .render(&camera, text_objects, &[]);
+        }
         
-        let background_texture_ref = Texture2DRef::from_texture(background_texture);
-        self.background_quad = Some(create_background_quad(&self.context, viewport.width, viewport.height, background_texture_ref));
+        self.background_quad = Some(create_background_quad(
+            &self.context, 
+            viewport.width, 
+            viewport.height, 
+            Texture2DRef::from_texture(background_texture)
+        ));
     }
     
     /// Update the presentation context with new tuning fork, tuning system, and scale.
@@ -356,19 +294,13 @@ impl MainScene {
 
         self.presentation_context = Some(context.clone());
         
-        // Validate viewport dimensions before proceeding
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for presentation context update");
             return;
         }
         
-        // Calculate tuning line positions and update them
         let tuning_line_data = self.get_tuning_line_positions(viewport);
-        
-        // Update tuning lines with calculated data
         self.update_tuning_lines(viewport, &tuning_line_data);
-        
-        // Re-render background texture with new tuning lines
         self.render_to_background_texture(viewport);
     }
     
