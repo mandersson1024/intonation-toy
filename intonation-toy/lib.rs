@@ -27,7 +27,6 @@ pub(crate) mod common;
 #[cfg(debug_assertions)]
 pub(crate) mod debug;
 
-use common::{dev_log, trace_log, log, error_log};
 use wasm_bindgen::prelude::*;
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use egui_dev_console::ConsoleCommandRegistry;
