@@ -48,6 +48,7 @@ Apply these transformations systematically:
 - Flatten module hierarchies that add no value
 - Remove unused features and dead code paths
 - Simplify ownership patterns (String to &str conversions)
+- **NEVER replace named constants with magic numbers** - this reduces readability
 
 ## Quality Assurance
 - Run `cargo check` to ensure compilation
@@ -60,7 +61,5 @@ Track and report:
 - Lines of code reduced
 - Functions inlined count
 - Nested conditions simplified
-- Modules flattened
-- Overall complexity reduction percentage
 
-**Core Principle**: Every change must reduce either lines of code, cognitive complexity, or unnecessary abstractions. Make no additions, only subtractions and simplifications.
+**Core Principle**: Top priority is to reduce cognitive complexity. Every change must reduce either cognitive complexity, lines of code, or unnecessary abstractions. Make no additions, only subtractions and simplifications.
