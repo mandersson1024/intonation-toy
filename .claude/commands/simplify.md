@@ -53,6 +53,7 @@ Apply these transformations systematically:
 ### 6. Comments
 - Remove comments that state the obvious
 - Change comments that refer to historical versions of the code. Describe the code as it currently is, and not the relation to what the code once was
+- Remove comments that are wrong, misleading, or unrelated to the code
 
 ## Quality Assurance
 - Run `cargo check` to ensure compilation

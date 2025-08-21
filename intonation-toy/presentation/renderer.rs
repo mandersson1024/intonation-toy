@@ -1,23 +1,8 @@
-/*!
- * Text Rendering for MainScene
- * 
- * This module implements egui-based text rendering:
- * 
- * **EguiTextBackend** - Simple text rendering using egui fonts
- * 
- * The backend leverages egui's font rendering capabilities and provides
- * high-quality text rendering, proper Unicode support, and glyph atlas management.
- */
-
-// Standard library imports
-// None needed
-
 // External crate imports
 use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-// Internal crate imports
 use crate::app_config::{CLARITY_THRESHOLD, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::egui_text_backend::EguiTextBackend;
@@ -26,12 +11,8 @@ use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::shared_types::{ColorScheme, MidiNote};
 use crate::theme::{get_current_color_scheme, rgb_to_srgba};
 
-// Helper functions
-
 /// Converts musical interval to screen Y position
-/// interval of [0.5, 2.0] means [-1, +1] octaves
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
-    // Using fixed zoom factor of 0.92
     const ZOOM_FACTOR: f32 = 0.92;
     viewport_height * (0.5 + interval * ZOOM_FACTOR * 0.5)
 }
@@ -88,14 +69,11 @@ pub struct Renderer {
     text_backend: EguiTextBackend,
     context: Context,
     color_scheme: ColorScheme,
-    // Background texture system: pre-rendered texture with background
-    // These resources are automatically cleaned up by three-d's RAII when replaced or dropped
     background_quad: Option<Gm<Rectangle, ColorMaterial>>,
     presentation_context: Option<crate::shared_types::PresentationContext>,
 }
 
 impl Renderer {
-    // Associated functions
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
@@ -114,9 +92,6 @@ impl Renderer {
         })
     }
 
-    // Private helper methods
-    
-    
     
     fn refresh_colors(&mut self) {
         self.user_pitch_line.refresh_colors(&self.color_scheme, &self.audio_analysis);
@@ -124,7 +99,6 @@ impl Renderer {
     }
     
     /// Get tuning line positions for the active tuning system
-    /// Returns tuning line data with positions, MIDI notes, and thickness
     fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32)> {
         let Some(context) = &self.presentation_context else {
             return Vec::new();
@@ -133,7 +107,6 @@ impl Renderer {
         let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
         let mut line_data = Vec::new();
         
-        // Process all semitones from -12 to +12 including root (0)
         for semitone in -12..=12 {
             if !crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
                 continue;
@@ -160,7 +133,6 @@ impl Renderer {
         line_data
     }
 
-    // Public API methods
     
     pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
@@ -184,7 +156,6 @@ impl Renderer {
         }
     }
     
-    /// Update the audio analysis data
     pub fn update_audio_analysis(&mut self, audio_analysis: AudioAnalysis) {
         self.audio_analysis = audio_analysis;
     }
@@ -217,8 +188,6 @@ impl Renderer {
         );
     }
     
-    /// Update tuning lines with position, MIDI note, and thickness data provided by the presenter
-    /// MainScene doesn't know about music theory - it just positions lines where told
     pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
@@ -235,9 +204,7 @@ impl Renderer {
         self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba(scheme.muted));
     }
     
-    /// Renders tuning lines and note labels to the background texture by recreating it.
-    /// This method recreates the background texture with the tuning lines and note labels
-    /// rendered to it, replacing the existing background texture.
+    /// Renders tuning lines and note labels to the background texture
     pub fn render_to_background_texture(&mut self, viewport: Viewport) {
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for background texture");
@@ -285,8 +252,7 @@ impl Renderer {
         ));
     }
     
-    /// Update the presentation context with new tuning fork, tuning system, and scale.
-    /// Also re-renders the background texture when the presentation context changes.
+    /// Update the presentation context
     pub fn update_presentation_context(&mut self, context: &crate::shared_types::PresentationContext, viewport: Viewport) {
         if self.presentation_context.as_ref() == Some(context) {
             return;

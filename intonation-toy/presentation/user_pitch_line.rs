@@ -4,8 +4,8 @@ use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::shared_types::ColorScheme;
 use crate::theme::rgb_to_srgba_with_alpha;
 
-const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];  // Light green/cyan for accurate intonation
-const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];  // Orange for inaccurate intonation
+const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];
+const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];
 
 pub struct UserPitchLine {
     mesh: Option<Gm<Line, ColorMaterial>>,

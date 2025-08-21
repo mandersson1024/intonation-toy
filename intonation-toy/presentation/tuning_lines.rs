@@ -57,17 +57,14 @@ impl TuningLines {
         self.line_data.iter().map(|data| &data.line)
     }
     
-    /// Returns an iterator over the MIDI notes corresponding to each tuning line
     pub fn midi_notes(&self) -> impl Iterator<Item = MidiNote> + '_ {
         self.line_data.iter().map(|data| data.midi_note)
     }
     
-    /// Clear all tuning lines data
     pub fn clear(&mut self) {
         self.line_data.clear();
     }
     
-    /// Get note labels data for rendering
     pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
         let text_color = scheme.muted;
