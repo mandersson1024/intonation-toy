@@ -125,7 +125,7 @@ pub struct ConfigureTuningFork {
 /// This struct is returned by the presentation layer's get_user_actions() method
 /// and contains all user actions that occurred since the last collection.
 /// The main loop retrieves these actions and processes them appropriately.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PresentationLayerActions {
     pub tuning_system_changes: Vec<ChangeTuningSystem>,
     pub tuning_fork_adjustments: Vec<AdjustTuningFork>,
@@ -133,23 +133,6 @@ pub struct PresentationLayerActions {
     pub tuning_fork_configurations: Vec<ConfigureTuningFork>,
 }
 
-impl Default for PresentationLayerActions {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PresentationLayerActions {
-    /// Create a new instance with empty action collections
-    pub fn new() -> Self {
-        Self {
-            tuning_system_changes: Vec::new(),
-            tuning_fork_adjustments: Vec::new(),
-            scale_changes: Vec::new(),
-            tuning_fork_configurations: Vec::new(),
-        }
-    }
-}
 
 /// Container for all collected debug actions from the presentation layer
 /// 
@@ -157,7 +140,7 @@ impl PresentationLayerActions {
 /// provide privileged access to engine operations for testing and debugging.
 /// These actions bypass normal validation and safety checks.
 #[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
 }
@@ -166,9 +149,7 @@ pub struct DebugLayerActions {
 impl DebugLayerActions {
     /// Create a new instance with empty debug action collections
     pub(crate) fn new() -> Self {
-        Self {
-            test_signal_configurations: Vec::new(),
-        }
+        Self::default()
     }
 }
 
@@ -275,7 +256,7 @@ impl Presenter {
         
         Ok(Self {
             main_scene: None,
-            pending_user_actions: PresentationLayerActions::new(),
+            pending_user_actions: PresentationLayerActions::default(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
@@ -314,42 +295,27 @@ impl Presenter {
     }
 
     pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
-        // Extract values we need before the match to avoid borrowing issues
-        let interval_position = self.interval_position;
-        let volume_peak = model_data.volume_peak;
-        
-        // Determine if pitch is detected and extract clarity
         let (pitch_detected, clarity) = match model_data.pitch {
             Pitch::Detected(_, clarity_value) => (true, Some(clarity_value)),
             Pitch::NotDetected => (false, None),
         };
         
-        // Extract closest MIDI note from accuracy data when pitch is detected
-        let closest_note = if pitch_detected {
-            Some(model_data.accuracy.closest_midi_note)
-        } else {
-            None
-        };
-        
         
         if let Some(main_scene) = &mut self.main_scene {
-            // Update main scene with presentation context
             main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
                 tuning_fork_note: model_data.tuning_fork_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
             }, viewport);
             
-            // Create AudioAnalysis struct with all the data
-            let audio_analysis = AudioAnalysis {
+            main_scene.update_audio_analysis(AudioAnalysis {
                 pitch_detected,
                 cents_offset: model_data.accuracy.cents_offset,
-                interval: interval_position,
+                interval: self.interval_position,
                 clarity,
-                volume_peak,
-            };
+                volume_peak: model_data.volume_peak,
+            });
             
-            main_scene.update_audio_analysis(audio_analysis);
             main_scene.update_pitch_position(viewport);
         }
     }
@@ -450,23 +416,9 @@ impl Presenter {
     }
 
     /// Retrieve and clear all pending debug actions (debug builds only)
-    /// 
-    /// This method is called by the main loop to get all debug actions that have
-    /// been collected since the last call. These actions provide privileged access
-    /// to engine operations for testing and debugging purposes.
-    /// 
-    /// # Returns
-    /// 
-    /// A `DebugLayerActions` struct containing all collected debug actions.
-    /// The returned struct will contain empty vectors if no actions were collected.
-    /// 
-    /// # Safety
-    /// 
-    /// Debug actions bypass normal validation and can directly manipulate engine
-    /// internals. They should only be used for testing and debugging.
     #[cfg(debug_assertions)]
     pub fn get_debug_actions(&mut self) -> DebugLayerActions {
-        std::mem::replace(&mut self.pending_debug_actions, DebugLayerActions::new())
+        std::mem::take(&mut self.pending_debug_actions)
     }
 
     /// Handle debug request to configure test signal generation (debug builds only)
@@ -489,52 +441,25 @@ impl Presenter {
     }
 
     /// Handle debug request to configure tuning fork audio generation (debug builds only)
-    /// 
-    /// This method should be called by debug UI components to enable or disable
-    /// tuning fork audio generation for testing and audio reference.
-    /// The frequency is automatically calculated from the current tuning fork.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `enabled` - Whether tuning fork audio generation should be enabled
-    /// * `tuning_fork` - The MIDI note to use as the tuning fork  
-    /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
     pub fn on_tuning_fork_configured(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
-        // Use the amplitude value directly
-        let volume = volume_amplitude;
-        
         crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
-                                note, volume);
-        let frequency = Self::midi_note_to_frequency(note);
+                                note, volume_amplitude);
+        
         self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
-            frequency,
-            volume,
+            frequency: Self::midi_note_to_frequency(note),
+            volume: volume_amplitude,
         });
         crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.tuning_fork_configurations.len());
     }
     
     /// Handle tuning fork audio configuration with volume control
-    /// 
-    /// This method should be called by UI components to configure tuning fork audio
-    /// with specific volume settings. The volume is provided in decibels for
-    /// user-friendly control and converted to amplitude internally.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `enabled` - Whether tuning fork audio generation should be enabled
-    /// * `tuning_fork` - The MIDI note to use as the tuning fork
-    /// * `volume_amplitude` - Volume as amplitude (0.0-1.0)
     pub fn on_tuning_fork_audio_configured_with_volume(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
-        // Use the amplitude value directly
-        let volume = volume_amplitude;
-        
         crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
-                                note, volume);
+                                note, volume_amplitude);
         
-        let frequency = Self::midi_note_to_frequency(note);
         self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
-            frequency,
-            volume,
+            frequency: Self::midi_note_to_frequency(note),
+            volume: volume_amplitude,
         });
         crate::common::dev_log!("PRESENTER: Added action to pending_user_actions with volume control");
     }
@@ -549,109 +474,52 @@ impl Presenter {
     /// * `screen` - The render target to draw to
     /// * `model_data` - The current model data containing tuning fork, tuning system, and scale
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {
-        // Create MainScene on first render if it doesn't exist and context is available
         if self.main_scene.is_none() {
-            let viewport = screen.viewport();
-            match MainScene::new(context, viewport) {
-                Ok(main_scene) => {
-                    self.main_scene = Some(Box::new(main_scene));
-                    
-                    // Update graphics immediately after creating MainScene to populate tuning lines
-                    self.update_graphics(screen.viewport(), model_data);
-                    
-                    // Set up HTML UI for main scene
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        // UI was already set up during presenter creation
-                        // Event listeners are attached in set_self_reference()
-                        
-                        // Synchronize UI state with current model data values
-                        self.sync_html_ui(model_data);
-                    }
-                }
+            let main_scene = match MainScene::new(context, screen.viewport()) {
+                Ok(scene) => scene,
                 Err(e) => {
                     crate::common::dev_log!("Failed to create MainScene: {}", e);
-                    // Show background while waiting for MainScene creation to succeed
                     screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
                     return;
                 }
-            }
-        }
-        
-        // Update graphics before rendering
-        if self.main_scene.is_some() {
+            };
+            
+            self.main_scene = Some(Box::new(main_scene));
             self.update_graphics(screen.viewport(), model_data);
+            
+            #[cfg(target_arch = "wasm32")]
+            self.sync_html_ui(model_data);
         }
         
-        // Render MainScene if it exists
+        let viewport = screen.viewport();
+        
+        if self.main_scene.is_some() {
+            self.update_graphics(viewport, model_data);
+        }
+        
         if let Some(main_scene) = &mut self.main_scene {
-            main_scene.render(screen, screen.viewport());
+            main_scene.render(screen, viewport);
         } else {
-            // Fallback: clear screen with background color
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
         }
     }
 
     
     /// Process volume data for audio level visualization
-    /// 
-    /// Updates internal state based on volume levels from the model layer.
-    /// This data will be used to drive volume meters and audio visualizations.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `volume` - Volume data containing peak and RMS levels in dB
     fn process_volume_data(&mut self, volume: &crate::shared_types::Volume) {
-        // Store volume data for visualization
-        // Future: Update volume meter displays, audio wave visualizations
-        let _peak_amplitude = volume.peak_amplitude;
-        let _rms_amplitude = volume.rms_amplitude;
-        
-        // Placeholder: Log significant volume changes for debugging
         if volume.peak_amplitude > -20.0 {
             // Loud audio detected - could trigger visual feedback
         }
     }
     
     /// Process pitch detection data for musical note display
-    /// 
-    /// Updates pitch-related UI elements based on detected frequencies and notes.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `pitch` - Pitch detection result from the model layer
-    fn process_pitch_data(&mut self, pitch: &crate::shared_types::Pitch) {
-        match pitch {
-            crate::shared_types::Pitch::Detected(frequency, clarity) => {
-                // Pitch detected - update note display
-                let _freq = *frequency;
-                let _clarity = *clarity;
-                
-                // Future: Update pitch display, note name, frequency readout
-                // Future: Update visual tuning indicators
-            }
-            crate::shared_types::Pitch::NotDetected => {
-                // No pitch detected - clear pitch displays
-                // Future: Dim pitch indicators, show "listening" state
-            }
-        }
+    fn process_pitch_data(&mut self, _pitch: &crate::shared_types::Pitch) {
+        // Future: Update pitch display, note name, frequency readout
+        // Future: Update visual tuning indicators
     }
     
     /// Process accuracy data for tuning feedback
-    /// 
-    /// Updates tuning indicators and accuracy displays based on pitch accuracy.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `accuracy` - Accuracy metrics containing closest note and deviation
     fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::IntonationData) {
-        let _midi_note = accuracy.closest_midi_note;
-        let _cents_offset = accuracy.cents_offset;
-        
-        // Future: Update tuning needle/indicator position
-        // Future: Change colors based on accuracy (green=good, red=off)
-        // Future: Display note name and cents deviation
-        
         if accuracy.cents_offset.abs() < crate::app_config::INTONATION_ACCURACY_THRESHOLD {
             // Very accurate - main scene will show accent color for user pitch line
         } else if accuracy.cents_offset.abs() > 30.0 {
@@ -702,22 +570,8 @@ impl Presenter {
     }
     
     /// Process tuning system updates
-    /// 
-    /// Updates displays related to the current tuning system.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `tuning_system` - Current tuning system from the model layer
-    fn process_tuning_system(&mut self, tuning_system: &crate::shared_types::TuningSystem) {
-        // Process tuning system without caching
-        match tuning_system {
-            crate::shared_types::TuningSystem::EqualTemperament => {
-                // Update UI to show Equal Temperament tuning
-            }
-            crate::shared_types::TuningSystem::JustIntonation => {
-                // Update UI to show Just Intonation tuning
-            }
-        }
+    fn process_tuning_system(&mut self, _tuning_system: &crate::shared_types::TuningSystem) {
+        // Future: Update UI to show current tuning system
     }
     
     /// Calculate interval position directly from frequency and tuning fork
@@ -763,25 +617,6 @@ impl Presenter {
     }
     
     /// Convert MIDI note number to frequency in Hz
-    /// 
-    /// Uses the standard equal temperament formula with A4 (MIDI note 69) = 440Hz
-    /// 
-    /// # Arguments
-    /// 
-    /// * `midi_note` - The MIDI note number (0-127)
-    /// 
-    /// # Returns
-    /// 
-    /// The frequency in Hz
-    /// 
-    /// # Formula
-    /// 
-    /// `frequency = 440.0 * 2^((midi_note - 69) / 12)`
-    /// 
-    /// This formula is based on:
-    /// - A4 (MIDI note 69) is the reference pitch at 440Hz
-    /// - Each semitone up multiplies frequency by 2^(1/12)
-    /// - Each octave up doubles the frequency
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
         crate::music_theory::midi_note_to_standard_frequency(midi_note)
     }
@@ -825,13 +660,7 @@ impl Presenter {
     }
 
     /// Synchronize HTML UI with specified presenter state
-    #[cfg(all(target_arch = "wasm32", debug_assertions))]
-    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
-    }
-    
-    /// Synchronize HTML UI with specified presenter state (non-debug version)
-    #[cfg(all(target_arch = "wasm32", not(debug_assertions)))]
+    #[cfg(target_arch = "wasm32")]
     fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
         crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
     }
@@ -843,9 +672,6 @@ impl Presenter {
     }
     
     /// Clean up HTML UI elements if they are currently active
-    /// 
-    /// This method ensures proper cleanup of DOM elements when the presenter
-    /// is dropped or when transitioning away from the main scene.
     #[cfg(target_arch = "wasm32")]
     fn cleanup_main_scene_ui_if_active(&mut self) {
         if self.main_scene_ui_active {

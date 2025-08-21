@@ -214,7 +214,7 @@ pub async fn start_render_loop(
                 let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                     presenter_ref.get_user_actions()
                 } else {
-                    presentation::PresentationLayerActions::new()
+                    presentation::PresentationLayerActions::default()
                 };
                 
                 // Only process if there are actions to handle
