@@ -137,12 +137,9 @@ pub struct EguiCompositeBackend {
 impl EguiCompositeBackend {
     /// Create a new EguiCompositeBackend instance
     /// 
-    /// # Arguments
-    /// * `context` - The three-d Context for GPU resource creation
-    /// 
     /// # Returns
     /// A Result containing the backend instance or an error string
-    pub fn new(_context: &Context) -> Result<Self, String> {
+    pub fn new() -> Result<Self, String> {
         // Create off-screen egui context
         let egui_ctx = egui::Context::default();
         

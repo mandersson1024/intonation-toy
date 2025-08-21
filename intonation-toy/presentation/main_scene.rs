@@ -111,7 +111,7 @@ impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
-        let text_backend = EguiCompositeBackend::new(context)?;
+        let text_backend = EguiCompositeBackend::new()?;
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
