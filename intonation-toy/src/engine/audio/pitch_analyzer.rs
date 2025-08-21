@@ -3,8 +3,7 @@ use crate::common::utils;
 
 pub type PitchAnalysisError = String;
 
-/// Real-time pitch analysis coordinator that integrates with BufferAnalyzer
-/// and returns pitch data through the engine update system.
+/// Real-time pitch analysis coordinator that returns pitch data through the engine update system.
 /// 
 /// ## Data Collection
 /// 
