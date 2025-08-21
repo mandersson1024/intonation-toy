@@ -58,12 +58,12 @@
 //! - Complete screen layout and UI element management
 
 mod audio_analysis;
-mod main_scene;
+mod renderer;
 mod tuning_lines;
 mod egui_text_backend;
 mod user_pitch_line;
 pub use audio_analysis::AudioAnalysis;
-pub use main_scene::MainScene;
+pub use renderer::Renderer;
 pub use tuning_lines::TuningLines;
 pub use egui_text_backend::EguiTextBackend;
 pub use user_pitch_line::UserPitchLine;
@@ -75,7 +75,7 @@ use three_d::{RenderTarget, Context, Viewport};
 use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch};
 
 #[cfg(target_arch = "wasm32")]
-use crate::web::main_scene_ui::{setup_main_scene_ui, cleanup_main_scene_ui, setup_event_listeners};
+use crate::web::sidebar_controls::{setup_sidebar_controls, cleanup_sidebar_controls, setup_event_listeners};
 
 
 /// Action structs for the new action collection system
@@ -190,7 +190,7 @@ pub struct Presenter {
     /// Data flows through method parameters and return values
     
     /// Main scene (created once graphics context is available)
-    main_scene: Option<Box<MainScene>>,
+    renderer: Option<Box<Renderer>>,
     
     /// Collection of pending user actions to be processed by the main loop
     /// 
@@ -212,7 +212,7 @@ pub struct Presenter {
     /// Tracks whether the main scene UI is currently active
     /// Used to manage HTML UI lifecycle during scene transitions
     #[cfg(target_arch = "wasm32")]
-    main_scene_ui_active: bool,
+    sidebar_ui_active: bool,
 
     /// Self-reference for passing to UI event handlers
     /// This enables UI elements to call back into the presenter
@@ -251,17 +251,17 @@ impl Presenter {
         // Set up HTML UI for sidebar immediately so it's available during startup scene
         #[cfg(target_arch = "wasm32")]
         {
-            setup_main_scene_ui();
+            setup_sidebar_controls();
         }
         
         Ok(Self {
-            main_scene: None,
+            renderer: None,
             pending_user_actions: PresentationLayerActions::default(),
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::new(),
             interval_position: 0.0,
             #[cfg(target_arch = "wasm32")]
-            main_scene_ui_active: true, // UI is now active from the start
+            sidebar_ui_active: true, // UI is now active from the start
             #[cfg(target_arch = "wasm32")]
             self_reference: None,
             #[cfg(target_arch = "wasm32")]
@@ -301,14 +301,14 @@ impl Presenter {
         };
         
         
-        if let Some(main_scene) = &mut self.main_scene {
-            main_scene.update_presentation_context(&crate::shared_types::PresentationContext {
+        if let Some(renderer) = &mut self.renderer {
+            renderer.update_presentation_context(&crate::shared_types::PresentationContext {
                 tuning_fork_note: model_data.tuning_fork_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
             }, viewport);
             
-            main_scene.update_audio_analysis(AudioAnalysis {
+            renderer.update_audio_analysis(AudioAnalysis {
                 pitch_detected,
                 cents_offset: model_data.accuracy.cents_offset,
                 interval: self.interval_position,
@@ -316,7 +316,7 @@ impl Presenter {
                 volume_peak: model_data.volume_peak,
             });
             
-            main_scene.update_pitch_position(viewport);
+            renderer.update_pitch_position(viewport);
         }
     }
 
@@ -357,7 +357,7 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         
         // Sync HTML UI with updated state
-        self.sync_html_ui(&model_data);
+        self.sync_sidebar_ui(&model_data);
         
         self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.tuning_fork_note);
     }
@@ -474,31 +474,31 @@ impl Presenter {
     /// * `screen` - The render target to draw to
     /// * `model_data` - The current model data containing tuning fork, tuning system, and scale
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {
-        if self.main_scene.is_none() {
-            let main_scene = match MainScene::new(context, screen.viewport()) {
+        if self.renderer.is_none() {
+            let renderer = match Renderer::new(context, screen.viewport()) {
                 Ok(scene) => scene,
                 Err(e) => {
-                    crate::common::dev_log!("Failed to create MainScene: {}", e);
+                    crate::common::dev_log!("Failed to create Renderer: {}", e);
                     screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
                     return;
                 }
             };
             
-            self.main_scene = Some(Box::new(main_scene));
+            self.renderer = Some(Box::new(renderer));
             self.update_graphics(screen.viewport(), model_data);
             
             #[cfg(target_arch = "wasm32")]
-            self.sync_html_ui(model_data);
+            self.sync_sidebar_ui(model_data);
         }
         
         let viewport = screen.viewport();
         
-        if self.main_scene.is_some() {
+        if self.renderer.is_some() {
             self.update_graphics(viewport, model_data);
         }
         
-        if let Some(main_scene) = &mut self.main_scene {
-            main_scene.render(screen, viewport);
+        if let Some(renderer) = &mut self.renderer {
+            renderer.render(screen, viewport);
         } else {
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
         }
@@ -661,28 +661,28 @@ impl Presenter {
 
     /// Synchronize HTML UI with specified presenter state
     #[cfg(target_arch = "wasm32")]
-    fn sync_html_ui(&self, model_data: &ModelUpdateResult) {
-        crate::web::main_scene_ui::sync_ui_with_presenter_state(model_data);
+    fn sync_sidebar_ui(&self, model_data: &ModelUpdateResult) {
+        crate::web::sidebar_controls::sync_sidebar_with_presenter_state(model_data);
     }
 
     /// No-op version for non-WASM targets
     #[cfg(not(target_arch = "wasm32"))]
-    fn sync_html_ui(&self, _model_data: &ModelUpdateResult) {
+    fn sync_sidebar_ui(&self, _model_data: &ModelUpdateResult) {
         // No-op for non-WASM targets
     }
     
     /// Clean up HTML UI elements if they are currently active
     #[cfg(target_arch = "wasm32")]
-    fn cleanup_main_scene_ui_if_active(&mut self) {
-        if self.main_scene_ui_active {
-            cleanup_main_scene_ui();
-            self.main_scene_ui_active = false;
+    fn cleanup_sidebar_ui_if_active(&mut self) {
+        if self.sidebar_ui_active {
+            cleanup_sidebar_controls();
+            self.sidebar_ui_active = false;
         }
     }
 
     /// No-op version for non-WASM targets
     #[cfg(not(target_arch = "wasm32"))]
-    fn cleanup_main_scene_ui_if_active(&mut self) {
+    fn cleanup_sidebar_ui_if_active(&mut self) {
         // No-op for non-WASM targets
     }
 }
@@ -690,7 +690,7 @@ impl Presenter {
 impl Drop for Presenter {
     fn drop(&mut self) {
         // Clean up HTML UI elements if active
-        self.cleanup_main_scene_ui_if_active();
+        self.cleanup_sidebar_ui_if_active();
     }
 }
 

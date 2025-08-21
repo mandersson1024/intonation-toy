@@ -3,7 +3,7 @@
 
 pub mod error_message_box;
 pub mod first_click_handler;
-pub mod main_scene_ui;
+pub mod sidebar_controls;
 pub mod performance;
 pub mod profiling;
 pub mod styling;

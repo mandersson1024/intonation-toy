@@ -76,7 +76,7 @@ fn format_midi_note(midi_note: MidiNote) -> String {
 
 
 #[cfg(target_arch = "wasm32")]
-pub fn setup_main_scene_ui() {
+pub fn setup_sidebar_controls() {
     let Some(window) = window() else {
         dev_log!("Failed to get window");
         return;
@@ -125,7 +125,7 @@ pub fn setup_main_scene_ui() {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn cleanup_main_scene_ui() {
+pub fn cleanup_sidebar_controls() {
     // No cleanup needed since we're now using static HTML elements
     // The HTML elements remain in the DOM and can be reused
 }
@@ -330,12 +330,12 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn setup_main_scene_ui() {
+pub fn setup_sidebar_controls() {
     // No-op for non-WASM targets
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn cleanup_main_scene_ui() {
+pub fn cleanup_sidebar_controls() {
     // No-op for non-WASM targets
 }
 
@@ -352,7 +352,7 @@ pub fn cleanup_main_scene_ui() {
 /// * `scale` - The current scale from the presenter
 /// * `tuning_fork_audio_enabled` - The current tuning fork audio state
 #[cfg(target_arch = "wasm32")]
-pub fn sync_ui_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
+pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
         return;
     };

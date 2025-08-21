@@ -80,7 +80,7 @@ fn calculate_pitch_line_appearance(clarity: Option<f32>) -> (f32, f32) {
 }
 
 
-pub struct MainScene {
+pub struct Renderer {
     camera: Camera,
     user_pitch_line: UserPitchLine,
     audio_analysis: AudioAnalysis,
@@ -94,7 +94,7 @@ pub struct MainScene {
     presentation_context: Option<crate::shared_types::PresentationContext>,
 }
 
-impl MainScene {
+impl Renderer {
     // Associated functions
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
