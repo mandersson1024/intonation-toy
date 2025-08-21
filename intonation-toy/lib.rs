@@ -305,40 +305,22 @@ pub async fn start_render_loop(
         let model_data = if let Some(ref mut model) = model {
             #[cfg(feature = "profiling")]
             {
-                crate::web::profiling::profiled("model_update", || {
+                Some(crate::web::profiling::profiled("model_update", || {
                     model.update(timestamp, engine_data.clone())
-                })
+                }))
             }
             #[cfg(not(feature = "profiling"))]
             {
-                model.update(timestamp, engine_data.clone())
+                Some(model.update(timestamp, engine_data.clone()))
             }
         } else {
-            // Provide default model data when model is not available
-            crate::shared_types::ModelUpdateResult {
-                volume: crate::shared_types::Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 },
-                volume_peak: false,  // Default to no peak when model is not available
-                pitch: crate::shared_types::Pitch::NotDetected,
-                accuracy: crate::shared_types::IntonationData {
-                    closest_midi_note: None,
-                    cents_offset: 0.0,
-                },
-                tuning_system: crate::shared_types::TuningSystem::EqualTemperament,
-                scale: crate::shared_types::Scale::Chromatic,
-                errors: Vec::new(),
-                permission_state: crate::shared_types::PermissionState::NotRequested,
-                // New flattened fields with default values
-                closest_midi_note: None,
-                cents_offset: 0.0,
-                interval_semitones: 0,
-                tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
-            }
+            None
         };
         
         // Update debug panel data with engine and model results
         #[cfg(all(debug_assertions, not(feature = "profiling")))]
         if let Some(ref mut panel) = debug_panel {
-            panel.update_data(&engine_data, Some(&model_data));
+            panel.update_data(&engine_data, model_data.as_ref());
         }
         
         // Update debug panel data with performance metrics
@@ -384,57 +366,45 @@ pub async fn start_render_loop(
         // Update presentation layer with model data
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.process_data(timestamp, model_data.clone());
-                presenter_ref.update_graphics(frame_input.viewport, &model_data);
+                if let Some(ref data) = model_data {
+                    presenter_ref.process_data(timestamp, data.clone());
+                    presenter_ref.update_graphics(frame_input.viewport, data);
+                }
             }
         }
         
         // Process debug actions with privileged access (debug builds only)
         #[cfg(debug_assertions)]
         {
-            if let (Some(presenter), Some(_engine)) = (&presenter, &mut engine) {
-                // Collect debug actions from presentation layer
-                let debug_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                    presenter_ref.get_debug_actions()
-                } else {
-                    presentation::DebugLayerActions::new()
-                };
+            let (Some(presenter), Some(_engine)) = (&presenter, &mut engine) else {
+                panic!("Critical error: presenter or engine is None during render loop. This indicates a serious initialization bug.");
+            };
+            
+            // Collect debug actions from presentation layer
+            let debug_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.get_debug_actions()
+            } else {
+                presentation::DebugLayerActions::new()
+            };
+            
+            // Only process if there are debug actions to handle
+            let has_debug_actions = !debug_actions.test_signal_configurations.is_empty();
+            
+            if has_debug_actions {
+                trace_log!("[DEBUG] Processing {} debug actions", 
+                    debug_actions.test_signal_configurations.len()
+                );
                 
-                // Only process if there are debug actions to handle
-                let has_debug_actions = !debug_actions.test_signal_configurations.is_empty();
-                
-                if has_debug_actions {
-                    trace_log!("[DEBUG] Processing {} debug actions", 
-                        debug_actions.test_signal_configurations.len()
-                    );
-                    
-                    // Execute debug actions synchronously
-                    match _engine.execute_debug_actions_sync(debug_actions) {
-                        Ok(executed_debug_actions) => {
-                            let total_debug = executed_debug_actions.test_signal_executions.len();
-                            if total_debug > 0 {
-                                trace_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
-                            }
-                        }
-                        Err(e) => {
-                            dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
+                // Execute debug actions synchronously
+                match _engine.execute_debug_actions_sync(debug_actions) {
+                    Ok(executed_debug_actions) => {
+                        let total_debug = executed_debug_actions.test_signal_executions.len();
+                        if total_debug > 0 {
+                            trace_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
                         }
                     }
-                }
-            } else {
-                // Log if debug action processing is skipped due to missing layers
-                if presenter.is_none() || engine.is_none() {
-                    let missing = vec![
-                        if presenter.is_none() { "presenter" } else { "" },
-                        if engine.is_none() { "engine" } else { "" },
-                    ]
-                    .into_iter()
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                    
-                    if !missing.is_empty() {
-                        trace_log!("[DEBUG] Skipping debug action processing - missing layers: {}", missing);
+                    Err(e) => {
+                        dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
                     }
                 }
             }
@@ -459,7 +429,9 @@ pub async fn start_render_loop(
                     
                     dev_console.render(gui_context);
                     if let Some(ref mut panel) = debug_panel {
-                        panel.render(gui_context, &model_data);
+                        if let Some(ref data) = model_data {
+                            panel.render(gui_context, data);
+                        }
                     }
                 }
             }
@@ -470,7 +442,9 @@ pub async fn start_render_loop(
         // Render presentation layer (which handles its own screen clearing)
         if let Some(ref presenter) = presenter {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.render(&context, &mut screen, &model_data);
+                if let Some(ref data) = model_data {
+                    presenter_ref.render(&context, &mut screen, data);
+                }
             }
         }
         
