@@ -36,7 +36,6 @@ pub mod microphone;
 pub mod context;
 pub mod worklet;
 pub mod permission;
-pub mod commands;
 pub mod pitch_detector;
 pub mod pitch_analyzer;
 pub mod volume_detector;
@@ -202,7 +201,6 @@ pub fn is_audio_system_ready() -> bool {
 pub use microphone::MicrophoneManager;
 pub use context::{AudioSystemContext, convert_volume_data, convert_pitch_data, merge_audio_analysis, AudioDevices};
 pub use worklet::AudioWorkletState;
-pub(crate) use commands::register_audio_commands;
 pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus};
 pub use permission::AudioPermission;
@@ -211,6 +209,5 @@ pub use test_signal_node::TestSignalAudioNode;
 
 // Private re-exports for internal module use only
 use microphone::{AudioError};
-use context::{AudioContextManager, AudioContextState};
 use volume_detector::{VolumeDetector, VolumeAnalysis};
 

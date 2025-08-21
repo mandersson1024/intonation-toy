@@ -142,8 +142,6 @@ pub async fn start_render_loop(
     let mut command_registry = ConsoleCommandRegistry::new();
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
     crate::engine::platform::commands::register_platform_commands(&mut command_registry);
-    #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    crate::engine::audio::register_audio_commands(&mut command_registry);
 
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
     let mut dev_console = egui_dev_console::DevConsole::new(command_registry);
