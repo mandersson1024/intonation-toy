@@ -89,5 +89,5 @@ profiling = []
 
 [lib]
 name = "intonation_toy"
-path = "lib.rs"
+path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"] 

@@ -11,7 +11,7 @@ impl EguiTextBackend {
         let egui_ctx = egui::Context::default();
         
         let mut fonts = egui::FontDefinitions::default();
-        let roboto_data = include_bytes!("../static/fonts/Roboto-Regular.ttf");
+        let roboto_data = include_bytes!("../../static/fonts/Roboto-Regular.ttf");
         fonts.font_data.insert(
             "Roboto".to_owned(),
             egui::FontData::from_static(roboto_data)
