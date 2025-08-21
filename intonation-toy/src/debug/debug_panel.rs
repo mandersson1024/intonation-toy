@@ -281,14 +281,14 @@ impl DebugPanel {
                 
                 // RMS Level Section
                 ui.label("RMS Level");
-                if let Some(volume) = self.debug_data.get_volume_level() {
+                if let Some(ref volume) = self.debug_data.volume_level {
                     ui.label(format!("Value: {:.3}", volume.rms_amplitude));
                 } else {
                     ui.label("Value: --");
                 }
                 
                 // RMS meter visualization
-                let (rms_normalized, rms_bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
+                let (rms_normalized, rms_bar_color) = if let Some(ref volume) = self.debug_data.volume_level {
                     let rms_amplitude = volume.rms_amplitude.clamp(0.0, 1.0);
                     
                     // RMS-specific color thresholds (lower than peak)
@@ -316,14 +316,14 @@ impl DebugPanel {
                 
                 // Peak Level Section
                 ui.label("Peak Level");
-                if let Some(volume) = self.debug_data.get_volume_level() {
+                if let Some(ref volume) = self.debug_data.volume_level {
                     ui.label(format!("Value: {:.3}", volume.peak_amplitude));
                 } else {
                     ui.label("Value: --");
                 }
                 
                 // Peak meter visualization
-                let (peak_normalized, peak_bar_color) = if let Some(volume) = self.debug_data.get_volume_level() {
+                let (peak_normalized, peak_bar_color) = if let Some(ref volume) = self.debug_data.volume_level {
                     let peak_amplitude = volume.peak_amplitude.clamp(0.0, 1.0);
                     
                     // Peak-specific color thresholds
@@ -355,7 +355,7 @@ impl DebugPanel {
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(pitch) = self.debug_data.get_pitch_data() {
+                if let Some(ref pitch) = self.debug_data.pitch_data {
                     ui.label(format!("Frequency: {:.2} Hz", pitch.frequency));
                     ui.label(format!("Clarity: {:.2}", pitch.clarity));
                 } else {
@@ -371,7 +371,7 @@ impl DebugPanel {
             .default_open(true)
             .show(ui, |ui| {
                 // Always reserve space for consistent height
-                if let Some(intonation) = self.debug_data.get_intonation_data() {
+                if let Some(ref intonation) = self.debug_data.intonation_data {
                     // Display closest MIDI note
                     if let Some(closest_midi_note) = intonation.closest_midi_note {
                         let note_name = midi_note_to_display_name(closest_midi_note);
@@ -399,7 +399,7 @@ impl DebugPanel {
                     ui.horizontal(|ui| {
                         ui.label("Interval:");
                         if let (Some(interval_semitones), Some(_)) = 
-                            (self.debug_data.get_interval_semitones(), self.debug_data.get_tuning_fork_note()) {
+                            (self.debug_data.interval_semitones, self.debug_data.tuning_fork_note) {
                             let interval_name = crate::shared_types::interval_name_from_semitones(interval_semitones);
                             let (color, display_text) = if interval_semitones == 0 || interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
                                 (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
