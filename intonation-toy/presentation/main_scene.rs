@@ -133,10 +133,7 @@ impl MainScene {
     fn refresh_colors(&mut self) {
         let scheme = self.color_scheme.clone();
         self.user_pitch_line.refresh_colors(&scheme, &self.audio_analysis);
-        self.tuning_lines.update_material(rgb_to_srgba(scheme.muted));
-        
-        // Clear and recreate all tuning lines with new material
-        // They will be recreated with correct positions and thickness on next update_lines call
+        // Clear tuning lines - they will be recreated with new colors on next update
         self.tuning_lines.clear();
     }
     
@@ -283,8 +280,8 @@ impl MainScene {
             return;
         }
         
-        // Use the new thickness-aware method
-        self.tuning_lines.update_lines(viewport, line_data);
+        let scheme = get_current_color_scheme();
+        self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba(scheme.muted));
     }
     
     /// Renders tuning lines and note labels to the background texture by recreating it.

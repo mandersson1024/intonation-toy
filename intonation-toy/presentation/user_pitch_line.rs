@@ -1,10 +1,9 @@
 // External crate imports
-use three_d::{ColorMaterial, Context, Gm, Line, PhysicalPoint};
+use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, WriteMask};
 
 // Internal crate imports
 use crate::app_config::{INTONATION_ACCURACY_THRESHOLD, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN};
 use crate::presentation::audio_analysis::AudioAnalysis;
-use crate::presentation::tuning_lines::create_color_material;
 use crate::shared_types::ColorScheme;
 use crate::theme::rgb_to_srgba_with_alpha;
 
@@ -49,10 +48,16 @@ impl UserPitchLine {
     fn create_material(&self, color_scheme: &ColorScheme, audio_analysis: &AudioAnalysis) -> ColorMaterial {
         let color = get_user_pitch_line_color(color_scheme, audio_analysis.volume_peak, audio_analysis.cents_offset);
         let has_transparency = self.alpha < 1.0;
-        create_color_material(
-            rgb_to_srgba_with_alpha(color, self.alpha),
-            has_transparency
-        )
+        ColorMaterial {
+            color: rgb_to_srgba_with_alpha(color, self.alpha),
+            texture: None,
+            is_transparent: has_transparency,
+            render_states: RenderStates {
+                write_mask: WriteMask::COLOR,
+                blend: Blend::TRANSPARENCY,
+                ..Default::default()
+            },
+        }
     }
     
     /// Updates the pitch line position and properties
