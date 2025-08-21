@@ -1,6 +1,3 @@
-// Console Command API
-// Contains the ConsoleCommand trait and related types
-
 use crate::output::ConsoleOutput;
 
 #[derive(Debug)]
