@@ -1,179 +1,99 @@
-# Egui Text Rendering Architecture
+# Egui Text Rendering System
 
 ## Overview
 
-The intonation-toy application uses egui for text rendering to display note labels on tuning lines. This document describes the architecture and implementation details of the text rendering system.
+The text rendering system uses egui's font rendering capabilities to display note labels in the three-d graphics context.
 
 ## Architecture
 
-### EguiCompositeBackend
+### EguiTextBackend
 
-The text rendering is implemented through the `EguiCompositeBackend` struct, which provides a two-stage rendering process:
-
-1. **Stage 1**: Render text using egui's off-screen rendering
-2. **Stage 2**: Convert egui meshes to three-d renderables for integration with the main scene
-
-### Key Components
+The text rendering is implemented through the `EguiTextBackend` struct, which provides direct text rendering:
 
 ```rust
-pub struct EguiCompositeBackend {
-    egui_ctx: egui::Context,           // Off-screen egui context
-    queued_texts: Vec<QueuedText>,     // Text rendering queue
-    texture_atlas: HashMap<egui::TextureId, Texture2DRef>, // Font texture cache
-    pixels_per_point: f32,             // Display scaling factor
-    glyph_cache_preloaded: bool,       // Pre-loading completion flag
+pub struct EguiTextBackend {
+    egui_ctx: egui::Context,
+    font_texture: Option<Texture2DRef>,
 }
 ```
 
-## Text Rendering Pipeline
+#### Key Features:
+- Direct text rendering without queuing
+- Single font texture management
+- Roboto font support
+- Transparent blending for overlays
 
-### 1. Text Queuing
+## Implementation Details
 
-Text is queued for rendering using the `queue_text()` method:
+### Font Setup
+- Loads Roboto-Regular.ttf from static resources
+- Configures both Proportional and Monospace font families
+- Manages font texture updates automatically
 
-```rust
-backend.queue_text("Db4", x, y, size, color);
-```
+### Rendering Pipeline
+1. Begin egui pass with viewport dimensions
+2. Create text shapes for each text item
+3. Tessellate shapes into mesh primitives
+4. Update font texture if needed
+5. Convert egui meshes to three-d render objects
+6. Return render objects for compositing
 
-### 2. Glyph Cache Pre-loading
+### Coordinate System
+- Egui uses top-left origin
+- Three-d uses bottom-left origin
+- Y-coordinate flipping is handled during conversion
 
-To prevent partial texture atlas updates that would break rendering, all possible note characters are pre-loaded on first use:
-
-```rust
-let chars_to_preload = "CDEFGABb0123456789#";
-```
-
-This ensures the font atlas contains all characters needed for note names like "Db4", "C#5", etc.
-
-### 3. Egui Rendering
-
-The queued texts are rendered using egui's text system:
-
-```rust
-// Create text shapes
-let galley = egui_ctx.fonts(|f| {
-    f.layout_no_wrap(text, font_id, color)
-});
-
-let shape = egui::Shape::Text(egui::epaint::TextShape {
-    pos, galley, color, ...
-});
-```
-
-### 4. Tessellation
-
-Egui converts the text shapes into renderable meshes:
+## Usage
 
 ```rust
-let clipped_primitives = egui_ctx.tessellate(clipped_shapes, pixels_per_point);
-```
+// Create text backend
+let mut text_backend = EguiTextBackend::new()?;
 
-### 5. Texture Atlas Management
+// Prepare text data (text, x, y, size, color)
+let texts = vec![
+    ("C4".to_string(), 10.0, 100.0, 14.0, [1.0, 1.0, 1.0, 1.0]),
+    ("D4".to_string(), 10.0, 120.0, 14.0, [1.0, 1.0, 1.0, 1.0]),
+];
 
-The font texture atlas is managed with special handling for partial updates:
+// Render texts and get render objects
+let render_objects = text_backend.render_texts(&context, viewport, &texts);
 
-```rust
-fn update_texture_atlas(&mut self, textures_delta: egui::TexturesDelta) {
-    for (id, image_delta) in textures_delta.set {
-        if image_delta.pos.is_some() {
-            // Skip partial updates to prevent texture corruption
-            continue;
-        }
-        // Process full texture updates only
-        let texture = self.create_texture_from_image(context, &image_delta.image);
-        self.texture_atlas.insert(id, texture);
-    }
+// Render objects can be drawn to screen
+for obj in &render_objects {
+    screen.render(&camera, [obj.as_ref()], &[]);
 }
 ```
 
-### 6. Mesh Conversion
+## Integration with MainScene
 
-Egui meshes are converted to three-d format for rendering:
+The MainScene uses EguiTextBackend to render note labels:
 
-```rust
-fn convert_egui_mesh_to_three_d(
-    mesh: &egui::epaint::Mesh,
-    texture: Texture2DRef,
-    viewport: Viewport,
-) -> Option<Box<dyn Object>> {
-    // Convert vertices, UVs, colors, and indices
-    // Create GPU mesh and material
-    // Return renderable object
-}
-```
-
-## Critical Design Decisions
-
-### Partial Update Handling
-
-**Problem**: Egui's font atlas uses partial updates when new glyphs are needed. These partial updates only contain the new glyph data (e.g., 13x21 pixels), but replacing the entire texture atlas (2048x64) with this small data loses all existing glyphs.
-
-**Solution**: 
-1. **Pre-load all glyphs**: Load all possible note characters during initialization
-2. **Skip partial updates**: Ignore texture updates with `pos: Some(...)` to preserve the complete font atlas
-3. **Process full updates only**: Only accept complete texture replacements with `pos: None`
-
-### Font Size Matching
-
-**Problem**: Pre-loading must use the exact same font size as actual rendering, or glyphs won't be found in the atlas.
-
-**Solution**: Pre-load at size 26.0 to match the note label rendering size exactly.
-
-### Coordinate System Conversion
-
-**Problem**: Egui uses top-left origin, three-d uses bottom-left origin.
-
-**Solution**: Convert coordinates during mesh creation:
-```rust
-let converted_y = (viewport.height as f32 / pixels_per_point - egui_y) * pixels_per_point;
-```
-
-## Integration Points
-
-### TuningLines Integration
-
-The text rendering backend integrates with the tuning lines system:
-
-```rust
-// In TuningLines::render_note_labels()
-for note in visible_notes {
-    let note_name = midi_note_to_name(note);
-    text_backend.queue_text(&note_name, x, y, size, color);
-}
-
-let text_objects = text_backend.create_text_models(context, viewport);
-```
-
-### Background Texture Rendering
-
-Text objects are rendered directly into the background texture alongside tuning lines, ensuring proper compositing and performance.
+1. TuningLines provides note label data via `get_note_labels()`
+2. MainScene calls `text_backend.render_texts()` with the label data
+3. The returned render objects are rendered to the background texture
+4. The background texture is composited to the main screen
 
 ## Performance Considerations
 
-1. **Glyph Pre-loading**: One-time cost during initialization
-2. **Texture Atlas Caching**: Font textures are reused across frames
-3. **Mesh Reuse**: GPU meshes are created per frame but use efficient vertex buffers
-4. **Minimal Character Set**: Only 18 unique characters pre-loaded
+- Font texture is created once and reused
+- All possible note characters are pre-loaded to avoid texture update issues
+- Pre-loading happens once on first render
+- Minimal memory overhead with single texture
 
-## Debugging Features
+### Why Pre-loading is Necessary
 
-Debug logging is available with the `ATLAS_DEBUG` and `TEXT_DEBUG` prefixes:
+Egui's font atlas uses partial texture updates when new glyphs are needed. However, partial updates only contain the new glyph data (e.g., 13x21 pixels). Since we only accept full texture replacements (to avoid corrupting the existing atlas), any characters not pre-loaded will appear as blank spaces. Pre-loading ensures all needed glyphs are in the initial texture.
 
-- `ATLAS_DEBUG`: Texture atlas operations
-- `TEXT_DEBUG`: Mesh conversion and rendering
+## Technical Notes
 
-## Future Improvements
-
-1. **Dynamic Font Sizing**: Support multiple font sizes efficiently
-2. **Text Caching**: Cache rendered text shapes across frames
-3. **Better Error Handling**: Graceful degradation when font loading fails
-4. **Font Customization**: Support for different fonts beyond Roboto
+- Text rendering uses transparency blending for proper overlay
+- Material uses `Blend::TRANSPARENCY` and `WriteMask::COLOR`
+- Font texture uses RGBA format with white RGB and alpha channel
+- Color is applied through vertex colors in the mesh
 
 ## Code Organization
 
-- `intonation-toy/presentation/main_scene.rs`: Main implementation
-- Text rendering is self-contained within the `EguiCompositeBackend` struct
-- Integration points are minimal and well-defined
+- `intonation-toy/presentation/egui_text_backend.rs`: Main text backend implementation
+- `intonation-toy/presentation/tuning_lines.rs`: Provides note label data
+- `intonation-toy/presentation/main_scene.rs`: Integrates text rendering
 - No global state or complex dependencies
-
-This architecture provides reliable, efficient text rendering while avoiding the pitfalls of egui's partial texture atlas updates.

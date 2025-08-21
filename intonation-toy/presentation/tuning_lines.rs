@@ -126,28 +126,21 @@ impl TuningLines {
         self.thicknesses.clear();
     }
     
-    /// Render note labels above each tuning line
-    pub fn render_note_labels(&self, text_backend: &mut crate::presentation::EguiCompositeBackend) {
-        crate::common::dev_log!("TEXT_DEBUG: Rendering {} note labels", self.midi_notes.len());
-        for (i, &midi_note) in self.midi_notes.iter().enumerate() {
-            let y_position = self.y_positions[i];
-            
-            // Convert MIDI note to name
-            let note_name = crate::shared_types::midi_note_to_name(midi_note);
-            
-            // Position text aligned with the line (same Y position)
-            let text_y = y_position + NOTE_LABEL_Y_OFFSET;
-            let text_x = NOTE_LABEL_X_OFFSET;
-            
-            // Determine color based on whether this is the closest note
-            let scheme = get_current_color_scheme();
-            let text_color = scheme.muted;
-
-            crate::common::dev_log!("TEXT_DEBUG: Queuing text '{}' at ({}, {}) with size {}", note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE);
-            if note_name.contains('b') {
-                crate::common::dev_log!("TEXT_DEBUG: Note '{}' contains 'b' character", note_name);
-            }
-            text_backend.queue_text(&note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0]);
-        }
+    /// Get note labels data for rendering
+    pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
+        let scheme = get_current_color_scheme();
+        let text_color = scheme.muted;
+        
+        self.midi_notes.iter()
+            .enumerate()
+            .map(|(i, &midi_note)| {
+                let note_name = crate::shared_types::midi_note_to_name(midi_note);
+                let y_position = self.y_positions[i];
+                let text_y = y_position + NOTE_LABEL_Y_OFFSET;
+                let text_x = NOTE_LABEL_X_OFFSET;
+                
+                (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
+            })
+            .collect()
     }
 }

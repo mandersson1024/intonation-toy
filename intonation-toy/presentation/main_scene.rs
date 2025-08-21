@@ -1,12 +1,12 @@
 /*!
  * Text Rendering for MainScene
  * 
- * This module implements egui-based text rendering using a composite approach:
+ * This module implements egui-based text rendering:
  * 
- * **EguiCompositeBackend** - Uses egui for composite text rendering with two-stage approach
+ * **EguiTextBackend** - Simple text rendering using egui fonts
  * 
  * The backend leverages egui's font rendering capabilities and provides
- * high-quality text rendering, proper Unicode support, and integrated glyph atlas management.
+ * high-quality text rendering, proper Unicode support, and glyph atlas management.
  */
 
 // Standard library imports
@@ -20,7 +20,7 @@ use three_d::renderer::geometry::Rectangle;
 // Internal crate imports
 use crate::app_config::{CLARITY_THRESHOLD, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
-use crate::presentation::egui_composite_backend::EguiCompositeBackend;
+use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::shared_types::{ColorScheme, MidiNote};
@@ -97,7 +97,7 @@ pub struct MainScene {
     user_pitch_line: UserPitchLine,
     audio_analysis: AudioAnalysis,
     tuning_lines: TuningLines,
-    text_backend: EguiCompositeBackend,
+    text_backend: EguiTextBackend,
     context: Context,
     color_scheme: ColorScheme,
     // Background texture system: pre-rendered texture with background
@@ -111,7 +111,7 @@ impl MainScene {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
-        let text_backend = EguiCompositeBackend::new()?;
+        let text_backend = EguiTextBackend::new()?;
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
@@ -329,10 +329,8 @@ impl MainScene {
                 .map(|line| line as &dyn Object)
                 .collect();            
 
-            self.text_backend.clear_queue();
-            self.tuning_lines.render_note_labels(&mut self.text_backend);
-            let text_models = self.text_backend.create_text_models(&self.context, viewport);
-            crate::common::dev_log!("TEXT_DEBUG: Got {} text models from backend", text_models.len());
+            let note_labels = self.tuning_lines.get_note_labels();
+            let text_models = self.text_backend.render_texts(&self.context, viewport, &note_labels);
             let text_objects: Vec<&dyn Object> = 
                 text_models
                 .iter()
