@@ -36,7 +36,6 @@ pub mod microphone;
 pub mod context;
 pub mod worklet;
 pub mod permission;
-pub mod buffer;
 pub mod commands;
 pub mod pitch_detector;
 pub mod pitch_analyzer;

@@ -1,5 +1,5 @@
 use crate::engine::audio::AudioWorkletState;
-use crate::engine::audio::buffer::{AUDIO_CHUNK_SIZE, BUFFER_SIZE};
+use crate::app_config::{AUDIO_CHUNK_SIZE, BUFFER_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PerformanceMetrics {

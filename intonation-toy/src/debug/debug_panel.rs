@@ -1,5 +1,6 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
-use crate::engine::audio::{AudioWorkletState, buffer::AUDIO_CHUNK_SIZE};
+use crate::engine::audio::AudioWorkletState;
+use crate::app_config::AUDIO_CHUNK_SIZE;
 use crate::debug::debug_data::DebugData;
 use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use std::rc::Rc;

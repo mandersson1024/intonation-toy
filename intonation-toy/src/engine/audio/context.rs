@@ -53,7 +53,7 @@ use wasm_bindgen::closure::Closure;
 use std::fmt;
 use crate::common::dev_log;
 use super::AudioError;
-use super::buffer::STANDARD_SAMPLE_RATE;
+use crate::app_config::STANDARD_SAMPLE_RATE;
 
 /// AudioContext configuration states
 #[derive(Debug, Clone, PartialEq)]

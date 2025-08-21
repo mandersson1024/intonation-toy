@@ -192,7 +192,7 @@ pub struct BatchConfig {
 impl Default for BatchConfig {
     fn default() -> Self {
         Self {
-            batch_size: crate::engine::audio::buffer::BUFFER_SIZE,
+            batch_size: crate::app_config::BUFFER_SIZE,
             max_queue_size: 8,
             timeout_ms: 100,
             enable_compression: false,

@@ -1,5 +1,5 @@
 
-use super::buffer::STANDARD_SAMPLE_RATE;
+use crate::app_config::STANDARD_SAMPLE_RATE;
 
 /// Configuration for test signal generation
 #[derive(Debug, Clone, PartialEq)]

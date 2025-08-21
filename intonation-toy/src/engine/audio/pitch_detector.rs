@@ -1,7 +1,7 @@
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
 use crate::app_config::{CLARITY_THRESHOLD, POWER_THRESHOLD};
 
-use super::buffer::BUFFER_SIZE;
+use crate::app_config::BUFFER_SIZE;
 
 pub type PitchDetectionError = String;
 

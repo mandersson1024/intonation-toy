@@ -1,4 +1,4 @@
-use super::buffer::STANDARD_SAMPLE_RATE;
+use crate::app_config::STANDARD_SAMPLE_RATE;
 
 /// Volume analysis result from processing an audio buffer
 #[derive(Debug, Clone)]

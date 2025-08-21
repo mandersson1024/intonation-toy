@@ -61,7 +61,7 @@ pub(crate) mod platform;
 
 use crate::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
-use audio::buffer::STANDARD_SAMPLE_RATE;
+use crate::app_config::STANDARD_SAMPLE_RATE;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]

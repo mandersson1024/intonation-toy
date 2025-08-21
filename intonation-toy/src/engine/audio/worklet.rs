@@ -62,7 +62,7 @@ use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
-use super::buffer::AUDIO_CHUNK_SIZE;
+use crate::app_config::AUDIO_CHUNK_SIZE;
 
 /// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
@@ -123,7 +123,7 @@ impl AudioWorkletSharedData {
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
-            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
+            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
         }
     }
 }
@@ -200,7 +200,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
+            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
             tuning_fork_node: None,
             test_signal_node: None,
             mixer_gain: None,
@@ -243,7 +243,7 @@ impl AudioWorkletManager {
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: crate::engine::audio::buffer::BUFFER_SIZE as u32, // Default batch size
+            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
             tuning_fork_node: None,
             test_signal_node: None,
             mixer_gain: None,

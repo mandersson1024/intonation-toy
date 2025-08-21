@@ -28,6 +28,11 @@ pub const CANVAS_MAX_SIZE: i32 = 4096;
 /// Window configuration
 pub const WINDOW_TITLE: &str = "intonation-toy";
 
+/// Audio processing configuration
+pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed chunk size
+pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 16;   // 4096 - IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
+pub const STANDARD_SAMPLE_RATE: u32 = 44100;            // Standard consumer audio sample rate (44.1 kHz)
+
 /// Pitch detection configuration
 pub const CLARITY_THRESHOLD: f32 = 0.3;
 pub const POWER_THRESHOLD: f32 = 1.0;
