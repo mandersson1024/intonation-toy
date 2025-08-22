@@ -90,7 +90,7 @@ impl Platform {
         let document = window.document();
         
         // Check getUserMedia (safe, no popup)
-        let is_supported = super::audio::permission::PermissionManager::is_supported();
+        let is_supported = super::audio::permission::is_user_media_supported();
         results.push(ApiStatus {
             api: CriticalApi::GetUserMedia,
             supported: is_supported,
