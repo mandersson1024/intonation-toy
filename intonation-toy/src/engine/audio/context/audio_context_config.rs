@@ -1,4 +1,4 @@
-use crate::app_config::STANDARD_SAMPLE_RATE;
+use crate::app_config::{BUFFER_SIZE, STANDARD_SAMPLE_RATE};
 
 #[derive(Debug, Clone)]
 pub struct AudioContextConfig {
@@ -11,15 +11,8 @@ impl Default for AudioContextConfig {
     fn default() -> Self {
         Self {
             sample_rate: STANDARD_SAMPLE_RATE,
-            buffer_size: 1024,    // Production buffer size
+            buffer_size: BUFFER_SIZE as u32,
             max_recreation_attempts: 3,
         }
-    }
-}
-
-impl AudioContextConfig {
-    pub fn with_buffer_size(mut self, buffer_size: u32) -> Self {
-        self.buffer_size = buffer_size;
-        self
     }
 }
