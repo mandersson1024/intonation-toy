@@ -1,17 +1,4 @@
-// Structured message protocol for AudioWorklet communication
-// Provides type-safe message construction and parsing for cross-thread communication
-//
-// Features:
-// - ReturnBuffer messages for ping-pong buffer recycling
-// - Structured message envelopes with IDs and timestamps
-// - Serialization/deserialization to/from JavaScript objects
-// - Message validation and error handling
-//
-// Usage:
-//   let factory = AudioWorkletMessageFactory::new();
-//   let return_msg = factory.return_buffer(buffer_id)?;
-//   let serializer = MessageSerializer::new();
-//   let js_message = serializer.serialize_envelope(&return_msg)?;
+// Type-safe message protocol for AudioWorklet communication
 
 use crate::engine::audio::signal_generator::SignalGeneratorConfig;
 use crate::common::utils;
@@ -21,171 +8,65 @@ use wasm_bindgen::{JsValue, JsCast};
 /// Message types sent from main thread to AudioWorklet
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToWorkletMessage {
-    /// Start audio processing
     StartProcessing,
-    
-    /// Stop audio processing
     StopProcessing,
-    
-    /// Update batch processing configuration
-    UpdateBatchConfig {
-        config: BatchConfig,
-    },
-    
-    /// Return buffer to worklet for recycling
-    ReturnBuffer {
-        buffer_id: u32,
-    },
+    UpdateBatchConfig { config: BatchConfig },
+    ReturnBuffer { buffer_id: u32 },
     
 }
 
 /// Message types sent from AudioWorklet to main thread
 #[derive(Debug, Clone, PartialEq)]
 pub enum FromWorkletMessage {
-    /// AudioWorklet processor is ready
-    ProcessorReady {
-        batch_size: Option<usize>,
-    },
-    
-    /// Processing has started
+    ProcessorReady { batch_size: Option<usize> },
     ProcessingStarted,
-    
-    /// Processing has stopped
     ProcessingStopped,
-    
-    /// Audio data batch with transferable buffer
-    AudioDataBatch {
-        data: AudioDataBatch,
-    },
-    
-    /// Processing error occurred
-    ProcessingError {
-        error: WorkletError,
-    },
-    
-    /// Batch configuration updated
-    BatchConfigUpdated {
-        config: BatchConfig,
-    },
+    AudioDataBatch { data: AudioDataBatch },
+    ProcessingError { error: WorkletError },
+    BatchConfigUpdated { config: BatchConfig },
     
 }
 
-/// Audio data batch structure for transferable buffer communication
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioDataBatch {
-    /// Sample rate of the audio data
     pub sample_rate: u32,
-    
-    /// Number of samples in the batch
     pub sample_count: usize,
-    
-    /// Buffer length in bytes
     pub buffer_length: usize,
-    
-    /// Timestamp when batch was created
     pub timestamp: f64,
-    
-    /// Optional batch sequence number
     pub sequence_number: Option<u32>,
-    
-    /// Buffer ID for ping-pong pattern
     pub buffer_id: Option<u32>,
-    
-    /// Buffer pool statistics bundled with the audio data
     pub buffer_pool_stats: Option<BufferPoolStats>,
 }
 
-/// Processor status information
-#[derive(Debug, Clone, PartialEq)]
-pub struct ProcessorStatus {
-    /// Whether processor is currently active
-    pub active: bool,
-    
-    /// Current sample rate
-    pub sample_rate: u32,
-    
-    /// Current buffer size
-    pub buffer_size: usize,
-    
-    /// Number of processed batches
-    pub processed_batches: u32,
-    
-    /// Average processing time in milliseconds
-    pub avg_processing_time_ms: f64,
-    
-    /// Memory usage information
-    pub memory_usage: Option<MemoryUsage>,
-    
-    /// Buffer pool statistics
-    pub buffer_pool_stats: Option<BufferPoolStats>,
-}
 
-/// Memory usage information
 #[derive(Debug, Clone, PartialEq)]
 pub struct MemoryUsage {
-    /// Heap size in bytes
     pub heap_size: usize,
-    
-    /// Used heap in bytes
     pub used_heap: usize,
-    
-    /// Number of active buffers
     pub active_buffers: usize,
 }
 
-/// Buffer pool statistics
 #[derive(Debug, Clone, PartialEq)]
 pub struct BufferPoolStats {
-    /// Total number of buffers in the pool
     pub pool_size: u32,
-    
-    /// Number of available buffers
     pub available_buffers: u32,
-    
-    /// Number of buffers currently in use
     pub in_use_buffers: u32,
-    
-    /// Total number of buffers
     pub total_buffers: u32,
-    
-    /// Number of acquire attempts
     pub acquire_count: u32,
-    
-    /// Number of successful transfers
     pub transfer_count: u32,
-    
-    /// Number of times pool was exhausted
     pub pool_exhausted_count: u32,
-    
-    /// Consecutive pool failures
     pub consecutive_pool_failures: u32,
-    
-    /// Pool hit rate percentage
     pub pool_hit_rate: f32,
-    
-    /// Pool efficiency percentage
     pub pool_efficiency: f32,
-    
-    /// Buffer utilization percentage
     pub buffer_utilization_percent: f32,
-    
-    /// Total megabytes transferred
     pub total_megabytes_transferred: f32,
 }
 
-/// Batch processing configuration
 #[derive(Debug, Clone, PartialEq)]
 pub struct BatchConfig {
-    /// Size of each batch in samples
     pub batch_size: usize,
-    
-    /// Maximum number of batches to queue
     pub max_queue_size: usize,
-    
-    /// Timeout for batch processing in milliseconds
     pub timeout_ms: u32,
-    
-    /// Enable batch compression
     pub enable_compression: bool,
 }
 
@@ -200,41 +81,21 @@ impl Default for BatchConfig {
     }
 }
 
-/// Structured error information for worklet errors
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkletError {
-    /// Error code for categorization
     pub code: WorkletErrorCode,
-    
-    /// Human-readable error message
     pub message: String,
-    
-    /// Additional context information
     pub context: Option<ErrorContext>,
-    
-    /// Timestamp when error occurred
     pub timestamp: f64,
 }
 
-/// Error codes for worklet errors
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkletErrorCode {
-    /// Initialization failed
     InitializationFailed,
-    
-    /// Processing failed
     ProcessingFailed,
-    
-    /// Buffer overflow
     BufferOverflow,
-    
-    /// Invalid configuration
     InvalidConfiguration,
-    
-    /// Memory allocation failed
     MemoryAllocationFailed,
-    
-    /// Generic error
     Generic,
 }
 
@@ -259,110 +120,56 @@ impl std::fmt::Display for WorkletErrorCode {
 
 impl std::error::Error for WorkletError {}
 
-/// Enhanced error context for detailed debugging information
 #[derive(Debug, Clone, PartialEq)]
 pub struct ErrorContext {
-    /// Function or module where error occurred
     pub location: String,
-    
-    /// Stack trace information (when available)
     pub stack_trace: Option<Vec<String>>,
-    
-    /// Message context information
     pub message_context: Option<MessageContext>,
-    
-    /// System state at time of error
     pub system_state: Option<SystemState>,
-    
-    /// Additional debug information
     pub debug_info: Option<String>,
-    
-    /// Error timestamp (high precision)
     pub timestamp: f64,
-    
-    /// Thread or context identifier
     pub thread_id: Option<String>,
 }
 
-/// Message context information for error reporting
 #[derive(Debug, Clone, PartialEq)]
 pub struct MessageContext {
-    /// Message type or identifier
     pub message_type: String,
-    
-    /// Message direction (ToWorklet, FromWorklet)
     pub direction: MessageDirection,
-    
-    /// Message ID if available
     pub message_id: Option<u32>,
-    
-    /// Message timestamp
     pub message_timestamp: Option<f64>,
-    
-    /// Message size in bytes
     pub message_size: Option<usize>,
 }
 
-/// Message direction for context
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageDirection {
-    /// Message sent to worklet
     ToWorklet,
-    /// Message sent from worklet
     FromWorklet,
-    /// Internal message processing
     Internal,
 }
 
-/// System state information for error context
 #[derive(Debug, Clone, PartialEq)]
 pub struct SystemState {
-    /// Current memory usage in bytes
     pub memory_usage: Option<usize>,
-    
-    /// Message queue depth
     pub queue_depth: Option<usize>,
-    
-    /// Active buffer count
     pub active_buffers: Option<usize>,
-    
-    /// Audio processing status
     pub audio_processing_active: Option<bool>,
-    
-    /// Sample rate
     pub sample_rate: Option<f64>,
-    
-    /// Buffer size
     pub buffer_size: Option<usize>,
-    
-    /// Processor load percentage (0-100)
     pub processor_load: Option<f32>,
-    
-    /// Available heap memory
     pub available_heap: Option<usize>,
 }
 
-/// Message envelope with correlation and timing information
 #[derive(Debug, Clone, PartialEq)]
 pub struct MessageEnvelope<T> {
-    /// Unique message identifier for correlation
     pub message_id: u32,
-    
-    /// Timestamp when message was created
     pub timestamp: f64,
-    
-    /// The actual message payload
     pub payload: T,
 }
 
-/// Unified message type for main thread to worklet communication
 pub type ToWorkletEnvelope = MessageEnvelope<ToWorkletMessage>;
-
-/// Unified message type for worklet to main thread communication
 pub type FromWorkletEnvelope = MessageEnvelope<FromWorkletMessage>;
 
 impl<T> MessageEnvelope<T> {
-    /// Create a new message envelope with the given payload
     pub fn new(payload: T) -> Self {
         Self {
             message_id: generate_unique_message_id(),
@@ -371,45 +178,23 @@ impl<T> MessageEnvelope<T> {
         }
     }
     
-    /// Create a new message envelope with a specific message ID
-    pub fn with_id(payload: T, message_id: u32) -> Self {
-        Self {
-            message_id,
-            timestamp: get_current_timestamp(),
-            payload,
-        }
-    }
 }
 
-/// Get current timestamp in milliseconds
 fn get_current_timestamp() -> f64 {
-    // Use performance.now() for high-resolution timing
     js_sys::Date::now()
 }
 
-// ================================
-// Serialization/Deserialization System
-// ================================
-
-/// Result type for serialization operations
 pub type SerializationResult<T> = Result<T, SerializationError>;
 
 /// Serialization error types
 #[derive(Debug, Clone, PartialEq)]
 pub enum SerializationError {
-    /// Failed to create JavaScript object
     ObjectCreationFailed(String),
-    /// Failed to set property on JavaScript object
     PropertySetFailed(String),
-    /// Failed to get property from JavaScript object
     PropertyGetFailed(String),
-    /// Invalid property type
     InvalidPropertyType(String),
-    /// Missing required property
     MissingProperty(String),
-    /// Validation failed
     ValidationFailed(String),
-    /// Buffer transfer failed
     BufferTransferFailed(String),
 }
 
@@ -429,186 +214,21 @@ impl std::fmt::Display for SerializationError {
 
 impl std::error::Error for SerializationError {}
 
-/// Protocol-specific error types for message handling
-#[derive(Debug, Clone, PartialEq)]
-pub enum MessageProtocolError {
-    /// Serialization error
-    Serialization(SerializationError),
-    /// Message validation error
-    Validation(ValidationError),
-    /// Buffer transfer error
-    Transfer(TransferError),
-    /// Message construction error
-    Construction(MessageConstructionError),
-    /// Worklet processing error
-    Worklet(WorkletError),
-}
 
-impl std::fmt::Display for MessageProtocolError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MessageProtocolError::Serialization(err) => write!(f, "Serialization error: {}", err),
-            MessageProtocolError::Validation(err) => write!(f, "Validation error: {}", err),
-            MessageProtocolError::Transfer(err) => write!(f, "Transfer error: {}", err),
-            MessageProtocolError::Construction(err) => write!(f, "Construction error: {}", err),
-            MessageProtocolError::Worklet(err) => write!(f, "Worklet error: {}", err),
-        }
-    }
-}
 
-impl std::error::Error for MessageProtocolError {}
 
-impl From<SerializationError> for MessageProtocolError {
-    fn from(err: SerializationError) -> Self {
-        MessageProtocolError::Serialization(err)
-    }
-}
 
-impl From<ValidationError> for MessageProtocolError {
-    fn from(err: ValidationError) -> Self {
-        MessageProtocolError::Validation(err)
-    }
-}
-
-impl From<TransferError> for MessageProtocolError {
-    fn from(err: TransferError) -> Self {
-        MessageProtocolError::Transfer(err)
-    }
-}
-
-impl From<MessageConstructionError> for MessageProtocolError {
-    fn from(err: MessageConstructionError) -> Self {
-        MessageProtocolError::Construction(err)
-    }
-}
-
-impl From<WorkletError> for MessageProtocolError {
-    fn from(err: WorkletError) -> Self {
-        MessageProtocolError::Worklet(err)
-    }
-}
-
-/// Validation error types for message validation
-#[derive(Debug, Clone, PartialEq)]
-pub enum ValidationError {
-    /// Field validation failed
-    FieldValidation { field: String, reason: String },
-    /// Value out of range
-    ValueOutOfRange { field: String, value: String, min: Option<String>, max: Option<String> },
-    /// Invalid message type
-    InvalidMessageType(String),
-    /// Missing required field
-    MissingRequiredField(String),
-    /// Conflicting configuration
-    ConflictingConfiguration(String),
-    /// Unsupported message version
-    UnsupportedVersion { expected: String, received: String },
-}
-
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ValidationError::FieldValidation { field, reason } => 
-                write!(f, "Field '{}' validation failed: {}", field, reason),
-            ValidationError::ValueOutOfRange { field, value, min, max } => {
-                let range = match (min, max) {
-                    (Some(min), Some(max)) => format!(" (expected {} to {})", min, max),
-                    (Some(min), None) => format!(" (expected >= {})", min),
-                    (None, Some(max)) => format!(" (expected <= {})", max),
-                    (None, None) => String::new(),
-                };
-                write!(f, "Field '{}' value '{}' out of range{}", field, value, range)
-            },
-            ValidationError::InvalidMessageType(msg_type) => 
-                write!(f, "Invalid message type: {}", msg_type),
-            ValidationError::MissingRequiredField(field) => 
-                write!(f, "Missing required field: {}", field),
-            ValidationError::ConflictingConfiguration(msg) => 
-                write!(f, "Conflicting configuration: {}", msg),
-            ValidationError::UnsupportedVersion { expected, received } => 
-                write!(f, "Unsupported message version: expected {}, received {}", expected, received),
-        }
-    }
-}
-
-impl std::error::Error for ValidationError {}
-
-/// Transfer error types for buffer transfer operations
-#[derive(Debug, Clone, PartialEq)]
-pub enum TransferError {
-    /// Buffer allocation failed
-    BufferAllocation { size: usize, reason: String },
-    /// Buffer transfer failed
-    BufferTransfer { buffer_id: Option<String>, reason: String },
-    /// Buffer validation failed
-    BufferValidation { buffer_id: Option<String>, reason: String },
-    /// Buffer size mismatch
-    BufferSizeMismatch { expected: usize, actual: usize },
-    /// Transferable object creation failed
-    TransferableCreation(String),
-    /// Buffer pool exhausted
-    BufferPoolExhausted { requested_size: usize, available_memory: Option<usize> },
-    /// Buffer ownership violation
-    BufferOwnershipViolation { buffer_id: String, current_owner: String },
-}
-
-impl std::fmt::Display for TransferError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TransferError::BufferAllocation { size, reason } => 
-                write!(f, "Buffer allocation failed for {} bytes: {}", size, reason),
-            TransferError::BufferTransfer { buffer_id, reason } => {
-                let id_str = buffer_id.as_deref().unwrap_or("unknown");
-                write!(f, "Buffer transfer failed for buffer '{}': {}", id_str, reason)
-            },
-            TransferError::BufferValidation { buffer_id, reason } => {
-                let id_str = buffer_id.as_deref().unwrap_or("unknown");
-                write!(f, "Buffer validation failed for buffer '{}': {}", id_str, reason)
-            },
-            TransferError::BufferSizeMismatch { expected, actual } => 
-                write!(f, "Buffer size mismatch: expected {} bytes, got {} bytes", expected, actual),
-            TransferError::TransferableCreation(reason) => 
-                write!(f, "Transferable object creation failed: {}", reason),
-            TransferError::BufferPoolExhausted { requested_size, available_memory } => {
-                match available_memory {
-                    Some(available) => write!(f, "Buffer pool exhausted: requested {} bytes, {} bytes available", requested_size, available),
-                    None => write!(f, "Buffer pool exhausted: requested {} bytes", requested_size),
-                }
-            },
-            TransferError::BufferOwnershipViolation { buffer_id, current_owner } => 
-                write!(f, "Buffer ownership violation: buffer '{}' is owned by '{}'", buffer_id, current_owner),
-        }
-    }
-}
-
-impl std::error::Error for TransferError {}
-
-/// Result type for message protocol operations
-pub type MessageProtocolResult<T> = Result<T, MessageProtocolError>;
-
-/// Result type for validation operations
-pub type ValidationResult<T> = Result<T, ValidationError>;
-
-/// Result type for transfer operations
-pub type TransferResult<T> = Result<T, TransferError>;
-
-/// Trait for converting Rust types to JavaScript objects
 pub trait ToJsMessage {
-    /// Convert to JavaScript object
     fn to_js_object(&self) -> SerializationResult<Object>;
     
-    /// Convert to JavaScript value
     fn to_js_value(&self) -> SerializationResult<JsValue> {
         self.to_js_object().map(|obj| obj.into())
     }
 }
 
-/// Trait for converting JavaScript objects to Rust types
 pub trait FromJsMessage: Sized {
-    /// Convert from JavaScript object
     fn from_js_object(obj: &Object) -> SerializationResult<Self>;
     
-    /// Convert from JavaScript value
     fn from_js_value(value: &JsValue) -> SerializationResult<Self> {
         let obj = value.dyn_ref::<Object>()
             .ok_or_else(|| SerializationError::InvalidPropertyType("Expected object".to_string()))?;
@@ -616,49 +236,35 @@ pub trait FromJsMessage: Sized {
     }
 }
 
-/// Trait for message validation
 pub trait MessageValidator {
-    /// Validate message structure and contents
     fn validate(&self) -> SerializationResult<()>;
 }
 
-/// Message serializer for efficient serialization
+#[derive(Default)]
 pub struct MessageSerializer;
 
-impl Default for MessageSerializer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl MessageSerializer {
-    /// Create a new message serializer
     pub fn new() -> Self {
         Self
     }
     
-    /// Serialize a message envelope to JavaScript
     pub fn serialize_envelope<T: ToJsMessage + MessageValidator>(
         &self,
         envelope: &MessageEnvelope<T>,
     ) -> SerializationResult<Object> {
-        // Validate the message first
         envelope.payload.validate()?;
         
         let obj = Object::new();
         
-        // Set envelope metadata
         self.set_property(&obj, "messageId", &envelope.message_id.into())?;
         self.set_property(&obj, "timestamp", &envelope.timestamp.into())?;
         
-        // Serialize the payload
         let payload_obj = envelope.payload.to_js_object()?;
         self.set_property(&obj, "payload", &payload_obj.into())?;
         
         Ok(obj)
     }
     
-    /// Helper method to set object properties
     fn set_property(&self, obj: &Object, key: &str, value: &JsValue) -> SerializationResult<()> {
         Reflect::set(obj, &key.into(), value)
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set '{}': {:?}", key, e)))?;
@@ -667,36 +273,29 @@ impl MessageSerializer {
 }
 
 
-// ================================
 // Message Type Implementations
-// ================================
-
-// ToWorkletMessage implementations
 impl ToJsMessage for ToWorkletMessage {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
+        let set = |k: &str, v: JsValue| {
+            Reflect::set(&obj, &k.into(), &v)
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set {}: {:?}", k, e)))
+        };
         
         match self {
             ToWorkletMessage::StartProcessing => {
-                Reflect::set(&obj, &"type".into(), &"startProcessing".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                set("type", "startProcessing".into())?;
             }
             ToWorkletMessage::StopProcessing => {
-                Reflect::set(&obj, &"type".into(), &"stopProcessing".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                set("type", "stopProcessing".into())?;
             }
             ToWorkletMessage::UpdateBatchConfig { config } => {
-                Reflect::set(&obj, &"type".into(), &"updateBatchConfig".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let config_obj = config.to_js_object()?;
-                Reflect::set(&obj, &"config".into(), &config_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+                set("type", "updateBatchConfig".into())?;
+                set("config", config.to_js_object()?.into())?;
             }
             ToWorkletMessage::ReturnBuffer { buffer_id } => {
-                Reflect::set(&obj, &"type".into(), &"returnBuffer".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                Reflect::set(&obj, &"bufferId".into(), &(*buffer_id).into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferId: {:?}", e)))?;
+                set("type", "returnBuffer".into())?;
+                set("bufferId", (*buffer_id).into())?;
             }
         }
         
@@ -706,8 +305,12 @@ impl ToJsMessage for ToWorkletMessage {
 
 impl FromJsMessage for ToWorkletMessage {
     fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let msg_type = Reflect::get(obj, &"type".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get type: {:?}", e)))?
+        let get = |k: &str| {
+            Reflect::get(obj, &k.into())
+                .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get {}: {:?}", k, e)))
+        };
+        
+        let msg_type = get("type")?
             .as_string()
             .ok_or_else(|| SerializationError::InvalidPropertyType("type must be string".to_string()))?;
         
@@ -715,19 +318,18 @@ impl FromJsMessage for ToWorkletMessage {
             "startProcessing" => Ok(ToWorkletMessage::StartProcessing),
             "stopProcessing" => Ok(ToWorkletMessage::StopProcessing),
             "updateBatchConfig" => {
-                let config_obj = Reflect::get(obj, &"config".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                let config_obj = get("config")?
                     .dyn_into::<Object>()
                     .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                let config = BatchConfig::from_js_object(&config_obj)?;
-                Ok(ToWorkletMessage::UpdateBatchConfig { config })
+                Ok(ToWorkletMessage::UpdateBatchConfig { 
+                    config: BatchConfig::from_js_object(&config_obj)? 
+                })
             }
             "returnBuffer" => {
-                let buffer_id = Reflect::get(obj, &"bufferId".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferId: {:?}", e)))?
+                let buffer_id = get("bufferId")?
                     .as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?;
-                Ok(ToWorkletMessage::ReturnBuffer { buffer_id: buffer_id as u32 })
+                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))? as u32;
+                Ok(ToWorkletMessage::ReturnBuffer { buffer_id })
             }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
@@ -744,48 +346,38 @@ impl MessageValidator for ToWorkletMessage {
     }
 }
 
-// FromWorkletMessage implementations
 impl ToJsMessage for FromWorkletMessage {
     fn to_js_object(&self) -> SerializationResult<Object> {
         let obj = Object::new();
+        let set = |k: &str, v: JsValue| {
+            Reflect::set(&obj, &k.into(), &v)
+                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set {}: {:?}", k, e)))
+        };
         
         match self {
             FromWorkletMessage::ProcessorReady { batch_size } => {
-                Reflect::set(&obj, &"type".into(), &"processorReady".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                set("type", "processorReady".into())?;
                 if let Some(size) = batch_size {
-                    Reflect::set(&obj, &"batchSize".into(), &(*size as f64).into())
-                        .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set batchSize: {:?}", e)))?;
+                    set("batchSize", (*size as f64).into())?;
                 }
             }
             FromWorkletMessage::ProcessingStarted => {
-                Reflect::set(&obj, &"type".into(), &"processingStarted".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                set("type", "processingStarted".into())?;
             }
             FromWorkletMessage::ProcessingStopped => {
-                Reflect::set(&obj, &"type".into(), &"processingStopped".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
+                set("type", "processingStopped".into())?;
             }
             FromWorkletMessage::AudioDataBatch { data } => {
-                Reflect::set(&obj, &"type".into(), &"audioDataBatch".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let data_obj = data.to_js_object()?;
-                Reflect::set(&obj, &"data".into(), &data_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set data: {:?}", e)))?;
+                set("type", "audioDataBatch".into())?;
+                set("data", data.to_js_object()?.into())?;
             }
             FromWorkletMessage::ProcessingError { error } => {
-                Reflect::set(&obj, &"type".into(), &"processingError".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let error_obj = error.to_js_object()?;
-                Reflect::set(&obj, &"error".into(), &error_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set error: {:?}", e)))?;
+                set("type", "processingError".into())?;
+                set("error", error.to_js_object()?.into())?;
             }
             FromWorkletMessage::BatchConfigUpdated { config } => {
-                Reflect::set(&obj, &"type".into(), &"batchConfigUpdated".into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set type: {:?}", e)))?;
-                let config_obj = config.to_js_object()?;
-                Reflect::set(&obj, &"config".into(), &config_obj.into())
-                    .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set config: {:?}", e)))?;
+                set("type", "batchConfigUpdated".into())?;
+                set("config", config.to_js_object()?.into())?;
             }
         }
         
@@ -795,18 +387,21 @@ impl ToJsMessage for FromWorkletMessage {
 
 impl FromJsMessage for FromWorkletMessage {
     fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let msg_type = Reflect::get(obj, &"type".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get type: {:?}", e)))?
+        let get = |k: &str| {
+            Reflect::get(obj, &k.into())
+                .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get {}: {:?}", k, e)))
+        };
+        
+        let msg_type = get("type")?
             .as_string()
             .ok_or_else(|| SerializationError::InvalidPropertyType("type must be string".to_string()))?;
         
         match msg_type.as_str() {
             "processorReady" => {
-                let batch_size = match Reflect::get(obj, &"batchSize".into()) {
+                let batch_size = match get("batchSize") {
                     Ok(value) if !value.is_undefined() => {
                         Some(value.as_f64()
-                            .ok_or_else(|| SerializationError::InvalidPropertyType("batchSize must be number".to_string()))?
-                            as usize)
+                            .ok_or_else(|| SerializationError::InvalidPropertyType("batchSize must be number".to_string()))? as usize)
                     }
                     _ => None,
                 };
@@ -815,28 +410,28 @@ impl FromJsMessage for FromWorkletMessage {
             "processingStarted" => Ok(FromWorkletMessage::ProcessingStarted),
             "processingStopped" => Ok(FromWorkletMessage::ProcessingStopped),
             "audioDataBatch" => {
-                let data_obj = Reflect::get(obj, &"data".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get data: {:?}", e)))?
+                let data_obj = get("data")?
                     .dyn_into::<Object>()
                     .map_err(|_| SerializationError::InvalidPropertyType("data must be object".to_string()))?;
-                let data = AudioDataBatch::from_js_object(&data_obj)?;
-                Ok(FromWorkletMessage::AudioDataBatch { data })
+                Ok(FromWorkletMessage::AudioDataBatch { 
+                    data: AudioDataBatch::from_js_object(&data_obj)? 
+                })
             }
             "processingError" => {
-                let error_obj = Reflect::get(obj, &"error".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get error: {:?}", e)))?
+                let error_obj = get("error")?
                     .dyn_into::<Object>()
                     .map_err(|_| SerializationError::InvalidPropertyType("error must be object".to_string()))?;
-                let error = WorkletError::from_js_object(&error_obj)?;
-                Ok(FromWorkletMessage::ProcessingError { error })
+                Ok(FromWorkletMessage::ProcessingError { 
+                    error: WorkletError::from_js_object(&error_obj)? 
+                })
             }
             "batchConfigUpdated" => {
-                let config_obj = Reflect::get(obj, &"config".into())
-                    .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get config: {:?}", e)))?
+                let config_obj = get("config")?
                     .dyn_into::<Object>()
                     .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                let config = BatchConfig::from_js_object(&config_obj)?;
-                Ok(FromWorkletMessage::BatchConfigUpdated { config })
+                Ok(FromWorkletMessage::BatchConfigUpdated { 
+                    config: BatchConfig::from_js_object(&config_obj)? 
+                })
             }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
@@ -860,6 +455,16 @@ impl MessageValidator for FromWorkletMessage {
             FromWorkletMessage::BatchConfigUpdated { config } => config.validate(),
         }
     }
+}
+
+// Helper macro for simpler property getting
+macro_rules! get_optional {
+    ($obj:expr, $key:expr, $convert:expr) => {
+        match Reflect::get($obj, &$key.into()) {
+            Ok(value) if !value.is_undefined() => Some($convert(value)?),
+            _ => None,
+        }
+    };
 }
 
 // Data structure implementations
@@ -898,64 +503,30 @@ impl ToJsMessage for AudioDataBatch {
 
 impl FromJsMessage for AudioDataBatch {
     fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let sample_rate = Reflect::get(obj, &"sampleRate".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
-            as u32;
-        
-        let sample_count = Reflect::get(obj, &"sampleCount".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleCount: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleCount must be number".to_string()))?
-            as usize;
-        
-        let buffer_length = Reflect::get(obj, &"bufferLength".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferLength: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("bufferLength must be number".to_string()))?
-            as usize;
-        
-        let timestamp = Reflect::get(obj, &"timestamp".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get timestamp: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("timestamp must be number".to_string()))?;
-        
-        let sequence_number = match Reflect::get(obj, &"sequenceNumber".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("sequenceNumber must be number".to_string()))?
-                    as u32)
-            }
-            _ => None,
+        let get = |k: &str| {
+            Reflect::get(obj, &k.into())
+                .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get {}: {:?}", k, e)))
         };
         
-        let buffer_id = match Reflect::get(obj, &"bufferId".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string()))?
-                    as u32)
-            }
-            _ => None,
-        };
-        
-        let buffer_pool_stats = match Reflect::get(obj, &"bufferPoolStats".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let stats_obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("bufferPoolStats must be object".to_string()))?;
-                Some(BufferPoolStats::from_js_object(&stats_obj)?)
-            }
-            _ => None,
+        let get_num = |k: &str| -> SerializationResult<f64> {
+            get(k)?.as_f64()
+                .ok_or_else(|| SerializationError::InvalidPropertyType(format!("{} must be number", k)))
         };
         
         Ok(AudioDataBatch {
-            sample_rate,
-            sample_count,
-            buffer_length,
-            timestamp,
-            sequence_number,
-            buffer_id,
-            buffer_pool_stats,
+            sample_rate: get_num("sampleRate")? as u32,
+            sample_count: get_num("sampleCount")? as usize,
+            buffer_length: get_num("bufferLength")? as usize,
+            timestamp: get_num("timestamp")?,
+            sequence_number: get_optional!(obj, "sequenceNumber", |v: JsValue| 
+                v.as_f64().ok_or_else(|| SerializationError::InvalidPropertyType("sequenceNumber must be number".to_string())).map(|n| n as u32)),
+            buffer_id: get_optional!(obj, "bufferId", |v: JsValue|
+                v.as_f64().ok_or_else(|| SerializationError::InvalidPropertyType("bufferId must be number".to_string())).map(|n| n as u32)),
+            buffer_pool_stats: get_optional!(obj, "bufferPoolStats", |v: JsValue| {
+                let stats_obj = v.dyn_into::<Object>()
+                    .map_err(|_| SerializationError::InvalidPropertyType("bufferPoolStats must be object".to_string()))?;
+                BufferPoolStats::from_js_object(&stats_obj)
+            }),
         })
     }
 }
@@ -978,114 +549,8 @@ impl MessageValidator for AudioDataBatch {
     }
 }
 
-impl ToJsMessage for ProcessorStatus {
-    fn to_js_object(&self) -> SerializationResult<Object> {
-        let obj = Object::new();
-        
-        Reflect::set(&obj, &"active".into(), &self.active.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set active: {:?}", e)))?;
-        Reflect::set(&obj, &"sampleRate".into(), &(self.sample_rate as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
-        Reflect::set(&obj, &"bufferSize".into(), &(self.buffer_size as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferSize: {:?}", e)))?;
-        Reflect::set(&obj, &"processedBatches".into(), &(self.processed_batches as f64).into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set processedBatches: {:?}", e)))?;
-        Reflect::set(&obj, &"avgProcessingTimeMs".into(), &self.avg_processing_time_ms.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set avgProcessingTimeMs: {:?}", e)))?;
-        
-        if let Some(memory_usage) = &self.memory_usage {
-            let memory_obj = memory_usage.to_js_object()?;
-            Reflect::set(&obj, &"memoryUsage".into(), &memory_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set memoryUsage: {:?}", e)))?;
-        }
-        
-        if let Some(buffer_pool_stats) = &self.buffer_pool_stats {
-            let buffer_pool_obj = buffer_pool_stats.to_js_object()?;
-            Reflect::set(&obj, &"buffer_pool_stats".into(), &buffer_pool_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set buffer_pool_stats: {:?}", e)))?;
-        }
-        
-        Ok(obj)
-    }
-}
 
-impl FromJsMessage for ProcessorStatus {
-    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let active = Reflect::get(obj, &"active".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get active: {:?}", e)))?
-            .as_bool()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("active must be boolean".to_string()))?;
-        
-        let sample_rate = Reflect::get(obj, &"sampleRate".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
-            as u32;
-        
-        let buffer_size = Reflect::get(obj, &"bufferSize".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get bufferSize: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("bufferSize must be number".to_string()))?
-            as usize;
-        
-        let processed_batches = Reflect::get(obj, &"processedBatches".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get processedBatches: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("processedBatches must be number".to_string()))?
-            as u32;
-        
-        let avg_processing_time_ms = Reflect::get(obj, &"avgProcessingTimeMs".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get avgProcessingTimeMs: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("avgProcessingTimeMs must be number".to_string()))?;
-        
-        let memory_usage = match Reflect::get(obj, &"memoryUsage".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let memory_obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("memoryUsage must be object".to_string()))?;
-                Some(MemoryUsage::from_js_object(&memory_obj)?)
-            }
-            _ => None,
-        };
-        
-        let buffer_pool_stats = match Reflect::get(obj, &"buffer_pool_stats".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let buffer_pool_obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("buffer_pool_stats must be object".to_string()))?;
-                Some(BufferPoolStats::from_js_object(&buffer_pool_obj)?)
-            }
-            _ => None,
-        };
-        
-        Ok(ProcessorStatus {
-            active,
-            sample_rate,
-            buffer_size,
-            processed_batches,
-            avg_processing_time_ms,
-            memory_usage,
-            buffer_pool_stats,
-        })
-    }
-}
 
-impl MessageValidator for ProcessorStatus {
-    fn validate(&self) -> SerializationResult<()> {
-        if self.sample_rate == 0 {
-            return Err(SerializationError::ValidationFailed("sample_rate must be positive".to_string()));
-        }
-        if self.buffer_size == 0 {
-            return Err(SerializationError::ValidationFailed("buffer_size cannot be zero".to_string()));
-        }
-        if self.avg_processing_time_ms < 0.0 {
-            return Err(SerializationError::ValidationFailed("avg_processing_time_ms cannot be negative".to_string()));
-        }
-        if let Some(memory_usage) = &self.memory_usage {
-            memory_usage.validate()?;
-        }
-        Ok(())
-    }
-}
 
 impl ToJsMessage for MemoryUsage {
     fn to_js_object(&self) -> SerializationResult<Object> {
@@ -1847,23 +1312,13 @@ impl FromJsMessage for SystemState {
     }
 }
 
-// ================================
-// Message Construction Utilities
-// ================================
-
-/// Result type for message construction operations
 pub type MessageConstructionResult<T> = Result<T, MessageConstructionError>;
 
-/// Error types for message construction
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageConstructionError {
-    /// Invalid parameter value
     InvalidParameter(String),
-    /// Missing required parameter
     MissingParameter(String),
-    /// Validation failed during construction
     ValidationFailed(String),
-    /// Message ID generation failed
     IdGenerationFailed(String),
 }
 
@@ -1880,81 +1335,58 @@ impl std::fmt::Display for MessageConstructionError {
 
 impl std::error::Error for MessageConstructionError {}
 
-/// Enhanced message ID generator with atomicity support
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MessageIdGenerator {
     counter: std::rc::Rc<std::cell::RefCell<u32>>,
 }
 
 impl MessageIdGenerator {
-    /// Create a new message ID generator
     pub fn new() -> Self {
         Self {
             counter: std::rc::Rc::new(std::cell::RefCell::new(0)),
         }
     }
     
-    /// Generate a unique message ID
     pub fn next_id(&self) -> u32 {
         let mut counter = self.counter.borrow_mut();
         *counter = counter.wrapping_add(1);
         *counter
     }
-    
 }
 
-impl Default for MessageIdGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-// Global message ID generator instance
-// TODO: FUTURE REFACTORING - Remove this global variable and replace with dependency injection through context.
-// This is a planned future task. Do NOT refactor this during unrelated work.
-// See docs/global_variables_refactoring_guide.md for refactoring strategy.
 thread_local! {
     static MESSAGE_ID_GENERATOR: MessageIdGenerator = MessageIdGenerator::new();
 }
 
-/// Generate a unique message ID using the global generator
 pub fn generate_unique_message_id() -> u32 {
     MESSAGE_ID_GENERATOR.with(|generator| generator.next_id())
 }
 
-/// Get current high-resolution timestamp
 pub fn get_high_resolution_timestamp() -> f64 {
     utils::get_high_resolution_time()
 }
 
 
-// Constructor implementations for message types
 impl ToWorkletMessage {
-    /// Create a start processing message
     pub fn start_processing() -> Self {
         Self::StartProcessing
     }
     
-    /// Create a stop processing message
     pub fn stop_processing() -> Self {
         Self::StopProcessing
     }
     
-    /// Create an update batch config message
     pub fn update_batch_config(config: BatchConfig) -> MessageConstructionResult<Self> {
         config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(Self::UpdateBatchConfig { config })
     }
     
-    /// Create a return buffer message
     pub fn return_buffer(buffer_id: u32) -> Self {
         Self::ReturnBuffer { buffer_id }
     }
-    
 }
 
 impl FromWorkletMessage {
-    /// Create a processor ready message
     pub fn processor_ready(batch_size: Option<usize>) -> MessageConstructionResult<Self> {
         if let Some(size) = batch_size {
             if size == 0 {
@@ -1964,136 +1396,31 @@ impl FromWorkletMessage {
         Ok(Self::ProcessorReady { batch_size })
     }
     
-    /// Create a processing started message
     pub fn processing_started() -> Self {
         Self::ProcessingStarted
     }
     
-    /// Create a processing stopped message
     pub fn processing_stopped() -> Self {
         Self::ProcessingStopped
     }
     
-    /// Create an audio data batch message
     pub fn audio_data_batch(data: AudioDataBatch) -> MessageConstructionResult<Self> {
         data.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(Self::AudioDataBatch { data })
     }
     
-    /// Create a processing error message
     pub fn processing_error(error: WorkletError) -> MessageConstructionResult<Self> {
         error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
         Ok(Self::ProcessingError { error })
     }
-    
 }
 
-impl AudioDataBatch {
-    /// Create a new audio data batch
-    pub fn new(
-        sample_rate: u32,
-        sample_count: usize,
-        buffer_length: usize,
-        sequence_number: Option<u32>,
-    ) -> MessageConstructionResult<Self> {
-        let batch = Self {
-            sample_rate,
-            sample_count,
-            buffer_length,
-            timestamp: get_high_resolution_timestamp(),
-            sequence_number,
-            buffer_id: None,
-            buffer_pool_stats: None,
-        };
-        
-        batch.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(batch)
-    }
-    
-}
 
-impl ProcessorStatus {
-    /// Create a new processor status
-    pub fn new(
-        active: bool,
-        sample_rate: u32,
-        buffer_size: usize,
-        processed_batches: u32,
-        avg_processing_time_ms: f64,
-        memory_usage: Option<MemoryUsage>,
-    ) -> MessageConstructionResult<Self> {
-        let status = Self {
-            active,
-            sample_rate,
-            buffer_size,
-            processed_batches,
-            avg_processing_time_ms,
-            memory_usage,
-            buffer_pool_stats: None,
-        };
-        
-        status.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(status)
-    }
-    
-}
 
-impl MemoryUsage {
-    /// Create a new memory usage info
-    pub fn new(heap_size: usize, used_heap: usize, active_buffers: usize) -> MessageConstructionResult<Self> {
-        let usage = Self {
-            heap_size,
-            used_heap,
-            active_buffers,
-        };
-        
-        usage.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(usage)
-    }
-}
 
-impl BatchConfig {
-    /// Create a new batch config
-    pub fn new(
-        batch_size: usize,
-        max_queue_size: usize,
-        timeout_ms: u32,
-        enable_compression: bool,
-    ) -> MessageConstructionResult<Self> {
-        let config = Self {
-            batch_size,
-            max_queue_size,
-            timeout_ms,
-            enable_compression,
-        };
-        
-        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(config)
-    }
-}
 
-impl WorkletError {
-    /// Create a new worklet error
-    pub fn new(
-        code: WorkletErrorCode,
-        message: String,
-        context: Option<ErrorContext>,
-    ) -> MessageConstructionResult<Self> {
-        let error = Self {
-            code,
-            message,
-            timestamp: get_high_resolution_timestamp(),
-            context,
-        };
-        
-        error.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(error)
-    }
-    
-}
 
 impl ErrorContext {
-    /// Create a new error context
     pub fn new(location: String) -> Self {
         Self {
             location,
@@ -2106,39 +1433,9 @@ impl ErrorContext {
         }
     }
 
-    /// Create a new error context with full information
-    pub fn new_full(
-        location: String,
-        stack_trace: Option<Vec<String>>,
-        message_context: Option<MessageContext>,
-        system_state: Option<SystemState>,
-        debug_info: Option<String>,
-        thread_id: Option<String>,
-    ) -> MessageConstructionResult<Self> {
-        let context = Self {
-            location,
-            stack_trace,
-            message_context,
-            system_state,
-            debug_info,
-            timestamp: js_sys::Date::now(),
-            thread_id,
-        };
-        
-        context.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(context)
-    }
-
-    /// Add system state information
-    pub fn with_system_state(mut self, system_state: SystemState) -> Self {
-        self.system_state = Some(system_state);
-        self
-    }
-
 }
 
 impl MessageContext {
-    /// Create a new message context
     pub fn new(message_type: String, direction: MessageDirection) -> Self {
         Self {
             message_type,
@@ -2152,13 +1449,6 @@ impl MessageContext {
 
 impl Default for SystemState {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SystemState {
-    /// Create a new empty system state
-    pub fn new() -> Self {
         Self {
             memory_usage: None,
             queue_depth: None,
@@ -2170,186 +1460,76 @@ impl SystemState {
             available_heap: None,
         }
     }
+}
 
-    /// Create system state with basic information
-    pub fn basic(
-        memory_usage: Option<usize>,
-        queue_depth: Option<usize>,
-        audio_processing_active: Option<bool>,
-    ) -> Self {
-        Self {
-            memory_usage,
-            queue_depth,
-            active_buffers: None,
-            audio_processing_active,
-            sample_rate: None,
-            buffer_size: None,
-            processor_load: None,
-            available_heap: None,
-        }
-    }
-
-    /// Add sample rate information
-    pub fn with_sample_rate(mut self, sample_rate: f64) -> Self {
-        self.sample_rate = Some(sample_rate);
-        self
-    }
-
-    /// Add buffer size information
-    pub fn with_buffer_size(mut self, buffer_size: usize) -> Self {
-        self.buffer_size = Some(buffer_size);
-        self
+impl SystemState {
+    pub fn new() -> Self {
+        Self::default()
     }
 
 }
 
-impl SignalGeneratorConfig {
-    /// Create a new test signal generator config
-    pub fn new(
-        enabled: bool,
-        frequency: f32,
-        amplitude: f32,
-        sample_rate: u32,
-    ) -> MessageConstructionResult<Self> {
-        let config = Self {
-            enabled,
-            frequency,
-            amplitude,
-            sample_rate,
-        };
-        
-        config.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
-        Ok(config)
-    }
-}
 
-// ================================
-// AudioWorklet Message Factory
-// ================================
-
-/// Centralized message factory for AudioWorklet communication
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AudioWorkletMessageFactory {
     id_generator: MessageIdGenerator,
 }
 
 impl AudioWorkletMessageFactory {
-    /// Create a new message factory
     pub fn new() -> Self {
         Self {
             id_generator: MessageIdGenerator::new(),
         }
     }
     
-    
-    /// Generate a unique message ID
     pub fn generate_id(&self) -> u32 {
         self.id_generator.next_id()
     }
     
+    fn create_envelope<T>(&self, message: T) -> MessageEnvelope<T> {
+        MessageEnvelope {
+            message_id: self.generate_id(),
+            timestamp: get_high_resolution_timestamp(),
+            payload: message,
+        }
+    }
     
     // ToWorkletMessage factory methods
-    
-    /// Create a start processing message envelope
     pub fn start_processing(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::start_processing();
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(ToWorkletMessage::start_processing()))
     }
     
-    /// Create a stop processing message envelope
     pub fn stop_processing(&self) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::stop_processing();
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(ToWorkletMessage::stop_processing()))
     }
     
-    /// Create an update batch config message envelope
     pub fn update_batch_config(&self, config: BatchConfig) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::update_batch_config(config)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(ToWorkletMessage::update_batch_config(config)?))
     }
     
-    /// Create a return buffer message envelope
     pub fn return_buffer(&self, buffer_id: u32) -> MessageConstructionResult<ToWorkletEnvelope> {
-        let message = ToWorkletMessage::return_buffer(buffer_id);
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(ToWorkletMessage::return_buffer(buffer_id)))
     }
-    
     
     // FromWorkletMessage factory methods
-    
-    /// Create a processor ready message envelope
     pub fn processor_ready(&self, batch_size: Option<usize>) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processor_ready(batch_size)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(FromWorkletMessage::processor_ready(batch_size)?))
     }
     
-    /// Create a processing started message envelope
     pub fn processing_started(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processing_started();
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(FromWorkletMessage::processing_started()))
     }
     
-    /// Create a processing stopped message envelope
     pub fn processing_stopped(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processing_stopped();
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(FromWorkletMessage::processing_stopped()))
     }
     
-    /// Create an audio data batch message envelope
     pub fn audio_data_batch(&self, data: AudioDataBatch) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::audio_data_batch(data)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
+        Ok(self.create_envelope(FromWorkletMessage::audio_data_batch(data)?))
     }
     
-    /// Create a processing error message envelope
     pub fn processing_error(&self, error: WorkletError) -> MessageConstructionResult<FromWorkletEnvelope> {
-        let message = FromWorkletMessage::processing_error(error)?;
-        Ok(MessageEnvelope {
-            message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
-            payload: message,
-        })
-    }
-    
-    
-    
-}
-
-impl Default for AudioWorkletMessageFactory {
-    fn default() -> Self {
-        Self::new()
+        Ok(self.create_envelope(FromWorkletMessage::processing_error(error)?))
     }
 }
 

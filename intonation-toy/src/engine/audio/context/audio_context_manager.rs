@@ -1,7 +1,6 @@
 use web_sys::{AudioContext, AudioContextOptions};
 use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen::JsCast;
-use wasm_bindgen::closure::Closure;
+use wasm_bindgen::{JsCast, closure::Closure};
 use crate::common::dev_log;
 use super::super::AudioError;
 use super::{AudioContextState, AudioDevices};
@@ -10,7 +9,6 @@ use crate::app_config::STANDARD_SAMPLE_RATE;
 pub struct AudioContextManager {
     context: Option<AudioContext>,
     state: AudioContextState,
-    recreation_attempts: u32,
     cached_devices: Option<AudioDevices>,
     device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
@@ -21,7 +19,6 @@ impl AudioContextManager {
         Self {
             context: None,
             state: AudioContextState::Uninitialized,
-            recreation_attempts: 0,
             cached_devices: None,
             device_change_callback: None,
         }
@@ -33,9 +30,10 @@ impl AudioContextManager {
     }
     
     pub fn is_supported() -> bool {
-        let Some(window) = web_sys::window() else { return false; };
-        js_sys::Reflect::has(&window, &"AudioContext".into()).unwrap_or(false) ||
-        js_sys::Reflect::has(&window, &"webkitAudioContext".into()).unwrap_or(false)
+        web_sys::window().map_or(false, |window| {
+            js_sys::Reflect::has(&window, &"AudioContext".into()).unwrap_or(false) ||
+            js_sys::Reflect::has(&window, &"webkitAudioContext".into()).unwrap_or(false)
+        })
     }
     
     pub async fn initialize(&mut self) -> Result<(), AudioError> {
@@ -59,30 +57,8 @@ impl AudioContextManager {
         dev_log!("✓ AudioContext created successfully");
         self.context = Some(context);
         self.state = AudioContextState::Running;
-        self.recreation_attempts = 0;
         Ok(())
     }
-    
-    pub async fn resume(&mut self) -> Result<(), AudioError> {
-        let context = self.context.as_ref()
-            .ok_or_else(|| AudioError::Generic("No AudioContext available".to_string()))?;
-            
-        if context.state() != web_sys::AudioContextState::Suspended {
-            return Ok(());
-        }
-        
-        dev_log!("Resuming suspended AudioContext");
-        let _ = context.resume()
-            .map_err(|e| {
-                dev_log!("✗ Failed to resume AudioContext: {:?}", e);
-                AudioError::Generic(format!("Failed to resume AudioContext: {:?}", e))
-            })?;
-            
-        self.state = AudioContextState::Running;
-        dev_log!("✓ AudioContext resume initiated");
-        Ok(())
-    }
-    
     
     pub async fn close(&mut self) -> Result<(), AudioError> {
         if let Some(context) = &self.context {
@@ -102,17 +78,16 @@ impl AudioContextManager {
     
     
     pub fn is_running(&self) -> bool {
+        matches!(self.state, AudioContextState::Running) &&
         self.context.as_ref()
-            .map(|context| matches!(self.state, AudioContextState::Running) && 
-                          context.state() == web_sys::AudioContextState::Running)
-            .unwrap_or(false)
+            .map_or(false, |ctx| ctx.state() == web_sys::AudioContextState::Running)
     }
     
     
     
     async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
         let window = web_sys::window()
-            .ok_or_else(|| AudioError::Generic("No window object".to_string()))?;
+            .ok_or(AudioError::Generic("No window object".to_string()))?;
         
         let media_devices = window.navigator().media_devices()
             .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
@@ -129,8 +104,7 @@ impl AudioContextManager {
 
         let has_permission = devices.get(0)
             .dyn_ref::<web_sys::MediaDeviceInfo>()
-            .map(|d| !d.label().is_empty())
-            .unwrap_or(false);
+            .map_or(false, |d| !d.label().is_empty());
 
         if !has_permission {
             return Ok((input_devices, output_devices));
@@ -175,10 +149,10 @@ impl AudioContextManager {
         }
         
         let window = web_sys::window()
-            .ok_or_else(|| AudioError::Generic("No window available for device change listener".to_string()))?;
+            .ok_or(AudioError::Generic("No window available".to_string()))?;
         
         let media_devices = window.navigator().media_devices()
-            .map_err(|_| AudioError::NotSupported("MediaDevices not available for device change listener".to_string()))?;
+            .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
         
         let device_change_closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
             dev_log!("Audio devices changed - triggering callback");
@@ -194,34 +168,5 @@ impl AudioContextManager {
         self.device_change_callback = Some(device_change_closure);
         Ok(())
     }
-    
-    pub fn remove_device_change_listener(&mut self) -> Result<(), AudioError> {
-        if let Some(callback) = &self.device_change_callback {
-            let window = web_sys::window()
-                .ok_or_else(|| AudioError::Generic("No window available".to_string()))?;
-            
-            let media_devices = window.navigator().media_devices()
-                .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
-            
-            media_devices.remove_event_listener_with_callback(
-                "devicechange",
-                callback.as_ref().unchecked_ref()
-            ).map_err(|e| AudioError::Generic(format!("Failed to remove device change listener: {:?}", e)))?;
-            
-            dev_log!("Device change listener removed");
-        }
-        
-        self.device_change_callback = None;
-        Ok(())
-    }
-    
 }
 
-impl Drop for AudioContextManager {
-    fn drop(&mut self) {
-        let _ = self.remove_device_change_listener();
-        if let Some(context) = &self.context {
-            let _ = context.close();
-        }
-    }
-}
