@@ -1,40 +1,15 @@
 use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
-use crate::common::utils;
 
 pub type PitchAnalysisError = String;
 
-/// Real-time pitch analysis coordinator that returns pitch data through the engine update system.
-/// 
-/// ## Data Collection
-/// 
-/// The PitchAnalyzer provides data collection through:
-/// - Analysis methods that return `PitchResult` directly
-/// - `get_latest_pitch_data()` method for retrieving the most recent detection
-/// 
-/// ## Usage Example
-/// 
-/// ```rust,no_run
-/// let mut analyzer = PitchAnalyzer::new(config, sample_rate)?;
-/// 
-/// // Analyze samples and get immediate result
-/// if let Some(result) = analyzer.analyze_samples(&samples)? {
-///     println!("Detected pitch: {} Hz", result.frequency);
-/// }
-/// 
-/// // Get latest detection for data collection
-/// if let Some(pitch_data) = analyzer.get_latest_pitch_data() {
-///     println!("Latest pitch: {} Hz", pitch_data.frequency);
-/// }
-/// ```
+/// Real-time pitch analysis coordinator.
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
     last_detection: Option<PitchResult>,
-    // Pre-allocated buffer for zero-allocation processing
     analysis_buffer: Vec<f32>,
 }
 
 impl PitchAnalyzer {
-    /// Create a new PitchAnalyzer
     pub fn new(
         config: PitchDetectorConfig,
         sample_rate: u32,
@@ -42,7 +17,6 @@ impl PitchAnalyzer {
         let pitch_detector = PitchDetector::new(config.clone(), sample_rate)
             .map_err(|e| format!("Failed to create pitch detector: {}", e))?;
         
-        // Pre-allocate buffer for zero-allocation processing
         let analysis_buffer = vec![0.0; config.sample_window_size];
         
         Ok(Self {
@@ -52,17 +26,11 @@ impl PitchAnalyzer {
         })
     }
 
-    /// Analyze audio samples and publish pitch events
-    /// 
-    /// This is the main processing function that should be called with new audio data.
-    /// It performs pitch detection and publishes appropriate events.
     pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
-        // Validate input size
         if samples.len() != self.analysis_buffer.len() {
             return Err(format!("Expected {} samples, got {}", self.analysis_buffer.len(), samples.len()));
         }
 
-        // Copy samples to pre-allocated buffer (minimal allocation)
         self.analysis_buffer.copy_from_slice(samples);
         
         let pitch_result = if cfg!(feature = "profiling") {
@@ -73,57 +41,26 @@ impl PitchAnalyzer {
             self.pitch_detector.analyze(&self.analysis_buffer)
         };
 
-        let pitch_result = match pitch_result {
-            Ok(result) => result,
-            Err(e) => {
-                return Err(format!("Pitch detection failed: {}", e));
-            }
-        };
+        let pitch_result = pitch_result
+            .map_err(|e| format!("Pitch detection failed: {}", e))?;
 
-        // Process the result and publish events
         match pitch_result {
             Some(result) => {
-                self.handle_pitch_detected(result.clone())?;
                 self.last_detection = Some(result.clone());
                 Ok(Some(result))
             }
             None => {
-                self.handle_pitch_lost()?;
+                self.last_detection = None;
                 Ok(None)
             }
         }
     }
 
-    fn handle_pitch_detected(&mut self, result: PitchResult) -> Result<(), PitchAnalysisError> {
-        // Store the latest detection result
-        self.last_detection = Some(result.clone());
-        
-        // Pitch data is now returned through the analyze methods
-        // and collected by Engine::update()
-
-        Ok(())
-    }
-
-    fn handle_pitch_lost(&mut self) -> Result<(), PitchAnalysisError> {
-        // Clear the last detection when pitch is lost
-        self.last_detection = None;
-        
-        // Pitch lost state is now communicated by returning None
-        // from the analyze methods
-        Ok(())
-    }
-
-
-    /// Get the latest pitch detection result
-    /// 
-    /// Returns the most recent pitch detection result if available,
-    /// or None if no pitch has been detected yet.
     pub fn get_latest_pitch_data(&self) -> Option<super::PitchData> {
         self.last_detection.as_ref().map(|result| {
             super::PitchData {
                 frequency: result.frequency,
                 clarity: result.clarity,
-                timestamp: utils::get_high_resolution_time(),
             }
         })
     }

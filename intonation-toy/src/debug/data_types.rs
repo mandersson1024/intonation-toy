@@ -48,11 +48,6 @@ impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
     }
 }
 
-impl From<crate::engine::audio::PitchData> for PitchData {
-    fn from(data: crate::engine::audio::PitchData) -> Self {
-        Self { frequency: data.frequency, clarity: data.clarity, timestamp: data.timestamp }
-    }
-}
 
 impl From<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatus {
     fn from(data: crate::engine::audio::AudioWorkletStatus) -> Self {

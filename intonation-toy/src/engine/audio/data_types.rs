@@ -13,7 +13,6 @@ pub struct VolumeLevelData {
 pub struct PitchData {
     pub frequency: f32,
     pub clarity: f32,
-    pub timestamp: f64,
 }
 
 /// AudioWorklet status for external consumption
