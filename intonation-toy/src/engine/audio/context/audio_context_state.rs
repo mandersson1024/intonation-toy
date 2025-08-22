@@ -7,7 +7,6 @@ pub enum AudioContextState {
     Running,
     Suspended,
     Closed,
-    Recreating,
 }
 
 impl fmt::Display for AudioContextState {
@@ -18,7 +17,6 @@ impl fmt::Display for AudioContextState {
             AudioContextState::Running => write!(f, "Running"),
             AudioContextState::Suspended => write!(f, "Suspended"),
             AudioContextState::Closed => write!(f, "Closed"),
-            AudioContextState::Recreating => write!(f, "Recreating"),
         }
     }
 }
