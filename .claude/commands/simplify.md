@@ -52,6 +52,7 @@ Apply these transformations systematically:
 
 ### 6. Comments
 - Remove comments that state the obvious
+- Keep comments that add context that is not obvious from the code
 - Change comments that refer to historical versions of the code. Describe the code as it currently is, and not the relation to what the code once was
 - Remove comments that are wrong, misleading, obsolete, or unrelated to the code
 
@@ -67,4 +68,4 @@ Track and report:
 - Functions inlined count
 - Nested conditions simplified
 
-**Core Principle**: Top priority is to reduce cognitive complexity. Every change must reduce either cognitive complexity, lines of code, or unnecessary abstractions. Make no additions, only subtractions and simplifications.
+**Core Principle**: Top priority is to reduce cognitive complexity. Every change must reduce either cognitive complexity, or unnecessary abstractions. Make no additions, only subtractions and simplifications.

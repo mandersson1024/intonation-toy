@@ -4,12 +4,12 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use crate::common::dev_log;
 use super::super::AudioError;
-use super::{AudioContextState, AudioContextConfig, AudioDevices};
+use super::{AudioContextState, AudioDevices};
+use crate::app_config::STANDARD_SAMPLE_RATE;
 
 pub struct AudioContextManager {
     context: Option<AudioContext>,
     state: AudioContextState,
-    config: AudioContextConfig,
     recreation_attempts: u32,
     cached_devices: Option<AudioDevices>,
     device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
@@ -21,7 +21,6 @@ impl AudioContextManager {
         Self {
             context: None,
             state: AudioContextState::Uninitialized,
-            config: AudioContextConfig::default(),
             recreation_attempts: 0,
             cached_devices: None,
             device_change_callback: None,
@@ -31,10 +30,6 @@ impl AudioContextManager {
     
     pub fn state(&self) -> &AudioContextState {
         &self.state
-    }
-    
-    pub fn config(&self) -> &AudioContextConfig {
-        &self.config
     }
     
     pub fn is_supported() -> bool {
@@ -49,10 +44,10 @@ impl AudioContextManager {
         }
         
         self.state = AudioContextState::Initializing;
-        dev_log!("Initializing AudioContext with sample rate: {}Hz", self.config.sample_rate);
+        dev_log!("Initializing AudioContext with sample rate: {}Hz", STANDARD_SAMPLE_RATE);
         
         let options = AudioContextOptions::new();
-        options.set_sample_rate(self.config.sample_rate as f32);
+        options.set_sample_rate(STANDARD_SAMPLE_RATE as f32);
         
         let context = AudioContext::new_with_context_options(&options)
             .map_err(|e| {

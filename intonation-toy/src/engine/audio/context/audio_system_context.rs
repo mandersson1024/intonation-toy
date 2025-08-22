@@ -62,10 +62,7 @@ impl AudioSystemContext {
 
         // Step 3: Initialize PitchAnalyzer (simplified for return-based pattern)
         let config = super::super::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = {
-            let borrowed = self.audio_context_manager.borrow();
-            borrowed.config().sample_rate
-        };
+        let sample_rate = crate::app_config::STANDARD_SAMPLE_RATE;
         
         match super::super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate) {
             Ok(analyzer) => {
