@@ -198,7 +198,6 @@ pub fn is_audio_system_ready() -> bool {
 }
 
 // Re-export public API for external usage
-pub use microphone::MicrophoneManager;
 pub use context::{AudioSystemContext, AudioDevices};
 pub use worklet::AudioWorkletState;
 pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};

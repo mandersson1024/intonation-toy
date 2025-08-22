@@ -5,8 +5,6 @@ pub mod commands;
 
 use crate::common::dev_log;
 
-#[cfg(target_arch = "wasm32")]
-use super::audio::MicrophoneManager;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
@@ -92,7 +90,7 @@ impl Platform {
         let document = window.document();
         
         // Check getUserMedia (safe, no popup)
-        let is_supported = MicrophoneManager::is_supported();
+        let is_supported = super::audio::permission::PermissionManager::is_supported();
         results.push(ApiStatus {
             api: CriticalApi::GetUserMedia,
             supported: is_supported,
