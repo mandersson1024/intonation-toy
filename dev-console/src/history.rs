@@ -2,19 +2,10 @@ use serde::{Serialize, Deserialize};
 
 const MAX_HISTORY_SIZE: usize = 100;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConsoleHistory {
     commands: Vec<String>,
     current_position: Option<usize>,
-}
-
-impl Default for ConsoleHistory {
-    fn default() -> Self {
-        Self {
-            commands: Vec::new(),
-            current_position: None,
-        }
-    }
 }
 
 impl ConsoleHistory {

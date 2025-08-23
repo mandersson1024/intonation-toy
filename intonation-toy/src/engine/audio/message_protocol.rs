@@ -147,7 +147,7 @@ pub enum MessageDirection {
     Internal,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SystemState {
     pub memory_usage: Option<usize>,
     pub queue_depth: Option<usize>,
@@ -1443,21 +1443,6 @@ impl MessageContext {
             message_id: None,
             message_timestamp: None,
             message_size: None,
-        }
-    }
-}
-
-impl Default for SystemState {
-    fn default() -> Self {
-        Self {
-            memory_usage: None,
-            queue_depth: None,
-            active_buffers: None,
-            audio_processing_active: None,
-            sample_rate: None,
-            buffer_size: None,
-            processor_load: None,
-            available_heap: None,
         }
     }
 }

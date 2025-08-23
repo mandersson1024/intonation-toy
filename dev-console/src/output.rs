@@ -70,17 +70,9 @@ impl fmt::Display for ConsoleOutput {
 
 const MAX_OUTPUT_ENTRIES: usize = 1000;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConsoleOutputManager {
     entries: Vec<ConsoleOutput>,
-}
-
-impl Default for ConsoleOutputManager {
-    fn default() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
-    }
 }
 
 impl ConsoleOutputManager {
