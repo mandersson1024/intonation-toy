@@ -174,9 +174,6 @@ impl Presenter {
 
     /// Update the presentation layer with model data
     pub fn process_data(&mut self, _timestamp: f64, model_data: ModelUpdateResult) {
-        self.process_volume_data(&model_data.volume);
-        self.process_pitch_data(&model_data.pitch);
-        self.process_accuracy_data(&model_data.accuracy);
         self.process_error_states(&model_data.errors);
         self.process_tuning_system(&model_data.tuning_system);
         self.sync_sidebar_ui(&model_data);
@@ -268,21 +265,6 @@ impl Presenter {
             renderer.render(screen, viewport);
         } else {
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
-        }
-    }
-
-    
-    fn process_volume_data(&mut self, volume: &crate::common::shared_types::Volume) {
-        if volume.peak_amplitude > -20.0 {
-        }
-    }
-    
-    fn process_pitch_data(&mut self, _pitch: &crate::common::shared_types::Pitch) {
-    }
-    
-    fn process_accuracy_data(&mut self, accuracy: &crate::common::shared_types::IntonationData) {
-        if accuracy.cents_offset.abs() < crate::app_config::INTONATION_ACCURACY_THRESHOLD {
-        } else if accuracy.cents_offset.abs() > 30.0 {
         }
     }
     
