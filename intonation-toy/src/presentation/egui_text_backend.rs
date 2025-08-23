@@ -179,7 +179,7 @@ impl EguiTextBackend {
             .map(|v| Srgba::new(v.color.r(), v.color.g(), v.color.b(), v.color.a()))
             .collect();
         
-        let indices: Vec<u32> = mesh.indices.iter().copied().collect();
+        let indices: Vec<u32> = mesh.indices.to_vec();
         
         let cpu_mesh = CpuMesh {
             positions: Positions::F32(positions),
