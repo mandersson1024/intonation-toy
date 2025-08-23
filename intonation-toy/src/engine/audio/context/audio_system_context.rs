@@ -23,7 +23,8 @@ impl AudioSystemContext {
         }
     }
 
-
+    // Claude claims this function to have false positive clippy warnings, consider:
+    // #[allow(clippy::await_holding_refcell_ref)]
     pub async fn initialize(&mut self) -> Result<(), String> {
         use crate::common::dev_log;
         
@@ -42,7 +43,7 @@ impl AudioSystemContext {
         }
         dev_log!("✓ AudioContextManager initialized");
 
-        // Step 2: Initialize AudioWorkletManager (simplified for return-based pattern)
+        // Step 2: Initialize AudioWorkletManager
         let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
         
         // Initialize the worklet with the audio context
@@ -60,7 +61,7 @@ impl AudioSystemContext {
         self.audioworklet_manager = Some(worklet_manager);
         dev_log!("✓ AudioWorkletManager initialized for return-based pattern");
 
-        // Step 3: Initialize PitchAnalyzer (simplified for return-based pattern)
+        // Step 3: Initialize PitchAnalyzer
         let config = super::super::pitch_detector::PitchDetectorConfig::default();
         let sample_rate = crate::app_config::STANDARD_SAMPLE_RATE;
         
@@ -109,12 +110,15 @@ impl AudioSystemContext {
         dev_log!("✓ AudioContextManager stored globally for device change callbacks");
 
         // Step 6: Perform initial device refresh to populate the cache
-        {
-            let mut manager = self.audio_context_manager.borrow_mut();
-            if let Err(_e) = manager.refresh_audio_devices().await {
-                dev_log!("Initial device refresh failed: {:?}", _e);
-            } else {
+        match AudioContextManager::enumerate_devices_internal().await {
+            Ok((input_devices, output_devices)) => {
+                let mut manager = self.audio_context_manager.borrow_mut();
+                let devices = super::AudioDevices { input_devices, output_devices };
+                manager.set_cached_devices(devices);
                 dev_log!("✓ Initial device refresh completed - device cache populated");
+            }
+            Err(_e) => {
+                dev_log!("Initial device refresh failed: {:?}", _e);
             }
         }
 
@@ -129,16 +133,23 @@ impl AudioSystemContext {
                 
                 // Spawn async task to refresh devices
                 wasm_bindgen_futures::spawn_local(async move {
-                    match manager_rc_async.try_borrow_mut() {
-                        Ok(mut manager) => {
-                            if let Err(_e) = manager.refresh_audio_devices().await {
-                                dev_log!("AudioSystemContext auto device refresh failed: {:?}", _e);
-                            } else {
-                                dev_log!("AudioSystemContext auto device refresh completed successfully");
+                    // Call the async function without holding any borrow
+                    match AudioContextManager::enumerate_devices_internal().await {
+                        Ok((input_devices, output_devices)) => {
+                            // Now borrow to store the result
+                            match manager_rc_async.try_borrow_mut() {
+                                Ok(mut manager) => {
+                                    let devices = super::AudioDevices { input_devices, output_devices };
+                                    manager.set_cached_devices(devices);
+                                    dev_log!("AudioSystemContext auto device refresh completed successfully");
+                                }
+                                Err(_) => {
+                                    dev_log!("AudioContextManager busy during AudioSystemContext auto device refresh");
+                                }
                             }
                         }
-                        Err(_) => {
-                            dev_log!("AudioContextManager busy during AudioSystemContext auto device refresh");
+                        Err(_e) => {
+                            dev_log!("AudioSystemContext auto device refresh failed: {:?}", _e);
                         }
                     }
                 });
@@ -174,7 +185,7 @@ impl AudioSystemContext {
         self.audioworklet_manager = None;
         self.pitch_analyzer = None;
         
-        let _ = self.audio_context_manager.borrow_mut().close().await;
+        let _ = self.audio_context_manager.borrow_mut().close();
         
         self.is_initialized = false;
         dev_log!("✓ AudioSystemContext shutdown completed");

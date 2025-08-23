@@ -83,8 +83,18 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                 drop(context_borrowed);
 
                 wasm_bindgen_futures::spawn_local(async move {
-                    if let Ok(mut manager) = manager_rc.try_borrow_mut() {
-                        let _ = manager.refresh_audio_devices().await;
+                    // Call the async function without holding any borrow
+                    match super::context::AudioContextManager::enumerate_devices_internal().await {
+                        Ok((input_devices, output_devices)) => {
+                            // Now borrow to store the result
+                            if let Ok(mut manager) = manager_rc.try_borrow_mut() {
+                                let devices = super::context::AudioDevices { input_devices, output_devices };
+                                manager.set_cached_devices(devices);
+                            }
+                        }
+                        Err(_) => {
+                            // Device enumeration failed, ignore
+                        }
                     }
                 });
             }

@@ -61,7 +61,7 @@ impl AudioContextManager {
         Ok(())
     }
     
-    pub async fn close(&mut self) -> Result<(), AudioError> {
+    pub fn close(&mut self) -> Result<(), AudioError> {
         if let Some(context) = &self.context {
             dev_log!("Closing AudioContext");
             let _ = context.close();
@@ -86,7 +86,7 @@ impl AudioContextManager {
     
     
     
-    async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
+    pub async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
         let window = web_sys::window()
             .ok_or(AudioError::Generic("No window object".to_string()))?;
         
@@ -131,6 +131,10 @@ impl AudioContextManager {
         let (input_devices, output_devices) = Self::enumerate_devices_internal().await?;
         self.cached_devices = Some(AudioDevices { input_devices, output_devices });
         Ok(())
+    }
+    
+    pub fn set_cached_devices(&mut self, devices: AudioDevices) {
+        self.cached_devices = Some(devices);
     }
 
     pub fn get_cached_devices(&self) -> &AudioDevices {
