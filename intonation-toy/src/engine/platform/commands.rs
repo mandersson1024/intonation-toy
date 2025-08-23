@@ -2,7 +2,7 @@
 // Commands for platform information and API status
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
-use crate::{engine::platform::Platform, common::dev_log, shared_types::Theme};
+use crate::{engine::platform::Platform, common::dev_log, common::shared_types::Theme};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -79,8 +79,8 @@ impl ConsoleCommand for ThemeCommand {
     fn execute(&self, args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         if args.is_empty() {
             // Show current theme and available options
-            let current = crate::theme::get_current_theme().name();
-            let current_colors = crate::theme::get_current_color_scheme();
+            let current = crate::common::theme::get_current_theme().name();
+            let current_colors = crate::common::theme::get_current_color_scheme();
             
             let outputs = vec![
                 ConsoleOutput::info(format!("Current theme: {}", current)),
@@ -107,7 +107,7 @@ impl ConsoleCommand for ThemeCommand {
         };
         
         // Set the new theme
-        crate::theme::set_current_theme(new_theme);
+        crate::common::theme::set_current_theme(new_theme);
         
         // Reapply styles - updates CSS custom properties
         crate::web::styling::update_css_variables();
@@ -150,31 +150,31 @@ impl ConsoleCommand for ErrorCommand {
         let scenario = args[0].to_lowercase();
         match scenario.as_str() {
             "browser-unsupported" => {
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required features"]);
+                crate::web::error_message_box::show_error_with_params(&crate::common::shared_types::Error::BrowserApiNotSupported, &["required features"]);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser unsupported error")
                 ])
             }
             "mobile-unsupported" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed mobile unsupported error")
                 ])
             }
             "mic-unavailable" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophoneNotAvailable);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone unavailable error")
                 ])
             }
             "mic-permission" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed microphone permission error")
                 ])
             }
             "browser-error" => {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::BrowserError);
                 ConsoleCommandResult::MultipleOutputs(vec![
                     ConsoleOutput::success("Displayed browser error")
                 ])

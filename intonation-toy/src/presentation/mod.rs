@@ -25,7 +25,7 @@ pub use user_pitch_line::UserPitchLine;
 use std::rc::Rc;
 use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
-use crate::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch};
+use crate::common::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch};
 
 #[cfg(target_arch = "wasm32")]
 use crate::web::sidebar_controls::{setup_sidebar_controls, cleanup_sidebar_controls, setup_event_listeners};
@@ -154,7 +154,7 @@ impl Presenter {
         
         
         if let Some(renderer) = &mut self.renderer {
-            renderer.update_presentation_context(&crate::shared_types::PresentationContext {
+            renderer.update_presentation_context(&crate::common::shared_types::PresentationContext {
                 tuning_fork_note: model_data.tuning_fork_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
@@ -272,48 +272,48 @@ impl Presenter {
     }
 
     
-    fn process_volume_data(&mut self, volume: &crate::shared_types::Volume) {
+    fn process_volume_data(&mut self, volume: &crate::common::shared_types::Volume) {
         if volume.peak_amplitude > -20.0 {
         }
     }
     
-    fn process_pitch_data(&mut self, _pitch: &crate::shared_types::Pitch) {
+    fn process_pitch_data(&mut self, _pitch: &crate::common::shared_types::Pitch) {
     }
     
-    fn process_accuracy_data(&mut self, accuracy: &crate::shared_types::IntonationData) {
+    fn process_accuracy_data(&mut self, accuracy: &crate::common::shared_types::IntonationData) {
         if accuracy.cents_offset.abs() < crate::app_config::INTONATION_ACCURACY_THRESHOLD {
         } else if accuracy.cents_offset.abs() > 30.0 {
         }
     }
     
-    fn process_error_states(&mut self, errors: &Vec<crate::shared_types::Error>) {
+    fn process_error_states(&mut self, errors: &Vec<crate::common::shared_types::Error>) {
         if errors.is_empty() {
             return;
         }
         
         for error in errors {
             match error {
-                crate::shared_types::Error::MicrophonePermissionDenied => {
+                crate::common::shared_types::Error::MicrophonePermissionDenied => {
                 }
-                crate::shared_types::Error::MicrophoneNotAvailable => {
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophoneNotAvailable);
+                crate::common::shared_types::Error::MicrophoneNotAvailable => {
+                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophoneNotAvailable);
                 }
-                crate::shared_types::Error::BrowserApiNotSupported => {
+                crate::common::shared_types::Error::BrowserApiNotSupported => {
                 }
-                crate::shared_types::Error::ProcessingError(msg) => {
+                crate::common::shared_types::Error::ProcessingError(msg) => {
                     crate::common::error_log!("🔥 PROCESSING ERROR: {}", msg);
                 }
-                crate::shared_types::Error::MobileDeviceNotSupported => {
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                crate::common::shared_types::Error::MobileDeviceNotSupported => {
+                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
                 }
-                crate::shared_types::Error::BrowserError => {
-                    crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                crate::common::shared_types::Error::BrowserError => {
+                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::BrowserError);
                 }
             }
         }
     }
     
-    fn process_tuning_system(&mut self, _tuning_system: &crate::shared_types::TuningSystem) {
+    fn process_tuning_system(&mut self, _tuning_system: &crate::common::shared_types::TuningSystem) {
     }
     
     /// Calculate interval position from frequency and tuning fork
@@ -328,7 +328,7 @@ impl Presenter {
     }
     
     fn midi_note_to_frequency(midi_note: MidiNote) -> f32 {
-        crate::music_theory::midi_note_to_standard_frequency(midi_note)
+        crate::common::music_theory::midi_note_to_standard_frequency(midi_note)
     }
     pub fn midi_note_to_frequency_with_tuning(
         &self,
@@ -336,9 +336,9 @@ impl Presenter {
         note: MidiNote,
         tuning_system: TuningSystem,
     ) -> f32 {
-        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(note);
+        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(note);
         let interval_semitones = (midi_note as i32) - (note as i32);
-        crate::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
+        crate::common::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
     }
 
     #[cfg(target_arch = "wasm32")]

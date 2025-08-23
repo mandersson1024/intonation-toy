@@ -2,7 +2,7 @@
 //! 
 //! This module contains all configuration constants used throughout the application
 
-use crate::shared_types::{Theme, MidiNote, Scale};
+use crate::common::shared_types::{Theme, MidiNote, Scale};
 
 /// Default theme configuration
 pub const DEFAULT_THEME: Theme = Theme::Dark;

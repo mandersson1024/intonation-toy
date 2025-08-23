@@ -1,6 +1,6 @@
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
-use crate::shared_types::MidiNote;
-use crate::theme::get_current_color_scheme;
+use crate::common::shared_types::MidiNote;
+use crate::common::theme::get_current_color_scheme;
 use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
 struct LineData {
@@ -71,7 +71,7 @@ impl TuningLines {
         
         self.line_data.iter()
             .map(|data| {
-                let note_name = crate::shared_types::midi_note_to_name(data.midi_note);
+                let note_name = crate::common::shared_types::midi_note_to_name(data.midi_note);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
                 

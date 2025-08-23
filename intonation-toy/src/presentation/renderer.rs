@@ -8,8 +8,8 @@ use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
-use crate::shared_types::{ColorScheme, MidiNote};
-use crate::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
+use crate::common::shared_types::{ColorScheme, MidiNote};
+use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
@@ -70,7 +70,7 @@ pub struct Renderer {
     context: Context,
     color_scheme: ColorScheme,
     background_quad: Option<Gm<Rectangle, ColorMaterial>>,
-    presentation_context: Option<crate::shared_types::PresentationContext>,
+    presentation_context: Option<crate::common::shared_types::PresentationContext>,
 }
 
 impl Renderer {
@@ -104,18 +104,18 @@ impl Renderer {
             return Vec::new();
         };
         
-        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
+        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
         let mut line_data = Vec::new();
         
         for semitone in -12..=12 {
-            if !crate::shared_types::semitone_in_scale(context.current_scale, semitone) {
+            if !crate::common::shared_types::semitone_in_scale(context.current_scale, semitone) {
                 continue;
             }
             
             let y_position = if semitone == 0 {
                 interval_to_screen_y_position(0.0, viewport.height as f32)
             } else {
-                let frequency = crate::music_theory::interval_frequency(
+                let frequency = crate::common::music_theory::interval_frequency(
                     context.tuning_system,
                     tuning_fork_frequency,
                     semitone,
@@ -253,7 +253,7 @@ impl Renderer {
     }
     
     /// Update the presentation context
-    pub fn update_presentation_context(&mut self, context: &crate::shared_types::PresentationContext, viewport: Viewport) {
+    pub fn update_presentation_context(&mut self, context: &crate::common::shared_types::PresentationContext, viewport: Viewport) {
         if self.presentation_context.as_ref() == Some(context) {
             return;
         }

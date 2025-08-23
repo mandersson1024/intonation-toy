@@ -1,8 +1,8 @@
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, WriteMask};
 use crate::app_config::{INTONATION_ACCURACY_THRESHOLD, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN};
 use crate::presentation::audio_analysis::AudioAnalysis;
-use crate::shared_types::ColorScheme;
-use crate::theme::rgb_to_srgba_with_alpha;
+use crate::common::shared_types::ColorScheme;
+use crate::common::theme::rgb_to_srgba_with_alpha;
 
 const COLOR_SUCCESS: [f32; 3] = [0.431, 0.905, 0.718];
 const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];

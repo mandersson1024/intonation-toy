@@ -1,6 +1,6 @@
 //! Model layer - processes audio data and validates user actions
 
-use crate::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, MidiNote, is_valid_midi_note};
+use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
@@ -59,13 +59,13 @@ impl DataModel {
                 rms_amplitude: audio_analysis.volume_level.rms_amplitude,
             };
             let pitch = match audio_analysis.pitch {
-                crate::shared_types::Pitch::Detected(frequency, clarity) => {
+                crate::common::shared_types::Pitch::Detected(frequency, clarity) => {
                     let smoothed_frequency = self.frequency_smoother.apply(frequency);
                     let smoothed_clarity = self.clarity_smoother.apply(clarity);
                     self.last_detected_pitch = Some((frequency, clarity));
                     Pitch::Detected(smoothed_frequency, smoothed_clarity)
                 }
-                crate::shared_types::Pitch::NotDetected => {
+                crate::common::shared_types::Pitch::NotDetected => {
                     if let Some((last_freq, _)) = self.last_detected_pitch {
                         let smoothed_clarity = self.clarity_smoother.apply(0.0);
                         if smoothed_clarity < crate::app_config::CLARITY_THRESHOLD * 0.5 {
@@ -202,8 +202,8 @@ impl DataModel {
             return None;
         }
         
-        let root_pitch = crate::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note);
-        let interval_result = crate::music_theory::frequency_to_interval_semitones_scale_aware(
+        let root_pitch = crate::common::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note);
+        let interval_result = crate::common::music_theory::frequency_to_interval_semitones_scale_aware(
             self.tuning_system,
             root_pitch,
             frequency,

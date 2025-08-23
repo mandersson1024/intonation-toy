@@ -7,7 +7,7 @@ use {
     std::cell::RefCell,
     std::sync::atomic::{AtomicU8, Ordering},
     crate::common::dev_log,
-    crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note},
+    crate::common::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note},
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -62,7 +62,7 @@ pub fn setup_sidebar_controls() {
     };
 
     if let Some(tuning_fork_display) = document.get_element_by_id("tuning-fork-display") {
-        let default_note_name = crate::shared_types::midi_note_to_name(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
+        let default_note_name = crate::common::shared_types::midi_note_to_name(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
         tuning_fork_display.set_text_content(Some(&default_note_name));
     } else {
         dev_log!("Warning: tuning-fork-display element not found in HTML");
@@ -240,7 +240,7 @@ pub fn cleanup_sidebar_controls() {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
+pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
         return;
     };
@@ -252,7 +252,7 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::Model
     CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
 
     if let Some(display) = document.get_element_by_id("tuning-fork-display") {
-        let formatted_note = crate::shared_types::midi_note_to_name(model_data.tuning_fork_note);
+        let formatted_note = crate::common::shared_types::midi_note_to_name(model_data.tuning_fork_note);
         display.set_text_content(Some(&formatted_note));
     }
     if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
@@ -314,5 +314,5 @@ pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::p
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn sync_ui_with_presenter_state(_model_data: &crate::shared_types::ModelUpdateResult) {
+pub fn sync_ui_with_presenter_state(_model_data: &crate::common::shared_types::ModelUpdateResult) {
 }

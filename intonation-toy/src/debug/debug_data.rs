@@ -1,6 +1,6 @@
 use crate::engine::audio::{AudioPermission, AudioDevices};
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
-use crate::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, IntonationData};
+use crate::common::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, IntonationData};
 
 #[derive(Clone)]
 pub struct DebugData {
@@ -12,9 +12,9 @@ pub struct DebugData {
     pub pitch_data: Option<PitchData>,
     pub intonation_data: Option<IntonationData>,
     pub microphone_permission: AudioPermission,
-    pub audio_errors: Vec<crate::shared_types::Error>,
+    pub audio_errors: Vec<crate::common::shared_types::Error>,
     pub interval_semitones: Option<i32>,
-    pub tuning_fork_note: Option<crate::shared_types::MidiNote>,
+    pub tuning_fork_note: Option<crate::common::shared_types::MidiNote>,
 }
 
 impl Default for DebugData {
@@ -61,14 +61,14 @@ impl DebugData {
             });
             
             self.pitch_data = match &analysis.pitch {
-                crate::shared_types::Pitch::Detected(frequency, clarity) => {
+                crate::common::shared_types::Pitch::Detected(frequency, clarity) => {
                     Some(PitchData {
                         frequency: *frequency,
                         clarity: *clarity,
                         timestamp: analysis.timestamp,
                     })
                 },
-                crate::shared_types::Pitch::NotDetected => None,
+                crate::common::shared_types::Pitch::NotDetected => None,
             };
         } else {
             self.volume_level = None;

@@ -59,7 +59,7 @@
 pub mod audio;
 pub(crate) mod platform;
 
-use crate::shared_types::EngineUpdateResult;
+use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use crate::app_config::STANDARD_SAMPLE_RATE;
 
@@ -117,7 +117,7 @@ impl AudioEngine {
             
             // Initialize default tuning fork audio with zero volume
             crate::common::dev_log!("Initializing default tuning fork audio with zero volume");
-            let default_frequency = crate::music_theory::midi_note_to_standard_frequency(
+            let default_frequency = crate::common::music_theory::midi_note_to_standard_frequency(
                 crate::app_config::DEFAULT_TUNING_FORK_NOTE
             );
             
@@ -162,8 +162,8 @@ impl AudioEngine {
         let Some(ref context) = self.audio_context else {
             return EngineUpdateResult {
                 audio_analysis: None,
-                audio_errors: vec![crate::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
-                permission_state: crate::shared_types::PermissionState::NotRequested,
+                audio_errors: vec![crate::common::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
+                permission_state: crate::common::shared_types::PermissionState::NotRequested,
             };
         };
         

@@ -1,4 +1,4 @@
-use crate::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale};
+use crate::common::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale};
 
 /// Represents an interval as a base semitone with cents deviation
 #[derive(Debug, Clone, Copy, PartialEq)]

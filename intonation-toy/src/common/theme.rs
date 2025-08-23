@@ -1,4 +1,4 @@
-use crate::shared_types::{Theme, ColorScheme};
+use crate::common::shared_types::{Theme, ColorScheme};
 use std::sync::{Mutex, OnceLock};
 
 static CURRENT_THEME: OnceLock<Mutex<Theme>> = OnceLock::new();

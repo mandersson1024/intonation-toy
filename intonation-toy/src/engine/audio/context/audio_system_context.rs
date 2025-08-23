@@ -225,7 +225,7 @@ impl AudioSystemContext {
 
     
 
-    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::shared_types::AudioAnalysis> {
+    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::common::shared_types::AudioAnalysis> {
         if !self.is_initialized {
             return None;
         }
@@ -241,18 +241,18 @@ impl AudioSystemContext {
         super::merge_audio_analysis(volume, pitch, timestamp)
     }
 
-    pub fn collect_audio_errors(&self) -> Vec<crate::shared_types::Error> {
+    pub fn collect_audio_errors(&self) -> Vec<crate::common::shared_types::Error> {
         let mut errors = Vec::new();
         
         if let Some(error_msg) = &self.initialization_error {
-            errors.push(crate::shared_types::Error::ProcessingError(error_msg.clone()));
+            errors.push(crate::common::shared_types::Error::ProcessingError(error_msg.clone()));
         }
         
         if let Ok(context_manager) = self.audio_context_manager.try_borrow() {
             if !context_manager.is_running() {
                 match context_manager.state() {
-                    AudioContextState::Closed => errors.push(crate::shared_types::Error::ProcessingError("AudioContext is closed".to_string())),
-                    AudioContextState::Suspended => errors.push(crate::shared_types::Error::ProcessingError("AudioContext is suspended".to_string())),
+                    AudioContextState::Closed => errors.push(crate::common::shared_types::Error::ProcessingError("AudioContext is closed".to_string())),
+                    AudioContextState::Suspended => errors.push(crate::common::shared_types::Error::ProcessingError("AudioContext is suspended".to_string())),
                     _ => {}
                 }
             }
@@ -261,13 +261,13 @@ impl AudioSystemContext {
         errors
     }
 
-    pub fn collect_permission_state(&self) -> crate::shared_types::PermissionState {
+    pub fn collect_permission_state(&self) -> crate::common::shared_types::PermissionState {
         match self.permission_state.get() {
-            super::super::AudioPermission::Uninitialized => crate::shared_types::PermissionState::NotRequested,
-            super::super::AudioPermission::Requesting => crate::shared_types::PermissionState::Requested,
-            super::super::AudioPermission::Granted => crate::shared_types::PermissionState::Granted,
-            super::super::AudioPermission::Denied => crate::shared_types::PermissionState::Denied,
-            super::super::AudioPermission::Unavailable => crate::shared_types::PermissionState::Denied,
+            super::super::AudioPermission::Uninitialized => crate::common::shared_types::PermissionState::NotRequested,
+            super::super::AudioPermission::Requesting => crate::common::shared_types::PermissionState::Requested,
+            super::super::AudioPermission::Granted => crate::common::shared_types::PermissionState::Granted,
+            super::super::AudioPermission::Denied => crate::common::shared_types::PermissionState::Denied,
+            super::super::AudioPermission::Unavailable => crate::common::shared_types::PermissionState::Denied,
         }
     }
     

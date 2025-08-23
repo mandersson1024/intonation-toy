@@ -121,7 +121,7 @@ fn setup_overlay_handler(
                             
                             // Display error after a short delay to avoid removal conflicts
                             let timeout_closure = Closure::wrap(Box::new(move || {
-                                crate::web::error_message_box::show_error(&crate::shared_types::Error::MicrophonePermissionDenied);
+                                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
                             }) as Box<dyn FnMut()>);
                             
                             if let Some(window) = web_sys::window() {
@@ -136,11 +136,11 @@ fn setup_overlay_handler(
                 });
             } else {
                 remove_permission_class();
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::BrowserError);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::BrowserError);
             }
         } else {
             remove_permission_class();
-            crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &["required audio features"]);
+            crate::web::error_message_box::show_error_with_params(&crate::common::shared_types::Error::BrowserApiNotSupported, &["required audio features"]);
         }
     }) as Box<dyn FnMut(_)>);
     

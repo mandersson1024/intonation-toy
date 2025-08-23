@@ -2,12 +2,12 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::engine::audio::AudioWorkletState;
 use crate::app_config::AUDIO_CHUNK_SIZE;
 use crate::debug::debug_data::DebugData;
-use crate::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use std::rc::Rc;
 use std::cell::RefCell;
 
 fn midi_note_to_display_name(midi_note: MidiNote) -> String {
-    let full_name = crate::shared_types::midi_note_to_name(midi_note);
+    let full_name = crate::common::shared_types::midi_note_to_name(midi_note);
     let note_end = full_name.chars().position(|c| c.is_numeric() || c == '-').unwrap_or(full_name.len());
     full_name[..note_end].to_string()
 }
@@ -42,8 +42,8 @@ impl DebugPanel {
     
     pub fn update_data(
         &mut self,
-        engine_result: &crate::shared_types::EngineUpdateResult,
-        model_result: Option<&crate::shared_types::ModelUpdateResult>,
+        engine_result: &crate::common::shared_types::EngineUpdateResult,
+        model_result: Option<&crate::common::shared_types::ModelUpdateResult>,
     ) {
         self.debug_data.update_from_layers(engine_result, model_result);
     }
@@ -60,7 +60,7 @@ impl DebugPanel {
     }
     
     /// Render the live data panel
-    pub fn render(&mut self, gui_context: &egui::Context, model_data: &crate::shared_types::ModelUpdateResult) {
+    pub fn render(&mut self, gui_context: &egui::Context, model_data: &crate::common::shared_types::ModelUpdateResult) {
         let screen_rect = gui_context.screen_rect();
         egui::Window::new("Debug Data")
             .default_pos([0.0, 0.0])
@@ -72,7 +72,7 @@ impl DebugPanel {
     }
     
     /// Render panel content
-    fn render_content(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
+    fn render_content(&mut self, ui: &mut Ui, model_data: &crate::common::shared_types::ModelUpdateResult) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical(|ui| {
                 // Audio Devices Section (debug-specific data)
@@ -337,7 +337,7 @@ impl DebugPanel {
                         ui.label("Interval:");
                         if let (Some(interval_semitones), Some(_)) = 
                             (self.debug_data.interval_semitones, self.debug_data.tuning_fork_note) {
-                            let interval_name = crate::shared_types::interval_name_from_semitones(interval_semitones);
+                            let interval_name = crate::common::shared_types::interval_name_from_semitones(interval_semitones);
                             let (color, display_text) = if interval_semitones == 0 || interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
                                 (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
                             } else if interval_semitones.abs() <= 12 {
@@ -359,7 +359,7 @@ impl DebugPanel {
     }
     
     /// Render test signal controls (debug actions)
-    fn render_test_signal_controls(&mut self, ui: &mut Ui, model_data: &crate::shared_types::ModelUpdateResult) {
+    fn render_test_signal_controls(&mut self, ui: &mut Ui, model_data: &crate::common::shared_types::ModelUpdateResult) {
         egui::CollapsingHeader::new("Test Signal Controls")
             .default_open(true)
             .show(ui, |ui| {
@@ -497,7 +497,7 @@ impl DebugPanel {
     // Debug action helper methods
     
     #[cfg(debug_assertions)]
-    fn send_test_signal_action(&self, model_data: &crate::shared_types::ModelUpdateResult) {
+    fn send_test_signal_action(&self, model_data: &crate::common::shared_types::ModelUpdateResult) {
         if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
             // Calculate frequency with error handling
             match self.calculate_final_frequency_safe(
@@ -532,9 +532,9 @@ impl DebugPanel {
     }
     
     fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> f32 {
-        let tuning_fork_frequency = crate::music_theory::midi_note_to_standard_frequency(tuning_fork_note);
+        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(tuning_fork_note);
         let interval_semitones = (midi_note as i32) - (tuning_fork_note as i32);
-        crate::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
+        crate::common::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
     }
     
     fn calculate_midi_note_frequency_safe(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> Result<f32, &'static str> {

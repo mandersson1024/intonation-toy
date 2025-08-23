@@ -8,7 +8,7 @@ pub use audio_devices::AudioDevices;
 pub use audio_context_manager::AudioContextManager;
 pub use audio_system_context::AudioSystemContext;
 
-use crate::shared_types::{Volume, Pitch, AudioAnalysis};
+use crate::common::shared_types::{Volume, Pitch, AudioAnalysis};
 use super::data_types::{VolumeLevelData, PitchData};
 
 pub(super) fn convert_volume_data(volume_data: Option<VolumeLevelData>) -> Option<Volume> {

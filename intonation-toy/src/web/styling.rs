@@ -1,4 +1,4 @@
-use crate::theme::get_current_color_scheme;
+use crate::common::theme::get_current_color_scheme;
 use crate::web::utils::rgb_to_css;
 
 pub const SIDEBAR_WIDTH: i32 = 300;

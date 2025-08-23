@@ -13,17 +13,8 @@ pub mod presentation;
 // Platform-specific modules
 pub mod web;
 
-// Module interfaces
-pub mod shared_types;
-
-// Theme management
-pub mod theme;
-
-// Music theory module
-pub mod music_theory;
-
 // Supporting modules
-pub(crate) mod common;
+pub mod common;
 #[cfg(debug_assertions)]
 pub(crate) mod debug;
 
@@ -197,10 +188,10 @@ pub async fn start_render_loop(
             }
         } else {
             // Provide default engine data when engine is not available
-            crate::shared_types::EngineUpdateResult {
+            crate::common::shared_types::EngineUpdateResult {
                 audio_analysis: None,
                 audio_errors: Vec::new(),
-                permission_state: crate::shared_types::PermissionState::NotRequested,
+                permission_state: crate::common::shared_types::PermissionState::NotRequested,
             }
         };
         
@@ -465,7 +456,7 @@ pub async fn start() {
             #[cfg(target_arch = "wasm32")]
             {
                 let missing_apis_str = api_list.join(", ");
-                crate::web::error_message_box::show_error_with_params(&crate::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
+                crate::web::error_message_box::show_error_with_params(&crate::common::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
             }
             return;
         }
@@ -476,7 +467,7 @@ pub async fn start() {
             // Display error overlay for mobile device
             #[cfg(target_arch = "wasm32")]
             {
-                crate::web::error_message_box::show_error(&crate::shared_types::Error::MobileDeviceNotSupported);
+                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
             }
             return;
         }
@@ -486,7 +477,7 @@ pub async fn start() {
     }
     
     // Initialize theme system
-    crate::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
+    crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
     
     // Apply CSS custom properties for theme switching (static CSS already loaded)
     dev_log!("Applying CSS custom properties for theme initialization...");
