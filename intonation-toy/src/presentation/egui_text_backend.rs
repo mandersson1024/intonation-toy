@@ -115,7 +115,7 @@ impl EguiTextBackend {
         for primitive in primitives {
             if let egui::epaint::Primitive::Mesh(mesh) = &primitive.primitive {
                 if let Some(texture) = &self.font_texture {
-                    if let Some(obj) = self.create_render_object(context, &mesh, texture.clone(), viewport) {
+                    if let Some(obj) = self.create_render_object(context, mesh, texture.clone(), viewport) {
                         render_objects.push(obj);
                     }
                 }
