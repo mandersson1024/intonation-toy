@@ -92,7 +92,7 @@ pub async fn start_render_loop(
     let mut gui = three_d::GUI::new(&context);
     
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    let mut command_registry = ConsoleCommandRegistry::new();
+    let mut command_registry = ConsoleCommandRegistry::default();
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
     crate::engine::platform::commands::register_platform_commands(&mut command_registry);
 

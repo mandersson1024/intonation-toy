@@ -6,8 +6,8 @@ pub struct ConsoleCommandRegistry {
     commands: HashMap<String, Box<dyn ConsoleCommand>>,
 }
 
-impl ConsoleCommandRegistry {
-    pub fn new() -> Self {
+impl Default for ConsoleCommandRegistry {
+    fn default() -> Self {
         let mut registry = Self {
             commands: HashMap::new(),
         };
@@ -18,7 +18,9 @@ impl ConsoleCommandRegistry {
         
         registry
     }
-    
+}
+
+impl ConsoleCommandRegistry {
     pub fn register(&mut self, command: Box<dyn ConsoleCommand>) {
         self.commands.insert(command.name().to_string(), command);
     }
