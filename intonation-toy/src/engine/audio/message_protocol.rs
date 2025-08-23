@@ -85,7 +85,6 @@ impl Default for BatchConfig {
 pub struct WorkletError {
     pub code: WorkletErrorCode,
     pub message: String,
-    pub context: Option<ErrorContext>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,33 +117,6 @@ impl std::fmt::Display for WorkletErrorCode {
 }
 
 impl std::error::Error for WorkletError {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ErrorContext {
-    pub location: String,
-    pub stack_trace: Option<Vec<String>>,
-    pub message_context: Option<MessageContext>,
-    pub system_state: Option<SystemState>,
-    pub debug_info: Option<String>,
-    pub timestamp: f64,
-    pub thread_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct MessageContext {
-    pub message_type: String,
-    pub direction: MessageDirection,
-    pub message_id: Option<u32>,
-    pub message_timestamp: Option<f64>,
-    pub message_size: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MessageDirection {
-    ToWorklet,
-    FromWorklet,
-    Internal,
-}
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SystemState {
@@ -897,12 +869,6 @@ impl ToJsMessage for WorkletError {
         Reflect::set(&obj, &"message".into(), &self.message.clone().into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set message: {:?}", e)))?;
         
-        if let Some(context) = &self.context {
-            let context_obj = context.to_js_object()?;
-            Reflect::set(&obj, &"context".into(), &context_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set context: {:?}", e)))?;
-        }
-        
         Ok(obj)
     }
 }
@@ -929,19 +895,9 @@ impl FromJsMessage for WorkletError {
             .as_string()
             .ok_or_else(|| SerializationError::InvalidPropertyType("message must be string".to_string()))?;
         
-        let context = match Reflect::get(obj, &"context".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let context_obj = value.dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("context must be object".to_string()))?;
-                Some(ErrorContext::from_js_object(&context_obj)?)
-            }
-            _ => None,
-        };
-        
         Ok(WorkletError {
             code,
             message,
-            context,
         })
     }
 }
@@ -951,226 +907,10 @@ impl MessageValidator for WorkletError {
         if self.message.is_empty() {
             return Err(SerializationError::ValidationFailed("message cannot be empty".to_string()));
         }
-        if let Some(context) = &self.context {
-            context.validate()?;
-        }
         Ok(())
     }
 }
 
-impl ToJsMessage for ErrorContext {
-    fn to_js_object(&self) -> SerializationResult<Object> {
-        let obj = Object::new();
-        
-        Reflect::set(&obj, &"location".into(), &self.location.clone().into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set location: {:?}", e)))?;
-        
-        Reflect::set(&obj, &"timestamp".into(), &self.timestamp.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set timestamp: {:?}", e)))?;
-        
-        if let Some(stack_trace) = &self.stack_trace {
-            let js_array = js_sys::Array::new();
-            for trace in stack_trace {
-                js_array.push(&trace.clone().into());
-            }
-            Reflect::set(&obj, &"stackTrace".into(), &js_array.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set stackTrace: {:?}", e)))?;
-        }
-        
-        if let Some(message_context) = &self.message_context {
-            let context_obj = message_context.to_js_object()?;
-            Reflect::set(&obj, &"messageContext".into(), &context_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageContext: {:?}", e)))?;
-        }
-        
-        if let Some(system_state) = &self.system_state {
-            let state_obj = system_state.to_js_object()?;
-            Reflect::set(&obj, &"systemState".into(), &state_obj.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set systemState: {:?}", e)))?;
-        }
-        
-        if let Some(debug_info) = &self.debug_info {
-            Reflect::set(&obj, &"debugInfo".into(), &debug_info.clone().into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set debugInfo: {:?}", e)))?;
-        }
-        
-        if let Some(thread_id) = &self.thread_id {
-            Reflect::set(&obj, &"threadId".into(), &thread_id.clone().into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set threadId: {:?}", e)))?;
-        }
-        
-        Ok(obj)
-    }
-}
-
-impl FromJsMessage for ErrorContext {
-    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let location = Reflect::get(obj, &"location".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get location: {:?}", e)))?
-            .as_string()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("location must be string".to_string()))?;
-        
-        let timestamp = Reflect::get(obj, &"timestamp".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get timestamp: {:?}", e)))?
-            .as_f64()
-            .unwrap_or_else(js_sys::Date::now);
-        
-        let stack_trace = match Reflect::get(obj, &"stackTrace".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let array = value.dyn_ref::<js_sys::Array>()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("stackTrace must be array".to_string()))?;
-                let mut trace_vec = Vec::new();
-                for i in 0..array.length() {
-                    if let Some(trace_str) = array.get(i).as_string() {
-                        trace_vec.push(trace_str);
-                    }
-                }
-                Some(trace_vec)
-            }
-            _ => None,
-        };
-        
-        let message_context = match Reflect::get(obj, &"messageContext".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let context_obj = value.dyn_ref::<Object>()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageContext must be object".to_string()))?;
-                Some(MessageContext::from_js_object(context_obj)?)
-            }
-            _ => None,
-        };
-        
-        let system_state = match Reflect::get(obj, &"systemState".into()) {
-            Ok(value) if !value.is_undefined() => {
-                let state_obj = value.dyn_ref::<Object>()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("systemState must be object".to_string()))?;
-                Some(SystemState::from_js_object(state_obj)?)
-            }
-            _ => None,
-        };
-        
-        let debug_info = match Reflect::get(obj, &"debugInfo".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_string()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("debugInfo must be string".to_string()))?)
-            }
-            _ => None,
-        };
-        
-        let thread_id = match Reflect::get(obj, &"threadId".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_string()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("threadId must be string".to_string()))?)
-            }
-            _ => None,
-        };
-        
-        Ok(ErrorContext {
-            location,
-            stack_trace,
-            message_context,
-            system_state,
-            debug_info,
-            timestamp,
-            thread_id,
-        })
-    }
-}
-
-impl MessageValidator for ErrorContext {
-    fn validate(&self) -> SerializationResult<()> {
-        if self.location.is_empty() {
-            return Err(SerializationError::ValidationFailed("location cannot be empty".to_string()));
-        }
-        Ok(())
-    }
-}
-
-impl ToJsMessage for MessageContext {
-    fn to_js_object(&self) -> SerializationResult<Object> {
-        let obj = Object::new();
-        
-        Reflect::set(&obj, &"messageType".into(), &self.message_type.clone().into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageType: {:?}", e)))?;
-        
-        let direction_str = match self.direction {
-            MessageDirection::ToWorklet => "toWorklet",
-            MessageDirection::FromWorklet => "fromWorklet", 
-            MessageDirection::Internal => "internal",
-        };
-        Reflect::set(&obj, &"direction".into(), &direction_str.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set direction: {:?}", e)))?;
-        
-        if let Some(message_id) = self.message_id {
-            Reflect::set(&obj, &"messageId".into(), &message_id.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageId: {:?}", e)))?;
-        }
-        
-        if let Some(timestamp) = self.message_timestamp {
-            Reflect::set(&obj, &"messageTimestamp".into(), &timestamp.into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageTimestamp: {:?}", e)))?;
-        }
-        
-        if let Some(size) = self.message_size {
-            Reflect::set(&obj, &"messageSize".into(), &(size as f64).into())
-                .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set messageSize: {:?}", e)))?;
-        }
-        
-        Ok(obj)
-    }
-}
-
-impl FromJsMessage for MessageContext {
-    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let message_type = Reflect::get(obj, &"messageType".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get messageType: {:?}", e)))?
-            .as_string()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("messageType must be string".to_string()))?;
-        
-        let direction_str = Reflect::get(obj, &"direction".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get direction: {:?}", e)))?
-            .as_string()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("direction must be string".to_string()))?;
-        
-        let direction = match direction_str.as_str() {
-            "toWorklet" => MessageDirection::ToWorklet,
-            "fromWorklet" => MessageDirection::FromWorklet,
-            "internal" => MessageDirection::Internal,
-            _ => return Err(SerializationError::InvalidPropertyType(format!("Invalid direction: {}", direction_str))),
-        };
-        
-        let message_id = match Reflect::get(obj, &"messageId".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageId must be number".to_string()))? as u32)
-            }
-            _ => None,
-        };
-        
-        let message_timestamp = match Reflect::get(obj, &"messageTimestamp".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageTimestamp must be number".to_string()))?)
-            }
-            _ => None,
-        };
-        
-        let message_size = match Reflect::get(obj, &"messageSize".into()) {
-            Ok(value) if !value.is_undefined() => {
-                Some(value.as_f64()
-                    .ok_or_else(|| SerializationError::InvalidPropertyType("messageSize must be number".to_string()))? as usize)
-            }
-            _ => None,
-        };
-        
-        Ok(MessageContext {
-            message_type,
-            direction,
-            message_id,
-            message_timestamp,
-            message_size,
-        })
-    }
-}
 
 impl ToJsMessage for SystemState {
     fn to_js_object(&self) -> SerializationResult<Object> {
@@ -1403,36 +1143,6 @@ impl FromWorkletMessage {
 }
 
 
-
-
-
-
-impl ErrorContext {
-    pub fn new(location: String) -> Self {
-        Self {
-            location,
-            stack_trace: None,
-            message_context: None,
-            system_state: None,
-            debug_info: None,
-            timestamp: js_sys::Date::now(),
-            thread_id: None,
-        }
-    }
-
-}
-
-impl MessageContext {
-    pub fn new(message_type: String, direction: MessageDirection) -> Self {
-        Self {
-            message_type,
-            direction,
-            message_id: None,
-            message_timestamp: None,
-            message_size: None,
-        }
-    }
-}
 
 impl SystemState {
     pub fn new() -> Self {
