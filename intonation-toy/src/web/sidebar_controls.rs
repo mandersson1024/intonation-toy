@@ -1,58 +1,39 @@
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::closure::Closure;
-#[cfg(target_arch = "wasm32")]
-use web_sys::{window, HtmlSelectElement, HtmlInputElement, EventTarget};
+use {
+    wasm_bindgen::JsCast,
+    wasm_bindgen::closure::Closure,
+    web_sys::{window, HtmlSelectElement, HtmlInputElement, EventTarget},
+    std::rc::Rc,
+    std::cell::RefCell,
+    std::sync::atomic::{AtomicU8, Ordering},
+    crate::common::dev_log,
+    crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note},
+};
 
-#[cfg(target_arch = "wasm32")]
-use std::rc::Rc;
-#[cfg(target_arch = "wasm32")]
-use std::cell::RefCell;
-#[cfg(target_arch = "wasm32")]
-use std::sync::atomic::{AtomicU8, Ordering};
-
-#[cfg(target_arch = "wasm32")]
-use crate::common::dev_log;
-#[cfg(target_arch = "wasm32")]
-use crate::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note};
-
-// Global state for current tuning fork - initialized to default from config
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
 
-// Global state for tuning fork volume slider position (0-100)
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
 
-/// Convert slider position (0-100) to amplitude (0.0-1.0) using dual-scale approach
-/// - 0-20%: Linear scaling from 0.0 to 0.01 amplitude
-/// - 20-100%: dB scaling from -40dB to 0dB
 #[cfg(target_arch = "wasm32")]
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
         0.0
     } else if position <= 20.0 {
-        // Linear scaling: 0-20% maps to 0.0-0.01 amplitude
         position * 0.01 / 20.0
     } else {
-        // dB scaling: 20-100% maps to -40dB to 0dB
         let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
         10.0_f32.powf(db / 20.0)
     }
 }
 
-/// Convert slider position to dB display string
-/// - 0%: Shows "-∞ dB"
-/// - 0-20%: Calculates dB from amplitude
-/// - 20-100%: Maps directly to dB scale
 #[cfg(target_arch = "wasm32")]
 fn slider_position_to_db_display(position: f32) -> String {
     if position <= 0.0 {
         "-∞ dB".to_string()
     } else if position <= 20.0 {
-        // Calculate dB from the amplitude in the linear range
         let amplitude = slider_position_to_amplitude(position);
         if amplitude > 0.0 {
             let db = 20.0 * amplitude.log10();
@@ -61,16 +42,9 @@ fn slider_position_to_db_display(position: f32) -> String {
             "-∞ dB".to_string()
         }
     } else {
-        // Direct dB mapping for 20-100% range
         let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
         format!("{:.0} dB", db)
     }
-}
-
-/// Format a MIDI note number as a string (e.g., 60 -> "C4")
-#[cfg(target_arch = "wasm32")]
-fn format_midi_note(midi_note: MidiNote) -> String {
-    crate::shared_types::midi_note_to_name(midi_note)
 }
 
 
@@ -87,9 +61,8 @@ pub fn setup_sidebar_controls() {
         return;
     };
 
-    // Verify that essential HTML elements exist and set initial values
     if let Some(tuning_fork_display) = document.get_element_by_id("tuning-fork-display") {
-        let default_note_name = format_midi_note(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
+        let default_note_name = crate::shared_types::midi_note_to_name(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
         tuning_fork_display.set_text_content(Some(&default_note_name));
     } else {
         dev_log!("Warning: tuning-fork-display element not found in HTML");
@@ -126,231 +99,146 @@ pub fn setup_sidebar_controls() {
 
 #[cfg(target_arch = "wasm32")]
 pub fn cleanup_sidebar_controls() {
-    // No cleanup needed since we're now using static HTML elements
-    // The HTML elements remain in the DOM and can be reused
+}
+
+#[cfg(target_arch = "wasm32")]
+fn add_event_listener<F>(element_id: &str, event_type: &str, handler: F) 
+where 
+    F: FnMut(web_sys::Event) + 'static,
+{
+    let Some(window) = window() else { return; };
+    let Some(document) = window.document() else { return; };
+    let Some(element) = document.get_element_by_id(element_id) else {
+        dev_log!("Failed to find {} element", element_id);
+        return;
+    };
+    let Some(event_target) = element.dyn_ref::<EventTarget>() else { return; };
+    
+    let closure = Closure::wrap(Box::new(handler) as Box<dyn FnMut(_)>);
+    if let Err(err) = event_target.add_event_listener_with_callback(event_type, closure.as_ref().unchecked_ref()) {
+        dev_log!("Failed to add {} listener to {}: {:?}", event_type, element_id, err);
+    }
+    closure.forget();
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
-    let Some(window) = window() else {
-        dev_log!("Failed to get window for event listeners");
-        return;
-    };
-
-    let Some(document) = window.document() else {
-        dev_log!("Failed to get document for event listeners");
-        return;
-    };
-
-    // Set up plus button event listener
-    if let Some(plus_button) = document.get_element_by_id("tuning-fork-plus") {
-        let presenter_clone = presenter.clone();
-        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-            if let Some(new_tuning_fork_note) = increment_midi_note(current_tuning_fork_note) {
-                if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                    presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
-                    
-                    // Also update tuning fork audio frequency
-                    let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
-                    let amplitude = slider_position_to_amplitude(position);
-                    presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
-                }
-            }
-        }) as Box<dyn FnMut(_)>);
-
-        if let Some(event_target) = plus_button.dyn_ref::<EventTarget>() {
-            if let Err(err) = event_target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()) {
-                dev_log!("Failed to add click listener to plus button: {:?}", err);
+    let presenter_clone = presenter.clone();
+    add_event_listener("tuning-fork-plus", "click", move |_event: web_sys::Event| {
+        let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+        if let Some(new_tuning_fork_note) = increment_midi_note(current_tuning_fork_note) {
+            if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
+                
+                let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                let amplitude = slider_position_to_amplitude(position);
+                presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
             }
         }
-        closure.forget();
-    } else {
-        dev_log!("Failed to find tuning-fork-plus button");
-    }
+    });
 
-    // Set up minus button event listener
-    if let Some(minus_button) = document.get_element_by_id("tuning-fork-minus") {
-        let presenter_clone = presenter.clone();
-        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-            if let Some(new_tuning_fork_note) = decrement_midi_note(current_tuning_fork_note) {
-                if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                    presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
-                    
-                    // Also update tuning fork audio frequency
-                    let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
-                    let amplitude = slider_position_to_amplitude(position);
-                    presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
-                }
-            }
-        }) as Box<dyn FnMut(_)>);
-
-        if let Some(event_target) = minus_button.dyn_ref::<EventTarget>() {
-            if let Err(err) = event_target.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref()) {
-                dev_log!("Failed to add click listener to minus button: {:?}", err);
+    let presenter_clone = presenter.clone();
+    add_event_listener("tuning-fork-minus", "click", move |_event: web_sys::Event| {
+        let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+        if let Some(new_tuning_fork_note) = decrement_midi_note(current_tuning_fork_note) {
+            if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
+                presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
+                
+                let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                let amplitude = slider_position_to_amplitude(position);
+                presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
             }
         }
-        closure.forget();
-    } else {
-        dev_log!("Failed to find tuning-fork-minus button");
-    }
+    });
 
-    // Set up tuning system dropdown event listener
-    if let Some(tuning_select) = document.get_element_by_id("tuning-system-select") {
-        let presenter_clone = presenter.clone();
-        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Some(current_window) = web_sys::window() {
-                if let Some(document) = current_window.document() {
-                    if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
-                if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-                    let value = html_select.value();
-                    let tuning_system = match value.as_str() {
-                        "equal" => TuningSystem::EqualTemperament,
-                        "just" => TuningSystem::JustIntonation,
-                        _ => {
-                            dev_log!("Unknown tuning system value: {}", value);
-                            return;
-                        }
-                    };
-                        presenter_clone.borrow_mut().on_tuning_system_changed(tuning_system);
-                    }
-                }
-                }
+    let presenter_clone = presenter.clone();
+    add_event_listener("tuning-system-select", "change", move |_event: web_sys::Event| {
+        let Some(window) = web_sys::window() else { return; };
+        let Some(document) = window.document() else { return; };
+        let Some(select_element) = document.get_element_by_id("tuning-system-select") else { return; };
+        let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() else { return; };
+        
+        let tuning_system = match html_select.value().as_str() {
+            "equal" => TuningSystem::EqualTemperament,
+            "just" => TuningSystem::JustIntonation,
+            _ => {
+                dev_log!("Unknown tuning system value: {}", html_select.value());
+                return;
             }
-        }) as Box<dyn FnMut(_)>);
+        };
+        presenter_clone.borrow_mut().on_tuning_system_changed(tuning_system);
+    });
 
-        if let Some(event_target) = tuning_select.dyn_ref::<EventTarget>() {
-            if let Err(err) = event_target.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref()) {
-                dev_log!("Failed to add change listener to tuning dropdown: {:?}", err);
+    let presenter_clone = presenter.clone();
+    add_event_listener("scale-select", "change", move |_event: web_sys::Event| {
+        let Some(window) = web_sys::window() else { return; };
+        let Some(document) = window.document() else { return; };
+        let Some(select_element) = document.get_element_by_id("scale-select") else { return; };
+        let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() else { return; };
+        
+        let scale = match html_select.value().as_str() {
+            "chromatic" => Scale::Chromatic,
+            "major" => Scale::Major,
+            "minor" => Scale::Minor,
+            "harmonic_minor" => Scale::HarmonicMinor,
+            "melodic_minor" => Scale::MelodicMinor,
+            "major_pentatonic" => Scale::MajorPentatonic,
+            "minor_pentatonic" => Scale::MinorPentatonic,
+            "blues" => Scale::Blues,
+            "dorian" => Scale::Dorian,
+            "phrygian" => Scale::Phrygian,
+            "lydian" => Scale::Lydian,
+            "mixolydian" => Scale::Mixolydian,
+            "locrian" => Scale::Locrian,
+            "whole_tone" => Scale::WholeTone,
+            "augmented" => Scale::Augmented,
+            "diminished_half_whole" => Scale::DiminishedHalfWhole,
+            "diminished_whole_half" => Scale::DiminishedWholeHalf,
+            "hungarian_minor" => Scale::HungarianMinor,
+            "neapolitan_minor" => Scale::NeapolitanMinor,
+            "neapolitan_major" => Scale::NeapolitanMajor,
+            "enigmatic" => Scale::Enigmatic,
+            "persian" => Scale::Persian,
+            "double_harmonic_major" => Scale::DoubleHarmonicMajor,
+            "altered" => Scale::Altered,
+            "bebop_major" => Scale::BebopMajor,
+            "bebop_dominant" => Scale::BebopDominant,
+            _ => {
+                dev_log!("Unknown scale value: {}", html_select.value());
+                return;
             }
+        };
+        presenter_clone.borrow_mut().on_scale_changed(scale);
+    });
+
+    let presenter_clone = presenter.clone();
+    add_event_listener("tuning-fork-volume", "input", move |_event: web_sys::Event| {
+        let Some(window) = web_sys::window() else { return; };
+        let Some(document) = window.document() else { return; };
+        let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") else { return; };
+        let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() else { return; };
+        let Ok(position) = html_slider.value().parse::<f32>() else { return; };
+        
+        CURRENT_TUNING_FORK_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
+        let amplitude = slider_position_to_amplitude(position);
+        
+        if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+            display_element.set_text_content(Some(&slider_position_to_db_display(position)));
         }
-        closure.forget();
-    } else {
-        dev_log!("Failed to find tuning-system-select dropdown");
-    }
-
-    // Set up scale dropdown event listener
-    if let Some(scale_select) = document.get_element_by_id("scale-select") {
-        let presenter_clone = presenter.clone();
-        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Some(current_window) = web_sys::window() {
-                if let Some(document) = current_window.document() {
-                    if let Some(select_element) = document.get_element_by_id("scale-select") {
-                if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
-                    let value = html_select.value();
-                    let scale = match value.as_str() {
-                        "chromatic" => Scale::Chromatic,
-                        "major" => Scale::Major,
-                        "minor" => Scale::Minor,
-                        "harmonic_minor" => Scale::HarmonicMinor,
-                        "melodic_minor" => Scale::MelodicMinor,
-                        "major_pentatonic" => Scale::MajorPentatonic,
-                        "minor_pentatonic" => Scale::MinorPentatonic,
-                        "blues" => Scale::Blues,
-                        "dorian" => Scale::Dorian,
-                        "phrygian" => Scale::Phrygian,
-                        "lydian" => Scale::Lydian,
-                        "mixolydian" => Scale::Mixolydian,
-                        "locrian" => Scale::Locrian,
-                        "whole_tone" => Scale::WholeTone,
-                        "augmented" => Scale::Augmented,
-                        "diminished_half_whole" => Scale::DiminishedHalfWhole,
-                        "diminished_whole_half" => Scale::DiminishedWholeHalf,
-                        "hungarian_minor" => Scale::HungarianMinor,
-                        "neapolitan_minor" => Scale::NeapolitanMinor,
-                        "neapolitan_major" => Scale::NeapolitanMajor,
-                        "enigmatic" => Scale::Enigmatic,
-                        "persian" => Scale::Persian,
-                        "double_harmonic_major" => Scale::DoubleHarmonicMajor,
-                        "altered" => Scale::Altered,
-                        "bebop_major" => Scale::BebopMajor,
-                        "bebop_dominant" => Scale::BebopDominant,
-                        _ => {
-                            dev_log!("Unknown scale value: {}", value);
-                            return;
-                        }
-                    };
-                        presenter_clone.borrow_mut().on_scale_changed(scale);
-                    }
-                }
-                }
-            }
-        }) as Box<dyn FnMut(_)>);
-
-        if let Some(event_target) = scale_select.dyn_ref::<EventTarget>() {
-            if let Err(err) = event_target.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref()) {
-                dev_log!("Failed to add change listener to scale dropdown: {:?}", err);
-            }
-        }
-        closure.forget();
-    } else {
-        dev_log!("Failed to find scale-select dropdown");
-    }
-
-    // Set up tuning fork volume slider event listener
-    if let Some(slider) = document.get_element_by_id("tuning-fork-volume") {
-        let presenter_clone = presenter.clone();
-        let closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            if let Some(current_window) = web_sys::window() {
-                if let Some(document) = current_window.document() {
-                    if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
-                        if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
-                            if let Ok(position) = html_slider.value().parse::<f32>() {
-                                CURRENT_TUNING_FORK_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
-                                
-                                // Convert position to amplitude
-                                let amplitude = slider_position_to_amplitude(position);
-                                
-                                // Update volume display with dB value
-                                if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
-                                    display_element.set_text_content(Some(&slider_position_to_db_display(position)));
-                                }
-                                
-                                // Update audio
-                                let current_tuning_fork = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-                                presenter_clone.borrow_mut().on_tuning_fork_configured(true, current_tuning_fork, amplitude);
-                            }
-                        }
-                    }
-                }
-            }
-        }) as Box<dyn FnMut(_)>);
-
-        if let Some(event_target) = slider.dyn_ref::<EventTarget>() {
-            if let Err(err) = event_target.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref()) {
-                dev_log!("Failed to add input listener to volume slider: {:?}", err);
-            }
-        }
-        closure.forget();
-    } else {
-        dev_log!("Failed to find tuning-fork-volume slider");
-    }
-
+        
+        let current_tuning_fork = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+        presenter_clone.borrow_mut().on_tuning_fork_configured(true, current_tuning_fork, amplitude);
+    });
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn setup_sidebar_controls() {
-    // No-op for non-WASM targets
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn cleanup_sidebar_controls() {
-    // No-op for non-WASM targets
 }
 
-/// Synchronize UI elements with current presenter state
-/// 
-/// This function updates the UI to reflect the current tuning fork and tuning system
-/// values from the presenter, ensuring the UI stays in sync when values change
-/// from sources other than direct user interaction.
-/// 
-/// # Arguments
-/// 
-/// * `tuning_fork` - The current tuning fork from the presenter
-/// * `tuning_system` - The current tuning system from the presenter
-/// * `scale` - The current scale from the presenter
-/// * `tuning_fork_audio_enabled` - The current tuning fork audio state
 #[cfg(target_arch = "wasm32")]
 pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
@@ -361,16 +249,12 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::Model
         return;
     };
 
-    // Update stored tuning fork state
     CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
 
-    // Update tuning fork display
     if let Some(display) = document.get_element_by_id("tuning-fork-display") {
-        let formatted_note = format_midi_note(model_data.tuning_fork_note);
+        let formatted_note = crate::shared_types::midi_note_to_name(model_data.tuning_fork_note);
         display.set_text_content(Some(&formatted_note));
     }
-
-    // Update tuning system dropdown selection
     if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
         if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
             let value = match model_data.tuning_system {
@@ -380,8 +264,6 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::Model
             html_select.set_value(value);
         }
     }
-
-    // Update scale dropdown selection
     if let Some(select_element) = document.get_element_by_id("scale-select") {
         if let Some(html_select) = select_element.dyn_ref::<HtmlSelectElement>() {
             let value = match model_data.scale {
@@ -415,8 +297,6 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::Model
             html_select.set_value(value);
         }
     }
-
-    // Update volume slider and display
     let current_position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
     if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
         if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
@@ -431,10 +311,8 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::shared_types::Model
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
-    // No-op for non-WASM targets
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn sync_ui_with_presenter_state(_model_data: &crate::shared_types::ModelUpdateResult) {
-    // No-op for non-WASM targets
 }
