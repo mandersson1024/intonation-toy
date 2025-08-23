@@ -86,7 +86,6 @@ pub struct WorkletError {
     pub code: WorkletErrorCode,
     pub message: String,
     pub context: Option<ErrorContext>,
-    pub timestamp: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -898,9 +897,6 @@ impl ToJsMessage for WorkletError {
         Reflect::set(&obj, &"message".into(), &self.message.clone().into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set message: {:?}", e)))?;
         
-        Reflect::set(&obj, &"timestamp".into(), &self.timestamp.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set timestamp: {:?}", e)))?;
-        
         if let Some(context) = &self.context {
             let context_obj = context.to_js_object()?;
             Reflect::set(&obj, &"context".into(), &context_obj.into())
@@ -933,11 +929,6 @@ impl FromJsMessage for WorkletError {
             .as_string()
             .ok_or_else(|| SerializationError::InvalidPropertyType("message must be string".to_string()))?;
         
-        let timestamp = Reflect::get(obj, &"timestamp".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get timestamp: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("timestamp must be number".to_string()))?;
-        
         let context = match Reflect::get(obj, &"context".into()) {
             Ok(value) if !value.is_undefined() => {
                 let context_obj = value.dyn_into::<Object>()
@@ -950,7 +941,6 @@ impl FromJsMessage for WorkletError {
         Ok(WorkletError {
             code,
             message,
-            timestamp,
             context,
         })
     }
@@ -960,9 +950,6 @@ impl MessageValidator for WorkletError {
     fn validate(&self) -> SerializationResult<()> {
         if self.message.is_empty() {
             return Err(SerializationError::ValidationFailed("message cannot be empty".to_string()));
-        }
-        if self.timestamp < 0.0 {
-            return Err(SerializationError::ValidationFailed("timestamp cannot be negative".to_string()));
         }
         if let Some(context) = &self.context {
             context.validate()?;
