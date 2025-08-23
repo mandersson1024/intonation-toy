@@ -127,37 +127,6 @@ pub fn cents_delta(frequency1_hz: f32, frequency2_hz: f32) -> f32 {
     1200.0 * (frequency2_hz / frequency1_hz).log2()
 }
 
-/// Find the closest scale note to a given semitone interval
-/// 
-/// This function searches for the nearest scale member when the candidate semitone
-/// is not in the scale. If the candidate is already in the scale, it's returned unchanged.
-/// Otherwise, it searches outward (±1, ±2, ±3 semitones) until finding a scale member.
-/// For ties at equal distance, it favors the upward direction.
-fn find_closest_scale_note(candidate_semitone: i32, scale: Scale) -> i32 {
-    // If already in scale, return as-is
-    if semitone_in_scale(scale, candidate_semitone) {
-        return candidate_semitone;
-    }
-    
-    // Search outward for the closest scale member
-    for distance in 1..=12 {
-        // Check upward first (favoring upward for ties)
-        let upward = candidate_semitone + distance;
-        if semitone_in_scale(scale, upward) {
-            return upward;
-        }
-        
-        // Check downward
-        let downward = candidate_semitone - distance;
-        if semitone_in_scale(scale, downward) {
-            return downward;
-        }
-    }
-    
-    // Fallback - should not happen for valid scales
-    candidate_semitone
-}
-
 /// Scale-aware frequency to interval conversion
 /// 
 /// Converts a frequency to its interval relative to a root frequency,
@@ -225,18 +194,4 @@ pub fn frequency_to_interval_semitones_scale_aware(
     }
 }
 
-/// Scale-aware interval frequency calculation
-/// 
-/// Returns the frequency for the closest scale member to the given interval.
-/// This is useful for getting the "target" frequency that a scale-aware
-/// intonation system would expect for a given interval.
-pub fn interval_frequency_scale_aware(
-    tuning_system: TuningSystem,
-    root_frequency_hz: f32,
-    interval_semitones: i32,
-    scale: Scale,
-) -> f32 {
-    let scale_semitone = find_closest_scale_note(interval_semitones, scale);
-    interval_frequency(tuning_system, root_frequency_hz, scale_semitone)
-}
 
