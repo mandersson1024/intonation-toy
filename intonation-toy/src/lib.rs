@@ -393,16 +393,8 @@ pub async fn start_render_loop(
                 );
                 
                 // Execute debug actions synchronously
-                match _engine.execute_debug_actions_sync(debug_actions) {
-                    Ok(executed_debug_actions) => {
-                        let total_debug = executed_debug_actions.test_signal_executions.len();
-                        if total_debug > 0 {
-                            trace_log!("[DEBUG] ✓ Executed {} debug actions", total_debug);
-                        }
-                    }
-                    Err(e) => {
-                        dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
-                    }
+                if let Err(e) = _engine.execute_debug_actions_sync(debug_actions) {
+                    dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
                 }
             }
         }
