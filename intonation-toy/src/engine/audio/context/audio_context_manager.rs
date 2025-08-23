@@ -31,7 +31,7 @@ impl AudioContextManager {
     }
     
     pub fn is_supported() -> bool {
-        web_sys::window().map_or(false, |window| {
+        web_sys::window().is_some_and(|window| {
             js_sys::Reflect::has(&window, &"AudioContext".into()).unwrap_or(false) ||
             js_sys::Reflect::has(&window, &"webkitAudioContext".into()).unwrap_or(false)
         })
@@ -81,7 +81,7 @@ impl AudioContextManager {
     pub fn is_running(&self) -> bool {
         matches!(self.state, AudioContextState::Running) &&
         self.context.as_ref()
-            .map_or(false, |ctx| ctx.state() == web_sys::AudioContextState::Running)
+            .is_some_and(|ctx| ctx.state() == web_sys::AudioContextState::Running)
     }
     
     
@@ -105,7 +105,7 @@ impl AudioContextManager {
 
         let has_permission = devices.get(0)
             .dyn_ref::<web_sys::MediaDeviceInfo>()
-            .map_or(false, |d| !d.label().is_empty());
+            .is_some_and(|d| !d.label().is_empty());
 
         if !has_permission {
             return Ok((input_devices, output_devices));

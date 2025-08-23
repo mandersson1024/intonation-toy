@@ -10,7 +10,7 @@ pub struct ConsoleHistory {
 
 impl ConsoleHistory {
     pub fn add_command(&mut self, command: String) {
-        if command.trim().is_empty() || self.commands.first().map_or(false, |last| last == &command) {
+        if command.trim().is_empty() || self.commands.first() == Some(&command) {
             return;
         }
 
