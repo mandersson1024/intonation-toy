@@ -143,7 +143,7 @@ impl DevConsole {
         Self::get_local_storage()
             .and_then(|storage| storage.get_item(CONSOLE_HISTORY_STORAGE_KEY).ok()?)
             .and_then(|history_json| serde_json::from_str(&history_json).ok())
-            .unwrap_or_else(ConsoleHistory::default)
+            .unwrap_or_default()
     }
 
     fn save_history_to_storage(&self) {
