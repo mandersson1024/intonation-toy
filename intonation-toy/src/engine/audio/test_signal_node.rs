@@ -57,10 +57,8 @@ impl TestSignalAudioNode {
             self.oscillator.frequency().set_value(new_config.frequency);
         }
         
-        if new_config.amplitude != self.config.amplitude {
-            if new_config.enabled {
-                self.gain_node.gain().set_value(new_config.amplitude);
-            }
+        if new_config.amplitude != self.config.amplitude && new_config.enabled {
+            self.gain_node.gain().set_value(new_config.amplitude);
         }
         
         if new_config.enabled != self.config.enabled {
