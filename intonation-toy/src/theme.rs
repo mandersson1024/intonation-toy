@@ -6,8 +6,7 @@ static CURRENT_THEME: OnceLock<Mutex<Theme>> = OnceLock::new();
 pub fn initialize_theme(theme: Theme) {
     CURRENT_THEME
         .set(Mutex::new(theme))
-        .map_err(|_| "Theme already initialized")
-        .unwrap();
+        .expect("Theme already initialized");
 }
 
 pub fn get_current_theme() -> Theme {
@@ -26,10 +25,6 @@ pub fn set_current_theme(theme: Theme) {
     if let Some(theme_mutex) = CURRENT_THEME.get() {
         *theme_mutex.lock().unwrap() = theme;
     }
-}
-
-pub fn rgb_to_srgba(rgb: [f32; 3]) -> three_d::Srgba {
-    rgb_to_srgba_with_alpha(rgb, 1.0)
 }
 
 pub fn rgb_to_srgba_with_alpha(rgb: [f32; 3], alpha: f32) -> three_d::Srgba {

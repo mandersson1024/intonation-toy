@@ -9,7 +9,7 @@ use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::shared_types::{ColorScheme, MidiNote};
-use crate::theme::{get_current_color_scheme, rgb_to_srgba};
+use crate::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
@@ -76,7 +76,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba(scheme.muted));
+        let tuning_lines = TuningLines::new(context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
         let text_backend = EguiTextBackend::new()?;
 
         Ok(Self {
@@ -201,7 +201,7 @@ impl Renderer {
         }
         
         let scheme = get_current_color_scheme();
-        self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba(scheme.muted));
+        self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
     }
     
     /// Renders tuning lines and note labels to the background texture
