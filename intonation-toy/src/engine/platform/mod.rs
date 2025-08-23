@@ -1,5 +1,4 @@
-// Platform detection and feature support module
-// Centralizes browser API availability checks and platform-specific logic
+// Platform detection and feature support
 
 pub mod commands;
 
@@ -13,8 +12,6 @@ use wasm_bindgen::JsCast;
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlatformValidationResult {
     AllSupported,
-    // TODO: For semantic clarity we could implement the type MissingApi, but as long
-    // as the implementation is identical to CriticalApi we keep it simple and use that.
     MissingCriticalApis(Vec<CriticalApi>),
     MobileDevice,
 }
@@ -94,11 +91,7 @@ impl Platform {
         results.push(ApiStatus {
             api: CriticalApi::GetUserMedia,
             supported: is_supported,
-            details: if is_supported {
-                Some("getUserMedia API available".to_string())
-            } else {
-                Some("getUserMedia API not available".to_string())
-            },
+            details: Some(format!("getUserMedia API {}", if is_supported { "available" } else { "not available" })),
         });
         
         // Create shared AudioContext for WebAudio + AudioWorklet checks
@@ -132,11 +125,7 @@ impl Platform {
                 ApiStatus {
                     api: CriticalApi::AudioWorklet,
                     supported: has_audioworklet,
-                    details: if has_audioworklet {
-                        Some("AudioWorklet API available".to_string())
-                    } else {
-                        Some("AudioWorklet not supported".to_string())
-                    },
+                    details: Some(format!("AudioWorklet {}", if has_audioworklet { "API available" } else { "not supported" })),
                 }
             },
             None => ApiStatus {
@@ -170,22 +159,15 @@ impl Platform {
         // WebGL2 check using same canvas
         results.push(match &canvas {
             Some(canvas) => {
-                match canvas.get_context("webgl2") {
-                    Ok(Some(_)) => ApiStatus {
-                        api: CriticalApi::WebGL2,
-                        supported: true,
-                        details: Some("WebGL2 context creation successful".to_string()),
-                    },
-                    Ok(None) => ApiStatus {
-                        api: CriticalApi::WebGL2,
-                        supported: false,
-                        details: Some("WebGL2 context not available".to_string()),
-                    },
-                    Err(_) => ApiStatus {
-                        api: CriticalApi::WebGL2,
-                        supported: false,
-                        details: Some("WebGL2 not supported".to_string()),
-                    },
+                let (supported, msg) = match canvas.get_context("webgl2") {
+                    Ok(Some(_)) => (true, "WebGL2 context creation successful"),
+                    Ok(None) => (false, "WebGL2 context not available"),
+                    Err(_) => (false, "WebGL2 not supported"),
+                };
+                ApiStatus {
+                    api: CriticalApi::WebGL2,
+                    supported,
+                    details: Some(msg.to_string()),
                 }
             },
             None => ApiStatus {
@@ -240,13 +222,11 @@ impl Platform {
 
     /// Get platform information string for debugging
     pub fn get_platform_info() -> String {
-        // In WASM environment, get actual user agent
         #[cfg(target_arch = "wasm32")]
         let user_agent = web_sys::window()
             .and_then(|w| w.navigator().user_agent().ok())
             .unwrap_or_else(|| "Unknown".to_string());
         
-        // In native environment (tests), return placeholder
         #[cfg(not(target_arch = "wasm32"))]
         let user_agent = "Unknown".to_string();
         
@@ -254,37 +234,23 @@ impl Platform {
     }
 
     /// Check if the current platform is a mobile device
-    #[cfg(target_arch = "wasm32")]
     pub fn is_mobile_device() -> bool {
-        if let Some(window) = web_sys::window() {
-            if let Ok(user_agent) = window.navigator().user_agent() {
-                // Common mobile device patterns
-                let mobile_patterns = [
-                    "Android",
-                    "iPhone",
-                    "iPad",
-                    "iPod",
-                    "BlackBerry",
-                    "Windows Phone",
-                    "webOS",
-                    "Opera Mini",
-                    "IEMobile",
-                    "Mobile",
-                    "Tablet"
-                ];
-                
-                let ua_lower = user_agent.to_lowercase();
-                return mobile_patterns.iter().any(|pattern| ua_lower.contains(&pattern.to_lowercase()));
-            }
+        #[cfg(target_arch = "wasm32")]
+        {
+            web_sys::window()
+                .and_then(|w| w.navigator().user_agent().ok())
+                .map(|ua| {
+                    let ua_lower = ua.to_lowercase();
+                    ["android", "iphone", "ipad", "ipod", "blackberry", 
+                     "windows phone", "webos", "opera mini", "iemobile", 
+                     "mobile", "tablet"]
+                        .iter()
+                        .any(|&pattern| ua_lower.contains(pattern))
+                })
+                .unwrap_or(false)
         }
-        // If we can't get user agent, assume not mobile
-        false
-    }
-    
-    /// Check if the current platform is a mobile device
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn is_mobile_device() -> bool {
-        // In native environment (tests), always return false
+        
+        #[cfg(not(target_arch = "wasm32"))]
         false
     }
 }
