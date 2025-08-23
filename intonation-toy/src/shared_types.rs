@@ -290,11 +290,6 @@ pub enum Pitch {
     NotDetected,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PitchSmoothed {
-    pub frequency: f32,
-    pub clarity: f32,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioAnalysis {
