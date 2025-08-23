@@ -19,17 +19,6 @@ pub struct ProcessedActions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureAudioSystemAction {
-    pub tuning_system: TuningSystem,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct UpdateTuningConfigurationAction {
-    pub tuning_system: TuningSystem,
-    pub tuning_fork_note: MidiNote,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningForkAction {
     pub frequency: f32,
     pub volume: f32,
@@ -37,8 +26,8 @@ pub struct ConfigureTuningForkAction {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModelLayerActions {
-    pub audio_system_configurations: Vec<ConfigureAudioSystemAction>,
-    pub tuning_configurations: Vec<UpdateTuningConfigurationAction>,
+    pub tuning_system_changes: Vec<TuningSystem>,
+    pub tuning_fork_note_changes: Vec<MidiNote>,
     pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
 }
 
@@ -97,21 +86,13 @@ impl DataModel {
             (Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }, Pitch::NotDetected)
         };
         
-        let errors = engine_data.audio_errors;
-        
-        let permission_state = engine_data.permission_state;
-        
         let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
         let effective_pitch = match pitch {
-            Pitch::Detected(frequency, clarity) => {
-                if self.frequency_to_note_and_accuracy(frequency).is_some() {
-                    Pitch::Detected(frequency, clarity)
-                } else {
-                    Pitch::NotDetected
-                }
+            Pitch::Detected(frequency, clarity) if self.frequency_to_note_and_accuracy(frequency).is_some() => {
+                Pitch::Detected(frequency, clarity)
             }
-            Pitch::NotDetected => Pitch::NotDetected,
+            _ => Pitch::NotDetected,
         };
 
         let (accuracy, interval_semitones) = match effective_pitch {
@@ -137,8 +118,8 @@ impl DataModel {
             accuracy: accuracy.clone(),
             tuning_system: self.tuning_system,
             scale: self.current_scale,
-            errors,
-            permission_state,
+            errors: engine_data.audio_errors,
+            permission_state: engine_data.permission_state,
             closest_midi_note: accuracy.closest_midi_note,
             cents_offset: accuracy.cents_offset,
             interval_semitones,
@@ -151,32 +132,39 @@ impl DataModel {
         let mut validation_errors = Vec::new();
         
         for tuning_change in presentation_actions.tuning_system_changes {
-            if let Some(error) = self.validate_tuning_system_change(&tuning_change.tuning_system) {
-                validation_errors.push(error);
+            if tuning_change.tuning_system == self.tuning_system {
+                validation_errors.push(ValidationError::TuningSystemAlreadyActive(tuning_change.tuning_system));
             } else {
-                let config = ConfigureAudioSystemAction { tuning_system: tuning_change.tuning_system };
-                self.apply_tuning_system_change(&config);
-                model_actions.audio_system_configurations.push(config);
+                crate::common::dev_log!(
+                    "Model layer: Tuning system changed from {:?} to {:?}",
+                    self.tuning_system, tuning_change.tuning_system
+                );
+                self.tuning_system = tuning_change.tuning_system;
+                model_actions.tuning_system_changes.push(tuning_change.tuning_system);
             }
         }
         
         for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
             let midi_note = tuning_fork_adjustment.note;
-            if let Some(error) = self.validate_tuning_fork_adjustment(&midi_note) {
-                validation_errors.push(error);
+            if midi_note == self.tuning_fork_note {
+                validation_errors.push(ValidationError::TuningForkNoteAlreadySet(midi_note));
             } else {
-                let config = UpdateTuningConfigurationAction {
-                    tuning_system: self.tuning_system,
-                    tuning_fork_note: midi_note,
-                };
-                self.apply_tuning_fork_change(&config);
-                model_actions.tuning_configurations.push(config);
+                crate::common::dev_log!(
+                    "Model layer: Tuning fork changed from {} to {}",
+                    self.tuning_fork_note, midi_note
+                );
+                self.tuning_fork_note = midi_note;
+                model_actions.tuning_fork_note_changes.push(midi_note);
             }
         }
         
         for scale_change in presentation_actions.scale_changes {
             if scale_change.scale != self.current_scale {
-                self.apply_scale_change(&scale_change);
+                crate::common::dev_log!(
+                    "Model layer: Scale changed from {:?} to {:?}",
+                    self.current_scale, scale_change.scale
+                );
+                self.current_scale = scale_change.scale;
             }
         }
         
@@ -184,15 +172,17 @@ impl DataModel {
         for tuning_fork_config in presentation_actions.tuning_fork_configurations {
             crate::common::dev_log!("MODEL: Processing tuning fork audio config");
             
-            if let Some(error) = self.validate_tuning_fork_audio_configuration(&tuning_fork_config) {
+            if tuning_fork_config.frequency <= 0.0 {
+                let error = ValidationError::InvalidFrequency(tuning_fork_config.frequency);
                 crate::common::warn_log!("Tuning fork audio configuration validation failed: {:?}", error);
                 validation_errors.push(error);
             } else {
-                let config = ConfigureTuningForkAction {
-                    frequency: tuning_fork_config.frequency,
-                    volume: tuning_fork_config.volume,
-                };
-                model_actions.tuning_fork_configurations.push(config);
+                model_actions.tuning_fork_configurations.push(
+                    ConfigureTuningForkAction {
+                        frequency: tuning_fork_config.frequency,
+                        volume: tuning_fork_config.volume,
+                    }
+                );
                 crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
             }
         }
@@ -234,56 +224,5 @@ impl DataModel {
         Some((midi_note, interval_result.cents))
     }
     
-    
-    
-    fn validate_tuning_system_change(&self, new_tuning_system: &TuningSystem) -> Option<ValidationError> {
-        if *new_tuning_system == self.tuning_system {
-            Some(ValidationError::TuningSystemAlreadyActive(*new_tuning_system))
-        } else {
-            None
-        }
-    }
-    
-    
-    fn validate_tuning_fork_adjustment(&self, new_tuning_fork: &MidiNote) -> Option<ValidationError> {
-        if *new_tuning_fork == self.tuning_fork_note {
-            Some(ValidationError::TuningForkNoteAlreadySet(*new_tuning_fork))
-        } else {
-            None
-        }
-    }
-    
-    fn validate_tuning_fork_audio_configuration(&self, config: &crate::presentation::ConfigureTuningFork) -> Option<ValidationError> {
-        if config.frequency <= 0.0 {
-            Some(ValidationError::InvalidFrequency(config.frequency))
-        } else {
-            None
-        }
-    }
-    
-    fn apply_tuning_system_change(&mut self, action: &ConfigureAudioSystemAction) {
-        crate::common::dev_log!(
-            "Model layer: Tuning system changed from {:?} to {:?}",
-            self.tuning_system, action.tuning_system
-        );
-        self.tuning_system = action.tuning_system;
-    }
-    
-    fn apply_scale_change(&mut self, action: &crate::presentation::ScaleChangeAction) {
-        crate::common::dev_log!(
-            "Model layer: Scale changed from {:?} to {:?}",
-            self.current_scale, action.scale
-        );
-        self.current_scale = action.scale;
-    }
-    
-    fn apply_tuning_fork_change(&mut self, action: &UpdateTuningConfigurationAction) {
-        crate::common::dev_log!(
-            "Model layer: Tuning fork changed from {} to {}",
-            self.tuning_fork_note, action.tuning_fork_note
-        );
-        self.tuning_system = action.tuning_system;
-        self.tuning_fork_note = action.tuning_fork_note;
-    }
 }
 

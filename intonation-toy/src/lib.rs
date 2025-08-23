@@ -241,20 +241,20 @@ pub async fn start_render_loop(
                     }
                     
                     // Execute validated actions in engine layer
-                    let has_model_actions = !processed_actions.actions.audio_system_configurations.is_empty() ||
-                                           !processed_actions.actions.tuning_configurations.is_empty() ||
+                    let has_model_actions = !processed_actions.actions.tuning_system_changes.is_empty() ||
+                                           !processed_actions.actions.tuning_fork_note_changes.is_empty() ||
                                            !processed_actions.actions.tuning_fork_configurations.is_empty();
                     
                     if has_model_actions {
-                        trace_log!("Actions ready for execution: {} audio system, {} tuning, {} tuning fork audio", 
-                            processed_actions.actions.audio_system_configurations.len(),
-                            processed_actions.actions.tuning_configurations.len(),
+                        trace_log!("Actions ready for execution: {} tuning system, {} tuning fork note, {} tuning fork audio", 
+                            processed_actions.actions.tuning_system_changes.len(),
+                            processed_actions.actions.tuning_fork_note_changes.len(),
                             processed_actions.actions.tuning_fork_configurations.len()
                         );
                         
                         // Execute actions synchronously
-                        let total_sync = processed_actions.actions.audio_system_configurations.len() + 
-                                       processed_actions.actions.tuning_configurations.len() +
+                        let total_sync = processed_actions.actions.tuning_system_changes.len() + 
+                                       processed_actions.actions.tuning_fork_note_changes.len() +
                                        processed_actions.actions.tuning_fork_configurations.len();
                         match engine.execute_actions(processed_actions.actions) {
                             Ok(()) => {
