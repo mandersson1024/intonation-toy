@@ -7,7 +7,7 @@ use {
     std::cell::RefCell,
     std::sync::atomic::{AtomicU8, Ordering},
     crate::common::dev_log,
-    crate::common::shared_types::{TuningSystem, MidiNote, Scale, increment_midi_note, decrement_midi_note},
+    crate::common::shared_types::{TuningSystem, Scale, increment_midi_note, decrement_midi_note},
 };
 
 #[cfg(target_arch = "wasm32")]

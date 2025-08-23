@@ -1,6 +1,4 @@
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use web_sys::window;
 
 /// Execute a function and wrap it with User Timing marks
