@@ -1,52 +1,3 @@
-//! AudioWorklet Manager for Real-Time Audio Processing
-//!
-//! This module provides a high-level wrapper around the Web Audio API's AudioWorklet,
-//! designed for real-time pitch detection applications. It handles the complete lifecycle
-//! of AudioWorklet processors including initialization, node management, and audio pipeline
-//! connection with fixed 128-sample processing chunks.
-//!
-//! ## Key Features
-//!
-//! - **Real-Time Processing**: Dedicated audio thread with 128-sample fixed chunks
-//! - **AudioWorklet Integration**: Modern Web Audio API processing with low latency
-//! - **Pipeline Management**: Connect audio sources to processors and destinations
-//! - **AudioWorklet Only**: Modern Web Audio API processing with no legacy fallbacks
-//! - **State Management**: Comprehensive state tracking with debugging support
-//! - **Ping-Pong Buffer Recycling**: Automatic buffer return to minimize GC pressure
-//! - **Zero-Allocation Processing**: Reuses buffers to avoid continuous allocations
-//!
-//! ## Usage Examples
-//!
-//! ```rust,no_run
-//! use pitch_toy::audio::{AudioWorkletManager, AudioContextManager};
-//!
-//! async fn setup_audio_processing() {
-//!     let mut context_manager = AudioContextManager::new();
-//!     context_manager.initialize().await.unwrap();
-//!     
-//!     let mut worklet_manager = AudioWorkletManager::new();
-//!     // Enable ping-pong buffer recycling to reduce GC pressure
-//!     worklet_manager.set_ping_pong_enabled(true);
-//!     
-//!     if let Ok(()) = worklet_manager.initialize(&context_manager).await {
-//!         println!("AudioWorklet ready for real-time processing with buffer recycling");
-//!     }
-//! }
-//! ```
-//!
-//! ## Performance Considerations
-//!
-//! - AudioWorklet runs on a dedicated audio rendering thread
-//! - Processing occurs in fixed 128-sample chunks (Web Audio API standard)
-//! - Zero-copy architecture minimizes memory allocations
-//! - AudioWorklet-only implementation for optimal performance
-//! - Ping-pong buffer recycling reduces GC pressure during sustained processing
-//! - Buffer return pattern maintains >95% pool hit rate under normal load
-//!
-//! ## Browser Requirements
-//!
-//! - Chrome 66+, Firefox 76+, Safari 14.1+, Edge 79+ (AudioWorklet support required)
-//! - HTTPS context required for microphone access in production
 
 use web_sys::{
     AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
@@ -64,20 +15,13 @@ use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
 
-/// AudioWorklet processor states
 #[derive(Debug, Clone, PartialEq)]
 pub enum AudioWorkletState {
-    /// Initial state, worklet not created yet
     Uninitialized,
-    /// Worklet initialization in progress
     Initializing,
-    /// Worklet processor loaded and ready
     Ready,
-    /// Audio processing active
     Processing,
-    /// Worklet suspended or stopped
     Stopped,
-    /// Worklet failed or closed
     Failed,
 }
 
@@ -94,18 +38,13 @@ impl fmt::Display for AudioWorkletState {
     }
 }
 
-// Note: publish_audioworklet_status is now a method on AudioWorkletManager
 
-/// AudioWorklet configuration
 #[derive(Debug, Clone)]
 pub struct AudioWorkletConfig {
-    /// Number of input channels
     pub input_channels: u32,
-    /// Number of output channels  
     pub output_channels: u32,
 }
 
-/// Shared data for AudioWorklet message handling
 struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
     batches_processed: u32,
@@ -138,7 +77,6 @@ impl Default for AudioWorkletConfig {
 }
 
 
-/// AudioWorklet manager handles real-time audio processing
 pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
@@ -147,70 +85,24 @@ pub struct AudioWorkletManager {
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
-    // Audio context for test signal output
     audio_context: Option<AudioContext>,
-    // Whether to output audio stream to speakers
     output_to_speakers: bool,
-    // Shared data for message handling
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
-    // Pitch analyzer for direct audio processing
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
-    // Message factory for structured message creation
     message_factory: AudioWorkletMessageFactory,
-    // Configuration for ping-pong buffer recycling
     ping_pong_enabled: bool,
-    // Batch size for audio processing (received from AudioWorklet processor)
     batch_size: u32,
-    // Dedicated tuning fork audio node
     tuning_fork_node: Option<TuningForkAudioNode>,
-    // Test signal audio node for local signal generation
     test_signal_node: Option<TestSignalAudioNode>,
-    // Mixer gain node for combining microphone and test signal
     mixer_gain: Option<GainNode>,
-    // Microphone gain node for volume control
     microphone_gain: Option<GainNode>,
-    // Stored microphone source for potential re-routing
     microphone_source: Option<AudioNode>,
-    // Previous microphone volume for restoration when test signal is disabled
     prev_microphone_volume: Option<f32>,
-    // Previous speaker output state for restoration when test signal is disabled
     prev_output_to_speakers: Option<bool>,
 }
 
-impl Default for AudioWorkletManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl AudioWorkletManager {
-    /// Create new AudioWorklet manager
-    pub fn new() -> Self {
-        Self {
-            worklet_node: None,
-            state: AudioWorkletState::Uninitialized,
-            config: AudioWorkletConfig::default(),
-            volume_detector: None,
-            last_volume_analysis: None,
-            chunk_counter: 0,
-            _message_closure: None,
-            audio_context: None,
-            output_to_speakers: false,
-            shared_data: None,
-            pitch_analyzer: None,
-            message_factory: AudioWorkletMessageFactory::new(),
-            ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
-            tuning_fork_node: None,
-            test_signal_node: None,
-            mixer_gain: None,
-            microphone_gain: None,
-            microphone_source: None,
-            prev_microphone_volume: None,
-            prev_output_to_speakers: None,
-        }
-    }
-    
     /// Creates a new AudioWorkletManager using the return-based pattern.
     /// 
     /// This constructor is specifically designed for the return-based data flow pattern
@@ -254,13 +146,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Publish AudioWorklet status update to Live Data Panel
-    pub fn publish_audioworklet_status(&self) {
-        dev_log!("AudioWorklet status updated: {} (processor: {})", self.state, self.worklet_node.is_some());
-        // Status is now returned through Engine::update()
-    }
-    
-    
     /// Check if AudioWorklet is supported
     fn is_worklet_supported(context: &AudioContextManager) -> bool {
         if let Some(audio_context) = context.get_context() {
@@ -287,7 +172,6 @@ impl AudioWorkletManager {
         self.audio_context = Some(audio_context.clone());
         
         self.state = AudioWorkletState::Initializing;
-        self.publish_audioworklet_status();
         dev_log!("Initializing AudioWorklet processor");
         
         // Try AudioWorklet first
@@ -296,13 +180,11 @@ impl AudioWorkletManager {
                 Ok(()) => {
                     dev_log!("✓ AudioWorklet initialized successfully");
                     self.state = AudioWorkletState::Ready;
-                    self.publish_audioworklet_status();
                     return Ok(());
                 }
                 Err(e) => {
                     dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
                     self.state = AudioWorkletState::Failed;
-                    self.publish_audioworklet_status();
                     return Err(e);
                 }
             }
@@ -310,7 +192,6 @@ impl AudioWorkletManager {
         
         // AudioWorklet required
         self.state = AudioWorkletState::Failed;
-        self.publish_audioworklet_status();
         Err(AudioError::NotSupported(
             "AudioWorklet not supported".to_string()
         ))
@@ -526,14 +407,14 @@ impl AudioWorkletManager {
                 } else {
                     dev_log!("AudioWorklet processor ready (no batch size specified)");
                 }
-                Self::publish_status_update_static(shared_data, AudioWorkletState::Ready);
+                dev_log!("AudioWorklet state changed to: Ready");
             }
             FromWorkletMessage::ProcessingStarted => {
-                Self::publish_status_update_static(shared_data, AudioWorkletState::Processing);
+                dev_log!("AudioWorklet state changed to: Processing");
             }
             FromWorkletMessage::ProcessingStopped => {
                 dev_log!("✓ AudioWorklet processing stopped");
-                Self::publish_status_update_static(shared_data, AudioWorkletState::Stopped);
+                dev_log!("AudioWorklet state changed to: Stopped");
             }
             FromWorkletMessage::AudioDataBatch { data } => {
                 Self::handle_typed_audio_data_batch_static(
@@ -547,7 +428,7 @@ impl AudioWorkletManager {
             }
             FromWorkletMessage::ProcessingError { error } => {
                 dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-                Self::publish_status_update_static(shared_data, AudioWorkletState::Failed);
+                dev_log!("AudioWorklet state changed to: Failed");
             }
             FromWorkletMessage::BatchConfigUpdated { config: _ } => {
                 // Configuration confirmation received - no action needed
@@ -677,14 +558,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Publish AudioWorklet status update to Live Data Panel (static version)
-    fn publish_status_update_static(
-        _shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
-        state: AudioWorkletState
-    ) {
-        dev_log!("AudioWorklet state changed to: {}", state);
-        // Status is now returned through Engine::update()
-    }
     
     /// Send typed control message to AudioWorklet processor
     fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
@@ -809,7 +682,6 @@ impl AudioWorkletManager {
         self.send_typed_control_message(ToWorkletMessage::StartProcessing)?;
         
         self.state = AudioWorkletState::Processing;
-        self.publish_audioworklet_status();
         dev_log!("✓ Audio processing started using AudioWorklet");
         Ok(())
     }
@@ -826,7 +698,6 @@ impl AudioWorkletManager {
         self.send_typed_control_message(ToWorkletMessage::StopProcessing)?;
         
         self.state = AudioWorkletState::Stopped;
-        self.publish_audioworklet_status();
         dev_log!("✓ Audio processing stopped");
         Ok(())
     }
@@ -868,28 +739,16 @@ impl AudioWorkletManager {
         
         self.worklet_node = None;
         self.state = AudioWorkletState::Uninitialized;
-        self.publish_audioworklet_status();
         
         Ok(())
     }
     
-    /// Get buffer pool statistics
-    fn get_buffer_pool_stats(&self) -> Option<super::message_protocol::BufferPoolStats> {
-        match &self.shared_data {
-            Some(shared_data) => {
-                shared_data.borrow().buffer_pool_stats.clone()
-            }
-            None => {
-                None
-            }
-        }
+    pub fn get_buffer_pool_statistics(&self) -> Option<super::message_protocol::BufferPoolStats> {
+        self.shared_data.as_ref()?.borrow().buffer_pool_stats.clone()
     }
     
-    /// Check if audio processing is active
     pub fn is_processing(&self) -> bool {
-        let is_proc = matches!(self.state, AudioWorkletState::Processing);
-        
-        is_proc
+        matches!(self.state, AudioWorkletState::Processing)
     }
         
     /// Set volume detector for real-time volume analysis
@@ -1013,15 +872,13 @@ impl AudioWorkletManager {
     
     /// Setup test signal routing through mixer
     fn setup_test_signal_routing(&mut self) -> Result<(), AudioError> {
-        let _mixer = self.ensure_mixer_node()?;
+        self.ensure_mixer_node()?;
         
-        if let Some(ref mut test_signal) = self.test_signal_node {
-            if let Some(ref mixer) = self.mixer_gain {
-                test_signal
-                    .connect_to(mixer)
-                    .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
-                dev_log!("Connected test signal to mixer");
-            }
+        if let (Some(test_signal), Some(mixer)) = (&mut self.test_signal_node, &self.mixer_gain) {
+            test_signal
+                .connect_to(mixer)
+                .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
+            dev_log!("Connected test signal to mixer");
         }
         
         Ok(())
@@ -1251,10 +1108,6 @@ impl AudioWorkletManager {
         })
     }
     
-    /// Get buffer pool statistics if available
-    pub fn get_buffer_pool_statistics(&self) -> Option<super::message_protocol::BufferPoolStats> {
-        self.get_buffer_pool_stats()
-    }
 
     /// Set pitch analyzer for direct audio processing
     pub fn set_pitch_analyzer(&mut self, analyzer: std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
