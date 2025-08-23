@@ -75,13 +75,15 @@ pub struct ConsoleOutputManager {
     entries: Vec<ConsoleOutput>,
 }
 
-impl ConsoleOutputManager {
-    pub fn new() -> Self {
+impl Default for ConsoleOutputManager {
+    fn default() -> Self {
         Self {
             entries: Vec::new(),
         }
     }
+}
 
+impl ConsoleOutputManager {
     pub fn add_output(&mut self, output: ConsoleOutput) {
         self.entries.insert(0, output);
         if self.entries.len() > MAX_OUTPUT_ENTRIES {

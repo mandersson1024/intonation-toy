@@ -14,8 +14,8 @@ pub struct AudioContextManager {
 }
 
 
-impl AudioContextManager {
-    pub fn new() -> Self {
+impl Default for AudioContextManager {
+    fn default() -> Self {
         Self {
             context: None,
             state: AudioContextState::Uninitialized,
@@ -23,8 +23,9 @@ impl AudioContextManager {
             device_change_callback: None,
         }
     }
-    
-    
+}
+
+impl AudioContextManager {
     pub fn state(&self) -> &AudioContextState {
         &self.state
     }

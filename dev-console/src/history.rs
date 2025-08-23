@@ -8,14 +8,16 @@ pub struct ConsoleHistory {
     current_position: Option<usize>,
 }
 
-impl ConsoleHistory {
-    pub fn new() -> Self {
+impl Default for ConsoleHistory {
+    fn default() -> Self {
         Self {
             commands: Vec::new(),
             current_position: None,
         }
     }
+}
 
+impl ConsoleHistory {
     pub fn add_command(&mut self, command: String) {
         if command.trim().is_empty() || self.commands.first().map_or(false, |last| last == &command) {
             return;

@@ -12,7 +12,7 @@ pub struct DevConsole {
 
 impl DevConsole {
     pub fn new(registry: ConsoleCommandRegistry) -> Self {
-        let mut output_manager = ConsoleOutputManager::new();
+        let mut output_manager = ConsoleOutputManager::default();
         output_manager.add_output(ConsoleOutput::info("EGUI Dev Console initialized"));
         output_manager.add_output(ConsoleOutput::info("Type 'help' for available commands"));
         
@@ -143,7 +143,7 @@ impl DevConsole {
         Self::get_local_storage()
             .and_then(|storage| storage.get_item(CONSOLE_HISTORY_STORAGE_KEY).ok()?)
             .and_then(|history_json| serde_json::from_str(&history_json).ok())
-            .unwrap_or_else(ConsoleHistory::new)
+            .unwrap_or_else(ConsoleHistory::default)
     }
 
     fn save_history_to_storage(&self) {

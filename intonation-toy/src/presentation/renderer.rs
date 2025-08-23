@@ -81,7 +81,7 @@ impl Renderer {
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line: UserPitchLine::new(),
+            user_pitch_line: UserPitchLine::default(),
             audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,

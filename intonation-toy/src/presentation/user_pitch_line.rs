@@ -13,15 +13,17 @@ pub struct UserPitchLine {
     alpha: f32,
 }
 
-impl UserPitchLine {
-    pub fn new() -> Self {
+impl Default for UserPitchLine {
+    fn default() -> Self {
         Self {
             mesh: None,
             thickness: USER_PITCH_LINE_THICKNESS_MAX,
             alpha: USER_PITCH_LINE_TRANSPARENCY_MIN,
         }
     }
-    
+}
+
+impl UserPitchLine {
     fn create_material(&self, color_scheme: &ColorScheme, audio_analysis: &AudioAnalysis) -> ColorMaterial {
         let color = if audio_analysis.volume_peak {
             color_scheme.error

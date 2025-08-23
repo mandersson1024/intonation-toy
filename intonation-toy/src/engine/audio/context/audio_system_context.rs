@@ -14,7 +14,7 @@ impl AudioSystemContext {
 
     pub fn new_return_based() -> Self {
         Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new())),
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
             audioworklet_manager: None,
             pitch_analyzer: None,
             is_initialized: false,
