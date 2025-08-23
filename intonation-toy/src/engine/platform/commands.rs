@@ -110,7 +110,7 @@ impl ConsoleCommand for ThemeCommand {
         crate::theme::set_current_theme(new_theme);
         
         // Reapply styles - updates CSS custom properties
-        crate::web::styling::reapply_current_theme();
+        crate::web::styling::update_css_variables();
         crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
