@@ -16,25 +16,16 @@ use web_sys::{AudioContext, GainNode, AudioWorkletNode, MediaStreamAudioSourceNo
 /// Tuning Fork → Speakers (direct, independent path)
 /// ```
 pub struct AudioSignalFlow {
-    // Core audio processing chain
     pub microphone_source: MediaStreamAudioSourceNode,
     pub microphone_gain: GainNode,
     pub mixer_gain: GainNode,
     pub audioworklet_node: AudioWorkletNode,
-    
-    // Analysis nodes (parallel taps)
     pub analyser_node: AnalyserNode,
-    
-    // Additional audio sources
     pub test_signal_oscillator: OscillatorNode,
     pub test_signal_gain: GainNode,
     pub tuning_fork_oscillator: OscillatorNode,
     pub tuning_fork_gain: GainNode,
-    
     pub output_gain: GainNode,
-
-    // Audio context reference
-    audio_context: AudioContext,
 }
 
 impl AudioSignalFlow {
@@ -80,3 +71,4 @@ impl AudioSignalFlow {
             audio_context: context,
         }
     }
+}
