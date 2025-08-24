@@ -5,6 +5,7 @@ pub mod permission;
 pub mod pitch_detector;
 pub mod pitch_analyzer;
 pub mod volume_detector;
+pub mod analyser_volume_detector;
 pub mod signal_generator;
 pub mod message_protocol;
 pub mod data_types;
@@ -33,4 +34,5 @@ pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 
 use microphone::AudioError;
-use volume_detector::{VolumeDetector, VolumeAnalysis};
+pub use volume_detector::{VolumeDetector, VolumeAnalysis};
+pub use analyser_volume_detector::AnalyserVolumeDetector;
