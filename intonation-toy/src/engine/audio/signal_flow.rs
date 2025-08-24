@@ -35,9 +35,6 @@ pub struct AudioSignalFlow {
 
     // Audio context reference
     audio_context: AudioContext,
-    
-    // Connection state tracking
-    output_to_speakers: bool,
 }
 
 impl AudioSignalFlow {
@@ -64,6 +61,8 @@ impl AudioSignalFlow {
         test_signal.connect_with_audio_node(&test_signal_gain).unwrap();
         test_signal_gain.connect_with_audio_node(&mixer_gain).unwrap();
         mixer_gain.connect_with_audio_node(&worklet).unwrap();
+        worklet.connect_with_audio_node(&output_gain).unwrap();
+        output_gain.connect_with_audio_node(&context.destination()).unwrap();
         tuning_fork.connect_with_audio_node(&tuning_fork_gain).unwrap();
         tuning_fork_gain.connect_with_audio_node(&context.destination()).unwrap();
         
@@ -77,24 +76,7 @@ impl AudioSignalFlow {
             test_signal_gain,
             tuning_fork_oscillator: tuning_fork,
             tuning_fork_gain,
+            output_gain,
             audio_context: context,
-            output_to_speakers: false,
         }
     }
-    
-    
-    /// Connects or disconnects AudioWorklet output to speakers
-    pub fn set_output_to_speakers(&mut self, enabled: bool) {
-        if self.output_to_speakers == enabled {
-            return;
-        }
-        
-        if enabled {
-            self.audioworklet_node.connect_with_audio_node(&self.audio_context.destination()).unwrap();
-        } else {
-            self.audioworklet_node.disconnect_with_audio_node(&self.audio_context.destination()).unwrap();
-        }
-        
-        self.output_to_speakers = enabled;
-    }
-}
