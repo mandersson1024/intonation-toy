@@ -12,6 +12,7 @@ pub struct PerformanceMetrics {
 pub struct VolumeLevelData {
     pub rms_amplitude: f32,
     pub peak_amplitude: f32,
+    pub fft_data: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +45,11 @@ impl Default for AudioWorkletStatus {
 
 impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
     fn from(data: crate::engine::audio::VolumeLevelData) -> Self {
-        Self { rms_amplitude: data.rms_amplitude, peak_amplitude: data.peak_amplitude }
+        Self { 
+            rms_amplitude: data.rms_amplitude, 
+            peak_amplitude: data.peak_amplitude,
+            fft_data: data.fft_data.clone(),
+        }
     }
 }
 

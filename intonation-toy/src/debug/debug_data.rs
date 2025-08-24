@@ -58,6 +58,7 @@ impl DebugData {
             self.volume_level = Some(VolumeLevelData {
                 peak_amplitude: analysis.volume_level.peak_amplitude,
                 rms_amplitude: analysis.volume_level.rms_amplitude,
+                fft_data: analysis.fft_data.clone(),
             });
             
             self.pitch_data = match &analysis.pitch {

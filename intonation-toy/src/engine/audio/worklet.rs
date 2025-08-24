@@ -1095,6 +1095,7 @@ impl AudioWorkletManager {
                 return Some(super::VolumeLevelData {
                     rms_amplitude: analysis.rms_amplitude,
                     peak_amplitude: analysis.peak_amplitude,
+                    fft_data: analysis.fft_data.clone(),
                 });
             }
         }
@@ -1104,6 +1105,7 @@ impl AudioWorkletManager {
             super::VolumeLevelData {
                 rms_amplitude: analysis.rms_amplitude,
                 peak_amplitude: analysis.peak_amplitude,
+                fft_data: analysis.fft_data.clone(),
             }
         })
     }

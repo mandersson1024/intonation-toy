@@ -2,6 +2,7 @@
 pub struct VolumeAnalysis {
     pub rms_amplitude: f32,
     pub peak_amplitude: f32,
+    pub fft_data: Option<Vec<f32>>,
 }
 
 #[derive(Clone)]
@@ -14,11 +15,11 @@ impl VolumeDetector {
 
     pub fn process_buffer(&mut self, samples: &[f32]) -> VolumeAnalysis {
         if samples.is_empty() {
-            return VolumeAnalysis { rms_amplitude: 0.0, peak_amplitude: 0.0 };
+            return VolumeAnalysis { rms_amplitude: 0.0, peak_amplitude: 0.0, fft_data: None };
         }
 
         let (rms_amplitude, peak_amplitude) = self.calculate_rms_and_peak(samples);
-        VolumeAnalysis { rms_amplitude, peak_amplitude }
+        VolumeAnalysis { rms_amplitude, peak_amplitude, fft_data: None }
     }
 
     fn calculate_rms_and_peak(&self, samples: &[f32]) -> (f32, f32) {

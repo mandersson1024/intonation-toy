@@ -208,10 +208,13 @@ impl AudioSystemContext {
         }
 
         let volume_data = self.audioworklet_manager.as_ref().and_then(|w| w.get_volume_data());
-        let volume = volume_data.map(|data| Volume {
+        let volume = volume_data.as_ref().map(|data| Volume {
             peak_amplitude: data.peak_amplitude,
             rms_amplitude: data.rms_amplitude,
         });
+        
+        // Extract FFT data from volume data when available
+        let fft_data = volume_data.and_then(|data| data.fft_data.clone());
         
         let pitch_data = self.pitch_analyzer.as_ref()
             .and_then(|analyzer| analyzer.try_borrow().ok())
@@ -227,7 +230,7 @@ impl AudioSystemContext {
         (volume.is_some() || pitch.is_some()).then(|| AudioAnalysis {
             volume_level: volume.unwrap_or(Volume { peak_amplitude: 0.0, rms_amplitude: 0.0 }),
             pitch: pitch.unwrap_or(Pitch::NotDetected),
-            fft_data: None,
+            fft_data,
             timestamp: timestamp.max(js_sys::Date::now()),
         })
     }
