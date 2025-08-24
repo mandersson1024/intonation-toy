@@ -54,8 +54,13 @@ impl AudioSignalFlow {
         let tuning_fork_oscillator = context.create_oscillator().unwrap();
         let tuning_fork_gain = context.create_gain().unwrap();
         
-        // Connect internal nodes
+        // Connect all nodes
+        microphone_source.connect_with_audio_node(&microphone_gain).unwrap();
+        microphone_gain.connect_with_audio_node(&analyser_node).unwrap();
+        microphone_gain.connect_with_audio_node(&mixer_gain).unwrap();
         test_signal_oscillator.connect_with_audio_node(&test_signal_gain).unwrap();
+        test_signal_gain.connect_with_audio_node(&mixer_gain).unwrap();
+        mixer_gain.connect_with_audio_node(&worklet).unwrap();
         tuning_fork_oscillator.connect_with_audio_node(&tuning_fork_gain).unwrap();
         tuning_fork_gain.connect_with_audio_node(&context.destination()).unwrap();
         
@@ -63,7 +68,7 @@ impl AudioSignalFlow {
         test_signal_oscillator.start().unwrap();
         tuning_fork_oscillator.start().unwrap();
         
-        let mut signal_flow = Self {
+        Self {
             microphone_source,
             microphone_gain,
             mixer_gain,
@@ -75,24 +80,7 @@ impl AudioSignalFlow {
             tuning_fork_gain,
             audio_context: context,
             output_to_speakers: false,
-        };
-        
-        signal_flow.setup_connections();
-        
-        signal_flow
-    }
-    
-    
-    /// Sets up the complete signal flow connections
-    /// 
-    /// This method connects all the created nodes according to the signal flow diagram.
-    /// It does not initialize any processing - that happens externally.
-    fn setup_connections(&mut self) {
-        self.microphone_source.connect_with_audio_node(&self.microphone_gain).unwrap();
-        self.microphone_gain.connect_with_audio_node(&self.analyser_node).unwrap();
-        self.microphone_gain.connect_with_audio_node(&self.mixer_gain).unwrap();
-        self.test_signal_gain.connect_with_audio_node(&self.mixer_gain).unwrap();
-        self.mixer_gain.connect_with_audio_node(&self.audioworklet_node).unwrap();
+        }
     }
     
     
