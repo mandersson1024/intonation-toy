@@ -10,6 +10,13 @@ use {
     crate::common::shared_types::{TuningSystem, Scale, increment_midi_note, decrement_midi_note},
 };
 
+// These statics are needed because the tuning fork controls (plus/minus buttons and volume slider)
+// interact with each other in a way that requires shared state:
+// 1. The plus/minus buttons need to know the current note to calculate next/previous values
+// 2. When the note changes, we need to send both the new note AND the current volume to the presenter
+// 3. The volume position must be preserved when the note changes
+// Unlike the dropdown controls (scale/tuning system) which maintain their own state in the DOM,
+// these controls need coordinated state management to work together properly.
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
 
