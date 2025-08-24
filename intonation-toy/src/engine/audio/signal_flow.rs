@@ -54,4 +54,36 @@ impl AudioSignalFlow {
             tuning_fork_gain,
         }
     }
+
+    pub fn input(&self) -> &MediaStreamAudioSourceNode {
+        &self.input
+    }
+
+    pub fn input_gain(&self) -> &GainNode {
+        &self.input_gain
+    }
+
+    pub fn worklet(&self) -> &AudioWorkletNode {
+        &self.worklet
+    }
+
+    pub fn analyser(&self) -> &AnalyserNode {
+        &self.analyser
+    }
+
+    pub fn test_signal_osc(&self) -> &OscillatorNode {
+        &self.test_signal_osc
+    }
+
+    pub fn test_signal_gain(&self) -> &GainNode {
+        &self.test_signal_gain
+    }
+
+    pub fn tuning_fork_osc(&self) -> &OscillatorNode {
+        &self.tuning_fork_osc
+    }
+
+    pub fn tuning_fork_gain(&self) -> &GainNode {
+        &self.tuning_fork_gain
+    }
 }
