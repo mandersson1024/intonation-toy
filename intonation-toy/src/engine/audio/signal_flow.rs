@@ -31,6 +31,8 @@ pub struct AudioSignalFlow {
     pub tuning_fork_oscillator: OscillatorNode,
     pub tuning_fork_gain: GainNode,
     
+    pub output_gain: GainNode,
+
     // Audio context reference
     audio_context: AudioContext,
     
@@ -42,41 +44,38 @@ impl AudioSignalFlow {
     /// Creates a new AudioSignalFlow with all nodes initialized and connected
     pub fn new(
         context: AudioContext,
-        microphone_source: MediaStreamAudioSourceNode,
+        input: MediaStreamAudioSourceNode,
         worklet: AudioWorkletNode,
     ) -> Self {
         // Create nodes
-        let microphone_gain = context.create_gain().unwrap();
+        let input_gain = context.create_gain().unwrap();
+        let analyser = context.create_analyser().unwrap();
         let mixer_gain = context.create_gain().unwrap();
-        let analyser_node = context.create_analyser().unwrap();
-        let test_signal_oscillator = context.create_oscillator().unwrap();
+        let test_signal = context.create_oscillator().unwrap();
         let test_signal_gain = context.create_gain().unwrap();
-        let tuning_fork_oscillator = context.create_oscillator().unwrap();
+        let tuning_fork = context.create_oscillator().unwrap();
         let tuning_fork_gain = context.create_gain().unwrap();
-        
+        let output_gain = context.create_gain().unwrap();
+
         // Connect all nodes
-        microphone_source.connect_with_audio_node(&microphone_gain).unwrap();
-        microphone_gain.connect_with_audio_node(&analyser_node).unwrap();
-        microphone_gain.connect_with_audio_node(&mixer_gain).unwrap();
-        test_signal_oscillator.connect_with_audio_node(&test_signal_gain).unwrap();
+        input.connect_with_audio_node(&input_gain).unwrap();
+        input_gain.connect_with_audio_node(&analyser).unwrap();
+        input_gain.connect_with_audio_node(&mixer_gain).unwrap();
+        test_signal.connect_with_audio_node(&test_signal_gain).unwrap();
         test_signal_gain.connect_with_audio_node(&mixer_gain).unwrap();
         mixer_gain.connect_with_audio_node(&worklet).unwrap();
-        tuning_fork_oscillator.connect_with_audio_node(&tuning_fork_gain).unwrap();
+        tuning_fork.connect_with_audio_node(&tuning_fork_gain).unwrap();
         tuning_fork_gain.connect_with_audio_node(&context.destination()).unwrap();
         
-        // Start oscillators
-        test_signal_oscillator.start().unwrap();
-        tuning_fork_oscillator.start().unwrap();
-        
         Self {
-            microphone_source,
-            microphone_gain,
+            microphone_source: input,
+            microphone_gain: input_gain,
             mixer_gain,
             audioworklet_node: worklet,
-            analyser_node,
-            test_signal_oscillator,
+            analyser_node: analyser,
+            test_signal_oscillator: test_signal,
             test_signal_gain,
-            tuning_fork_oscillator,
+            tuning_fork_oscillator: tuning_fork,
             tuning_fork_gain,
             audio_context: context,
             output_to_speakers: false,
@@ -97,27 +96,5 @@ impl AudioSignalFlow {
         }
         
         self.output_to_speakers = enabled;
-    }
-    
-    
-    
-    /// Gets the mixer gain node for external connections
-    pub fn get_mixer_gain(&self) -> &GainNode {
-        &self.mixer_gain
-    }
-    
-    /// Gets the microphone gain node for external access
-    pub fn get_microphone_gain(&self) -> &GainNode {
-        &self.microphone_gain
-    }
-    
-    /// Gets the analyser node for external analysis
-    pub fn get_analyser_node(&self) -> &AnalyserNode {
-        &self.analyser_node
-    }
-    
-    /// Gets the AudioWorklet node for external access
-    pub fn get_audioworklet_node(&self) -> &AudioWorkletNode {
-        &self.audioworklet_node
     }
 }
