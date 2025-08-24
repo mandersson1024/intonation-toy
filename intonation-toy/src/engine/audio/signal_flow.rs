@@ -68,7 +68,6 @@ impl AudioSignalFlow {
             tuning_fork_oscillator: tuning_fork,
             tuning_fork_gain,
             output_gain,
-            audio_context: context,
         }
     }
 }
