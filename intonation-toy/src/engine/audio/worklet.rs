@@ -612,112 +612,55 @@ impl AudioWorkletManager {
 
     
     /// Connect microphone input to audio worklet
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode, route_through_analyser: bool) -> Result<(), AudioError> {
-        // Store microphone source for potential re-routing
+    pub fn connect_microphone(&mut self, microphone_source: &AudioNode, _route_through_analyser: bool) -> Result<(), AudioError> {
+        // Store microphone source
         self.microphone_source = Some(microphone_source.clone());
         
-        // Ensure microphone gain node exists
+        // Ensure both microphone gain and mixer nodes exist
         self.ensure_microphone_gain_node()?;
+        self.ensure_mixer_node()?;
         
         if let Some(worklet) = &self.worklet_node {
-            // Connect microphone to gain node first
-            if let Some(ref mic_gain) = self.microphone_gain {
-                match microphone_source.connect_with_audio_node(mic_gain) {
-                Ok(_) => {
-                    dev_log!("Connected microphone to gain node");
-                    
-                    // Also connect the microphone gain to the analyser volume detector
-                    if let Some(ref mut volume_detector) = self.volume_detector {
-                        if let Err(e) = volume_detector.connect_source(mic_gain) {
-                            dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-                        } else {
-                            dev_log!("Connected microphone gain to VolumeDetector");
-                        }
-                    }
-                }
-                Err(e) => {
-                    return Err(AudioError::Generic(
-                        format!("Failed to connect microphone to gain node: {:?}", e)
-                    ));
-                }
-            }
-            }
+            // Unified connection setup - always the same regardless of state:
+            // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
             
-            // Connect microphone gain based on routing flags
             if let Some(ref mic_gain) = self.microphone_gain {
-                if route_through_analyser {
-                    // Route through analyser: mic_gain -> analyser -> mixer/worklet
-                    if let Some(ref volume_detector) = self.volume_detector {
-                        match mic_gain.connect_with_audio_node(volume_detector.node()) {
-                            Ok(_) => {
-                                dev_log!("Connected microphone gain to analyser (routing through analyser)");
-                                
-                                // Connect analyser to final destination
-                                if self.mixer_gain.is_some() {
-                                    if let Some(ref mixer) = self.mixer_gain {
-                                        match volume_detector.node().connect_with_audio_node(mixer) {
-                                            Ok(_) => {
-                                                dev_log!("Connected analyser to mixer");
-                                            }
-                                            Err(e) => {
-                                                return Err(AudioError::Generic(
-                                                    format!("Failed to connect analyser to mixer: {:?}", e)
-                                                ));
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    match volume_detector.node().connect_with_audio_node(worklet) {
-                                        Ok(_) => {
-                                            dev_log!("Connected analyser to worklet");
-                                        }
-                                        Err(e) => {
-                                            return Err(AudioError::Generic(
-                                                format!("Failed to connect analyser to worklet: {:?}", e)
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                return Err(AudioError::Generic(
-                                    format!("Failed to connect microphone gain to analyser: {:?}", e)
-                                ));
-                            }
-                        }
+                // 1. Connect microphone source to microphone gain
+                microphone_source.connect_with_audio_node(mic_gain)
+                    .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
+                dev_log!("Connected microphone to gain node");
+                
+                // 2. Connect microphone gain to volume detector (parallel tap for analysis)
+                if let Some(ref mut volume_detector) = self.volume_detector {
+                    if let Err(e) = volume_detector.connect_source(mic_gain) {
+                        dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
                     } else {
-                        return Err(AudioError::Generic("Volume detector not available for analyser routing".to_string()));
-                    }
-                } else if self.mixer_gain.is_some() {
-                    // Route through mixer (test signal active): mic_gain -> mixer
-                    if let Some(ref mixer) = self.mixer_gain {
-                        match mic_gain.connect_with_audio_node(mixer) {
-                            Ok(_) => {
-                                dev_log!("Connected microphone gain to mixer (test signal routing active)");
-                            }
-                            Err(e) => {
-                                return Err(AudioError::Generic(
-                                    format!("Failed to connect microphone gain to mixer: {:?}", e)
-                                ));
-                            }
-                        }
-                    }
-                } else {
-                    // Direct routing: mic_gain -> worklet
-                    match mic_gain.connect_with_audio_node(worklet) {
-                        Ok(_) => {
-                            dev_log!("Connected microphone gain directly to worklet");
-                        }
-                        Err(e) => {
-                            return Err(AudioError::Generic(
-                                format!("Failed to connect microphone gain to worklet: {:?}", e)
-                            ));
-                        }
+                        dev_log!("Connected microphone gain to VolumeDetector");
                     }
                 }
+                
+                // 3. Connect microphone gain to mixer
+                if let Some(ref mixer) = self.mixer_gain {
+                    mic_gain.connect_with_audio_node(mixer)
+                        .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
+                    dev_log!("Connected microphone gain to mixer");
+                    
+                    // 4. Connect mixer to worklet
+                    mixer.connect_with_audio_node(worklet)
+                        .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
+                    dev_log!("Connected mixer to worklet");
+                } else {
+                    return Err(AudioError::Generic("Mixer node not available".to_string()));
+                }
+            } else {
+                return Err(AudioError::Generic("Microphone gain node not available".to_string()));
             }
-            
-            // Only connect AudioWorklet to destination if output to speakers is enabled
+        } else {
+            return Err(AudioError::Generic("AudioWorklet node not available".to_string()));
+        }
+        
+        // Connect AudioWorklet to speakers if output is enabled
+        if let Some(worklet) = &self.worklet_node {
             if self.output_to_speakers {
                 let audio_context = worklet.context();
                 if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
@@ -726,11 +669,9 @@ impl AudioWorkletManager {
                     dev_log!("Connected worklet to speakers");
                 }
             }
-            
-            Ok(())
-        } else {
-            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
         }
+        
+        Ok(())
     }
     
     /// Start audio processing
@@ -951,20 +892,6 @@ impl AudioWorkletManager {
         Ok(())
     }
     
-    /// Setup test signal routing through mixer
-    fn setup_test_signal_routing(&mut self) -> Result<(), AudioError> {
-        self.ensure_mixer_node()?;
-        
-        if let (Some(test_signal), Some(mixer)) = (&mut self.test_signal_node, &self.mixer_gain) {
-            test_signal
-                .connect_to(mixer)
-                .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
-            dev_log!("Connected test signal to mixer");
-        }
-        
-        Ok(())
-    }
-    
     /// Cleanup test signal node and routing
     fn cleanup_test_signal(&mut self) {
         if let Some(mut test_signal) = self.test_signal_node.take() {
@@ -973,13 +900,12 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Update test signal generator configuration (manages local TestSignalAudioNode only)
+    /// Update test signal generator configuration (unified routing - no reconnection needed)
     pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
-        // First handle automatic audio routing management
+        // Handle microphone muting for test signals to prevent feedback
         if config.enabled {
-            // Store previous states before enabling test signal
+            // Store previous microphone volume before muting
             if self.prev_microphone_volume.is_none() {
-                // Get current microphone volume from gain node
                 if let Some(ref mic_gain) = self.microphone_gain {
                     let current_volume = mic_gain.gain().value();
                     self.prev_microphone_volume = Some(current_volume);
@@ -987,17 +913,18 @@ impl AudioWorkletManager {
                 }
             }
             
+            // Store previous speaker output state
             if self.prev_output_to_speakers.is_none() {
-                // Store current speaker output state
                 self.prev_output_to_speakers = Some(self.output_to_speakers);
                 dev_log!("Stored previous speaker output state: {}", self.output_to_speakers);
             }
             
-            // Automatically mute microphone and enable speaker output
+            // Mute microphone to prevent feedback (no reconnection needed - just volume control)
             if let Err(e) = self.set_microphone_volume(0.0) {
                 dev_log!("Failed to mute microphone for test signal: {:?}", e);
             }
             
+            // Enable speaker output for test signal
             if !self.output_to_speakers {
                 self.set_output_to_speakers(true);
                 dev_log!("Automatically enabled speaker output for test signal");
@@ -1012,21 +939,18 @@ impl AudioWorkletManager {
                     test_signal.update_config(config);
                     dev_log!("Updated existing test signal node configuration");
                 } else {
-                    // Create new node without auto-connection to speakers
+                    // Create new test signal node and connect to mixer (mixer always exists now)
                     match TestSignalAudioNode::new(audio_context, config, false) {
                         Ok(mut node) => {
-                            // Setup routing through mixer
-                            if let Err(e) = self.setup_test_signal_routing() {
-                                dev_log!("Failed to setup test signal routing: {:?}", e);
-                            } else {
-                                // Connect the node after routing is setup
-                                if let Some(ref mixer) = self.mixer_gain {
-                                    if let Err(e) = node.connect_to(mixer) {
-                                        dev_log!("Failed to connect test signal to mixer: {:?}", e);
-                                    } else {
-                                        dev_log!("Created and connected new test signal node");
-                                    }
+                            // Connect test signal directly to mixer (no routing setup needed)
+                            if let Some(ref mixer) = self.mixer_gain {
+                                if let Err(e) = node.connect_to(mixer) {
+                                    dev_log!("Failed to connect test signal to mixer: {:?}", e);
+                                } else {
+                                    dev_log!("Created and connected new test signal node to mixer");
                                 }
+                            } else {
+                                dev_log!("Mixer not available for test signal connection");
                             }
                             self.test_signal_node = Some(node);
                         }
