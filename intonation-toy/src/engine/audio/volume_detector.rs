@@ -8,9 +8,11 @@ const FFT_SIZE: u32 = 128;
 /// Number of frequency bins (half of FFT size)
 const FREQUENCY_BIN_COUNT: usize = (FFT_SIZE / 2) as usize;
 
-/// Volume detector that uses Web Audio API's AnalyserNode for FFT-based volume detection
+/// Volume detector that uses Web Audio API's AnalyserNode for volume detection
 /// 
 /// This detector provides both volume analysis and FFT frequency data.
+/// Peak amplitude is calculated directly from time domain data using getFloatTimeDomainData(),
+/// which provides direct amplitude values in the -1.0 to 1.0 range.
 /// The FFT data contains 64 frequency bins normalized to 0.0-1.0 range.
 /// Bin 0 represents DC component, higher indices represent higher frequencies.
 #[derive(Clone)]
@@ -19,6 +21,8 @@ pub struct VolumeDetector {
     analyser_node: AnalyserNode,
     /// Pre-allocated buffer for frequency data to avoid reallocations
     frequency_data: Vec<u8>,
+    /// Pre-allocated buffer for time domain data to avoid reallocations
+    time_domain_data: Vec<f32>,
 }
 
 impl VolumeDetector {
@@ -37,12 +41,15 @@ impl VolumeDetector {
         
         // Initialize frequency data buffer with correct size
         let frequency_data = vec![0u8; FREQUENCY_BIN_COUNT];
+        // Initialize time domain data buffer with FFT size
+        let time_domain_data = vec![0.0f32; FFT_SIZE as usize];
         
         dev_log!("VolumeDetector created with FFT size: {}", FFT_SIZE);
         
         Ok(Self {
             analyser_node,
             frequency_data,
+            time_domain_data,
         })
     }
     
@@ -74,8 +81,11 @@ impl VolumeDetector {
         // Get frequency data from analyser node directly into our buffer
         self.analyser_node.get_byte_frequency_data(&mut self.frequency_data);
         
-        // Calculate peak amplitude from frequency bins
-        let peak_amplitude = self.calculate_peak_from_bins();
+        // Get time domain data for direct amplitude calculation
+        self.analyser_node.get_float_time_domain_data(&mut self.time_domain_data);
+        
+        // Calculate peak amplitude from time domain data
+        let peak_amplitude = self.calculate_peak_amplitude_from_time_domain();
         
         // RMS is not needed for this implementation
         let rms_amplitude = 0.0;
@@ -93,17 +103,16 @@ impl VolumeDetector {
         })
     }
     
-    /// Calculates peak amplitude from frequency bin data
-    fn calculate_peak_from_bins(&self) -> f32 {
-        // Find maximum value in frequency bins
-        let max_value = self.frequency_data
+    /// Calculates peak amplitude directly from time domain data
+    /// 
+    /// Uses getFloatTimeDomainData() which provides direct amplitude values
+    /// in the range -1.0 to 1.0. Returns the absolute maximum value.
+    fn calculate_peak_amplitude_from_time_domain(&self) -> f32 {
+        // Find the maximum absolute value in time domain data
+        self.time_domain_data
             .iter()
-            .max()
-            .copied()
-            .unwrap_or(0);
-        
-        // Normalize to 0.0-1.0 range
-        max_value as f32 / 255.0
+            .map(|&sample| sample.abs())
+            .fold(0.0f32, f32::max)
     }
     
     /// Returns the underlying AnalyserNode for direct access if needed
