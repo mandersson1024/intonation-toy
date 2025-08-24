@@ -1,5 +1,6 @@
-use web_sys::{AudioContext, AudioNode, GainNode, AnalyserNode, AudioWorkletNode, MediaStreamAudioSourceNode};
+use web_sys::{AudioContext, GainNode, AudioWorkletNode, MediaStreamAudioSourceNode};
 use super::{AudioError, VolumeDetector, TuningForkAudioNode, TestSignalAudioNode};
+use super::signal_generator::{TuningForkConfig, SignalGeneratorConfig};
 use crate::common::dev_log;
 
 /// Represents the complete audio signal flow with all Web Audio API nodes
@@ -61,10 +62,10 @@ impl AudioSignalFlow {
         self.audio_context = Some(context);
     }
     
-    /// Creates all audio nodes in the signal flow
+    /// Creates all audio nodes in the signal flow and establishes connections
     /// 
-    /// This method creates all the Web Audio API nodes but does not initialize them.
-    /// The nodes are stored in the struct for later connection and initialization.
+    /// This method creates all the Web Audio API nodes and connects them according to
+    /// the signal flow diagram. The nodes are stored in the struct for later use.
     pub fn create_nodes(&mut self) -> Result<(), AudioError> {
         let context = self.audio_context.as_ref()
             .ok_or_else(|| AudioError::Generic("Audio context not set".to_string()))?;
@@ -81,7 +82,10 @@ impl AudioSignalFlow {
         self.volume_detector = Some(self.create_volume_detector(context)?);
         dev_log!("Created volume detector node");
         
-        dev_log!("✓ All audio nodes created successfully");
+        // Setup connections between the created nodes
+        self.setup_connections()?;
+        
+        dev_log!("✓ All audio nodes created and connected successfully");
         Ok(())
     }
     
@@ -118,7 +122,7 @@ impl AudioSignalFlow {
     /// 
     /// This method connects all the created nodes according to the signal flow diagram.
     /// It does not initialize any processing - that happens externally.
-    pub fn setup_connections(&mut self) -> Result<(), AudioError> {
+    fn setup_connections(&mut self) -> Result<(), AudioError> {
         if self.is_connected {
             dev_log!("Signal flow already connected, skipping setup");
             return Ok(());
@@ -133,7 +137,7 @@ impl AudioSignalFlow {
             .ok_or_else(|| AudioError::Generic("Volume detector not created".to_string()))?;
         
         // Connect microphone gain to volume detector (parallel tap for analysis)
-        volume_detector.connect_source(mic_gain)
+        mic_gain.connect_with_audio_node(volume_detector.node())
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to volume detector: {:?}", e)))?;
         dev_log!("Connected microphone gain to volume detector");
         
@@ -202,24 +206,75 @@ impl AudioSignalFlow {
         Ok(())
     }
     
-    /// Connects a test signal node to the mixer
-    pub fn connect_test_signal(&mut self, test_signal: TestSignalAudioNode) -> Result<(), AudioError> {
+    /// Creates a test signal node and connects it to the mixer
+    pub fn create_test_signal(&mut self, config: SignalGeneratorConfig) -> Result<(), AudioError> {
+        let context = self.audio_context.as_ref()
+            .ok_or_else(|| AudioError::Generic("Audio context not set".to_string()))?;
         let mixer_gain = self.mixer_gain.as_ref()
             .ok_or_else(|| AudioError::Generic("Mixer gain node not available".to_string()))?;
         
-        // Connect test signal to mixer
+        // Create test signal without connecting to destination (we'll connect to mixer)
+        let mut test_signal = TestSignalAudioNode::new(context, config, false)?;
+        
+        // Connect test signal to mixer using Web Audio API directly
+        // Note: We'll need to access the gain node from test_signal and connect it to mixer_gain
+        // For now, we still need to use the external method until we refactor TestSignalAudioNode
         test_signal.connect_to(mixer_gain)
             .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
         
         self.test_signal_node = Some(test_signal);
-        dev_log!("Connected test signal to signal flow");
+        dev_log!("Created and connected test signal to signal flow");
         Ok(())
     }
     
-    /// Sets the tuning fork node (connects directly to speakers, independent path)
-    pub fn set_tuning_fork_node(&mut self, tuning_fork: TuningForkAudioNode) {
+    /// Updates the test signal configuration if it exists
+    pub fn update_test_signal(&mut self, config: SignalGeneratorConfig) -> Result<(), AudioError> {
+        if let Some(test_signal) = &mut self.test_signal_node {
+            test_signal.update_config(config);
+            dev_log!("Updated test signal configuration");
+            Ok(())
+        } else {
+            Err(AudioError::Generic("Test signal node not created".to_string()))
+        }
+    }
+    
+    /// Disables the test signal if it exists
+    pub fn disable_test_signal(&mut self) -> Result<(), AudioError> {
+        if let Some(test_signal) = &mut self.test_signal_node {
+            test_signal.disable();
+            dev_log!("Disabled test signal");
+            Ok(())
+        } else {
+            Err(AudioError::Generic("Test signal node not created".to_string()))
+        }
+    }
+    
+    /// Creates a tuning fork node with default configuration (440Hz, 0.1 volume)
+    pub fn create_tuning_fork(&mut self) -> Result<(), AudioError> {
+        let context = self.audio_context.as_ref()
+            .ok_or_else(|| AudioError::Generic("Audio context not set".to_string()))?;
+        
+        // Create with default configuration - will be updated from outside
+        let default_config = TuningForkConfig {
+            frequency: 440.0,
+            volume: 0.1,
+        };
+        
+        let tuning_fork = TuningForkAudioNode::new(context, default_config)?;
         self.tuning_fork_node = Some(tuning_fork);
-        dev_log!("Set tuning fork node in signal flow");
+        dev_log!("Created tuning fork node in signal flow");
+        Ok(())
+    }
+    
+    /// Updates the tuning fork configuration if it exists
+    pub fn update_tuning_fork(&mut self, config: TuningForkConfig) -> Result<(), AudioError> {
+        if let Some(tuning_fork) = &mut self.tuning_fork_node {
+            tuning_fork.update_config(config);
+            dev_log!("Updated tuning fork configuration");
+            Ok(())
+        } else {
+            Err(AudioError::Generic("Tuning fork node not created".to_string()))
+        }
     }
     
     /// Sets microphone volume by adjusting the microphone gain node
@@ -253,17 +308,16 @@ impl AudioSignalFlow {
     pub fn get_audioworklet_node(&self) -> Option<&AudioWorkletNode> {
         self.audioworklet_node.as_ref()
     }
-    
-    /// Checks if signal flow is properly connected
-    pub fn is_connected(&self) -> bool {
-        self.is_connected && 
-        self.microphone_gain.is_some() && 
-        self.mixer_gain.is_some() && 
-        self.volume_detector.is_some()
+}
+
+impl Default for AudioSignalFlow {
+    fn default() -> Self {
+        Self::new()
     }
-    
-    /// Disconnects all nodes and cleans up the signal flow
-    pub fn disconnect_all(&mut self) -> Result<(), AudioError> {
+}
+
+impl Drop for AudioSignalFlow {
+    fn drop(&mut self) {
         dev_log!("Disconnecting all signal flow nodes");
         
         // Disconnect AudioWorklet
@@ -301,32 +355,6 @@ impl AudioSignalFlow {
             dev_log!("Cleaned up tuning fork node");
         }
         
-        // Clear all references
-        self.microphone_source = None;
-        self.microphone_gain = None;
-        self.mixer_gain = None;
-        self.audioworklet_node = None;
-        self.volume_detector = None;
-        self.test_signal_node = None;
-        self.tuning_fork_node = None;
-        
-        self.is_connected = false;
-        self.output_to_speakers = false;
-        
-        dev_log!("✓ Signal flow cleanup completed");
-        Ok(())
-    }
-}
-
-impl Default for AudioSignalFlow {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Drop for AudioSignalFlow {
-    fn drop(&mut self) {
-        let _ = self.disconnect_all();
         dev_log!("AudioSignalFlow dropped");
     }
 }
