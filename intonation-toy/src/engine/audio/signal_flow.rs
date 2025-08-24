@@ -77,6 +77,15 @@ impl AudioSignalFlow {
         self.microphone_gain = Some(self.create_microphone_gain_node(context)?);
         self.mixer_gain = Some(self.create_mixer_gain_node(context)?);
         self.analyser_node = Some(self.create_analyser_node(context)?);
+        
+        let (test_osc, test_gain) = self.create_test_signal_nodes(context)?;
+        self.test_signal_oscillator = Some(test_osc);
+        self.test_signal_gain = Some(test_gain);
+        
+        let (fork_osc, fork_gain) = self.create_tuning_fork_nodes(context)?;
+        self.tuning_fork_oscillator = Some(fork_osc);
+        self.tuning_fork_gain = Some(fork_gain);
+        
         self.setup_connections()?;
 
         Ok(())
@@ -112,13 +121,57 @@ impl AudioSignalFlow {
             .create_analyser()
             .map_err(|e| AudioError::Generic(format!("Failed to create analyser node: {:?}", e)))?;
         
-        // Set FFT size to 128 for efficient analysis
         analyser.set_fft_size(128);
-        
-        // Set smoothing time constant to 0.0 for real-time analysis
         analyser.set_smoothing_time_constant(0.0);
         
         Ok(analyser)
+    }
+    
+    /// Creates test signal oscillator and gain nodes
+    fn create_test_signal_nodes(&self, context: &AudioContext) -> Result<(OscillatorNode, GainNode), AudioError> {
+        let oscillator = context
+            .create_oscillator()
+            .map_err(|e| AudioError::Generic(format!("Failed to create test signal oscillator: {:?}", e)))?;
+        
+        let gain_node = context
+            .create_gain()
+            .map_err(|e| AudioError::Generic(format!("Failed to create test signal gain: {:?}", e)))?;
+        
+        oscillator.frequency().set_value(440.0);
+        gain_node.gain().set_value(0.0);
+        
+        oscillator.connect_with_audio_node(&gain_node)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal oscillator to gain: {:?}", e)))?;
+        
+        oscillator.start()
+            .map_err(|e| AudioError::Generic(format!("Failed to start test signal oscillator: {:?}", e)))?;
+        
+        Ok((oscillator, gain_node))
+    }
+    
+    /// Creates tuning fork oscillator and gain nodes
+    fn create_tuning_fork_nodes(&self, context: &AudioContext) -> Result<(OscillatorNode, GainNode), AudioError> {
+        let oscillator = context
+            .create_oscillator()
+            .map_err(|e| AudioError::Generic(format!("Failed to create tuning fork oscillator: {:?}", e)))?;
+        
+        let gain_node = context
+            .create_gain()
+            .map_err(|e| AudioError::Generic(format!("Failed to create tuning fork gain: {:?}", e)))?;
+        
+        oscillator.frequency().set_value(440.0);
+        gain_node.gain().set_value(0.1);
+        
+        oscillator.connect_with_audio_node(&gain_node)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect tuning fork oscillator to gain: {:?}", e)))?;
+        
+        gain_node.connect_with_audio_node(&context.destination())
+            .map_err(|e| AudioError::Generic(format!("Failed to connect tuning fork to speakers: {:?}", e)))?;
+        
+        oscillator.start()
+            .map_err(|e| AudioError::Generic(format!("Failed to start tuning fork oscillator: {:?}", e)))?;
+        
+        Ok((oscillator, gain_node))
     }
     
     /// Sets up the complete signal flow connections
@@ -127,30 +180,28 @@ impl AudioSignalFlow {
     /// It does not initialize any processing - that happens externally.
     fn setup_connections(&mut self) -> Result<(), AudioError> {
         if self.is_connected {
-            dev_log!("Signal flow already connected, skipping setup");
             return Ok(());
         }
         
-        // Ensure all required nodes exist
         let mic_gain = self.microphone_gain.as_ref()
             .ok_or_else(|| AudioError::Generic("Microphone gain node not created".to_string()))?;
         let mixer_gain = self.mixer_gain.as_ref()
             .ok_or_else(|| AudioError::Generic("Mixer gain node not created".to_string()))?;
         let analyser = self.analyser_node.as_ref()
             .ok_or_else(|| AudioError::Generic("Analyser node not created".to_string()))?;
+        let test_gain = self.test_signal_gain.as_ref()
+            .ok_or_else(|| AudioError::Generic("Test signal gain not created".to_string()))?;
         
-        // Connect microphone gain to analyser node (parallel tap for analysis)
         mic_gain.connect_with_audio_node(analyser)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to analyser: {:?}", e)))?;
-        dev_log!("Connected microphone gain to analyser node");
         
-        // Connect microphone gain to mixer
         mic_gain.connect_with_audio_node(mixer_gain)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-        dev_log!("Connected microphone gain to mixer");
+        
+        test_gain.connect_with_audio_node(mixer_gain)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
         
         self.is_connected = true;
-        dev_log!("✓ Signal flow connections established");
         Ok(())
     }
     
