@@ -61,7 +61,7 @@ pub async fn connect_existing_mediastream_to_audioworklet(
         let mut context_borrowed = audio_context.borrow_mut();
         context_borrowed.get_audioworklet_manager_mut()
             .ok_or("AudioWorklet manager not available".to_string())
-            .and_then(|worklet_manager| worklet_manager.connect_microphone(source.as_ref()).map_err(|e| e.to_string()))
+            .and_then(|worklet_manager| worklet_manager.connect_microphone(source.as_ref(), false).map_err(|e| e.to_string()))
     };
     
     match result {

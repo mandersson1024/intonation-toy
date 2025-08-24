@@ -8,7 +8,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeDetector, VolumeAnalysis, SignalGeneratorConfig};
+use super::{AudioError, context::AudioContextManager, VolumeAnalysis, SignalGeneratorConfig, analyser_volume_detector::AnalyserVolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
@@ -46,7 +46,7 @@ pub struct AudioWorkletConfig {
 }
 
 struct AudioWorkletSharedData {
-    volume_detector: Option<VolumeDetector>,
+    volume_detector: Option<AnalyserVolumeDetector>,
     batches_processed: u32,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
@@ -81,7 +81,7 @@ pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
     config: AudioWorkletConfig,
-    volume_detector: Option<VolumeDetector>,
+    volume_detector: Option<AnalyserVolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -270,6 +270,14 @@ impl AudioWorkletManager {
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
         if let Some(worklet) = &self.worklet_node {
+            // Clean up existing closure and port handler
+            self._message_closure = None;
+            
+            // Clear port message handler to disconnect previous closures
+            let port = worklet.port()
+                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+            port.set_onmessage(None);
+            
             // Create shared data for the message handler
             let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
             
@@ -526,12 +534,17 @@ impl AudioWorkletManager {
         let volume_detector = shared_data.borrow().volume_detector.clone();
         
         if let Some(mut volume_detector) = volume_detector {
-            let volume_analysis = volume_detector.process_buffer(audio_samples);
-            
-            // Store the volume analysis result in the AudioWorkletManager
-            // We need to access the manager instance to store this
-            // This is done through a separate method call after processing
-            shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
+            match volume_detector.analyze() {
+                Ok(volume_analysis) => {
+                    // Store the volume analysis result in the AudioWorkletManager
+                    // We need to access the manager instance to store this
+                    // This is done through a separate method call after processing
+                    shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
+                }
+                Err(err) => {
+                    dev_log!("Volume analysis failed: {:?}", err);
+                }
+            }
         } 
         
         // Perform pitch analysis
@@ -599,7 +612,7 @@ impl AudioWorkletManager {
 
     
     /// Connect microphone input to audio worklet
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<(), AudioError> {
+    pub fn connect_microphone(&mut self, microphone_source: &AudioNode, route_through_analyser: bool) -> Result<(), AudioError> {
         // Store microphone source for potential re-routing
         self.microphone_source = Some(microphone_source.clone());
         
@@ -612,6 +625,15 @@ impl AudioWorkletManager {
                 match microphone_source.connect_with_audio_node(mic_gain) {
                 Ok(_) => {
                     dev_log!("Connected microphone to gain node");
+                    
+                    // Also connect the microphone gain to the analyser volume detector
+                    if let Some(ref mut volume_detector) = self.volume_detector {
+                        if let Err(e) = volume_detector.connect_source(mic_gain) {
+                            dev_log!("Failed to connect microphone gain to AnalyserVolumeDetector: {:?}", e);
+                        } else {
+                            dev_log!("Connected microphone gain to AnalyserVolumeDetector");
+                        }
+                    }
                 }
                 Err(e) => {
                     return Err(AudioError::Generic(
@@ -621,11 +643,54 @@ impl AudioWorkletManager {
             }
             }
             
-            // Check if mixer exists (test signal is active)
-            if self.mixer_gain.is_some() {
-                // Route through mixer: microphone → gain → mixer → worklet
-                if let Some(ref mixer) = self.mixer_gain {
-                    if let Some(ref mic_gain) = self.microphone_gain {
+            // Connect microphone gain based on routing flags
+            if let Some(ref mic_gain) = self.microphone_gain {
+                if route_through_analyser {
+                    // Route through analyser: mic_gain -> analyser -> mixer/worklet
+                    if let Some(ref volume_detector) = self.volume_detector {
+                        match mic_gain.connect_with_audio_node(volume_detector.node()) {
+                            Ok(_) => {
+                                dev_log!("Connected microphone gain to analyser (routing through analyser)");
+                                
+                                // Connect analyser to final destination
+                                if self.mixer_gain.is_some() {
+                                    if let Some(ref mixer) = self.mixer_gain {
+                                        match volume_detector.node().connect_with_audio_node(mixer) {
+                                            Ok(_) => {
+                                                dev_log!("Connected analyser to mixer");
+                                            }
+                                            Err(e) => {
+                                                return Err(AudioError::Generic(
+                                                    format!("Failed to connect analyser to mixer: {:?}", e)
+                                                ));
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    match volume_detector.node().connect_with_audio_node(worklet) {
+                                        Ok(_) => {
+                                            dev_log!("Connected analyser to worklet");
+                                        }
+                                        Err(e) => {
+                                            return Err(AudioError::Generic(
+                                                format!("Failed to connect analyser to worklet: {:?}", e)
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                return Err(AudioError::Generic(
+                                    format!("Failed to connect microphone gain to analyser: {:?}", e)
+                                ));
+                            }
+                        }
+                    } else {
+                        return Err(AudioError::Generic("Volume detector not available for analyser routing".to_string()));
+                    }
+                } else if self.mixer_gain.is_some() {
+                    // Route through mixer (test signal active): mic_gain -> mixer
+                    if let Some(ref mixer) = self.mixer_gain {
                         match mic_gain.connect_with_audio_node(mixer) {
                             Ok(_) => {
                                 dev_log!("Connected microphone gain to mixer (test signal routing active)");
@@ -637,17 +702,15 @@ impl AudioWorkletManager {
                             }
                         }
                     }
-                }
-            } else {
-                // Direct routing: microphone → gain → worklet
-                if let Some(ref mic_gain) = self.microphone_gain {
+                } else {
+                    // Direct routing: mic_gain -> worklet
                     match mic_gain.connect_with_audio_node(worklet) {
                         Ok(_) => {
                             dev_log!("Connected microphone gain directly to worklet");
                         }
                         Err(e) => {
                             return Err(AudioError::Generic(
-                                format!("Failed to connect microphone gain to AudioWorklet: {:?}", e)
+                                format!("Failed to connect microphone gain to worklet: {:?}", e)
                             ));
                         }
                     }
@@ -724,6 +787,15 @@ impl AudioWorkletManager {
             dev_log!("Microphone gain node disconnected and cleaned up");
         }
         
+        // Disconnect and cleanup volume detector
+        if let Some(ref mut volume_detector) = self.volume_detector {
+            if let Err(e) = volume_detector.disconnect() {
+                dev_log!("Failed to disconnect AnalyserVolumeDetector: {:?}", e);
+            } else {
+                dev_log!("AnalyserVolumeDetector disconnected");
+            }
+        }
+        
         // Clear stored microphone source
         self.microphone_source = None;
         
@@ -752,7 +824,16 @@ impl AudioWorkletManager {
     }
         
     /// Set volume detector for real-time volume analysis
-    pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
+    pub fn set_volume_detector(&mut self, detector: AnalyserVolumeDetector) {
+        // Connect microphone gain if available (idempotent regardless of call order)
+        if let Some(ref mic_gain) = self.microphone_gain {
+            if let Err(e) = detector.connect_source(mic_gain) {
+                dev_log!("Failed to connect microphone gain to volume detector: {:?}", e);
+            } else {
+                dev_log!("Connected microphone gain to volume detector during set_volume_detector");
+            }
+        }
+        
         self.volume_detector = Some(detector.clone());
         
         // Also update the shared data with the volume detector

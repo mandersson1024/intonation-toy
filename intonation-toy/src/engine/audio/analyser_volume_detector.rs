@@ -13,6 +13,7 @@ const FREQUENCY_BIN_COUNT: usize = (FFT_SIZE / 2) as usize;
 /// This detector provides both volume analysis and FFT frequency data.
 /// The FFT data contains 64 frequency bins normalized to 0.0-1.0 range.
 /// Bin 0 represents DC component, higher indices represent higher frequencies.
+#[derive(Clone)]
 pub struct AnalyserVolumeDetector {
     /// The Web Audio API analyser node
     analyser_node: AnalyserNode,
@@ -138,6 +139,13 @@ impl AnalyserVolumeDetector {
             .iter()
             .map(|&byte| byte as f32 / 255.0)
             .collect())
+    }
+    
+    /// Disconnects the analyser node from all connected inputs
+    pub fn disconnect(&self) -> Result<(), AudioError> {
+        let _ = self.analyser_node.disconnect();
+        dev_log!("AnalyserVolumeDetector disconnected from audio sources");
+        Ok(())
     }
 }
 

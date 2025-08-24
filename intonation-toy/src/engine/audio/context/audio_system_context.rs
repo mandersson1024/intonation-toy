@@ -67,7 +67,15 @@ impl AudioSystemContext {
         }
         dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
-        let volume_detector = super::super::volume_detector::VolumeDetector::new_default();
+        let audio_context = {
+            let manager = self.audio_context_manager.borrow();
+            manager.get_context()
+                .cloned()
+                .ok_or("Audio context not available for AnalyserVolumeDetector".to_string())?
+        };
+        
+        let volume_detector = super::super::analyser_volume_detector::AnalyserVolumeDetector::new(&audio_context)
+            .map_err(|e| format!("Failed to create AnalyserVolumeDetector: {:?}", e))?;
         
         if let Some(ref mut worklet_manager) = self.audioworklet_manager {
             worklet_manager.set_volume_detector(volume_detector);
@@ -80,7 +88,7 @@ impl AudioSystemContext {
                 })?;
         }
         
-        dev_log!("✓ VolumeDetector initialized and configured");
+        dev_log!("✓ AnalyserVolumeDetector initialized and configured");
 
         super::super::set_global_audio_context_manager(self.audio_context_manager.clone());
         dev_log!("✓ AudioContextManager stored globally for device change callbacks");
