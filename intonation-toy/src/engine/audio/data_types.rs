@@ -13,6 +13,21 @@ pub struct VolumeLevelData {
     pub fft_data: Option<Vec<f32>>,
 }
 
+/// Internal volume analysis result from volume detection
+/// 
+/// Contains raw amplitude measurements and optional FFT frequency data from volume detection.
+/// This is used internally by volume detectors before converting to VolumeLevelData for external consumption.
+/// 
+/// The fft_data contains normalized frequency bin data (0.0-1.0 range) when available:
+/// - Some(Vec<f32>) for FFT-based detection (64 frequency bins when using 128 FFT size)
+/// - None for traditional sample-based detection
+#[derive(Debug, Clone)]
+pub struct VolumeAnalysis {
+    pub rms_amplitude: f32,
+    pub peak_amplitude: f32,
+    pub fft_data: Option<Vec<f32>>,
+}
+
 /// Pitch detection data for external consumption
 #[derive(Debug, Clone, PartialEq)]
 pub struct PitchData {

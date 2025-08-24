@@ -8,7 +8,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, VolumeAnalysis, SignalGeneratorConfig, analyser_volume_detector::AnalyserVolumeDetector};
+use super::{AudioError, context::AudioContextManager, data_types::VolumeAnalysis, SignalGeneratorConfig, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
@@ -46,7 +46,7 @@ pub struct AudioWorkletConfig {
 }
 
 struct AudioWorkletSharedData {
-    volume_detector: Option<AnalyserVolumeDetector>,
+    volume_detector: Option<VolumeDetector>,
     batches_processed: u32,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
@@ -81,7 +81,7 @@ pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
     config: AudioWorkletConfig,
-    volume_detector: Option<AnalyserVolumeDetector>,
+    volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -629,9 +629,9 @@ impl AudioWorkletManager {
                     // Also connect the microphone gain to the analyser volume detector
                     if let Some(ref mut volume_detector) = self.volume_detector {
                         if let Err(e) = volume_detector.connect_source(mic_gain) {
-                            dev_log!("Failed to connect microphone gain to AnalyserVolumeDetector: {:?}", e);
+                            dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
                         } else {
-                            dev_log!("Connected microphone gain to AnalyserVolumeDetector");
+                            dev_log!("Connected microphone gain to VolumeDetector");
                         }
                     }
                 }
@@ -790,9 +790,9 @@ impl AudioWorkletManager {
         // Disconnect and cleanup volume detector
         if let Some(ref mut volume_detector) = self.volume_detector {
             if let Err(e) = volume_detector.disconnect() {
-                dev_log!("Failed to disconnect AnalyserVolumeDetector: {:?}", e);
+                dev_log!("Failed to disconnect VolumeDetector: {:?}", e);
             } else {
-                dev_log!("AnalyserVolumeDetector disconnected");
+                dev_log!("VolumeDetector disconnected");
             }
         }
         
@@ -824,7 +824,7 @@ impl AudioWorkletManager {
     }
         
     /// Set volume detector for real-time volume analysis
-    pub fn set_volume_detector(&mut self, detector: AnalyserVolumeDetector) {
+    pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
         // Connect microphone gain if available (idempotent regardless of call order)
         if let Some(ref mic_gain) = self.microphone_gain {
             if let Err(e) = detector.connect_source(mic_gain) {
