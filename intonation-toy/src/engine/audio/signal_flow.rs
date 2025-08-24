@@ -121,20 +121,3 @@ impl AudioSignalFlow {
         &self.audioworklet_node
     }
 }
-
-impl Drop for AudioSignalFlow {
-    fn drop(&mut self) {
-        let _ = self.audioworklet_node.disconnect();
-        let _ = self.mixer_gain.disconnect();
-        let _ = self.microphone_gain.disconnect();
-        let _ = self.analyser_node.disconnect();
-        
-        let _ = self.test_signal_oscillator.stop();
-        let _ = self.test_signal_oscillator.disconnect();
-        let _ = self.test_signal_gain.disconnect();
-        
-        let _ = self.tuning_fork_oscillator.stop();
-        let _ = self.tuning_fork_oscillator.disconnect();
-        let _ = self.tuning_fork_gain.disconnect();
-    }
-}
