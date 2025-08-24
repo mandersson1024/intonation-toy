@@ -87,8 +87,8 @@ impl VolumeDetector {
         // Calculate peak amplitude from time domain data
         let peak_amplitude = self.calculate_peak_amplitude_from_time_domain();
         
-        // RMS is not needed for this implementation
-        let rms_amplitude = 0.0;
+        // Calculate RMS amplitude from time domain data
+        let rms_amplitude = self.calculate_rms_amplitude_from_time_domain();
         
         // Convert byte frequency data to normalized f32 values (0.0-1.0)
         let fft_data: Vec<f32> = self.frequency_data
@@ -113,6 +113,20 @@ impl VolumeDetector {
             .iter()
             .map(|&sample| sample.abs())
             .fold(0.0f32, f32::max)
+    }
+    
+    /// Calculates RMS amplitude from time domain data
+    /// 
+    /// Root Mean Square provides the effective amplitude over the time window.
+    fn calculate_rms_amplitude_from_time_domain(&self) -> f32 {
+        // Calculate sum of squares
+        let sum_of_squares: f32 = self.time_domain_data
+            .iter()
+            .map(|&sample| sample * sample)
+            .sum();
+        
+        // Calculate RMS: square root of mean of squares
+        (sum_of_squares / self.time_domain_data.len() as f32).sqrt()
     }
     
     /// Returns the underlying AnalyserNode for direct access if needed
