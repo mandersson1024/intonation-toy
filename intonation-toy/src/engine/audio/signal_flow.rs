@@ -1,6 +1,4 @@
 use web_sys::{AudioContext, GainNode, AudioWorkletNode, MediaStreamAudioSourceNode, OscillatorNode, AnalyserNode};
-use super::AudioError;
-use super::signal_generator::{TuningForkConfig, SignalGeneratorConfig};
 
 /// Represents the complete audio signal flow with all Web Audio API nodes
 /// 
@@ -46,13 +44,24 @@ impl AudioSignalFlow {
         context: AudioContext,
         microphone_source: MediaStreamAudioSourceNode,
         worklet: AudioWorkletNode,
-    ) -> Result<Self, AudioError> {
-        let microphone_gain = Self::create_microphone_gain_node(&context)?;
-        let mixer_gain = Self::create_mixer_gain_node(&context)?;
-        let analyser_node = Self::create_analyser_node(&context)?;
+    ) -> Self {
+        // Create nodes
+        let microphone_gain = context.create_gain().unwrap();
+        let mixer_gain = context.create_gain().unwrap();
+        let analyser_node = context.create_analyser().unwrap();
+        let test_signal_oscillator = context.create_oscillator().unwrap();
+        let test_signal_gain = context.create_gain().unwrap();
+        let tuning_fork_oscillator = context.create_oscillator().unwrap();
+        let tuning_fork_gain = context.create_gain().unwrap();
         
-        let (test_signal_oscillator, test_signal_gain) = Self::create_test_signal_nodes(&context)?;
-        let (tuning_fork_oscillator, tuning_fork_gain) = Self::create_tuning_fork_nodes(&context)?;
+        // Connect internal nodes
+        test_signal_oscillator.connect_with_audio_node(&test_signal_gain).unwrap();
+        tuning_fork_oscillator.connect_with_audio_node(&tuning_fork_gain).unwrap();
+        tuning_fork_gain.connect_with_audio_node(&context.destination()).unwrap();
+        
+        // Start oscillators
+        test_signal_oscillator.start().unwrap();
+        tuning_fork_oscillator.start().unwrap();
         
         let mut signal_flow = Self {
             microphone_source,
@@ -68,161 +77,41 @@ impl AudioSignalFlow {
             output_to_speakers: false,
         };
         
-        signal_flow.setup_connections()?;
+        signal_flow.setup_connections();
         
-        Ok(signal_flow)
+        signal_flow
     }
     
-    /// Creates the microphone gain node for volume control
-    fn create_microphone_gain_node(context: &AudioContext) -> Result<GainNode, AudioError> {
-        let gain_node = context
-            .create_gain()
-            .map_err(|e| AudioError::Generic(format!("Failed to create microphone gain node: {:?}", e)))?;
-        
-        // Set initial gain to unity (1.0)
-        gain_node.gain().set_value(1.0);
-        
-        Ok(gain_node)
-    }
-    
-    /// Creates the mixer gain node for combining audio sources
-    fn create_mixer_gain_node(context: &AudioContext) -> Result<GainNode, AudioError> {
-        let gain_node = context
-            .create_gain()
-            .map_err(|e| AudioError::Generic(format!("Failed to create mixer gain node: {:?}", e)))?;
-        
-        // Set mixer gain to unity (1.0)
-        gain_node.gain().set_value(1.0);
-        
-        Ok(gain_node)
-    }
-    
-    /// Creates the analyser node for audio analysis
-    fn create_analyser_node(context: &AudioContext) -> Result<AnalyserNode, AudioError> {
-        let analyser = context
-            .create_analyser()
-            .map_err(|e| AudioError::Generic(format!("Failed to create analyser node: {:?}", e)))?;
-        
-        analyser.set_fft_size(128);
-        analyser.set_smoothing_time_constant(0.0);
-        
-        Ok(analyser)
-    }
-    
-    /// Creates test signal oscillator and gain nodes
-    fn create_test_signal_nodes(context: &AudioContext) -> Result<(OscillatorNode, GainNode), AudioError> {
-        let oscillator = context
-            .create_oscillator()
-            .map_err(|e| AudioError::Generic(format!("Failed to create test signal oscillator: {:?}", e)))?;
-        
-        let gain_node = context
-            .create_gain()
-            .map_err(|e| AudioError::Generic(format!("Failed to create test signal gain: {:?}", e)))?;
-        
-        oscillator.frequency().set_value(440.0);
-        gain_node.gain().set_value(0.0);
-        
-        oscillator.connect_with_audio_node(&gain_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal oscillator to gain: {:?}", e)))?;
-        
-        oscillator.start()
-            .map_err(|e| AudioError::Generic(format!("Failed to start test signal oscillator: {:?}", e)))?;
-        
-        Ok((oscillator, gain_node))
-    }
-    
-    /// Creates tuning fork oscillator and gain nodes
-    fn create_tuning_fork_nodes(context: &AudioContext) -> Result<(OscillatorNode, GainNode), AudioError> {
-        let oscillator = context
-            .create_oscillator()
-            .map_err(|e| AudioError::Generic(format!("Failed to create tuning fork oscillator: {:?}", e)))?;
-        
-        let gain_node = context
-            .create_gain()
-            .map_err(|e| AudioError::Generic(format!("Failed to create tuning fork gain: {:?}", e)))?;
-        
-        oscillator.frequency().set_value(440.0);
-        gain_node.gain().set_value(0.1);
-        
-        oscillator.connect_with_audio_node(&gain_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect tuning fork oscillator to gain: {:?}", e)))?;
-        
-        gain_node.connect_with_audio_node(&context.destination())
-            .map_err(|e| AudioError::Generic(format!("Failed to connect tuning fork to speakers: {:?}", e)))?;
-        
-        oscillator.start()
-            .map_err(|e| AudioError::Generic(format!("Failed to start tuning fork oscillator: {:?}", e)))?;
-        
-        Ok((oscillator, gain_node))
-    }
     
     /// Sets up the complete signal flow connections
     /// 
     /// This method connects all the created nodes according to the signal flow diagram.
     /// It does not initialize any processing - that happens externally.
-    fn setup_connections(&mut self) -> Result<(), AudioError> {
-        self.microphone_source.connect_with_audio_node(&self.microphone_gain)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone source to gain: {:?}", e)))?;
-        
-        self.microphone_gain.connect_with_audio_node(&self.analyser_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to analyser: {:?}", e)))?;
-        
-        self.microphone_gain.connect_with_audio_node(&self.mixer_gain)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-        
-        self.test_signal_gain.connect_with_audio_node(&self.mixer_gain)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
-        
-        self.mixer_gain.connect_with_audio_node(&self.audioworklet_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
-        
-        Ok(())
+    fn setup_connections(&mut self) {
+        self.microphone_source.connect_with_audio_node(&self.microphone_gain).unwrap();
+        self.microphone_gain.connect_with_audio_node(&self.analyser_node).unwrap();
+        self.microphone_gain.connect_with_audio_node(&self.mixer_gain).unwrap();
+        self.test_signal_gain.connect_with_audio_node(&self.mixer_gain).unwrap();
+        self.mixer_gain.connect_with_audio_node(&self.audioworklet_node).unwrap();
     }
     
     
     /// Connects or disconnects AudioWorklet output to speakers
-    pub fn set_output_to_speakers(&mut self, enabled: bool) -> Result<(), AudioError> {
+    pub fn set_output_to_speakers(&mut self, enabled: bool) {
         if self.output_to_speakers == enabled {
-            return Ok(());
+            return;
         }
         
         if enabled {
-            self.audioworklet_node.connect_with_audio_node(&self.audio_context.destination())
-                .map_err(|e| AudioError::Generic(format!("Failed to connect to speakers: {:?}", e)))?;
+            self.audioworklet_node.connect_with_audio_node(&self.audio_context.destination()).unwrap();
         } else {
-            self.audioworklet_node.disconnect_with_audio_node(&self.audio_context.destination())
-                .map_err(|e| AudioError::Generic(format!("Failed to disconnect from speakers: {:?}", e)))?;
+            self.audioworklet_node.disconnect_with_audio_node(&self.audio_context.destination()).unwrap();
         }
         
         self.output_to_speakers = enabled;
-        Ok(())
     }
     
     
-    /// Updates the test signal configuration
-    pub fn update_test_signal(&mut self, config: SignalGeneratorConfig) {
-        self.test_signal_oscillator.frequency().set_value(config.frequency);
-        let amplitude = if config.enabled { config.amplitude } else { 0.0 };
-        self.test_signal_gain.gain().set_value(amplitude);
-    }
-    
-    /// Disables the test signal
-    pub fn disable_test_signal(&mut self) {
-        self.test_signal_gain.gain().set_value(0.0);
-    }
-    
-    
-    /// Updates the tuning fork configuration
-    pub fn update_tuning_fork(&mut self, config: TuningForkConfig) {
-        self.tuning_fork_oscillator.frequency().set_value(config.frequency);
-        self.tuning_fork_gain.gain().set_value(config.volume);
-    }
-    
-    /// Sets microphone volume by adjusting the microphone gain node
-    pub fn set_microphone_volume(&self, volume: f32) {
-        let clamped_volume = volume.clamp(0.0, 1.0);
-        self.microphone_gain.gain().set_value(clamped_volume);
-    }
     
     /// Gets the mixer gain node for external connections
     pub fn get_mixer_gain(&self) -> &GainNode {
