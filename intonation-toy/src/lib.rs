@@ -290,6 +290,9 @@ pub async fn start() {
     
     log!("Starting Intonation Toy application");
     
+    crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
+    crate::web::styling::apply_color_scheme_styles();
+    
     match Platform::check_feature_support() {
         PlatformValidationResult::MissingCriticalApis(missing_apis) => {
             let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
@@ -315,9 +318,6 @@ pub async fn start() {
             log!("✓ Platform validation passed - initializing three-layer architecture");
         }
     }
-    
-    crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
-    crate::web::styling::apply_color_scheme_styles();
     
     let engine = engine::AudioEngine::create().await.ok();
     let model = model::DataModel::create().ok();
