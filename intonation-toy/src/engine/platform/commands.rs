@@ -2,7 +2,9 @@
 // Commands for platform information and API status
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
-use crate::{common::{dev_log, shared_types::Theme}, dev_log_bold, engine::platform::Platform};
+use crate::{common::{dev_log, shared_types::Theme}, dev_log_bold, engine::{platform::Platform, audio::microphone::AudioError}};
+use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen::JsCast;
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -203,18 +205,71 @@ impl ConsoleCommand for AudioDevicesCommand {
     
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
         wasm_bindgen_futures::spawn_local(async move {    
-            match crate::engine::audio::context::AudioContextManager::enumerate_devices_internal().await {
-                Ok((input_devices, output_devices)) => {
-                    dev_log_bold!("Audio Input Devices ({} found):", input_devices.len());
-                    for (_, label) in &input_devices {
-                        dev_log_bold!("    {}", label);
-                    }
+            let result: Result<(), AudioError> = async {
+                let window = web_sys::window()
+                    .ok_or(AudioError::Generic("No window object".to_string()))?;
+                
+                let media_devices = window.navigator().media_devices()
+                    .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
+
+                let promise = media_devices.enumerate_devices()
+                    .map_err(|e| AudioError::Generic(format!("Failed to enumerate devices: {:?}", e)))?;
+
+                let devices_js = JsFuture::from(promise).await
+                    .map_err(|e| AudioError::Generic(format!("Device enumeration failed: {:?}", e)))?;
                     
-                    dev_log_bold!("Audio Output Devices ({} found):", output_devices.len());
-                    for (_, label) in &output_devices {
-                        dev_log_bold!("    {}", label);
+                let devices = js_sys::Array::from(&devices_js);
+
+                // Check if we have permission by looking for any device with a non-empty label
+                let has_permission = (0..devices.length()).any(|i| {
+                    devices.get(i)
+                        .dyn_ref::<web_sys::MediaDeviceInfo>()
+                        .map_or(false, |d| !d.label().is_empty())
+                });
+
+                if !has_permission && devices.length() > 0 {
+                    dev_log_bold!("Found {} audio devices, but device details are unavailable", devices.length());
+                    dev_log_bold!("Grant microphone access to see device names and types");
+                    return Ok(());
+                }
+
+                let mut input_count = 0;
+                let mut output_count = 0;
+
+                // First pass: count devices and log input devices
+                dev_log_bold!("Audio Input Devices:");
+                for i in 0..devices.length() {
+                    if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
+                        match device_info.kind() {
+                            web_sys::MediaDeviceKind::Audioinput => {
+                                input_count += 1;
+                                dev_log_bold!("    {}", device_info.label());
+                            }
+                            _ => {}
+                        }
                     }
                 }
+
+                // Second pass: log output devices
+                dev_log_bold!("Audio Output Devices:");
+                for i in 0..devices.length() {
+                    if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
+                        match device_info.kind() {
+                            web_sys::MediaDeviceKind::Audiooutput => {
+                                output_count += 1;
+                                dev_log_bold!("    {}", device_info.label());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                dev_log_bold!("Total: {} input devices, {} output devices", input_count, output_count);
+                Ok(())
+            }.await;
+
+            match result {
+                Ok(()) => {},
                 Err(e) => {
                     dev_log_bold!("Failed to enumerate audio devices: {:?}", e);
                 }

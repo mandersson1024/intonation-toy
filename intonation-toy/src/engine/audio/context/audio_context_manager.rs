@@ -1,6 +1,4 @@
 use web_sys::{AudioContext, AudioContextOptions};
-use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::super::AudioError;
 use super::AudioContextState;
@@ -82,46 +80,6 @@ impl AudioContextManager {
     
     
     
-    pub async fn enumerate_devices_internal() -> Result<(Vec<(String, String)>, Vec<(String, String)>), AudioError> {
-        let window = web_sys::window()
-            .ok_or(AudioError::Generic("No window object".to_string()))?;
-        
-        let media_devices = window.navigator().media_devices()
-            .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
-
-        let promise = media_devices.enumerate_devices()
-            .map_err(|e| AudioError::Generic(format!("Failed to enumerate devices: {:?}", e)))?;
-
-        let devices_js = JsFuture::from(promise).await
-            .map_err(|e| AudioError::Generic(format!("Device enumeration failed: {:?}", e)))?;
-            
-        let devices = js_sys::Array::from(&devices_js);
-        let mut input_devices = Vec::new();
-        let mut output_devices = Vec::new();
-
-        let has_permission = devices.get(0)
-            .dyn_ref::<web_sys::MediaDeviceInfo>()
-            .is_some_and(|d| !d.label().is_empty());
-
-        if !has_permission {
-            return Ok((input_devices, output_devices));
-        }
-
-        for i in 0..devices.length() {
-            if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
-                let device_id = device_info.device_id();
-                let label = device_info.label();
-
-                match device_info.kind() {
-                    web_sys::MediaDeviceKind::Audioinput => input_devices.push((device_id, label)),
-                    web_sys::MediaDeviceKind::Audiooutput => output_devices.push((device_id, label)),
-                    _ => {}
-                }
-            }
-        }
-
-        Ok((input_devices, output_devices))
-    }
 
     
 
