@@ -73,27 +73,6 @@ pub async fn connect_existing_mediastream_to_audioworklet(
                 }
             }
             
-            {
-                let context_borrowed = audio_context.borrow();
-                let manager_rc = context_borrowed.get_audio_context_manager_rc();
-                drop(context_borrowed);
-
-                wasm_bindgen_futures::spawn_local(async move {
-                    // Call the async function without holding any borrow
-                    match super::context::AudioContextManager::enumerate_devices_internal().await {
-                        Ok((input_devices, output_devices)) => {
-                            // Now borrow to store the result
-                            if let Ok(mut manager) = manager_rc.try_borrow_mut() {
-                                let devices = super::context::AudioDevices { input_devices, output_devices };
-                                manager.set_cached_devices(devices);
-                            }
-                        }
-                        Err(_) => {
-                            // Device enumeration failed, ignore
-                        }
-                    }
-                });
-            }
             
             Ok(())
         }

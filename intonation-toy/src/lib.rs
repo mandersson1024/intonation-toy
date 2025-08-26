@@ -206,8 +206,7 @@ pub async fn start_render_loop(
                 memory_usage_percent,
             };
             
-            let (audio_devices, audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
-                let devices = engine.get_debug_audio_devices();
+            let (audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
                 let status = engine.get_debug_audioworklet_status().map(|s| {
                     debug::data_types::AudioWorkletStatus {
                         state: s.state,
@@ -218,13 +217,12 @@ pub async fn start_render_loop(
                     }
                 });
                 let stats = engine.get_debug_buffer_pool_stats();
-                (devices, status, stats)
+                (status, stats)
             } else {
-                (None, None, None)
+                (None, None)
             };
             
             panel.update_debug_data(
-                audio_devices,
                 Some(performance_metrics),
                 audioworklet_status,
                 buffer_pool_stats,

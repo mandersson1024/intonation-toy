@@ -2,7 +2,7 @@
 // Commands for platform information and API status
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
-use crate::{engine::platform::Platform, common::dev_log, common::shared_types::Theme};
+use crate::{common::{dev_log, shared_types::Theme}, dev_log_bold, engine::platform::Platform};
 
 /// Register all platform commands into the console registry
 pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
@@ -202,23 +202,21 @@ impl ConsoleCommand for AudioDevicesCommand {
     }
     
     fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
-        wasm_bindgen_futures::spawn_local(async move {
-            dev_log!("=== Audio Device Enumeration ===");
-            
+        wasm_bindgen_futures::spawn_local(async move {    
             match crate::engine::audio::context::AudioContextManager::enumerate_devices_internal().await {
                 Ok((input_devices, output_devices)) => {
-                    dev_log!("Audio Input Devices ({} found):", input_devices.len());
+                    dev_log_bold!("Audio Input Devices ({} found):", input_devices.len());
                     for (_, label) in &input_devices {
-                        dev_log!("  {}", label);
+                        dev_log_bold!("    {}", label);
                     }
                     
-                    dev_log!("Audio Output Devices ({} found):", output_devices.len());
+                    dev_log_bold!("Audio Output Devices ({} found):", output_devices.len());
                     for (_, label) in &output_devices {
-                        dev_log!("  {}", label);
+                        dev_log_bold!("    {}", label);
                     }
                 }
                 Err(e) => {
-                    dev_log!("Failed to enumerate audio devices: {:?}", e);
+                    dev_log_bold!("Failed to enumerate audio devices: {:?}", e);
                 }
             }
         });

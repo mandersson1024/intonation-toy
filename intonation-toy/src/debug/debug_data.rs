@@ -1,10 +1,9 @@
-use crate::engine::audio::{AudioPermission, AudioDevices};
+use crate::engine::audio::AudioPermission;
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 use crate::common::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, IntonationData};
 
 #[derive(Clone)]
 pub struct DebugData {
-    pub audio_devices: AudioDevices,
     pub performance_metrics: PerformanceMetrics,
     pub audioworklet_status: AudioWorkletStatus,
     pub buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
@@ -20,7 +19,6 @@ pub struct DebugData {
 impl Default for DebugData {
     fn default() -> Self {
         Self {
-            audio_devices: AudioDevices::default(),
             performance_metrics: PerformanceMetrics::default(),
             audioworklet_status: AudioWorkletStatus::default(),
             buffer_pool_stats: None,
@@ -85,12 +83,10 @@ impl DebugData {
     
     pub fn update_debug_data(
         &mut self,
-        audio_devices: Option<AudioDevices>,
         performance_metrics: Option<PerformanceMetrics>,
         audioworklet_status: Option<AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
-        if let Some(devices) = audio_devices { self.audio_devices = devices; }
         if let Some(metrics) = performance_metrics { self.performance_metrics = metrics; }
         if let Some(status) = audioworklet_status { self.audioworklet_status = status; }
         if let Some(stats) = buffer_pool_stats { self.buffer_pool_stats = Some(stats); }

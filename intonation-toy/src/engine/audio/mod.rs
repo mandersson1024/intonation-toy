@@ -25,7 +25,7 @@ pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContex
     });
 }
 
-pub use context::{AudioSystemContext, AudioDevices};
+pub use context::AudioSystemContext;
 pub use worklet::AudioWorkletState;
 pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus, VolumeAnalysis};

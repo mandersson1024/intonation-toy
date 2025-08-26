@@ -67,7 +67,7 @@ use crate::app_config::STANDARD_SAMPLE_RATE;
 #[cfg(debug_assertions)]
 use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 #[cfg(debug_assertions)]
-use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPoolStats};
+use self::audio::{AudioWorkletStatus, message_protocol::BufferPoolStats};
 
 
 /// AudioEngine - The engine layer of the three-layer architecture
@@ -192,14 +192,6 @@ impl AudioEngine {
         }
     }
     
-    #[cfg(debug_assertions)]
-    pub fn get_debug_audio_devices(&self) -> Option<AudioDevices> {
-        self.audio_context.as_ref().map(|ctx| {
-            ctx.try_borrow()
-                .map(|b| b.get_audio_devices())
-                .unwrap_or_else(|_| AudioDevices { input_devices: Vec::new(), output_devices: Vec::new() })
-        })
-    }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {

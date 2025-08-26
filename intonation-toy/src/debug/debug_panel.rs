@@ -51,12 +51,11 @@ impl DebugPanel {
     /// Update debug-specific data  
     pub fn update_debug_data(
         &mut self,
-        audio_devices: Option<crate::engine::audio::AudioDevices>,
         performance_metrics: Option<crate::debug::data_types::PerformanceMetrics>,
         audioworklet_status: Option<crate::debug::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
-        self.debug_data.update_debug_data(audio_devices, performance_metrics, audioworklet_status, buffer_pool_stats);
+        self.debug_data.update_debug_data(performance_metrics, audioworklet_status, buffer_pool_stats);
     }
     
     /// Render the live data panel
@@ -75,9 +74,6 @@ impl DebugPanel {
     fn render_content(&mut self, ui: &mut Ui, model_data: &crate::common::shared_types::ModelUpdateResult) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.vertical(|ui| {
-                // Audio Devices Section (debug-specific data)
-                self.render_audio_devices_section(ui);
-                ui.separator();
                 
                 // AudioWorklet Status Section (debug-specific data)
                 self.render_audioworklet_status_section(ui);
@@ -111,28 +107,6 @@ impl DebugPanel {
         });
     }
     
-    /// Render audio devices section (debug-specific data)
-    fn render_audio_devices_section(&self, ui: &mut Ui) {
-        let devices = &self.debug_data.audio_devices;
-        
-        egui::CollapsingHeader::new("Audio Devices")
-            .default_open(false)
-            .show(ui, |ui| {
-                ui.label(format!("Input Devices: {}", devices.input_devices.len()));
-                for device in &devices.input_devices {
-                    ui.indent("input_device", |ui| {
-                        ui.label(format!("• {}", device.1));
-                    });
-                }
-                
-                ui.label(format!("Output Devices: {}", devices.output_devices.len()));
-                for device in &devices.output_devices {
-                    ui.indent("output_device", |ui| {
-                        ui.label(format!("• {}", device.1));
-                    });
-                }
-            });
-    }
     
     /// Render AudioWorklet status section (debug-specific data)
     fn render_audioworklet_status_section(&self, ui: &mut Ui) {

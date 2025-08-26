@@ -9,6 +9,19 @@ macro_rules! dev_log {
 }
 
 #[macro_export]
+macro_rules! dev_log_bold {
+    ($($arg:tt)*) => {
+        #[cfg(all(debug_assertions, target_arch = "wasm32"))]
+        web_sys::console::log_2(
+            &format!("%c{}", format!($($arg)*)).into(),
+            &"font-weight: bold;".into()
+        );
+        #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+        println!($($arg)*);
+    };
+}
+
+#[macro_export]
 macro_rules! trace_log {
     ($($arg:tt)*) => {
         #[cfg(all(debug_assertions, target_arch = "wasm32"))]

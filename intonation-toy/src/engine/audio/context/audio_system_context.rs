@@ -93,62 +93,7 @@ impl AudioSystemContext {
         super::super::set_global_audio_context_manager(self.audio_context_manager.clone());
         dev_log!("✓ AudioContextManager stored globally for device change callbacks");
 
-        match AudioContextManager::enumerate_devices_internal().await {
-            Ok((input_devices, output_devices)) => {
-                let mut manager = self.audio_context_manager.borrow_mut();
-                let devices = super::AudioDevices { input_devices, output_devices };
-                manager.set_cached_devices(devices);
-                dev_log!("✓ Initial device refresh completed - device cache populated");
-            }
-            Err(e) => {
-                dev_log!("Initial device refresh failed: {:?}", e);
-            }
-        }
 
-        {
-            let manager_rc = self.audio_context_manager.clone();
-            let callback = move || {
-                dev_log!("Device change detected in AudioSystemContext - refreshing device list");
-                
-                let manager_rc_async = manager_rc.clone();
-                
-                wasm_bindgen_futures::spawn_local(async move {
-                    match AudioContextManager::enumerate_devices_internal().await {
-                        Ok((input_devices, output_devices)) => {
-                            match manager_rc_async.try_borrow_mut() {
-                                Ok(mut manager) => {
-                                    let devices = super::AudioDevices { input_devices, output_devices };
-                                    manager.set_cached_devices(devices);
-                                    dev_log!("AudioSystemContext auto device refresh completed successfully");
-                                }
-                                Err(_) => {
-                                    dev_log!("AudioContextManager busy during AudioSystemContext auto device refresh");
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            dev_log!("AudioSystemContext auto device refresh failed: {:?}", e);
-                        }
-                    }
-                });
-            };
-            
-            match self.audio_context_manager.try_borrow_mut() {
-                Ok(mut manager) => {
-                    match manager.setup_device_change_listener(callback) {
-                        Ok(_) => {
-                            dev_log!("✓ AudioSystemContext device change listener set up successfully");
-                        }
-                        Err(e) => {
-                            dev_log!("Failed to set up AudioSystemContext device change listener: {:?}", e);
-                        }
-                    }
-                }
-                Err(_) => {
-                    dev_log!("AudioContextManager busy, cannot set up AudioSystemContext device change listener");
-                }
-            }
-        }
 
         self.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
@@ -194,11 +139,6 @@ impl AudioSystemContext {
     }
     
     
-    pub fn get_audio_devices(&self) -> super::AudioDevices {
-        self.audio_context_manager.try_borrow()
-            .map(|borrowed| borrowed.get_cached_devices().clone())
-            .unwrap_or_default()
-    }
     
 
     pub fn get_audioworklet_manager_mut(&mut self) -> Option<&mut super::super::worklet::AudioWorkletManager> {

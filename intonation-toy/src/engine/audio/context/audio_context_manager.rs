@@ -1,16 +1,14 @@
 use web_sys::{AudioContext, AudioContextOptions};
 use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen::{JsCast, closure::Closure};
+use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::super::AudioError;
-use super::{AudioContextState, AudioDevices};
+use super::AudioContextState;
 use crate::app_config::STANDARD_SAMPLE_RATE;
 
 pub struct AudioContextManager {
     context: Option<AudioContext>,
     state: AudioContextState,
-    cached_devices: Option<AudioDevices>,
-    device_change_callback: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
 
@@ -19,8 +17,6 @@ impl Default for AudioContextManager {
         Self {
             context: None,
             state: AudioContextState::Uninitialized,
-            cached_devices: None,
-            device_change_callback: None,
         }
     }
 }
@@ -127,51 +123,8 @@ impl AudioContextManager {
         Ok((input_devices, output_devices))
     }
 
-    pub async fn refresh_audio_devices(&mut self) -> Result<(), AudioError> {
-        let (input_devices, output_devices) = Self::enumerate_devices_internal().await?;
-        self.cached_devices = Some(AudioDevices { input_devices, output_devices });
-        Ok(())
-    }
     
-    pub fn set_cached_devices(&mut self, devices: AudioDevices) {
-        self.cached_devices = Some(devices);
-    }
 
-    pub fn get_cached_devices(&self) -> &AudioDevices {
-        static EMPTY_DEVICES: AudioDevices = AudioDevices {
-            input_devices: Vec::new(),
-            output_devices: Vec::new(),
-        };
-        self.cached_devices.as_ref().unwrap_or(&EMPTY_DEVICES)
-    }
 
-    pub fn setup_device_change_listener<F>(&mut self, callback: F) -> Result<(), AudioError>
-    where
-        F: Fn() + 'static,
-    {
-        if self.device_change_callback.is_some() {
-            return Ok(());
-        }
-        
-        let window = web_sys::window()
-            .ok_or(AudioError::Generic("No window available".to_string()))?;
-        
-        let media_devices = window.navigator().media_devices()
-            .map_err(|_| AudioError::NotSupported("MediaDevices not available".to_string()))?;
-        
-        let device_change_closure = Closure::wrap(Box::new(move |_event: web_sys::Event| {
-            dev_log!("Audio devices changed - triggering callback");
-            callback();
-        }) as Box<dyn FnMut(_)>);
-        
-        media_devices.add_event_listener_with_callback(
-            "devicechange", 
-            device_change_closure.as_ref().unchecked_ref()
-        ).map_err(|e| AudioError::Generic(format!("Failed to add device change listener: {:?}", e)))?;
-        
-        dev_log!("Device change listener set up successfully");
-        self.device_change_callback = Some(device_change_closure);
-        Ok(())
-    }
 }
 
