@@ -69,12 +69,17 @@ impl AudioEngine {
         crate::common::dev_log!("Creating AudioEngine with return-based pattern");
         
         // Create audio context using the new return-based constructor
-        let mut audio_context = audio::AudioSystemContext::new_return_based();
+        let audio_context = match audio::AudioSystemContext::create().await {
+            Ok(context) => context,
+            Err(e) => {
+                crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
+                return Err(e);
+            }
+        };
         
-        if audio_context.initialize().await.is_ok() {
-            crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
-            
-            let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
+        crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
+        
+        let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
             
             // Connect the media stream to the audio worklet
             match crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
@@ -102,15 +107,9 @@ impl AudioEngine {
                 });
             }
             
-            Ok(Self {
-                audio_context: Some(audio_context_rc),
-            })
-        } else {
-            // Still create the engine but without audio context
-            Ok(Self {
-                audio_context: None,
-            })
-        }
+        Ok(Self {
+            audio_context: Some(audio_context_rc),
+        })
     }
 
     /// Update the engine layer with a new timestamp

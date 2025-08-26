@@ -12,39 +12,35 @@ pub struct AudioSystemContext {
 
 impl AudioSystemContext {
 
-    pub fn new_return_based() -> Self {
-        Self {
+    pub async fn create() -> Result<Self, String> {
+        let mut result = Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
             audioworklet_manager: None,
             pitch_analyzer: None,
             is_initialized: false,
             initialization_error: None,
             permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
-        }
-    }
-
-    pub async fn initialize(&mut self) -> Result<(), String> {
-        self.initialization_error = None;
+        };
         
-        self.audio_context_manager.borrow_mut().initialize()
+        result.audio_context_manager.borrow_mut().initialize()
             .map_err(|e| {
                 let error_msg = format!("Failed to initialize AudioContextManager: {}", e);
                 dev_log!("✗ {}", error_msg);
-                self.initialization_error = Some(error_msg.clone());
+                result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
         dev_log!("✓ AudioContextManager initialized");
 
         let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
-        worklet_manager.initialize(&self.audio_context_manager.borrow()).await
+        worklet_manager.initialize(&result.audio_context_manager.borrow()).await
             .map_err(|e| {
                 let error_msg = format!("Failed to initialize AudioWorkletManager: {:?}", e);
                 dev_log!("✗ {}", error_msg);
-                self.initialization_error = Some(error_msg.clone());
+                result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
         
-        self.audioworklet_manager = Some(worklet_manager);
+        result.audioworklet_manager = Some(worklet_manager);
         dev_log!("✓ AudioWorkletManager initialized for return-based pattern");
 
         let config = super::super::pitch_detector::PitchDetectorConfig::default();
@@ -54,21 +50,21 @@ impl AudioSystemContext {
             .map_err(|e| {
                 let error_msg = format!("Failed to initialize PitchAnalyzer: {}", e);
                 dev_log!("✗ {}", error_msg);
-                self.initialization_error = Some(error_msg.clone());
+                result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
         
         let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
-        self.pitch_analyzer = Some(analyzer_rc.clone());
+        result.pitch_analyzer = Some(analyzer_rc.clone());
         
-        if let Some(ref mut worklet_manager) = self.audioworklet_manager {
+        if let Some(ref mut worklet_manager) = result.audioworklet_manager {
             worklet_manager.set_pitch_analyzer(analyzer_rc);
             dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
         }
         dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
         let audio_context = {
-            let manager = self.audio_context_manager.borrow();
+            let manager = result.audio_context_manager.borrow();
             manager.get_context()
                 .cloned()
                 .ok_or("Audio context not available for VolumeDetector".to_string())?
@@ -77,27 +73,27 @@ impl AudioSystemContext {
         let volume_detector = super::super::volume_detector::VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
-        if let Some(ref mut worklet_manager) = self.audioworklet_manager {
+        if let Some(ref mut worklet_manager) = result.audioworklet_manager {
             worklet_manager.set_volume_detector(volume_detector);
             worklet_manager.setup_message_handling()
                 .map_err(|e| {
                     let error_msg = format!("Failed to setup message handling: {:?}", e);
                     dev_log!("✗ {}", error_msg);
-                    self.initialization_error = Some(error_msg.clone());
+                    result.initialization_error = Some(error_msg.clone());
                     error_msg
                 })?;
         }
         
         dev_log!("✓ VolumeDetector initialized and configured");
 
-        super::super::set_global_audio_context_manager(self.audio_context_manager.clone());
+        super::super::set_global_audio_context_manager(result.audio_context_manager.clone());
         dev_log!("✓ AudioContextManager stored globally for device change callbacks");
 
 
 
-        self.is_initialized = true;
+        result.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
-        Ok(())
+        Ok(result)
     }
 
     pub async fn shutdown(&mut self) -> Result<(), String> {
