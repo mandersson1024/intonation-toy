@@ -31,7 +31,7 @@ impl AudioContextManager {
         })
     }
     
-    pub async fn initialize(&mut self) -> Result<(), AudioError> {
+    pub fn initialize(&mut self) -> Result<(), AudioError> {
         if !Self::is_supported() {
             return Err(AudioError::NotSupported("Web Audio API not supported".to_string()));
         }

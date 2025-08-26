@@ -26,7 +26,7 @@ impl AudioSystemContext {
     pub async fn initialize(&mut self) -> Result<(), String> {
         self.initialization_error = None;
         
-        self.audio_context_manager.borrow_mut().initialize().await
+        self.audio_context_manager.borrow_mut().initialize()
             .map_err(|e| {
                 let error_msg = format!("Failed to initialize AudioContextManager: {}", e);
                 dev_log!("✗ {}", error_msg);

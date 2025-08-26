@@ -21,40 +21,6 @@
 //! - Performs frequency analysis and pitch detection (Hz values only)
 //! - Returns structured raw data via EngineUpdateResult from update() calls
 //! - Provides audio analysis, error information, and permission state
-//!
-//! ```rust
-//! use intonation_toy::engine::AudioEngine;
-//!
-//! // Create engine without dependencies
-//! let mut engine = AudioEngine::create(media_stream).await?;
-//!
-//! // Engine returns data directly from update calls
-//! let result = engine.update(timestamp);
-//! // result contains: audio_analysis, audio_errors, permission_state
-//! 
-//! // Access the aggregated data
-//! if let Some(analysis) = result.audio_analysis {
-//!     println!("Volume: {} dB", analysis.volume_level.peak);
-//!     match analysis.pitch {
-//!         Pitch::Detected(freq, clarity) => {
-//!             println!("Pitch: {} Hz (clarity: {})", freq, clarity);
-//!         }
-//!         Pitch::NotDetected => println!("No pitch detected"),
-//!     }
-//! }
-//! 
-//! // Check for errors
-//! for error in &result.audio_errors {
-//!     eprintln!("Audio error: {:?}", error);
-//! }
-//! 
-//! // Check permission state
-//! match result.permission_state {
-//!     PermissionState::Granted => println!("Microphone access granted"),
-//!     PermissionState::Denied => println!("Microphone access denied"),
-//!     _ => {}
-//! }
-//! ```
 
 pub mod audio;
 pub(crate) mod platform;
@@ -79,15 +45,6 @@ use self::audio::{AudioWorkletStatus, message_protocol::BufferPoolStats};
 /// The engine provides raw audio data (frequencies in Hz, volume amplitudes) to
 /// the model layer, which handles all musical logic including tuning systems,
 /// root notes, and pitch relationships.
-/// 
-/// # Example
-/// 
-/// ```no_run
-/// use intonation_toy::engine::AudioEngine;
-/// 
-/// let engine = AudioEngine::create(media_stream)
-///     .await.expect("AudioEngine creation should succeed");
-/// ```
 pub struct AudioEngine {
     /// Audio system context for managing audio processing
     audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
