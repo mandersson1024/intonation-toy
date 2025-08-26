@@ -4,5 +4,6 @@ pub mod shared_types;
 pub mod smoothing;
 pub mod theme;
 pub mod utils;
+pub mod error_handling;
 
 pub use crate::{dev_log, error_log, warn_log};

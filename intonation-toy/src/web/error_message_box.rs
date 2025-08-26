@@ -5,6 +5,8 @@ use web_sys::HtmlElement;
 
 #[cfg(target_arch = "wasm32")]
 fn show_error_box(title: &str, details: &str) {
+    crate::common::error_log!("Error: {} - {}", title, details);
+
     let Some(window) = web_sys::window() else { return };
     let Some(document) = window.document() else { return };
     
