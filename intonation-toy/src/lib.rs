@@ -309,7 +309,13 @@ pub async fn start() {
         .dyn_into::<js_sys::Function>().unwrap()
         .call0(&wasm_bindgen::JsValue::NULL).unwrap();
 
-    let media_stream: web_sys::MediaStream = wait_for_media_stream().await;
+    let media_stream = match wait_for_media_stream().await {
+        Ok(stream) => stream,
+        Err(_) => {
+            crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
+            return;
+        }
+    };
 
     // Hide the first-click-overlay
     web_sys::window().unwrap().document().unwrap()
@@ -329,7 +335,7 @@ pub async fn start() {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn wait_for_media_stream() -> web_sys::MediaStream {
+async fn wait_for_media_stream() -> Result<web_sys::MediaStream, String> {
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
     
@@ -364,7 +370,12 @@ async fn wait_for_media_stream() -> web_sys::MediaStream {
     overlay.add_event_listener_with_callback("click", click_closure.as_ref().unchecked_ref()).unwrap();
     
     // Wait for click - this will resolve with the getUserMedia promise
-    let media_promise_js = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    let media_promise_js = match wasm_bindgen_futures::JsFuture::from(promise).await {
+        Ok(result) => result,
+        Err(e) => {
+            return Err(format!("Microphone access denied or failed: {:?}", e));
+        }
+    };
     
     // Clean up the event listener
     overlay.remove_event_listener_with_callback("click", click_closure.as_ref().unchecked_ref()).unwrap();
@@ -373,12 +384,12 @@ async fn wait_for_media_stream() -> web_sys::MediaStream {
     // Check if it's already a MediaStream or if it's a Promise we need to await
     if media_promise_js.has_type::<web_sys::MediaStream>() {
         // It's already a MediaStream
-        media_promise_js.dyn_into::<web_sys::MediaStream>().unwrap()
+        Ok(media_promise_js.dyn_into::<web_sys::MediaStream>().unwrap())
     } else {
         // It's a Promise that resolves to a MediaStream
         let media_promise = media_promise_js.dyn_into::<js_sys::Promise>().unwrap();
         let media_stream_js = wasm_bindgen_futures::JsFuture::from(media_promise).await.unwrap();
-        media_stream_js.dyn_into::<web_sys::MediaStream>().unwrap()
+        Ok(media_stream_js.dyn_into::<web_sys::MediaStream>().unwrap())
     }
 }
 
