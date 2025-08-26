@@ -12,10 +12,11 @@ pub mod common;
 pub(crate) mod debug;
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use egui_dev_console::ConsoleCommandRegistry;
-
 use engine::platform::{Platform, PlatformValidationResult};
+
 
 #[cfg(target_arch = "wasm32")]
 fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
@@ -318,30 +319,13 @@ pub async fn start() {
         .class_list().add_1("first-click-overlay-hidden").unwrap();
 
     // Create the engine, model, and presenter
-    let engine = engine::AudioEngine::create().await.ok();
+    let engine = engine::AudioEngine::create(media_stream).await.ok();
     let model = model::DataModel::create().ok();
     let presenter = presentation::Presenter::create().ok().map(|presenter| {
         let presenter_rc = Rc::new(RefCell::new(presenter));
         presenter_rc.borrow_mut().set_self_reference(presenter_rc.clone());
         presenter_rc
     });
-    
-    // Connect the media stream to the engine if both are available
-    if let Some(ref engine) = engine {
-        if let Some(audio_context) = engine.get_audio_context() {
-            match crate::engine::audio::microphone::connect_existing_mediastream_to_audioworklet(
-                media_stream,
-                &audio_context
-            ).await {
-                Ok(_) => {
-                    dev_log!("✓ MediaStream successfully connected to engine");
-                }
-                Err(e) => {
-                    dev_log!("✗ Failed to connect MediaStream to engine: {}", e);
-                }
-            }
-        }
-    }
     
     start_render_loop(engine, model, presenter).await;
 }

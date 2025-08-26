@@ -26,7 +26,7 @@
 //! use intonation_toy::engine::AudioEngine;
 //!
 //! // Create engine without dependencies
-//! let mut engine = AudioEngine::create().await?;
+//! let mut engine = AudioEngine::create(media_stream).await?;
 //!
 //! // Engine returns data directly from update calls
 //! let result = engine.update(timestamp);
@@ -85,7 +85,7 @@ use self::audio::{AudioDevices, AudioWorkletStatus, message_protocol::BufferPool
 /// ```no_run
 /// use intonation_toy::engine::AudioEngine;
 /// 
-/// let engine = AudioEngine::create()
+/// let engine = AudioEngine::create(media_stream)
 ///     .await.expect("AudioEngine creation should succeed");
 /// ```
 pub struct AudioEngine {
@@ -100,11 +100,15 @@ impl AudioEngine {
     /// analysis. The engine provides frequency and amplitude data to the model
     /// layer for musical interpretation.
     /// 
+    /// # Arguments
+    /// 
+    /// * `media_stream` - The MediaStream to connect to the audio worklet
+    /// 
     /// # Returns
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn create() -> Result<Self, String> {
+    pub async fn create(media_stream: web_sys::MediaStream) -> Result<Self, String> {
         crate::common::dev_log!("Creating AudioEngine with return-based pattern");
         
         // Create audio context using the new return-based constructor
@@ -114,6 +118,19 @@ impl AudioEngine {
             crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
             
             let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
+            
+            // Connect the media stream to the audio worklet
+            match crate::engine::audio::microphone::connect_existing_mediastream_to_audioworklet(
+                media_stream,
+                &audio_context_rc
+            ).await {
+                Ok(_) => {
+                    crate::common::dev_log!("✓ MediaStream successfully connected to engine");
+                }
+                Err(e) => {
+                    crate::common::dev_log!("✗ Failed to connect MediaStream to engine: {}", e);
+                }
+            }
             
             // Initialize default tuning fork audio with zero volume
             crate::common::dev_log!("Initializing default tuning fork audio with zero volume");
