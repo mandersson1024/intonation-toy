@@ -20,7 +20,7 @@ impl fmt::Display for AudioError {
         }
     }
 }
-pub async fn connect_existing_mediastream_to_audioworklet(
+pub fn connect_mediastream_to_audioworklet(
     media_stream: web_sys::MediaStream,
     audio_context: &std::cell::RefCell<super::context::AudioSystemContext>
 ) -> Result<(), String> {
@@ -30,16 +30,6 @@ pub async fn connect_existing_mediastream_to_audioworklet(
     if tracks.length() == 0 {
         return Err("MediaStream has no tracks".to_string());
     }
-    
-    let resume_promise = {
-        let audio_system_context = audio_context.borrow();
-        let audio_context_manager = audio_system_context.get_audio_context_manager();
-        let audio_ctx_borrowed = audio_context_manager.borrow();
-        
-        audio_ctx_borrowed.get_context()
-            .filter(|ctx| ctx.state() == web_sys::AudioContextState::Suspended)
-            .and_then(|ctx| ctx.resume().ok())
-    };
     
     let source = {
         let audio_system_context = audio_context.borrow();

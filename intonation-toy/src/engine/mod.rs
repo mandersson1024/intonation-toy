@@ -120,10 +120,10 @@ impl AudioEngine {
             let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
             
             // Connect the media stream to the audio worklet
-            match crate::engine::audio::microphone::connect_existing_mediastream_to_audioworklet(
+            match crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
                 media_stream,
                 &audio_context_rc
-            ).await {
+            ) {
                 Ok(_) => {
                     crate::common::dev_log!("✓ MediaStream successfully connected to engine");
                 }
