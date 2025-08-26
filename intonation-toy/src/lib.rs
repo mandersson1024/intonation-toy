@@ -283,43 +283,41 @@ pub async fn start_render_loop(
     });
 }
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
 pub async fn start() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
-    
-    log!("Starting Intonation Toy application");
-    
+
     crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
-    crate::web::styling::apply_color_scheme_styles();
-    
-    match Platform::check_feature_support() {
-        PlatformValidationResult::MissingCriticalApis(missing_apis) => {
-            let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();
-            error_log!("✗ CRITICAL: Missing required browser APIs: {}", api_list.join(", "));
-            
-            #[cfg(target_arch = "wasm32")]
-            {
-                let missing_apis_str = api_list.join(", ");
-                crate::web::error_message_box::show_error_with_params(&crate::common::shared_types::Error::BrowserApiNotSupported, &[&missing_apis_str]);
-            }
+    crate::web::styling::apply_theme();
+
+    {
+        // Bail out if required APIs are missing
+
+        let result = Platform::check_feature_support();
+        if result != PlatformValidationResult::AllSupported {
+            crate::common::error_handling::handle_platform_validation_error(result);
             return;
-        }
-        PlatformValidationResult::MobileDevice => {
-            error_log!("✗ CRITICAL: Mobile device detected - application not supported on mobile");
-            
-            #[cfg(target_arch = "wasm32")]
-            {
-                crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
-            }
-            return;
-        }
-        PlatformValidationResult::AllSupported => {
-            log!("✓ Platform validation passed - initializing three-layer architecture");
         }
     }
-    
-    let engine = engine::AudioEngine::create().await.ok();
+
+    // Show the first-click-overlay
+    web_sys::window().unwrap().document().unwrap()
+        .query_selector(".first-click-overlay").unwrap().unwrap()
+        .class_list().remove_1("first-click-overlay-hidden").unwrap();
+
+    // Hide the preloader
+    js_sys::Reflect::get(&web_sys::window().unwrap(), &wasm_bindgen::JsValue::from_str("removePreloader")).unwrap()
+        .dyn_into::<js_sys::Function>().unwrap()
+        .call0(&wasm_bindgen::JsValue::NULL).unwrap();
+
+    web_sys::console::log_1(&"awaiting...".into());
+    let media_stream: web_sys::MediaStream = wait_for_media_stream().await;
+    web_sys::console::log_1(&"...done".into());
+
+    /*
+    let engine = engine::AudioEngine::create(user_media).ok();
     let model = model::DataModel::create().ok();
     let presenter = presentation::Presenter::create().ok().map(|presenter| {
         let presenter_rc = Rc::new(RefCell::new(presenter));
@@ -328,4 +326,60 @@ pub async fn start() {
     });
     
     start_render_loop(engine, model, presenter).await;
+     */
 }
+
+#[cfg(target_arch = "wasm32")]
+async fn wait_for_media_stream() -> web_sys::MediaStream {
+    use wasm_bindgen::closure::Closure;
+    use wasm_bindgen::JsCast;
+    
+    // Wait for user click on the overlay
+    let document = web_sys::window().unwrap().document().unwrap();
+    let overlay = document.query_selector(".first-click-overlay").unwrap().unwrap();
+    
+    // Create a promise that resolves with the MediaStream
+    let (promise, resolve) = {
+        let mut resolve_holder = None;
+        let promise = js_sys::Promise::new(&mut |resolve, _reject| {
+            resolve_holder = Some(resolve);
+        });
+        (promise, resolve_holder.unwrap())
+    };
+    
+    // Set up click handler that calls getUserMedia INSIDE the callback
+    let resolve_clone = resolve.clone();
+    let click_closure = Closure::<dyn FnMut(_)>::new(move |_event: web_sys::MouseEvent| {
+        // Request media access INSIDE the click callback - critical for security!
+        let constraints = web_sys::MediaStreamConstraints::new();
+        constraints.set_audio(&true.into());
+        constraints.set_video(&false.into());
+        
+        let navigator = web_sys::window().and_then(|w| w.navigator().media_devices().ok()).unwrap();
+        let media_promise = navigator.get_user_media_with_constraints(&constraints).unwrap();
+        
+        // Resolve our promise with the media promise
+        resolve_clone.call1(&wasm_bindgen::JsValue::NULL, &media_promise).unwrap();
+    });
+    
+    overlay.add_event_listener_with_callback("click", click_closure.as_ref().unchecked_ref()).unwrap();
+    
+    // Wait for click - this will resolve with the getUserMedia promise
+    let media_promise_js = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    
+    // Clean up the event listener
+    overlay.remove_event_listener_with_callback("click", click_closure.as_ref().unchecked_ref()).unwrap();
+    click_closure.forget();
+    
+    // Check if it's already a MediaStream or if it's a Promise we need to await
+    if media_promise_js.has_type::<web_sys::MediaStream>() {
+        // It's already a MediaStream
+        media_promise_js.dyn_into::<web_sys::MediaStream>().unwrap()
+    } else {
+        // It's a Promise that resolves to a MediaStream
+        let media_promise = media_promise_js.dyn_into::<js_sys::Promise>().unwrap();
+        let media_stream_js = wasm_bindgen_futures::JsFuture::from(media_promise).await.unwrap();
+        media_stream_js.dyn_into::<web_sys::MediaStream>().unwrap()
+    }
+}
+
