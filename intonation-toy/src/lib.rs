@@ -105,8 +105,6 @@ pub async fn start_render_loop(
             presenter_ref.clone(),
         ));
 
-    let permission_granted = std::rc::Rc::new(std::cell::RefCell::new(false));
-    web::first_click_handler::setup_first_click_handler(permission_granted.clone(), &mut engine);
     
     let mut frame_count = 0u32;
     let mut last_fps_update = 0.0;
@@ -312,12 +310,15 @@ pub async fn start() {
         .dyn_into::<js_sys::Function>().unwrap()
         .call0(&wasm_bindgen::JsValue::NULL).unwrap();
 
-    web_sys::console::log_1(&"awaiting...".into());
     let media_stream: web_sys::MediaStream = wait_for_media_stream().await;
-    web_sys::console::log_1(&"...done".into());
 
-    /*
-    let engine = engine::AudioEngine::create(user_media).ok();
+    // Hide the first-click-overlay
+    web_sys::window().unwrap().document().unwrap()
+        .query_selector(".first-click-overlay").unwrap().unwrap()
+        .class_list().add_1("first-click-overlay-hidden").unwrap();
+
+    // Create the engine, model, and presenter
+    let engine = engine::AudioEngine::create().await.ok();
     let model = model::DataModel::create().ok();
     let presenter = presentation::Presenter::create().ok().map(|presenter| {
         let presenter_rc = Rc::new(RefCell::new(presenter));
@@ -325,8 +326,24 @@ pub async fn start() {
         presenter_rc
     });
     
+    // Connect the media stream to the engine if both are available
+    if let Some(ref engine) = engine {
+        if let Some(audio_context) = engine.get_audio_context() {
+            match crate::engine::audio::microphone::connect_existing_mediastream_to_audioworklet(
+                media_stream,
+                &audio_context
+            ).await {
+                Ok(_) => {
+                    dev_log!("✓ MediaStream successfully connected to engine");
+                }
+                Err(e) => {
+                    dev_log!("✗ Failed to connect MediaStream to engine: {}", e);
+                }
+            }
+        }
+    }
+    
     start_render_loop(engine, model, presenter).await;
-     */
 }
 
 #[cfg(target_arch = "wasm32")]
