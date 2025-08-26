@@ -20,7 +20,7 @@ fn add_style_to_document(css: &str) {
         .expect("Failed to append style to head");
 }
 
-pub fn apply_color_scheme_styles() {
+pub fn apply_theme() {
     apply_css_variables();
 }
 
