@@ -9,6 +9,7 @@ pub fn register_platform_commands(registry: &mut ConsoleCommandRegistry) {
     registry.register(Box::new(ApiStatusCommand));
     registry.register(Box::new(ThemeCommand));
     registry.register(Box::new(ErrorCommand));
+    registry.register(Box::new(AudioDevicesCommand));
 }
 
 // API Status Command
@@ -185,5 +186,68 @@ impl ConsoleCommand for ErrorCommand {
                 ])
             }
         }
+    }
+}
+
+// Audio Devices Command
+struct AudioDevicesCommand;
+
+impl ConsoleCommand for AudioDevicesCommand {
+    fn name(&self) -> &str {
+        "audio"
+    }
+    
+    fn description(&self) -> &str {
+        "List all available audio input and output devices (enumerates devices directly, not from cache)"
+    }
+    
+    fn execute(&self, _args: Vec<&str>, _registry: &ConsoleCommandRegistry) -> ConsoleCommandResult {
+        // Since we can't await in this synchronous method, we'll spawn the async task
+        // and output the results to dev_log which will show in browser console
+        wasm_bindgen_futures::spawn_local(async move {
+            dev_log!("=== Audio Device Enumeration (not from cache) ===");
+            
+            match crate::engine::audio::context::AudioContextManager::enumerate_devices_internal().await {
+                Ok((input_devices, output_devices)) => {
+                    dev_log!("Audio Input Devices ({} found):", input_devices.len());
+                    if input_devices.is_empty() {
+                        dev_log!("  No input devices found");
+                    } else {
+                        for (device_id, label) in &input_devices {
+                            let device_type = if label.contains("Default") || label.contains("default") { 
+                                " [DEFAULT]" 
+                            } else { 
+                                "" 
+                            };
+                            dev_log!("  {} - {}{}", device_id, label, device_type);
+                        }
+                    }
+                    
+                    dev_log!("Audio Output Devices ({} found):", output_devices.len());
+                    if output_devices.is_empty() {
+                        dev_log!("  No output devices found");
+                    } else {
+                        for (device_id, label) in &output_devices {
+                            let device_type = if label.contains("Default") || label.contains("default") { 
+                                " [DEFAULT]" 
+                            } else { 
+                                "" 
+                            };
+                            dev_log!("  {} - {}{}", device_id, label, device_type);
+                        }
+                    }
+                    dev_log!("=== End of Audio Device List ===");
+                }
+                Err(e) => {
+                    dev_log!("Failed to enumerate audio devices: {:?}", e);
+                }
+            }
+        });
+        
+        ConsoleCommandResult::MultipleOutputs(vec![
+            ConsoleOutput::info("Enumerating audio devices..."),
+            ConsoleOutput::info("Results will appear in browser console (check dev tools)"),
+            ConsoleOutput::info("Look for logs starting with '=== Audio Device Enumeration'")
+        ])
     }
 }

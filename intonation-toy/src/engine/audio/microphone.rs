@@ -41,10 +41,6 @@ pub async fn connect_existing_mediastream_to_audioworklet(
             .and_then(|ctx| ctx.resume().ok())
     };
     
-    if let Some(promise) = resume_promise {
-        let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
-    }
-    
     let source = {
         let audio_system_context = audio_context.borrow();
         let audio_context_manager = audio_system_context.get_audio_context_manager();
