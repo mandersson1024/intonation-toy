@@ -32,17 +32,6 @@ pub async fn start_render_loop(
     mut model: model::DataModel,
     presenter: Rc<RefCell<presentation::Presenter>>,
 ) {
-    let canvas = Some(web::utils::get_canvas());
-
-    {        
-        let canvas_clone = web::utils::get_canvas();
-        let resize_callback = Closure::wrap(Box::new(move || {
-            web::utils::resize_canvas(&canvas_clone);
-        }) as Box<dyn FnMut()>);
-        
-        web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
-    }
-
     let dpr = web_sys::window().unwrap().device_pixel_ratio();
     let render_size: u32 = if dpr <= 1.0 { app_config::VIEWPORT_RENDER_SIZE } else { app_config::VIEWPORT_RENDER_SIZE_RETINA };
 
@@ -52,10 +41,6 @@ pub async fn start_render_loop(
         ..Default::default()
     })
     .unwrap();
-    
-    if let Some(ref canvas_element) = canvas {
-        web::utils::resize_canvas(canvas_element);
-    }
     
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
@@ -259,6 +244,15 @@ pub async fn start() {
         }
     }
 
+    {        
+        let resize_canvas_callback = Closure::wrap(Box::new(move || {
+            web::utils::resize_canvas();
+        }) as Box<dyn FnMut()>);
+        
+        web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_canvas_callback.as_ref().unchecked_ref()).unwrap();
+    }
+
+    web::utils::resize_canvas();
     web::utils::show_first_click_overlay();
     web::utils::hide_preloader();
 

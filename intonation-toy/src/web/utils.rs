@@ -38,7 +38,8 @@ pub fn get_canvas() -> web_sys::HtmlCanvasElement {
         .dyn_into::<web_sys::HtmlCanvasElement>().unwrap()
 }
 
-pub fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
+pub fn resize_canvas() {
+    let canvas = get_canvas();
     let window_obj = web_sys::window().unwrap();
     let document = window_obj.document().unwrap();
     
