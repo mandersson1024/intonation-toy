@@ -32,7 +32,7 @@ pub async fn start_render_loop(
     mut model: model::DataModel,
     presenter: Rc<RefCell<presentation::Presenter>>,
 ) {
-        let canvas = Some(web::utils::get_canvas());
+    let canvas = Some(web::utils::get_canvas());
 
     {        
         let canvas_clone = web::utils::get_canvas();
