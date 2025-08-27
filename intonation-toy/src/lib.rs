@@ -244,7 +244,9 @@ pub async fn start() {
         }
     }
 
-    {        
+    {
+        // Canvas resizing
+        
         let resize_canvas_callback = Closure::wrap(Box::new(move || {
             web::utils::resize_canvas();
         }) as Box<dyn FnMut()>);
