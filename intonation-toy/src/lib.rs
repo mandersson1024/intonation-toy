@@ -11,38 +11,17 @@ pub mod common;
 #[cfg(debug_assertions)]
 pub(crate) mod debug;
 
-use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::closure::Closure;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+#[cfg(target_arch = "wasm32")]
+use engine::platform::{Platform, PlatformValidationResult};
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use egui_dev_console::ConsoleCommandRegistry;
-use engine::platform::{Platform, PlatformValidationResult};
 
-
-#[cfg(target_arch = "wasm32")]
-fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
-    let window_obj = web_sys::window().unwrap();
-    let document = window_obj.document().unwrap();
-    
-    let sidebar_width = crate::web::styling::SIDEBAR_WIDTH;
-    let margin = crate::web::styling::CANVAS_MARGIN;
-    
-    let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - sidebar_width - (margin * 2);
-    let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (margin * 2);
-    
-    let canvas_size = std::cmp::min(available_width, available_height)
-        .min(crate::app_config::CANVAS_MAX_SIZE)
-        .max(crate::app_config::CANVAS_MIN_SIZE);
-    
-    let scene_wrapper = document.get_element_by_id("scene-wrapper").unwrap();
-    
-    scene_wrapper.set_attribute("style", &format!(
-        "position: absolute; top: {}px; left: {}px; width: {}px; height: {}px;",
-        margin, margin, canvas_size, canvas_size
-    )).unwrap();
-    
-    canvas.style().set_property("width", &format!("{}px", canvas_size)).unwrap();
-    canvas.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
-}
 
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use debug::debug_panel::DebugPanel;
@@ -65,7 +44,7 @@ pub async fn start_render_loop(
         
         let canvas_clone = canvas.clone();
         let resize_callback = Closure::wrap(Box::new(move || {
-            resize_canvas(&canvas_clone);
+            web::utils::resize_canvas(&canvas_clone);
         }) as Box<dyn FnMut()>);
         
         window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
@@ -86,7 +65,7 @@ pub async fn start_render_loop(
     
     #[cfg(target_arch = "wasm32")]
     if let Some(ref canvas_element) = canvas {
-        resize_canvas(canvas_element);
+        web::utils::resize_canvas(canvas_element);
     }
     
     let context = window.gl();
