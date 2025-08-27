@@ -26,36 +26,6 @@
       }
     </style>
     
-    <!-- Inline JavaScript for preloader removal -->
-    <script>
-      // Global function that WASM can call to remove the preloader
-      window.removePreloader = function() {
-        const preloader = document.getElementById('preloader-overlay');
-        if (preloader) {
-          // Add fade-out class for smooth transition
-          preloader.classList.add('preloader-fade-out');
-          
-          // Set up transitionend listener
-          let removed = false;
-          const removeElement = function() {
-            if (!removed && preloader && preloader.parentNode) {
-              removed = true;
-              preloader.parentNode.removeChild(preloader);
-            }
-          };
-          
-          // Remove on transitionend
-          preloader.addEventListener('transitionend', removeElement);
-          
-          // Fallback: Remove after timeout if transitionend doesn't fire
-          setTimeout(removeElement, 350); // Slightly longer than CSS animation
-        }
-      };
-      
-      // Remove preloader on any error
-      window.addEventListener('error', () => window.removePreloader());
-      window.addEventListener('unhandledrejection', () => window.removePreloader());
-    </script>
   </head>
   <body class="app-body">
     <!-- Preloader Overlay (visible by default) -->

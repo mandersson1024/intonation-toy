@@ -624,10 +624,6 @@ input[type="range"]:focus::-moz-range-thumb {
     transition: opacity 0.3s ease;
 }
 
-.preloader-overlay.preloader-fade-out {
-    opacity: 0;
-    pointer-events: none;
-}
 
 .preloader-content {
     background-color: #2a2a2a;

@@ -20,6 +20,11 @@ pub fn hide_first_click_overlay() {
 }
 
 pub fn hide_preloader() {
-    wasm_bindgen::JsCast::dyn_into::<js_sys::Function>(js_sys::Reflect::get(&web_sys::window().unwrap(), &wasm_bindgen::JsValue::from_str("removePreloader")).unwrap()).unwrap()
-        .call0(&wasm_bindgen::JsValue::NULL).unwrap();
+    let document = web_sys::window().unwrap().document().unwrap();
+    
+    if let Ok(Some(preloader)) = document.query_selector("#preloader-overlay") {
+        if let Some(parent) = preloader.parent_node() {
+            parent.remove_child(&preloader).ok();
+        }
+    }
 }
