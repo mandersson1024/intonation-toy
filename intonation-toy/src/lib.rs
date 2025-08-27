@@ -26,29 +26,22 @@ use egui_dev_console::ConsoleCommandRegistry;
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use debug::debug_panel::DebugPanel;
 
+#[cfg(target_arch = "wasm32")]
 pub async fn start_render_loop(
     mut engine: engine::AudioEngine,
     mut model: model::DataModel,
     presenter: Rc<RefCell<presentation::Presenter>>,
 ) {
-    #[cfg(target_arch = "wasm32")]
-    let canvas = {
-        let window_obj = web_sys::window().unwrap();
-        let document = window_obj.document().unwrap();
-        
-        let canvas = document.get_element_by_id("three-d-canvas").unwrap()
-            .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-        
-        let canvas_clone = canvas.clone();
+        let canvas = Some(web::utils::get_canvas());
+
+    {        
+        let canvas_clone = web::utils::get_canvas();
         let resize_callback = Closure::wrap(Box::new(move || {
             web::utils::resize_canvas(&canvas_clone);
         }) as Box<dyn FnMut()>);
         
-        window_obj.add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
-        resize_callback.forget();
-        
-        Some(canvas)
-    };
+        web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_callback.as_ref().unchecked_ref()).unwrap();
+    }
 
     let dpr = web_sys::window().unwrap().device_pixel_ratio();
     let render_size: u32 = if dpr <= 1.0 { app_config::VIEWPORT_RENDER_SIZE } else { app_config::VIEWPORT_RENDER_SIZE_RETINA };

@@ -1,3 +1,4 @@
+use wasm_bindgen::JsCast;
 
 pub fn rgb_to_css(rgb: [f32; 3]) -> String {
     format!("rgb({}, {}, {})", 
@@ -29,9 +30,15 @@ pub fn hide_preloader() {
     }
 }
 
-pub fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
-    use wasm_bindgen::JsCast;
+pub fn get_canvas() -> web_sys::HtmlCanvasElement {
+    let window_obj = web_sys::window().unwrap();
+    let document = window_obj.document().unwrap();
     
+    document.get_element_by_id("three-d-canvas").unwrap()
+        .dyn_into::<web_sys::HtmlCanvasElement>().unwrap()
+}
+
+pub fn resize_canvas(canvas: &web_sys::HtmlCanvasElement) {
     let window_obj = web_sys::window().unwrap();
     let document = window_obj.document().unwrap();
     
