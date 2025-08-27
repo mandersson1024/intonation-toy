@@ -53,7 +53,6 @@ pub async fn start_render_loop(
     })
     .unwrap();
     
-    #[cfg(target_arch = "wasm32")]
     if let Some(ref canvas_element) = canvas {
         web::utils::resize_canvas(canvas_element);
     }
