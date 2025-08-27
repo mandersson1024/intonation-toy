@@ -291,14 +291,31 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let engine = engine::AudioEngine::create(media_stream).await.ok();
-    let model = model::DataModel::create().ok();
-    let presenter = presentation::Presenter::create().ok();
+    let engine = match engine::AudioEngine::create(media_stream).await {
+        Ok(engine) => engine,
+        Err(err) => {
+            crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
+            return;
+        }
+    };
 
-    // todo: check for errors in engine/model/presenter and bail out
-    // todo: remove options when passing to start_render_loop
+    let model = match model::DataModel::create() {
+        Ok(model) => model,
+        Err(err) => {
+            crate::common::error_log!("Failed to create DataModel: {:?}", err);
+            return;
+        }
+    };
+
+    let presenter = match presentation::Presenter::create() {
+        Ok(presenter) => presenter,
+        Err(err) => {
+            crate::common::error_log!("Failed to create Presenter: {:?}", err);
+            return;
+        }
+    };
     
-    start_render_loop(engine, model, presenter).await;
+    start_render_loop(Some(engine), Some(model), Some(presenter)).await;
 }
 
 #[cfg(target_arch = "wasm32")]
