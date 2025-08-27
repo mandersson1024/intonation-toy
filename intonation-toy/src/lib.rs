@@ -290,7 +290,7 @@ pub async fn start() {
     crate::web::styling::apply_theme();
 
     {
-        // Bail out if required APIs are missing
+        // Bail out if any required API is missing
 
         let result = Platform::check_feature_support();
         if result != PlatformValidationResult::AllSupported {
@@ -302,7 +302,7 @@ pub async fn start() {
     web::utils::show_first_click_overlay();
     web::utils::hide_preloader();
 
-    let media_stream = match wait_for_media_stream().await {
+    let media_stream = match ask_for_media_stream_permission().await {
         Ok(stream) => stream,
         Err(_) => {
             crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
@@ -312,20 +312,18 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    // Create the engine, model, and presenter
     let engine = engine::AudioEngine::create(media_stream).await.ok();
     let model = model::DataModel::create().ok();
-    let presenter = presentation::Presenter::create().ok().map(|presenter| {
-        let presenter_rc = Rc::new(RefCell::new(presenter));
-        presenter_rc.borrow_mut().set_self_reference(presenter_rc.clone());
-        presenter_rc
-    });
+    let presenter = presentation::Presenter::create().ok();
+
+    // todo: check for errors in engine/model/presenter and bail out
+    // todo: remove options when passing to start_render_loop
     
     start_render_loop(engine, model, presenter).await;
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn wait_for_media_stream() -> Result<web_sys::MediaStream, String> {
+async fn ask_for_media_stream_permission() -> Result<web_sys::MediaStream, String> {
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
     

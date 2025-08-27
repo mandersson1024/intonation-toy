@@ -109,14 +109,14 @@ pub struct Presenter {
 }
 
 impl Presenter {
-    /// Create a new Presenter
-    pub fn create() -> Result<Self, String> {
+    /// Create a new Presenter wrapped in Rc<RefCell>
+    pub fn create() -> Result<Rc<RefCell<Self>>, String> {
         #[cfg(target_arch = "wasm32")]
         {
             setup_sidebar_controls();
         }
         
-        Ok(Self {
+        let presenter = Self {
             renderer: None,
             pending_user_actions: PresentationLayerActions::default(),
             #[cfg(debug_assertions)]
@@ -128,23 +128,20 @@ impl Presenter {
             self_reference: None,
             #[cfg(target_arch = "wasm32")]
             ui_listeners_attached: false,
-        })
-    }
-
-    /// Set the self-reference for UI event handling
-    #[cfg(target_arch = "wasm32")]
-    pub fn set_self_reference(&mut self, self_ref: Rc<RefCell<Self>>) {
-        self.self_reference = Some(self_ref.clone());
+        };
         
-        if !self.ui_listeners_attached {
-            setup_event_listeners(self_ref);
-            self.ui_listeners_attached = true;
+        let presenter_rc = Rc::new(RefCell::new(presenter));
+        
+        #[cfg(target_arch = "wasm32")]
+        {
+            presenter_rc.borrow_mut().self_reference = Some(presenter_rc.clone());
+            setup_event_listeners(presenter_rc.clone());
+            presenter_rc.borrow_mut().ui_listeners_attached = true;
         }
+        
+        Ok(presenter_rc)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn set_self_reference(&mut self, _self_ref: Rc<RefCell<Self>>) {
-    }
 
     pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
         let (pitch_detected, clarity) = match model_data.pitch {
