@@ -7,3 +7,4 @@ pub mod performance;
 pub mod profiling;
 pub mod styling;
 pub mod utils;
+pub mod user_media_permission;
