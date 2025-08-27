@@ -26,14 +26,11 @@ use egui_dev_console::ConsoleCommandRegistry;
 #[cfg(all(debug_assertions, not(feature = "profiling")))]
 use debug::debug_panel::DebugPanel;
 
-/// Run three-d with three-layer architecture (engine → model → presenter)
 pub async fn start_render_loop(
-    mut engine: Option<engine::AudioEngine>,
-    mut model: Option<model::DataModel>,
-    presenter: Option<Rc<RefCell<presentation::Presenter>>>,
+    mut engine: engine::AudioEngine,
+    mut model: model::DataModel,
+    presenter: Rc<RefCell<presentation::Presenter>>,
 ) {
-    dev_log!("Starting three-d with three-layer architecture");
-    
     #[cfg(target_arch = "wasm32")]
     let canvas = {
         let window_obj = web_sys::window().unwrap();
@@ -80,9 +77,9 @@ pub async fn start_render_loop(
     let mut dev_console = egui_dev_console::DevConsole::new(command_registry);
     
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    let mut debug_panel = presenter.as_ref().map(|presenter_ref| DebugPanel::new(
+    let mut debug_panel = Some(DebugPanel::new(
             debug::debug_data::DebugData::new(),
-            presenter_ref.clone(),
+            presenter.clone(),
         ));
 
     
@@ -102,7 +99,7 @@ pub async fn start_render_loop(
         
         let timestamp = current_time / 1000.0;
         
-        let engine_data = if let Some(ref mut engine) = engine {
+        let engine_data = {
             #[cfg(feature = "profiling")]
             {
                 crate::web::profiling::profiled("engine_update", || {
@@ -113,15 +110,9 @@ pub async fn start_render_loop(
             {
                 engine.update(timestamp)
             }
-        } else {
-            crate::common::shared_types::EngineUpdateResult {
-                audio_analysis: None,
-                audio_errors: Vec::new(),
-                permission_state: crate::common::shared_types::PermissionState::NotRequested,
-            }
         };
         
-        if let (Some(presenter), Some(model), Some(engine)) = (&presenter, &mut model, &mut engine) {
+        {
             let mut user_action_processing = || {
                 let user_actions = presenter.try_borrow_mut()
                     .map(|mut p| p.get_user_actions())
@@ -157,7 +148,7 @@ pub async fn start_render_loop(
             user_action_processing();
         }
         
-        let model_data = model.as_mut().map(|model| {
+        let model_data = Some({
             #[cfg(feature = "profiling")]
             {
                 crate::web::profiling::profiled("model_update", || {
@@ -185,7 +176,7 @@ pub async fn start_render_loop(
                 memory_usage_percent,
             };
             
-            let (audioworklet_status, buffer_pool_stats) = if let Some(ref engine) = engine {
+            let (audioworklet_status, buffer_pool_stats) = {
                 let status = engine.get_debug_audioworklet_status().map(|s| {
                     debug::data_types::AudioWorkletStatus {
                         state: s.state,
@@ -197,8 +188,6 @@ pub async fn start_render_loop(
                 });
                 let stats = engine.get_debug_buffer_pool_stats();
                 (status, stats)
-            } else {
-                (None, None)
             };
             
             panel.update_debug_data(
@@ -208,7 +197,7 @@ pub async fn start_render_loop(
             );
         }
         
-        if let (Some(presenter), Some(data)) = (&presenter, &model_data) {
+        if let Some(data) = &model_data {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                 presenter_ref.process_data(timestamp, data.clone());
                 presenter_ref.update_graphics(frame_input.viewport, data);
@@ -216,13 +205,13 @@ pub async fn start_render_loop(
         }
         
         #[cfg(debug_assertions)]
-        if let (Some(presenter), Some(_engine)) = (&presenter, &mut engine) {
+        {
             let debug_actions = presenter.try_borrow_mut()
                 .map(|mut p| p.get_debug_actions())
                 .unwrap_or_else(|_| presentation::DebugLayerActions::new());
             
             if !debug_actions.test_signal_configurations.is_empty() {
-                if let Err(e) = _engine.execute_debug_actions_sync(debug_actions) {
+                if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {
                     dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
                 }
             }
@@ -248,7 +237,7 @@ pub async fn start_render_loop(
         
         let mut screen = frame_input.screen();
         
-        if let (Some(presenter), Some(data)) = (&presenter, &model_data) {
+        if let Some(data) = &model_data {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                 presenter_ref.render(&context, &mut screen, data);
             }
@@ -315,7 +304,7 @@ pub async fn start() {
         }
     };
     
-    start_render_loop(Some(engine), Some(model), Some(presenter)).await;
+    start_render_loop(engine, model, presenter).await;
 }
 
 #[cfg(target_arch = "wasm32")]
