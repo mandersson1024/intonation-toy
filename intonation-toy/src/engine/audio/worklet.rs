@@ -147,6 +147,7 @@ impl AudioWorkletManager {
     }
     
     /// Check if AudioWorklet is supported
+    /// TODO: We should check this once and for all before app init
     fn is_worklet_supported(context: &AudioContextManager) -> bool {
         if let Some(audio_context) = context.get_context() {
             // Check for AudioWorklet support

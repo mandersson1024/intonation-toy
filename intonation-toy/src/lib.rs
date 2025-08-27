@@ -299,15 +299,8 @@ pub async fn start() {
         }
     }
 
-    // Show the first-click-overlay
-    web_sys::window().unwrap().document().unwrap()
-        .query_selector(".first-click-overlay").unwrap().unwrap()
-        .class_list().remove_1("first-click-overlay-hidden").unwrap();
-
-    // Hide the preloader
-    js_sys::Reflect::get(&web_sys::window().unwrap(), &wasm_bindgen::JsValue::from_str("removePreloader")).unwrap()
-        .dyn_into::<js_sys::Function>().unwrap()
-        .call0(&wasm_bindgen::JsValue::NULL).unwrap();
+    web::utils::show_first_click_overlay();
+    web::utils::hide_preloader();
 
     let media_stream = match wait_for_media_stream().await {
         Ok(stream) => stream,
@@ -317,10 +310,7 @@ pub async fn start() {
         }
     };
 
-    // Hide the first-click-overlay
-    web_sys::window().unwrap().document().unwrap()
-        .query_selector(".first-click-overlay").unwrap().unwrap()
-        .class_list().add_1("first-click-overlay-hidden").unwrap();
+    web::utils::hide_first_click_overlay();
 
     // Create the engine, model, and presenter
     let engine = engine::AudioEngine::create(media_stream).await.ok();
