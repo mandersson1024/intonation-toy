@@ -108,6 +108,8 @@ use crate::debug::debug_panel::DebugPanel;
     .unwrap();
     
     let context = window.gl();
+
+    #[cfg(debug_assertions)]
     let mut gui = three_d::GUI::new(&context);
     
     #[cfg(all(debug_assertions))]
