@@ -63,22 +63,28 @@ pub async fn start_render_loop(
         let engine_data = profile!("engine_update", engine.update());
         
         {
-            let mut user_action_processing = || {
-                let user_actions = presenter.try_borrow_mut()
-                    .map(|mut p| p.get_user_actions())
-                    .unwrap_or_default();
+            let mut process_user_actions = || {
+                let user_actions = match presenter.try_borrow_mut() {
+                    Ok(mut p) => p.get_user_actions(),
+                    Err(e) => {
+                        debug_assert!(false, "Failed to borrow presenter for user actions: {}", e);
+                        return;
+                    }
+                };
                 
-                if user_actions.has_actions() {
-                    let processed_actions = model.process_user_actions(user_actions);         
-                    if processed_actions.actions.has_actions() {
-                        if let Err(e) = engine.execute_actions(processed_actions.actions) {
-                            dev_log!("✗ Action execution failed: {}", e);
-                        }
+                if !user_actions.has_actions() {
+                    return;
+                }
+                
+                let processed_actions = model.process_user_actions(user_actions);         
+                if processed_actions.actions.has_actions() {
+                    if let Err(e) = engine.execute_actions(processed_actions.actions) {
+                        debug_assert!(false, "✗ Action execution failed: {}", e);
                     }
                 }
             };
 
-            profile!("user_action_processing", user_action_processing());
+            profile!("process_user_actions", process_user_actions());
         }
         
         let model_data = Some(profile!("model_update", model.update(engine_data.clone())));
