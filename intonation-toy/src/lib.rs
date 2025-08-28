@@ -179,16 +179,15 @@ use crate::debug::debug_panel::DebugPanel;
             }
         }
         
+        #[cfg(all(debug_assertions))]
         gui.update(
             &mut frame_input.events,
             frame_input.accumulated_time,
             frame_input.viewport,
             frame_input.device_pixel_ratio,
             |gui_context| {
-                #[cfg(all(debug_assertions))]
                 {
-                    gui_context.set_visuals(three_d::egui::Visuals::dark());
-                    
+                    gui_context.set_visuals(three_d::egui::Visuals::dark());                    
                     dev_console.render(gui_context);
                     debug_panel.render(gui_context, &model_data);
                 }
@@ -201,7 +200,9 @@ use crate::debug::debug_panel::DebugPanel;
             presenter_ref.render(&context, &mut screen, &model_data);
         }
         
+        #[cfg(all(debug_assertions))]
         let _ = gui.render();
+
         three_d::FrameOutput::default()
     });
 }
