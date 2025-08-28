@@ -59,28 +59,20 @@ class TransferableBufferPool {
         
         // Buffer lifecycle management
         this.bufferStates = [];
-        this.bufferTimestamps = [];
         this.bufferIds = [];
         this.nextBufferId = 1;
         
         // Configuration options
         this.options = {
-            timeout: options.timeout || 5000,
-            enableTimeouts: options.enableTimeouts !== false,
             enableValidation: options.enableValidation !== false,
             ...options
         };
-        
-        // Timeout checker properties (setInterval not available in AudioWorklet)
-        this.timeoutCheckEnabled = false;
-        this.lastTimeoutCheck = 0;
         
         // Buffer states enum
         this.BUFFER_STATES = {
             AVAILABLE: 'available',
             IN_FLIGHT: 'in_flight',
-            PROCESSING: 'processing',
-            TIMED_OUT: 'timed_out'
+            PROCESSING: 'processing'
         };
         
         // Performance counters
@@ -97,7 +89,6 @@ class TransferableBufferPool {
             acquireCount: 0,
             transferCount: 0,
             poolExhaustedCount: 0,
-            timeoutCount: 0,
             validationFailures: 0,
             returnedBuffers: 0,
             bufferReuseRate: 0,
@@ -109,30 +100,15 @@ class TransferableBufferPool {
             this.buffers.push(new ArrayBuffer(bufferCapacity * 4));
             this.availableIndices.push(i);
             this.bufferStates.push(this.BUFFER_STATES.AVAILABLE);
-            this.bufferTimestamps.push(0);
             this.bufferIds.push(0);
             this.perfCounters.allocationCount++;
         }
         
-        // Start timeout checker if enabled
-        if (this.options.enableTimeouts) {
-            this.startTimeoutChecker();
-        }
     }
     
     acquire() {
         const startTime = getCurrentTime();
         this.stats.acquireCount++;
-        
-        // Check for timed out buffers periodically (since setInterval is not available in AudioWorklet)
-        if (this.timeoutCheckEnabled && this.lastTimeoutCheck > 0) {
-            const timeSinceLastCheck = Date.now() - this.lastTimeoutCheck;
-            if (timeSinceLastCheck > 2000) { // Check every 2 seconds
-                this.checkForTimedOutBuffers();
-                this.lastTimeoutCheck = Date.now();
-            }
-        }
-        
         
         if (this.availableIndices.length === 0) {
             this.stats.poolExhaustedCount++;
@@ -152,7 +128,6 @@ class TransferableBufferPool {
         
         // Update buffer lifecycle tracking
         this.bufferStates[index] = this.BUFFER_STATES.IN_FLIGHT;
-        this.bufferTimestamps[index] = Date.now();
         this.bufferIds[index] = this.nextBufferId++;
         
         // Track acquisition time
@@ -194,7 +169,6 @@ class TransferableBufferPool {
         
         // Update buffer lifecycle tracking
         this.bufferStates[index] = this.BUFFER_STATES.AVAILABLE;
-        this.bufferTimestamps[index] = 0;
         this.bufferIds[index] = 0;
         
         // Mark index as available again
@@ -229,7 +203,6 @@ class TransferableBufferPool {
             // Found the buffer, return it to its original slot
             this.buffers[targetIndex] = buffer;
             this.bufferStates[targetIndex] = this.BUFFER_STATES.AVAILABLE;
-            this.bufferTimestamps[targetIndex] = 0;
             this.bufferIds[targetIndex] = 0;
             
             if (!this.availableIndices.includes(targetIndex)) {
@@ -257,7 +230,6 @@ class TransferableBufferPool {
             acquireCount: this.stats.acquireCount,
             transferCount: this.stats.transferCount,
             poolExhaustedCount: this.stats.poolExhaustedCount,
-            timeoutCount: this.stats.timeoutCount,
             validationFailures: this.stats.validationFailures,
             returnedBuffers: this.stats.returnedBuffers,
             bufferReuseRate: this.stats.bufferReuseRate,
@@ -267,56 +239,6 @@ class TransferableBufferPool {
             totalBuffers: this.poolSize
         };
         return stats;
-    }
-    
-    startTimeoutChecker() {
-        // Note: setInterval is not available in AudioWorklet context
-        // We'll check for timeouts manually during buffer operations
-        this.timeoutCheckEnabled = true;
-        this.lastTimeoutCheck = Date.now();
-    }
-    
-    stopTimeoutChecker() {
-        this.timeoutCheckEnabled = false;
-        this.lastTimeoutCheck = 0;
-    }
-    
-    checkForTimedOutBuffers() {
-        const now = Date.now();
-        let reclaimedCount = 0;
-        
-        for (let i = 0; i < this.poolSize; i++) {
-            const state = this.bufferStates[i];
-            const timestamp = this.bufferTimestamps[i];
-            
-            if ((state === this.BUFFER_STATES.IN_FLIGHT || state === this.BUFFER_STATES.PROCESSING) && 
-                timestamp > 0 && 
-                (now - timestamp) > this.options.timeout) {
-                
-                this.bufferStates[i] = this.BUFFER_STATES.TIMED_OUT;
-                this.bufferTimestamps[i] = 0;
-                const bufferId = this.bufferIds[i];
-                this.bufferIds[i] = 0;
-                
-                // Create a new buffer to replace the lost one
-                this.buffers[i] = new ArrayBuffer(this.bufferCapacity * 4);
-                this.bufferStates[i] = this.BUFFER_STATES.AVAILABLE;
-                this.perfCounters.allocationCount++;
-                
-                if (!this.availableIndices.includes(i)) {
-                    this.availableIndices.push(i);
-                }
-                
-                reclaimedCount++;
-                this.stats.timeoutCount++;
-                
-                console.warn(`TransferableBufferPool: Buffer ${bufferId} timed out after ${this.options.timeout}ms, reclaimed buffer at index ${i}`);
-            }
-        }
-        
-        if (reclaimedCount > 0) {
-            console.log(`TransferableBufferPool: Reclaimed ${reclaimedCount} timed out buffers`);
-        }
     }
     
     updateAcquisitionMetrics(acquisitionTime) {
@@ -1137,9 +1059,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                 this.bufferPool.release(this.currentBuffer);
                 // Released current buffer on destroy
             }
-            
-            // Stop timeout checker to prevent further cleanup
-            this.bufferPool.stopTimeoutChecker();
             
             // Log final pool statistics
             // Buffer pool cleanup complete
