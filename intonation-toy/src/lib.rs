@@ -43,6 +43,7 @@ pub async fn start() {
         }) as Box<dyn FnMut()>);
         
         web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_canvas_callback.as_ref().unchecked_ref()).unwrap();
+        resize_canvas_callback.forget();
     }
 
     web::utils::resize_canvas();
@@ -123,6 +124,8 @@ use crate::debug::debug_panel::DebugPanel;
     
     let mut fps_counter = FpsCounter::new(30);
     
+    web::utils::resize_canvas();
+
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
         let engine_data = profile!("engine_update", engine.update());
