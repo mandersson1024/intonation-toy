@@ -1,5 +1,3 @@
-use crate::engine::audio::AudioWorkletState;
-use crate::app_config::{AUDIO_CHUNK_SIZE, BUFFER_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PerformanceMetrics {
@@ -21,26 +19,8 @@ pub struct PitchData {
     pub clarity: f32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct AudioWorkletStatus {
-    pub state: AudioWorkletState,
-    pub processor_loaded: bool,
-    pub chunk_size: u32,
-    pub batch_size: u32,
-    pub batches_processed: u32,
-}
-
-impl Default for AudioWorkletStatus {
-    fn default() -> Self {
-        Self {
-            state: AudioWorkletState::Uninitialized,
-            processor_loaded: false,
-            chunk_size: AUDIO_CHUNK_SIZE as u32,
-            batch_size: BUFFER_SIZE as u32,
-            batches_processed: 0,
-        }
-    }
-}
+// Re-export AudioWorkletStatus from engine module
+pub use crate::engine::audio::AudioWorkletStatus;
 
 impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
     fn from(data: crate::engine::audio::VolumeLevelData) -> Self {
@@ -53,15 +33,4 @@ impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
 }
 
 
-impl From<crate::engine::audio::AudioWorkletStatus> for AudioWorkletStatus {
-    fn from(data: crate::engine::audio::AudioWorkletStatus) -> Self {
-        Self {
-            state: data.state,
-            processor_loaded: data.processor_loaded,
-            chunk_size: data.chunk_size,
-            batch_size: data.batch_size,
-            batches_processed: data.batches_processed,
-        }
-    }
-}
 

@@ -102,24 +102,10 @@ pub async fn start_render_loop(
                 memory_usage_percent,
             };
             
-            let (audioworklet_status, buffer_pool_stats) = {
-                let status = engine.get_debug_audioworklet_status().map(|s| {
-                    debug::data_types::AudioWorkletStatus {
-                        state: s.state,
-                        processor_loaded: s.processor_loaded,
-                        chunk_size: s.chunk_size,
-                        batch_size: s.batch_size,
-                        batches_processed: s.batches_processed,
-                    }
-                });
-                let stats = engine.get_debug_buffer_pool_stats();
-                (status, stats)
-            };
-            
             debug_panel.update_debug_data(
                 Some(performance_metrics),
-                audioworklet_status,
-                buffer_pool_stats,
+                engine.get_debug_audioworklet_status(),
+                engine.get_debug_buffer_pool_stats(),
             );
         }
         
