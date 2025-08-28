@@ -20,11 +20,11 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(target_arch = "wasm32")]
 use engine::platform::{Platform, PlatformValidationResult};
-#[cfg(all(debug_assertions, not(feature = "profiling")))]
+#[cfg(all(debug_assertions))]
 use egui_dev_console::ConsoleCommandRegistry;
 
 
-#[cfg(all(debug_assertions, not(feature = "profiling")))]
+#[cfg(all(debug_assertions))]
 use debug::debug_panel::DebugPanel;
 
 #[cfg(target_arch = "wasm32")]
@@ -46,14 +46,14 @@ pub async fn start_render_loop(
     let context = window.gl();
     let mut gui = three_d::GUI::new(&context);
     
-    #[cfg(all(debug_assertions, not(feature = "profiling")))]
+    #[cfg(all(debug_assertions))]
     let mut dev_console = {
         let mut command_registry = ConsoleCommandRegistry::default();
         crate::engine::platform::commands::register_platform_commands(&mut command_registry);
         egui_dev_console::DevConsole::new(command_registry)
     };
     
-    #[cfg(all(debug_assertions, not(feature = "profiling")))]
+    #[cfg(all(debug_assertions))]
     let mut debug_panel = Some(DebugPanel::new(presenter.clone()));
     
     let mut fps_counter = FpsCounter::new(30);
@@ -94,12 +94,12 @@ pub async fn start_render_loop(
         
         let model_data = Some(profile!("model_update", model.update(engine_data.clone())));
         
-        #[cfg(all(debug_assertions, not(feature = "profiling")))]
+        #[cfg(all(debug_assertions))]
         if let Some(ref mut panel) = debug_panel {
             panel.update_data(&engine_data, model_data.as_ref());
         }
         
-        #[cfg(all(debug_assertions, not(feature = "profiling")))]
+        #[cfg(all(debug_assertions))]
         if let Some(ref mut panel) = debug_panel {
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
             
@@ -156,7 +156,7 @@ pub async fn start_render_loop(
             frame_input.viewport,
             frame_input.device_pixel_ratio,
             |gui_context| {
-                #[cfg(all(debug_assertions, not(feature = "profiling")))]
+                #[cfg(all(debug_assertions))]
                 {
                     gui_context.set_visuals(egui::Visuals::dark());
                     
