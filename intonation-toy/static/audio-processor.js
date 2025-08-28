@@ -389,17 +389,12 @@ class AudioWorkletMessageProtocol {
         return ++this.messageIdCounter;
     }
 
-    getCurrentTimestamp() {
-        return getCurrentTime();
-    }
 
     createProcessorReadyMessage(options = {}) {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSOR_READY,
                 chunkSize: options.chunkSize || AUDIO_CHUNK_SIZE,
@@ -412,11 +407,9 @@ class AudioWorkletMessageProtocol {
 
     createProcessingStartedMessage() {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSING_STARTED
             }
@@ -425,11 +418,9 @@ class AudioWorkletMessageProtocol {
 
     createProcessingStoppedMessage() {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSING_STOPPED
             }
@@ -438,18 +429,15 @@ class AudioWorkletMessageProtocol {
 
     createAudioDataBatchMessage(buffer, options = {}) {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.AUDIO_DATA_BATCH,
                 data: {
                     sampleRate: options.sampleRate || 48000,
                     sampleCount: options.sampleCount || 0,
                     bufferLength: buffer ? buffer.byteLength : 0,
-                    timestamp: timestamp,
                     sequenceNumber: options.chunkCounter || 0,
                     bufferId: options.bufferId || 0,
                     bufferPoolStats: options.bufferPoolStats || null
@@ -461,11 +449,9 @@ class AudioWorkletMessageProtocol {
 
     createProcessingErrorMessage(error, code = WorkletErrorCode.GENERIC) {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSING_ERROR,
                 error: error,
@@ -476,11 +462,9 @@ class AudioWorkletMessageProtocol {
 
     createStatusUpdateMessage(status) {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.STATUS_UPDATE,
                 status: {
@@ -498,11 +482,9 @@ class AudioWorkletMessageProtocol {
 
     createBatchConfigUpdatedMessage(config) {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.BATCH_CONFIG_UPDATED,
                 config: { ...config }
@@ -512,11 +494,9 @@ class AudioWorkletMessageProtocol {
 
     createProcessorDestroyedMessage() {
         const messageId = this.generateMessageId();
-        const timestamp = this.getCurrentTimestamp();
         
         return {
             messageId: messageId,
-            timestamp: timestamp,
             payload: {
                 type: FromWorkletMessageType.PROCESSOR_DESTROYED
             }
