@@ -78,11 +78,11 @@ impl DebugData {
     
     pub fn update_debug_data(
         &mut self,
-        performance_metrics: Option<PerformanceMetrics>,
+        performance_metrics: PerformanceMetrics,
         audioworklet_status: Option<AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
-        if let Some(metrics) = performance_metrics { self.performance_metrics = metrics; }
+        self.performance_metrics = performance_metrics;
         if let Some(status) = audioworklet_status { self.audioworklet_status = status; }
         if let Some(stats) = buffer_pool_stats { self.buffer_pool_stats = Some(stats); }
     }

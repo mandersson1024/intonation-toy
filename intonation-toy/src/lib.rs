@@ -103,7 +103,7 @@ pub async fn start_render_loop(
             };
             
             debug_panel.update_debug_data(
-                Some(performance_metrics),
+                performance_metrics,
                 engine.get_debug_audioworklet_status(),
                 engine.get_debug_buffer_pool_stats(),
             );

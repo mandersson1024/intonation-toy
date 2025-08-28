@@ -50,7 +50,7 @@ impl DebugPanel {
     /// Update debug-specific data  
     pub fn update_debug_data(
         &mut self,
-        performance_metrics: Option<crate::debug::data_types::PerformanceMetrics>,
+        performance_metrics: crate::debug::data_types::PerformanceMetrics,
         audioworklet_status: Option<crate::debug::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
