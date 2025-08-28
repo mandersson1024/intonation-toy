@@ -72,6 +72,16 @@ pub struct PresentationLayerActions {
     pub tuning_fork_configurations: Vec<ConfigureTuningFork>,
 }
 
+impl PresentationLayerActions {
+    /// Check if there are any actions to process
+    pub fn has_actions(&self) -> bool {
+        !self.tuning_system_changes.is_empty() ||
+        !self.tuning_fork_adjustments.is_empty() ||
+        !self.scale_changes.is_empty() ||
+        !self.tuning_fork_configurations.is_empty()
+    }
+}
+
 
 /// Container for all collected debug actions from the presentation layer
 #[cfg(debug_assertions)]

@@ -23,6 +23,15 @@ pub struct ModelLayerActions {
     pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
 }
 
+impl ModelLayerActions {
+    /// Check if there are any actions to process
+    pub fn has_actions(&self) -> bool {
+        !self.tuning_system_changes.is_empty() ||
+        !self.tuning_fork_note_changes.is_empty() ||
+        !self.tuning_fork_configurations.is_empty()
+    }
+}
+
 pub struct DataModel {
     tuning_system: TuningSystem,
     tuning_fork_note: MidiNote,

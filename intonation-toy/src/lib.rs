@@ -13,13 +13,13 @@ pub mod common;
 pub(crate) mod debug;
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::closure::Closure;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-#[cfg(target_arch = "wasm32")]
-use engine::platform::{Platform, PlatformValidationResult};
+use {
+    wasm_bindgen::JsCast,
+    wasm_bindgen::closure::Closure,
+    wasm_bindgen::prelude::wasm_bindgen,
+    engine::platform::{Platform, PlatformValidationResult},
+};
+
 #[cfg(all(debug_assertions))]
 use egui_dev_console::ConsoleCommandRegistry;
 
@@ -60,7 +60,6 @@ pub async fn start_render_loop(
     
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
-        
         let engine_data = profile!("engine_update", engine.update());
         
         {
@@ -69,19 +68,9 @@ pub async fn start_render_loop(
                     .map(|mut p| p.get_user_actions())
                     .unwrap_or_default();
                 
-                let has_user_actions = !user_actions.tuning_system_changes.is_empty() ||
-                                      !user_actions.tuning_fork_adjustments.is_empty() ||
-                                      !user_actions.scale_changes.is_empty() ||
-                                      !user_actions.tuning_fork_configurations.is_empty();
-                
-                if has_user_actions {
-                    let processed_actions = model.process_user_actions(user_actions);
-                    
-                    let has_model_actions = !processed_actions.actions.tuning_system_changes.is_empty() ||
-                                           !processed_actions.actions.tuning_fork_note_changes.is_empty() ||
-                                           !processed_actions.actions.tuning_fork_configurations.is_empty();
-                    
-                    if has_model_actions {
+                if user_actions.has_actions() {
+                    let processed_actions = model.process_user_actions(user_actions);         
+                    if processed_actions.actions.has_actions() {
                         if let Err(e) = engine.execute_actions(processed_actions.actions) {
                             dev_log!("✗ Action execution failed: {}", e);
                         }
