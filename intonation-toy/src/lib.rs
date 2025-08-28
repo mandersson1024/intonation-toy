@@ -1,6 +1,7 @@
 use three_d::{Window, WindowSettings, FrameOutput, egui};
 use std::rc::Rc;
 use std::cell::RefCell;
+use crate::common::fps_counter::FpsCounter;
 
 pub mod app_config;
 pub mod engine;
@@ -60,19 +61,9 @@ pub async fn start_render_loop(
         ));
 
     
-    let mut frame_count = 0u32;
-    let mut last_fps_update = 0.0;
-    let mut fps = 0.0;
-    
+    let mut fps_counter = FpsCounter::default();
     window.render_loop(move |mut frame_input| {
-        frame_count += 1;
-        let current_time = frame_input.accumulated_time;
-        
-        if current_time - last_fps_update >= 1000.0 {
-            fps = (frame_count as f64) / ((current_time - last_fps_update) / 1000.0);
-            frame_count = 0;
-            last_fps_update = current_time;
-        }
+        let fps = fps_counter.update(frame_input.accumulated_time);
         
         let engine_data = {
             #[cfg(feature = "profiling")]
