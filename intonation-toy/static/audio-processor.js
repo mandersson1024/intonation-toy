@@ -50,7 +50,7 @@ function getCurrentTime() {
 // TransferableBufferPool class (inlined for AudioWorklet compatibility)
 // Note: importScripts is not available in AudioWorklet context
 class TransferableBufferPool {
-    constructor(poolSize = 4, bufferCapacity = BUFFER_SIZE, options = {}) {
+    constructor(poolSize = 4, bufferCapacity = BUFFER_SIZE) {
         this.poolSize = poolSize;
         this.bufferCapacity = bufferCapacity;
         this.buffers = [];
@@ -61,12 +61,6 @@ class TransferableBufferPool {
         this.bufferStates = [];
         this.bufferIds = [];
         this.nextBufferId = 1;
-        
-        // Configuration options
-        this.options = {
-            enableValidation: options.enableValidation !== false,
-            ...options
-        };
         
         // Buffer states enum
         this.BUFFER_STATES = {
@@ -89,10 +83,6 @@ class TransferableBufferPool {
             acquireCount: 0,
             transferCount: 0,
             poolExhaustedCount: 0,
-            validationFailures: 0,
-            returnedBuffers: 0,
-            bufferReuseRate: 0,
-            averageTurnoverTime: 0
         };
         
         // Initialize pool with pre-allocated buffers
@@ -176,19 +166,6 @@ class TransferableBufferPool {
     }
     
     returnBuffer(bufferId, buffer) {
-        if (!buffer || !(buffer instanceof ArrayBuffer)) {
-            console.error('TransferableBufferPool: Invalid buffer provided for return');
-            this.stats.validationFailures++;
-            return false;
-        }
-        
-        // Validate buffer size matches expected
-        const expectedSize = this.bufferCapacity * 4;
-        if (this.options.enableValidation && buffer.byteLength !== expectedSize) {
-            console.error('TransferableBufferPool: Returned buffer size mismatch. Expected:', expectedSize, 'Got:', buffer.byteLength);
-            this.stats.validationFailures++;
-            return false;
-        }
         
         // Find buffer by ID for proper lifecycle tracking
         let targetIndex = -1;
@@ -208,14 +185,7 @@ class TransferableBufferPool {
             if (!this.availableIndices.includes(targetIndex)) {
                 this.availableIndices.push(targetIndex);
             }
-            
-            this.stats.returnedBuffers++;
-            
-            // Calculate buffer reuse rate
-            if (this.stats.transferCount > 0) {
-                this.stats.bufferReuseRate = (this.stats.returnedBuffers / this.stats.transferCount) * 100;
-            }
-            
+                        
             // Buffer returned to pool successfully
             return true;
         }
@@ -230,10 +200,6 @@ class TransferableBufferPool {
             acquireCount: this.stats.acquireCount,
             transferCount: this.stats.transferCount,
             poolExhaustedCount: this.stats.poolExhaustedCount,
-            validationFailures: this.stats.validationFailures,
-            returnedBuffers: this.stats.returnedBuffers,
-            bufferReuseRate: this.stats.bufferReuseRate,
-            averageTurnoverTime: this.stats.averageTurnoverTime,
             availableBuffers: this.availableIndices.length,
             inUseBuffers: this.inUseBuffers.size,
             totalBuffers: this.poolSize
