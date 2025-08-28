@@ -33,13 +33,9 @@ impl PitchAnalyzer {
 
         self.analysis_buffer.copy_from_slice(samples);
         
-        let pitch_result = if cfg!(feature = "profiling") {
-            crate::web::profiling::profiled("pitch_detector.analyze", || {
-                self.pitch_detector.analyze(&self.analysis_buffer)
-            })
-        } else {
+        let pitch_result = crate::profile!("pitch_detector.analyze", 
             self.pitch_detector.analyze(&self.analysis_buffer)
-        };
+        );
 
         let pitch_result = pitch_result
             .map_err(|e| format!("Pitch detection failed: {}", e))?;

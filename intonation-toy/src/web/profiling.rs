@@ -40,3 +40,24 @@ where
 {
     f()
 }
+
+/// Macro to conditionally profile code based on the "profiling" feature flag.
+/// When profiling is enabled, wraps the expression with profiling marks.
+/// When disabled, executes the expression directly without overhead.
+///
+/// # Examples
+/// ```
+/// let result = profile!("my_operation", {
+///     expensive_computation()
+/// });
+/// ```
+#[macro_export]
+macro_rules! profile {
+    ($name:expr, $expr:expr) => {
+        if cfg!(feature = "profiling") {
+            crate::web::profiling::profiled($name, || $expr)
+        } else {
+            $expr
+        }
+    };
+}

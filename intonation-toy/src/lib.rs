@@ -2,7 +2,6 @@ use three_d::{Window, WindowSettings, FrameOutput, egui};
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::common::fps_counter::FpsCounter;
-use crate::web::profiling;
 
 pub mod app_config;
 pub mod engine;
@@ -62,16 +61,7 @@ pub async fn start_render_loop(
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
         
-        let engine_data = {
-            #[cfg(feature = "profiling")]
-            {
-                profiled("engine_update", engine.update )
-            }
-            #[cfg(not(feature = "profiling"))]
-            {
-                engine.update()
-            }
-        };
+        let engine_data = profile!("engine_update", engine.update());
         
         {
             let mut user_action_processing = || {
@@ -99,24 +89,10 @@ pub async fn start_render_loop(
                 }
             };
 
-            #[cfg(feature = "profiling")]
-            crate::web::profiling::profiled("user_action_processing", user_action_processing);
-            #[cfg(not(feature = "profiling"))]
-            user_action_processing();
+            profile!("user_action_processing", user_action_processing());
         }
         
-        let model_data = Some({
-            #[cfg(feature = "profiling")]
-            {
-                crate::web::profiling::profiled("model_update", || {
-                    model.update(engine_data.clone())
-                })
-            }
-            #[cfg(not(feature = "profiling"))]
-            {
-                model.update(engine_data.clone())
-            }
-        });
+        let model_data = Some(profile!("model_update", model.update(engine_data.clone())));
         
         #[cfg(all(debug_assertions, not(feature = "profiling")))]
         if let Some(ref mut panel) = debug_panel {

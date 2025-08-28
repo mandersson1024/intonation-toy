@@ -41,7 +41,7 @@ WASM_PACK_NO_OPT=1 wasm-pack build --target web --profiling
 
 **Trunk (e.g., Yew apps):**
 ```bash
-trunk serve --release -- --profile profiling
+trunk serve --release --features profiling
 ```
 In your `index.html` you can also add:
 ```html
