@@ -16,6 +16,75 @@ use {
     engine::platform::{Platform, PlatformValidationResult},
 };
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub async fn start() {
+    #[cfg(debug_assertions)]
+    console_error_panic_hook::set_once();
+
+    crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
+    crate::web::styling::apply_theme();
+
+    {
+        // Bail out if any required API is missing
+
+        let support = Platform::check_feature_support();
+        if support != PlatformValidationResult::AllSupported {
+            crate::common::error_handling::handle_platform_validation_error(support);
+            return;
+        }
+    }
+
+    {
+        // Canvas resizing
+        
+        let resize_canvas_callback = Closure::wrap(Box::new(move || {
+            web::utils::resize_canvas();
+        }) as Box<dyn FnMut()>);
+        
+        web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_canvas_callback.as_ref().unchecked_ref()).unwrap();
+    }
+
+    web::utils::resize_canvas();
+    web::utils::show_first_click_overlay();
+    web::utils::hide_preloader();
+
+    let media_stream = match web::user_media_permission::ask_for_permission().await {
+        Ok(stream) => stream,
+        Err(_) => {
+            crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
+            return;
+        }
+    };
+
+    web::utils::hide_first_click_overlay();
+
+    let engine = match engine::AudioEngine::new(media_stream).await {
+        Ok(engine) => engine,
+        Err(err) => {
+            crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
+            return;
+        }
+    };
+
+    let model = match model::DataModel::new() {
+        Ok(model) => model,
+        Err(err) => {
+            crate::common::error_log!("Failed to create DataModel: {:?}", err);
+            return;
+        }
+    };
+
+    let presenter = match presentation::Presenter::create() {
+        Ok(presenter) => presenter,
+        Err(err) => {
+            crate::common::error_log!("Failed to create Presenter: {:?}", err);
+            return;
+        }
+    };
+    
+    start_render_loop(engine, model, presenter).await;
+}
 
 #[cfg(target_arch = "wasm32")]
 pub async fn start_render_loop(
@@ -136,75 +205,3 @@ use crate::debug::debug_panel::DebugPanel;
         three_d::FrameOutput::default()
     });
 }
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub async fn start() {
-    #[cfg(debug_assertions)]
-    console_error_panic_hook::set_once();
-
-    crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
-    crate::web::styling::apply_theme();
-
-    {
-        // Bail out if any required API is missing
-
-        let support = Platform::check_feature_support();
-        if support != PlatformValidationResult::AllSupported {
-            crate::common::error_handling::handle_platform_validation_error(support);
-            return;
-        }
-    }
-
-    {
-        // Canvas resizing
-        
-        let resize_canvas_callback = Closure::wrap(Box::new(move || {
-            web::utils::resize_canvas();
-        }) as Box<dyn FnMut()>);
-        
-        web_sys::window().unwrap().add_event_listener_with_callback("resize", resize_canvas_callback.as_ref().unchecked_ref()).unwrap();
-    }
-
-    web::utils::resize_canvas();
-    web::utils::show_first_click_overlay();
-    web::utils::hide_preloader();
-
-    let media_stream = match web::user_media_permission::ask_for_permission().await {
-        Ok(stream) => stream,
-        Err(_) => {
-            crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophonePermissionDenied);
-            return;
-        }
-    };
-
-    web::utils::hide_first_click_overlay();
-
-    let engine = match engine::AudioEngine::new(media_stream).await {
-        Ok(engine) => engine,
-        Err(err) => {
-            crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
-            return;
-        }
-    };
-
-    let model = match model::DataModel::new() {
-        Ok(model) => model,
-        Err(err) => {
-            crate::common::error_log!("Failed to create DataModel: {:?}", err);
-            return;
-        }
-    };
-
-    let presenter = match presentation::Presenter::create() {
-        Ok(presenter) => presenter,
-        Err(err) => {
-            crate::common::error_log!("Failed to create Presenter: {:?}", err);
-            return;
-        }
-    };
-    
-    start_render_loop(engine, model, presenter).await;
-}
-
-
