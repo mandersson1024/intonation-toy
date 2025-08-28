@@ -90,24 +90,13 @@ pub async fn start_render_loop(
         let model_data = profile!("model_update", model.update(engine_data.clone()));
         
         #[cfg(all(debug_assertions))]
-        debug_panel.update_data(&engine_data, Some(&model_data));
-        
-        #[cfg(all(debug_assertions))]
-        {
-            let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
-            
-            let performance_metrics = debug::data_types::PerformanceMetrics {
-                fps,
-                memory_usage_mb,
-                memory_usage_percent,
-            };
-            
-            debug_panel.update_debug_data(
-                performance_metrics,
-                engine.get_debug_audioworklet_status(),
-                engine.get_debug_buffer_pool_stats(),
-            );
-        }
+        debug_panel.update_all_data(
+            &engine_data,
+            Some(&model_data),
+            web::performance::get_performance_metrics(fps),
+            engine.get_debug_audioworklet_status(),
+            engine.get_debug_buffer_pool_stats(),
+        );
         
         if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
             presenter_ref.process_data(model_data.clone());

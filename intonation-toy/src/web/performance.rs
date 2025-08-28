@@ -80,3 +80,25 @@ pub fn sample_memory_usage() -> Option<(f64, f64)> {
     
     Some((memory_mb, memory_percent))
 }
+
+/// Get complete performance metrics including FPS and memory usage.
+/// 
+/// # Parameters
+/// 
+/// - `fps`: Current frames per second value
+/// 
+/// # Returns
+/// 
+/// Returns a `PerformanceMetrics` struct containing:
+/// - FPS value
+/// - Memory usage in MB (0.0 if not available)
+/// - Memory usage percentage (0.0 if not available)
+pub fn get_performance_metrics(fps: f64) -> crate::debug::data_types::PerformanceMetrics {
+    let (memory_usage_mb, memory_usage_percent) = sample_memory_usage().unwrap_or((0.0, 0.0));
+    
+    crate::debug::data_types::PerformanceMetrics {
+        fps,
+        memory_usage_mb,
+        memory_usage_percent,
+    }
+}

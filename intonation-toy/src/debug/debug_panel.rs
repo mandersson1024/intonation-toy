@@ -39,21 +39,15 @@ impl DebugPanel {
         }
     }
     
-    pub fn update_data(
+    pub fn update_all_data(
         &mut self,
         engine_result: &crate::common::shared_types::EngineUpdateResult,
         model_result: Option<&crate::common::shared_types::ModelUpdateResult>,
-    ) {
-        self.debug_data.update_from_layers(engine_result, model_result);
-    }
-    
-    /// Update debug-specific data  
-    pub fn update_debug_data(
-        &mut self,
         performance_metrics: crate::debug::data_types::PerformanceMetrics,
         audioworklet_status: Option<crate::debug::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
+        self.debug_data.update_from_layers(engine_result, model_result);
         self.debug_data.update_debug_data(performance_metrics, audioworklet_status, buffer_pool_stats);
     }
     
