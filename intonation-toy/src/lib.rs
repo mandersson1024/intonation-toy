@@ -2,6 +2,7 @@ use three_d::{Window, WindowSettings, FrameOutput, egui};
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::common::fps_counter::FpsCounter;
+use crate::web::profiling;
 
 pub mod app_config;
 pub mod engine;
@@ -47,30 +48,24 @@ pub async fn start_render_loop(
     let mut gui = three_d::GUI::new(&context);
     
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    let mut command_registry = ConsoleCommandRegistry::default();
-    #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    crate::engine::platform::commands::register_platform_commands(&mut command_registry);
-
-    #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    let mut dev_console = egui_dev_console::DevConsole::new(command_registry);
+    let mut dev_console = {
+        let mut command_registry = ConsoleCommandRegistry::default();
+        crate::engine::platform::commands::register_platform_commands(&mut command_registry);
+        egui_dev_console::DevConsole::new(command_registry)
+    };
     
     #[cfg(all(debug_assertions, not(feature = "profiling")))]
-    let mut debug_panel = Some(DebugPanel::new(
-            debug::debug_data::DebugData::new(),
-            presenter.clone(),
-        ));
-
+    let mut debug_panel = Some(DebugPanel::new(presenter.clone()));
     
     let mut fps_counter = FpsCounter::new(30);
+    
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
         
         let engine_data = {
             #[cfg(feature = "profiling")]
             {
-                crate::web::profiling::profiled("engine_update", || {
-                    engine.update()
-                })
+                profiled("engine_update", engine.update )
             }
             #[cfg(not(feature = "profiling"))]
             {

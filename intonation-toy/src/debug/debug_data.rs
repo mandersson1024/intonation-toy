@@ -34,10 +34,6 @@ impl Default for DebugData {
 }
 
 impl DebugData {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn update_from_layers(
         &mut self,
         engine_result: &EngineUpdateResult,

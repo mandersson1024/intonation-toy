@@ -26,11 +26,10 @@ pub struct DebugPanel {
 
 impl DebugPanel {
     pub fn new(
-        debug_data: DebugData,
         presenter: Rc<RefCell<crate::presentation::Presenter>>,
     ) -> Self {
         Self {
-            debug_data,
+            debug_data: DebugData::default(),
             presenter,
             last_metrics_update: 0.0,
             test_signal_enabled: false,
