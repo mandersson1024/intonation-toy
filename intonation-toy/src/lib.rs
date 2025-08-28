@@ -1,7 +1,3 @@
-use three_d::{Window, WindowSettings, FrameOutput, egui};
-use std::rc::Rc;
-use std::cell::RefCell;
-use crate::common::fps_counter::FpsCounter;
 
 pub mod app_config;
 pub mod engine;
@@ -20,23 +16,21 @@ use {
     engine::platform::{Platform, PlatformValidationResult},
 };
 
-#[cfg(all(debug_assertions))]
-use egui_dev_console::ConsoleCommandRegistry;
-
-
-#[cfg(all(debug_assertions))]
-use debug::debug_panel::DebugPanel;
 
 #[cfg(target_arch = "wasm32")]
 pub async fn start_render_loop(
     mut engine: engine::AudioEngine,
     mut model: model::DataModel,
-    presenter: Rc<RefCell<presentation::Presenter>>,
+    presenter: std::rc::Rc<std::cell::RefCell<presentation::Presenter>>,
 ) {
+    use crate::common::fps_counter::FpsCounter;
+    #[cfg(all(debug_assertions))]
+use crate::debug::debug_panel::DebugPanel;
+
     let dpr = web_sys::window().unwrap().device_pixel_ratio();
     let render_size: u32 = if dpr <= 1.0 { app_config::VIEWPORT_RENDER_SIZE } else { app_config::VIEWPORT_RENDER_SIZE_RETINA };
 
-    let window = Window::new(WindowSettings {
+    let window = three_d::Window::new(three_d::WindowSettings {
         title: app_config::WINDOW_TITLE.to_string(),
         max_size: Some((render_size, render_size)),
         ..Default::default()
@@ -48,6 +42,8 @@ pub async fn start_render_loop(
     
     #[cfg(all(debug_assertions))]
     let mut dev_console = {
+        use egui_dev_console::ConsoleCommandRegistry;
+
         let mut command_registry = ConsoleCommandRegistry::default();
         crate::engine::platform::commands::register_platform_commands(&mut command_registry);
         egui_dev_console::DevConsole::new(command_registry)
@@ -64,12 +60,11 @@ pub async fn start_render_loop(
         
         {
             let mut process_user_actions = || {
-                let user_actions = match presenter.try_borrow_mut() {
-                    Ok(mut p) => p.get_user_actions(),
-                    Err(e) => {
-                        debug_assert!(false, "Failed to borrow presenter for user actions: {}", e);
-                        return;
-                    }
+                let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                    presenter_ref.get_user_actions()
+                } else {
+                    debug_assert!(false, "Failed to borrow presenter for user actions");
+                    return;
                 };
                 
                 if !user_actions.has_actions() {
@@ -123,7 +118,7 @@ pub async fn start_render_loop(
             |gui_context| {
                 #[cfg(all(debug_assertions))]
                 {
-                    gui_context.set_visuals(egui::Visuals::dark());
+                    gui_context.set_visuals(three_d::egui::Visuals::dark());
                     
                     dev_console.render(gui_context);
                     debug_panel.render(gui_context, &model_data);
@@ -138,7 +133,7 @@ pub async fn start_render_loop(
         }
         
         let _ = gui.render();
-        FrameOutput::default()
+        three_d::FrameOutput::default()
     });
 }
 
@@ -185,7 +180,7 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let engine = match engine::AudioEngine::create(media_stream).await {
+    let engine = match engine::AudioEngine::new(media_stream).await {
         Ok(engine) => engine,
         Err(err) => {
             crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
@@ -193,7 +188,7 @@ pub async fn start() {
         }
     };
 
-    let model = match model::DataModel::create() {
+    let model = match model::DataModel::new() {
         Ok(model) => model,
         Err(err) => {
             crate::common::error_log!("Failed to create DataModel: {:?}", err);

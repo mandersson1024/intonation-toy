@@ -23,7 +23,6 @@ static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEF
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
-
 #[cfg(target_arch = "wasm32")]
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
@@ -53,8 +52,6 @@ fn slider_position_to_db_display(position: f32) -> String {
         format!("{:.0} dB", db)
     }
 }
-
-
 
 #[cfg(target_arch = "wasm32")]
 pub fn setup_sidebar_controls() {

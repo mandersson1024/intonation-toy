@@ -21,7 +21,6 @@ pub use tuning_lines::TuningLines;
 pub use egui_text_backend::EguiTextBackend;
 pub use user_pitch_line::UserPitchLine;
 
-
 use std::rc::Rc;
 use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
@@ -29,7 +28,6 @@ use crate::common::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNo
 
 #[cfg(target_arch = "wasm32")]
 use crate::web::sidebar_controls::{setup_sidebar_controls, cleanup_sidebar_controls, setup_event_listeners};
-
 
 /// Request to change the tuning system
 #[derive(Debug, Clone, PartialEq)]
@@ -81,7 +79,6 @@ impl PresentationLayerActions {
         !self.tuning_fork_configurations.is_empty()
     }
 }
-
 
 /// Container for all collected debug actions from the presentation layer
 #[cfg(debug_assertions)]
@@ -151,7 +148,6 @@ impl Presenter {
         
         Ok(presenter_rc)
     }
-
 
     /// Update the presentation layer with model data and graphics
     pub fn update(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {

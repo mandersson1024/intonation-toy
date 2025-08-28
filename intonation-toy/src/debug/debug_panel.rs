@@ -38,7 +38,7 @@ impl DebugPanel {
             test_signal_nudge_percent: 0.0,
         }
     }
-    
+
     pub fn update_all_data(
         &mut self,
         engine_result: &crate::common::shared_types::EngineUpdateResult,
@@ -99,7 +99,6 @@ impl DebugPanel {
             });
         });
     }
-    
     
     /// Render AudioWorklet status section (debug-specific data)
     fn render_audioworklet_status_section(&self, ui: &mut Ui) {

@@ -42,7 +42,7 @@ pub struct DataModel {
 }
 
 impl DataModel {
-    pub fn create() -> Result<Self, String> {
+    pub fn new() -> Result<Self, String> {
         Ok(Self {
             tuning_system: TuningSystem::EqualTemperament,
             tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,

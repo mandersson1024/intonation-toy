@@ -65,7 +65,7 @@ impl AudioEngine {
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn create(media_stream: web_sys::MediaStream) -> Result<Self, String> {
+    pub async fn new(media_stream: web_sys::MediaStream) -> Result<Self, String> {
         crate::common::dev_log!("Creating AudioEngine with return-based pattern");
         
         // Create audio context using the new return-based constructor
