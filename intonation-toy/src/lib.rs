@@ -61,7 +61,7 @@ pub async fn start_render_loop(
         ));
 
     
-    let mut fps_counter = FpsCounter::default();
+    let mut fps_counter = FpsCounter::new(30);
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
         

@@ -240,7 +240,7 @@ impl DebugPanel {
         ui.horizontal(|ui| {
             ui.label("FPS:");
             let color = if fps >= 50.0 { Color32::GREEN } else if fps >= 30.0 { Color32::YELLOW } else { Color32::RED };
-            ui.colored_label(color, format!("{:.1}", fps));
+            ui.colored_label(color, format!("{:.0}", fps));
         });
     }
 
