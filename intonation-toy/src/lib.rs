@@ -129,12 +129,12 @@ pub async fn start_render_loop(
             #[cfg(feature = "profiling")]
             {
                 crate::web::profiling::profiled("model_update", || {
-                    model.update(timestamp, engine_data.clone())
+                    model.update(engine_data.clone())
                 })
             }
             #[cfg(not(feature = "profiling"))]
             {
-                model.update(timestamp, engine_data.clone())
+                model.update(engine_data.clone())
             }
         });
         
@@ -176,7 +176,7 @@ pub async fn start_render_loop(
         
         if let Some(data) = &model_data {
             if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.process_data(timestamp, data.clone());
+                presenter_ref.process_data(data.clone());
                 presenter_ref.update_graphics(frame_input.viewport, data);
             }
         }

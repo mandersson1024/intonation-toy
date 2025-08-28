@@ -52,7 +52,7 @@ impl DataModel {
         })
     }
 
-    pub fn update(&mut self, _timestamp: f64, engine_data: EngineUpdateResult) -> ModelUpdateResult {
+    pub fn update(&mut self, engine_data: EngineUpdateResult) -> ModelUpdateResult {
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
             let volume = Volume {
                 peak_amplitude: audio_analysis.volume_level.peak_amplitude,

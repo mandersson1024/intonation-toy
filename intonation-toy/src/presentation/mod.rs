@@ -170,7 +170,7 @@ impl Presenter {
     }
 
     /// Update the presentation layer with model data
-    pub fn process_data(&mut self, _timestamp: f64, model_data: ModelUpdateResult) {
+    pub fn process_data(&mut self, model_data: ModelUpdateResult) {
         self.process_error_states(&model_data.errors);
         self.process_tuning_system(&model_data.tuning_system);
         self.sync_sidebar_ui(&model_data);
