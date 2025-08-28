@@ -64,7 +64,6 @@ impl DebugData {
                     Some(PitchData {
                         frequency: *frequency,
                         clarity: *clarity,
-                        timestamp: analysis.timestamp,
                     })
                 },
                 crate::common::shared_types::Pitch::NotDetected => None,

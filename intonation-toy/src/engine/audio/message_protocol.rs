@@ -1,7 +1,6 @@
 // Type-safe message protocol for AudioWorklet communication
 
 use crate::engine::audio::signal_generator::SignalGeneratorConfig;
-use crate::common::utils;
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -32,7 +31,6 @@ pub struct AudioDataBatch {
     pub sample_rate: u32,
     pub sample_count: usize,
     pub buffer_length: usize,
-    pub timestamp: f64,
     pub sequence_number: Option<u32>,
     pub buffer_id: Option<u32>,
     pub buffer_pool_stats: Option<BufferPoolStats>,
@@ -133,7 +131,6 @@ pub struct SystemState {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MessageEnvelope<T> {
     pub message_id: u32,
-    pub timestamp: f64,
     pub payload: T,
 }
 
@@ -144,16 +141,12 @@ impl<T> MessageEnvelope<T> {
     pub fn new(payload: T) -> Self {
         Self {
             message_id: generate_unique_message_id(),
-            timestamp: get_current_timestamp(),
             payload,
         }
     }
     
 }
 
-fn get_current_timestamp() -> f64 {
-    js_sys::Date::now()
-}
 
 pub type SerializationResult<T> = Result<T, SerializationError>;
 
@@ -228,7 +221,6 @@ impl MessageSerializer {
         let obj = Object::new();
         
         self.set_property(&obj, "messageId", &envelope.message_id.into())?;
-        self.set_property(&obj, "timestamp", &envelope.timestamp.into())?;
         
         let payload_obj = envelope.payload.to_js_object()?;
         self.set_property(&obj, "payload", &payload_obj.into())?;
@@ -449,8 +441,6 @@ impl ToJsMessage for AudioDataBatch {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleCount: {:?}", e)))?;
         Reflect::set(&obj, &"bufferLength".into(), &(self.buffer_length as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set bufferLength: {:?}", e)))?;
-        Reflect::set(&obj, &"timestamp".into(), &self.timestamp.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set timestamp: {:?}", e)))?;
         
         if let Some(seq_num) = self.sequence_number {
             Reflect::set(&obj, &"sequenceNumber".into(), &(seq_num as f64).into())
@@ -488,7 +478,6 @@ impl FromJsMessage for AudioDataBatch {
             sample_rate: get_num("sampleRate")? as u32,
             sample_count: get_num("sampleCount")? as usize,
             buffer_length: get_num("bufferLength")? as usize,
-            timestamp: get_num("timestamp")?,
             sequence_number: get_optional!(obj, "sequenceNumber", |v: JsValue| 
                 v.as_f64().ok_or_else(|| SerializationError::InvalidPropertyType("sequenceNumber must be number".to_string())).map(|n| n as u32)),
             buffer_id: get_optional!(obj, "bufferId", |v: JsValue|
@@ -512,9 +501,6 @@ impl MessageValidator for AudioDataBatch {
         }
         if self.buffer_length == 0 {
             return Err(SerializationError::ValidationFailed("buffer_length cannot be zero".to_string()));
-        }
-        if self.timestamp < 0.0 {
-            return Err(SerializationError::ValidationFailed("timestamp cannot be negative".to_string()));
         }
         Ok(())
     }
@@ -1089,11 +1075,6 @@ pub fn generate_unique_message_id() -> u32 {
     MESSAGE_ID_GENERATOR.with(|generator| generator.next_id())
 }
 
-pub fn get_high_resolution_timestamp() -> f64 {
-    utils::get_high_resolution_time()
-}
-
-
 impl ToWorkletMessage {
     pub fn start_processing() -> Self {
         Self::StartProcessing
@@ -1171,7 +1152,6 @@ impl AudioWorkletMessageFactory {
     fn create_envelope<T>(&self, message: T) -> MessageEnvelope<T> {
         MessageEnvelope {
             message_id: self.generate_id(),
-            timestamp: get_high_resolution_timestamp(),
             payload: message,
         }
     }

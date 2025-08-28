@@ -378,11 +378,6 @@ impl AudioWorkletManager {
             .ok_or("messageId must be number")?
             as u32;
             
-        let timestamp = js_sys::Reflect::get(obj, &"timestamp".into())
-            .map_err(|e| format!("Failed to get timestamp: {:?}", e))?
-            .as_f64()
-            .ok_or("timestamp must be number")?;
-            
         let payload_obj = js_sys::Reflect::get(obj, &"payload".into())
             .map_err(|e| format!("Failed to get payload: {:?}", e))?
             .dyn_into::<js_sys::Object>()
@@ -394,7 +389,6 @@ impl AudioWorkletManager {
         
         Ok(MessageEnvelope {
             message_id,
-            timestamp,
             payload,
         })
     }

@@ -112,15 +112,11 @@ impl AudioEngine {
         })
     }
 
-    /// Update the engine layer with a new timestamp
+    /// Update the engine layer
     /// 
     /// This method is called by the main render loop to update the engine's state.
     /// It processes raw audio data and returns uninterpreted audio analysis for
     /// the model layer to handle musical interpretation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `timestamp` - The current timestamp in seconds since application start
     /// 
     /// # Returns
     /// 
@@ -131,7 +127,7 @@ impl AudioEngine {
     /// 
     /// Note: All musical interpretation (tuning systems, intervals, pitch relationships)
     /// is handled by the model layer that processes this raw data.
-    pub fn update(&mut self, timestamp: f64) -> EngineUpdateResult {
+    pub fn update(&mut self) -> EngineUpdateResult {
         let Some(ref context) = self.audio_context else {
             return EngineUpdateResult {
                 audio_analysis: None,
@@ -142,7 +138,7 @@ impl AudioEngine {
         
         let borrowed_context = context.borrow();
         EngineUpdateResult {
-            audio_analysis: borrowed_context.collect_audio_analysis(timestamp),
+            audio_analysis: borrowed_context.collect_audio_analysis(),
             audio_errors: borrowed_context.collect_audio_errors(),
             permission_state: borrowed_context.collect_permission_state(),
         }

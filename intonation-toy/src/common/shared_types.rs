@@ -296,7 +296,6 @@ pub struct AudioAnalysis {
     pub volume_level: Volume,
     pub pitch: Pitch,
     pub fft_data: Option<Vec<f32>>, // roadmap
-    pub timestamp: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

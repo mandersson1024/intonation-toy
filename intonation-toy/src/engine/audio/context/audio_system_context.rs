@@ -146,7 +146,7 @@ impl AudioSystemContext {
     }
 
 
-    pub fn collect_audio_analysis(&self, timestamp: f64) -> Option<crate::common::shared_types::AudioAnalysis> {
+    pub fn collect_audio_analysis(&self) -> Option<crate::common::shared_types::AudioAnalysis> {
         if !self.is_initialized {
             return None;
         }
@@ -175,7 +175,6 @@ impl AudioSystemContext {
             volume_level: volume.unwrap_or(Volume { peak_amplitude: 0.0, rms_amplitude: 0.0 }),
             pitch: pitch.unwrap_or(Pitch::NotDetected),
             fft_data,
-            timestamp: timestamp.max(js_sys::Date::now()),
         })
     }
 

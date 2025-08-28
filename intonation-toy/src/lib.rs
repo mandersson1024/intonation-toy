@@ -74,18 +74,16 @@ pub async fn start_render_loop(
             last_fps_update = current_time;
         }
         
-        let timestamp = current_time / 1000.0;
-        
         let engine_data = {
             #[cfg(feature = "profiling")]
             {
                 crate::web::profiling::profiled("engine_update", || {
-                    engine.update(timestamp)
+                    engine.update()
                 })
             }
             #[cfg(not(feature = "profiling"))]
             {
-                engine.update(timestamp)
+                engine.update()
             }
         };
         
