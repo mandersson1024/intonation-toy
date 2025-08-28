@@ -54,7 +54,7 @@ pub async fn start_render_loop(
     };
     
     #[cfg(all(debug_assertions))]
-    let mut debug_panel = Some(DebugPanel::new(presenter.clone()));
+    let mut debug_panel = DebugPanel::new(presenter.clone());
     
     let mut fps_counter = FpsCounter::new(30);
     
@@ -87,15 +87,13 @@ pub async fn start_render_loop(
             profile!("process_user_actions", process_user_actions());
         }
         
-        let model_data = Some(profile!("model_update", model.update(engine_data.clone())));
+        let model_data = profile!("model_update", model.update(engine_data.clone()));
         
         #[cfg(all(debug_assertions))]
-        if let Some(ref mut panel) = debug_panel {
-            panel.update_data(&engine_data, model_data.as_ref());
-        }
+        debug_panel.update_data(&engine_data, Some(&model_data));
         
         #[cfg(all(debug_assertions))]
-        if let Some(ref mut panel) = debug_panel {
+        {
             let (memory_usage_mb, memory_usage_percent) = web::performance::sample_memory_usage().unwrap_or((0.0, 0.0));
             
             let performance_metrics = debug::data_types::PerformanceMetrics {
@@ -118,18 +116,16 @@ pub async fn start_render_loop(
                 (status, stats)
             };
             
-            panel.update_debug_data(
+            debug_panel.update_debug_data(
                 Some(performance_metrics),
                 audioworklet_status,
                 buffer_pool_stats,
             );
         }
         
-        if let Some(data) = &model_data {
-            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.process_data(data.clone());
-                presenter_ref.update_graphics(frame_input.viewport, data);
-            }
+        if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+            presenter_ref.process_data(model_data.clone());
+            presenter_ref.update_graphics(frame_input.viewport, &model_data);
         }
         
         #[cfg(debug_assertions)]
@@ -156,19 +152,15 @@ pub async fn start_render_loop(
                     gui_context.set_visuals(egui::Visuals::dark());
                     
                     dev_console.render(gui_context);
-                    if let (Some(panel), Some(data)) = (&mut debug_panel, &model_data) {
-                        panel.render(gui_context, data);
-                    }
+                    debug_panel.render(gui_context, &model_data);
                 }
             }
         );
         
         let mut screen = frame_input.screen();
         
-        if let Some(data) = &model_data {
-            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-                presenter_ref.render(&context, &mut screen, data);
-            }
+        if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+            presenter_ref.render(&context, &mut screen, &model_data);
         }
         
         let _ = gui.render();
