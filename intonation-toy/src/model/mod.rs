@@ -6,16 +6,8 @@ use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ValidationError {
-    TuningSystemAlreadyActive(TuningSystem),
-    TuningForkNoteAlreadySet(MidiNote),
-    InvalidFrequency(f32),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct ProcessedActions {
     pub actions: ModelLayerActions,
-    pub validation_errors: Vec<ValidationError>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,12 +121,9 @@ impl DataModel {
     
     pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
         let mut model_actions = ModelLayerActions::default();
-        let mut validation_errors = Vec::new();
         
         for tuning_change in presentation_actions.tuning_system_changes {
-            if tuning_change.tuning_system == self.tuning_system {
-                validation_errors.push(ValidationError::TuningSystemAlreadyActive(tuning_change.tuning_system));
-            } else {
+            if tuning_change.tuning_system != self.tuning_system {
                 crate::common::dev_log!(
                     "Model layer: Tuning system changed from {:?} to {:?}",
                     self.tuning_system, tuning_change.tuning_system
@@ -146,9 +135,7 @@ impl DataModel {
         
         for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
             let midi_note = tuning_fork_adjustment.note;
-            if midi_note == self.tuning_fork_note {
-                validation_errors.push(ValidationError::TuningForkNoteAlreadySet(midi_note));
-            } else {
+            if midi_note != self.tuning_fork_note {
                 crate::common::dev_log!(
                     "Model layer: Tuning fork changed from {} to {}",
                     self.tuning_fork_note, midi_note
@@ -172,11 +159,7 @@ impl DataModel {
         for tuning_fork_config in presentation_actions.tuning_fork_configurations {
             crate::common::dev_log!("MODEL: Processing tuning fork audio config");
             
-            if tuning_fork_config.frequency <= 0.0 {
-                let error = ValidationError::InvalidFrequency(tuning_fork_config.frequency);
-                crate::common::warn_log!("Tuning fork audio configuration validation failed: {:?}", error);
-                validation_errors.push(error);
-            } else {
+            if tuning_fork_config.frequency > 0.0 {
                 model_actions.tuning_fork_configurations.push(
                     ConfigureTuningForkAction {
                         frequency: tuning_fork_config.frequency,
@@ -184,10 +167,12 @@ impl DataModel {
                     }
                 );
                 crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
+            } else {
+                crate::common::warn_log!("Tuning fork audio configuration validation failed: Invalid frequency {}", tuning_fork_config.frequency);
             }
         }
         
-        ProcessedActions { actions: model_actions, validation_errors }
+        ProcessedActions { actions: model_actions }
     }
 
     fn reset_smoothers(&mut self) {

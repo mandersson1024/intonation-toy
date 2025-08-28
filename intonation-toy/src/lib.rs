@@ -92,10 +92,6 @@ pub async fn start_render_loop(
                 if has_user_actions {
                     let processed_actions = model.process_user_actions(user_actions);
                     
-                    for error in &processed_actions.validation_errors {
-                        dev_log!("Action validation error: {:?}", error);
-                    }
-                    
                     let has_model_actions = !processed_actions.actions.tuning_system_changes.is_empty() ||
                                            !processed_actions.actions.tuning_fork_note_changes.is_empty() ||
                                            !processed_actions.actions.tuning_fork_configurations.is_empty();
