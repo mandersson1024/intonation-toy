@@ -99,8 +99,7 @@ pub async fn start_render_loop(
         );
         
         if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-            presenter_ref.process_data(model_data.clone());
-            presenter_ref.update_graphics(frame_input.viewport, &model_data);
+            presenter_ref.update(frame_input.viewport, &model_data);
         }
         
         #[cfg(debug_assertions)]

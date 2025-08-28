@@ -153,7 +153,13 @@ impl Presenter {
     }
 
 
-    pub fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
+    /// Update the presentation layer with model data and graphics
+    pub fn update(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
+        self.process_data(model_data);
+        self.update_graphics(viewport, model_data);
+    }
+
+    fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
         let (pitch_detected, clarity) = match model_data.pitch {
             Pitch::Detected(_, clarity_value) => (true, Some(clarity_value)),
             Pitch::NotDetected => (false, None),
@@ -180,10 +186,10 @@ impl Presenter {
     }
 
     /// Update the presentation layer with model data
-    pub fn process_data(&mut self, model_data: ModelUpdateResult) {
+    fn process_data(&mut self, model_data: &ModelUpdateResult) {
         self.process_error_states(&model_data.errors);
         self.process_tuning_system(&model_data.tuning_system);
-        self.sync_sidebar_ui(&model_data);
+        self.sync_sidebar_ui(model_data);
         
         self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.tuning_fork_note);
     }
