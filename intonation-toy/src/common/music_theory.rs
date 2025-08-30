@@ -1,4 +1,5 @@
-use crate::common::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale};
+use crate::common::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale, is_valid_midi_note};
+use crate::common::warn_log;
 
 /// Represents an interval as a base semitone with cents deviation
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -194,4 +195,35 @@ pub fn frequency_to_interval_semitones_scale_aware(
     }
 }
 
+/// Convert a frequency to the closest MIDI note and cents offset
+/// 
+/// Takes into account the tuning system, tuning fork note, and current scale.
+/// Returns None if the frequency is invalid or the resulting MIDI note is out of range.
+pub fn frequency_to_midi_note_and_cents(
+    frequency: f32,
+    tuning_fork_note: MidiNote,
+    tuning_system: TuningSystem,
+    current_scale: Scale,
+) -> Option<(MidiNote, f32)> {
+    if frequency <= 0.0 {
+        warn_log!("[MUSIC_THEORY] Invalid frequency for note conversion: {}", frequency);
+        return None;
+    }
+    
+    let root_pitch = midi_note_to_standard_frequency(tuning_fork_note);
+    let interval_result = frequency_to_interval_semitones_scale_aware(
+        tuning_system,
+        root_pitch,
+        frequency,
+        current_scale,
+    );
+    
+    let midi_note = tuning_fork_note as i32 + interval_result.semitones;
+    
+    if !is_valid_midi_note(midi_note) {
+        return None;
+    }
+    
+    Some((midi_note as u8, interval_result.cents))
+}
 

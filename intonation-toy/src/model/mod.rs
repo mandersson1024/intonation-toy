@@ -1,9 +1,8 @@
 //! Model layer - processes audio data and validates user actions
 
-use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, TuningSystem, Scale, MidiNote, is_valid_midi_note};
+use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, TuningSystem, Scale, MidiNote};
 use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
-use crate::common::warn_log;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningForkAction {
@@ -84,16 +83,22 @@ impl DataModel {
         
         let is_peaking = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
-        let (closest_midi_note, cents_offset, interval_semitones) = match pitch {
-            Pitch::Detected(frequency, _) => {
-                if let Some((midi_note, cents)) = self.frequency_to_midi_note_and_cents(frequency) {
-                    let interval = (midi_note as i32) - (self.tuning_fork_note as i32);
-                    (Some(midi_note), cents, interval)
-                } else {
-                    (None, 0.0, 0)
-                }
+        let midi_note_result = match pitch {
+            Pitch::Detected(frequency, _) => crate::common::music_theory::frequency_to_midi_note_and_cents(
+                frequency,
+                self.tuning_fork_note,
+                self.tuning_system,
+                self.current_scale,
+            ),
+            _ => None,
+        };
+
+        let (closest_midi_note, cents_offset, interval_semitones) = match midi_note_result {
+            Some((midi_note, cents)) => {
+                let interval = (midi_note as i32) - (self.tuning_fork_note as i32);
+                (Some(midi_note), cents, interval)
             }
-            _ => (None, 0.0, 0)
+            None => (None, 0.0, 0),
         };
 
         ModelUpdateResult {
@@ -135,9 +140,6 @@ impl DataModel {
         }
         
         if let Some(tuning_fork_config) = &presentation_actions.tuning_fork_configuration {
-            crate::common::dev_log!("MODEL: Processing tuning fork config - note: {}, volume: {}", 
-                                  tuning_fork_config.note, tuning_fork_config.volume);
-            
             if tuning_fork_config.note != self.tuning_fork_note {
                 crate::common::dev_log!(
                     "Model layer: Tuning fork changed from {} to {}",
@@ -161,29 +163,6 @@ impl DataModel {
         self.last_detected_pitch = None;
         self.frequency_smoother.reset();
         self.clarity_smoother.reset();
-    }
-    
-    fn frequency_to_midi_note_and_cents(&self, frequency: f32) -> Option<(MidiNote, f32)> {
-        if frequency <= 0.0 {
-            warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
-            return None;
-        }
-        
-        let root_pitch = crate::common::music_theory::midi_note_to_standard_frequency(self.tuning_fork_note);
-        let interval_result = crate::common::music_theory::frequency_to_interval_semitones_scale_aware(
-            self.tuning_system,
-            root_pitch,
-            frequency,
-            self.current_scale,
-        );
-        
-        let midi_note = self.tuning_fork_note as i32 + interval_result.semitones;
-        
-        if !is_valid_midi_note(midi_note) {
-            return None;
-        }
-        
-        Some((midi_note as u8, interval_result.cents))
     }
     
 }
