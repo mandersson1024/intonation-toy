@@ -11,6 +11,78 @@ pub struct AudioSystemContext {
 }
 
 impl AudioSystemContext {
+    
+    pub async fn create_with_external_context(audio_context: web_sys::AudioContext, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
+        let mut result = Self {
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
+            audioworklet_manager: None,
+            pitch_analyzer: None,
+            is_initialized: false,
+            initialization_error: None,
+            permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
+        };
+        
+        result.audio_context_manager.borrow_mut().attach_existing_context(audio_context.clone())
+            .map_err(|e| {
+                let error_msg = format!("Failed to attach existing AudioContext: {}", e);
+                dev_log!("✗ {}", error_msg);
+                result.initialization_error = Some(error_msg.clone());
+                error_msg
+            })?;
+        dev_log!("✓ AudioContextManager attached with external context");
+
+        let worklet_manager = super::super::worklet::AudioWorkletManager::new_with_existing_node(&audio_context, worklet_node);
+        result.audioworklet_manager = Some(worklet_manager);
+        dev_log!("✓ AudioWorkletManager created with existing components");
+
+        let config = super::super::pitch_detector::PitchDetectorConfig::default();
+        let sample_rate = audio_context.sample_rate() as u32;
+        
+        if sample_rate != crate::app_config::STANDARD_SAMPLE_RATE {
+            dev_log!("⚠ Audio context sample rate ({} Hz) differs from standard rate ({} Hz)", 
+                sample_rate, crate::app_config::STANDARD_SAMPLE_RATE);
+        }
+        
+        let analyzer = super::super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
+            .map_err(|e| {
+                let error_msg = format!("Failed to initialize PitchAnalyzer: {}", e);
+                dev_log!("✗ {}", error_msg);
+                result.initialization_error = Some(error_msg.clone());
+                error_msg
+            })?;
+        
+        let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
+        result.pitch_analyzer = Some(analyzer_rc.clone());
+        
+        if let Some(ref mut worklet_manager) = result.audioworklet_manager {
+            worklet_manager.set_pitch_analyzer(analyzer_rc);
+            dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
+        }
+        dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
+
+        let volume_detector = super::super::volume_detector::VolumeDetector::new(&audio_context)
+            .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
+        
+        if let Some(ref mut worklet_manager) = result.audioworklet_manager {
+            worklet_manager.set_volume_detector(volume_detector);
+            worklet_manager.setup_message_handling()
+                .map_err(|e| {
+                    let error_msg = format!("Failed to setup message handling: {:?}", e);
+                    dev_log!("✗ {}", error_msg);
+                    result.initialization_error = Some(error_msg.clone());
+                    error_msg
+                })?;
+        }
+        
+        dev_log!("✓ VolumeDetector initialized and configured");
+
+        super::super::set_global_audio_context_manager(result.audio_context_manager.clone());
+        dev_log!("✓ AudioContextManager stored globally for device change callbacks");
+
+        result.is_initialized = true;
+        dev_log!("✓ AudioSystemContext fully initialized with external components");
+        Ok(result)
+    }
 
     pub async fn create() -> Result<Self, String> {
         let mut result = Self {
