@@ -18,13 +18,13 @@ pub struct ConfigureTuningForkAction {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModelLayerActions {
-    pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
+    pub tuning_fork_configuration: Option<ConfigureTuningForkAction>,
 }
 
 impl ModelLayerActions {
     /// Check if there are any actions to process
     pub fn has_actions(&self) -> bool {
-        !self.tuning_fork_configurations.is_empty()
+        self.tuning_fork_configuration.is_some()
     }
 }
 
@@ -158,12 +158,12 @@ impl DataModel {
             }
         }
         
-        crate::common::dev_log!("MODEL: Processing {} tuning fork audio configurations", presentation_actions.tuning_fork_configurations.len());
-        for tuning_fork_config in presentation_actions.tuning_fork_configurations {
+        // Only use the last tuning fork configuration if there are any
+        if let Some(tuning_fork_config) = presentation_actions.tuning_fork_configurations.last() {
             crate::common::dev_log!("MODEL: Processing tuning fork audio config");
             
             if tuning_fork_config.frequency > 0.0 {
-                model_actions.tuning_fork_configurations.push(
+                model_actions.tuning_fork_configuration = Some(
                     ConfigureTuningForkAction {
                         frequency: tuning_fork_config.frequency,
                         volume: tuning_fork_config.volume,

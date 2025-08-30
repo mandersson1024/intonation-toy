@@ -141,16 +141,8 @@ use crate::debug::debug_panel::DebugPanel;
                     return;
                 };
                 
-                if !user_actions.has_actions() {
-                    return;
-                }
-                
                 let processed_actions = model.process_user_actions(user_actions);         
-                if processed_actions.actions.has_actions() {
-                    if let Err(e) = engine.execute_actions(processed_actions.actions) {
-                        debug_assert!(false, "✗ Action execution failed: {}", e);
-                    }
-                }
+                engine.execute_actions(processed_actions.actions);
             };
 
             profile!("process_user_actions", process_user_actions());
