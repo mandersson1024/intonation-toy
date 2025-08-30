@@ -18,16 +18,12 @@ pub struct ConfigureTuningForkAction {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModelLayerActions {
-    pub tuning_system_changes: Vec<TuningSystem>,
-    pub tuning_fork_note_changes: Vec<MidiNote>,
     pub tuning_fork_configurations: Vec<ConfigureTuningForkAction>,
 }
 
 impl ModelLayerActions {
     /// Check if there are any actions to process
     pub fn has_actions(&self) -> bool {
-        !self.tuning_system_changes.is_empty() ||
-        !self.tuning_fork_note_changes.is_empty() ||
         !self.tuning_fork_configurations.is_empty()
     }
 }
@@ -138,7 +134,6 @@ impl DataModel {
                     self.tuning_system, tuning_change.tuning_system
                 );
                 self.tuning_system = tuning_change.tuning_system;
-                model_actions.tuning_system_changes.push(tuning_change.tuning_system);
             }
         }
         
@@ -150,7 +145,6 @@ impl DataModel {
                     self.tuning_fork_note, midi_note
                 );
                 self.tuning_fork_note = midi_note;
-                model_actions.tuning_fork_note_changes.push(midi_note);
             }
         }
         
