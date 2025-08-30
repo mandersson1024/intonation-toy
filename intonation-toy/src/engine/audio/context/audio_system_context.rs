@@ -178,7 +178,8 @@ impl AudioSystemContext {
             if !context_manager.is_running() {
                 let error_msg = match context_manager.state() {
                     AudioContextState::Closed => Some("AudioContext is closed"),
-                    AudioContextState::Suspended => Some("AudioContext is suspended"),
+                    // Suspended is a normal state before user interaction, not an error
+                    AudioContextState::Suspended => None,
                     _ => None,
                 };
                 if let Some(msg) = error_msg {
