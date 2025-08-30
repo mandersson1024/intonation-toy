@@ -141,8 +141,8 @@ use crate::debug::debug_panel::DebugPanel;
                     return;
                 };
                 
-                let processed_actions = model.process_user_actions(user_actions);         
-                engine.execute_actions(processed_actions.actions);
+                let model_actions = model.process_user_actions(user_actions);         
+                engine.execute_actions(model_actions);
             };
 
             profile!("process_user_actions", process_user_actions());

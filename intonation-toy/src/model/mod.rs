@@ -6,11 +6,6 @@ use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ProcessedActions {
-    pub actions: ModelLayerActions,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningForkAction {
     pub frequency: f32,
     pub volume: f32,
@@ -124,7 +119,7 @@ impl DataModel {
         }
     }
     
-    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ProcessedActions {
+    pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ModelLayerActions {
         let mut model_actions = ModelLayerActions::default();
         
         for tuning_change in presentation_actions.tuning_system_changes {
@@ -175,7 +170,7 @@ impl DataModel {
             }
         }
         
-        ProcessedActions { actions: model_actions }
+        model_actions
     }
 
     fn reset_smoothers(&mut self) {
