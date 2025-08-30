@@ -32,17 +32,20 @@ pub struct DataModel {
     last_detected_pitch: Option<(f32, f32)>,
 }
 
-impl DataModel {
-    pub fn new() -> Result<Self, String> {
-        Ok(Self {
+impl Default for DataModel {
+    fn default() -> Self {
+        Self {
             tuning_system: TuningSystem::EqualTemperament,
             tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
             frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
             clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
             last_detected_pitch: None,
-        })
+        }
     }
+}
+
+impl DataModel {
 
     pub fn update(&mut self, engine_data: EngineUpdateResult) -> ModelUpdateResult {
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {

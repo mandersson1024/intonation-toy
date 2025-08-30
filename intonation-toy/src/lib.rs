@@ -68,13 +68,7 @@ pub async fn start() {
         }
     };
 
-    let model = match model::DataModel::new() {
-        Ok(model) => model,
-        Err(err) => {
-            crate::common::error_log!("Failed to create DataModel: {:?}", err);
-            return;
-        }
-    };
+    let model = model::DataModel::default();
 
     let presenter = match presentation::Presenter::create() {
         Ok(presenter) => presenter,
