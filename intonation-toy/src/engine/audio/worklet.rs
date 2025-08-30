@@ -15,10 +15,10 @@ use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::{AUDIO_CHUNK_SIZE, STANDARD_SAMPLE_RATE};
 
-/// Load AudioWorklet early in application startup process
+/// Create AudioContext and load AudioWorklet module during application startup
 /// 
 /// Creates an AudioContext with standard sample rate and loads the AudioWorklet module.
-/// Returns both the AudioContext and AudioWorkletNode for use by the application.
+/// Returns only the AudioContext - AudioWorkletNode creation is handled separately by the engine.
 /// 
 /// This function is independent of AudioWorkletManager and can be called during
 /// application initialization to preload the worklet module and create the necessary
@@ -26,16 +26,16 @@ use crate::app_config::{AUDIO_CHUNK_SIZE, STANDARD_SAMPLE_RATE};
 /// 
 /// # Returns
 /// 
-/// Returns `Result<(AudioContext, AudioWorkletNode), String>` where:
-/// - On success: tuple containing the created AudioContext and AudioWorkletNode
+/// Returns `Result<AudioContext, String>` where:
+/// - On success: AudioContext with worklet module loaded
 /// - On error: String describing what went wrong
 /// 
 /// # Example
 /// 
 /// ```rust
-/// let (context, worklet_node) = load_worklet_early().await?;
+/// let context = create_audio_context_and_load_worklet().await?;
 /// ```
-pub async fn load_worklet_early() -> Result<(AudioContext, AudioWorkletNode), String> {
+pub async fn create_audio_context_and_load_worklet() -> Result<AudioContext, String> {
     dev_log!("Loading AudioWorklet early in application startup");
     
     // Create AudioContext with standard sample rate
@@ -61,25 +61,7 @@ pub async fn load_worklet_early() -> Result<(AudioContext, AudioWorkletNode), St
     
     dev_log!("✓ AudioWorklet processor module loaded successfully");
     
-    // Create AudioWorkletNode with default options
-    let options = AudioWorkletNodeOptions::new();
-    options.set_number_of_inputs(1);
-    options.set_number_of_outputs(1);
-    
-    // Set channel configuration
-    let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
-    options.set_channel_count(1);
-    options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
-    options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
-    options.set_output_channel_count(&output_channels);
-    
-    // Create the AudioWorkletNode with the registered processor
-    let worklet_node = AudioWorkletNode::new_with_options(&audio_context, "pitch-processor", &options)
-        .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
-    
-    dev_log!("✓ AudioWorkletNode created successfully");
-    
-    Ok((audio_context, worklet_node))
+    Ok(audio_context)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,17 +197,16 @@ impl AudioWorkletManager {
     
     /// Creates a new AudioWorkletManager with pre-created AudioContext and AudioWorkletNode.
     /// 
-    /// This constructor is designed for use with `load_worklet_early()` to bypass the expensive
-    /// AudioContext creation and worklet loading steps. It creates a manager with existing
+    /// This constructor is designed for use with pre-created AudioContext and AudioWorkletNode
+    /// to bypass the expensive AudioContext creation and worklet loading steps. It creates a manager with existing
     /// components and sets the state to Ready since the node is already created.
     /// 
     /// # Parameters
-    /// - `context`: Pre-created AudioContext from `load_worklet_early()`
-    /// - `worklet_node`: Pre-created AudioWorkletNode from `load_worklet_early()`
+    /// - `context`: Pre-created AudioContext
+    /// - `worklet_node`: Pre-created AudioWorkletNode
     /// 
     /// # Example
     /// ```
-    /// let (context, node) = load_worklet_early().await?;
     /// let worklet_manager = AudioWorkletManager::new_with_existing_node(&context, node);
     /// ```
     pub fn new_with_existing_node(context: &AudioContext, worklet_node: AudioWorkletNode) -> Self {
@@ -258,7 +239,7 @@ impl AudioWorkletManager {
     
     /// Complete AudioWorklet processor initialization
     /// 
-    /// Since worklets are now loaded early via `load_worklet_early()`, this method
+    /// Since worklets are now loaded early via `create_audio_context_and_load_worklet()`, this method
     /// only handles AudioContext storage and completes the initialization.
     pub async fn initialize(&mut self, context: &AudioContextManager) -> Result<(), AudioError> {
         let audio_context = context.get_context()
@@ -1135,6 +1116,53 @@ impl AudioWorkletManager {
                 }
             }
         }
+    }
+    
+    /// Create AudioWorkletNode with standard configuration
+    /// 
+    /// This method creates an AudioWorkletNode using the same configuration options that were
+    /// previously created in `create_audio_context_and_load_worklet()`. The worklet module must already be loaded
+    /// in the AudioContext before calling this method.
+    /// 
+    /// # Parameters
+    /// - `audio_context`: Reference to the AudioContext with worklet module loaded
+    /// 
+    /// # Returns
+    /// Returns `Result<AudioWorkletNode, String>` where:
+    /// - On success: AudioWorkletNode ready for use
+    /// - On error: String describing what went wrong
+    /// 
+    /// # Example
+    /// ```rust
+    /// let worklet_node = manager.create_worklet_node(&audio_context)?;
+    /// ```
+    pub fn create_worklet_node(&mut self, audio_context: &AudioContext) -> Result<AudioWorkletNode, String> {
+        dev_log!("Creating AudioWorkletNode with standard configuration");
+        
+        // Create AudioWorkletNode with default options
+        let options = AudioWorkletNodeOptions::new();
+        options.set_number_of_inputs(1);
+        options.set_number_of_outputs(1);
+        
+        // Set channel configuration
+        let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
+        options.set_channel_count(1);
+        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
+        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
+        options.set_output_channel_count(&output_channels);
+        
+        // Create the AudioWorkletNode with the registered processor
+        let worklet_node = AudioWorkletNode::new_with_options(audio_context, "pitch-processor", &options)
+            .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
+        
+        dev_log!("✓ AudioWorkletNode created successfully");
+        
+        // Store the node, audio context, and update state
+        self.worklet_node = Some(worklet_node.clone());
+        self.audio_context = Some(audio_context.clone());
+        self.state = AudioWorkletState::Ready;
+        
+        Ok(worklet_node)
     }
 }
 

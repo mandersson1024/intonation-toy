@@ -53,14 +53,14 @@ pub struct AudioEngine {
 impl AudioEngine {
     /// Create a new AudioEngine for raw audio processing
     /// 
-    /// This constructor accepts audio components from `load_worklet_early()`
+    /// This constructor accepts an AudioContext from `create_audio_context_and_load_worklet()`
     /// and sets up all audio processing components (pitch analyzer, volume detector, message handling).
+    /// The AudioWorkletNode is created internally by the engine layer.
     /// 
     /// # Arguments
     /// 
     /// * `media_stream` - The MediaStream to connect to the audio worklet
     /// * `audio_context` - AudioContext from early worklet loading
-    /// * `audio_worklet_node` - AudioWorkletNode from early worklet loading
     /// 
     /// # Returns
     /// 
@@ -68,13 +68,12 @@ impl AudioEngine {
     /// if audio system initialization fails.
     pub async fn new(
         media_stream: web_sys::MediaStream,
-        audio_context: web_sys::AudioContext,
-        audio_worklet_node: web_sys::AudioWorkletNode
+        audio_context: web_sys::AudioContext
     ) -> Result<Self, String> {
         crate::common::dev_log!("Creating AudioEngine with worklet components");
         
-        // Create audio context using provided components
-        let audio_context_obj = match audio::AudioSystemContext::create(audio_context, audio_worklet_node).await {
+        // Create audio context using provided AudioContext
+        let audio_context_obj = match audio::AudioSystemContext::create(audio_context).await {
             Ok(context) => context,
             Err(e) => {
                 crate::common::error_log!("✗ AudioEngine creation failed: {}", e);

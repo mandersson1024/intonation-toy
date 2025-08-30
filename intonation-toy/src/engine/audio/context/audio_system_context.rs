@@ -12,7 +12,7 @@ pub struct AudioSystemContext {
 
 impl AudioSystemContext {
     
-    pub async fn create(audio_context: web_sys::AudioContext, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
+    pub async fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
         let mut result = Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
             audioworklet_manager: None,
@@ -31,9 +31,16 @@ impl AudioSystemContext {
             })?;
         dev_log!("✓ AudioContextManager attached");
 
-        let worklet_manager = super::super::worklet::AudioWorkletManager::new_with_existing_node(&audio_context, worklet_node);
+        let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
+        let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
+            .map_err(|e| {
+                let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
+                dev_log!("✗ {}", error_msg);
+                result.initialization_error = Some(error_msg.clone());
+                error_msg
+            })?;
         result.audioworklet_manager = Some(worklet_manager);
-        dev_log!("✓ AudioWorkletManager created");
+        dev_log!("✓ AudioWorkletManager created with internal node creation");
 
         let config = super::super::pitch_detector::PitchDetectorConfig::default();
         let sample_rate = audio_context.sample_rate() as u32;
