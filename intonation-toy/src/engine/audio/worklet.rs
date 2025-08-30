@@ -8,7 +8,7 @@ use std::fmt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, context::AudioContextManager, data_types::VolumeAnalysis, SignalGeneratorConfig, volume_detector::VolumeDetector};
+use super::{AudioError, data_types::VolumeAnalysis, SignalGeneratorConfig, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
@@ -127,25 +127,6 @@ impl AudioWorkletManager {
             prev_microphone_volume: None,
             prev_output_to_speakers: None,
         }
-    }
-    
-    
-    /// Complete AudioWorklet processor initialization
-    /// 
-    /// Since worklets are now loaded early via `create_audio_context_and_load_worklet()`, this method
-    /// only handles AudioContext storage and completes the initialization.
-    pub async fn initialize(&mut self, context: &AudioContextManager) -> Result<(), AudioError> {
-        let audio_context = context.get_context()
-            .ok_or_else(|| AudioError::Generic("AudioContext not available".to_string()))?;
-        
-        // Store audio context
-        self.audio_context = Some(audio_context.clone());
-        
-        // Set state to Ready since the worklet is already loaded
-        self.state = AudioWorkletState::Ready;
-        dev_log!("✓ AudioWorklet initialization completed");
-        
-        Ok(())
     }
     
     
