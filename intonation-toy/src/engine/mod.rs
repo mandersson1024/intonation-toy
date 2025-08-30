@@ -82,16 +82,11 @@ impl AudioEngine {
         let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
             
             // Connect the media stream to the audio worklet
-            match crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
+            if let Err(e) = crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
                 media_stream,
                 &audio_context_rc
             ) {
-                Ok(_) => {
-                    crate::common::dev_log!("✓ MediaStream successfully connected to engine");
-                }
-                Err(e) => {
-                    crate::common::dev_log!("✗ Failed to connect MediaStream to engine: {}", e);
-                }
+                return Err(format!("MediaStream connection failed: {}", e));
             }
             
             if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
