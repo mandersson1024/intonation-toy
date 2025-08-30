@@ -168,7 +168,6 @@ impl Presenter {
 
     /// Update the presentation layer with model data
     fn process_data(&mut self, model_data: &ModelUpdateResult) {
-        self.process_error_states(&model_data.errors);
         self.process_tuning_system(&model_data.tuning_system);
         self.sync_sidebar_ui(model_data);
         
@@ -244,33 +243,6 @@ impl Presenter {
             renderer.render(screen, viewport);
         } else {
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
-        }
-    }
-    
-    fn process_error_states(&mut self, errors: &Vec<crate::common::shared_types::Error>) {
-        if errors.is_empty() {
-            return;
-        }
-        
-        for error in errors {
-            match error {
-                crate::common::shared_types::Error::MicrophonePermissionDenied => {
-                }
-                crate::common::shared_types::Error::MicrophoneNotAvailable => {
-                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MicrophoneNotAvailable);
-                }
-                crate::common::shared_types::Error::BrowserApiNotSupported => {
-                }
-                crate::common::shared_types::Error::ProcessingError(msg) => {
-                    crate::common::error_log!("🔥 PROCESSING ERROR: {}", msg);
-                }
-                crate::common::shared_types::Error::MobileDeviceNotSupported => {
-                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
-                }
-                crate::common::shared_types::Error::BrowserError => {
-                    crate::web::error_message_box::show_error(&crate::common::shared_types::Error::BrowserError);
-                }
-            }
         }
     }
     

@@ -378,7 +378,6 @@ pub struct ModelUpdateResult {
     pub pitch: Pitch,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
-    pub errors: Vec<Error>,
     pub permission_state: PermissionState,
     pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32,

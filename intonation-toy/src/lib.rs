@@ -88,6 +88,7 @@ pub async fn start_render_loop(
     presenter: std::rc::Rc<std::cell::RefCell<presentation::Presenter>>,
 ) {
     use crate::common::fps_counter::FpsCounter;
+    use crate::common::error_handling::{handle_runtime_errors, ErrorSeverity};
     #[cfg(debug_assertions)]
 use crate::debug::debug_panel::DebugPanel;
 
@@ -125,6 +126,10 @@ use crate::debug::debug_panel::DebugPanel;
     window.render_loop(move |mut frame_input| {
         let fps = fps_counter.update(frame_input.accumulated_time);
         let engine_data = profile!("engine_update", engine.update());
+        
+        if handle_runtime_errors(&engine_data.audio_errors) == ErrorSeverity::Fatal {
+            return three_d::FrameOutput::default();
+        }
         
         {
             let mut process_user_actions = || {

@@ -1,4 +1,47 @@
 use crate::engine::platform::PlatformValidationResult;
+use crate::common::shared_types::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorSeverity {
+    None,
+    Recoverable,
+    Fatal,
+}
+
+/// Handle runtime errors and return the highest severity level encountered
+pub fn handle_runtime_errors(errors: &Vec<Error>) -> ErrorSeverity {
+    for error in errors {
+        match error {
+            Error::MobileDeviceNotSupported => {
+                #[cfg(target_arch = "wasm32")]
+                crate::web::error_message_box::show_error(&Error::MobileDeviceNotSupported);
+                return ErrorSeverity::Fatal;
+            }
+            Error::BrowserApiNotSupported => {
+                return ErrorSeverity::Fatal;
+            }
+            Error::BrowserError => {
+                #[cfg(target_arch = "wasm32")]
+                crate::web::error_message_box::show_error(&Error::BrowserError);
+                return ErrorSeverity::Fatal;
+            }
+            Error::MicrophonePermissionDenied => {
+                return ErrorSeverity::Fatal;
+            }
+            Error::MicrophoneNotAvailable => {
+                #[cfg(target_arch = "wasm32")]
+                crate::web::error_message_box::show_error(&Error::MicrophoneNotAvailable);
+                return ErrorSeverity::Fatal;
+            }
+            Error::ProcessingError(msg) => {
+                crate::common::error_log!("🔥 PROCESSING ERROR: {}", msg);
+                return ErrorSeverity::Recoverable;
+            }
+        };
+    }
+
+    ErrorSeverity::None
+}
 
 pub fn handle_platform_validation_error(result: PlatformValidationResult) {
     match result {
