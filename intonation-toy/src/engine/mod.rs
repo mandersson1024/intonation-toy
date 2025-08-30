@@ -53,23 +53,27 @@ pub struct AudioEngine {
 impl AudioEngine {
     /// Create a new AudioEngine for raw audio processing
     /// 
-    /// This constructor initializes the audio processing system for raw audio
-    /// analysis. The engine provides frequency and amplitude data to the model
-    /// layer for musical interpretation.
+    /// This constructor accepts an AudioContext from `create_audio_context_and_load_worklet()`
+    /// and sets up all audio processing components (pitch analyzer, volume detector, message handling).
+    /// The AudioWorkletNode is created internally by the engine layer.
     /// 
     /// # Arguments
     /// 
     /// * `media_stream` - The MediaStream to connect to the audio worklet
+    /// * `audio_context` - AudioContext from early worklet loading
     /// 
     /// # Returns
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn new(media_stream: web_sys::MediaStream) -> Result<Self, String> {
-        crate::common::dev_log!("Creating AudioEngine with return-based pattern");
+    pub fn new(
+        media_stream: web_sys::MediaStream,
+        audio_context: web_sys::AudioContext
+    ) -> Result<Self, String> {
+        crate::common::dev_log!("Creating AudioEngine with worklet components");
         
-        // Create audio context using the new return-based constructor
-        let audio_context = match audio::AudioSystemContext::create().await {
+        // Create audio context using provided AudioContext
+        let audio_context_obj = match audio::AudioSystemContext::create(audio_context) {
             Ok(context) => context,
             Err(e) => {
                 crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
@@ -77,29 +81,30 @@ impl AudioEngine {
             }
         };
         
-        crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
+        crate::common::dev_log!("✓ AudioEngine created successfully");
         
-        let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
+        let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context_obj));
             
-            // Connect the media stream to the audio worklet
-            if let Err(e) = crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
-                media_stream,
-                &audio_context_rc
-            ) {
-                return Err(format!("MediaStream connection failed: {}", e));
-            }
-            
-            if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
-                borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
-                    frequency: crate::common::music_theory::midi_note_to_standard_frequency(crate::app_config::DEFAULT_TUNING_FORK_NOTE),
-                    volume: 0.0,
-                });
-            }
-            
+        // Connect the media stream to the audio worklet
+        if let Err(e) = crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
+            media_stream,
+            &audio_context_rc
+        ) {
+            return Err(format!("MediaStream connection failed: {}", e));
+        }
+        
+        if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
+            borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
+                frequency: crate::common::music_theory::midi_note_to_standard_frequency(crate::app_config::DEFAULT_TUNING_FORK_NOTE),
+                volume: 0.0,
+            });
+        }
+        
         Ok(Self {
             audio_context: Some(audio_context_rc),
         })
     }
+    
 
     /// Update the engine layer
     /// 

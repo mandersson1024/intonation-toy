@@ -14,6 +14,7 @@ use {
     wasm_bindgen::closure::Closure,
     wasm_bindgen::prelude::wasm_bindgen,
     engine::platform::{Platform, PlatformValidationResult},
+    engine::audio::audio_context::{create_audio_context, load_worklet_module},
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -46,6 +47,12 @@ pub async fn start() {
         resize_canvas_callback.forget();
     }
 
+    let audio_context = create_audio_context()
+        .expect("Failed to create audio context");
+
+    load_worklet_module(&audio_context).await
+        .expect("Failed to load worklet module");
+
     web::utils::resize_canvas();
     web::utils::show_first_click_overlay();
     web::utils::hide_preloader();
@@ -60,7 +67,7 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let engine = match engine::AudioEngine::new(media_stream).await {
+    let engine = match engine::AudioEngine::new(media_stream, audio_context) {
         Ok(engine) => engine,
         Err(err) => {
             crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
