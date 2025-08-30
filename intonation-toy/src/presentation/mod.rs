@@ -35,12 +35,6 @@ pub struct ChangeTuningSystem {
     pub tuning_system: TuningSystem,
 }
 
-/// Request to adjust the tuning fork
-#[derive(Debug, Clone, PartialEq)]
-pub struct AdjustTuningFork {
-    pub note: MidiNote,
-}
-
 /// Action for changing the active scale
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScaleChangeAction {
@@ -57,26 +51,24 @@ pub struct ConfigureTestSignal {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningFork {
-    pub frequency: f32,
+    pub note: MidiNote,
     pub volume: f32,
 }
 
 /// Container for all collected user actions from the presentation layer
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PresentationLayerActions {
-    pub tuning_system_changes: Vec<ChangeTuningSystem>,
-    pub tuning_fork_adjustments: Vec<AdjustTuningFork>,
-    pub scale_changes: Vec<ScaleChangeAction>,
-    pub tuning_fork_configurations: Vec<ConfigureTuningFork>,
+    pub tuning_system_change: Option<ChangeTuningSystem>,
+    pub scale_change: Option<ScaleChangeAction>,
+    pub tuning_fork_configuration: Option<ConfigureTuningFork>,
 }
 
 impl PresentationLayerActions {
     /// Check if there are any actions to process
     pub fn has_actions(&self) -> bool {
-        !self.tuning_system_changes.is_empty() ||
-        !self.tuning_fork_adjustments.is_empty() ||
-        !self.scale_changes.is_empty() ||
-        !self.tuning_fork_configurations.is_empty()
+        self.tuning_system_change.is_some() ||
+        self.scale_change.is_some() ||
+        self.tuning_fork_configuration.is_some()
     }
 }
 
@@ -85,13 +77,6 @@ impl PresentationLayerActions {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DebugLayerActions {
     pub test_signal_configurations: Vec<ConfigureTestSignal>,
-}
-
-#[cfg(debug_assertions)]
-impl DebugLayerActions {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
 }
 
 /// Presenter - The presentation layer of the three-layer architecture
@@ -127,7 +112,7 @@ impl Presenter {
             renderer: None,
             pending_user_actions: PresentationLayerActions::default(),
             #[cfg(debug_assertions)]
-            pending_debug_actions: DebugLayerActions::new(),
+            pending_debug_actions: DebugLayerActions::default(),
             interval_position: 0.0,
             #[cfg(target_arch = "wasm32")]
             sidebar_ui_active: true,
@@ -197,17 +182,12 @@ impl Presenter {
 
     /// Handle user request to change the tuning system
     pub fn on_tuning_system_changed(&mut self, tuning_system: TuningSystem) {
-        self.pending_user_actions.tuning_system_changes.push(ChangeTuningSystem { tuning_system });
-    }
-
-    /// Handle user request to adjust the tuning fork
-    pub fn on_tuning_fork_adjusted(&mut self, note: MidiNote) {
-        self.pending_user_actions.tuning_fork_adjustments.push(AdjustTuningFork { note });
+        self.pending_user_actions.tuning_system_change = Some(ChangeTuningSystem { tuning_system });
     }
 
     /// Handle scale change action
     pub fn on_scale_changed(&mut self, scale: Scale) {
-        self.pending_user_actions.scale_changes.push(ScaleChangeAction { scale });
+        self.pending_user_actions.scale_change = Some(ScaleChangeAction { scale });
     }
 
     #[cfg(debug_assertions)]
@@ -227,23 +207,13 @@ impl Presenter {
         crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
                                 note, volume_amplitude);
         
-        self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
-            frequency: Self::midi_note_to_frequency(note),
+        self.pending_user_actions.tuning_fork_configuration = Some(ConfigureTuningFork {
+            note,
             volume: volume_amplitude,
         });
-        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions, total actions: {}", self.pending_user_actions.tuning_fork_configurations.len());
+        crate::common::dev_log!("PRESENTER: Set tuning fork configuration action");
     }
     
-    pub fn on_tuning_fork_audio_configured_with_volume(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
-        crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
-                                note, volume_amplitude);
-        
-        self.pending_user_actions.tuning_fork_configurations.push(ConfigureTuningFork {
-            frequency: Self::midi_note_to_frequency(note),
-            volume: volume_amplitude,
-        });
-        crate::common::dev_log!("PRESENTER: Added action to pending_user_actions with volume control");
-    }
 
     /// Render the presentation layer to the screen
     pub fn render(&mut self, context: &Context, screen: &mut RenderTarget, model_data: &ModelUpdateResult) {

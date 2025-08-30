@@ -161,7 +161,7 @@ use crate::debug::debug_panel::DebugPanel;
         {
             let debug_actions = presenter.try_borrow_mut()
                 .map(|mut p| p.get_debug_actions())
-                .unwrap_or_else(|_| presentation::DebugLayerActions::new());
+                .unwrap_or_else(|_| presentation::DebugLayerActions::default());
             
             if !debug_actions.test_signal_configurations.is_empty() {
                 if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {

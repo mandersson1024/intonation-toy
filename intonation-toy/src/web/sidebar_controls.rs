@@ -132,8 +132,6 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
         if let Some(new_tuning_fork_note) = increment_midi_note(current_tuning_fork_note) {
             if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
-                
                 let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                 let amplitude = slider_position_to_amplitude(position);
                 presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
@@ -146,8 +144,6 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
         if let Some(new_tuning_fork_note) = decrement_midi_note(current_tuning_fork_note) {
             if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                presenter_mut.on_tuning_fork_adjusted(new_tuning_fork_note);
-                
                 let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                 let amplitude = slider_position_to_amplitude(position);
                 presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);

@@ -125,7 +125,7 @@ impl DataModel {
     pub fn process_user_actions(&mut self, presentation_actions: PresentationLayerActions) -> ModelLayerActions {
         let mut model_actions = ModelLayerActions::default();
         
-        for tuning_change in presentation_actions.tuning_system_changes {
+        if let Some(tuning_change) = presentation_actions.tuning_system_change {
             if tuning_change.tuning_system != self.tuning_system {
                 crate::common::dev_log!(
                     "Model layer: Tuning system changed from {:?} to {:?}",
@@ -135,18 +135,7 @@ impl DataModel {
             }
         }
         
-        for tuning_fork_adjustment in presentation_actions.tuning_fork_adjustments {
-            let midi_note = tuning_fork_adjustment.note;
-            if midi_note != self.tuning_fork_note {
-                crate::common::dev_log!(
-                    "Model layer: Tuning fork changed from {} to {}",
-                    self.tuning_fork_note, midi_note
-                );
-                self.tuning_fork_note = midi_note;
-            }
-        }
-        
-        for scale_change in presentation_actions.scale_changes {
+        if let Some(scale_change) = presentation_actions.scale_change {
             if scale_change.scale != self.current_scale {
                 crate::common::dev_log!(
                     "Model layer: Scale changed from {:?} to {:?}",
@@ -156,20 +145,32 @@ impl DataModel {
             }
         }
         
-        // Only use the last tuning fork configuration if there are any
-        if let Some(tuning_fork_config) = presentation_actions.tuning_fork_configurations.last() {
-            crate::common::dev_log!("MODEL: Processing tuning fork audio config");
+        // Process tuning fork configuration if present
+        if let Some(tuning_fork_config) = &presentation_actions.tuning_fork_configuration {
+            crate::common::dev_log!("MODEL: Processing tuning fork config - note: {}, volume: {}", 
+                                  tuning_fork_config.note, tuning_fork_config.volume);
             
-            if tuning_fork_config.frequency > 0.0 {
+            // Update the model's tuning fork note if it changed
+            if tuning_fork_config.note != self.tuning_fork_note {
+                crate::common::dev_log!(
+                    "Model layer: Tuning fork changed from {} to {}",
+                    self.tuning_fork_note, tuning_fork_config.note
+                );
+                self.tuning_fork_note = tuning_fork_config.note;
+            }
+            
+            // Configure the audio generation
+            let frequency = crate::common::music_theory::midi_note_to_standard_frequency(tuning_fork_config.note);
+            if frequency > 0.0 {
                 model_actions.tuning_fork_configuration = Some(
                     ConfigureTuningForkAction {
-                        frequency: tuning_fork_config.frequency,
+                        frequency,
                         volume: tuning_fork_config.volume,
                     }
                 );
                 crate::common::dev_log!("MODEL: ✓ Tuning fork audio configuration validated and queued for engine execution");
             } else {
-                crate::common::warn_log!("Tuning fork audio configuration validation failed: Invalid frequency {}", tuning_fork_config.frequency);
+                crate::common::warn_log!("Tuning fork audio configuration validation failed: Invalid frequency {}", frequency);
             }
         }
         
