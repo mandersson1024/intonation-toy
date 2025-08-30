@@ -255,127 +255,26 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Check if AudioWorklet is supported
-    /// TODO: We should check this once and for all before app init
-    fn is_worklet_supported(context: &AudioContextManager) -> bool {
-        if let Some(audio_context) = context.get_context() {
-            // Check for AudioWorklet support
-            let worklet_check = js_sys::Reflect::has(audio_context, &"audioWorklet".into())
-                .unwrap_or(false);
-            
-            if worklet_check {
-                dev_log!("✓ AudioWorklet supported");
-                return true;
-            }
-        }
-        
-        dev_log!("✗ AudioWorklet not supported");
-        false
-    }
     
-    /// Initialize AudioWorklet processor
+    /// Complete AudioWorklet processor initialization
+    /// 
+    /// Since worklets are now loaded early via `load_worklet_early()`, this method
+    /// only handles AudioContext storage and completes the initialization.
     pub async fn initialize(&mut self, context: &AudioContextManager) -> Result<(), AudioError> {
         let audio_context = context.get_context()
             .ok_or_else(|| AudioError::Generic("AudioContext not available".to_string()))?;
         
-        // Store audio context for test signal output
+        // Store audio context
         self.audio_context = Some(audio_context.clone());
         
-        self.state = AudioWorkletState::Initializing;
-        dev_log!("Initializing AudioWorklet processor");
+        // Set state to Ready since the worklet is already loaded
+        self.state = AudioWorkletState::Ready;
+        dev_log!("✓ AudioWorklet initialization completed");
         
-        // Try AudioWorklet first
-        if Self::is_worklet_supported(context) {
-            match self.initialize_worklet(audio_context).await {
-                Ok(()) => {
-                    dev_log!("✓ AudioWorklet initialized successfully");
-                    self.state = AudioWorkletState::Ready;
-                    return Ok(());
-                }
-                Err(e) => {
-                    dev_log!("✗ AudioWorklet initialization failed: {:?}", e);
-                    self.state = AudioWorkletState::Failed;
-                    return Err(e);
-                }
-            }
-        }
-        
-        // AudioWorklet required
-        self.state = AudioWorkletState::Failed;
-        Err(AudioError::NotSupported(
-            "AudioWorklet not supported".to_string()
-        ))
+        Ok(())
     }
     
-    /// Initialize AudioWorklet processor
-    async fn initialize_worklet(&mut self, context: &AudioContext) -> Result<(), AudioError> {
-        dev_log!("Loading AudioWorklet processor module...");
-        
-        // Load the AudioWorklet processor script
-        let worklet = context.audio_worklet()
-            .map_err(|e| AudioError::StreamInitFailed(
-                format!("Failed to get AudioWorklet: {:?}", e)
-            ))?;
-        let module_promise = worklet.add_module("./audio-processor.js")
-            .map_err(|e| AudioError::StreamInitFailed(
-                format!("Failed to load AudioWorklet module: {:?}", e)
-            ))?;
-        
-        // Wait for module to load
-        let module_future = wasm_bindgen_futures::JsFuture::from(module_promise);
-        match module_future.await {
-            Ok(_) => {
-                dev_log!("✓ AudioWorklet processor module loaded successfully");
-            }
-            Err(e) => {
-                dev_log!("✗ AudioWorklet module loading failed: {:?}", e);
-                return Err(AudioError::StreamInitFailed(
-                    format!("AudioWorklet module loading failed: {:?}", e)
-                ));
-            }
-        }
-        
-        // Create AudioWorklet node with options
-        let options = AudioWorkletNodeOptions::new();
-        options.set_number_of_inputs(1);
-        options.set_number_of_outputs(1);
-        
-        // Set channel counts for both input and output
-        let output_channels = js_sys::Array::of1(&js_sys::Number::from(self.config.output_channels));
-        
-        options.set_channel_count(self.config.input_channels);
-        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
-        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
-        options.set_output_channel_count(&output_channels);
-        
-        // Create the AudioWorkletNode with the registered processor
-        match self.create_worklet_node(context, &options) {
-            Ok(node) => {
-                self.worklet_node = Some(node);
-                dev_log!("AudioWorklet node created with {} input channels, {} output channels", 
-                        self.config.input_channels, self.config.output_channels);
-                
-                // Note: Message handling setup is deferred until setters are configured
-                
-                Ok(())
-            }
-            Err(e) => {
-                Err(AudioError::StreamInitFailed(
-                    format!("Failed to create AudioWorklet node: {:?}", e)
-                ))
-            }
-        }
-    }
     
-    /// Create AudioWorklet node with the registered processor
-    fn create_worklet_node(&self, context: &AudioContext, options: &AudioWorkletNodeOptions) -> Result<AudioWorkletNode, js_sys::Error> {
-        // Create AudioWorkletNode with the registered 'pitch-processor'
-        let node = AudioWorkletNode::new_with_options(context, "pitch-processor", options)
-            .map_err(|e| js_sys::Error::new(&format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e)))?;
-        
-        dev_log!("✓ AudioWorklet node created successfully");
-        Ok(node)
-    }
     
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {

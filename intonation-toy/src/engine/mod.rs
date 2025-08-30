@@ -51,39 +51,38 @@ pub struct AudioEngine {
 }
 
 impl AudioEngine {
-    /// Create a new AudioEngine with pre-created AudioContext and AudioWorkletNode
+    /// Create a new AudioEngine for raw audio processing
     /// 
-    /// This constructor accepts pre-created audio components from `load_worklet_early()`
-    /// and bypasses the expensive AudioContext creation and worklet loading steps while
-    /// setting up all other components (pitch analyzer, volume detector, message handling).
+    /// This constructor accepts audio components from `load_worklet_early()`
+    /// and sets up all audio processing components (pitch analyzer, volume detector, message handling).
     /// 
     /// # Arguments
     /// 
     /// * `media_stream` - The MediaStream to connect to the audio worklet
-    /// * `audio_context` - Pre-created AudioContext from `load_worklet_early()`
-    /// * `audio_worklet_node` - Pre-created AudioWorkletNode from `load_worklet_early()`
+    /// * `audio_context` - AudioContext from early worklet loading
+    /// * `audio_worklet_node` - AudioWorkletNode from early worklet loading
     /// 
     /// # Returns
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn new_with_worklet(
+    pub async fn new(
         media_stream: web_sys::MediaStream,
         audio_context: web_sys::AudioContext,
         audio_worklet_node: web_sys::AudioWorkletNode
     ) -> Result<Self, String> {
-        crate::common::dev_log!("Creating AudioEngine with pre-created worklet components");
+        crate::common::dev_log!("Creating AudioEngine with worklet components");
         
-        // Create audio context using external components
-        let audio_context_obj = match audio::AudioSystemContext::create_with_external_context(audio_context, audio_worklet_node).await {
+        // Create audio context using provided components
+        let audio_context_obj = match audio::AudioSystemContext::create(audio_context, audio_worklet_node).await {
             Ok(context) => context,
             Err(e) => {
-                crate::common::error_log!("✗ AudioEngine creation with external context failed: {}", e);
+                crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
                 return Err(e);
             }
         };
         
-        crate::common::dev_log!("✓ AudioEngine created with external components successfully");
+        crate::common::dev_log!("✓ AudioEngine created successfully");
         
         let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context_obj));
             
@@ -107,55 +106,6 @@ impl AudioEngine {
         })
     }
     
-    /// Create a new AudioEngine for raw audio processing
-    /// 
-    /// This constructor initializes the audio processing system for raw audio
-    /// analysis. The engine provides frequency and amplitude data to the model
-    /// layer for musical interpretation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `media_stream` - The MediaStream to connect to the audio worklet
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
-    /// if audio system initialization fails.
-    pub async fn new(media_stream: web_sys::MediaStream) -> Result<Self, String> {
-        crate::common::dev_log!("Creating AudioEngine with return-based pattern");
-        
-        // Create audio context using the new return-based constructor
-        let audio_context = match audio::AudioSystemContext::create().await {
-            Ok(context) => context,
-            Err(e) => {
-                crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
-                return Err(e);
-            }
-        };
-        
-        crate::common::dev_log!("✓ AudioEngine created and initialized successfully");
-        
-        let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context));
-            
-            // Connect the media stream to the audio worklet
-            if let Err(e) = crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
-                media_stream,
-                &audio_context_rc
-            ) {
-                return Err(format!("MediaStream connection failed: {}", e));
-            }
-            
-            if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
-                borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
-                    frequency: crate::common::music_theory::midi_note_to_standard_frequency(crate::app_config::DEFAULT_TUNING_FORK_NOTE),
-                    volume: 0.0,
-                });
-            }
-            
-        Ok(Self {
-            audio_context: Some(audio_context_rc),
-        })
-    }
 
     /// Update the engine layer
     /// 

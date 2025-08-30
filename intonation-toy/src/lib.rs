@@ -69,7 +69,7 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let engine = match engine::AudioEngine::new_with_worklet(media_stream, audio_context, audio_worklet_node).await {
+    let engine = match engine::AudioEngine::new(media_stream, audio_context, audio_worklet_node).await {
         Ok(engine) => engine,
         Err(err) => {
             crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
