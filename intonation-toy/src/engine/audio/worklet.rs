@@ -129,46 +129,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Creates a new AudioWorkletManager with pre-created AudioContext and AudioWorkletNode.
-    /// 
-    /// This constructor is designed for use with pre-created AudioContext and AudioWorkletNode
-    /// to bypass the expensive AudioContext creation and worklet loading steps. It creates a manager with existing
-    /// components and sets the state to Ready since the node is already created.
-    /// 
-    /// # Parameters
-    /// - `context`: Pre-created AudioContext
-    /// - `worklet_node`: Pre-created AudioWorkletNode
-    /// 
-    /// # Example
-    /// ```
-    /// let worklet_manager = AudioWorkletManager::new_with_existing_node(&context, node);
-    /// ```
-    pub fn new_with_existing_node(context: &AudioContext, worklet_node: AudioWorkletNode) -> Self {
-        dev_log!("✓ AudioWorkletManager created with existing components");
-        Self {
-            worklet_node: Some(worklet_node),
-            state: AudioWorkletState::Ready,
-            volume_detector: None,
-            last_volume_analysis: None,
-            chunk_counter: 0,
-            _message_closure: None,
-            audio_context: Some(context.clone()),
-            output_to_speakers: false,
-            shared_data: None,
-            pitch_analyzer: None,
-            message_factory: AudioWorkletMessageFactory::new(),
-            ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
-            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
-            tuning_fork_node: None,
-            test_signal_node: None,
-            mixer_gain: None,
-            microphone_gain: None,
-            microphone_source: None,
-            prev_microphone_volume: None,
-            prev_output_to_speakers: None,
-        }
-    }
-    
     
     /// Complete AudioWorklet processor initialization
     /// 
