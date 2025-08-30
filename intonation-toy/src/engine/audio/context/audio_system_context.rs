@@ -12,7 +12,7 @@ pub struct AudioSystemContext {
 
 impl AudioSystemContext {
     
-    pub async fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
+    pub fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
         let mut result = Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
             audioworklet_manager: None,

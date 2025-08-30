@@ -66,14 +66,14 @@ impl AudioEngine {
     /// 
     /// Returns `Ok(AudioEngine)` on successful initialization, or `Err(String)`
     /// if audio system initialization fails.
-    pub async fn new(
+    pub fn new(
         media_stream: web_sys::MediaStream,
         audio_context: web_sys::AudioContext
     ) -> Result<Self, String> {
         crate::common::dev_log!("Creating AudioEngine with worklet components");
         
         // Create audio context using provided AudioContext
-        let audio_context_obj = match audio::AudioSystemContext::create(audio_context).await {
+        let audio_context_obj = match audio::AudioSystemContext::create(audio_context) {
             Ok(context) => context,
             Err(e) => {
                 crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
