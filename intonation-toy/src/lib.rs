@@ -14,6 +14,7 @@ use {
     wasm_bindgen::closure::Closure,
     wasm_bindgen::prelude::wasm_bindgen,
     engine::platform::{Platform, PlatformValidationResult},
+    engine::audio::worklet::load_worklet_early,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -46,6 +47,14 @@ pub async fn start() {
         resize_canvas_callback.forget();
     }
 
+    let (audio_context, audio_worklet_node) = match load_worklet_early().await {
+        Ok(components) => components,
+        Err(err) => {
+            crate::common::error_log!("Failed to load worklet early: {:?}", err);
+            return;
+        }
+    };
+
     web::utils::resize_canvas();
     web::utils::show_first_click_overlay();
     web::utils::hide_preloader();
@@ -60,7 +69,7 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let engine = match engine::AudioEngine::new(media_stream).await {
+    let engine = match engine::AudioEngine::new_with_worklet(media_stream, audio_context, audio_worklet_node).await {
         Ok(engine) => engine,
         Err(err) => {
             crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
