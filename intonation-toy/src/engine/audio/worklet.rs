@@ -36,7 +36,7 @@ use crate::app_config::{AUDIO_CHUNK_SIZE, STANDARD_SAMPLE_RATE};
 /// let context = create_audio_context_and_load_worklet().await?;
 /// ```
 pub async fn create_audio_context_and_load_worklet() -> Result<AudioContext, String> {
-    dev_log!("Loading AudioWorklet early in application startup");
+    dev_log!("Creating AudioContext and loading AudioWorklet module");
     
     // Create AudioContext with standard sample rate
     let options = AudioContextOptions::new();
