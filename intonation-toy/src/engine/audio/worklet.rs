@@ -40,12 +40,6 @@ impl fmt::Display for AudioWorkletState {
 }
 
 
-#[derive(Debug, Clone)]
-pub struct AudioWorkletConfig {
-    pub input_channels: u32,
-    pub output_channels: u32,
-}
-
 struct AudioWorkletSharedData {
     volume_detector: Option<VolumeDetector>,
     batches_processed: u32,
@@ -68,20 +62,10 @@ impl AudioWorkletSharedData {
     }
 }
 
-impl Default for AudioWorkletConfig {
-    fn default() -> Self {
-        Self {
-            input_channels: 1,    // Mono input for pitch detection
-            output_channels: 1,   // Mono output
-        }
-    }
-}
-
 
 pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
-    config: AudioWorkletConfig,
     volume_detector: Option<VolumeDetector>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
@@ -112,7 +96,6 @@ impl AudioWorkletManager {
     /// configuration and settings optimized for the return-based architecture.
     /// 
     /// # Default Settings
-    /// - Uses `AudioWorkletConfig::default()` for configuration
     /// - Enables ping-pong buffer recycling by default
     /// - Initializes without external dependencies or setters
     /// 
@@ -125,7 +108,6 @@ impl AudioWorkletManager {
         Self {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
-            config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
             chunk_counter: 0,
@@ -166,7 +148,6 @@ impl AudioWorkletManager {
         Self {
             worklet_node: Some(worklet_node),
             state: AudioWorkletState::Ready,
-            config: AudioWorkletConfig::default(),
             volume_detector: None,
             last_volume_analysis: None,
             chunk_counter: 0,
