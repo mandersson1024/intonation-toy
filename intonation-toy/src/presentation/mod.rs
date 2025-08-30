@@ -159,7 +159,7 @@ impl Presenter {
                 cents_offset: model_data.accuracy.cents_offset,
                 interval: self.interval_position,
                 clarity,
-                volume_peak: model_data.volume_peak,
+                volume_peak: model_data.is_peking,
             });
             
             renderer.update_pitch_position(viewport);

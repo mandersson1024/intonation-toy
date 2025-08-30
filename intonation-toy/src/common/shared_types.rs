@@ -374,7 +374,7 @@ pub struct EngineUpdateResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelUpdateResult {
     pub volume: Volume,
-    pub volume_peak: bool,
+    pub is_peking: bool,
     pub pitch: Pitch,
     pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,

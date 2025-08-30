@@ -53,6 +53,7 @@ impl DataModel {
                 peak_amplitude: audio_analysis.volume_level.peak_amplitude,
                 rms_amplitude: audio_analysis.volume_level.rms_amplitude,
             };
+
             let pitch = match audio_analysis.pitch {
                 crate::common::shared_types::Pitch::Detected(frequency, clarity) => {
                     let smoothed_frequency = self.frequency_smoother.apply(frequency);
@@ -78,21 +79,21 @@ impl DataModel {
             
             (volume, pitch)
         } else {
-            (Volume { peak_amplitude: -60.0, rms_amplitude: -60.0 }, Pitch::NotDetected)
+            (Volume { peak_amplitude: 0.0, rms_amplitude: 0.0 }, Pitch::NotDetected)
         };
         
-        let volume_peak = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
+        let is_peaking = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
-        let effective_pitch = match pitch {
-            Pitch::Detected(frequency, clarity) if self.frequency_to_note_and_accuracy(frequency).is_some() => {
+        let midi_note_and_cents = match pitch {
+            Pitch::Detected(frequency, clarity) if self.frequency_to_midi_note_and_cants(frequency).is_some() => {
                 Pitch::Detected(frequency, clarity)
             }
             _ => Pitch::NotDetected,
         };
 
-        let (accuracy, interval_semitones) = match effective_pitch {
+        let (accuracy, interval_semitones) = match midi_note_and_cents {
             Pitch::Detected(frequency, _clarity) => {
-                let (closest_midi_note, cents_offset) = self.frequency_to_note_and_accuracy(frequency).unwrap();
+                let (closest_midi_note, cents_offset) = self.frequency_to_midi_note_and_cants(frequency).unwrap();
                 let accuracy = IntonationData { closest_midi_note: Some(closest_midi_note), cents_offset };
                 let interval = (closest_midi_note as i32) - (self.tuning_fork_note as i32);
                 (accuracy, interval)
@@ -108,8 +109,8 @@ impl DataModel {
 
         ModelUpdateResult {
             volume,
-            volume_peak,
-            pitch: effective_pitch,
+            is_peking: is_peaking,
+            pitch: midi_note_and_cents,
             accuracy: accuracy.clone(),
             tuning_system: self.tuning_system,
             scale: self.current_scale,
@@ -174,7 +175,7 @@ impl DataModel {
         self.clarity_smoother.reset();
     }
     
-    fn frequency_to_note_and_accuracy(&self, frequency: f32) -> Option<(MidiNote, f32)> {
+    fn frequency_to_midi_note_and_cants(&self, frequency: f32) -> Option<(MidiNote, f32)> {
         if frequency <= 0.0 {
             warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
             return None;
