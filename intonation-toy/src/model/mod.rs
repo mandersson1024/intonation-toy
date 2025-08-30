@@ -85,7 +85,7 @@ impl DataModel {
         let is_peaking = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
         let midi_note_and_cents = match pitch {
-            Pitch::Detected(frequency, clarity) if self.frequency_to_midi_note_and_cants(frequency).is_some() => {
+            Pitch::Detected(frequency, clarity) if self.frequency_to_midi_note_and_cents(frequency).is_some() => {
                 Pitch::Detected(frequency, clarity)
             }
             _ => Pitch::NotDetected,
@@ -93,7 +93,7 @@ impl DataModel {
 
         let (accuracy, interval_semitones) = match midi_note_and_cents {
             Pitch::Detected(frequency, _clarity) => {
-                let (closest_midi_note, cents_offset) = self.frequency_to_midi_note_and_cants(frequency).unwrap();
+                let (closest_midi_note, cents_offset) = self.frequency_to_midi_note_and_cents(frequency).unwrap();
                 let accuracy = IntonationData { closest_midi_note: Some(closest_midi_note), cents_offset };
                 let interval = (closest_midi_note as i32) - (self.tuning_fork_note as i32);
                 (accuracy, interval)
@@ -175,7 +175,7 @@ impl DataModel {
         self.clarity_smoother.reset();
     }
     
-    fn frequency_to_midi_note_and_cants(&self, frequency: f32) -> Option<(MidiNote, f32)> {
+    fn frequency_to_midi_note_and_cents(&self, frequency: f32) -> Option<(MidiNote, f32)> {
         if frequency <= 0.0 {
             warn_log!("[MODEL] Invalid frequency for note conversion: {}", frequency);
             return None;
