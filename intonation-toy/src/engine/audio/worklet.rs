@@ -1,6 +1,6 @@
 
 use web_sys::{
-    AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioContextOptions,
+    AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
     AudioNode, MessageEvent, GainNode
 };
 use js_sys;
@@ -13,56 +13,8 @@ use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
-use crate::app_config::{AUDIO_CHUNK_SIZE, STANDARD_SAMPLE_RATE};
+use crate::app_config::AUDIO_CHUNK_SIZE;
 
-/// Create AudioContext and load AudioWorklet module during application startup
-/// 
-/// Creates an AudioContext with standard sample rate and loads the AudioWorklet module.
-/// Returns only the AudioContext - AudioWorkletNode creation is handled separately by the engine.
-/// 
-/// This function is independent of AudioWorkletManager and can be called during
-/// application initialization to preload the worklet module and create the necessary
-/// audio infrastructure.
-/// 
-/// # Returns
-/// 
-/// Returns `Result<AudioContext, String>` where:
-/// - On success: AudioContext with worklet module loaded
-/// - On error: String describing what went wrong
-/// 
-/// # Example
-/// 
-/// ```rust
-/// let context = create_audio_context_and_load_worklet().await?;
-/// ```
-pub async fn create_audio_context_and_load_worklet() -> Result<AudioContext, String> {
-    dev_log!("Creating AudioContext and loading AudioWorklet module");
-    
-    // Create AudioContext with standard sample rate
-    let options = AudioContextOptions::new();
-    options.set_sample_rate(STANDARD_SAMPLE_RATE as f32);
-    
-    let audio_context = AudioContext::new_with_context_options(&options)
-        .map_err(|e| format!("Failed to create AudioContext: {:?}", e))?;
-    
-    dev_log!("✓ AudioContext created with sample rate: {} Hz", STANDARD_SAMPLE_RATE);
-    
-    // Load the AudioWorklet processor module
-    let worklet = audio_context.audio_worklet()
-        .map_err(|e| format!("Failed to get AudioWorklet: {:?}", e))?;
-    
-    let module_promise = worklet.add_module("./audio-processor.js")
-        .map_err(|e| format!("Failed to load AudioWorklet module: {:?}", e))?;
-    
-    // Wait for module to load
-    let module_future = wasm_bindgen_futures::JsFuture::from(module_promise);
-    module_future.await
-        .map_err(|e| format!("AudioWorklet module loading failed: {:?}", e))?;
-    
-    dev_log!("✓ AudioWorklet processor module loaded successfully");
-    
-    Ok(audio_context)
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AudioWorkletState {
