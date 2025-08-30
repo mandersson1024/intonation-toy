@@ -196,18 +196,13 @@ impl DataModel {
             self.current_scale,
         );
         
-        let raw_midi_note = self.tuning_fork_note as i32 + interval_result.semitones;
+        let midi_note = self.tuning_fork_note as i32 + interval_result.semitones;
         
-        if !(0..=127).contains(&raw_midi_note) {
-            return None;
-        }
-        
-        let midi_note = raw_midi_note as u8;
         if !is_valid_midi_note(midi_note) {
             return None;
         }
         
-        Some((midi_note, interval_result.cents))
+        Some((midi_note as u8, interval_result.cents))
     }
     
 }

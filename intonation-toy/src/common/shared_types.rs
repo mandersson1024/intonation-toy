@@ -24,8 +24,8 @@ pub struct Volume {
 pub type MidiNote = u8;
 
 /// Check if a value is a valid MIDI note number (0-127).
-pub fn is_valid_midi_note(value: MidiNote) -> bool {
-    value <= 127
+pub fn is_valid_midi_note(value: i32) -> bool {
+    (0..=127).contains(&value)
 }
 
 /// Safely increment a MIDI note number.
