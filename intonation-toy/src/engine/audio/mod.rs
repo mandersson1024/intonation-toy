@@ -1,6 +1,7 @@
 pub mod microphone;
 pub mod context;
 pub mod worklet;
+pub mod audio_context;
 pub mod permission;
 pub mod pitch_detector;
 pub mod pitch_analyzer;

@@ -11,8 +11,8 @@ pub struct AudioSystemContext {
 }
 
 impl AudioSystemContext {
-
-    pub async fn create() -> Result<Self, String> {
+    
+    pub async fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
         let mut result = Self {
             audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
             audioworklet_manager: None,
@@ -22,29 +22,33 @@ impl AudioSystemContext {
             permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
         };
         
-        result.audio_context_manager.borrow_mut().initialize()
+        result.audio_context_manager.borrow_mut().attach_existing_context(audio_context.clone())
             .map_err(|e| {
-                let error_msg = format!("Failed to initialize AudioContextManager: {}", e);
+                let error_msg = format!("Failed to attach AudioContext: {}", e);
                 dev_log!("✗ {}", error_msg);
                 result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
-        dev_log!("✓ AudioContextManager initialized");
+        dev_log!("✓ AudioContextManager attached");
 
         let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
-        worklet_manager.initialize(&result.audio_context_manager.borrow()).await
+        let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
             .map_err(|e| {
-                let error_msg = format!("Failed to initialize AudioWorkletManager: {:?}", e);
+                let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
                 dev_log!("✗ {}", error_msg);
                 result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
-        
         result.audioworklet_manager = Some(worklet_manager);
-        dev_log!("✓ AudioWorkletManager initialized for return-based pattern");
+        dev_log!("✓ AudioWorkletManager created with internal node creation");
 
         let config = super::super::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = crate::app_config::STANDARD_SAMPLE_RATE;
+        let sample_rate = audio_context.sample_rate() as u32;
+        
+        if sample_rate != crate::app_config::STANDARD_SAMPLE_RATE {
+            dev_log!("⚠ Audio context sample rate ({} Hz) differs from standard rate ({} Hz)", 
+                sample_rate, crate::app_config::STANDARD_SAMPLE_RATE);
+        }
         
         let analyzer = super::super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
             .map_err(|e| {
@@ -63,13 +67,6 @@ impl AudioSystemContext {
         }
         dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
-        let audio_context = {
-            let manager = result.audio_context_manager.borrow();
-            manager.get_context()
-                .cloned()
-                .ok_or("Audio context not available for VolumeDetector".to_string())?
-        };
-        
         let volume_detector = super::super::volume_detector::VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
@@ -89,12 +86,11 @@ impl AudioSystemContext {
         super::super::set_global_audio_context_manager(result.audio_context_manager.clone());
         dev_log!("✓ AudioContextManager stored globally for device change callbacks");
 
-
-
         result.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
         Ok(result)
     }
+
 
     pub async fn shutdown(&mut self) -> Result<(), String> {
         dev_log!("Shutting down AudioSystemContext");
@@ -189,7 +185,8 @@ impl AudioSystemContext {
             if !context_manager.is_running() {
                 let error_msg = match context_manager.state() {
                     AudioContextState::Closed => Some("AudioContext is closed"),
-                    AudioContextState::Suspended => Some("AudioContext is suspended"),
+                    // Suspended is a normal state before user interaction, not an error
+                    AudioContextState::Suspended => None,
                     _ => None,
                 };
                 if let Some(msg) = error_msg {
