@@ -94,15 +94,9 @@ impl AudioEngine {
                 }
             }
             
-            // Initialize default tuning fork audio with zero volume
-            crate::common::dev_log!("Initializing default tuning fork audio with zero volume");
-            let default_frequency = crate::common::music_theory::midi_note_to_standard_frequency(
-                crate::app_config::DEFAULT_TUNING_FORK_NOTE
-            );
-            
             if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
                 borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
-                    frequency: default_frequency,
+                    frequency: crate::common::music_theory::midi_note_to_standard_frequency(crate::app_config::DEFAULT_TUNING_FORK_NOTE),
                     volume: 0.0,
                 });
             }
