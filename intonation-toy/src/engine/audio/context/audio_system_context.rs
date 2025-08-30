@@ -14,22 +14,14 @@ impl AudioSystemContext {
     
     pub fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
         let mut result = Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::default())),
+            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new(audio_context.clone()))),
             audioworklet_manager: None,
             pitch_analyzer: None,
             is_initialized: false,
             initialization_error: None,
             permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
         };
-        
-        result.audio_context_manager.borrow_mut().attach_existing_context(audio_context.clone())
-            .map_err(|e| {
-                let error_msg = format!("Failed to attach AudioContext: {}", e);
-                dev_log!("✗ {}", error_msg);
-                result.initialization_error = Some(error_msg.clone());
-                error_msg
-            })?;
-        dev_log!("✓ AudioContextManager attached");
+        dev_log!("✓ AudioContextManager created");
 
         let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
         let _worklet_node = worklet_manager.create_worklet_node(&audio_context)

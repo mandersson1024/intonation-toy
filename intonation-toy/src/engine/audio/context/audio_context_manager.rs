@@ -19,6 +19,20 @@ impl Default for AudioContextManager {
 }
 
 impl AudioContextManager {
+    pub fn new(context: AudioContext) -> Self {
+        let context_state = match context.state() {
+            web_sys::AudioContextState::Running => AudioContextState::Running,
+            web_sys::AudioContextState::Suspended => AudioContextState::Suspended,
+            web_sys::AudioContextState::Closed => AudioContextState::Closed,
+            _ => AudioContextState::Closed, // Default to closed for unknown states
+        };
+        
+        Self {
+            context: Some(context),
+            state: context_state,
+        }
+    }
+    
     pub fn state(&self) -> &AudioContextState {
         &self.state
     }
@@ -45,23 +59,5 @@ impl AudioContextManager {
         self.context.as_ref()
             .is_some_and(|ctx| ctx.state() == web_sys::AudioContextState::Running)
     }
-    
-    pub fn attach_existing_context(&mut self, context: AudioContext) -> Result<(), AudioError> {
-        self.state = AudioContextState::Initializing;
-        dev_log!("✓ AudioContext attached from external source");
-        
-        // Map the web_sys::AudioContextState to our AudioContextState
-        let context_state = match context.state() {
-            web_sys::AudioContextState::Running => AudioContextState::Running,
-            web_sys::AudioContextState::Suspended => AudioContextState::Suspended,
-            web_sys::AudioContextState::Closed => AudioContextState::Closed,
-            _ => AudioContextState::Closed, // Default to closed for unknown states
-        };
-        
-        self.context = Some(context);
-        self.state = context_state;
-        Ok(())
-    }
-
 }
 
