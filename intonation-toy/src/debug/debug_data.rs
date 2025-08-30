@@ -70,7 +70,10 @@ impl DebugData {
         }
         
         if let Some(model) = model_result {
-            self.intonation_data = Some(model.accuracy.clone());
+            self.intonation_data = Some(crate::common::shared_types::IntonationData {
+                closest_midi_note: model.closest_midi_note,
+                cents_offset: model.cents_offset,
+            });
             self.interval_semitones = Some(model.interval_semitones);
             self.tuning_fork_note = Some(model.tuning_fork_note);
         }

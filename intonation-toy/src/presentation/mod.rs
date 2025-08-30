@@ -156,10 +156,10 @@ impl Presenter {
             
             renderer.update_audio_analysis(AudioAnalysis {
                 pitch_detected,
-                cents_offset: model_data.accuracy.cents_offset,
+                cents_offset: model_data.cents_offset,
                 interval: self.interval_position,
                 clarity,
-                volume_peak: model_data.is_peking,
+                volume_peak: model_data.is_peaking,
             });
             
             renderer.update_pitch_position(viewport);

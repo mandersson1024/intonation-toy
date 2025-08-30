@@ -374,14 +374,12 @@ pub struct EngineUpdateResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelUpdateResult {
     pub volume: Volume,
-    pub is_peking: bool,
+    pub is_peaking: bool,
     pub pitch: Pitch,
-    pub accuracy: IntonationData,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
     pub errors: Vec<Error>,
     pub permission_state: PermissionState,
-    // Flattened intonation data fields for easier access
     pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32,
     pub interval_semitones: i32,

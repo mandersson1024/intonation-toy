@@ -1,6 +1,6 @@
 //! Model layer - processes audio data and validates user actions
 
-use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, IntonationData, TuningSystem, Scale, MidiNote, is_valid_midi_note};
+use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, TuningSystem, Scale, MidiNote, is_valid_midi_note};
 use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
 use crate::common::warn_log;
@@ -84,40 +84,28 @@ impl DataModel {
         
         let is_peaking = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
-        let midi_note_and_cents = match pitch {
-            Pitch::Detected(frequency, clarity) if self.frequency_to_midi_note_and_cents(frequency).is_some() => {
-                Pitch::Detected(frequency, clarity)
+        let (closest_midi_note, cents_offset, interval_semitones) = match pitch {
+            Pitch::Detected(frequency, _) => {
+                if let Some((midi_note, cents)) = self.frequency_to_midi_note_and_cents(frequency) {
+                    let interval = (midi_note as i32) - (self.tuning_fork_note as i32);
+                    (Some(midi_note), cents, interval)
+                } else {
+                    (None, 0.0, 0)
+                }
             }
-            _ => Pitch::NotDetected,
-        };
-
-        let (accuracy, interval_semitones) = match midi_note_and_cents {
-            Pitch::Detected(frequency, _clarity) => {
-                let (closest_midi_note, cents_offset) = self.frequency_to_midi_note_and_cents(frequency).unwrap();
-                let accuracy = IntonationData { closest_midi_note: Some(closest_midi_note), cents_offset };
-                let interval = (closest_midi_note as i32) - (self.tuning_fork_note as i32);
-                (accuracy, interval)
-            }
-            Pitch::NotDetected => {
-                let accuracy = IntonationData { 
-                    closest_midi_note: None,
-                    cents_offset: 0.0,
-                };
-                (accuracy, 0)
-            }
+            _ => (None, 0.0, 0)
         };
 
         ModelUpdateResult {
             volume,
-            is_peking: is_peaking,
-            pitch: midi_note_and_cents,
-            accuracy: accuracy.clone(),
+            is_peaking,
+            pitch,
             tuning_system: self.tuning_system,
             scale: self.current_scale,
             errors: engine_data.audio_errors,
             permission_state: engine_data.permission_state,
-            closest_midi_note: accuracy.closest_midi_note,
-            cents_offset: accuracy.cents_offset,
+            closest_midi_note,
+            cents_offset,
             interval_semitones,
             tuning_fork_note: self.tuning_fork_note,
         }
