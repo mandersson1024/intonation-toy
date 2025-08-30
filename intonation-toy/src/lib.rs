@@ -94,7 +94,7 @@ pub async fn start_render_loop(
     presenter: std::rc::Rc<std::cell::RefCell<presentation::Presenter>>,
 ) {
     use crate::common::fps_counter::FpsCounter;
-    #[cfg(all(debug_assertions))]
+    #[cfg(debug_assertions)]
 use crate::debug::debug_panel::DebugPanel;
 
     let dpr = web_sys::window().unwrap().device_pixel_ratio();
@@ -112,7 +112,7 @@ use crate::debug::debug_panel::DebugPanel;
     #[cfg(debug_assertions)]
     let mut gui = three_d::GUI::new(&context);
     
-    #[cfg(all(debug_assertions))]
+    #[cfg(debug_assertions)]
     let mut dev_console = {
         use egui_dev_console::ConsoleCommandRegistry;
 
@@ -121,7 +121,7 @@ use crate::debug::debug_panel::DebugPanel;
         egui_dev_console::DevConsole::new(command_registry)
     };
     
-    #[cfg(all(debug_assertions))]
+    #[cfg(debug_assertions)]
     let mut debug_panel = DebugPanel::new(presenter.clone());
     
     let mut fps_counter = FpsCounter::new(30);
@@ -158,7 +158,7 @@ use crate::debug::debug_panel::DebugPanel;
         
         let model_data = profile!("model_update", model.update(engine_data.clone()));
         
-        #[cfg(all(debug_assertions))]
+        #[cfg(debug_assertions)]
         debug_panel.update_all_data(
             &engine_data,
             Some(&model_data),
@@ -184,7 +184,7 @@ use crate::debug::debug_panel::DebugPanel;
             }
         }
         
-        #[cfg(all(debug_assertions))]
+        #[cfg(debug_assertions)]
         gui.update(
             &mut frame_input.events,
             frame_input.accumulated_time,
@@ -205,7 +205,7 @@ use crate::debug::debug_panel::DebugPanel;
             presenter_ref.render(&context, &mut screen, &model_data);
         }
         
-        #[cfg(all(debug_assertions))]
+        #[cfg(debug_assertions)]
         let _ = gui.render();
 
         three_d::FrameOutput::default()
