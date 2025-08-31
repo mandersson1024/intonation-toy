@@ -28,6 +28,7 @@ pub(crate) mod platform;
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use crate::app_config::STANDARD_SAMPLE_RATE;
+use std::cell::RefCell;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -47,7 +48,7 @@ use self::audio::{AudioWorkletStatus, message_protocol::BufferPoolStats};
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
     /// Audio system context for managing audio processing
-    audio_context: std::cell::RefCell<audio::AudioSystemContext>,
+    audio_context: RefCell<audio::AudioSystemContext>,
 }
 
 impl AudioEngine {
@@ -83,7 +84,7 @@ impl AudioEngine {
         let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &audio_context)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
-        let audio_context_ref = std::cell::RefCell::new(audio_context_obj);
+        let audio_context_ref = RefCell::new(audio_context_obj);
         
         crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &audio_context_ref)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;

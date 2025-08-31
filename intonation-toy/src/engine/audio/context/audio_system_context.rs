@@ -5,8 +5,6 @@ pub struct AudioSystemContext {
     audio_context: Option<AudioContext>,
     audioworklet_manager: Option<super::super::worklet::AudioWorkletManager>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::super::pitch_analyzer::PitchAnalyzer>>>,
-    is_initialized: bool,
-    initialization_error: Option<String>,
     permission_state: std::cell::Cell<super::super::AudioPermission>,
 }
 
@@ -17,8 +15,6 @@ impl AudioSystemContext {
             audio_context: Some(audio_context.clone()),
             audioworklet_manager: None,
             pitch_analyzer: None,
-            is_initialized: false,
-            initialization_error: None,
             permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
         };
         dev_log!("✓ AudioContext attached");
@@ -28,7 +24,6 @@ impl AudioSystemContext {
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
                 dev_log!("✗ {}", error_msg);
-                result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
         result.audioworklet_manager = Some(worklet_manager);
@@ -46,7 +41,6 @@ impl AudioSystemContext {
             .map_err(|e| {
                 let error_msg = format!("Failed to initialize PitchAnalyzer: {}", e);
                 dev_log!("✗ {}", error_msg);
-                result.initialization_error = Some(error_msg.clone());
                 error_msg
             })?;
         
@@ -68,15 +62,12 @@ impl AudioSystemContext {
                 .map_err(|e| {
                     let error_msg = format!("Failed to setup message handling: {:?}", e);
                     dev_log!("✗ {}", error_msg);
-                    result.initialization_error = Some(error_msg.clone());
                     error_msg
                 })?;
         }
         
         dev_log!("✓ VolumeDetector initialized and configured");
 
-
-        result.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
         Ok(result)
     }
@@ -99,10 +90,6 @@ impl AudioSystemContext {
     }
 
     pub fn collect_audio_analysis(&self) -> Option<crate::common::shared_types::AudioAnalysis> {
-        if !self.is_initialized {
-            return None;
-        }
-
         let volume_data = self.audioworklet_manager.as_ref().and_then(|w| w.get_volume_data());
         let volume = volume_data.as_ref().map(|data| Volume {
             peak_amplitude: data.peak_amplitude,
@@ -132,10 +119,6 @@ impl AudioSystemContext {
 
     pub fn collect_audio_errors(&self) -> Vec<crate::common::shared_types::Error> {
         let mut errors = Vec::new();
-        
-        if let Some(error_msg) = &self.initialization_error {
-            errors.push(crate::common::shared_types::Error::ProcessingError(error_msg.clone()));
-        }
         
         if let Some(ref context) = self.audio_context {
             if context.state() != AudioContextState::Running {
