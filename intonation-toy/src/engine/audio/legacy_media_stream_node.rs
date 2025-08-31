@@ -30,16 +30,13 @@ pub fn legacy_connect_media_stream_node_to_audioworklet(
     audio_engine: &mut AudioEngine,
 ) -> Result<(), String> {
     let result = audio_engine.audioworklet_manager
-        .as_mut()
-        .ok_or("AudioWorklet manager not available".to_string())
-        .and_then(|worklet_manager| worklet_manager.connect_microphone(source.as_ref(), false).map_err(|e| e.to_string()));
+        .connect_microphone(source.as_ref(), false)
+        .map_err(|e| e.to_string());
     
     match result {
         Ok(_) => {
-            if let Some(ref mut worklet_manager) = audio_engine.audioworklet_manager.as_mut() {
-                if !worklet_manager.is_processing() {
-                    let _ = worklet_manager.start_processing();
-                }
+            if !audio_engine.audioworklet_manager.is_processing() {
+                let _ = audio_engine.audioworklet_manager.start_processing();
             }
             
             Ok(())

@@ -55,7 +55,7 @@ pub struct AudioEngine {
     /// Direct reference to the Web Audio API context
     audio_context: AudioContext,
     /// Manager for audio worklet operations
-    audioworklet_manager: Option<AudioWorkletManager>,
+    audioworklet_manager: AudioWorkletManager,
     /// Shared reference to pitch analysis component
     pitch_analyzer: Option<Rc<RefCell<PitchAnalyzer>>>,
     /// Cell-wrapped permission state for interior mutability
@@ -82,26 +82,19 @@ impl AudioEngine {
         media_stream: web_sys::MediaStream,
         audio_context: web_sys::AudioContext
     ) -> Result<Self, String> {
-        let mut engine = Self {
-            audio_context,
-            audioworklet_manager: None,
-            pitch_analyzer: None,
-            permission_state: Cell::new(AudioPermission::Uninitialized),
-        };
         crate::common::dev_log!("✓ AudioContext attached");
 
         let mut worklet_manager = audio::worklet::AudioWorkletManager::new_return_based();
-        let _worklet_node = worklet_manager.create_worklet_node(&engine.audio_context)
+        let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
                 error_msg
             })?;
-        engine.audioworklet_manager = Some(worklet_manager);
         crate::common::dev_log!("✓ AudioWorkletManager created with internal node creation");
 
         let config = audio::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = engine.audio_context.sample_rate() as u32;
+        let sample_rate = audio_context.sample_rate() as u32;
         
         if sample_rate != crate::app_config::STANDARD_SAMPLE_RATE {
             crate::common::dev_log!("⚠ Audio context sample rate ({} Hz) differs from standard rate ({} Hz)", 
@@ -115,29 +108,31 @@ impl AudioEngine {
                 error_msg
             })?;
         
-        let analyzer_rc = std::rc::Rc::new(std::cell::RefCell::new(analyzer));
-        engine.pitch_analyzer = Some(analyzer_rc.clone());
-        
-        if let Some(ref mut worklet_manager) = engine.audioworklet_manager {
-            worklet_manager.set_pitch_analyzer(analyzer_rc);
-            crate::common::dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
-        }
+        let analyzer_rc = Rc::new(RefCell::new(analyzer));
+        worklet_manager.set_pitch_analyzer(analyzer_rc.clone());
+        crate::common::dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
         crate::common::dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
-        let volume_detector = audio::volume_detector::VolumeDetector::new(&engine.audio_context)
+        let volume_detector = audio::volume_detector::VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
-        if let Some(ref mut worklet_manager) = engine.audioworklet_manager {
-            worklet_manager.set_volume_detector(volume_detector);
-            worklet_manager.setup_message_handling()
-                .map_err(|e| {
-                    let error_msg = format!("Failed to setup message handling: {:?}", e);
-                    crate::common::dev_log!("✗ {}", error_msg);
-                    error_msg
-                })?;
-        }
+        worklet_manager.set_volume_detector(volume_detector);
+        worklet_manager.setup_message_handling()
+            .map_err(|e| {
+                let error_msg = format!("Failed to setup message handling: {:?}", e);
+                crate::common::dev_log!("✗ {}", error_msg);
+                error_msg
+            })?;
         
         crate::common::dev_log!("✓ VolumeDetector initialized and configured");
+
+        // Create the engine struct with all initialized components
+        let mut engine = Self {
+            audio_context,
+            audioworklet_manager: worklet_manager,
+            pitch_analyzer: Some(analyzer_rc),
+            permission_state: Cell::new(AudioPermission::Uninitialized),
+        };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
         let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &engine.audio_context)
@@ -147,9 +142,7 @@ impl AudioEngine {
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
         // Configure default tuning fork
-        if let Some(ref mut worklet_manager) = engine.audioworklet_manager {
-            worklet_manager.update_tuning_fork_config(audio::TuningForkConfig::default());
-        }
+        engine.audioworklet_manager.update_tuning_fork_config(audio::TuningForkConfig::default());
 
         crate::common::dev_log!("✓ AudioEngine fully initialized");
         Ok(engine)
@@ -182,12 +175,12 @@ impl AudioEngine {
 
     #[cfg(debug_assertions)]
     pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        self.audioworklet_manager.as_ref().map(|worklet| worklet.get_status())
+        Some(self.audioworklet_manager.get_status())
     }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
-        self.audioworklet_manager.as_ref().and_then(|worklet| worklet.get_buffer_pool_statistics())
+        self.audioworklet_manager.get_buffer_pool_statistics()
     }
     
     
@@ -200,10 +193,7 @@ impl AudioEngine {
             return;
         }
         
-        let Some(worklet_manager) = self.audioworklet_manager.as_mut() else {
-            debug_assert!(false, "AudioWorkletManager not available for tuning fork audio control");
-            return;
-        };
+        let worklet_manager = &mut self.audioworklet_manager;
         
         if let Some(config) = model_actions.tuning_fork_configuration {
             // Convert model action to audio system config
@@ -280,24 +270,18 @@ impl AudioEngine {
                 config.enabled, config.frequency, config.volume
             );
             
-            if let Some(worklet_manager) = self.audioworklet_manager.as_mut() {
-                let audio_config = crate::engine::audio::SignalGeneratorConfig {
-                    enabled: config.enabled,
-                    frequency: config.frequency,
-                    amplitude: config.volume / 100.0,
-                    sample_rate: STANDARD_SAMPLE_RATE,
-                };
-                
-                worklet_manager.update_test_signal_config(audio_config);
-                crate::common::dev_log!(
-                    "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
-                    config.enabled, config.frequency, config.volume
-                );
-            } else {
-                crate::common::dev_log!(
-                    "[DEBUG] ⚠ AudioWorkletManager not available for test signal control"
-                );
-            }
+            let audio_config = crate::engine::audio::SignalGeneratorConfig {
+                enabled: config.enabled,
+                frequency: config.frequency,
+                amplitude: config.volume / 100.0,
+                sample_rate: STANDARD_SAMPLE_RATE,
+            };
+            
+            self.audioworklet_manager.update_test_signal_config(audio_config);
+            crate::common::dev_log!(
+                "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
+                config.enabled, config.frequency, config.volume
+            );
         }
         Ok(())
     }
@@ -306,7 +290,7 @@ impl AudioEngine {
     fn collect_audio_analysis(&self) -> Option<crate::common::shared_types::AudioAnalysis> {
         use crate::common::shared_types::{Volume, Pitch, AudioAnalysis};
         
-        let volume_data = self.audioworklet_manager.as_ref().and_then(|w| w.get_volume_data());
+        let volume_data = self.audioworklet_manager.get_volume_data();
         let volume = volume_data.as_ref().map(|data| Volume {
             peak_amplitude: data.peak_amplitude,
             rms_amplitude: data.rms_amplitude,
@@ -315,7 +299,7 @@ impl AudioEngine {
         // Extract FFT data from volume data when available
         let fft_data = volume_data.and_then(|data| data.fft_data.clone());
         
-        let pitch_data = self.audioworklet_manager.as_ref().and_then(|w| w.get_pitch_data());
+        let pitch_data = self.audioworklet_manager.get_pitch_data();
         let pitch = pitch_data.map(|data| {
             if data.frequency > 0.0 {
                 Pitch::Detected(data.frequency, data.clarity)
@@ -363,24 +347,22 @@ impl AudioEngine {
     
     /// Get the current audioworklet status
     pub fn get_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        self.audioworklet_manager.as_ref().map(|worklet| worklet.get_status())
+        Some(self.audioworklet_manager.get_status())
     }
     
     /// Get buffer pool statistics from the audioworklet
     pub fn get_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
-        self.audioworklet_manager.as_ref().and_then(|worklet| worklet.get_buffer_pool_statistics())
+        self.audioworklet_manager.get_buffer_pool_statistics()
     }
     
     /// Get mutable reference to the audioworklet manager
-    pub fn get_audioworklet_manager_mut(&mut self) -> Option<&mut audio::worklet::AudioWorkletManager> {
-        self.audioworklet_manager.as_mut()
+    pub fn get_audioworklet_manager_mut(&mut self) -> &mut AudioWorkletManager {
+        &mut self.audioworklet_manager
     }
 
     /// Configure tuning fork audio settings
     pub fn configure_tuning_fork(&mut self, config: audio::TuningForkConfig) {
-        if let Some(worklet) = &mut self.audioworklet_manager {
-            worklet.update_tuning_fork_config(config);
-        }
+        self.audioworklet_manager.update_tuning_fork_config(config);
     }
     
 }
