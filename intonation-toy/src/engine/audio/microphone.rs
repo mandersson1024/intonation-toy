@@ -2,20 +2,14 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum AudioError {
-    PermissionDenied(String),
-    DeviceUnavailable(String),
     NotSupported(String),
-    StreamInitFailed(String),
     Generic(String),
 }
 
 impl fmt::Display for AudioError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AudioError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
-            AudioError::DeviceUnavailable(msg) => write!(f, "Device unavailable: {}", msg),
             AudioError::NotSupported(msg) => write!(f, "Not supported: {}", msg),
-            AudioError::StreamInitFailed(msg) => write!(f, "Stream initialization failed: {}", msg),
             AudioError::Generic(msg) => write!(f, "Audio error: {}", msg),
         }
     }
