@@ -62,7 +62,7 @@ impl AudioWorkletSharedData {
 
 
 pub struct AudioWorkletManager {
-    worklet_node: Option<AudioWorkletNode>,
+    worklet_node: AudioWorkletNode,
     state: AudioWorkletState,
     volume_detector: Option<std::rc::Rc<std::cell::RefCell<VolumeDetector>>>,
     last_volume_analysis: Option<VolumeAnalysis>,
@@ -97,16 +97,19 @@ impl AudioWorkletManager {
     /// # Default Settings
     /// - Enables ping-pong buffer recycling by default
     /// - Initializes without external dependencies or setters
+    /// - Creates the AudioWorkletNode immediately
     /// 
     /// # Example
     /// ```
-    /// let worklet_manager = AudioWorkletManager::new(audio_context);
+    /// let worklet_manager = AudioWorkletManager::new(audio_context)?;
     /// // Data is collected through getter methods rather than pushed via setters
     /// ```
-    pub fn new(audio_context: AudioContext) -> Self {
-        Self {
-            worklet_node: None,
-            state: AudioWorkletState::Uninitialized,
+    pub fn new(audio_context: AudioContext) -> Result<Self, String> {
+        let worklet_node = Self::create_worklet_node(&audio_context)?;
+        
+        Ok(Self {
+            worklet_node,
+            state: AudioWorkletState::Ready,
             volume_detector: None,
             last_volume_analysis: None,
             chunk_counter: 0,
@@ -123,61 +126,91 @@ impl AudioWorkletManager {
             legacy_microphone_source_node: None,
             prev_microphone_volume: None,
             prev_output_to_speakers: None,
-        }
+        })
     }
     
-    
+    /// Create AudioWorkletNode with standard configuration
+    /// 
+    /// This method creates an AudioWorkletNode using standard configuration options.
+    /// The worklet module must already be loaded in the AudioContext before calling this method.
+    /// 
+    /// # Parameters
+    /// - `audio_context`: Reference to the AudioContext with worklet module loaded
+    /// 
+    /// # Returns
+    /// Returns `Result<AudioWorkletNode, String>` where:
+    /// - On success: AudioWorkletNode ready for use
+    /// - On error: String describing what went wrong
+    fn create_worklet_node(audio_context: &AudioContext) -> Result<AudioWorkletNode, String> {
+        dev_log!("Creating AudioWorkletNode with standard configuration");
+        
+        // Create AudioWorkletNode with default options
+        let options = AudioWorkletNodeOptions::new();
+        options.set_number_of_inputs(1);
+        options.set_number_of_outputs(1);
+        
+        // Set channel configuration
+        let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
+        options.set_channel_count(1);
+        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
+        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
+        options.set_output_channel_count(&output_channels);
+        
+        // Create the AudioWorkletNode with the registered processor
+        let worklet_node = AudioWorkletNode::new_with_options(audio_context, "pitch-processor", &options)
+            .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
+        
+        dev_log!("✓ AudioWorkletNode created successfully");
+        Ok(worklet_node)
+    }
     
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            // Clean up existing closure and port handler
-            self._message_closure = None;
-            
-            // Clear port message handler to disconnect previous closures
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.set_onmessage(None);
-            
-            // Create shared data for the message handler
-            let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
-            
-            // Store the shared data in the manager for later access
-            self.shared_data = Some(shared_data.clone());
-            
-            // Store references to components that will be used in the handler
-            if let Some(volume_detector) = &self.volume_detector {
-                shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
-            }
-            shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
-            dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
-            
-            // Capture only the specific fields needed for the message handler
-            let shared_data_clone = shared_data.clone();
-            let worklet_node_clone = worklet.clone();
-            let message_factory_clone = self.message_factory.clone();
-            
-            let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
-                Self::handle_worklet_message_static(
-                    event, 
-                    shared_data_clone.clone(), 
-                    worklet_node_clone.clone(),
-                    message_factory_clone.clone()
-                );
-            }) as Box<dyn FnMut(MessageEvent)>);
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.set_onmessage(Some(closure.as_ref().unchecked_ref()));
-            
-            // Store the closure to prevent it from being dropped
-            self._message_closure = Some(closure);
-            
-            dev_log!("✓ AudioWorklet message handler setup complete");
-            Ok(())
-        } else {
-            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
+        let worklet = &self.worklet_node;
+        // Clean up existing closure and port handler
+        self._message_closure = None;
+        
+        // Clear port message handler to disconnect previous closures
+        let port = worklet.port()
+            .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+        port.set_onmessage(None);
+        
+        // Create shared data for the message handler
+        let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
+        
+        // Store the shared data in the manager for later access
+        self.shared_data = Some(shared_data.clone());
+        
+        // Store references to components that will be used in the handler
+        if let Some(volume_detector) = &self.volume_detector {
+            shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
         }
+        shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
+        dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
+        
+        // Capture only the specific fields needed for the message handler
+        let shared_data_clone = shared_data.clone();
+        let worklet_node_clone = worklet.clone();
+        let message_factory_clone = self.message_factory.clone();
+        
+        let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
+            Self::handle_worklet_message_static(
+                event, 
+                shared_data_clone.clone(), 
+                worklet_node_clone.clone(),
+                message_factory_clone.clone()
+            );
+        }) as Box<dyn FnMut(MessageEvent)>);
+        
+        let port = worklet.port()
+            .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+        port.set_onmessage(Some(closure.as_ref().unchecked_ref()));
+        
+        // Store the closure to prevent it from being dropped
+        self._message_closure = Some(closure);
+        
+        dev_log!("✓ AudioWorklet message handler setup complete");
+        Ok(())
     }
     
     /// Handle messages from the AudioWorklet processor (static version)
@@ -411,40 +444,37 @@ impl AudioWorkletManager {
     
     /// Send typed control message to AudioWorklet processor
     fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            let envelope = match message {
-                ToWorkletMessage::StartProcessing => {
-                    self.message_factory.start_processing()
-                        .map_err(|e| AudioError::Generic(format!("Failed to create start processing message: {:?}", e)))?
-                }
-                ToWorkletMessage::StopProcessing => {
-                    self.message_factory.stop_processing()
-                        .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
-                }
-                ToWorkletMessage::UpdateBatchConfig { config } => {
-                    self.message_factory.update_batch_config(config)
-                        .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
-                }
-                ToWorkletMessage::ReturnBuffer { buffer_id } => {
-                    self.message_factory.return_buffer(buffer_id)
-                        .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
-                }
-            };
-            
-            let serializer = MessageSerializer::new();
-            let js_message = serializer.serialize_envelope(&envelope)
-                .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-            
-            let port = worklet.port()
-                .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
-            port.post_message(&js_message)
-                .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
-            
-            dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
-            Ok(())
-        } else {
-            Err(AudioError::Generic("No AudioWorklet node available".to_string()))
-        }
+        let worklet = &self.worklet_node;
+        let envelope = match message {
+            ToWorkletMessage::StartProcessing => {
+                self.message_factory.start_processing()
+                    .map_err(|e| AudioError::Generic(format!("Failed to create start processing message: {:?}", e)))?
+            }
+            ToWorkletMessage::StopProcessing => {
+                self.message_factory.stop_processing()
+                    .map_err(|e| AudioError::Generic(format!("Failed to create stop processing message: {:?}", e)))?
+            }
+            ToWorkletMessage::UpdateBatchConfig { config } => {
+                self.message_factory.update_batch_config(config)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create batch config message: {:?}", e)))?
+            }
+            ToWorkletMessage::ReturnBuffer { buffer_id } => {
+                self.message_factory.return_buffer(buffer_id)
+                    .map_err(|e| AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)))?
+            }
+        };
+        
+        let serializer = MessageSerializer::new();
+        let js_message = serializer.serialize_envelope(&envelope)
+            .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
+        
+        let port = worklet.port()
+            .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
+        port.post_message(&js_message)
+            .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
+        
+        dev_log!("Sent typed control message to AudioWorklet: {:?} (ID: {})", envelope.payload, envelope.message_id);
+        Ok(())
     }
 
     
@@ -457,54 +487,48 @@ impl AudioWorkletManager {
         self.ensure_microphone_gain_node()?;
         self.ensure_mixer_node()?;
         
-        if let Some(worklet) = &self.worklet_node {
-            // Unified connection setup - always the same regardless of state:
-            // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
+        // Unified connection setup - always the same regardless of state:
+        // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
+        
+        if let Some(ref mic_gain) = self.legacy_microphone_gain_node {
+            // 1. Connect microphone source to microphone gain
+            microphone_source.connect_with_audio_node(mic_gain)
+                .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
+            dev_log!("Connected microphone to gain node");
             
-            if let Some(ref mic_gain) = self.legacy_microphone_gain_node {
-                // 1. Connect microphone source to microphone gain
-                microphone_source.connect_with_audio_node(mic_gain)
-                    .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
-                dev_log!("Connected microphone to gain node");
-                
-                // 2. Connect microphone gain to volume detector (parallel tap for analysis)
-                if let Some(ref volume_detector) = self.volume_detector {
-                    if let Err(e) = volume_detector.borrow().connect_source(mic_gain) {
-                        dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-                    } else {
-                        dev_log!("Connected microphone gain to VolumeDetector");
-                    }
-                }
-                
-                // 3. Connect microphone gain to mixer
-                if let Some(ref mixer) = self.legacy_mixer_gain_node {
-                    mic_gain.connect_with_audio_node(mixer)
-                        .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-                    dev_log!("Connected microphone gain to mixer");
-                    
-                    // 4. Connect mixer to worklet
-                    mixer.connect_with_audio_node(worklet)
-                        .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
-                    dev_log!("Connected mixer to worklet");
+            // 2. Connect microphone gain to volume detector (parallel tap for analysis)
+            if let Some(ref volume_detector) = self.volume_detector {
+                if let Err(e) = volume_detector.borrow().connect_source(mic_gain) {
+                    dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
                 } else {
-                    return Err(AudioError::Generic("Mixer node not available".to_string()));
+                    dev_log!("Connected microphone gain to VolumeDetector");
                 }
+            }
+            
+            // 3. Connect microphone gain to mixer
+            if let Some(ref mixer) = self.legacy_mixer_gain_node {
+                mic_gain.connect_with_audio_node(mixer)
+                    .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
+                dev_log!("Connected microphone gain to mixer");
+                
+                // 4. Connect mixer to worklet
+                mixer.connect_with_audio_node(&self.worklet_node)
+                    .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
+                dev_log!("Connected mixer to worklet");
             } else {
-                return Err(AudioError::Generic("Microphone gain node not available".to_string()));
+                return Err(AudioError::Generic("Mixer node not available".to_string()));
             }
         } else {
-            return Err(AudioError::Generic("AudioWorklet node not available".to_string()));
+            return Err(AudioError::Generic("Microphone gain node not available".to_string()));
         }
         
         // Connect AudioWorklet to speakers if output is enabled
-        if let Some(worklet) = &self.worklet_node {
-            if self.output_to_speakers {
-                let audio_context = worklet.context();
-                if let Err(e) = worklet.connect_with_audio_node(&audio_context.destination()) {
-                    dev_log!("Failed to connect worklet to speakers: {:?}", e);
-                } else {
-                    dev_log!("Connected worklet to speakers");
-                }
+        if self.output_to_speakers {
+            let audio_context = self.worklet_node.context();
+            if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
+                dev_log!("Failed to connect worklet to speakers: {:?}", e);
+            } else {
+                dev_log!("Connected worklet to speakers");
             }
         }
         
@@ -545,10 +569,8 @@ impl AudioWorkletManager {
     
     /// Disconnect and cleanup audio worklet
     pub fn disconnect(&mut self) -> Result<(), AudioError> {
-        if let Some(worklet) = &self.worklet_node {
-            let _ = worklet.disconnect();
-            dev_log!("AudioWorklet disconnected");
-        }
+        let _ = self.worklet_node.disconnect();
+        dev_log!("AudioWorklet disconnected");
         
         // Clean up the test signal node
         self.cleanup_test_signal();
@@ -587,7 +609,7 @@ impl AudioWorkletManager {
             self.tuning_fork_node = None; // Drop triggers cleanup
         }
         
-        self.worklet_node = None;
+        // worklet_node is now owned, will be dropped with self
         self.state = AudioWorkletState::Uninitialized;
         
         Ok(())
@@ -677,14 +699,10 @@ impl AudioWorkletManager {
             mixer.gain().set_value(1.0);
             
             // Connect mixer to worklet
-            if let Some(ref worklet) = self.worklet_node {
-                mixer
-                    .connect_with_audio_node(worklet)
-                    .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
-                dev_log!("Created and connected mixer node to worklet");
-            } else {
-                return Err(AudioError::Generic("No worklet node available for mixer connection".to_string()));
-            }
+            mixer
+                .connect_with_audio_node(&self.worklet_node)
+                .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
+            dev_log!("Created and connected mixer node to worklet");
             
             self.legacy_mixer_gain_node = Some(mixer);
         }
@@ -861,33 +879,27 @@ impl AudioWorkletManager {
     
     /// Connect AudioWorklet output to speakers
     fn connect_worklet_to_speakers(&self) {
-        if let Some(worklet) = &self.worklet_node {
-            let destination = self.audio_context.destination();
-            match worklet.connect_with_audio_node(&destination) {
-                Ok(_) => {
-                    dev_log!("🔊 AudioWorklet connected to speakers");
-                }
-                Err(e) => {
-                    dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
-                }
+        let destination = self.audio_context.destination();
+        match self.worklet_node.connect_with_audio_node(&destination) {
+            Ok(_) => {
+                dev_log!("🔊 AudioWorklet connected to speakers");
             }
-        } else {
-            dev_log!("🔇 No AudioWorklet available for speaker connection");
+            Err(e) => {
+                dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
+            }
         }
     }
     
     /// Disconnect AudioWorklet output from speakers  
     fn disconnect_worklet_from_speakers(&self) {
-        if let Some(worklet) = &self.worklet_node {
-            let destination = self.audio_context.destination();
-            // Disconnect only the connection to destination (speakers)
-            match worklet.disconnect_with_audio_node(&destination) {
-                Ok(_) => {
-                    dev_log!("🔇 AudioWorklet disconnected from speakers");
-                }
-                Err(e) => {
-                    dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
-                }
+        let destination = self.audio_context.destination();
+        // Disconnect only the connection to destination (speakers)
+        match self.worklet_node.disconnect_with_audio_node(&destination) {
+            Ok(_) => {
+                dev_log!("🔇 AudioWorklet disconnected from speakers");
+            }
+            Err(e) => {
+                dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
             }
         }
     }
@@ -905,7 +917,7 @@ impl AudioWorkletManager {
         
         super::AudioWorkletStatus {
             state: self.state.clone(),
-            processor_loaded: self.worklet_node.is_some(),
+            processor_loaded: true,
             chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: crate::app_config::BUFFER_SIZE as u32,
             batches_processed,
@@ -948,64 +960,17 @@ impl AudioWorkletManager {
         self.pitch_analyzer = Some(analyzer);
         dev_log!("Pitch analyzer configured for direct processing");
         
-        // If AudioWorklet is already initialized, update the message handler to include the pitch analyzer
-        if self.worklet_node.is_some() {
-            match self.setup_message_handling() {
-                Ok(_) => {
-                    dev_log!("Message handler updated with new pitch analyzer");
-                }
-                Err(e) => {
-                    dev_log!("Failed to update message handler: {:?}", e);
-                }
+        // worklet_node is always available now, update the message handler to include the pitch analyzer
+        match self.setup_message_handling() {
+            Ok(_) => {
+                dev_log!("Message handler updated with new pitch analyzer");
+            }
+            Err(e) => {
+                dev_log!("Failed to update message handler: {:?}", e);
             }
         }
     }
     
-    /// Create AudioWorkletNode with standard configuration
-    /// 
-    /// This method creates an AudioWorkletNode using the same configuration options that were
-    /// previously created in `create_audio_context_and_load_worklet()`. The worklet module must already be loaded
-    /// in the AudioContext before calling this method.
-    /// 
-    /// # Parameters
-    /// - `audio_context`: Reference to the AudioContext with worklet module loaded
-    /// 
-    /// # Returns
-    /// Returns `Result<AudioWorkletNode, String>` where:
-    /// - On success: AudioWorkletNode ready for use
-    /// - On error: String describing what went wrong
-    /// 
-    /// # Example
-    /// ```rust
-    /// let worklet_node = manager.create_worklet_node(&audio_context)?;
-    /// ```
-    pub fn create_worklet_node(&mut self, audio_context: &AudioContext) -> Result<AudioWorkletNode, String> {
-        dev_log!("Creating AudioWorkletNode with standard configuration");
-        
-        // Create AudioWorkletNode with default options
-        let options = AudioWorkletNodeOptions::new();
-        options.set_number_of_inputs(1);
-        options.set_number_of_outputs(1);
-        
-        // Set channel configuration
-        let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
-        options.set_channel_count(1);
-        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
-        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
-        options.set_output_channel_count(&output_channels);
-        
-        // Create the AudioWorkletNode with the registered processor
-        let worklet_node = AudioWorkletNode::new_with_options(audio_context, "pitch-processor", &options)
-            .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
-        
-        dev_log!("✓ AudioWorkletNode created successfully");
-        
-        // Store the node and update state
-        self.worklet_node = Some(worklet_node.clone());
-        self.state = AudioWorkletState::Ready;
-        
-        Ok(worklet_node)
-    }
 }
 
 impl Drop for AudioWorkletManager {
