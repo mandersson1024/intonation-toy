@@ -10,7 +10,7 @@ use super::{
     message_protocol::BufferPoolStats,
     pitch_analyzer::PitchAnalyzer,
     volume_detector::VolumeDetector,
-    worklet::AudioWorkletState,
+    data_types::AudioWorkletState,
 };
 use crate::app_config::AUDIO_CHUNK_SIZE;
 use std::rc::Rc;

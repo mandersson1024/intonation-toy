@@ -1,5 +1,29 @@
-use super::AudioWorkletState;
 use crate::app_config::{AUDIO_CHUNK_SIZE, BUFFER_SIZE};
+use std::fmt;
+
+/// State tracking for AudioWorklet processing
+#[derive(Debug, Clone, PartialEq)]
+pub enum AudioWorkletState {
+    Uninitialized,
+    Initializing,
+    Ready,
+    Processing,
+    Stopped,
+    Failed,
+}
+
+impl fmt::Display for AudioWorkletState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AudioWorkletState::Uninitialized => write!(f, "Uninitialized"),
+            AudioWorkletState::Initializing => write!(f, "Initializing"),
+            AudioWorkletState::Ready => write!(f, "Ready"),
+            AudioWorkletState::Processing => write!(f, "Processing"),
+            AudioWorkletState::Stopped => write!(f, "Stopped"),
+            AudioWorkletState::Failed => write!(f, "Failed"),
+        }
+    }
+}
 
 /// Volume level data for external consumption
 /// 

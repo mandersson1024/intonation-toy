@@ -157,16 +157,12 @@ impl AudioPipeline {
 
     /// Get current volume data
     pub fn get_volume_data(&self) -> Option<VolumeLevelData> {
-        // Get volume data from the analyzer first, fall back to worklet manager
         self.analyzer.get_volume_data()
-            .or_else(|| self.worklet_manager.get_volume_data())
     }
 
     /// Get current pitch data  
     pub fn get_pitch_data(&self) -> Option<PitchData> {
-        // Get pitch data from the analyzer first, fall back to worklet manager
         self.analyzer.get_pitch_data()
-            .or_else(|| self.worklet_manager.get_pitch_data())
     }
 
     /// Get buffer pool statistics
