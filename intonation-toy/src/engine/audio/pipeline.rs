@@ -5,6 +5,7 @@ use super::{
     worklet_manager::AudioWorkletManager,
     analyzer::AudioAnalyzer,
     generator::AudioGenerator,
+    router::AudioRouter,
     AudioError,
     SignalGeneratorConfig,
     signal_generator::TuningForkConfig,
@@ -22,12 +23,14 @@ use super::{
 /// - AudioWorkletManager: Manages worklet-specific operations
 /// - AudioAnalyzer: Manages audio analysis operations
 /// - AudioGenerator: Manages audio generation operations
+/// - AudioRouter: Manages audio routing and mixing operations
 /// - AudioPipeline: Orchestrates the system and provides unified API
 pub struct AudioPipeline {
     signal_flow: AudioSignalFlow,
     worklet_manager: AudioWorkletManager,
     analyzer: AudioAnalyzer,
     generator: AudioGenerator,
+    router: AudioRouter,
     audio_context: AudioContext,
 }
 
@@ -79,13 +82,19 @@ impl AudioPipeline {
             signal_flow.tuning_fork_gain.clone(),
         ).map_err(|e| format!("Failed to create AudioGenerator: {}", e))?;
 
-        dev_log!("✓ AudioPipeline created with signal flow, worklet manager, analyzer, and generator");
+        // Create the AudioRouter with gain nodes from signal flow
+        let router = AudioRouter::new(
+            signal_flow.input_gain.clone(),
+        ).map_err(|e| format!("Failed to create AudioRouter: {}", e))?;
+
+        dev_log!("✓ AudioPipeline created with signal flow, worklet manager, analyzer, generator, and router");
 
         Ok(Self {
             signal_flow,
             worklet_manager,
             analyzer,
             generator,
+            router,
             audio_context,
         })
     }
@@ -121,12 +130,9 @@ impl AudioPipeline {
         self.worklet_manager.is_processing()
     }
 
-    /// Set microphone volume using the input gain node from signal flow
+    /// Set microphone volume using the router
     pub fn set_microphone_volume(&mut self, volume: f32) -> Result<(), AudioError> {
-        let clamped_volume = volume.clamp(0.0, 1.0);
-        self.signal_flow.input_gain.gain().set_value(clamped_volume);
-        dev_log!("Set microphone volume to {:.2} via signal flow", clamped_volume);
-        Ok(())
+        self.router.set_microphone_volume(volume)
     }
 
     /// Update test signal configuration
@@ -141,14 +147,7 @@ impl AudioPipeline {
 
     /// Set whether to output audio stream to speakers
     pub fn set_output_to_speakers(&mut self, enabled: bool) {
-        if enabled {
-            // The signal flow already connects worklet to destination
-            // This could control a master output gain in the future
-            dev_log!("Speaker output enabled via signal flow");
-        } else {
-            // Could disconnect from destination or use a master gain
-            dev_log!("Speaker output disabled (not fully implemented)");
-        }
+        self.router.set_output_to_speakers(enabled);
     }
 
     /// Get current audio worklet status
@@ -201,6 +200,9 @@ impl AudioPipeline {
     pub fn disconnect(&mut self) -> Result<(), AudioError> {
         // Cleanup generator (stops oscillators)
         self.generator.disconnect()?;
+        
+        // Cleanup router (mutes audio)
+        self.router.disconnect()?;
         
         // Cleanup analyzer
         self.analyzer.disconnect()?;

@@ -75,11 +75,11 @@ The `AudioWorkletManager` has grown beyond its name and manages far more than ju
 - [x] Use oscillator nodes from `AudioSignalFlow`
 - [x] Handle generation state and parameters
 
-### Phase 5: Create AudioRouter
-- [ ] Extract gain control logic
-- [ ] Extract speaker routing logic
-- [ ] Extract microphone processing
-- [ ] Use gain nodes from `AudioSignalFlow`
+### Phase 5: Create AudioRouter ✅ COMPLETED
+- [x] Extract gain control logic
+- [x] Extract speaker routing logic
+- [x] Extract microphone processing
+- [x] Use gain nodes from `AudioSignalFlow`
 
 ### Phase 6: Integration and Testing
 - [ ] Ensure all components work together through `AudioPipeline`
