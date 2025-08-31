@@ -80,8 +80,6 @@ pub struct AudioWorkletManager {
     legacy_mixer_gain_node: Option<GainNode>,
     legacy_microphone_gain_node: Option<GainNode>,
     legacy_microphone_source_node: Option<AudioNode>,
-    prev_microphone_volume: Option<f32>,
-    prev_output_to_speakers: Option<bool>,
 }
 
 
@@ -118,8 +116,6 @@ impl AudioWorkletManager {
             legacy_mixer_gain_node: None,
             legacy_microphone_gain_node: None,
             legacy_microphone_source_node: None,
-            prev_microphone_volume: None,
-            prev_output_to_speakers: None,
         })
     }
     
@@ -579,8 +575,6 @@ impl AudioWorkletManager {
         self.legacy_microphone_source_node = None;
         
         // Clear stored previous states
-        self.prev_microphone_volume = None;
-        self.prev_output_to_speakers = None;
         
         // Clean up the tuning fork audio node
         if self.tuning_fork_node.is_some() {
@@ -712,20 +706,7 @@ impl AudioWorkletManager {
     pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
         // Handle microphone muting for test signals to prevent feedback
         if config.enabled {
-            // Store previous microphone volume before muting
-            if self.prev_microphone_volume.is_none() {
-                if let Some(ref mic_gain) = self.legacy_microphone_gain_node {
-                    let current_volume = mic_gain.gain().value();
-                    self.prev_microphone_volume = Some(current_volume);
-                    dev_log!("Stored previous microphone volume: {}", current_volume);
-                }
-            }
-            
-            // Store previous speaker output state
-            if self.prev_output_to_speakers.is_none() {
-                self.prev_output_to_speakers = Some(self.output_to_speakers);
-                dev_log!("Stored previous speaker output state: {}", self.output_to_speakers);
-            }
+            // Mute microphone when test signal is active
             
             // Mute microphone to prevent feedback (no reconnection needed - just volume control)
             if let Err(e) = self.set_microphone_volume(0.0) {
@@ -774,21 +755,14 @@ impl AudioWorkletManager {
                     dev_log!("Disabled test signal node");
                 }
                 
-                // Restore previous audio routing states
-                if let Some(prev_volume) = self.prev_microphone_volume.take() {
-                    if let Err(e) = self.set_microphone_volume(prev_volume) {
-                        dev_log!("Failed to restore microphone volume: {:?}", e);
-                    } else {
-                        dev_log!("Restored microphone volume to: {}", prev_volume);
-                    }
+                // Restore microphone volume to full
+                if let Err(e) = self.set_microphone_volume(1.0) {
+                    dev_log!("Failed to restore microphone volume: {:?}", e);
+                } else {
+                    dev_log!("Restored microphone volume to: 1.0");
                 }
-                
-                if let Some(prev_speakers) = self.prev_output_to_speakers.take() {
-                    if self.output_to_speakers != prev_speakers {
-                        self.set_output_to_speakers(prev_speakers);
-                        dev_log!("Restored speaker output state to: {}", prev_speakers);
-                    }
-                }
+
+                self.set_output_to_speakers(false);
             }
         }
     }
