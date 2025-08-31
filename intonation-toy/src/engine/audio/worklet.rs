@@ -152,12 +152,8 @@ impl AudioWorkletManager {
             if let Some(volume_detector) = &self.volume_detector {
                 shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
             }
-            if let Some(pitch_analyzer) = &self.pitch_analyzer {
-                shared_data.borrow_mut().pitch_analyzer = Some(pitch_analyzer.clone());
-                dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
-            } else {
-                dev_log!("✗ Warning: No pitch analyzer available during AudioWorklet initialization");
-            }
+            shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
+            dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
             
             // Capture only the specific fields needed for the message handler
             let shared_data_clone = shared_data.clone();

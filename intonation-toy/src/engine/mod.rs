@@ -57,7 +57,7 @@ pub struct AudioEngine {
     /// Manager for audio worklet operations
     audioworklet_manager: AudioWorkletManager,
     /// Shared reference to pitch analysis component
-    pitch_analyzer: Option<Rc<RefCell<PitchAnalyzer>>>,
+    pitch_analyzer: Rc<RefCell<PitchAnalyzer>>,
     /// Cell-wrapped permission state for interior mutability
     permission_state: Cell<AudioPermission>,
 }
@@ -130,7 +130,7 @@ impl AudioEngine {
         let mut engine = Self {
             audio_context,
             audioworklet_manager: worklet_manager,
-            pitch_analyzer: Some(analyzer_rc),
+            pitch_analyzer: analyzer_rc,
             permission_state: Cell::new(AudioPermission::Uninitialized),
         };
 
