@@ -35,7 +35,6 @@ use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
 use crate::engine::audio::worklet::AudioWorkletManager;
 use crate::engine::audio::AudioPermission;
-use crate::engine::audio::pitch_analyzer::PitchAnalyzer;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -56,8 +55,6 @@ pub struct AudioEngine {
     audio_context: AudioContext,
     /// Manager for audio worklet operations
     audioworklet_manager: AudioWorkletManager,
-    /// Shared reference to pitch analysis component
-    pitch_analyzer: Rc<RefCell<PitchAnalyzer>>,
     /// Cell-wrapped permission state for interior mutability
     permission_state: Cell<AudioPermission>,
 }
@@ -130,7 +127,6 @@ impl AudioEngine {
         let mut engine = Self {
             audio_context,
             audioworklet_manager: worklet_manager,
-            pitch_analyzer: analyzer_rc,
             permission_state: Cell::new(AudioPermission::Uninitialized),
         };
 
