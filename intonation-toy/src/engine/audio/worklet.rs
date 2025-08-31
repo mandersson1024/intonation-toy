@@ -78,7 +78,7 @@ pub struct AudioWorkletManager {
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
     legacy_mixer_gain_node: Option<GainNode>,
-    legacy_microphone_gain_node: Option<GainNode>,
+    legacy_microphone_gain_node: GainNode,
     legacy_microphone_source_node: Option<AudioNode>,
 }
 
@@ -101,6 +101,12 @@ impl AudioWorkletManager {
             .map_err(|e| format!("Failed to initialize PitchAnalyzer: {}", e))?;
         let pitch_analyzer = Rc::new(RefCell::new(pitch_analyzer));
         
+        // Create microphone gain node
+        let legacy_microphone_gain_node = audio_context
+            .create_gain()
+            .map_err(|_| "Failed to create microphone gain node".to_string())?;
+        legacy_microphone_gain_node.gain().set_value(1.0);
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
@@ -114,7 +120,7 @@ impl AudioWorkletManager {
             tuning_fork_node: None,
             test_signal_node: None,
             legacy_mixer_gain_node: None,
-            legacy_microphone_gain_node: None,
+            legacy_microphone_gain_node,
             legacy_microphone_source_node: None,
         })
     }
@@ -462,41 +468,37 @@ impl AudioWorkletManager {
         // Store microphone source
         self.legacy_microphone_source_node = Some(microphone_source.clone());
         
-        // Ensure both microphone gain and mixer nodes exist
-        self.ensure_microphone_gain_node()?;
+        // Ensure mixer node exists (microphone gain is always available)
         self.ensure_mixer_node()?;
         
         // Unified connection setup - always the same regardless of state:
         // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
         
-        if let Some(ref mic_gain) = self.legacy_microphone_gain_node {
-            // 1. Connect microphone source to microphone gain
-            microphone_source.connect_with_audio_node(mic_gain)
-                .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
-            dev_log!("Connected microphone to gain node");
-            
-            // 2. Connect microphone gain to volume detector (parallel tap for analysis)
-            if let Err(e) = self.volume_detector.borrow().connect_source(mic_gain) {
-                dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-            } else {
-                dev_log!("Connected microphone gain to VolumeDetector");
-            }
-            
-            // 3. Connect microphone gain to mixer
-            if let Some(ref mixer) = self.legacy_mixer_gain_node {
-                mic_gain.connect_with_audio_node(mixer)
-                    .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-                dev_log!("Connected microphone gain to mixer");
-                
-                // 4. Connect mixer to worklet
-                mixer.connect_with_audio_node(&self.worklet_node)
-                    .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
-                dev_log!("Connected mixer to worklet");
-            } else {
-                return Err(AudioError::Generic("Mixer node not available".to_string()));
-            }
+        // 1. Connect microphone source to microphone gain
+        let mic_gain = &self.legacy_microphone_gain_node;
+        microphone_source.connect_with_audio_node(mic_gain)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
+        dev_log!("Connected microphone to gain node");
+        
+        // 2. Connect microphone gain to volume detector (parallel tap for analysis)
+        if let Err(e) = self.volume_detector.borrow().connect_source(mic_gain) {
+            dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
         } else {
-            return Err(AudioError::Generic("Microphone gain node not available".to_string()));
+            dev_log!("Connected microphone gain to VolumeDetector");
+        }
+        
+        // 3. Connect microphone gain to mixer
+        if let Some(ref mixer) = self.legacy_mixer_gain_node {
+            mic_gain.connect_with_audio_node(mixer)
+                .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
+            dev_log!("Connected microphone gain to mixer");
+            
+            // 4. Connect mixer to worklet
+            mixer.connect_with_audio_node(&self.worklet_node)
+                .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
+            dev_log!("Connected mixer to worklet");
+        } else {
+            return Err(AudioError::Generic("Mixer node not available".to_string()));
         }
         
         // Connect AudioWorklet to speakers if output is enabled
@@ -559,10 +561,8 @@ impl AudioWorkletManager {
         }
         
         // Clean up the microphone gain node
-        if let Some(mic_gain) = self.legacy_microphone_gain_node.take() {
-            let _ = mic_gain.disconnect();
-            dev_log!("Microphone gain node disconnected and cleaned up");
-        }
+        let _ = self.legacy_microphone_gain_node.disconnect();
+        dev_log!("Microphone gain node disconnected and cleaned up");
         
         // Disconnect and cleanup volume detector
         if let Err(e) = self.volume_detector.borrow().disconnect() {
@@ -662,36 +662,16 @@ impl AudioWorkletManager {
     }
     
     /// Ensure microphone gain node exists
-    fn ensure_microphone_gain_node(&mut self) -> Result<&GainNode, AudioError> {
-        if self.legacy_microphone_gain_node.is_none() {
-            let mic_gain = self.audio_context
-                .create_gain()
-                .map_err(|_| AudioError::Generic("Failed to create microphone gain node".to_string()))?;
-            
-            // Set initial gain to unity
-            mic_gain.gain().set_value(1.0);
-            
-            dev_log!("Created microphone gain node with unity gain");
-            self.legacy_microphone_gain_node = Some(mic_gain);
-        }
-        
-        Ok(self.legacy_microphone_gain_node.as_ref().unwrap())
-    }
     
     /// Set microphone volume
-    pub fn set_microphone_volume(&mut self, volume: f32) -> Result<(), AudioError> {
+    pub fn set_microphone_volume(&mut self, volume: f32) {
         // Clamp volume to 0.0 - 1.0 range
         let clamped_volume = volume.clamp(0.0, 1.0);
         
-        // Ensure microphone gain node exists
-        let mic_gain = self.ensure_microphone_gain_node()?;
-        
-        // Set the gain value
-        mic_gain.gain().set_value(clamped_volume);
+        // Set the gain value on the microphone gain node
+        self.legacy_microphone_gain_node.gain().set_value(clamped_volume);
         
         dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
-        
-        Ok(())
     }
     
     /// Cleanup test signal node and routing
@@ -709,9 +689,7 @@ impl AudioWorkletManager {
             // Mute microphone when test signal is active
             
             // Mute microphone to prevent feedback (no reconnection needed - just volume control)
-            if let Err(e) = self.set_microphone_volume(0.0) {
-                dev_log!("Failed to mute microphone for test signal: {:?}", e);
-            }
+            self.set_microphone_volume(0.0);
             
             // Enable speaker output for test signal
             if !self.output_to_speakers {
@@ -753,15 +731,8 @@ impl AudioWorkletManager {
                 if let Some(ref mut test_signal) = self.test_signal_node {
                     test_signal.disable();
                     dev_log!("Disabled test signal node");
-                }
-                
-                // Restore microphone volume to full
-                if let Err(e) = self.set_microphone_volume(1.0) {
-                    dev_log!("Failed to restore microphone volume: {:?}", e);
-                } else {
-                    dev_log!("Restored microphone volume to: 1.0");
-                }
-
+                }                
+                self.set_microphone_volume(1.0);
                 self.set_output_to_speakers(false);
             }
         }
