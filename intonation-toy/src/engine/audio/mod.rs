@@ -1,5 +1,4 @@
 pub mod legacy_media_stream_node;
-pub mod context;
 pub mod worklet;
 pub mod audio_context;
 pub mod permission;
@@ -15,7 +14,6 @@ pub mod signal_flow;
 
 
 
-pub use context::AudioSystemContext;
 pub use worklet::AudioWorkletState;
 pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus, VolumeAnalysis};

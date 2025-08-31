@@ -1,4 +1,5 @@
 use std::fmt;
+use crate::engine::AudioEngine;
 
 #[derive(Debug, Clone)]
 pub enum AudioError {
@@ -26,23 +27,18 @@ pub fn legacy_create_media_stream_node(
 /// Connects a MediaStreamAudioSourceNode to the audio worklet
 pub fn legacy_connect_media_stream_node_to_audioworklet(
     source: &web_sys::MediaStreamAudioSourceNode,
-    audio_context: &std::cell::RefCell<super::context::AudioSystemContext>,
+    audio_engine: &mut AudioEngine,
 ) -> Result<(), String> {
-    let result = {
-        let mut context_borrowed = audio_context.borrow_mut();
-        context_borrowed.get_audioworklet_manager_mut()
-            .ok_or("AudioWorklet manager not available".to_string())
-            .and_then(|worklet_manager| worklet_manager.connect_microphone(source.as_ref(), false).map_err(|e| e.to_string()))
-    };
+    let result = audio_engine.audioworklet_manager
+        .as_mut()
+        .ok_or("AudioWorklet manager not available".to_string())
+        .and_then(|worklet_manager| worklet_manager.connect_microphone(source.as_ref(), false).map_err(|e| e.to_string()));
     
     match result {
         Ok(_) => {
-            {
-                let mut context_borrowed = audio_context.borrow_mut();
-                if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
-                    if !worklet_manager.is_processing() {
-                        let _ = worklet_manager.start_processing();
-                    }
+            if let Some(ref mut worklet_manager) = audio_engine.audioworklet_manager.as_mut() {
+                if !worklet_manager.is_processing() {
+                    let _ = worklet_manager.start_processing();
                 }
             }
             

@@ -976,7 +976,14 @@ impl AudioWorkletManager {
             }
         })
     }
-    
+
+    /// Get the latest pitch data from the pitch analyzer
+    /// Returns None if no pitch analyzer is configured or if data is unavailable
+    pub fn get_pitch_data(&self) -> Option<super::PitchData> {
+        self.pitch_analyzer.as_ref()
+            .and_then(|analyzer| analyzer.try_borrow().ok())
+            .and_then(|borrowed| borrowed.get_latest_pitch_data())
+    }
 
     /// Set pitch analyzer for direct audio processing
     pub fn set_pitch_analyzer(&mut self, analyzer: std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
