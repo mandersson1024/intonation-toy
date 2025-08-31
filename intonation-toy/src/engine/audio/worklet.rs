@@ -887,8 +887,7 @@ impl AudioWorkletManager {
             let data = shared_data.borrow();
             data.batches_processed
         } else {
-            // Fallback: estimate batches from chunks
-            self.chunk_counter / (crate::app_config::BUFFER_SIZE as u32 / AUDIO_CHUNK_SIZE as u32)
+            0  // No data available
         };
         
         super::AudioWorkletStatus {
