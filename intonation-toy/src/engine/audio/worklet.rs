@@ -686,7 +686,7 @@ impl AudioWorkletManager {
                     dev_log!("Updated existing test signal node configuration");
                 } else {
                     // Create new test signal node and connect to mixer (mixer always exists now)
-                    match TestSignalAudioNode::new(&self.audio_context, config, false) {
+                    match TestSignalAudioNode::new(&self.audio_context, config) {
                         Ok(mut node) => {
                             // Connect test signal directly to mixer (no routing setup needed)
                             if let Err(e) = node.connect_to(&self.legacy_mixer_gain_node) {
