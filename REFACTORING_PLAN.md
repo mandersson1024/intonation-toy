@@ -69,11 +69,11 @@ The `AudioWorkletManager` has grown beyond its name and manages far more than ju
 - [x] Use analyser node from `AudioSignalFlow`
 - [x] Provide clean interface for analysis results
 
-### Phase 4: Create AudioGenerator
-- [ ] Extract test signal management
-- [ ] Extract tuning fork management
-- [ ] Use oscillator nodes from `AudioSignalFlow`
-- [ ] Handle generation state and parameters
+### Phase 4: Create AudioGenerator ✅ COMPLETED
+- [x] Extract test signal management
+- [x] Extract tuning fork management
+- [x] Use oscillator nodes from `AudioSignalFlow`
+- [x] Handle generation state and parameters
 
 ### Phase 5: Create AudioRouter
 - [ ] Extract gain control logic

@@ -14,6 +14,7 @@ pub mod signal_flow;
 pub mod pipeline;
 pub mod worklet_manager;
 pub mod analyzer;
+pub mod generator;
 
 
 
@@ -25,6 +26,7 @@ pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 pub use signal_flow::AudioSignalFlow;
 pub use pipeline::AudioPipeline;
+pub use generator::AudioGenerator;
 
 use legacy_media_stream_node::AudioError;
 pub use volume_detector::VolumeDetector;

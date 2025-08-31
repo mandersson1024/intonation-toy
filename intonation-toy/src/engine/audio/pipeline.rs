@@ -4,6 +4,7 @@ use super::{
     signal_flow::AudioSignalFlow,
     worklet_manager::AudioWorkletManager,
     analyzer::AudioAnalyzer,
+    generator::AudioGenerator,
     AudioError,
     SignalGeneratorConfig,
     signal_generator::TuningForkConfig,
@@ -18,12 +19,15 @@ use super::{
 /// 
 /// Architecture:
 /// - AudioSignalFlow: Defines and creates the Web Audio API node graph
-/// - AudioWorkletManager: Manages worklet-specific operations 
+/// - AudioWorkletManager: Manages worklet-specific operations
+/// - AudioAnalyzer: Manages audio analysis operations
+/// - AudioGenerator: Manages audio generation operations
 /// - AudioPipeline: Orchestrates the system and provides unified API
 pub struct AudioPipeline {
     signal_flow: AudioSignalFlow,
     worklet_manager: AudioWorkletManager,
     analyzer: AudioAnalyzer,
+    generator: AudioGenerator,
     audio_context: AudioContext,
 }
 
@@ -67,12 +71,21 @@ impl AudioPipeline {
         let analyzer = AudioAnalyzer::new(signal_flow.analyser.clone())
             .map_err(|e| format!("Failed to create AudioAnalyzer: {}", e))?;
 
-        dev_log!("✓ AudioPipeline created with signal flow, worklet manager, and analyzer");
+        // Create the AudioGenerator with oscillator and gain nodes from signal flow
+        let generator = AudioGenerator::new(
+            signal_flow.test_signal_osc.clone(),
+            signal_flow.test_signal_gain.clone(),
+            signal_flow.tuning_fork_osc.clone(),
+            signal_flow.tuning_fork_gain.clone(),
+        ).map_err(|e| format!("Failed to create AudioGenerator: {}", e))?;
+
+        dev_log!("✓ AudioPipeline created with signal flow, worklet manager, analyzer, and generator");
 
         Ok(Self {
             signal_flow,
             worklet_manager,
             analyzer,
+            generator,
             audio_context,
         })
     }
@@ -118,43 +131,12 @@ impl AudioPipeline {
 
     /// Update test signal configuration
     pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
-        if config.enabled {
-            // Configure test signal oscillator from signal flow
-            self.signal_flow.test_signal_osc.frequency().set_value(config.frequency);
-            self.signal_flow.test_signal_gain.gain().set_value(config.amplitude);
-            
-            // Start the oscillator if not already started
-            if let Err(e) = self.signal_flow.test_signal_osc.start() {
-                dev_log!("Test signal oscillator might already be started: {:?}", e);
-            }
-            
-            dev_log!("Test signal enabled: {} Hz, amplitude: {}", config.frequency, config.amplitude);
-        } else {
-            // Disable by setting gain to zero
-            self.signal_flow.test_signal_gain.gain().set_value(0.0);
-            dev_log!("Test signal disabled");
-        }
+        self.generator.update_test_signal_config(config);
     }
 
     /// Update tuning fork configuration
     pub fn update_tuning_fork_config(&mut self, config: TuningForkConfig) {
-        // TuningForkConfig doesn't have enabled field, assume enabled if volume > 0
-        if config.volume > 0.0 {
-            // Configure tuning fork oscillator from signal flow
-            self.signal_flow.tuning_fork_osc.frequency().set_value(config.frequency);
-            self.signal_flow.tuning_fork_gain.gain().set_value(config.volume);
-            
-            // Start the oscillator if not already started
-            if let Err(e) = self.signal_flow.tuning_fork_osc.start() {
-                dev_log!("Tuning fork oscillator might already be started: {:?}", e);
-            }
-            
-            dev_log!("Tuning fork enabled: {} Hz, volume: {}", config.frequency, config.volume);
-        } else {
-            // Disable by setting gain to zero
-            self.signal_flow.tuning_fork_gain.gain().set_value(0.0);
-            dev_log!("Tuning fork disabled");
-        }
+        self.generator.update_tuning_fork_config(config);
     }
 
     /// Set whether to output audio stream to speakers
@@ -217,9 +199,8 @@ impl AudioPipeline {
 
     /// Disconnect and cleanup the audio pipeline
     pub fn disconnect(&mut self) -> Result<(), AudioError> {
-        // Stop oscillators
-        let _ = self.signal_flow.test_signal_osc.stop();
-        let _ = self.signal_flow.tuning_fork_osc.stop();
+        // Cleanup generator (stops oscillators)
+        self.generator.disconnect()?;
         
         // Cleanup analyzer
         self.analyzer.disconnect()?;
