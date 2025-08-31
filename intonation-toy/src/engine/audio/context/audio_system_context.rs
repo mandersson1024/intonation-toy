@@ -81,28 +81,6 @@ impl AudioSystemContext {
         Ok(result)
     }
 
-
-    pub async fn shutdown(&mut self) -> Result<(), String> {
-        dev_log!("Shutting down AudioSystemContext");
-        
-        if let Some(ref mut worklet_manager) = self.audioworklet_manager {
-            let _ = worklet_manager.stop_processing();
-            let _ = worklet_manager.disconnect();
-        }
-        self.audioworklet_manager = None;
-        self.pitch_analyzer = None;
-        
-        if let Some(ref context) = self.audio_context {
-            dev_log!("Closing AudioContext");
-            let _ = context.close();
-        }
-        self.audio_context = None;
-        
-        self.is_initialized = false;
-        dev_log!("✓ AudioSystemContext shutdown completed");
-        Ok(())
-    }
-
     pub fn get_audio_context(&self) -> Option<&AudioContext> {
         self.audio_context.as_ref()
     }
@@ -116,21 +94,9 @@ impl AudioSystemContext {
     }
     
 
-    pub fn get_audioworklet_manager(&self) -> Option<&super::super::worklet::AudioWorkletManager> {
-        self.audioworklet_manager.as_ref()
-    }
-    
-    
-    
-
     pub fn get_audioworklet_manager_mut(&mut self) -> Option<&mut super::super::worklet::AudioWorkletManager> {
         self.audioworklet_manager.as_mut()
     }
-
-    pub fn get_pitch_analyzer(&self) -> Option<&std::rc::Rc<std::cell::RefCell<super::super::pitch_analyzer::PitchAnalyzer>>> {
-        self.pitch_analyzer.as_ref()
-    }
-
 
     pub fn collect_audio_analysis(&self) -> Option<crate::common::shared_types::AudioAnalysis> {
         if !self.is_initialized {
