@@ -85,7 +85,7 @@ impl VolumeDetector {
         self.analyser_node.get_float_time_domain_data(&mut self.time_domain_data);
         
         // Calculate peak amplitude from time domain data
-        let peak_amplitude = self.calculate_peak_amplitude_from_time_domain();
+        let peak_amplitude = self.get_peak_amplitude_from_time_domain();
         
         // Calculate RMS amplitude from time domain data
         let rms_amplitude = self.calculate_rms_amplitude_from_time_domain();
@@ -107,7 +107,7 @@ impl VolumeDetector {
     /// 
     /// Uses getFloatTimeDomainData() which provides direct amplitude values
     /// in the range -1.0 to 1.0. Returns the absolute maximum value.
-    fn calculate_peak_amplitude_from_time_domain(&self) -> f32 {
+    fn get_peak_amplitude_from_time_domain(&self) -> f32 {
         // Find the maximum absolute value in time domain data
         self.time_domain_data
             .iter()
@@ -127,40 +127,6 @@ impl VolumeDetector {
         
         // Calculate RMS: square root of mean of squares
         (sum_of_squares / self.time_domain_data.len() as f32).sqrt()
-    }
-    
-    /// Returns the underlying AnalyserNode for direct access if needed
-    /// 
-    /// WARNING: Do not modify the fft_size of the returned AnalyserNode.
-    /// Changing the FFT size will cause a panic in the analyze() method.
-    pub fn node(&self) -> &AnalyserNode {
-        &self.analyser_node
-    }
-    
-    /// Gets FFT data directly without calculating volume metrics
-    /// 
-    /// Updates the internal frequency buffer and returns normalized FFT data.
-    /// Useful for cases where only FFT data is needed without volume calculation.
-    /// Returns 64 frequency bins normalized to 0.0-1.0 range.
-    pub fn get_fft_data(&mut self) -> Result<Vec<f32>, AudioError> {
-        // Verify FFT size hasn't changed
-        let expected = self.analyser_node.frequency_bin_count() as usize;
-        if self.frequency_data.len() != expected {
-            return Err(AudioError::Generic(format!(
-                "FFT size changed unexpectedly! Buffer size: {}, Expected: {}",
-                self.frequency_data.len(),
-                expected
-            )));
-        }
-        
-        // Get frequency data from analyser node
-        self.analyser_node.get_byte_frequency_data(&mut self.frequency_data);
-        
-        // Convert to normalized f32 values
-        Ok(self.frequency_data
-            .iter()
-            .map(|&byte| byte as f32 / 255.0)
-            .collect())
     }
     
     /// Disconnects the analyser node from all connected inputs
