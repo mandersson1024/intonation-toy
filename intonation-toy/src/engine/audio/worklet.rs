@@ -77,7 +77,7 @@ pub struct AudioWorkletManager {
     message_factory: AudioWorkletMessageFactory,
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
-    legacy_mixer_gain_node: Option<GainNode>,
+    legacy_mixer_gain_node: GainNode,
     legacy_microphone_gain_node: GainNode,
     legacy_microphone_source_node: Option<AudioNode>,
 }
@@ -107,6 +107,12 @@ impl AudioWorkletManager {
             .map_err(|_| "Failed to create microphone gain node".to_string())?;
         legacy_microphone_gain_node.gain().set_value(1.0);
         
+        // Create mixer gain node
+        let legacy_mixer_gain_node = audio_context
+            .create_gain()
+            .map_err(|_| "Failed to create mixer gain node".to_string())?;
+        legacy_mixer_gain_node.gain().set_value(1.0);
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
@@ -119,7 +125,7 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             tuning_fork_node: None,
             test_signal_node: None,
-            legacy_mixer_gain_node: None,
+            legacy_mixer_gain_node,
             legacy_microphone_gain_node,
             legacy_microphone_source_node: None,
         })
@@ -468,8 +474,7 @@ impl AudioWorkletManager {
         // Store microphone source
         self.legacy_microphone_source_node = Some(microphone_source.clone());
         
-        // Ensure mixer node exists (microphone gain is always available)
-        self.ensure_mixer_node()?;
+        // Both microphone gain and mixer nodes are always available
         
         // Unified connection setup - always the same regardless of state:
         // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
@@ -488,18 +493,15 @@ impl AudioWorkletManager {
         }
         
         // 3. Connect microphone gain to mixer
-        if let Some(ref mixer) = self.legacy_mixer_gain_node {
-            mic_gain.connect_with_audio_node(mixer)
-                .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-            dev_log!("Connected microphone gain to mixer");
-            
-            // 4. Connect mixer to worklet
-            mixer.connect_with_audio_node(&self.worklet_node)
-                .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
-            dev_log!("Connected mixer to worklet");
-        } else {
-            return Err(AudioError::Generic("Mixer node not available".to_string()));
-        }
+        let mixer = &self.legacy_mixer_gain_node;
+        mic_gain.connect_with_audio_node(mixer)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
+        dev_log!("Connected microphone gain to mixer");
+        
+        // 4. Connect mixer to worklet
+        mixer.connect_with_audio_node(&self.worklet_node)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
+        dev_log!("Connected mixer to worklet");
         
         // Connect AudioWorklet to speakers if output is enabled
         if self.output_to_speakers {
@@ -555,10 +557,8 @@ impl AudioWorkletManager {
         self.cleanup_test_signal();
         
         // Clean up the mixer node
-        if let Some(mixer) = self.legacy_mixer_gain_node.take() {
-            let _ = mixer.disconnect();
-            dev_log!("Mixer node disconnected and cleaned up");
-        }
+        let _ = self.legacy_mixer_gain_node.disconnect();
+        dev_log!("Mixer node disconnected and cleaned up");
         
         // Clean up the microphone gain node
         let _ = self.legacy_microphone_gain_node.disconnect();
@@ -639,27 +639,6 @@ impl AudioWorkletManager {
         Ok(())
     }
     
-    /// Ensure mixer node exists and is connected
-    fn ensure_mixer_node(&mut self) -> Result<&GainNode, AudioError> {
-        if self.legacy_mixer_gain_node.is_none() {
-            let mixer = self.audio_context
-                .create_gain()
-                .map_err(|_| AudioError::Generic("Failed to create mixer gain node".to_string()))?;
-            
-            // Set mixer gain to unity
-            mixer.gain().set_value(1.0);
-            
-            // Connect mixer to worklet
-            mixer
-                .connect_with_audio_node(&self.worklet_node)
-                .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
-            dev_log!("Created and connected mixer node to worklet");
-            
-            self.legacy_mixer_gain_node = Some(mixer);
-        }
-        
-        Ok(self.legacy_mixer_gain_node.as_ref().unwrap())
-    }
     
     /// Ensure microphone gain node exists
     
@@ -710,14 +689,10 @@ impl AudioWorkletManager {
                     match TestSignalAudioNode::new(&self.audio_context, config, false) {
                         Ok(mut node) => {
                             // Connect test signal directly to mixer (no routing setup needed)
-                            if let Some(ref mixer) = self.legacy_mixer_gain_node {
-                                if let Err(e) = node.connect_to(mixer) {
-                                    dev_log!("Failed to connect test signal to mixer: {:?}", e);
-                                } else {
-                                    dev_log!("Created and connected new test signal node to mixer");
-                                }
+                            if let Err(e) = node.connect_to(&self.legacy_mixer_gain_node) {
+                                dev_log!("Failed to connect test signal to mixer: {:?}", e);
                             } else {
-                                dev_log!("Mixer not available for test signal connection");
+                                dev_log!("Created and connected new test signal node to mixer");
                             }
                             self.test_signal_node = Some(node);
                         }
