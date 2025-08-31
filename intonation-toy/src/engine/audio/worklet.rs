@@ -75,7 +75,7 @@ pub struct AudioWorkletManager {
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
-    tuning_fork_node: Option<TuningForkAudioNode>,
+    tuning_fork_node: TuningForkAudioNode,
     test_signal_node: Option<TestSignalAudioNode>,
     legacy_mixer_gain_node: GainNode,
     legacy_microphone_gain_node: GainNode,
@@ -113,6 +113,14 @@ impl AudioWorkletManager {
             .map_err(|_| "Failed to create mixer gain node".to_string())?;
         legacy_mixer_gain_node.gain().set_value(1.0);
         
+        // Create tuning fork node with default config
+        let default_tuning_fork_config = TuningForkConfig {
+            frequency: 440.0, // A4
+            volume: 0.0,      // Start muted
+        };
+        let tuning_fork_node = TuningForkAudioNode::new(&audio_context, default_tuning_fork_config)
+            .map_err(|e| format!("Failed to create tuning fork node: {:?}", e))?;
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
@@ -123,7 +131,7 @@ impl AudioWorkletManager {
             shared_data,
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
-            tuning_fork_node: None,
+            tuning_fork_node,
             test_signal_node: None,
             legacy_mixer_gain_node,
             legacy_microphone_gain_node,
@@ -576,11 +584,7 @@ impl AudioWorkletManager {
         
         // Clear stored previous states
         
-        // Clean up the tuning fork audio node
-        if self.tuning_fork_node.is_some() {
-            dev_log!("[AudioWorkletManager] Cleaning up tuning fork audio node");
-            self.tuning_fork_node = None; // Drop triggers cleanup
-        }
+        // Clean up the tuning fork audio node is handled by Drop trait
         
         // worklet_node is now owned, will be dropped with self
         self.state = AudioWorkletState::Uninitialized;
@@ -722,23 +726,8 @@ impl AudioWorkletManager {
         dev_log!("[AudioWorkletManager] Updating tuning fork audio config - frequency: {} Hz", 
                 config.frequency);
         
-        // Always create or update the tuning fork audio node
-        if let Some(ref mut node) = self.tuning_fork_node {
-            // Update existing node
-            node.update_config(config.clone());
-        } else {
-            // Create new node
-            match TuningForkAudioNode::new(&self.audio_context, config.clone()) {
-                Ok(node) => {
-                    dev_log!("[AudioWorkletManager] Created new tuning fork audio node");
-                    self.tuning_fork_node = Some(node);
-                }
-                Err(e) => {
-                    dev_log!("[AudioWorkletManager] Failed to create tuning fork audio node: {:?}", e);
-                }
-            }
-        }
-        
+        // Update the tuning fork audio node
+        self.tuning_fork_node.update_config(config);
     }
 
 
