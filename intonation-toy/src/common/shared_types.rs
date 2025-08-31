@@ -8,8 +8,6 @@
 //! The types are organized to facilitate clear data flow and minimize
 //! duplication across the application layers.
 
-use crate::engine::audio::AudioPermission;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Volume {
     pub peak_amplitude: f32,
@@ -363,7 +361,6 @@ impl Error {
 pub struct EngineUpdateResult {
     pub audio_analysis: Option<AudioAnalysis>,
     pub audio_errors: Vec<Error>,
-    pub permission_state: AudioPermission,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -373,7 +370,6 @@ pub struct ModelUpdateResult {
     pub pitch: Pitch,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
-    pub permission_state: AudioPermission,
     pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32,
     pub interval_semitones: i32,

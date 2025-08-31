@@ -1,4 +1,3 @@
-use crate::engine::audio::AudioPermission;
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
 use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, IntonationData};
 
@@ -10,7 +9,6 @@ pub struct DebugData {
     pub volume_level: Option<VolumeLevelData>,
     pub pitch_data: Option<PitchData>,
     pub intonation_data: Option<IntonationData>,
-    pub microphone_permission: AudioPermission,
     pub audio_errors: Vec<crate::common::shared_types::Error>,
     pub interval_semitones: Option<i32>,
     pub tuning_fork_note: Option<crate::common::shared_types::MidiNote>,
@@ -25,7 +23,6 @@ impl Default for DebugData {
             volume_level: None,
             pitch_data: None,
             intonation_data: None,
-            microphone_permission: AudioPermission::Uninitialized,
             audio_errors: Vec::new(),
             interval_semitones: None,
             tuning_fork_note: None,
@@ -39,8 +36,6 @@ impl DebugData {
         engine_result: &EngineUpdateResult,
         model_result: Option<&ModelUpdateResult>,
     ) {
-        self.microphone_permission = engine_result.permission_state;
-        
         self.audio_errors = engine_result.audio_errors.clone();
         
         if let Some(analysis) = &engine_result.audio_analysis {

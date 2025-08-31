@@ -28,13 +28,12 @@ pub(crate) mod platform;
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use crate::app_config::STANDARD_SAMPLE_RATE;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 use web_sys::AudioContext;
 use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
 use crate::engine::audio::worklet::AudioWorkletManager;
-use crate::engine::audio::AudioPermission;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -55,8 +54,6 @@ pub struct AudioEngine {
     audio_context: AudioContext,
     /// Manager for audio worklet operations
     audioworklet_manager: AudioWorkletManager,
-    /// Cell-wrapped permission state for interior mutability
-    permission_state: Cell<AudioPermission>,
 }
 
 impl AudioEngine {
@@ -127,7 +124,6 @@ impl AudioEngine {
         let mut engine = Self {
             audio_context,
             audioworklet_manager: worklet_manager,
-            permission_state: Cell::new(AudioPermission::Uninitialized),
         };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
@@ -156,7 +152,6 @@ impl AudioEngine {
     /// Returns `EngineUpdateResult` containing:
     /// - Raw audio analysis (frequency in Hz, volume amplitude)
     /// - Audio system errors and status
-    /// - Microphone permission state
     /// 
     /// Note: All musical interpretation (tuning systems, intervals, pitch relationships)
     /// is handled by the model layer that processes this raw data.
@@ -164,7 +159,6 @@ impl AudioEngine {
         EngineUpdateResult {
             audio_analysis: self.collect_audio_analysis(),
             audio_errors: self.collect_audio_errors(),
-            permission_state: self.collect_permission_state(),
         }
     }
     
@@ -331,10 +325,6 @@ impl AudioEngine {
         errors
     }
     
-    /// Collect permission state from the engine
-    fn collect_permission_state(&self) -> audio::AudioPermission {
-        self.permission_state.get()
-    }
 
     /// Get reference to the audio context
     pub fn get_audio_context(&self) -> &AudioContext {

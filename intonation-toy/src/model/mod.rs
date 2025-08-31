@@ -107,7 +107,6 @@ impl DataModel {
             pitch,
             tuning_system: self.tuning_system,
             scale: self.current_scale,
-            permission_state: engine_data.permission_state,
             closest_midi_note,
             cents_offset,
             interval_semitones,
