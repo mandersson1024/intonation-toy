@@ -5,6 +5,8 @@ use web_sys::{
 };
 use js_sys;
 use std::fmt;
+use std::rc::Rc;
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
@@ -41,22 +43,24 @@ impl fmt::Display for AudioWorkletState {
 
 
 struct AudioWorkletSharedData {
-    volume_detector: Option<std::rc::Rc<std::cell::RefCell<VolumeDetector>>>,
+    volume_detector: Rc<RefCell<VolumeDetector>>,
     batches_processed: u32,
-    pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
+    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
 }
 
 impl AudioWorkletSharedData {
-    fn new() -> Self {
-        Self {
-            volume_detector: None,
+    fn new(audio_context: &AudioContext) -> Result<Self, String> {
+        let volume_detector = VolumeDetector::new(audio_context)
+            .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
+        Ok(Self {
+            volume_detector: Rc::new(RefCell::new(volume_detector)),
             batches_processed: 0,
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
-        }
+        })
     }
 }
 
@@ -64,14 +68,14 @@ impl AudioWorkletSharedData {
 pub struct AudioWorkletManager {
     worklet_node: AudioWorkletNode,
     state: AudioWorkletState,
-    volume_detector: Option<std::rc::Rc<std::cell::RefCell<VolumeDetector>>>,
+    volume_detector: Rc<RefCell<VolumeDetector>>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     audio_context: AudioContext,
     output_to_speakers: bool,
-    shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
-    pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
+    shared_data: Option<Rc<RefCell<AudioWorkletSharedData>>>,
+    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     message_factory: AudioWorkletMessageFactory,
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
@@ -106,11 +110,13 @@ impl AudioWorkletManager {
     /// ```
     pub fn new(audio_context: AudioContext) -> Result<Self, String> {
         let worklet_node = Self::create_worklet_node(&audio_context)?;
+        let volume_detector = VolumeDetector::new(&audio_context)
+            .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
-            volume_detector: None,
+            volume_detector: Rc::new(RefCell::new(volume_detector)),
             last_volume_analysis: None,
             chunk_counter: 0,
             _message_closure: None,
@@ -176,15 +182,17 @@ impl AudioWorkletManager {
         port.set_onmessage(None);
         
         // Create shared data for the message handler
-        let shared_data = std::rc::Rc::new(std::cell::RefCell::new(AudioWorkletSharedData::new()));
+        let shared_data = Rc::new(RefCell::new(
+            AudioWorkletSharedData::new(&self.audio_context)
+                .map_err(|e| AudioError::Generic(e))?
+        ));
         
         // Store the shared data in the manager for later access
         self.shared_data = Some(shared_data.clone());
         
         // Store references to components that will be used in the handler
-        if let Some(volume_detector) = &self.volume_detector {
-            shared_data.borrow_mut().volume_detector = Some(volume_detector.clone());
-        }
+        // Copy volume detector reference to shared data
+        shared_data.borrow_mut().volume_detector = self.volume_detector.clone();
         shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
         dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
         
@@ -216,7 +224,7 @@ impl AudioWorkletManager {
     /// Handle messages from the AudioWorklet processor (static version)
     fn handle_worklet_message_static(
         event: MessageEvent, 
-        shared_data: std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        shared_data: Rc<RefCell<AudioWorkletSharedData>>,
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory
     ) {
@@ -281,7 +289,7 @@ impl AudioWorkletManager {
     /// Handle typed messages from the AudioWorklet processor (static version)
     fn handle_typed_worklet_message_static(
         envelope: MessageEnvelope<FromWorkletMessage>,
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        shared_data: &Rc<RefCell<AudioWorkletSharedData>>,
         original_obj: &js_sys::Object,
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory
@@ -321,7 +329,7 @@ impl AudioWorkletManager {
     /// Handle typed audio data batch from the AudioWorklet processor (static version)
     fn handle_typed_audio_data_batch_static(
         data: super::message_protocol::AudioDataBatch,
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
+        shared_data: &Rc<RefCell<AudioWorkletSharedData>>,
         original_obj: &js_sys::Object,
         worklet_node: &AudioWorkletNode,
         message_factory: &AudioWorkletMessageFactory
@@ -396,24 +404,22 @@ impl AudioWorkletManager {
     /// Process audio samples for pitch and volume analysis
     fn process_audio_samples(
         audio_samples: &[f32],
-        shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>
+        shared_data: &Rc<RefCell<AudioWorkletSharedData>>
     ) {
         let batches_processed = shared_data.borrow().batches_processed;
         
         // Perform volume analysis
         let volume_detector = shared_data.borrow().volume_detector.clone();
         
-        if let Some(volume_detector) = volume_detector {
-            match volume_detector.borrow_mut().analyze() {
+        match volume_detector.borrow_mut().analyze() {
                 Ok(volume_analysis) => {
                     // Store the volume analysis result in the AudioWorkletManager
                     // We need to access the manager instance to store this
                     // This is done through a separate method call after processing
                     shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
                 }
-                Err(err) => {
-                    dev_log!("Volume analysis failed: {:?}", err);
-                }
+            Err(err) => {
+                dev_log!("Volume analysis failed: {:?}", err);
             }
         } 
         
@@ -497,12 +503,10 @@ impl AudioWorkletManager {
             dev_log!("Connected microphone to gain node");
             
             // 2. Connect microphone gain to volume detector (parallel tap for analysis)
-            if let Some(ref volume_detector) = self.volume_detector {
-                if let Err(e) = volume_detector.borrow().connect_source(mic_gain) {
-                    dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-                } else {
-                    dev_log!("Connected microphone gain to VolumeDetector");
-                }
+            if let Err(e) = self.volume_detector.borrow().connect_source(mic_gain) {
+                dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
+            } else {
+                dev_log!("Connected microphone gain to VolumeDetector");
             }
             
             // 3. Connect microphone gain to mixer
@@ -588,12 +592,10 @@ impl AudioWorkletManager {
         }
         
         // Disconnect and cleanup volume detector
-        if let Some(ref volume_detector) = self.volume_detector {
-            if let Err(e) = volume_detector.borrow().disconnect() {
-                dev_log!("Failed to disconnect VolumeDetector: {:?}", e);
-            } else {
-                dev_log!("VolumeDetector disconnected");
-            }
+        if let Err(e) = self.volume_detector.borrow().disconnect() {
+            dev_log!("Failed to disconnect VolumeDetector: {:?}", e);
+        } else {
+            dev_log!("VolumeDetector disconnected");
         }
         
         // Clear stored microphone source
@@ -623,28 +625,6 @@ impl AudioWorkletManager {
         matches!(self.state, AudioWorkletState::Processing)
     }
         
-    /// Set volume detector for real-time volume analysis
-    pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
-        // Wrap the detector in Rc<RefCell<>> for shared ownership
-        let detector_rc = std::rc::Rc::new(std::cell::RefCell::new(detector));
-        
-        // Connect microphone gain if available (idempotent regardless of call order)
-        if let Some(ref mic_gain) = self.legacy_microphone_gain_node {
-            if let Err(e) = detector_rc.borrow().connect_source(mic_gain) {
-                dev_log!("Failed to connect microphone gain to volume detector: {:?}", e);
-            } else {
-                dev_log!("Connected microphone gain to volume detector during set_volume_detector");
-            }
-        }
-        
-        // Both fields now share the same detector instance
-        self.volume_detector = Some(detector_rc.clone());
-        
-        // Also update the shared data with the same detector instance
-        if let Some(shared_data) = &self.shared_data {
-            shared_data.borrow_mut().volume_detector = Some(detector_rc);
-        }
-    }
 
     /// Return buffer to AudioWorklet for recycling (ping-pong pattern) - static version
     fn return_buffer_to_worklet_static(
@@ -956,7 +936,7 @@ impl AudioWorkletManager {
     }
 
     /// Set pitch analyzer for direct audio processing
-    pub fn set_pitch_analyzer(&mut self, analyzer: std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
+    pub fn set_pitch_analyzer(&mut self, analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
         self.pitch_analyzer = Some(analyzer);
         dev_log!("Pitch analyzer configured for direct processing");
         

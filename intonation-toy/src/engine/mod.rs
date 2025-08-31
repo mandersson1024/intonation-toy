@@ -106,10 +106,7 @@ impl AudioEngine {
         crate::common::dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
         crate::common::dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
-        let volume_detector = audio::volume_detector::VolumeDetector::new(&audio_context)
-            .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
-        
-        worklet_manager.set_volume_detector(volume_detector);
+        // VolumeDetector is now created internally in AudioWorkletManager::new()
         worklet_manager.setup_message_handling()
             .map_err(|e| {
                 let error_msg = format!("Failed to setup message handling: {:?}", e);
