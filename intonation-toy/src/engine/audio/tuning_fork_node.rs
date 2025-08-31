@@ -4,8 +4,8 @@ use super::signal_generator::TuningForkConfig;
 
 pub struct TuningForkAudioNode {
     audio_context: AudioContext,
-    oscillator: OscillatorNode,
-    gain_node: GainNode,
+    legacy_oscillator_node: OscillatorNode,
+    legacy_gain_node: GainNode,
     config: TuningForkConfig,
     is_connected: bool,
 }
@@ -55,22 +55,22 @@ impl TuningForkAudioNode {
         
         Ok(Self {
             audio_context: audio_context.clone(),
-            oscillator,
-            gain_node,
+            legacy_oscillator_node: oscillator,
+            legacy_gain_node: gain_node,
             config,
             is_connected: true,
         })
     }
     
     fn ramp_gain(&self, target: f32) {
-        if self.gain_node.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05).is_err() {
-            self.gain_node.gain().set_value(target);
+        if self.legacy_gain_node.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05).is_err() {
+            self.legacy_gain_node.gain().set_value(target);
         }
     }
 
     pub fn update_config(&mut self, config: TuningForkConfig) {
         if (self.config.frequency - config.frequency).abs() > f32::EPSILON {
-            self.oscillator.frequency().set_value(config.frequency);
+            self.legacy_oscillator_node.frequency().set_value(config.frequency);
             self.config.frequency = config.frequency;
         }
         
@@ -82,9 +82,9 @@ impl TuningForkAudioNode {
     
     fn cleanup(&mut self) {
         if self.is_connected {
-            let _ = self.oscillator.stop();
-            let _ = self.oscillator.disconnect();
-            let _ = self.gain_node.disconnect();
+            let _ = self.legacy_oscillator_node.stop();
+            let _ = self.legacy_oscillator_node.disconnect();
+            let _ = self.legacy_gain_node.disconnect();
             self.is_connected = false;
         }
     }
