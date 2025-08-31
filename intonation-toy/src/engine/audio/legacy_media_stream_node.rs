@@ -29,14 +29,14 @@ pub fn legacy_connect_media_stream_node_to_audioworklet(
     source: &web_sys::MediaStreamAudioSourceNode,
     audio_engine: &mut AudioEngine,
 ) -> Result<(), String> {
-    let result = audio_engine.audioworklet_manager
+    let result = audio_engine.audio_pipeline
         .connect_microphone(source.as_ref(), false)
         .map_err(|e| e.to_string());
     
     match result {
         Ok(_) => {
-            if !audio_engine.audioworklet_manager.is_processing() {
-                let _ = audio_engine.audioworklet_manager.start_processing();
+            if !audio_engine.audio_pipeline.is_processing() {
+                let _ = audio_engine.audio_pipeline.start_processing();
             }
             
             Ok(())

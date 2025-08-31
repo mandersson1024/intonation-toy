@@ -129,6 +129,11 @@ impl AudioWorkletManager {
         })
     }
     
+    /// Get reference to the worklet node
+    pub fn get_worklet_node(&self) -> &AudioWorkletNode {
+        &self.worklet_node
+    }
+    
     /// Create AudioWorkletNode with standard configuration
     /// 
     /// This method creates an AudioWorkletNode using standard configuration options.
