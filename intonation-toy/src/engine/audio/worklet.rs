@@ -75,7 +75,6 @@ pub struct AudioWorkletManager {
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     message_factory: AudioWorkletMessageFactory,
-    ping_pong_enabled: bool,
     batch_size: u32,
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
@@ -117,7 +116,6 @@ impl AudioWorkletManager {
             shared_data: None,
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
-            ping_pong_enabled: true, // Enable ping-pong buffer recycling by default
             batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
             tuning_fork_node: None,
             test_signal_node: None,
@@ -159,15 +157,13 @@ impl AudioWorkletManager {
             let shared_data_clone = shared_data.clone();
             let worklet_node_clone = worklet.clone();
             let message_factory_clone = self.message_factory.clone();
-            let ping_pong_enabled = self.ping_pong_enabled;
             
             let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
                 Self::handle_worklet_message_static(
                     event, 
                     shared_data_clone.clone(), 
                     worklet_node_clone.clone(),
-                    message_factory_clone.clone(),
-                    ping_pong_enabled
+                    message_factory_clone.clone()
                 );
             }) as Box<dyn FnMut(MessageEvent)>);
             
@@ -190,8 +186,7 @@ impl AudioWorkletManager {
         event: MessageEvent, 
         shared_data: std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         worklet_node: AudioWorkletNode,
-        message_factory: AudioWorkletMessageFactory,
-        ping_pong_enabled: bool
+        message_factory: AudioWorkletMessageFactory
     ) {
         let data = event.data();
         
@@ -205,8 +200,7 @@ impl AudioWorkletManager {
                         &shared_data, 
                         &obj,
                         worklet_node,
-                        message_factory,
-                        ping_pong_enabled
+                        message_factory
                     );
                 }
                 Err(e) => {
@@ -258,8 +252,7 @@ impl AudioWorkletManager {
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         original_obj: &js_sys::Object,
         worklet_node: AudioWorkletNode,
-        message_factory: AudioWorkletMessageFactory,
-        ping_pong_enabled: bool
+        message_factory: AudioWorkletMessageFactory
     ) {
         match envelope.payload {
             FromWorkletMessage::ProcessorReady { batch_size } => {
@@ -284,8 +277,7 @@ impl AudioWorkletManager {
                     shared_data, 
                     original_obj,
                     &worklet_node,
-                    &message_factory,
-                    ping_pong_enabled
+                    &message_factory
                 );
             }
             FromWorkletMessage::ProcessingError { error } => {
@@ -305,8 +297,7 @@ impl AudioWorkletManager {
         shared_data: &std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>,
         original_obj: &js_sys::Object,
         worklet_node: &AudioWorkletNode,
-        message_factory: &AudioWorkletMessageFactory,
-        ping_pong_enabled: bool
+        message_factory: &AudioWorkletMessageFactory
     ) {
         // Extract buffer pool statistics from the audio data batch
         if let Some(buffer_pool_stats) = &data.buffer_pool_stats {
@@ -343,17 +334,15 @@ impl AudioWorkletManager {
                     // Perform actual audio processing
                     Self::process_audio_samples(&audio_samples, shared_data);
                     
-                    // Return buffer to worklet for recycling (ping-pong pattern)
+                    // Return buffer to worklet for recycling (ping-pong pattern is always enabled)
                     if let Some(buffer_id) = data.buffer_id {
-                        if ping_pong_enabled {
-                            if let Err(e) = Self::return_buffer_to_worklet_static(
-                                array_buffer, 
-                                buffer_id,
-                                worklet_node,
-                                message_factory
-                            ) {
-                                dev_log!("Warning: Failed to return buffer to worklet: {}", e);
-                            }
+                        if let Err(e) = Self::return_buffer_to_worklet_static(
+                            array_buffer, 
+                            buffer_id,
+                            worklet_node,
+                            message_factory
+                        ) {
+                            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
                         }
                     } else {
                         dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
