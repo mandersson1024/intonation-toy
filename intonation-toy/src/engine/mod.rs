@@ -28,8 +28,6 @@ pub(crate) mod platform;
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use crate::app_config::STANDARD_SAMPLE_RATE;
-use std::cell::RefCell;
-use std::rc::Rc;
 use web_sys::AudioContext;
 use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
@@ -85,26 +83,9 @@ impl AudioEngine {
                 error_msg
             })?;
         crate::common::dev_log!("✓ AudioWorkletManager created with internal node creation");
-
-        let config = audio::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = audio_context.sample_rate() as u32;
         
-        if sample_rate != crate::app_config::STANDARD_SAMPLE_RATE {
-            crate::common::dev_log!("⚠ Audio context sample rate ({} Hz) differs from standard rate ({} Hz)", 
-                sample_rate, crate::app_config::STANDARD_SAMPLE_RATE);
-        }
-        
-        let analyzer = audio::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
-            .map_err(|e| {
-                let error_msg = format!("Failed to initialize PitchAnalyzer: {}", e);
-                crate::common::dev_log!("✗ {}", error_msg);
-                error_msg
-            })?;
-        
-        let analyzer_rc = Rc::new(RefCell::new(analyzer));
-        worklet_manager.set_pitch_analyzer(analyzer_rc.clone());
-        crate::common::dev_log!("✓ PitchAnalyzer connected to AudioWorkletManager");
-        crate::common::dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
+        // PitchAnalyzer is now created internally in AudioWorkletManager::new()
+        crate::common::dev_log!("✓ PitchAnalyzer initialized internally in AudioWorkletManager");
 
         // VolumeDetector is now created internally in AudioWorkletManager::new()
         worklet_manager.setup_message_handling()

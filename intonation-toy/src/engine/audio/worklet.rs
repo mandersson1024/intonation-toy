@@ -73,7 +73,7 @@ pub struct AudioWorkletManager {
     audio_context: AudioContext,
     output_to_speakers: bool,
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
-    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
+    pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
@@ -86,26 +86,6 @@ pub struct AudioWorkletManager {
 
 
 impl AudioWorkletManager {
-    /// Creates a new AudioWorkletManager using the return-based pattern.
-    /// 
-    /// This constructor is specifically designed for the return-based data flow pattern
-    /// where components are created without setters and data is collected through getter
-    /// methods rather than pushed to setters. The manager is initialized with default
-    /// configuration and settings optimized for the return-based architecture.
-    /// 
-    /// # Parameters
-    /// - `audio_context`: The AudioContext to use for audio operations (required)
-    /// 
-    /// # Default Settings
-    /// - Enables ping-pong buffer recycling by default
-    /// - Initializes without external dependencies or setters
-    /// - Creates the AudioWorkletNode immediately
-    /// 
-    /// # Example
-    /// ```
-    /// let worklet_manager = AudioWorkletManager::new(audio_context)?;
-    /// // Data is collected through getter methods rather than pushed via setters
-    /// ```
     pub fn new(audio_context: AudioContext) -> Result<Self, String> {
         let worklet_node = Self::create_worklet_node(&audio_context)?;
         let volume_detector = VolumeDetector::new(&audio_context)
@@ -116,6 +96,13 @@ impl AudioWorkletManager {
                 .map_err(|e| format!("Failed to create shared data: {}", e))?
         ));
         
+        // Create PitchAnalyzer with default config and audio context sample rate
+        let config = super::pitch_detector::PitchDetectorConfig::default();
+        let sample_rate = audio_context.sample_rate() as u32;
+        let pitch_analyzer = super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
+            .map_err(|e| format!("Failed to initialize PitchAnalyzer: {}", e))?;
+        let pitch_analyzer = Rc::new(RefCell::new(pitch_analyzer));
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
@@ -124,7 +111,7 @@ impl AudioWorkletManager {
             audio_context,
             output_to_speakers: false,
             shared_data,
-            pitch_analyzer: None,
+            pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
             tuning_fork_node: None,
             test_signal_node: None,
@@ -185,7 +172,7 @@ impl AudioWorkletManager {
         // Store references to components that will be used in the handler
         // Copy volume detector reference to shared data
         self.shared_data.borrow_mut().volume_detector = self.volume_detector.clone();
-        self.shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
+        self.shared_data.borrow_mut().pitch_analyzer = Some(self.pitch_analyzer.clone());
         dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
         
         // Capture only the specific fields needed for the message handler
@@ -900,29 +887,11 @@ impl AudioWorkletManager {
     }
 
     /// Get the latest pitch data from the pitch analyzer
-    /// Returns None if no pitch analyzer is configured or if data is unavailable
+    /// Returns None if data is unavailable
     pub fn get_pitch_data(&self) -> Option<super::PitchData> {
-        self.pitch_analyzer.as_ref()
-            .and_then(|analyzer| analyzer.try_borrow().ok())
+        self.pitch_analyzer.try_borrow().ok()
             .and_then(|borrowed| borrowed.get_latest_pitch_data())
     }
-
-    /// Set pitch analyzer for direct audio processing
-    pub fn set_pitch_analyzer(&mut self, analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
-        self.pitch_analyzer = Some(analyzer);
-        dev_log!("Pitch analyzer configured for direct processing");
-        
-        // worklet_node is always available now, update the message handler to include the pitch analyzer
-        match self.setup_message_handling() {
-            Ok(_) => {
-                dev_log!("Message handler updated with new pitch analyzer");
-            }
-            Err(e) => {
-                dev_log!("Failed to update message handler: {:?}", e);
-            }
-        }
-    }
-    
 }
 
 impl Drop for AudioWorkletManager {
