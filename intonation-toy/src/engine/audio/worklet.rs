@@ -69,7 +69,6 @@ pub struct AudioWorkletManager {
     worklet_node: AudioWorkletNode,
     state: AudioWorkletState,
     volume_detector: Rc<RefCell<VolumeDetector>>,
-    last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     audio_context: AudioContext,
@@ -117,7 +116,6 @@ impl AudioWorkletManager {
             worklet_node,
             state: AudioWorkletState::Ready,
             volume_detector: Rc::new(RefCell::new(volume_detector)),
-            last_volume_analysis: None,
             chunk_counter: 0,
             _message_closure: None,
             audio_context,
@@ -413,9 +411,7 @@ impl AudioWorkletManager {
         
         match volume_detector.borrow_mut().analyze() {
                 Ok(volume_analysis) => {
-                    // Store the volume analysis result in the AudioWorkletManager
-                    // We need to access the manager instance to store this
-                    // This is done through a separate method call after processing
+                    // Store the volume analysis result in shared data
                     shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
                 }
             Err(err) => {
@@ -906,7 +902,7 @@ impl AudioWorkletManager {
     
     /// Get current volume analysis if available
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
-        // First check if we have volume data from the shared data (from message handler)
+        // Check if we have volume data from the shared data (from message handler)
         if let Some(ref shared_data) = self.shared_data {
             if let Some(ref analysis) = shared_data.borrow().last_volume_analysis {
                 return Some(super::VolumeLevelData {
@@ -917,14 +913,7 @@ impl AudioWorkletManager {
             }
         }
         
-        // Fall back to the instance's last_volume_analysis
-        self.last_volume_analysis.as_ref().map(|analysis| {
-            super::VolumeLevelData {
-                rms_amplitude: analysis.rms_amplitude,
-                peak_amplitude: analysis.peak_amplitude,
-                fft_data: analysis.fft_data.clone(),
-            }
-        })
+        None
     }
 
     /// Get the latest pitch data from the pitch analyzer
