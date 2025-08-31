@@ -41,7 +41,7 @@ impl fmt::Display for AudioWorkletState {
 
 
 struct AudioWorkletSharedData {
-    volume_detector: Option<VolumeDetector>,
+    volume_detector: Option<std::rc::Rc<std::cell::RefCell<VolumeDetector>>>,
     batches_processed: u32,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
@@ -66,7 +66,7 @@ impl AudioWorkletSharedData {
 pub struct AudioWorkletManager {
     worklet_node: Option<AudioWorkletNode>,
     state: AudioWorkletState,
-    volume_detector: Option<VolumeDetector>,
+    volume_detector: Option<std::rc::Rc<std::cell::RefCell<VolumeDetector>>>,
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -391,8 +391,8 @@ impl AudioWorkletManager {
         // Perform volume analysis
         let volume_detector = shared_data.borrow().volume_detector.clone();
         
-        if let Some(mut volume_detector) = volume_detector {
-            match volume_detector.analyze() {
+        if let Some(volume_detector) = volume_detector {
+            match volume_detector.borrow_mut().analyze() {
                 Ok(volume_analysis) => {
                     // Store the volume analysis result in the AudioWorkletManager
                     // We need to access the manager instance to store this
@@ -489,8 +489,8 @@ impl AudioWorkletManager {
                 dev_log!("Connected microphone to gain node");
                 
                 // 2. Connect microphone gain to volume detector (parallel tap for analysis)
-                if let Some(ref mut volume_detector) = self.volume_detector {
-                    if let Err(e) = volume_detector.connect_source(mic_gain) {
+                if let Some(ref volume_detector) = self.volume_detector {
+                    if let Err(e) = volume_detector.borrow().connect_source(mic_gain) {
                         dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
                     } else {
                         dev_log!("Connected microphone gain to VolumeDetector");
@@ -587,8 +587,8 @@ impl AudioWorkletManager {
         }
         
         // Disconnect and cleanup volume detector
-        if let Some(ref mut volume_detector) = self.volume_detector {
-            if let Err(e) = volume_detector.disconnect() {
+        if let Some(ref volume_detector) = self.volume_detector {
+            if let Err(e) = volume_detector.borrow().disconnect() {
                 dev_log!("Failed to disconnect VolumeDetector: {:?}", e);
             } else {
                 dev_log!("VolumeDetector disconnected");
@@ -624,20 +624,24 @@ impl AudioWorkletManager {
         
     /// Set volume detector for real-time volume analysis
     pub fn set_volume_detector(&mut self, detector: VolumeDetector) {
+        // Wrap the detector in Rc<RefCell<>> for shared ownership
+        let detector_rc = std::rc::Rc::new(std::cell::RefCell::new(detector));
+        
         // Connect microphone gain if available (idempotent regardless of call order)
         if let Some(ref mic_gain) = self.microphone_gain {
-            if let Err(e) = detector.connect_source(mic_gain) {
+            if let Err(e) = detector_rc.borrow().connect_source(mic_gain) {
                 dev_log!("Failed to connect microphone gain to volume detector: {:?}", e);
             } else {
                 dev_log!("Connected microphone gain to volume detector during set_volume_detector");
             }
         }
         
-        self.volume_detector = Some(detector.clone());
+        // Both fields now share the same detector instance
+        self.volume_detector = Some(detector_rc.clone());
         
-        // Also update the shared data with the volume detector
+        // Also update the shared data with the same detector instance
         if let Some(shared_data) = &self.shared_data {
-            shared_data.borrow_mut().volume_detector = Some(detector);
+            shared_data.borrow_mut().volume_detector = Some(detector_rc);
         }
     }
 
