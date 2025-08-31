@@ -14,20 +14,20 @@ impl fmt::Display for AudioError {
         }
     }
 }
-pub fn connect_mediastream_to_audioworklet(
-    media_stream: web_sys::MediaStream,
-    audio_context: &std::cell::RefCell<super::context::AudioSystemContext>
+/// Creates a MediaStreamAudioSourceNode from a MediaStream
+pub fn legacy_create_media_stream_node(
+    media_stream: &web_sys::MediaStream,
+    audio_context: &web_sys::AudioContext,
+) -> Result<web_sys::MediaStreamAudioSourceNode, String> {
+    audio_context.create_media_stream_source(media_stream)
+        .map_err(|e| format!("Failed to create audio source: {:?}", e))
+}
+
+/// Connects a MediaStreamAudioSourceNode to the audio worklet
+pub fn legacy_connect_media_stream_node_to_audioworklet(
+    source: &web_sys::MediaStreamAudioSourceNode,
+    audio_context: &std::cell::RefCell<super::context::AudioSystemContext>,
 ) -> Result<(), String> {
-    let source = {
-        let audio_system_context = audio_context.borrow();
-        
-        let context = audio_system_context.get_audio_context()
-            .ok_or("Audio context not available")?;
-            
-        context.create_media_stream_source(&media_stream)
-            .map_err(|e| format!("Failed to create audio source: {:?}", e))?
-    };
-    
     let result = {
         let mut context_borrowed = audio_context.borrow_mut();
         context_borrowed.get_audioworklet_manager_mut()

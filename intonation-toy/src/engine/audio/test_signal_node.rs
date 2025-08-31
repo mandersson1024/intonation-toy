@@ -1,5 +1,5 @@
 use web_sys::{AudioContext, OscillatorNode, GainNode, OscillatorType, AudioNode};
-use super::microphone::AudioError;
+use super::legacy_media_stream_node::AudioError;
 use super::signal_generator::SignalGeneratorConfig;
 
 pub struct TestSignalAudioNode {

@@ -1,4 +1,4 @@
-pub mod microphone;
+pub mod legacy_media_stream_node;
 pub mod context;
 pub mod worklet;
 pub mod audio_context;
@@ -24,5 +24,5 @@ pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 pub use signal_flow::AudioSignalFlow;
 
-use microphone::AudioError;
+use legacy_media_stream_node::AudioError;
 pub use volume_detector::VolumeDetector;

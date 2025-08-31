@@ -72,8 +72,7 @@ impl AudioEngine {
     ) -> Result<Self, String> {
         crate::common::dev_log!("Creating AudioEngine with worklet components");
         
-        // Create audio context using provided AudioContext
-        let audio_context_obj = match audio::AudioSystemContext::create(audio_context) {
+        let audio_context_obj = match audio::AudioSystemContext::create(audio_context.clone()) {
             Ok(context) => context,
             Err(e) => {
                 crate::common::error_log!("✗ AudioEngine creation failed: {}", e);
@@ -81,17 +80,13 @@ impl AudioEngine {
             }
         };
         
-        crate::common::dev_log!("✓ AudioEngine created successfully");
-        
         let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context_obj));
             
-        // Connect the media stream to the audio worklet
-        if let Err(e) = crate::engine::audio::microphone::connect_mediastream_to_audioworklet(
-            media_stream,
-            &audio_context_rc
-        ) {
-            return Err(format!("MediaStream connection failed: {}", e));
-        }
+        let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &audio_context)
+            .map_err(|e| format!("MediaStream connection failed: {}", e))?;
+        
+        crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &audio_context_rc)
+            .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
         if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
             borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
