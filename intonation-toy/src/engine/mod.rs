@@ -109,7 +109,8 @@ impl AudioEngine {
         let volume_detector = audio::volume_detector::VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
-        pipeline.set_volume_detector(volume_detector);
+        pipeline.set_volume_detector(volume_detector)
+            .map_err(|e| format!("Failed to set volume detector: {:?}", e))?;
         pipeline.setup_message_handling()
             .map_err(|e| {
                 let error_msg = format!("Failed to setup message handling: {:?}", e);

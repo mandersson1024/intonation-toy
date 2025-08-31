@@ -13,6 +13,7 @@ pub mod test_signal_node;
 pub mod signal_flow;
 pub mod pipeline;
 pub mod worklet_manager;
+pub mod analyzer;
 
 
 

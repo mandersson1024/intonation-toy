@@ -3,6 +3,7 @@ use crate::common::dev_log;
 use super::{
     signal_flow::AudioSignalFlow,
     worklet_manager::AudioWorkletManager,
+    analyzer::AudioAnalyzer,
     AudioError,
     SignalGeneratorConfig,
     signal_generator::TuningForkConfig,
@@ -22,6 +23,7 @@ use super::{
 pub struct AudioPipeline {
     signal_flow: AudioSignalFlow,
     worklet_manager: AudioWorkletManager,
+    analyzer: AudioAnalyzer,
     audio_context: AudioContext,
 }
 
@@ -61,11 +63,16 @@ impl AudioPipeline {
         // Create the focused AudioWorkletManager with the worklet node
         let worklet_manager = AudioWorkletManager::new(worklet_node)?;
 
-        dev_log!("✓ AudioPipeline created with signal flow and worklet manager");
+        // Create the AudioAnalyzer with the analyser node from signal flow
+        let analyzer = AudioAnalyzer::new(signal_flow.analyser.clone())
+            .map_err(|e| format!("Failed to create AudioAnalyzer: {}", e))?;
+
+        dev_log!("✓ AudioPipeline created with signal flow, worklet manager, and analyzer");
 
         Ok(Self {
             signal_flow,
             worklet_manager,
+            analyzer,
             audio_context,
         })
     }
@@ -169,12 +176,16 @@ impl AudioPipeline {
 
     /// Get current volume data
     pub fn get_volume_data(&self) -> Option<VolumeLevelData> {
-        self.worklet_manager.get_volume_data()
+        // Get volume data from the analyzer first, fall back to worklet manager
+        self.analyzer.get_volume_data()
+            .or_else(|| self.worklet_manager.get_volume_data())
     }
 
-    /// Get current pitch data
+    /// Get current pitch data  
     pub fn get_pitch_data(&self) -> Option<PitchData> {
-        self.worklet_manager.get_pitch_data()
+        // Get pitch data from the analyzer first, fall back to worklet manager
+        self.analyzer.get_pitch_data()
+            .or_else(|| self.worklet_manager.get_pitch_data())
     }
 
     /// Get buffer pool statistics
@@ -183,13 +194,25 @@ impl AudioPipeline {
     }
 
     /// Set volume detector for audio analysis
-    pub fn set_volume_detector(&mut self, detector: super::volume_detector::VolumeDetector) {
-        self.worklet_manager.set_volume_detector(detector);
+    pub fn set_volume_detector(&mut self, detector: super::volume_detector::VolumeDetector) -> Result<(), AudioError> {
+        // Set the volume detector in the analyzer (connects to analyser node)
+        self.analyzer.set_volume_detector(detector)?;
+        
+        // Also provide it to the worklet manager for message handling
+        if let Some(volume_detector) = self.analyzer.get_volume_detector() {
+            self.worklet_manager.set_volume_detector(volume_detector.borrow().clone());
+        }
+        
+        Ok(())
     }
 
-    /// Set pitch analyzer for audio analysis
-    pub fn set_pitch_analyzer(&mut self, analyzer: std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
-        self.worklet_manager.set_pitch_analyzer(analyzer);
+    /// Set pitch analyzer for audio analysis  
+    pub fn set_pitch_analyzer(&mut self, analyzer_ref: std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>) {
+        // Set the pitch analyzer in the analyzer
+        self.analyzer.set_pitch_analyzer(analyzer_ref.clone());
+        
+        // Also provide it to the worklet manager for message handling
+        self.worklet_manager.set_pitch_analyzer(analyzer_ref);
     }
 
     /// Disconnect and cleanup the audio pipeline
@@ -197,6 +220,9 @@ impl AudioPipeline {
         // Stop oscillators
         let _ = self.signal_flow.test_signal_osc.stop();
         let _ = self.signal_flow.tuning_fork_osc.stop();
+        
+        // Cleanup analyzer
+        self.analyzer.disconnect()?;
         
         // Cleanup worklet manager
         self.worklet_manager.disconnect()?;
