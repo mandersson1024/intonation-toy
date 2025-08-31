@@ -47,7 +47,7 @@ use self::audio::{AudioWorkletStatus, message_protocol::BufferPoolStats};
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
     /// Audio system context for managing audio processing
-    audio_context: Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>>,
+    audio_context: std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>,
 }
 
 impl AudioEngine {
@@ -96,7 +96,7 @@ impl AudioEngine {
         }
         
         Ok(Self {
-            audio_context: Some(audio_context_rc),
+            audio_context: audio_context_rc,
         })
     }
     
@@ -117,13 +117,7 @@ impl AudioEngine {
     /// Note: All musical interpretation (tuning systems, intervals, pitch relationships)
     /// is handled by the model layer that processes this raw data.
     pub fn update(&mut self) -> EngineUpdateResult {
-        let Some(ref context) = self.audio_context else {
-            return EngineUpdateResult {
-                audio_analysis: None,
-                audio_errors: vec![crate::common::shared_types::Error::ProcessingError("Audio system not initialized".to_string())],
-                permission_state: crate::common::shared_types::PermissionState::NotRequested,
-            };
-        };
+        let context = &self.audio_context;
         
         let borrowed_context = context.borrow();
         EngineUpdateResult {
@@ -136,14 +130,14 @@ impl AudioEngine {
 
     #[cfg(debug_assertions)]
     pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        self.audio_context.as_ref()?
+        self.audio_context
             .try_borrow().ok()?
             .get_audioworklet_status()
     }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
-        self.audio_context.as_ref()?
+        self.audio_context
             .try_borrow().ok()?
             .get_buffer_pool_stats()
     }
@@ -151,10 +145,10 @@ impl AudioEngine {
     
     /// Get the audio context for async operations
     /// 
-    /// Returns a clone of the Rc<RefCell<AudioSystemContext>> if available.
+    /// Returns a clone of the Rc<RefCell<AudioSystemContext>>.
     /// This is used for async operations that need access to the raw audio
     /// processing context outside of the main engine instance.
-    pub fn get_audio_context(&self) -> Option<std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>> {
+    pub fn get_audio_context(&self) -> std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>> {
         self.audio_context.clone()
     }
     
@@ -167,11 +161,7 @@ impl AudioEngine {
             return;
         }
         
-        let Some(ref audio_context) = self.audio_context else {
-            debug_assert!(false, "Audio context not available for tuning fork audio execution");
-            return;
-        };
-        
+        let audio_context = &self.audio_context;
         let mut borrowed_context = audio_context.borrow_mut();
         let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() else {
             debug_assert!(false, "AudioWorkletManager not available for tuning fork audio control");
@@ -253,10 +243,7 @@ impl AudioEngine {
                 config.enabled, config.frequency, config.volume
             );
             
-            let Some(ref audio_context) = self.audio_context else {
-                return Err("[DEBUG] Audio context not available for test signal execution".to_string());
-            };
-            
+            let audio_context = &self.audio_context;
             let mut borrowed_context = audio_context.borrow_mut();
             if let Some(worklet_manager) = borrowed_context.get_audioworklet_manager_mut() {
                 let audio_config = crate::engine::audio::SignalGeneratorConfig {
