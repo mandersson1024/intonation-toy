@@ -53,7 +53,7 @@ use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
     /// Direct reference to the Web Audio API context
-    audio_context: Option<AudioContext>,
+    audio_context: AudioContext,
     /// Manager for audio worklet operations
     audioworklet_manager: Option<AudioWorkletManager>,
     /// Shared reference to pitch analysis component
@@ -83,15 +83,15 @@ impl AudioEngine {
         audio_context: web_sys::AudioContext
     ) -> Result<Self, String> {
         let mut engine = Self {
-            audio_context: Some(audio_context.clone()),
+            audio_context,
             audioworklet_manager: None,
             pitch_analyzer: None,
-            permission_state: Cell::new(audio::AudioPermission::Uninitialized),
+            permission_state: Cell::new(AudioPermission::Uninitialized),
         };
         crate::common::dev_log!("✓ AudioContext attached");
 
         let mut worklet_manager = audio::worklet::AudioWorkletManager::new_return_based();
-        let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
+        let _worklet_node = worklet_manager.create_worklet_node(&engine.audio_context)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
@@ -101,7 +101,7 @@ impl AudioEngine {
         crate::common::dev_log!("✓ AudioWorkletManager created with internal node creation");
 
         let config = audio::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = audio_context.sample_rate() as u32;
+        let sample_rate = engine.audio_context.sample_rate() as u32;
         
         if sample_rate != crate::app_config::STANDARD_SAMPLE_RATE {
             crate::common::dev_log!("⚠ Audio context sample rate ({} Hz) differs from standard rate ({} Hz)", 
@@ -124,7 +124,7 @@ impl AudioEngine {
         }
         crate::common::dev_log!("✓ PitchAnalyzer initialized for return-based pattern");
 
-        let volume_detector = audio::volume_detector::VolumeDetector::new(&audio_context)
+        let volume_detector = audio::volume_detector::VolumeDetector::new(&engine.audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
         if let Some(ref mut worklet_manager) = engine.audioworklet_manager {
@@ -140,7 +140,7 @@ impl AudioEngine {
         crate::common::dev_log!("✓ VolumeDetector initialized and configured");
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
-        let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &audio_context)
+        let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &engine.audio_context)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
         crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &mut engine)
@@ -336,17 +336,15 @@ impl AudioEngine {
         use web_sys::AudioContextState;
         let mut errors = Vec::new();
         
-        if let Some(ref context) = self.audio_context {
-            if context.state() != AudioContextState::Running {
-                let error_msg = match context.state() {
-                    AudioContextState::Closed => Some("AudioContext is closed"),
-                    // Suspended is a normal state before user interaction, not an error
-                    AudioContextState::Suspended => None,
-                    _ => None,
-                };
-                if let Some(msg) = error_msg {
-                    errors.push(crate::common::shared_types::Error::ProcessingError(msg.to_string()));
-                }
+        if self.audio_context.state() != AudioContextState::Running {
+            let error_msg = match self.audio_context.state() {
+                AudioContextState::Closed => Some("AudioContext is closed"),
+                // Suspended is a normal state before user interaction, not an error
+                AudioContextState::Suspended => None,
+                _ => None,
+            };
+            if let Some(msg) = error_msg {
+                errors.push(crate::common::shared_types::Error::ProcessingError(msg.to_string()));
             }
         }
         
@@ -359,8 +357,8 @@ impl AudioEngine {
     }
 
     /// Get reference to the audio context
-    pub fn get_audio_context(&self) -> Option<&AudioContext> {
-        self.audio_context.as_ref()
+    pub fn get_audio_context(&self) -> &AudioContext {
+        &self.audio_context
     }
     
     /// Get the current audioworklet status
