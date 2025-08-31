@@ -47,7 +47,7 @@ use self::audio::{AudioWorkletStatus, message_protocol::BufferPoolStats};
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
     /// Audio system context for managing audio processing
-    audio_context: std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>>,
+    audio_context: std::cell::RefCell<audio::AudioSystemContext>,
 }
 
 impl AudioEngine {
@@ -80,15 +80,15 @@ impl AudioEngine {
             }
         };
         
-        let audio_context_rc = std::rc::Rc::new(std::cell::RefCell::new(audio_context_obj));
-            
         let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &audio_context)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
-        crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &audio_context_rc)
+        let audio_context_ref = std::cell::RefCell::new(audio_context_obj);
+        
+        crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &audio_context_ref)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
-        if let Ok(mut borrowed_context) = audio_context_rc.try_borrow_mut() {
+        if let Ok(mut borrowed_context) = audio_context_ref.try_borrow_mut() {
             borrowed_context.configure_tuning_fork(crate::engine::audio::TuningForkConfig {
                 frequency: crate::common::music_theory::midi_note_to_standard_frequency(crate::app_config::DEFAULT_TUNING_FORK_NOTE),
                 volume: 0.0,
@@ -96,7 +96,7 @@ impl AudioEngine {
         }
         
         Ok(Self {
-            audio_context: audio_context_rc,
+            audio_context: audio_context_ref,
         })
     }
     
@@ -142,15 +142,6 @@ impl AudioEngine {
             .get_buffer_pool_stats()
     }
     
-    
-    /// Get the audio context for async operations
-    /// 
-    /// Returns a clone of the Rc<RefCell<AudioSystemContext>>.
-    /// This is used for async operations that need access to the raw audio
-    /// processing context outside of the main engine instance.
-    pub fn get_audio_context(&self) -> std::rc::Rc<std::cell::RefCell<audio::AudioSystemContext>> {
-        self.audio_context.clone()
-    }
     
     /// Execute model layer actions
     /// 
