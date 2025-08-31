@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, data_types::VolumeAnalysis, SignalGeneratorConfig, volume_detector::VolumeDetector};
+use super::{AudioError, SignalGeneratorConfig, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
@@ -69,11 +69,10 @@ pub struct AudioWorkletManager {
     worklet_node: AudioWorkletNode,
     state: AudioWorkletState,
     volume_detector: Rc<RefCell<VolumeDetector>>,
-    chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     audio_context: AudioContext,
     output_to_speakers: bool,
-    shared_data: Option<Rc<RefCell<AudioWorkletSharedData>>>,
+    shared_data: Rc<RefCell<AudioWorkletSharedData>>,
     pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     message_factory: AudioWorkletMessageFactory,
     tuning_fork_node: Option<TuningForkAudioNode>,
@@ -112,15 +111,19 @@ impl AudioWorkletManager {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
+        let shared_data = Rc::new(RefCell::new(
+            AudioWorkletSharedData::new(&audio_context)
+                .map_err(|e| format!("Failed to create shared data: {}", e))?
+        ));
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
             volume_detector: Rc::new(RefCell::new(volume_detector)),
-            chunk_counter: 0,
             _message_closure: None,
             audio_context,
             output_to_speakers: false,
-            shared_data: None,
+            shared_data,
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
             tuning_fork_node: None,
@@ -179,23 +182,14 @@ impl AudioWorkletManager {
             .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
         port.set_onmessage(None);
         
-        // Create shared data for the message handler
-        let shared_data = Rc::new(RefCell::new(
-            AudioWorkletSharedData::new(&self.audio_context)
-                .map_err(|e| AudioError::Generic(e))?
-        ));
-        
-        // Store the shared data in the manager for later access
-        self.shared_data = Some(shared_data.clone());
-        
         // Store references to components that will be used in the handler
         // Copy volume detector reference to shared data
-        shared_data.borrow_mut().volume_detector = self.volume_detector.clone();
-        shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
+        self.shared_data.borrow_mut().volume_detector = self.volume_detector.clone();
+        self.shared_data.borrow_mut().pitch_analyzer = self.pitch_analyzer.clone();
         dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
         
         // Capture only the specific fields needed for the message handler
-        let shared_data_clone = shared_data.clone();
+        let shared_data_clone = self.shared_data.clone();
         let worklet_node_clone = worklet.clone();
         let message_factory_clone = self.message_factory.clone();
         
@@ -614,7 +608,7 @@ impl AudioWorkletManager {
     }
     
     pub fn get_buffer_pool_statistics(&self) -> Option<super::message_protocol::BufferPoolStats> {
-        self.shared_data.as_ref()?.borrow().buffer_pool_stats.clone()
+        self.shared_data.borrow().buffer_pool_stats.clone()
     }
     
     pub fn is_processing(&self) -> bool {
@@ -882,37 +876,27 @@ impl AudioWorkletManager {
 
     /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {
-        // Get batches processed from shared data (updated by message handler) 
-        let batches_processed = if let Some(ref shared_data) = self.shared_data {
-            let data = shared_data.borrow();
-            data.batches_processed
-        } else {
-            0  // No data available
-        };
-        
         super::AudioWorkletStatus {
             state: self.state.clone(),
             processor_loaded: true,
             chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: crate::app_config::BUFFER_SIZE as u32,
-            batches_processed,
+            batches_processed: self.shared_data.borrow().batches_processed,
         }
     }
     
     /// Get current volume analysis if available
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
         // Check if we have volume data from the shared data (from message handler)
-        if let Some(ref shared_data) = self.shared_data {
-            if let Some(ref analysis) = shared_data.borrow().last_volume_analysis {
-                return Some(super::VolumeLevelData {
-                    rms_amplitude: analysis.rms_amplitude,
-                    peak_amplitude: analysis.peak_amplitude,
-                    fft_data: analysis.fft_data.clone(),
-                });
-            }
+        if let Some(ref analysis) = self.shared_data.borrow().last_volume_analysis {
+            Some(super::VolumeLevelData {
+                rms_amplitude: analysis.rms_amplitude,
+                peak_amplitude: analysis.peak_amplitude,
+                fft_data: analysis.fft_data.clone(),
+            })
+        } else {
+            None
         }
-        
-        None
     }
 
     /// Get the latest pitch data from the pitch analyzer
