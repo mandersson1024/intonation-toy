@@ -68,7 +68,7 @@ pub struct AudioWorkletManager {
     last_volume_analysis: Option<VolumeAnalysis>,
     chunk_counter: u32,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
-    audio_context: Option<AudioContext>,
+    audio_context: AudioContext,
     output_to_speakers: bool,
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
@@ -91,16 +91,19 @@ impl AudioWorkletManager {
     /// methods rather than pushed to setters. The manager is initialized with default
     /// configuration and settings optimized for the return-based architecture.
     /// 
+    /// # Parameters
+    /// - `audio_context`: The AudioContext to use for audio operations (required)
+    /// 
     /// # Default Settings
     /// - Enables ping-pong buffer recycling by default
     /// - Initializes without external dependencies or setters
     /// 
     /// # Example
     /// ```
-    /// let worklet_manager = AudioWorkletManager::new_return_based();
+    /// let worklet_manager = AudioWorkletManager::new(audio_context);
     /// // Data is collected through getter methods rather than pushed via setters
     /// ```
-    pub fn new() -> Self {
+    pub fn new(audio_context: AudioContext) -> Self {
         Self {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,
@@ -108,7 +111,7 @@ impl AudioWorkletManager {
             last_volume_analysis: None,
             chunk_counter: 0,
             _message_closure: None,
-            audio_context: None,
+            audio_context,
             output_to_speakers: false,
             shared_data: None,
             pitch_analyzer: None,
@@ -666,28 +669,24 @@ impl AudioWorkletManager {
     /// Ensure mixer node exists and is connected
     fn ensure_mixer_node(&mut self) -> Result<&GainNode, AudioError> {
         if self.legacy_mixer_gain_node.is_none() {
-            if let Some(ref audio_context) = self.audio_context {
-                let mixer = audio_context
-                    .create_gain()
-                    .map_err(|_| AudioError::Generic("Failed to create mixer gain node".to_string()))?;
-                
-                // Set mixer gain to unity
-                mixer.gain().set_value(1.0);
-                
-                // Connect mixer to worklet
-                if let Some(ref worklet) = self.worklet_node {
-                    mixer
-                        .connect_with_audio_node(worklet)
-                        .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
-                    dev_log!("Created and connected mixer node to worklet");
-                } else {
-                    return Err(AudioError::Generic("No worklet node available for mixer connection".to_string()));
-                }
-                
-                self.legacy_mixer_gain_node = Some(mixer);
+            let mixer = self.audio_context
+                .create_gain()
+                .map_err(|_| AudioError::Generic("Failed to create mixer gain node".to_string()))?;
+            
+            // Set mixer gain to unity
+            mixer.gain().set_value(1.0);
+            
+            // Connect mixer to worklet
+            if let Some(ref worklet) = self.worklet_node {
+                mixer
+                    .connect_with_audio_node(worklet)
+                    .map_err(|_| AudioError::Generic("Failed to connect mixer to worklet".to_string()))?;
+                dev_log!("Created and connected mixer node to worklet");
             } else {
-                return Err(AudioError::Generic("No audio context available".to_string()));
+                return Err(AudioError::Generic("No worklet node available for mixer connection".to_string()));
             }
+            
+            self.legacy_mixer_gain_node = Some(mixer);
         }
         
         Ok(self.legacy_mixer_gain_node.as_ref().unwrap())
@@ -696,19 +695,15 @@ impl AudioWorkletManager {
     /// Ensure microphone gain node exists
     fn ensure_microphone_gain_node(&mut self) -> Result<&GainNode, AudioError> {
         if self.legacy_microphone_gain_node.is_none() {
-            if let Some(ref audio_context) = self.audio_context {
-                let mic_gain = audio_context
-                    .create_gain()
-                    .map_err(|_| AudioError::Generic("Failed to create microphone gain node".to_string()))?;
-                
-                // Set initial gain to unity
-                mic_gain.gain().set_value(1.0);
-                
-                dev_log!("Created microphone gain node with unity gain");
-                self.legacy_microphone_gain_node = Some(mic_gain);
-            } else {
-                return Err(AudioError::Generic("No audio context available".to_string()));
-            }
+            let mic_gain = self.audio_context
+                .create_gain()
+                .map_err(|_| AudioError::Generic("Failed to create microphone gain node".to_string()))?;
+            
+            // Set initial gain to unity
+            mic_gain.gain().set_value(1.0);
+            
+            dev_log!("Created microphone gain node with unity gain");
+            self.legacy_microphone_gain_node = Some(mic_gain);
         }
         
         Ok(self.legacy_microphone_gain_node.as_ref().unwrap())
@@ -770,7 +765,7 @@ impl AudioWorkletManager {
         }
         
         // Then manage local TestSignalAudioNode
-        if let Some(ref audio_context) = self.audio_context {
+        {
             if config.enabled {
                 if let Some(ref mut test_signal) = self.test_signal_node {
                     // Update existing node
@@ -778,7 +773,7 @@ impl AudioWorkletManager {
                     dev_log!("Updated existing test signal node configuration");
                 } else {
                     // Create new test signal node and connect to mixer (mixer always exists now)
-                    match TestSignalAudioNode::new(audio_context, config, false) {
+                    match TestSignalAudioNode::new(&self.audio_context, config, false) {
                         Ok(mut node) => {
                             // Connect test signal directly to mixer (no routing setup needed)
                             if let Some(ref mixer) = self.legacy_mixer_gain_node {
@@ -820,8 +815,6 @@ impl AudioWorkletManager {
                     }
                 }
             }
-        } else {
-            dev_log!("No audio context available for test signal configuration");
         }
     }
 
@@ -840,18 +833,14 @@ impl AudioWorkletManager {
             node.update_config(config.clone());
         } else {
             // Create new node
-            if let Some(ref audio_context) = self.audio_context {
-                match TuningForkAudioNode::new(audio_context, config.clone()) {
-                    Ok(node) => {
-                        dev_log!("[AudioWorkletManager] Created new tuning fork audio node");
-                        self.tuning_fork_node = Some(node);
-                    }
-                    Err(e) => {
-                        dev_log!("[AudioWorkletManager] Failed to create tuning fork audio node: {:?}", e);
-                    }
+            match TuningForkAudioNode::new(&self.audio_context, config.clone()) {
+                Ok(node) => {
+                    dev_log!("[AudioWorkletManager] Created new tuning fork audio node");
+                    self.tuning_fork_node = Some(node);
                 }
-            } else {
-                dev_log!("[AudioWorkletManager] No audio context available for tuning fork audio");
+                Err(e) => {
+                    dev_log!("[AudioWorkletManager] Failed to create tuning fork audio node: {:?}", e);
+                }
             }
         }
         
@@ -873,18 +862,14 @@ impl AudioWorkletManager {
     /// Connect AudioWorklet output to speakers
     fn connect_worklet_to_speakers(&self) {
         if let Some(worklet) = &self.worklet_node {
-            if let Some(audio_context) = &self.audio_context {
-                let destination = audio_context.destination();
-                match worklet.connect_with_audio_node(&destination) {
-                    Ok(_) => {
-                        dev_log!("🔊 AudioWorklet connected to speakers");
-                    }
-                    Err(e) => {
-                        dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
-                    }
+            let destination = self.audio_context.destination();
+            match worklet.connect_with_audio_node(&destination) {
+                Ok(_) => {
+                    dev_log!("🔊 AudioWorklet connected to speakers");
                 }
-            } else {
-                dev_log!("🔇 No audio context available for speaker connection");
+                Err(e) => {
+                    dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
+                }
             }
         } else {
             dev_log!("🔇 No AudioWorklet available for speaker connection");
@@ -894,16 +879,14 @@ impl AudioWorkletManager {
     /// Disconnect AudioWorklet output from speakers  
     fn disconnect_worklet_from_speakers(&self) {
         if let Some(worklet) = &self.worklet_node {
-            if let Some(audio_context) = &self.audio_context {
-                let destination = audio_context.destination();
-                // Disconnect only the connection to destination (speakers)
-                match worklet.disconnect_with_audio_node(&destination) {
-                    Ok(_) => {
-                        dev_log!("🔇 AudioWorklet disconnected from speakers");
-                    }
-                    Err(e) => {
-                        dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
-                    }
+            let destination = self.audio_context.destination();
+            // Disconnect only the connection to destination (speakers)
+            match worklet.disconnect_with_audio_node(&destination) {
+                Ok(_) => {
+                    dev_log!("🔇 AudioWorklet disconnected from speakers");
+                }
+                Err(e) => {
+                    dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
                 }
             }
         }
@@ -1017,9 +1000,8 @@ impl AudioWorkletManager {
         
         dev_log!("✓ AudioWorkletNode created successfully");
         
-        // Store the node, audio context, and update state
+        // Store the node and update state
         self.worklet_node = Some(worklet_node.clone());
-        self.audio_context = Some(audio_context.clone());
         self.state = AudioWorkletState::Ready;
         
         Ok(worklet_node)
