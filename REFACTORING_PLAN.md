@@ -55,13 +55,13 @@ The `AudioWorkletManager` has grown beyond its name and manages far more than ju
 - [x] Move high-level orchestration from current `AudioWorkletManager`
 - [x] Update `engine/mod.rs` to use `AudioPipeline` instead of `AudioWorkletManager`
 
-### Phase 2: Extract AudioWorkletManager
-- [ ] Create focused `AudioWorkletManager` with only worklet-specific functionality:
+### Phase 2: Extract AudioWorkletManager ✅ COMPLETED  
+- [x] Create focused `AudioWorkletManager` with only worklet-specific functionality:
   - Worklet node reference (from signal flow)
   - Message handling and communication
   - Processing control
   - Worklet state management
-- [ ] Remove all non-worklet functionality from current implementation
+- [x] Remove all non-worklet functionality from current implementation
 
 ### Phase 3: Create AudioAnalyzer
 - [ ] Extract volume detection logic

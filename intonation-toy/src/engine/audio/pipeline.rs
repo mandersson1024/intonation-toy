@@ -2,7 +2,7 @@ use web_sys::{AudioContext, MediaStream};
 use crate::common::dev_log;
 use super::{
     signal_flow::AudioSignalFlow,
-    worklet::AudioWorkletManager,
+    worklet_manager::AudioWorkletManager,
     AudioError,
     SignalGeneratorConfig,
     signal_generator::TuningForkConfig,
@@ -43,8 +43,8 @@ impl AudioPipeline {
     ) -> Result<Self, String> {
         dev_log!("Creating AudioPipeline with integrated signal flow");
 
-        // Create the AudioWorkletManager (which creates the worklet node)
-        let worklet_manager = AudioWorkletManager::new(audio_context.clone())?;
+        // First create the worklet node using the existing helper
+        let worklet_node = Self::create_worklet_node(&audio_context)?;
 
         // Create the media stream source node
         let microphone_source = audio_context
@@ -55,9 +55,11 @@ impl AudioPipeline {
         let signal_flow = AudioSignalFlow::new(
             audio_context.clone(),
             microphone_source,
-            // Get the worklet node from the manager - we'll need to add a getter method
-            worklet_manager.get_worklet_node().clone(),
+            worklet_node.clone(),
         );
+
+        // Create the focused AudioWorkletManager with the worklet node
+        let worklet_manager = AudioWorkletManager::new(worklet_node)?;
 
         dev_log!("✓ AudioPipeline created with signal flow and worklet manager");
 
@@ -211,6 +213,43 @@ impl AudioPipeline {
     /// Get mutable reference to the signal flow (for future specialized managers)
     pub fn get_signal_flow_mut(&mut self) -> &mut AudioSignalFlow {
         &mut self.signal_flow
+    }
+
+    /// Create AudioWorkletNode with standard configuration
+    /// 
+    /// This method creates an AudioWorkletNode using standard configuration options.
+    /// The worklet module must already be loaded in the AudioContext before calling this method.
+    /// 
+    /// # Parameters
+    /// - `audio_context`: Reference to the AudioContext with worklet module loaded
+    /// 
+    /// # Returns
+    /// Returns `Result<AudioWorkletNode, String>` where:
+    /// - On success: AudioWorkletNode ready for use
+    /// - On error: String describing what went wrong
+    fn create_worklet_node(audio_context: &AudioContext) -> Result<web_sys::AudioWorkletNode, String> {
+        use web_sys::{AudioWorkletNodeOptions, AudioWorkletNode};
+        
+        dev_log!("Creating AudioWorkletNode with standard configuration");
+        
+        // Create AudioWorkletNode with default options
+        let options = AudioWorkletNodeOptions::new();
+        options.set_number_of_inputs(1);
+        options.set_number_of_outputs(1);
+        
+        // Set channel configuration
+        let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
+        options.set_channel_count(1);
+        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
+        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
+        options.set_output_channel_count(&output_channels);
+        
+        // Create the AudioWorkletNode with the registered processor
+        let worklet_node = AudioWorkletNode::new_with_options(audio_context, "pitch-processor", &options)
+            .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
+        
+        dev_log!("✓ AudioWorkletNode created successfully");
+        Ok(worklet_node)
     }
 }
 
