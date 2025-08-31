@@ -18,13 +18,6 @@ pub fn connect_mediastream_to_audioworklet(
     media_stream: web_sys::MediaStream,
     audio_context: &std::cell::RefCell<super::context::AudioSystemContext>
 ) -> Result<(), String> {
-    audio_context.borrow().set_permission_state(super::permission::AudioPermission::Requesting);
-    
-    let tracks = media_stream.get_tracks();
-    if tracks.length() == 0 {
-        return Err("MediaStream has no tracks".to_string());
-    }
-    
     let source = {
         let audio_system_context = audio_context.borrow();
         
@@ -44,8 +37,6 @@ pub fn connect_mediastream_to_audioworklet(
     
     match result {
         Ok(_) => {
-            audio_context.borrow().set_permission_state(super::permission::AudioPermission::Granted);
-            
             {
                 let mut context_borrowed = audio_context.borrow_mut();
                 if let Some(ref mut worklet_manager) = context_borrowed.get_audioworklet_manager_mut() {
@@ -55,11 +46,9 @@ pub fn connect_mediastream_to_audioworklet(
                 }
             }
             
-            
             Ok(())
         }
         Err(e) => {
-            audio_context.borrow().set_permission_state(super::permission::AudioPermission::Unavailable);
             Err(format!("Failed to connect microphone: {:?}", e))
         }
     }
