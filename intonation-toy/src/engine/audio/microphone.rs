@@ -33,10 +33,8 @@ pub fn connect_mediastream_to_audioworklet(
     
     let source = {
         let audio_system_context = audio_context.borrow();
-        let audio_context_manager = audio_system_context.get_audio_context_manager();
-        let audio_ctx_borrowed = audio_context_manager.borrow();
         
-        let context = audio_ctx_borrowed.get_context()
+        let context = audio_system_context.get_audio_context()
             .ok_or("Audio context not available")?;
             
         context.create_media_stream_source(&media_stream)

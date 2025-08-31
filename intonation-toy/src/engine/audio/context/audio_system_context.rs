@@ -1,8 +1,8 @@
 use crate::common::{dev_log, shared_types::{Volume, Pitch, AudioAnalysis}};
-use super::{AudioContextManager, AudioContextState};
+use web_sys::{AudioContext, AudioContextState};
 
 pub struct AudioSystemContext {
-    audio_context_manager: std::rc::Rc<std::cell::RefCell<AudioContextManager>>,
+    audio_context: Option<AudioContext>,
     audioworklet_manager: Option<super::super::worklet::AudioWorkletManager>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::super::pitch_analyzer::PitchAnalyzer>>>,
     is_initialized: bool,
@@ -14,14 +14,14 @@ impl AudioSystemContext {
     
     pub fn create(audio_context: web_sys::AudioContext) -> Result<Self, String> {
         let mut result = Self {
-            audio_context_manager: std::rc::Rc::new(std::cell::RefCell::new(AudioContextManager::new(audio_context.clone()))),
+            audio_context: Some(audio_context.clone()),
             audioworklet_manager: None,
             pitch_analyzer: None,
             is_initialized: false,
             initialization_error: None,
             permission_state: std::cell::Cell::new(super::super::AudioPermission::Uninitialized),
         };
-        dev_log!("✓ AudioContextManager created");
+        dev_log!("✓ AudioContext attached");
 
         let mut worklet_manager = super::super::worklet::AudioWorkletManager::new_return_based();
         let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
@@ -75,8 +75,6 @@ impl AudioSystemContext {
         
         dev_log!("✓ VolumeDetector initialized and configured");
 
-        super::super::set_global_audio_context_manager(result.audio_context_manager.clone());
-        dev_log!("✓ AudioContextManager stored globally for device change callbacks");
 
         result.is_initialized = true;
         dev_log!("✓ AudioSystemContext fully initialized");
@@ -94,19 +92,19 @@ impl AudioSystemContext {
         self.audioworklet_manager = None;
         self.pitch_analyzer = None;
         
-        let _ = self.audio_context_manager.borrow_mut().close();
+        if let Some(ref context) = self.audio_context {
+            dev_log!("Closing AudioContext");
+            let _ = context.close();
+        }
+        self.audio_context = None;
         
         self.is_initialized = false;
         dev_log!("✓ AudioSystemContext shutdown completed");
         Ok(())
     }
 
-    pub fn get_audio_context_manager(&self) -> &std::rc::Rc<std::cell::RefCell<AudioContextManager>> {
-        &self.audio_context_manager
-    }
-    
-    pub fn get_audio_context_manager_rc(&self) -> std::rc::Rc<std::cell::RefCell<AudioContextManager>> {
-        self.audio_context_manager.clone()
+    pub fn get_audio_context(&self) -> Option<&AudioContext> {
+        self.audio_context.as_ref()
     }
     
     pub fn get_audioworklet_status(&self) -> Option<super::super::data_types::AudioWorkletStatus> {
@@ -173,9 +171,9 @@ impl AudioSystemContext {
             errors.push(crate::common::shared_types::Error::ProcessingError(error_msg.clone()));
         }
         
-        if let Ok(context_manager) = self.audio_context_manager.try_borrow() {
-            if !context_manager.is_running() {
-                let error_msg = match context_manager.state() {
+        if let Some(ref context) = self.audio_context {
+            if context.state() != AudioContextState::Running {
+                let error_msg = match context.state() {
                     AudioContextState::Closed => Some("AudioContext is closed"),
                     // Suspended is a normal state before user interaction, not an error
                     AudioContextState::Suspended => None,

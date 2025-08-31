@@ -13,18 +13,7 @@ pub mod tuning_fork_node;
 pub mod test_signal_node;
 pub mod signal_flow;
 
-use std::cell::RefCell;
-use std::rc::Rc;
 
-thread_local! {
-    static AUDIO_CONTEXT_MANAGER: RefCell<Option<Rc<RefCell<context::AudioContextManager>>>> = const { RefCell::new(None) };
-}
-
-pub fn set_global_audio_context_manager(manager: Rc<RefCell<context::AudioContextManager>>) {
-    AUDIO_CONTEXT_MANAGER.with(|global_manager| {
-        *global_manager.borrow_mut() = Some(manager);
-    });
-}
 
 pub use context::AudioSystemContext;
 pub use worklet::AudioWorkletState;
