@@ -1,6 +1,6 @@
 use crate::engine::audio::AudioPermission;
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData, AudioWorkletStatus};
-use crate::common::shared_types::{EngineUpdateResult, PermissionState, ModelUpdateResult, IntonationData};
+use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, IntonationData};
 
 #[derive(Clone)]
 pub struct DebugData {
@@ -39,12 +39,7 @@ impl DebugData {
         engine_result: &EngineUpdateResult,
         model_result: Option<&ModelUpdateResult>,
     ) {
-        self.microphone_permission = match engine_result.permission_state {
-            PermissionState::NotRequested => AudioPermission::Uninitialized,
-            PermissionState::Requested => AudioPermission::Requesting,
-            PermissionState::Granted => AudioPermission::Granted,
-            PermissionState::Denied => AudioPermission::Denied,
-        };
+        self.microphone_permission = engine_result.permission_state;
         
         self.audio_errors = engine_result.audio_errors.clone();
         

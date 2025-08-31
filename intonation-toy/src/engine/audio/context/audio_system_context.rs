@@ -137,14 +137,8 @@ impl AudioSystemContext {
         errors
     }
 
-    pub fn collect_permission_state(&self) -> crate::common::shared_types::PermissionState {
-        match self.permission_state.get() {
-            super::super::AudioPermission::Uninitialized => crate::common::shared_types::PermissionState::NotRequested,
-            super::super::AudioPermission::Requesting => crate::common::shared_types::PermissionState::Requested,
-            super::super::AudioPermission::Granted => crate::common::shared_types::PermissionState::Granted,
-            super::super::AudioPermission::Denied => crate::common::shared_types::PermissionState::Denied,
-            super::super::AudioPermission::Unavailable => crate::common::shared_types::PermissionState::Denied,
-        }
+    pub fn collect_permission_state(&self) -> super::super::AudioPermission {
+        self.permission_state.get()
     }
     
     pub fn configure_tuning_fork(&mut self, config: super::super::TuningForkConfig) {
@@ -153,8 +147,5 @@ impl AudioSystemContext {
         }
     }
     
-    pub fn set_permission_state(&self, state: super::super::AudioPermission) {
-        self.permission_state.set(state);
-    }
     
 }
