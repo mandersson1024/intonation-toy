@@ -104,7 +104,7 @@ impl AudioWorkletManager {
     /// let worklet_manager = AudioWorkletManager::new_return_based();
     /// // Data is collected through getter methods rather than pushed via setters
     /// ```
-    pub fn new_return_based() -> Self {
+    pub fn new() -> Self {
         Self {
             worklet_node: None,
             state: AudioWorkletState::Uninitialized,

@@ -84,7 +84,7 @@ impl AudioEngine {
     ) -> Result<Self, String> {
         crate::common::dev_log!("✓ AudioContext attached");
 
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new_return_based();
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new();
         let _worklet_node = worklet_manager.create_worklet_node(&audio_context)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletNode: {}", e);
