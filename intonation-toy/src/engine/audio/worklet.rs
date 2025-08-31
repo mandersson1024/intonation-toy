@@ -470,7 +470,7 @@ impl AudioWorkletManager {
 
     
     /// Connect microphone input to audio worklet
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode, _route_through_analyser: bool) -> Result<(), AudioError> {
+    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<(), AudioError> {
         // Store microphone source
         self.legacy_microphone_source_node = Some(microphone_source.clone());
         

@@ -30,7 +30,7 @@ pub fn legacy_connect_media_stream_node_to_audioworklet(
     audio_engine: &mut AudioEngine,
 ) -> Result<(), String> {
     let result = audio_engine.audioworklet_manager
-        .connect_microphone(source.as_ref(), false)
+        .connect_microphone(source.as_ref())
         .map_err(|e| e.to_string());
     
     match result {
