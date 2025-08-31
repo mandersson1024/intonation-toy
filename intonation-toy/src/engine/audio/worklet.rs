@@ -46,7 +46,6 @@ struct AudioWorkletSharedData {
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
-    batch_size: u32,
 }
 
 impl AudioWorkletSharedData {
@@ -57,7 +56,6 @@ impl AudioWorkletSharedData {
             pitch_analyzer: None,
             buffer_pool_stats: None,
             last_volume_analysis: None,
-            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
         }
     }
 }
@@ -75,7 +73,6 @@ pub struct AudioWorkletManager {
     shared_data: Option<std::rc::Rc<std::cell::RefCell<AudioWorkletSharedData>>>,
     pitch_analyzer: Option<std::rc::Rc<std::cell::RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     message_factory: AudioWorkletMessageFactory,
-    batch_size: u32,
     tuning_fork_node: Option<TuningForkAudioNode>,
     test_signal_node: Option<TestSignalAudioNode>,
     legacy_mixer_gain_node: Option<GainNode>,
@@ -116,7 +113,6 @@ impl AudioWorkletManager {
             shared_data: None,
             pitch_analyzer: None,
             message_factory: AudioWorkletMessageFactory::new(),
-            batch_size: crate::app_config::BUFFER_SIZE as u32, // Default batch size
             tuning_fork_node: None,
             test_signal_node: None,
             legacy_mixer_gain_node: None,
@@ -255,13 +251,8 @@ impl AudioWorkletManager {
         message_factory: AudioWorkletMessageFactory
     ) {
         match envelope.payload {
-            FromWorkletMessage::ProcessorReady { batch_size } => {
-                if let Some(size) = batch_size {
-                    dev_log!("AudioWorklet processor ready with batch size: {}", size);
-                    shared_data.borrow_mut().batch_size = size as u32;
-                } else {
-                    dev_log!("AudioWorklet processor ready (no batch size specified)");
-                }
+            FromWorkletMessage::ProcessorReady { batch_size: _ } => {
+                dev_log!("AudioWorklet processor ready");
                 dev_log!("AudioWorklet state changed to: Ready");
             }
             FromWorkletMessage::ProcessingStarted => {
@@ -920,21 +911,20 @@ impl AudioWorkletManager {
 
     /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {
-        // Get batches processed and batch size from shared data (updated by message handler) 
-        let (batches_processed, batch_size) = if let Some(ref shared_data) = self.shared_data {
+        // Get batches processed from shared data (updated by message handler) 
+        let batches_processed = if let Some(ref shared_data) = self.shared_data {
             let data = shared_data.borrow();
-            (data.batches_processed, data.batch_size)
+            data.batches_processed
         } else {
             // Fallback: estimate batches from chunks
-            let batches = if self.batch_size > 0 { self.chunk_counter / (self.batch_size / AUDIO_CHUNK_SIZE as u32) } else { 0 };
-            (batches, self.batch_size)
+            self.chunk_counter / (crate::app_config::BUFFER_SIZE as u32 / AUDIO_CHUNK_SIZE as u32)
         };
         
         super::AudioWorkletStatus {
             state: self.state.clone(),
             processor_loaded: self.worklet_node.is_some(),
             chunk_size: AUDIO_CHUNK_SIZE as u32,
-            batch_size,
+            batch_size: crate::app_config::BUFFER_SIZE as u32,
             batches_processed,
         }
     }
