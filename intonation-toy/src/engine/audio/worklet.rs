@@ -1,7 +1,7 @@
 
 use web_sys::{
     AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
-    AudioNode, MessageEvent, GainNode
+    AudioNode, MessageEvent
 };
 use js_sys;
 use std::fmt;
@@ -14,6 +14,7 @@ use super::{AudioError, SignalGeneratorConfig, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
+use super::audio_pipeline::AudioPipeline;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
 
@@ -66,7 +67,6 @@ impl AudioWorkletSharedData {
 
 
 pub struct AudioWorkletManager {
-    worklet_node: AudioWorkletNode,
     state: AudioWorkletState,
     volume_detector: Rc<RefCell<VolumeDetector>>,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -75,11 +75,7 @@ pub struct AudioWorkletManager {
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
-    tuning_fork_node: TuningForkAudioNode,
-    test_signal_node: TestSignalAudioNode,
-    legacy_mixer_gain_node: GainNode,
-    legacy_microphone_gain_node: GainNode,
-    legacy_microphone_source_node: Option<AudioNode>,
+    audio_pipeline: AudioPipeline,
 }
 
 
@@ -131,8 +127,16 @@ impl AudioWorkletManager {
         let test_signal_node = TestSignalAudioNode::new(&audio_context, test_signal_config)
             .map_err(|e| format!("Failed to create test signal node: {:?}", e))?;
         
-        Ok(Self {
+        let audio_pipeline = AudioPipeline {
             worklet_node,
+            tuning_fork_node,
+            test_signal_node,
+            legacy_mixer_gain_node,
+            legacy_microphone_gain_node,
+            legacy_microphone_source_node: None,
+        };
+        
+        Ok(Self {
             state: AudioWorkletState::Ready,
             volume_detector: Rc::new(RefCell::new(volume_detector)),
             _message_closure: None,
@@ -141,11 +145,7 @@ impl AudioWorkletManager {
             shared_data,
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
-            tuning_fork_node,
-            test_signal_node,
-            legacy_mixer_gain_node,
-            legacy_microphone_gain_node,
-            legacy_microphone_source_node: None,
+            audio_pipeline,
         })
     }
     
@@ -186,7 +186,7 @@ impl AudioWorkletManager {
     
     /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
-        let worklet = &self.worklet_node;
+        let worklet = &self.audio_pipeline.worklet_node;
         // Clean up existing closure and port handler
         self._message_closure = None;
         
@@ -438,7 +438,7 @@ impl AudioWorkletManager {
     
     /// Send typed control message to AudioWorklet processor
     fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
-        let worklet = &self.worklet_node;
+        let worklet = &self.audio_pipeline.worklet_node;
         let envelope = match message {
             ToWorkletMessage::StartProcessing => {
                 self.message_factory.start_processing()
@@ -475,7 +475,7 @@ impl AudioWorkletManager {
     /// Connect microphone input to audio worklet
     pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<(), AudioError> {
         // Store microphone source
-        self.legacy_microphone_source_node = Some(microphone_source.clone());
+        self.audio_pipeline.legacy_microphone_source_node = Some(microphone_source.clone());
         
         // Both microphone gain and mixer nodes are always available
         
@@ -483,7 +483,7 @@ impl AudioWorkletManager {
         // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
         
         // 1. Connect microphone source to microphone gain
-        let mic_gain = &self.legacy_microphone_gain_node;
+        let mic_gain = &self.audio_pipeline.legacy_microphone_gain_node;
         microphone_source.connect_with_audio_node(mic_gain)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
         dev_log!("Connected microphone to gain node");
@@ -496,25 +496,25 @@ impl AudioWorkletManager {
         }
         
         // 3. Connect microphone gain to mixer
-        let mixer = &self.legacy_mixer_gain_node;
+        let mixer = &self.audio_pipeline.legacy_mixer_gain_node;
         mic_gain.connect_with_audio_node(mixer)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
         dev_log!("Connected microphone gain to mixer");
         
         // 3b. Connect test signal to mixer (it's disabled by default, so this is safe)
-        self.test_signal_node.connect_to(mixer)
+        self.audio_pipeline.test_signal_node.connect_to(mixer)
             .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
         dev_log!("Connected test signal to mixer");
         
         // 4. Connect mixer to worklet
-        mixer.connect_with_audio_node(&self.worklet_node)
+        mixer.connect_with_audio_node(&self.audio_pipeline.worklet_node)
             .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
         dev_log!("Connected mixer to worklet");
         
         // Connect AudioWorklet to speakers if output is enabled
         if self.output_to_speakers {
-            let audio_context = self.worklet_node.context();
-            if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
+            let audio_context = self.audio_pipeline.worklet_node.context();
+            if let Err(e) = self.audio_pipeline.worklet_node.connect_with_audio_node(&audio_context.destination()) {
                 dev_log!("Failed to connect worklet to speakers: {:?}", e);
             } else {
                 dev_log!("Connected worklet to speakers");
@@ -558,18 +558,18 @@ impl AudioWorkletManager {
     
     /// Disconnect and cleanup audio worklet
     pub fn disconnect(&mut self) -> Result<(), AudioError> {
-        let _ = self.worklet_node.disconnect();
+        let _ = self.audio_pipeline.worklet_node.disconnect();
         dev_log!("AudioWorklet disconnected");
         
         // Clean up the test signal node
         self.cleanup_test_signal();
         
         // Clean up the mixer node
-        let _ = self.legacy_mixer_gain_node.disconnect();
+        let _ = self.audio_pipeline.legacy_mixer_gain_node.disconnect();
         dev_log!("Mixer node disconnected and cleaned up");
         
         // Clean up the microphone gain node
-        let _ = self.legacy_microphone_gain_node.disconnect();
+        let _ = self.audio_pipeline.legacy_microphone_gain_node.disconnect();
         dev_log!("Microphone gain node disconnected and cleaned up");
         
         // Disconnect and cleanup volume detector
@@ -580,7 +580,7 @@ impl AudioWorkletManager {
         }
         
         // Clear stored microphone source
-        self.legacy_microphone_source_node = None;
+        self.audio_pipeline.legacy_microphone_source_node = None;
         
         // Clear stored previous states
         
@@ -652,14 +652,14 @@ impl AudioWorkletManager {
         let clamped_volume = volume.clamp(0.0, 1.0);
         
         // Set the gain value on the microphone gain node
-        self.legacy_microphone_gain_node.gain().set_value(clamped_volume);
+        self.audio_pipeline.legacy_microphone_gain_node.gain().set_value(clamped_volume);
         
         dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
     }
     
     /// Cleanup test signal node and routing
     fn cleanup_test_signal(&mut self) {
-        self.test_signal_node.cleanup();
+        self.audio_pipeline.test_signal_node.cleanup();
         dev_log!("Cleaned up test signal node");
     }
     
@@ -682,11 +682,11 @@ impl AudioWorkletManager {
         // Then manage local TestSignalAudioNode
         if config.enabled {
             // Update existing node
-            self.test_signal_node.update_config(config);
+            self.audio_pipeline.test_signal_node.update_config(config);
             dev_log!("Updated test signal node configuration");
         } else {
             // Disable test signal but keep node for potential re-enabling
-            self.test_signal_node.disable();
+            self.audio_pipeline.test_signal_node.disable();
             dev_log!("Disabled test signal node");
             self.set_microphone_volume(1.0);
             self.set_output_to_speakers(false);
@@ -703,7 +703,7 @@ impl AudioWorkletManager {
                 config.frequency);
         
         // Update the tuning fork audio node
-        self.tuning_fork_node.update_config(config);
+        self.audio_pipeline.tuning_fork_node.update_config(config);
     }
 
 
@@ -722,7 +722,7 @@ impl AudioWorkletManager {
     /// Connect AudioWorklet output to speakers
     fn connect_worklet_to_speakers(&self) {
         let destination = self.audio_context.destination();
-        match self.worklet_node.connect_with_audio_node(&destination) {
+        match self.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
             Ok(_) => {
                 dev_log!("🔊 AudioWorklet connected to speakers");
             }
@@ -736,7 +736,7 @@ impl AudioWorkletManager {
     fn disconnect_worklet_from_speakers(&self) {
         let destination = self.audio_context.destination();
         // Disconnect only the connection to destination (speakers)
-        match self.worklet_node.disconnect_with_audio_node(&destination) {
+        match self.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
             Ok(_) => {
                 dev_log!("🔇 AudioWorklet disconnected from speakers");
             }
