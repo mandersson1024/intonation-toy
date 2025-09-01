@@ -1,7 +1,6 @@
 
 use web_sys::{
-    AudioContext, AudioWorkletNode, AudioWorkletNodeOptions,
-    AudioNode, MessageEvent
+    AudioContext, AudioNode, MessageEvent, AudioWorkletNode
 };
 use js_sys;
 use std::fmt;
@@ -12,8 +11,6 @@ use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, SignalGeneratorConfig, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
-use super::tuning_fork_node::TuningForkAudioNode;
-use super::test_signal_node::TestSignalAudioNode;
 use super::audio_pipeline::AudioPipeline;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
@@ -81,7 +78,6 @@ pub struct AudioWorkletManager {
 
 impl AudioWorkletManager {
     pub fn new(audio_context: AudioContext) -> Result<Self, String> {
-        let worklet_node = Self::create_worklet_node(&audio_context)?;
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
@@ -97,44 +93,8 @@ impl AudioWorkletManager {
             .map_err(|e| format!("Failed to initialize PitchAnalyzer: {}", e))?;
         let pitch_analyzer = Rc::new(RefCell::new(pitch_analyzer));
         
-        // Create microphone gain node
-        let legacy_microphone_gain_node = audio_context
-            .create_gain()
-            .map_err(|_| "Failed to create microphone gain node".to_string())?;
-        legacy_microphone_gain_node.gain().set_value(1.0);
-        
-        // Create mixer gain node
-        let legacy_mixer_gain_node = audio_context
-            .create_gain()
-            .map_err(|_| "Failed to create mixer gain node".to_string())?;
-        legacy_mixer_gain_node.gain().set_value(1.0);
-        
-        // Create tuning fork node with default config
-        let default_tuning_fork_config = TuningForkConfig {
-            frequency: 440.0, // A4
-            volume: 0.0,      // Start muted
-        };
-        let tuning_fork_node = TuningForkAudioNode::new(&audio_context, default_tuning_fork_config)
-            .map_err(|e| format!("Failed to create tuning fork node: {:?}", e))?;
-        
-        // Create test signal node with default config (disabled by default)
-        let test_signal_config = SignalGeneratorConfig {
-            enabled: false,
-            frequency: 440.0, // A4
-            amplitude: 0.0,
-            sample_rate: audio_context.sample_rate() as u32,
-        };
-        let test_signal_node = TestSignalAudioNode::new(&audio_context, test_signal_config)
-            .map_err(|e| format!("Failed to create test signal node: {:?}", e))?;
-        
-        let audio_pipeline = AudioPipeline {
-            worklet_node,
-            tuning_fork_node,
-            test_signal_node,
-            legacy_mixer_gain_node,
-            legacy_microphone_gain_node,
-            legacy_microphone_source_node: None,
-        };
+        // Create audio pipeline with all audio nodes
+        let audio_pipeline = AudioPipeline::new(&audio_context)?;
         
         Ok(Self {
             state: AudioWorkletState::Ready,
@@ -147,41 +107,6 @@ impl AudioWorkletManager {
             message_factory: AudioWorkletMessageFactory::new(),
             audio_pipeline,
         })
-    }
-    
-    /// Create AudioWorkletNode with standard configuration
-    /// 
-    /// This method creates an AudioWorkletNode using standard configuration options.
-    /// The worklet module must already be loaded in the AudioContext before calling this method.
-    /// 
-    /// # Parameters
-    /// - `audio_context`: Reference to the AudioContext with worklet module loaded
-    /// 
-    /// # Returns
-    /// Returns `Result<AudioWorkletNode, String>` where:
-    /// - On success: AudioWorkletNode ready for use
-    /// - On error: String describing what went wrong
-    fn create_worklet_node(audio_context: &AudioContext) -> Result<AudioWorkletNode, String> {
-        dev_log!("Creating AudioWorkletNode with standard configuration");
-        
-        // Create AudioWorkletNode with default options
-        let options = AudioWorkletNodeOptions::new();
-        options.set_number_of_inputs(1);
-        options.set_number_of_outputs(1);
-        
-        // Set channel configuration
-        let output_channels = js_sys::Array::of1(&js_sys::Number::from(1u32));
-        options.set_channel_count(1);
-        options.set_channel_count_mode(web_sys::ChannelCountMode::Explicit);
-        options.set_channel_interpretation(web_sys::ChannelInterpretation::Speakers);
-        options.set_output_channel_count(&output_channels);
-        
-        // Create the AudioWorkletNode with the registered processor
-        let worklet_node = AudioWorkletNode::new_with_options(audio_context, "pitch-processor", &options)
-            .map_err(|e| format!("Failed to create AudioWorkletNode 'pitch-processor': {:?}", e))?;
-        
-        dev_log!("✓ AudioWorkletNode created successfully");
-        Ok(worklet_node)
     }
     
     /// Setup message handling for the AudioWorklet processor
