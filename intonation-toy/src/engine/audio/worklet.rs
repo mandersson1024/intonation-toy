@@ -430,23 +430,8 @@ impl AudioWorkletManager {
         let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
         
         if let Some(pitch_analyzer) = pitch_analyzer {
-            match pitch_analyzer.borrow_mut().analyze_samples(audio_samples) {
-                Ok(Some(_pitch_result)) => {
-                    // Pitch data is now returned through the analyze methods
-                    // and collected by Engine::update()
-                }
-                Ok(None) => {
-                    // No pitch detected, which is normal for silence or noise
-                    if batches_processed <= 5 {
-                        dev_log!("No pitch detected in this batch");
-                    }
-                }
-                Err(e) => {
-                    if batches_processed <= 5 {
-                        dev_log!("Pitch analysis error: {}", e);
-                    }
-                }
-            }
+            // Perform analysis - results are collected by Engine::update()
+            let _ = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
         }
     }
     
