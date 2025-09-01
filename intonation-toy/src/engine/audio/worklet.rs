@@ -76,7 +76,7 @@ pub struct AudioWorkletManager {
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
     tuning_fork_node: TuningForkAudioNode,
-    test_signal_node: Option<TestSignalAudioNode>,
+    test_signal_node: TestSignalAudioNode,
     legacy_mixer_gain_node: GainNode,
     legacy_microphone_gain_node: GainNode,
     legacy_microphone_source_node: Option<AudioNode>,
@@ -121,6 +121,16 @@ impl AudioWorkletManager {
         let tuning_fork_node = TuningForkAudioNode::new(&audio_context, default_tuning_fork_config)
             .map_err(|e| format!("Failed to create tuning fork node: {:?}", e))?;
         
+        // Create test signal node with default config (disabled by default)
+        let test_signal_config = SignalGeneratorConfig {
+            enabled: false,
+            frequency: 440.0, // A4
+            amplitude: 0.0,
+            sample_rate: audio_context.sample_rate() as u32,
+        };
+        let test_signal_node = TestSignalAudioNode::new(&audio_context, test_signal_config)
+            .map_err(|e| format!("Failed to create test signal node: {:?}", e))?;
+        
         Ok(Self {
             worklet_node,
             state: AudioWorkletState::Ready,
@@ -132,7 +142,7 @@ impl AudioWorkletManager {
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
             tuning_fork_node,
-            test_signal_node: None,
+            test_signal_node,
             legacy_mixer_gain_node,
             legacy_microphone_gain_node,
             legacy_microphone_source_node: None,
@@ -506,6 +516,11 @@ impl AudioWorkletManager {
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
         dev_log!("Connected microphone gain to mixer");
         
+        // 3b. Connect test signal to mixer (it's disabled by default, so this is safe)
+        self.test_signal_node.connect_to(mixer)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
+        dev_log!("Connected test signal to mixer");
+        
         // 4. Connect mixer to worklet
         mixer.connect_with_audio_node(&self.worklet_node)
             .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
@@ -659,10 +674,8 @@ impl AudioWorkletManager {
     
     /// Cleanup test signal node and routing
     fn cleanup_test_signal(&mut self) {
-        if let Some(mut test_signal) = self.test_signal_node.take() {
-            test_signal.cleanup();
-            dev_log!("Cleaned up test signal node");
-        }
+        self.test_signal_node.cleanup();
+        dev_log!("Cleaned up test signal node");
     }
     
     /// Update test signal generator configuration (unified routing - no reconnection needed)
@@ -682,38 +695,16 @@ impl AudioWorkletManager {
         }
         
         // Then manage local TestSignalAudioNode
-        {
-            if config.enabled {
-                if let Some(ref mut test_signal) = self.test_signal_node {
-                    // Update existing node
-                    test_signal.update_config(config);
-                    dev_log!("Updated existing test signal node configuration");
-                } else {
-                    // Create new test signal node and connect to mixer (mixer always exists now)
-                    match TestSignalAudioNode::new(&self.audio_context, config) {
-                        Ok(mut node) => {
-                            // Connect test signal directly to mixer (no routing setup needed)
-                            if let Err(e) = node.connect_to(&self.legacy_mixer_gain_node) {
-                                dev_log!("Failed to connect test signal to mixer: {:?}", e);
-                            } else {
-                                dev_log!("Created and connected new test signal node to mixer");
-                            }
-                            self.test_signal_node = Some(node);
-                        }
-                        Err(e) => {
-                            dev_log!("Failed to create test signal node: {:?}", e);
-                        }
-                    }
-                }
-            } else {
-                // Disable test signal but keep node for potential re-enabling
-                if let Some(ref mut test_signal) = self.test_signal_node {
-                    test_signal.disable();
-                    dev_log!("Disabled test signal node");
-                }                
-                self.set_microphone_volume(1.0);
-                self.set_output_to_speakers(false);
-            }
+        if config.enabled {
+            // Update existing node
+            self.test_signal_node.update_config(config);
+            dev_log!("Updated test signal node configuration");
+        } else {
+            // Disable test signal but keep node for potential re-enabling
+            self.test_signal_node.disable();
+            dev_log!("Disabled test signal node");
+            self.set_microphone_volume(1.0);
+            self.set_output_to_speakers(false);
         }
     }
 
