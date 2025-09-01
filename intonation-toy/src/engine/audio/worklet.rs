@@ -336,8 +336,6 @@ impl AudioWorkletManager {
         audio_samples: &[f32],
         shared_data: &Rc<RefCell<AudioWorkletSharedData>>
     ) {
-        let batches_processed = shared_data.borrow().batches_processed;
-        
         // Perform volume analysis
         let volume_detector = shared_data.borrow().volume_detector.clone();
         
