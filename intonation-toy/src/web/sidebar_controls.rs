@@ -8,6 +8,7 @@ use {
     std::sync::atomic::{AtomicU8, Ordering},
     crate::common::dev_log,
     crate::common::shared_types::{TuningSystem, Scale, increment_midi_note, decrement_midi_note},
+    crate::web::storage,
 };
 
 // These statics are needed because the tuning fork controls (plus/minus buttons and volume slider)
@@ -250,6 +251,13 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
     };
 
     CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
+    
+    // Save configuration to local storage
+    storage::save_config(
+        model_data.tuning_fork_note,
+        model_data.tuning_system,
+        model_data.scale
+    );
 
     if let Some(display) = document.get_element_by_id("tuning-fork-display") {
         let formatted_note = crate::common::shared_types::midi_note_to_name(model_data.tuning_fork_note);

@@ -75,7 +75,15 @@ pub async fn start() {
         }
     };
 
-    let model = model::DataModel::default();
+    let model = if let Some(stored_config) = web::storage::load_config() {
+        model::DataModel::new(
+            stored_config.tuning_fork_note,
+            stored_config.tuning_system,
+            stored_config.scale
+        )
+    } else {
+        model::DataModel::default()
+    };
 
     let presenter = match presentation::Presenter::create() {
         Ok(presenter) => presenter,

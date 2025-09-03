@@ -3,6 +3,7 @@
 
 pub mod error_message_box;
 pub mod sidebar_controls;
+pub mod storage;
 pub mod performance;
 pub mod profiling;
 pub mod styling;

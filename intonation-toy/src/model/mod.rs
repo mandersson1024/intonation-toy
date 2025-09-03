@@ -45,6 +45,16 @@ impl Default for DataModel {
 }
 
 impl DataModel {
+    pub fn new(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
+        Self {
+            tuning_system,
+            tuning_fork_note,
+            current_scale: scale,
+            frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            last_detected_pitch: None,
+        }
+    }
 
     pub fn update(&mut self, engine_data: EngineUpdateResult) -> ModelUpdateResult {
         let (volume, pitch) = if let Some(audio_analysis) = engine_data.audio_analysis {
