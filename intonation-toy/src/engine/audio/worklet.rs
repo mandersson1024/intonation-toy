@@ -107,8 +107,7 @@ impl AudioWorkletManager {
     }
     
     /// Setup message handling for the AudioWorklet processor
-    pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
-        let worklet = &self.audio_pipeline.worklet_node;
+    pub fn setup_message_handling(&mut self, worklet: &web_sys::AudioWorkletNode) -> Result<(), AudioError> {
         // Clean up existing closure and port handler
         self._message_closure = None;
         

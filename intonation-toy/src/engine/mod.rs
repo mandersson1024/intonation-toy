@@ -107,12 +107,15 @@ impl AudioEngine {
         crate::common::dev_log!("✓ PitchAnalyzer initialized internally in AudioWorkletManager");
 
         // VolumeDetector is now created internally in AudioWorkletManager::new()
-        worklet_manager.setup_message_handling()
-            .map_err(|e| {
-                let error_msg = format!("Failed to setup message handling: {:?}", e);
-                crate::common::dev_log!("✗ {}", error_msg);
-                error_msg
-            })?;
+        {
+            let worklet_node = worklet_manager.audio_pipeline.worklet_node.clone();
+            worklet_manager.setup_message_handling(&worklet_node)
+                .map_err(|e| {
+                    let error_msg = format!("Failed to setup message handling: {:?}", e);
+                    crate::common::dev_log!("✗ {}", error_msg);
+                    error_msg
+                })?;
+        }
         
         crate::common::dev_log!("✓ VolumeDetector initialized and configured");
 
