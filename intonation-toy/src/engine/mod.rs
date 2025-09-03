@@ -95,27 +95,22 @@ impl AudioEngine {
             })?;
         crate::common::dev_log!("✓ AudioPipeline created with audio nodes");
 
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), audio_pipeline)
+        // Extract worklet_node for AudioWorkletManager
+        let worklet_node = audio_pipeline.worklet_node.clone();
+        
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), audio_pipeline, worklet_node)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
                 error_msg
             })?;
-        crate::common::dev_log!("✓ AudioWorkletManager created with provided AudioPipeline");
-        
-        // PitchAnalyzer is now created internally in AudioWorkletManager::new()
-        crate::common::dev_log!("✓ PitchAnalyzer initialized internally in AudioWorkletManager");
 
-        // VolumeDetector is now created internally in AudioWorkletManager::new()
-        {
-            let worklet_node = worklet_manager.audio_pipeline.worklet_node.clone();
-            worklet_manager.setup_message_handling(&worklet_node)
-                .map_err(|e| {
-                    let error_msg = format!("Failed to setup message handling: {:?}", e);
-                    crate::common::dev_log!("✗ {}", error_msg);
-                    error_msg
-                })?;
-        }
+        worklet_manager.setup_message_handling()
+            .map_err(|e| {
+                let error_msg = format!("Failed to setup message handling: {:?}", e);
+                crate::common::dev_log!("✗ {}", error_msg);
+                error_msg
+            })?;
         
         crate::common::dev_log!("✓ VolumeDetector initialized and configured");
 

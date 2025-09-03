@@ -73,11 +73,12 @@ pub struct AudioWorkletManager {
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
     pub audio_pipeline: AudioPipeline,
+    worklet_node: web_sys::AudioWorkletNode,
 }
 
 
 impl AudioWorkletManager {
-    pub fn new(audio_context: AudioContext, audio_pipeline: AudioPipeline) -> Result<Self, String> {
+    pub fn new(audio_context: AudioContext, audio_pipeline: AudioPipeline, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
@@ -103,11 +104,13 @@ impl AudioWorkletManager {
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
             audio_pipeline,
+            worklet_node,
         })
     }
     
     /// Setup message handling for the AudioWorklet processor
-    pub fn setup_message_handling(&mut self, worklet: &web_sys::AudioWorkletNode) -> Result<(), AudioError> {
+    pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
+        let worklet = &self.worklet_node;
         // Clean up existing closure and port handler
         self._message_closure = None;
         
