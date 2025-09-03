@@ -48,23 +48,12 @@ use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
 /// the model layer, which handles all musical logic including tuning systems,
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
-    /// Direct reference to the Web Audio API context
     audio_context: AudioContext,
-    /// Manager for audio worklet operations
+    audio_pipeline: audio::audio_pipeline::AudioPipeline,
     audioworklet_manager: AudioWorkletManager,
 }
 
 impl AudioEngine {
-    /// Get reference to the audio pipeline through the worklet manager
-    fn audio_pipeline(&self) -> &audio::audio_pipeline::AudioPipeline {
-        &self.audioworklet_manager.audio_pipeline
-    }
-    
-    /// Get mutable reference to the audio pipeline through the worklet manager
-    fn audio_pipeline_mut(&mut self) -> &mut audio::audio_pipeline::AudioPipeline {
-        &mut self.audioworklet_manager.audio_pipeline
-    }
-
     /// Create a new AudioEngine for raw audio processing
     /// 
     /// This constructor accepts an AudioContext from `create_audio_context_and_load_worklet()`
@@ -98,7 +87,7 @@ impl AudioEngine {
         // Extract worklet_node for AudioWorkletManager
         let worklet_node = audio_pipeline.worklet_node.clone();
         
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), audio_pipeline, worklet_node)
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), worklet_node)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
@@ -118,6 +107,7 @@ impl AudioEngine {
         let mut engine = Self {
             audio_context,
             audioworklet_manager: worklet_manager,
+            audio_pipeline,
         };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
@@ -275,7 +265,7 @@ impl AudioEngine {
         let clamped_volume = volume.clamp(0.0, 1.0);
         
         // Set the gain value on the microphone gain node
-        self.audio_pipeline().legacy_microphone_gain_node.gain().set_value(clamped_volume);
+        self.audio_pipeline.microphone_gain_node.gain().set_value(clamped_volume);
         
         crate::common::dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
     }
@@ -295,7 +285,7 @@ impl AudioEngine {
     /// Connect AudioWorklet output to speakers
     fn connect_worklet_to_speakers(&self) {
         let destination = self.audio_context.destination();
-        match self.audio_pipeline().worklet_node.connect_with_audio_node(&destination) {
+        match self.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
             Ok(_) => {
                 crate::common::dev_log!("🔊 AudioWorklet connected to speakers");
             }
@@ -309,7 +299,7 @@ impl AudioEngine {
     fn disconnect_worklet_from_speakers(&self) {
         let destination = self.audio_context.destination();
         // Disconnect only the connection to destination (speakers)
-        match self.audio_pipeline().worklet_node.disconnect_with_audio_node(&destination) {
+        match self.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
             Ok(_) => {
                 crate::common::dev_log!("🔇 AudioWorklet disconnected from speakers");
             }
@@ -329,7 +319,7 @@ impl AudioEngine {
                 config.frequency);
         
         // Update the tuning fork audio node
-        self.audio_pipeline_mut().tuning_fork_node.update_config(config);
+        self.audio_pipeline.tuning_fork_node.update_config(config);
     }
 
     /// Update test signal generator configuration (unified routing - no reconnection needed)
@@ -351,11 +341,11 @@ impl AudioEngine {
         // Then manage local TestSignalAudioNode
         if config.enabled {
             // Update existing node
-            self.audio_pipeline_mut().test_signal_node.update_config(config);
+            self.audio_pipeline.test_signal_node.update_config(config);
             crate::common::dev_log!("Updated test signal node configuration");
         } else {
             // Disable test signal but keep node for potential re-enabling
-            self.audio_pipeline_mut().test_signal_node.disable();
+            self.audio_pipeline.test_signal_node.disable();
             crate::common::dev_log!("Disabled test signal node");
             self.set_microphone_volume(1.0);
             self.set_output_to_speakers(false);
@@ -452,13 +442,10 @@ impl AudioEngine {
         let output_to_speakers = self.audioworklet_manager.output_to_speakers;
         
         // Set up audio routing through the pipeline
-        {
-            let pipeline = self.audio_pipeline_mut();
-            pipeline.connect_microphone(microphone_source, output_to_speakers)?;
-        }
+        self.audio_pipeline.connect_microphone(microphone_source, output_to_speakers)?;
         
         // Connect microphone gain to volume detector (parallel tap for analysis)
-        let mic_gain = &self.audio_pipeline().legacy_microphone_gain_node;
+        let mic_gain = &self.audio_pipeline.microphone_gain_node;
         if let Err(e) = self.audioworklet_manager.volume_detector.borrow().connect_source(mic_gain) {
             crate::common::dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
         } else {

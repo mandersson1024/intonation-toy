@@ -10,7 +10,6 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, volume_detector::VolumeDetector};
-use super::audio_pipeline::AudioPipeline;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
 
@@ -70,13 +69,12 @@ pub struct AudioWorkletManager {
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
-    pub audio_pipeline: AudioPipeline,
     worklet_node: web_sys::AudioWorkletNode,
 }
 
 
 impl AudioWorkletManager {
-    pub fn new(audio_context: AudioContext, audio_pipeline: AudioPipeline, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
+    pub fn new(audio_context: AudioContext, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
@@ -100,7 +98,6 @@ impl AudioWorkletManager {
             shared_data,
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
-            audio_pipeline,
             worklet_node,
         })
     }
