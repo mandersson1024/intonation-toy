@@ -437,24 +437,6 @@ impl AudioWorkletManager {
         Ok(())
     }
     
-    /// Disconnect and cleanup audio worklet
-    pub fn disconnect(&mut self) -> Result<(), AudioError> {
-        // Disconnect all audio nodes through the pipeline
-        self.audio_pipeline.disconnect();
-        
-        // Disconnect and cleanup volume detector
-        if let Err(e) = self.volume_detector.borrow().disconnect() {
-            dev_log!("Failed to disconnect VolumeDetector: {:?}", e);
-        } else {
-            dev_log!("VolumeDetector disconnected");
-        }
-        
-        // Update state
-        self.state = AudioWorkletState::Uninitialized;
-        
-        Ok(())
-    }
-    
     pub fn get_buffer_pool_statistics(&self) -> Option<super::message_protocol::BufferPoolStats> {
         self.shared_data.borrow().buffer_pool_stats.clone()
     }
@@ -544,13 +526,6 @@ impl AudioWorkletManager {
     pub fn get_pitch_data(&self) -> Option<super::PitchData> {
         self.pitch_analyzer.try_borrow().ok()
             .and_then(|borrowed| borrowed.get_latest_pitch_data())
-    }
-}
-
-impl Drop for AudioWorkletManager {
-    fn drop(&mut self) {
-        // Cleanup on drop
-        let _ = self.disconnect();
     }
 }
 
