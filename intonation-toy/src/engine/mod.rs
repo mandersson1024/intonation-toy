@@ -128,7 +128,7 @@ impl AudioEngine {
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
         // Configure default tuning fork
-        engine.audioworklet_manager.update_tuning_fork_config(audio::TuningForkConfig::default());
+        engine.update_tuning_fork_config(audio::TuningForkConfig::default());
 
         crate::common::dev_log!("✓ AudioEngine fully initialized");
         Ok(engine)
@@ -177,7 +177,6 @@ impl AudioEngine {
             return;
         }
         
-        let worklet_manager = &mut self.audioworklet_manager;
         
         if let Some(config) = model_actions.tuning_fork_configuration {
             // Convert model action to audio system config
@@ -187,7 +186,7 @@ impl AudioEngine {
             };
             
             // Use the separate tuning fork audio node architecture
-            worklet_manager.update_tuning_fork_config(audio_config);
+            self.update_tuning_fork_config(audio_config);
             crate::common::dev_log!(
                 "Engine layer: ✓ Tuning fork audio control updated - frequency: {} Hz", 
                 config.frequency
@@ -320,6 +319,19 @@ impl AudioEngine {
         }
     }
 
+    /// Update tuning fork audio configuration
+    /// 
+    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
+    /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
+    /// audible regardless of the output_to_speakers flag.
+    fn update_tuning_fork_config(&mut self, config: audio::TuningForkConfig) {
+        crate::common::dev_log!("[AudioEngine] Updating tuning fork audio config - frequency: {} Hz", 
+                config.frequency);
+        
+        // Update the tuning fork audio node
+        self.audio_pipeline_mut().tuning_fork_node.update_config(config);
+    }
+
     /// Update test signal generator configuration (unified routing - no reconnection needed)
     fn update_test_signal_config(&mut self, config: audio::SignalGeneratorConfig) {
         // Handle microphone muting for test signals to prevent feedback
@@ -422,7 +434,7 @@ impl AudioEngine {
 
     /// Configure tuning fork audio settings
     pub fn configure_tuning_fork(&mut self, config: audio::TuningForkConfig) {
-        self.audioworklet_manager.update_tuning_fork_config(config);
+        self.update_tuning_fork_config(config);
     }
     
 }

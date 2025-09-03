@@ -10,7 +10,6 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::{AudioError, volume_detector::VolumeDetector};
-use super::signal_generator::TuningForkConfig;
 use super::audio_pipeline::AudioPipeline;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
@@ -358,7 +357,6 @@ impl AudioWorkletManager {
     
     /// Send typed control message to AudioWorklet processor
     fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
-        let worklet = &self.audio_pipeline.worklet_node;
         let envelope = match message {
             ToWorkletMessage::StartProcessing => {
                 self.message_factory.start_processing()
@@ -382,7 +380,7 @@ impl AudioWorkletManager {
         let js_message = serializer.serialize_envelope(&envelope)
             .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
         
-        let port = worklet.port()
+        let port = &self.worklet_node.port()
             .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
         port.post_message(&js_message)
             .map_err(|e| AudioError::Generic(format!("Failed to send message: {:?}", e)))?;
@@ -513,18 +511,6 @@ impl AudioWorkletManager {
     
     
 
-    /// Update tuning fork audio configuration
-    /// 
-    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
-    /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
-    /// audible regardless of the output_to_speakers flag.
-    pub fn update_tuning_fork_config(&mut self, config: TuningForkConfig) {
-        dev_log!("[AudioWorkletManager] Updating tuning fork audio config - frequency: {} Hz", 
-                config.frequency);
-        
-        // Update the tuning fork audio node
-        self.audio_pipeline.tuning_fork_node.update_config(config);
-    }
 
 
 
