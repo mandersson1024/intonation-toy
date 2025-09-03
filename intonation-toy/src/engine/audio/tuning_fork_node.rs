@@ -1,5 +1,5 @@
 use web_sys::{AudioContext, GainNode, OscillatorNode};
-use super::legacy_media_stream_node::AudioError;
+use super::audio_error::AudioError;
 use super::signal_generator::TuningForkConfig;
 
 pub struct TuningForkAudioNode {

@@ -2,7 +2,7 @@
 // Commands for platform information and API status
 
 use egui_dev_console::{ConsoleCommandRegistry, ConsoleCommand, ConsoleCommandResult, ConsoleOutput};
-use crate::{common::{dev_log, shared_types::Theme}, dev_log_bold, engine::{platform::Platform, audio::legacy_media_stream_node::AudioError}};
+use crate::{common::{dev_log, shared_types::Theme}, dev_log_bold, engine::{platform::Platform, audio::audio_error::AudioError}};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::JsCast;
 

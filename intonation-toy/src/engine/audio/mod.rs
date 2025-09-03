@@ -1,4 +1,4 @@
-pub mod legacy_media_stream_node;
+pub mod audio_error;
 pub mod worklet;
 pub mod audio_context;
 pub mod permission;
@@ -23,5 +23,5 @@ pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
 pub use signal_flow::AudioSignalFlow;
 
-use legacy_media_stream_node::AudioError;
+use audio_error::AudioError;
 pub use volume_detector::VolumeDetector;
