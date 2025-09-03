@@ -39,11 +39,12 @@ impl fmt::Display for AudioWorkletState {
 
 
 struct AudioWorkletSharedData {
-    volume_detector: Rc<RefCell<VolumeDetector>>,
     batches_processed: u32,
-    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
+
+    volume_detector: Rc<RefCell<VolumeDetector>>,
+    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
 }
 
 impl AudioWorkletSharedData {
@@ -62,14 +63,15 @@ impl AudioWorkletSharedData {
 
 
 pub struct AudioWorkletManager {
-    state: AudioWorkletState,
-    pub volume_detector: Rc<RefCell<VolumeDetector>>,
-    _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
-    pub output_to_speakers: bool,
-    shared_data: Rc<RefCell<AudioWorkletSharedData>>,
-    pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
-    message_factory: AudioWorkletMessageFactory,
     worklet_node: web_sys::AudioWorkletNode,
+    state: AudioWorkletState,
+    message_factory: AudioWorkletMessageFactory,
+    _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
+
+    shared_data: Rc<RefCell<AudioWorkletSharedData>>,
+
+    pub volume_detector: Rc<RefCell<VolumeDetector>>,
+    pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
 }
 
 
@@ -94,7 +96,6 @@ impl AudioWorkletManager {
             state: AudioWorkletState::Ready,
             volume_detector: Rc::new(RefCell::new(volume_detector)),
             _message_closure: None,
-            output_to_speakers: false,
             shared_data,
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),

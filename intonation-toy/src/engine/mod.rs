@@ -51,6 +51,7 @@ pub struct AudioEngine {
     audio_context: AudioContext,
     audio_pipeline: audio::audio_pipeline::AudioPipeline,
     audioworklet_manager: AudioWorkletManager,
+    output_to_speakers: bool,
 }
 
 impl AudioEngine {
@@ -108,6 +109,7 @@ impl AudioEngine {
             audio_context,
             audioworklet_manager: worklet_manager,
             audio_pipeline,
+            output_to_speakers: false,
         };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
@@ -272,8 +274,8 @@ impl AudioEngine {
 
     /// Set whether to output audio stream to speakers
     fn set_output_to_speakers(&mut self, enabled: bool) {
-        if self.audioworklet_manager.output_to_speakers != enabled {
-            self.audioworklet_manager.output_to_speakers = enabled;
+        if self.output_to_speakers != enabled {
+            self.output_to_speakers = enabled;
             if enabled {
                 self.connect_worklet_to_speakers();
             } else {
@@ -332,7 +334,7 @@ impl AudioEngine {
             self.set_microphone_volume(0.0);
             
             // Enable speaker output for test signal
-            if !self.audioworklet_manager.output_to_speakers {
+            if !self.output_to_speakers {
                 self.set_output_to_speakers(true);
                 crate::common::dev_log!("Automatically enabled speaker output for test signal");
             }
@@ -439,7 +441,7 @@ impl AudioEngine {
     /// Connect microphone input to audio worklet
     fn connect_microphone(&mut self, microphone_source: &web_sys::AudioNode) -> Result<(), audio::audio_error::AudioError> {
         // Get the output_to_speakers value first to avoid borrowing conflicts
-        let output_to_speakers = self.audioworklet_manager.output_to_speakers;
+        let output_to_speakers = self.output_to_speakers;
         
         // Set up audio routing through the pipeline
         self.audio_pipeline.connect_microphone(microphone_source, output_to_speakers)?;
