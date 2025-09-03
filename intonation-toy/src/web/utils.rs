@@ -38,17 +38,22 @@ pub fn get_canvas() -> web_sys::HtmlCanvasElement {
         .dyn_into::<web_sys::HtmlCanvasElement>().unwrap()
 }
 
-pub fn resize_canvas() {
-    let canvas = get_canvas();
+pub fn get_canvas_style_size() -> f32 {
     let window_obj = web_sys::window().unwrap();
-    let document = window_obj.document().unwrap();
     
     let available_width = window_obj.inner_width().unwrap().as_f64().unwrap() as i32 - crate::web::styling::SIDEBAR_WIDTH - (crate::web::styling::CANVAS_MARGIN * 2);
     let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (crate::web::styling::CANVAS_MARGIN * 2);
     
-    let canvas_size = std::cmp::min(available_width, available_height)
+    std::cmp::min(available_width, available_height)
         .min(crate::app_config::CANVAS_MAX_SIZE)
-        .max(crate::app_config::CANVAS_MIN_SIZE);
+        .max(crate::app_config::CANVAS_MIN_SIZE) as f32
+}
+
+pub fn resize_canvas() {
+    let canvas = get_canvas();
+    let document = web_sys::window().unwrap().document().unwrap();
+    
+    let canvas_size = get_canvas_style_size() as i32;
     
     let scene_wrapper = document.get_element_by_id("scene-wrapper").unwrap();
     
