@@ -55,6 +55,16 @@ pub struct AudioEngine {
 }
 
 impl AudioEngine {
+    /// Get reference to the audio pipeline through the worklet manager
+    fn audio_pipeline(&self) -> &audio::audio_pipeline::AudioPipeline {
+        &self.audioworklet_manager.audio_pipeline
+    }
+    
+    /// Get mutable reference to the audio pipeline through the worklet manager
+    fn audio_pipeline_mut(&mut self) -> &mut audio::audio_pipeline::AudioPipeline {
+        &mut self.audioworklet_manager.audio_pipeline
+    }
+
     /// Create a new AudioEngine for raw audio processing
     /// 
     /// This constructor accepts an AudioContext from `create_audio_context_and_load_worklet()`
@@ -268,7 +278,7 @@ impl AudioEngine {
         let clamped_volume = volume.clamp(0.0, 1.0);
         
         // Set the gain value on the microphone gain node
-        self.audioworklet_manager.audio_pipeline.legacy_microphone_gain_node.gain().set_value(clamped_volume);
+        self.audio_pipeline().legacy_microphone_gain_node.gain().set_value(clamped_volume);
         
         crate::common::dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
     }
@@ -288,7 +298,7 @@ impl AudioEngine {
     /// Connect AudioWorklet output to speakers
     fn connect_worklet_to_speakers(&self) {
         let destination = self.audio_context.destination();
-        match self.audioworklet_manager.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
+        match self.audio_pipeline().worklet_node.connect_with_audio_node(&destination) {
             Ok(_) => {
                 crate::common::dev_log!("🔊 AudioWorklet connected to speakers");
             }
@@ -302,7 +312,7 @@ impl AudioEngine {
     fn disconnect_worklet_from_speakers(&self) {
         let destination = self.audio_context.destination();
         // Disconnect only the connection to destination (speakers)
-        match self.audioworklet_manager.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
+        match self.audio_pipeline().worklet_node.disconnect_with_audio_node(&destination) {
             Ok(_) => {
                 crate::common::dev_log!("🔇 AudioWorklet disconnected from speakers");
             }
@@ -331,11 +341,11 @@ impl AudioEngine {
         // Then manage local TestSignalAudioNode
         if config.enabled {
             // Update existing node
-            self.audioworklet_manager.audio_pipeline.test_signal_node.update_config(config);
+            self.audio_pipeline_mut().test_signal_node.update_config(config);
             crate::common::dev_log!("Updated test signal node configuration");
         } else {
             // Disable test signal but keep node for potential re-enabling
-            self.audioworklet_manager.audio_pipeline.test_signal_node.disable();
+            self.audio_pipeline_mut().test_signal_node.disable();
             crate::common::dev_log!("Disabled test signal node");
             self.set_microphone_volume(1.0);
             self.set_output_to_speakers(false);
