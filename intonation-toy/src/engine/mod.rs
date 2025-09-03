@@ -121,10 +121,10 @@ impl AudioEngine {
         };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
-        let node = crate::engine::audio::legacy_media_stream_node::legacy_create_media_stream_node(&media_stream, &engine.audio_context)
+        let node = engine.create_media_stream_node(&media_stream)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
-        crate::engine::audio::legacy_media_stream_node::legacy_connect_media_stream_node_to_audioworklet(&node, &mut engine)
+        engine.connect_media_stream_to_audioworklet(&node)
             .map_err(|e| format!("MediaStream connection failed: {}", e))?;
         
         // Configure default tuning fork
@@ -435,6 +435,38 @@ impl AudioEngine {
     /// Configure tuning fork audio settings
     pub fn configure_tuning_fork(&mut self, config: audio::TuningForkConfig) {
         self.update_tuning_fork_config(config);
+    }
+
+    /// Creates a MediaStreamAudioSourceNode from a MediaStream
+    fn create_media_stream_node(
+        &self,
+        media_stream: &web_sys::MediaStream,
+    ) -> Result<web_sys::MediaStreamAudioSourceNode, String> {
+        self.audio_context.create_media_stream_source(media_stream)
+            .map_err(|e| format!("Failed to create audio source: {:?}", e))
+    }
+
+    /// Connect a MediaStreamAudioSourceNode to the audio worklet
+    pub fn connect_media_stream_to_audioworklet(
+        &mut self,
+        source: &web_sys::MediaStreamAudioSourceNode,
+    ) -> Result<(), String> {
+        let result = self.audioworklet_manager
+            .connect_microphone(source.as_ref())
+            .map_err(|e| e.to_string());
+        
+        match result {
+            Ok(_) => {
+                if !self.audioworklet_manager.is_processing() {
+                    let _ = self.audioworklet_manager.start_processing();
+                }
+                
+                Ok(())
+            }
+            Err(e) => {
+                Err(format!("Failed to connect microphone: {:?}", e))
+            }
+        }
     }
     
 }
