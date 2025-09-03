@@ -40,8 +40,6 @@ impl StoredConfig {
 
 #[cfg(target_arch = "wasm32")]
 pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
-        dev_log!("save_storage");
-
     let Some(window) = window() else {
         dev_log!("Failed to get window for storage");
         return;

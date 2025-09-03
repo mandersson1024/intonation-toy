@@ -24,6 +24,10 @@ static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEF
 #[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
+// Track last saved configuration to avoid saving every frame
+#[cfg(target_arch = "wasm32")]
+static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale)>> = std::sync::Mutex::new(None);
+
 #[cfg(target_arch = "wasm32")]
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
@@ -252,12 +256,18 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
 
     CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
     
-    // Save configuration to local storage
-    storage::save_config(
-        model_data.tuning_fork_note,
-        model_data.tuning_system,
-        model_data.scale
-    );
+    // Save configuration to local storage only if it changed
+    let current_config = (model_data.tuning_fork_note, model_data.tuning_system, model_data.scale);
+    if let Ok(mut last_saved) = LAST_SAVED_CONFIG.try_lock() {
+        if last_saved.as_ref() != Some(&current_config) {
+            storage::save_config(
+                model_data.tuning_fork_note,
+                model_data.tuning_system,
+                model_data.scale
+            );
+            *last_saved = Some(current_config);
+        }
+    }
 
     if let Some(display) = document.get_element_by_id("tuning-fork-display") {
         let formatted_note = crate::common::shared_types::midi_note_to_name(model_data.tuning_fork_note);
