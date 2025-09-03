@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, SignalGeneratorConfig, volume_detector::VolumeDetector};
+use super::{AudioError, volume_detector::VolumeDetector};
 use super::signal_generator::TuningForkConfig;
 use super::audio_pipeline::AudioPipeline;
 use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
@@ -68,11 +68,11 @@ pub struct AudioWorkletManager {
     volume_detector: Rc<RefCell<VolumeDetector>>,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     audio_context: AudioContext,
-    output_to_speakers: bool,
+    pub output_to_speakers: bool,
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
     message_factory: AudioWorkletMessageFactory,
-    audio_pipeline: AudioPipeline,
+    pub audio_pipeline: AudioPipeline,
 }
 
 
@@ -511,46 +511,7 @@ impl AudioWorkletManager {
     
     /// Ensure microphone gain node exists
     
-    /// Set microphone volume
-    pub fn set_microphone_volume(&mut self, volume: f32) {
-        // Clamp volume to 0.0 - 1.0 range
-        let clamped_volume = volume.clamp(0.0, 1.0);
-        
-        // Set the gain value on the microphone gain node
-        self.audio_pipeline.legacy_microphone_gain_node.gain().set_value(clamped_volume);
-        
-        dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
-    }
     
-    /// Update test signal generator configuration (unified routing - no reconnection needed)
-    pub fn update_test_signal_config(&mut self, config: SignalGeneratorConfig) {
-        // Handle microphone muting for test signals to prevent feedback
-        if config.enabled {
-            // Mute microphone when test signal is active
-            
-            // Mute microphone to prevent feedback (no reconnection needed - just volume control)
-            self.set_microphone_volume(0.0);
-            
-            // Enable speaker output for test signal
-            if !self.output_to_speakers {
-                self.set_output_to_speakers(true);
-                dev_log!("Automatically enabled speaker output for test signal");
-            }
-        }
-        
-        // Then manage local TestSignalAudioNode
-        if config.enabled {
-            // Update existing node
-            self.audio_pipeline.test_signal_node.update_config(config);
-            dev_log!("Updated test signal node configuration");
-        } else {
-            // Disable test signal but keep node for potential re-enabling
-            self.audio_pipeline.test_signal_node.disable();
-            dev_log!("Disabled test signal node");
-            self.set_microphone_volume(1.0);
-            self.set_output_to_speakers(false);
-        }
-    }
 
     /// Update tuning fork audio configuration
     /// 
@@ -566,44 +527,6 @@ impl AudioWorkletManager {
     }
 
 
-    /// Set whether to output audio stream to speakers
-    pub fn set_output_to_speakers(&mut self, enabled: bool) {
-        if self.output_to_speakers != enabled {
-            self.output_to_speakers = enabled;
-            if enabled {
-                self.connect_worklet_to_speakers();
-            } else {
-                self.disconnect_worklet_from_speakers();
-            }
-        }
-    }
-    
-    /// Connect AudioWorklet output to speakers
-    fn connect_worklet_to_speakers(&self) {
-        let destination = self.audio_context.destination();
-        match self.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
-            Ok(_) => {
-                dev_log!("🔊 AudioWorklet connected to speakers");
-            }
-            Err(e) => {
-                dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
-            }
-        }
-    }
-    
-    /// Disconnect AudioWorklet output from speakers  
-    fn disconnect_worklet_from_speakers(&self) {
-        let destination = self.audio_context.destination();
-        // Disconnect only the connection to destination (speakers)
-        match self.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
-            Ok(_) => {
-                dev_log!("🔇 AudioWorklet disconnected from speakers");
-            }
-            Err(e) => {
-                dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
-            }
-        }
-    }
 
     /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {

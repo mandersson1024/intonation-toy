@@ -253,13 +253,93 @@ impl AudioEngine {
                 sample_rate: STANDARD_SAMPLE_RATE,
             };
             
-            self.audioworklet_manager.update_test_signal_config(audio_config);
+            self.update_test_signal_config(audio_config);
             crate::common::dev_log!(
                 "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
                 config.enabled, config.frequency, config.volume
             );
         }
         Ok(())
+    }
+
+    /// Set microphone volume
+    fn set_microphone_volume(&mut self, volume: f32) {
+        // Clamp volume to 0.0 - 1.0 range
+        let clamped_volume = volume.clamp(0.0, 1.0);
+        
+        // Set the gain value on the microphone gain node
+        self.audioworklet_manager.audio_pipeline.legacy_microphone_gain_node.gain().set_value(clamped_volume);
+        
+        crate::common::dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
+    }
+
+    /// Set whether to output audio stream to speakers
+    fn set_output_to_speakers(&mut self, enabled: bool) {
+        if self.audioworklet_manager.output_to_speakers != enabled {
+            self.audioworklet_manager.output_to_speakers = enabled;
+            if enabled {
+                self.connect_worklet_to_speakers();
+            } else {
+                self.disconnect_worklet_from_speakers();
+            }
+        }
+    }
+    
+    /// Connect AudioWorklet output to speakers
+    fn connect_worklet_to_speakers(&self) {
+        let destination = self.audio_context.destination();
+        match self.audioworklet_manager.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
+            Ok(_) => {
+                crate::common::dev_log!("🔊 AudioWorklet connected to speakers");
+            }
+            Err(e) => {
+                crate::common::dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
+            }
+        }
+    }
+    
+    /// Disconnect AudioWorklet output from speakers  
+    fn disconnect_worklet_from_speakers(&self) {
+        let destination = self.audio_context.destination();
+        // Disconnect only the connection to destination (speakers)
+        match self.audioworklet_manager.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
+            Ok(_) => {
+                crate::common::dev_log!("🔇 AudioWorklet disconnected from speakers");
+            }
+            Err(e) => {
+                crate::common::dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
+            }
+        }
+    }
+
+    /// Update test signal generator configuration (unified routing - no reconnection needed)
+    fn update_test_signal_config(&mut self, config: audio::SignalGeneratorConfig) {
+        // Handle microphone muting for test signals to prevent feedback
+        if config.enabled {
+            // Mute microphone when test signal is active
+            
+            // Mute microphone to prevent feedback (no reconnection needed - just volume control)
+            self.set_microphone_volume(0.0);
+            
+            // Enable speaker output for test signal
+            if !self.audioworklet_manager.output_to_speakers {
+                self.set_output_to_speakers(true);
+                crate::common::dev_log!("Automatically enabled speaker output for test signal");
+            }
+        }
+        
+        // Then manage local TestSignalAudioNode
+        if config.enabled {
+            // Update existing node
+            self.audioworklet_manager.audio_pipeline.test_signal_node.update_config(config);
+            crate::common::dev_log!("Updated test signal node configuration");
+        } else {
+            // Disable test signal but keep node for potential re-enabling
+            self.audioworklet_manager.audio_pipeline.test_signal_node.disable();
+            crate::common::dev_log!("Disabled test signal node");
+            self.set_microphone_volume(1.0);
+            self.set_output_to_speakers(false);
+        }
     }
     
     /// Collect audio analysis data from the engine components
