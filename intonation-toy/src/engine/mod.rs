@@ -446,13 +446,34 @@ impl AudioEngine {
             .map_err(|e| format!("Failed to create audio source: {:?}", e))
     }
 
+    /// Connect microphone input to audio worklet
+    fn connect_microphone(&mut self, microphone_source: &web_sys::AudioNode) -> Result<(), audio::audio_error::AudioError> {
+        // Get the output_to_speakers value first to avoid borrowing conflicts
+        let output_to_speakers = self.audioworklet_manager.output_to_speakers;
+        
+        // Set up audio routing through the pipeline
+        {
+            let pipeline = self.audio_pipeline_mut();
+            pipeline.connect_microphone(microphone_source, output_to_speakers)?;
+        }
+        
+        // Connect microphone gain to volume detector (parallel tap for analysis)
+        let mic_gain = &self.audio_pipeline().legacy_microphone_gain_node;
+        if let Err(e) = self.audioworklet_manager.volume_detector.borrow().connect_source(mic_gain) {
+            crate::common::dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
+        } else {
+            crate::common::dev_log!("Connected microphone gain to VolumeDetector");
+        }
+        
+        Ok(())
+    }
+
     /// Connect a MediaStreamAudioSourceNode to the audio worklet
     pub fn connect_media_stream_to_audioworklet(
         &mut self,
         source: &web_sys::MediaStreamAudioSourceNode,
     ) -> Result<(), String> {
-        let result = self.audioworklet_manager
-            .connect_microphone(source.as_ref())
+        let result = self.connect_microphone(source.as_ref())
             .map_err(|e| e.to_string());
         
         match result {

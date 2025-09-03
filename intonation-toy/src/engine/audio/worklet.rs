@@ -1,6 +1,6 @@
 
 use web_sys::{
-    AudioContext, AudioNode, MessageEvent, AudioWorkletNode
+    AudioContext, MessageEvent, AudioWorkletNode
 };
 use js_sys;
 use std::fmt;
@@ -64,7 +64,7 @@ impl AudioWorkletSharedData {
 
 pub struct AudioWorkletManager {
     state: AudioWorkletState,
-    volume_detector: Rc<RefCell<VolumeDetector>>,
+    pub volume_detector: Rc<RefCell<VolumeDetector>>,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
     pub output_to_speakers: bool,
     shared_data: Rc<RefCell<AudioWorkletSharedData>>,
@@ -390,20 +390,6 @@ impl AudioWorkletManager {
     }
 
     
-    /// Connect microphone input to audio worklet
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<(), AudioError> {
-        // Set up audio routing through the pipeline
-        let mic_gain = self.audio_pipeline.connect_microphone(microphone_source, self.output_to_speakers)?;
-        
-        // Connect microphone gain to volume detector (parallel tap for analysis)
-        if let Err(e) = self.volume_detector.borrow().connect_source(mic_gain) {
-            dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-        } else {
-            dev_log!("Connected microphone gain to VolumeDetector");
-        }
-        
-        Ok(())
-    }
     
     /// Start audio processing
     pub fn start_processing(&mut self) -> Result<(), AudioError> {
