@@ -76,13 +76,22 @@ impl AudioEngine {
     ) -> Result<Self, String> {
         crate::common::dev_log!("✓ AudioContext attached");
 
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone())
+        // Create audio pipeline with all audio nodes
+        let audio_pipeline = audio::audio_pipeline::AudioPipeline::new(&audio_context)
+            .map_err(|e| {
+                let error_msg = format!("Failed to create AudioPipeline: {}", e);
+                crate::common::dev_log!("✗ {}", error_msg);
+                error_msg
+            })?;
+        crate::common::dev_log!("✓ AudioPipeline created with audio nodes");
+
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), audio_pipeline)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
                 error_msg
             })?;
-        crate::common::dev_log!("✓ AudioWorkletManager created with internal node creation");
+        crate::common::dev_log!("✓ AudioWorkletManager created with provided AudioPipeline");
         
         // PitchAnalyzer is now created internally in AudioWorkletManager::new()
         crate::common::dev_log!("✓ PitchAnalyzer initialized internally in AudioWorkletManager");

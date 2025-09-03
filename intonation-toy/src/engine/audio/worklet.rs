@@ -77,7 +77,7 @@ pub struct AudioWorkletManager {
 
 
 impl AudioWorkletManager {
-    pub fn new(audio_context: AudioContext) -> Result<Self, String> {
+    pub fn new(audio_context: AudioContext, audio_pipeline: AudioPipeline) -> Result<Self, String> {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
@@ -92,9 +92,6 @@ impl AudioWorkletManager {
         let pitch_analyzer = super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
             .map_err(|e| format!("Failed to initialize PitchAnalyzer: {}", e))?;
         let pitch_analyzer = Rc::new(RefCell::new(pitch_analyzer));
-        
-        // Create audio pipeline with all audio nodes
-        let audio_pipeline = AudioPipeline::new(&audio_context)?;
         
         Ok(Self {
             state: AudioWorkletState::Ready,
