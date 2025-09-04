@@ -4,7 +4,7 @@ use web_sys::{AudioContext, GainNode, AudioWorkletNode, MediaStreamAudioSourceNo
 /// 
 /// This struct manages the creation and storage of all audio nodes in the signal processing chain.
 /// The nodes are created but not initialized - initialization happens externally after creation.
-pub struct AudioSignalFlow {
+pub struct AudioSignalPath {
     pub input: MediaStreamAudioSourceNode,
     pub input_gain: GainNode,
     pub worklet: AudioWorkletNode,
@@ -15,7 +15,7 @@ pub struct AudioSignalFlow {
     pub tuning_fork_gain: GainNode,
 }
 
-impl AudioSignalFlow {
+impl AudioSignalPath {
     pub fn new(
         context: AudioContext,
         input: MediaStreamAudioSourceNode,

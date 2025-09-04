@@ -11,7 +11,7 @@ pub mod message_protocol;
 pub mod data_types;
 pub mod tuning_fork_node;
 pub mod test_signal_node;
-pub mod signal_flow;
+pub mod signal_path;
 pub mod audio_pipeline;
 pub mod analysis;
 
@@ -24,7 +24,7 @@ pub use pitch_detector::PitchResult;
 pub use permission::AudioPermission;
 pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;
-pub use signal_flow::AudioSignalFlow;
+pub use signal_path::AudioSignalPath;
 
 use audio_error::AudioError;
 pub use volume_detector::VolumeDetector;
