@@ -21,5 +21,4 @@ impl VolumeDetector {
         self.node.get_float_time_domain_data(&mut self.data);
         analysis::analyze_volume(&self.data)
     }
-    
 }
