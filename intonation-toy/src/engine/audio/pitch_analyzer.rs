@@ -1,11 +1,10 @@
-use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
+use super::pitch_detector::{PitchDetector, PitchDetectorConfig};
 
 pub type PitchAnalysisError = String;
 
 /// Real-time pitch analysis coordinator.
 pub struct PitchAnalyzer {
     pitch_detector: PitchDetector,
-    last_detection: Option<PitchResult>,
     analysis_buffer: Vec<f32>,
 }
 
@@ -21,12 +20,11 @@ impl PitchAnalyzer {
         
         Ok(Self {
             pitch_detector,
-            last_detection: None,
             analysis_buffer,
         })
     }
 
-    pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchAnalysisError> {
+    pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<super::PitchData>, PitchAnalysisError> {
         if samples.len() != self.analysis_buffer.len() {
             return Err(format!("Expected {} samples, got {}", self.analysis_buffer.len(), samples.len()));
         }
@@ -42,23 +40,16 @@ impl PitchAnalyzer {
 
         match pitch_result {
             Some(result) => {
-                self.last_detection = Some(result.clone());
-                Ok(Some(result))
+                Ok(Some(super::PitchData {
+                    frequency: result.frequency,
+                    clarity: result.clarity,
+                }))
             }
             None => {
-                self.last_detection = None;
                 Ok(None)
             }
         }
     }
 
-    pub fn get_latest_pitch_data(&self) -> Option<super::PitchData> {
-        self.last_detection.as_ref().map(|result| {
-            super::PitchData {
-                frequency: result.frequency,
-                clarity: result.clarity,
-            }
-        })
-    }
 }
 

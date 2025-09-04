@@ -88,6 +88,16 @@ impl AudioEngine {
         // Extract worklet_node for AudioWorkletManager
         let worklet_node = audio_pipeline.worklet_node.clone();
         
+        // Create PitchAnalyzer with default config and audio context sample rate
+        let config = audio::pitch_detector::PitchDetectorConfig::default();
+        let sample_rate = audio_context.sample_rate() as u32;
+        let pitch_analyzer = audio::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
+            .map_err(|e| {
+                let error_msg = format!("Failed to create PitchAnalyzer: {}", e);
+                crate::common::dev_log!("✗ {}", error_msg);
+                error_msg
+            })?;
+        
         let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), worklet_node)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
@@ -95,7 +105,7 @@ impl AudioEngine {
                 error_msg
             })?;
 
-        worklet_manager.setup_message_handling()
+        worklet_manager.setup_message_handling(pitch_analyzer)
             .map_err(|e| {
                 let error_msg = format!("Failed to setup message handling: {:?}", e);
                 crate::common::dev_log!("✗ {}", error_msg);

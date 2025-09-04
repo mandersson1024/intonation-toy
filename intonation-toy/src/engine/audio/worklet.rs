@@ -47,7 +47,6 @@ pub struct AudioWorkletManager {
     handler_state: Rc<RefCell<MessageHandlerState>>,
 
     pub volume_detector: Rc<RefCell<VolumeDetector>>,
-    pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
 }
 
 impl AudioWorkletManager {
@@ -55,12 +54,6 @@ impl AudioWorkletManager {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
         
-        // Create PitchAnalyzer with default config and audio context sample rate
-        let config = super::pitch_detector::PitchDetectorConfig::default();
-        let sample_rate = audio_context.sample_rate() as u32;
-        let pitch_analyzer = super::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
-            .map_err(|e| format!("Failed to initialize PitchAnalyzer: {}", e))?;
-        let pitch_analyzer = Rc::new(RefCell::new(pitch_analyzer));
         
         Ok(Self {
             state: AudioWorkletState::Ready,
@@ -70,14 +63,14 @@ impl AudioWorkletManager {
                 batches_processed: 0,
                 buffer_pool_stats: None,
                 last_volume_analysis: None,
+                latest_pitch_data: None,
             })),
-            pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
             worklet_node,
         })
     }
     
-    pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
+    pub fn setup_message_handling(&mut self, pitch_analyzer: super::pitch_analyzer::PitchAnalyzer) -> Result<(), AudioError> {
         let worklet = &self.worklet_node;
         // Clean up existing closure and port handler
         self._message_closure = None;
@@ -90,7 +83,7 @@ impl AudioWorkletManager {
         // Capture fields needed for the message handler
         let handler_state_clone = self.handler_state.clone();
         let volume_detector_clone = self.volume_detector.clone();
-        let pitch_analyzer_clone = self.pitch_analyzer.clone();
+        let pitch_analyzer_clone = Rc::new(RefCell::new(pitch_analyzer));
         let worklet_node_clone = worklet.clone();
         let message_factory_clone = self.message_factory.clone();
         
@@ -211,8 +204,7 @@ impl AudioWorkletManager {
     }
 
     pub fn get_pitch_data(&self) -> Option<super::PitchData> {
-        self.pitch_analyzer.try_borrow().ok()
-            .and_then(|borrowed| borrowed.get_latest_pitch_data())
+        self.handler_state.borrow().latest_pitch_data.clone()
     }
 }
 

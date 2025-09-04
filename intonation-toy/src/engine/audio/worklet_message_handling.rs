@@ -11,6 +11,7 @@ pub(super) struct MessageHandlerState {
     pub(super) batches_processed: u32,
     pub(super) buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     pub(super) last_volume_analysis: Option<super::VolumeAnalysis>,
+    pub(super) latest_pitch_data: Option<super::PitchData>,
 }
 
 /// Handle messages from the AudioWorklet processor (static version)
@@ -221,8 +222,10 @@ fn process_audio_samples(
         }
     } 
     
-    // Perform pitch analysis - results are collected by Engine::update()
-    let _ = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
+    // Perform pitch analysis and store results in handler state
+    if let Ok(pitch_data) = pitch_analyzer.borrow_mut().analyze_samples(audio_samples) {
+        handler_state.borrow_mut().latest_pitch_data = pitch_data;
+    }
 }
 
 /// Return buffer to AudioWorklet for recycling (ping-pong pattern) - static version
