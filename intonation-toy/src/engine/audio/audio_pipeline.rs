@@ -1,5 +1,4 @@
-use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode};
-use super::tuning_fork_node::TuningForkAudioNode;
+use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode, OscillatorNode};
 use super::test_signal_node::TestSignalAudioNode;
 use super::signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 use super::AudioError;
@@ -7,7 +6,12 @@ use crate::common::dev_log;
 
 pub struct AudioPipeline {
     pub worklet_node: AudioWorkletNode,
-    pub tuning_fork_node: TuningForkAudioNode,
+    // Tuning fork nodes (integrated directly)
+    pub tuning_fork_oscillator: OscillatorNode,
+    pub tuning_fork_gain: GainNode,
+    tuning_fork_config: TuningForkConfig,
+    tuning_fork_connected: bool,
+    // Other nodes
     pub test_signal_node: TestSignalAudioNode,
     pub mixer_gain_node: GainNode,
     pub microphone_gain_node: GainNode,
@@ -33,13 +37,57 @@ impl AudioPipeline {
             .map_err(|_| "Failed to create mixer gain node".to_string())?;
         legacy_mixer_gain_node.gain().set_value(1.0);
         
-        // Create tuning fork node with default config
+        // Create tuning fork nodes with default config
         let default_tuning_fork_config = TuningForkConfig {
             frequency: 440.0, // A4
             volume: 0.0,      // Start muted
         };
-        let tuning_fork_node = TuningForkAudioNode::new(audio_context, default_tuning_fork_config)
-            .map_err(|e| format!("Failed to create tuning fork node: {:?}", e))?;
+        
+        // Create oscillator with custom waveform
+        let tuning_fork_oscillator = audio_context.create_oscillator()
+            .map_err(|_| "Failed to create tuning fork oscillator".to_string())?;
+        
+        // Create custom waveform with harmonic series
+        let n = 16;
+        let mut real = vec![0.0f32; n];
+        let mut imag = vec![0.0f32; n];
+        
+        let amps: [f32; 9] = [
+            0.0,   // DC offset
+            1.0,   // fundamental
+            0.85,  // 2nd
+            0.55,  // 3rd
+            0.40,  // 4th
+            0.25,  // 5th
+            0.18,  // 6th
+            0.12,  // 7th
+            0.08   // 8th
+        ];
+
+        for (i, &amp) in amps.iter().enumerate() {
+            real[i] = amp;
+        }
+
+        let periodic_wave = audio_context.create_periodic_wave(&mut real, &mut imag)
+            .map_err(|_| "Failed to create periodic wave".to_string())?;
+        
+        tuning_fork_oscillator.set_periodic_wave(&periodic_wave);
+        tuning_fork_oscillator.frequency().set_value(default_tuning_fork_config.frequency);
+        
+        // Create gain node for tuning fork
+        let tuning_fork_gain = audio_context.create_gain()
+            .map_err(|_| "Failed to create tuning fork gain node".to_string())?;
+        tuning_fork_gain.gain().set_value(default_tuning_fork_config.volume);
+        
+        // Connect tuning fork: oscillator -> gain -> speakers
+        tuning_fork_oscillator.connect_with_audio_node(&tuning_fork_gain)
+            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
+        tuning_fork_gain.connect_with_audio_node(&audio_context.destination())
+            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
+        tuning_fork_oscillator.start()
+            .map_err(|_| "Failed to start tuning fork oscillator".to_string())?;
+        
+        dev_log!("✓ Tuning fork oscillator and gain created");
         
         // Create test signal node with default config (disabled by default)
         let test_signal_config = SignalGeneratorConfig {
@@ -70,7 +118,12 @@ impl AudioPipeline {
         
         let mut pipeline = Self {
             worklet_node,
-            tuning_fork_node,
+            // Tuning fork fields
+            tuning_fork_oscillator,
+            tuning_fork_gain,
+            tuning_fork_config: default_tuning_fork_config,
+            tuning_fork_connected: true,
+            // Other fields
             test_signal_node,
             mixer_gain_node: legacy_mixer_gain_node,
             microphone_gain_node: legacy_microphone_gain_node,
@@ -210,14 +263,31 @@ impl AudioPipeline {
     
     /// Update tuning fork audio configuration
     /// 
-    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
+    /// This method manages the integrated tuning fork oscillator that connects directly to speakers,
     /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
     /// audible regardless of the output_to_speakers flag.
     pub fn update_tuning_fork_config(&mut self, config: super::signal_generator::TuningForkConfig) {
         dev_log!("Updating tuning fork audio config - frequency: {} Hz", config.frequency);
         
-        // Update the tuning fork audio node
-        self.tuning_fork_node.update_config(config);
+        // Update frequency if changed
+        if (self.tuning_fork_config.frequency - config.frequency).abs() > f32::EPSILON {
+            self.tuning_fork_oscillator.frequency().set_value(config.frequency);
+            self.tuning_fork_config.frequency = config.frequency;
+        }
+        
+        // Update volume if changed (with smooth ramping)
+        if (self.tuning_fork_config.volume - config.volume).abs() > f32::EPSILON {
+            self.tuning_fork_config.volume = config.volume;
+            self.ramp_tuning_fork_gain(config.volume);
+        }
+    }
+    
+    /// Smoothly ramp the tuning fork gain to avoid audio pops
+    fn ramp_tuning_fork_gain(&self, target: f32) {
+        let audio_context = &self.worklet_node.context();
+        if self.tuning_fork_gain.gain().set_target_at_time(target, audio_context.current_time(), 0.05).is_err() {
+            self.tuning_fork_gain.gain().set_value(target);
+        }
     }
     
     /// Update test signal generator configuration (unified routing - no reconnection needed)
@@ -298,6 +368,15 @@ impl AudioPipeline {
         // Clean up the test signal node
         self.test_signal_node.cleanup();
         dev_log!("Test signal node cleaned up");
+        
+        // Clean up tuning fork nodes
+        if self.tuning_fork_connected {
+            let _ = self.tuning_fork_oscillator.stop();
+            let _ = self.tuning_fork_oscillator.disconnect();
+            let _ = self.tuning_fork_gain.disconnect();
+            self.tuning_fork_connected = false;
+            dev_log!("Tuning fork nodes disconnected and cleaned up");
+        }
         
         // Clean up the mixer node
         let _ = self.mixer_gain_node.disconnect();
