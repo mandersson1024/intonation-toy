@@ -1,27 +1,20 @@
 use web_sys::{AudioContext, AnalyserNode, AudioNode};
-use super::{AudioError, data_types::VolumeLevelData};
+use super::{AudioError, data_types::VolumeAnalysis};
 use crate::common::dev_log;
 use super::analysis;
 
 /// FFT size for the analyser node (fixed requirement)
 const FFT_SIZE: u32 = 128;
 
-/// Number of frequency bins (half of FFT size)
-const FREQUENCY_BIN_COUNT: usize = (FFT_SIZE / 2) as usize;
-
 /// Volume detector that uses Web Audio API's AnalyserNode for volume detection
 /// 
-/// This detector provides both volume analysis and FFT frequency data.
-/// Peak amplitude is calculated directly from time domain data using getFloatTimeDomainData(),
+/// This detector provides volume analysis by calculating peak and RMS amplitude
+/// from time domain data using getFloatTimeDomainData(),
 /// which provides direct amplitude values in the -1.0 to 1.0 range.
-/// The FFT data contains 64 frequency bins normalized to 0.0-1.0 range.
-/// Bin 0 represents DC component, higher indices represent higher frequencies.
 #[derive(Clone)]
 pub struct VolumeDetector {
     /// The Web Audio API analyser node
     analyser_node: AnalyserNode,
-    /// Pre-allocated buffer for frequency data to avoid reallocations
-    frequency_data: Vec<u8>,
     /// Pre-allocated buffer for time domain data to avoid reallocations
     time_domain_data: Vec<f32>,
 }
@@ -40,8 +33,6 @@ impl VolumeDetector {
         // Set smoothing time constant to 0.0 for real-time analysis
         analyser_node.set_smoothing_time_constant(0.0);
         
-        // Initialize frequency data buffer with correct size
-        let frequency_data = vec![0u8; FREQUENCY_BIN_COUNT];
         // Initialize time domain data buffer with FFT size
         let time_domain_data = vec![0.0f32; FFT_SIZE as usize];
         
@@ -49,7 +40,6 @@ impl VolumeDetector {
         
         Ok(Self {
             analyser_node,
-            frequency_data,
             time_domain_data,
         })
     }
@@ -64,41 +54,15 @@ impl VolumeDetector {
         Ok(())
     }
     
-    /// Analyzes current audio and returns volume levels with FFT data
+    /// Analyzes current audio and returns volume levels
     /// 
-    /// Returns VolumeLevelData with populated fft_data field containing
-    /// normalized frequency bin magnitudes (0.0-1.0 range).
-    pub fn analyze(&mut self) -> Result<VolumeLevelData, AudioError> {
-        // Verify FFT size hasn't changed - this should never happen during normal operation
-        let expected = self.analyser_node.frequency_bin_count() as usize;
-        if self.frequency_data.len() != expected {
-            return Err(AudioError::Generic(format!(
-                "FFT size changed unexpectedly! Buffer size: {}, Expected: {}",
-                self.frequency_data.len(),
-                expected
-            )));
-        }
-        
-        // Get frequency data from analyser node directly into our buffer
-        self.analyser_node.get_byte_frequency_data(&mut self.frequency_data);
-        
+    /// Returns VolumeAnalysis with amplitude measurements.
+    pub fn analyze(&mut self) -> Result<VolumeAnalysis, AudioError> {
         // Get time domain data for direct amplitude calculation
         self.analyser_node.get_float_time_domain_data(&mut self.time_domain_data);
         
         // Perform the analysis with the filled buffers
-        let volume_analysis = analysis::analyze(&self.time_domain_data);
-        
-        // Convert byte frequency data to normalized f32 values (0.0-1.0)
-        let fft_data: Vec<f32> = self.frequency_data
-            .iter()
-            .map(|&byte| byte as f32 / 255.0)
-            .collect();
-        
-        Ok(VolumeLevelData {
-            rms_amplitude: volume_analysis.rms_amplitude,
-            peak_amplitude: volume_analysis.peak_amplitude,
-            fft_data: Some(fft_data),
-        })
+        Ok(analysis::analyze(&self.time_domain_data))
     }
     
     /// Disconnects the analyser node from all connected inputs

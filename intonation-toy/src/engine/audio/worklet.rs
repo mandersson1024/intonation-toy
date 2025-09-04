@@ -41,7 +41,7 @@ impl fmt::Display for AudioWorkletState {
 struct AudioWorkletSharedData {
     batches_processed: u32,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
-    last_volume_data: Option<super::VolumeLevelData>,
+    last_volume_analysis: Option<super::VolumeAnalysis>,
 
     volume_detector: Rc<RefCell<VolumeDetector>>,
     pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
@@ -56,7 +56,7 @@ impl AudioWorkletSharedData {
             batches_processed: 0,
             pitch_analyzer: None,
             buffer_pool_stats: None,
-            last_volume_data: None,
+            last_volume_analysis: None,
         })
     }
 }
@@ -334,9 +334,9 @@ impl AudioWorkletManager {
         let volume_detector = shared_data.borrow().volume_detector.clone();
         
         match volume_detector.borrow_mut().analyze() {
-                Ok(volume_data) => {
-                    // Store the volume data result in shared data
-                    shared_data.borrow_mut().last_volume_data = Some(volume_data);
+                Ok(volume_analysis) => {
+                    // Store the volume analysis result in shared data
+                    shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
                 }
             Err(err) => {
                 dev_log!("Volume analysis failed: {:?}", err);
@@ -494,8 +494,12 @@ impl AudioWorkletManager {
     /// Get current volume analysis if available
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
         // Check if we have volume data from the shared data (from message handler)
-        if let Some(ref volume_data) = self.shared_data.borrow().last_volume_data {
-            Some(volume_data.clone())
+        if let Some(ref analysis) = self.shared_data.borrow().last_volume_analysis {
+            Some(super::VolumeLevelData {
+                rms_amplitude: analysis.rms_amplitude,
+                peak_amplitude: analysis.peak_amplitude,
+                fft_data: None,  // No FFT data available from VolumeAnalysis
+            })
         } else {
             None
         }
