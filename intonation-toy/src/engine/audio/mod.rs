@@ -19,7 +19,8 @@ pub mod analysis;
 
 pub use worklet::AudioWorkletState;
 pub use signal_generator::{SignalGeneratorConfig, TuningForkConfig};
-pub use data_types::{VolumeLevelData, PitchData, AudioWorkletStatus, VolumeAnalysis};
+pub use data_types::{VolumeLevelData, AudioWorkletStatus, VolumeAnalysis};
+pub use pitch_detector::PitchResult;
 pub use permission::AudioPermission;
 pub use tuning_fork_node::TuningForkAudioNode;
 pub use test_signal_node::TestSignalAudioNode;

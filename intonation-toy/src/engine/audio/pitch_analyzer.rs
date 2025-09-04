@@ -1,4 +1,4 @@
-use super::pitch_detector::{PitchDetector, PitchDetectorConfig};
+use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 
 pub type PitchAnalysisError = String;
 
@@ -21,31 +21,15 @@ impl PitchAnalyzer {
         })
     }
 
-    pub fn analyze_samples(&mut self, samples: &[f32]) -> Result<Option<super::PitchData>, PitchAnalysisError> {
-        if samples.len() != self.analysis_buffer.len() {
-            return Err(format!("Expected {} samples, got {}", self.analysis_buffer.len(), samples.len()));
-        }
+    pub fn analyze_samples(&mut self, samples: &[f32]) -> Option<PitchResult> {
+        assert_eq!(samples.len(), self.analysis_buffer.len(), 
+                   "Expected {} samples, got {}", self.analysis_buffer.len(), samples.len());
 
         self.analysis_buffer.copy_from_slice(samples);
         
-        let pitch_result = crate::profile!("pitch_detector.analyze", 
+        crate::profile!("pitch_detector.analyze", 
             self.pitch_detector.analyze(&self.analysis_buffer)
-        );
-
-        let pitch_result = pitch_result
-            .map_err(|e| format!("Pitch detection failed: {}", e))?;
-
-        match pitch_result {
-            Some(result) => {
-                Ok(Some(super::PitchData {
-                    frequency: result.frequency,
-                    clarity: result.clarity,
-                }))
-            }
-            None => {
-                Ok(None)
-            }
-        }
+        )
     }
 
 }

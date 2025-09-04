@@ -23,13 +23,6 @@ pub struct VolumeAnalysis {
     pub rms_amplitude: f32,
 }
 
-/// Pitch detection data for external consumption
-#[derive(Debug, Clone, PartialEq)]
-pub struct PitchData {
-    pub frequency: f32,
-    pub clarity: f32,
-}
-
 /// AudioWorklet status for external consumption
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioWorkletStatus {

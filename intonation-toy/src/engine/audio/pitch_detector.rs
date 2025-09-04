@@ -85,21 +85,16 @@ impl PitchDetector {
         })
     }
 
-    pub fn analyze(&mut self, samples: &[f32]) -> Result<Option<PitchResult>, PitchDetectionError> {
-        if samples.len() != self.config.sample_window_size {
-            return Err(format!(
-                "Expected {} samples, got {}",
-                self.config.sample_window_size,
-                samples.len()
-            ));
-        }
+    pub fn analyze(&mut self, samples: &[f32]) -> Option<PitchResult> {
+        assert_eq!(samples.len(), self.config.sample_window_size,
+                   "Expected {} samples, got {}", self.config.sample_window_size, samples.len());
 
         let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, self.config.clarity_threshold);
         
-        Ok(result.map(|pitch_info| PitchResult {
+        result.map(|pitch_info| PitchResult {
             frequency: pitch_info.frequency,
             clarity: pitch_info.clarity,
-        }))
+        })
     }
 }
 

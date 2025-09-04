@@ -203,7 +203,7 @@ impl AudioWorkletManager {
         }
     }
 
-    pub fn get_pitch_data(&self) -> Option<super::PitchData> {
+    pub fn get_pitch_data(&self) -> Option<super::pitch_detector::PitchResult> {
         self.handler_state.borrow().latest_pitch_data.clone()
     }
 }
