@@ -3,8 +3,8 @@ use super::audio_error::AudioError;
 use super::signal_generator::SignalGeneratorConfig;
 
 pub struct TestSignalAudioNode {
-    legacy_oscillator_node: OscillatorNode,
-    legacy_gain_node: GainNode,
+    oscillator_node: OscillatorNode,
+    gain_node: GainNode,
 }
 
 impl TestSignalAudioNode {
@@ -36,32 +36,32 @@ impl TestSignalAudioNode {
             .map_err(|_| AudioError::Generic("Failed to start oscillator".to_string()))?;
         
         Ok(Self {
-            legacy_oscillator_node: oscillator,
-            legacy_gain_node: gain_node,
+            oscillator_node: oscillator,
+            gain_node,
         })
     }
     
     pub fn update_config(&mut self, new_config: SignalGeneratorConfig) {
-        self.legacy_oscillator_node.frequency().set_value(new_config.frequency);
+        self.oscillator_node.frequency().set_value(new_config.frequency);
         let amplitude = if new_config.enabled { new_config.amplitude } else { 0.0 };
-        self.legacy_gain_node.gain().set_value(amplitude);
+        self.gain_node.gain().set_value(amplitude);
     }
     
     pub fn disable(&mut self) {
-        self.legacy_gain_node.gain().set_value(0.0);
+        self.gain_node.gain().set_value(0.0);
     }
     
     pub fn connect_to(&mut self, destination: &AudioNode) -> Result<(), AudioError> {
-        self.legacy_gain_node
+        self.gain_node
             .connect_with_audio_node(destination)
             .map_err(|_| AudioError::Generic("Failed to connect test signal to destination".to_string()))?;
         Ok(())
     }
     
     pub fn cleanup(&mut self) {
-        let _ = self.legacy_oscillator_node.stop();
-        let _ = self.legacy_oscillator_node.disconnect();
-        let _ = self.legacy_gain_node.disconnect();
+        let _ = self.oscillator_node.stop();
+        let _ = self.oscillator_node.disconnect();
+        let _ = self.gain_node.disconnect();
     }
 }
 

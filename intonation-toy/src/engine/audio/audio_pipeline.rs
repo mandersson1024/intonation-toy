@@ -9,9 +9,9 @@ pub struct AudioPipeline {
     pub worklet_node: AudioWorkletNode,
     pub tuning_fork_node: TuningForkAudioNode,
     pub test_signal_node: TestSignalAudioNode,
-    pub legacy_mixer_gain_node: GainNode,
+    pub mixer_gain_node: GainNode,
     pub microphone_gain_node: GainNode,
-    pub legacy_microphone_source_node: Option<AudioNode>,
+    pub microphone_source_node: Option<AudioNode>,
     pub analyser_node: AnalyserNode,
     pub output_to_speakers: bool,
 }
@@ -72,9 +72,9 @@ impl AudioPipeline {
             worklet_node,
             tuning_fork_node,
             test_signal_node,
-            legacy_mixer_gain_node,
+            mixer_gain_node: legacy_mixer_gain_node,
             microphone_gain_node: legacy_microphone_gain_node,
-            legacy_microphone_source_node: Some(microphone_source.clone().into()),
+            microphone_source_node: Some(microphone_source.clone().into()),
             analyser_node,
             output_to_speakers: false,
         };
@@ -131,7 +131,7 @@ impl AudioPipeline {
     /// Returns the microphone gain node for external volume detector connection
     pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<&GainNode, AudioError> {
         // Store microphone source
-        self.legacy_microphone_source_node = Some(microphone_source.clone());
+        self.microphone_source_node = Some(microphone_source.clone());
         
         // Unified connection setup - always the same regardless of state:
         // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
@@ -143,7 +143,7 @@ impl AudioPipeline {
         dev_log!("Connected microphone to gain node");
         
         // 2. Connect microphone gain to mixer
-        let mixer = &self.legacy_mixer_gain_node;
+        let mixer = &self.mixer_gain_node;
         mic_gain.connect_with_audio_node(mixer)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
         dev_log!("Connected microphone gain to mixer");
@@ -300,7 +300,7 @@ impl AudioPipeline {
         dev_log!("Test signal node cleaned up");
         
         // Clean up the mixer node
-        let _ = self.legacy_mixer_gain_node.disconnect();
+        let _ = self.mixer_gain_node.disconnect();
         dev_log!("Mixer node disconnected and cleaned up");
         
         // Clean up the microphone gain node
@@ -312,7 +312,7 @@ impl AudioPipeline {
         dev_log!("Analyser node disconnected and cleaned up");
         
         // Clear stored microphone source
-        self.legacy_microphone_source_node = None;
+        self.microphone_source_node = None;
         
         // Note: tuning fork audio node cleanup is handled by its Drop trait
     }
