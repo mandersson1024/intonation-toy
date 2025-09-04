@@ -1,5 +1,4 @@
-use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode, OscillatorNode};
-use super::test_signal_node::TestSignalAudioNode;
+use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode, OscillatorNode, OscillatorType};
 use super::signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 use super::AudioError;
 use crate::common::dev_log;
@@ -11,8 +10,12 @@ pub struct AudioPipeline {
     pub tuning_fork_gain: GainNode,
     tuning_fork_config: TuningForkConfig,
     tuning_fork_connected: bool,
+    // Test signal nodes (integrated directly)
+    pub test_signal_oscillator: OscillatorNode,
+    pub test_signal_gain: GainNode,
+    test_signal_config: SignalGeneratorConfig,
+    test_signal_connected: bool,
     // Other nodes
-    pub test_signal_node: TestSignalAudioNode,
     pub mixer_gain_node: GainNode,
     pub microphone_gain_node: GainNode,
     pub microphone_source_node: AudioNode,
@@ -89,15 +92,33 @@ impl AudioPipeline {
         
         dev_log!("✓ Tuning fork oscillator and gain created");
         
-        // Create test signal node with default config (disabled by default)
-        let test_signal_config = SignalGeneratorConfig {
+        // Create test signal nodes with default config (disabled by default)
+        let default_test_signal_config = SignalGeneratorConfig {
             enabled: false,
             frequency: 440.0, // A4
             amplitude: 0.0,
             sample_rate: audio_context.sample_rate() as u32,
         };
-        let test_signal_node = TestSignalAudioNode::new(audio_context, test_signal_config)
-            .map_err(|e| format!("Failed to create test signal node: {:?}", e))?;
+        
+        // Create test signal oscillator
+        let test_signal_oscillator = audio_context.create_oscillator()
+            .map_err(|_| "Failed to create test signal oscillator".to_string())?;
+        
+        test_signal_oscillator.set_type(OscillatorType::Sine);
+        test_signal_oscillator.frequency().set_value(default_test_signal_config.frequency);
+        
+        // Create test signal gain node
+        let test_signal_gain = audio_context.create_gain()
+            .map_err(|_| "Failed to create test signal gain node".to_string())?;
+        test_signal_gain.gain().set_value(if default_test_signal_config.enabled { default_test_signal_config.amplitude } else { 0.0 });
+        
+        // Connect test signal: oscillator -> gain -> (will connect to mixer later)
+        test_signal_oscillator.connect_with_audio_node(&test_signal_gain)
+            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
+        test_signal_oscillator.start()
+            .map_err(|_| "Failed to start test signal oscillator".to_string())?;
+        
+        dev_log!("✓ Test signal oscillator and gain created");
         
         // Create analyser node for volume analysis
         let analyser_node = audio_context
@@ -123,8 +144,12 @@ impl AudioPipeline {
             tuning_fork_gain,
             tuning_fork_config: default_tuning_fork_config,
             tuning_fork_connected: true,
+            // Test signal fields
+            test_signal_oscillator,
+            test_signal_gain,
+            test_signal_config: default_test_signal_config,
+            test_signal_connected: false,
             // Other fields
-            test_signal_node,
             mixer_gain_node: legacy_mixer_gain_node,
             microphone_gain_node: legacy_microphone_gain_node,
             microphone_source_node: microphone_source.clone().into(),
@@ -202,8 +227,9 @@ impl AudioPipeline {
         dev_log!("Connected microphone gain to mixer");
         
         // 3. Connect test signal to mixer (it's disabled by default, so this is safe)
-        self.test_signal_node.connect_to(mixer)
+        self.test_signal_gain.connect_with_audio_node(mixer)
             .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
+        self.test_signal_connected = true;
         dev_log!("Connected test signal to mixer");
         
         // 4. Connect mixer to analyser node for volume detection
@@ -306,15 +332,18 @@ impl AudioPipeline {
             }
         }
         
-        // Then manage local TestSignalAudioNode
+        // Then manage integrated test signal nodes
         if config.enabled {
-            // Update existing node
-            self.test_signal_node.update_config(config);
-            dev_log!("Updated test signal node configuration");
+            // Update frequency and amplitude
+            self.test_signal_oscillator.frequency().set_value(config.frequency);
+            self.test_signal_gain.gain().set_value(config.amplitude);
+            dev_log!("Updated test signal configuration - freq: {} Hz, amp: {}", config.frequency, config.amplitude);
+            self.test_signal_config = config;
         } else {
-            // Disable test signal but keep node for potential re-enabling
-            self.test_signal_node.disable();
-            dev_log!("Disabled test signal node");
+            // Disable test signal by setting gain to 0
+            self.test_signal_gain.gain().set_value(0.0);
+            self.test_signal_config.enabled = false;
+            dev_log!("Disabled test signal");
             self.set_microphone_volume(1.0);
             self.set_output_to_speakers(false);
         }
@@ -365,9 +394,14 @@ impl AudioPipeline {
         let _ = self.worklet_node.disconnect();
         dev_log!("AudioWorklet disconnected");
         
-        // Clean up the test signal node
-        self.test_signal_node.cleanup();
-        dev_log!("Test signal node cleaned up");
+        // Clean up the test signal nodes
+        if self.test_signal_connected {
+            let _ = self.test_signal_oscillator.stop();
+            let _ = self.test_signal_oscillator.disconnect();
+            let _ = self.test_signal_gain.disconnect();
+            self.test_signal_connected = false;
+            dev_log!("Test signal nodes disconnected and cleaned up");
+        }
         
         // Clean up tuning fork nodes
         if self.tuning_fork_connected {
