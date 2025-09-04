@@ -1,27 +1,25 @@
-use web_sys::{AnalyserNode};
-use super::{AudioError, data_types::VolumeAnalysis};
+use web_sys::AnalyserNode;
+use super::data_types::VolumeAnalysis;
 use super::analysis;
 
-const VOLUME_DATA_LENGTH: u32 = 128;
+const NUM_SAMPLES: usize = 512;
 
 pub struct VolumeDetector {
-    analyser_node: AnalyserNode,
-    sample_data: Vec<f32>,
+    node: AnalyserNode,
+    data: Vec<f32>,
 }
 
 impl VolumeDetector {
     pub fn new(analyser_node: AnalyserNode) -> Self {
-        let data = vec![0.0f32; VOLUME_DATA_LENGTH as usize];
-        
         Self {
-            analyser_node,
-            sample_data: data,
+            node: analyser_node,
+            data: vec![0.0f32; NUM_SAMPLES],
         }
     }
     
-    pub fn analyze(&mut self) -> Result<VolumeAnalysis, AudioError> {
-        self.analyser_node.get_float_time_domain_data(&mut self.sample_data);
-        Ok(analysis::analyze_volume(&self.sample_data))
+    pub fn analyze(&mut self) -> VolumeAnalysis {
+        self.node.get_float_time_domain_data(&mut self.data);
+        analysis::analyze_volume(&self.data)
     }
     
 }

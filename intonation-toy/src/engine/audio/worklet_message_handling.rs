@@ -212,15 +212,8 @@ fn process_audio_samples(
     pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>
 ) {
     // Perform volume analysis
-    match volume_detector.borrow_mut().analyze() {
-            Ok(volume_analysis) => {
-                // Store the volume analysis result in handler state
-                handler_state.borrow_mut().last_volume_analysis = Some(volume_analysis);
-            }
-        Err(err) => {
-            dev_log!("Volume analysis failed: {:?}", err);
-        }
-    } 
+    let volume_analysis = volume_detector.borrow_mut().analyze();
+    handler_state.borrow_mut().last_volume_analysis = Some(volume_analysis); 
     
     // Perform pitch analysis and store results in handler state
     let pitch_data = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
