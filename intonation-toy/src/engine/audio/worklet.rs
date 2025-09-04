@@ -38,29 +38,14 @@ impl fmt::Display for AudioWorkletState {
 }
 
 
-struct AudioWorkletSharedData {
+
+
+// Internal state that needs to be shared between the manager and message handler
+struct MessageHandlerState {
     batches_processed: u32,
     buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     last_volume_analysis: Option<super::VolumeAnalysis>,
-
-    volume_detector: Rc<RefCell<VolumeDetector>>,
-    pitch_analyzer: Option<Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>>,
 }
-
-impl AudioWorkletSharedData {
-    fn new(audio_context: &AudioContext) -> Result<Self, String> {
-        let volume_detector = VolumeDetector::new(audio_context)
-            .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
-        Ok(Self {
-            volume_detector: Rc::new(RefCell::new(volume_detector)),
-            batches_processed: 0,
-            pitch_analyzer: None,
-            buffer_pool_stats: None,
-            last_volume_analysis: None,
-        })
-    }
-}
-
 
 pub struct AudioWorkletManager {
     worklet_node: web_sys::AudioWorkletNode,
@@ -68,7 +53,8 @@ pub struct AudioWorkletManager {
     message_factory: AudioWorkletMessageFactory,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
 
-    shared_data: Rc<RefCell<AudioWorkletSharedData>>,
+    // Shared state for message handler
+    handler_state: Rc<RefCell<MessageHandlerState>>,
 
     pub volume_detector: Rc<RefCell<VolumeDetector>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
@@ -79,11 +65,6 @@ impl AudioWorkletManager {
     pub fn new(audio_context: AudioContext, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
         let volume_detector = VolumeDetector::new(&audio_context)
             .map_err(|e| format!("Failed to create VolumeDetector: {:?}", e))?;
-        
-        let shared_data = Rc::new(RefCell::new(
-            AudioWorkletSharedData::new(&audio_context)
-                .map_err(|e| format!("Failed to create shared data: {}", e))?
-        ));
         
         // Create PitchAnalyzer with default config and audio context sample rate
         let config = super::pitch_detector::PitchDetectorConfig::default();
@@ -96,7 +77,11 @@ impl AudioWorkletManager {
             state: AudioWorkletState::Ready,
             volume_detector: Rc::new(RefCell::new(volume_detector)),
             _message_closure: None,
-            shared_data,
+            handler_state: Rc::new(RefCell::new(MessageHandlerState {
+                batches_processed: 0,
+                buffer_pool_stats: None,
+                last_volume_analysis: None,
+            })),
             pitch_analyzer,
             message_factory: AudioWorkletMessageFactory::new(),
             worklet_node,
@@ -114,21 +99,19 @@ impl AudioWorkletManager {
             .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
         port.set_onmessage(None);
         
-        // Store references to components that will be used in the handler
-        // Copy volume detector reference to shared data
-        self.shared_data.borrow_mut().volume_detector = self.volume_detector.clone();
-        self.shared_data.borrow_mut().pitch_analyzer = Some(self.pitch_analyzer.clone());
-        dev_log!("✓ Pitch analyzer passed to AudioWorklet shared data");
-        
-        // Capture only the specific fields needed for the message handler
-        let shared_data_clone = self.shared_data.clone();
+        // Capture fields needed for the message handler
+        let handler_state_clone = self.handler_state.clone();
+        let volume_detector_clone = self.volume_detector.clone();
+        let pitch_analyzer_clone = self.pitch_analyzer.clone();
         let worklet_node_clone = worklet.clone();
         let message_factory_clone = self.message_factory.clone();
         
         let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
             Self::handle_worklet_message_static(
                 event, 
-                shared_data_clone.clone(), 
+                handler_state_clone.clone(),
+                volume_detector_clone.clone(),
+                pitch_analyzer_clone.clone(),
                 worklet_node_clone.clone(),
                 message_factory_clone.clone()
             );
@@ -148,7 +131,9 @@ impl AudioWorkletManager {
     /// Handle messages from the AudioWorklet processor (static version)
     fn handle_worklet_message_static(
         event: MessageEvent, 
-        shared_data: Rc<RefCell<AudioWorkletSharedData>>,
+        handler_state: Rc<RefCell<MessageHandlerState>>,
+        volume_detector: Rc<RefCell<VolumeDetector>>,
+        pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory
     ) {
@@ -161,7 +146,9 @@ impl AudioWorkletManager {
                 Ok(envelope) => {
                     Self::handle_typed_worklet_message_static(
                         envelope, 
-                        &shared_data, 
+                        &handler_state,
+                        &volume_detector,
+                        &pitch_analyzer,
                         &obj,
                         worklet_node,
                         message_factory
@@ -213,7 +200,9 @@ impl AudioWorkletManager {
     /// Handle typed messages from the AudioWorklet processor (static version)
     fn handle_typed_worklet_message_static(
         envelope: MessageEnvelope<FromWorkletMessage>,
-        shared_data: &Rc<RefCell<AudioWorkletSharedData>>,
+        handler_state: &Rc<RefCell<MessageHandlerState>>,
+        volume_detector: &Rc<RefCell<VolumeDetector>>,
+        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
         original_obj: &js_sys::Object,
         worklet_node: AudioWorkletNode,
         message_factory: AudioWorkletMessageFactory
@@ -233,7 +222,9 @@ impl AudioWorkletManager {
             FromWorkletMessage::AudioDataBatch { data } => {
                 Self::handle_typed_audio_data_batch_static(
                     data, 
-                    shared_data, 
+                    handler_state,
+                    volume_detector,
+                    pitch_analyzer,
                     original_obj,
                     &worklet_node,
                     &message_factory
@@ -253,15 +244,17 @@ impl AudioWorkletManager {
     /// Handle typed audio data batch from the AudioWorklet processor (static version)
     fn handle_typed_audio_data_batch_static(
         data: super::message_protocol::AudioDataBatch,
-        shared_data: &Rc<RefCell<AudioWorkletSharedData>>,
+        handler_state: &Rc<RefCell<MessageHandlerState>>,
+        volume_detector: &Rc<RefCell<VolumeDetector>>,
+        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
         original_obj: &js_sys::Object,
         worklet_node: &AudioWorkletNode,
         message_factory: &AudioWorkletMessageFactory
     ) {
         // Extract buffer pool statistics from the audio data batch
         if let Some(buffer_pool_stats) = &data.buffer_pool_stats {
-            // Store in shared data for other components
-            shared_data.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
+            // Store in handler state for other components
+            handler_state.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
         }
         
         // Validate the batch metadata
@@ -291,7 +284,7 @@ impl AudioWorkletManager {
                     float32_array.copy_to(&mut audio_samples);
                     
                     // Perform actual audio processing
-                    Self::process_audio_samples(&audio_samples, shared_data);
+                    Self::process_audio_samples(&audio_samples, handler_state, volume_detector, pitch_analyzer);
                     
                     // Return buffer to worklet for recycling (ping-pong pattern is always enabled)
                     if let Some(buffer_id) = data.buffer_id {
@@ -318,8 +311,8 @@ impl AudioWorkletManager {
         
         // Update batches processed count
         {
-            let mut shared_data_mut = shared_data.borrow_mut();
-            shared_data_mut.batches_processed += 1;
+            let mut handler_state_mut = handler_state.borrow_mut();
+            handler_state_mut.batches_processed += 1;
         }
         
         // Note: Status updates are handled elsewhere, no need to call publish_status_update here
@@ -328,28 +321,23 @@ impl AudioWorkletManager {
     /// Process audio samples for pitch and volume analysis
     fn process_audio_samples(
         audio_samples: &[f32],
-        shared_data: &Rc<RefCell<AudioWorkletSharedData>>
+        handler_state: &Rc<RefCell<MessageHandlerState>>,
+        volume_detector: &Rc<RefCell<VolumeDetector>>,
+        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>
     ) {
         // Perform volume analysis
-        let volume_detector = shared_data.borrow().volume_detector.clone();
-        
         match volume_detector.borrow_mut().analyze() {
                 Ok(volume_analysis) => {
-                    // Store the volume analysis result in shared data
-                    shared_data.borrow_mut().last_volume_analysis = Some(volume_analysis);
+                    // Store the volume analysis result in handler state
+                    handler_state.borrow_mut().last_volume_analysis = Some(volume_analysis);
                 }
             Err(err) => {
                 dev_log!("Volume analysis failed: {:?}", err);
             }
         } 
         
-        // Perform pitch analysis
-        let pitch_analyzer = shared_data.borrow().pitch_analyzer.clone();
-        
-        if let Some(pitch_analyzer) = pitch_analyzer {
-            // Perform analysis - results are collected by Engine::update()
-            let _ = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
-        }
+        // Perform pitch analysis - results are collected by Engine::update()
+        let _ = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
     }
     
     
@@ -422,7 +410,7 @@ impl AudioWorkletManager {
     }
     
     pub fn get_buffer_pool_statistics(&self) -> Option<super::message_protocol::BufferPoolStats> {
-        self.shared_data.borrow().buffer_pool_stats.clone()
+        self.handler_state.borrow().buffer_pool_stats.clone()
     }
     
     pub fn is_processing(&self) -> bool {
@@ -487,14 +475,14 @@ impl AudioWorkletManager {
             processor_loaded: true,
             chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: crate::app_config::BUFFER_SIZE as u32,
-            batches_processed: self.shared_data.borrow().batches_processed,
+            batches_processed: self.handler_state.borrow().batches_processed,
         }
     }
     
     /// Get current volume analysis if available
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
-        // Check if we have volume data from the shared data (from message handler)
-        if let Some(ref analysis) = self.shared_data.borrow().last_volume_analysis {
+        // Check if we have volume data from the handler state (from message handler)
+        if let Some(ref analysis) = self.handler_state.borrow().last_volume_analysis {
             Some(super::VolumeLevelData {
                 rms_amplitude: analysis.rms_amplitude,
                 peak_amplitude: analysis.peak_amplitude,
