@@ -1,17 +1,17 @@
 
-use web_sys::{
-    AudioContext, MessageEvent, AudioWorkletNode
-};
-use js_sys;
+use web_sys::{ AudioContext, MessageEvent };
+
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::common::dev_log;
-use super::{AudioError, volume_detector::VolumeDetector};
-use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, FromWorkletMessage, MessageEnvelope, MessageSerializer, FromJsMessage};
 use crate::app_config::AUDIO_CHUNK_SIZE;
+use super::{AudioError, volume_detector::VolumeDetector};
+use super::message_protocol::{AudioWorkletMessageFactory, ToWorkletMessage, MessageSerializer};
+use super::worklet_message_handling::{MessageHandlerState, handle_worklet_message};
+
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,16 +37,6 @@ impl fmt::Display for AudioWorkletState {
     }
 }
 
-
-
-
-// Internal state that needs to be shared between the manager and message handler
-struct MessageHandlerState {
-    batches_processed: u32,
-    buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
-    last_volume_analysis: Option<super::VolumeAnalysis>,
-}
-
 pub struct AudioWorkletManager {
     worklet_node: web_sys::AudioWorkletNode,
     state: AudioWorkletState,
@@ -59,7 +49,6 @@ pub struct AudioWorkletManager {
     pub volume_detector: Rc<RefCell<VolumeDetector>>,
     pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
 }
-
 
 impl AudioWorkletManager {
     pub fn new(audio_context: AudioContext, worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
@@ -88,7 +77,6 @@ impl AudioWorkletManager {
         })
     }
     
-    /// Setup message handling for the AudioWorklet processor
     pub fn setup_message_handling(&mut self) -> Result<(), AudioError> {
         let worklet = &self.worklet_node;
         // Clean up existing closure and port handler
@@ -107,7 +95,7 @@ impl AudioWorkletManager {
         let message_factory_clone = self.message_factory.clone();
         
         let closure = Closure::wrap(Box::new(move |event: MessageEvent| {
-            Self::handle_worklet_message_static(
+            handle_worklet_message(
                 event, 
                 handler_state_clone.clone(),
                 volume_detector_clone.clone(),
@@ -128,220 +116,6 @@ impl AudioWorkletManager {
         Ok(())
     }
     
-    /// Handle messages from the AudioWorklet processor (static version)
-    fn handle_worklet_message_static(
-        event: MessageEvent, 
-        handler_state: Rc<RefCell<MessageHandlerState>>,
-        volume_detector: Rc<RefCell<VolumeDetector>>,
-        pitch_analyzer: Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
-        worklet_node: AudioWorkletNode,
-        message_factory: AudioWorkletMessageFactory
-    ) {
-        let data = event.data();
-        
-        // Try to deserialize using structured message protocol
-        if let Ok(obj) = data.dyn_into::<js_sys::Object>() {
-            // Try typed message deserialization first
-            match Self::try_deserialize_typed_message(&obj) {
-                Ok(envelope) => {
-                    Self::handle_typed_worklet_message_static(
-                        envelope, 
-                        &handler_state,
-                        &volume_detector,
-                        &pitch_analyzer,
-                        &obj,
-                        worklet_node,
-                        message_factory
-                    );
-                }
-                Err(e) => {
-                    dev_log!("ERROR: Failed to deserialize typed message: {}", e);
-                    dev_log!("ERROR: All messages must use the structured message protocol");
-                }
-            }
-        } else {
-            dev_log!("Warning: Received non-object message from AudioWorklet");
-        }
-    }
-    
-    /// Try to deserialize a JavaScript object as a typed message envelope
-    fn try_deserialize_typed_message(obj: &js_sys::Object) -> Result<MessageEnvelope<FromWorkletMessage>, String> {
-        
-        // Check if this looks like a structured message (has message_id and payload fields)
-        let has_message_id = js_sys::Reflect::has(obj, &"messageId".into()).unwrap_or(false);
-        let has_payload = js_sys::Reflect::has(obj, &"payload".into()).unwrap_or(false);
-        
-        if !has_message_id || !has_payload {
-            return Err("Not a structured message envelope".to_string());
-        }
-        
-        // Extract the envelope fields
-        let message_id = js_sys::Reflect::get(obj, &"messageId".into())
-            .map_err(|e| format!("Failed to get messageId: {:?}", e))?
-            .as_f64()
-            .ok_or("messageId must be number")?
-            as u32;
-            
-        let payload_obj = js_sys::Reflect::get(obj, &"payload".into())
-            .map_err(|e| format!("Failed to get payload: {:?}", e))?
-            .dyn_into::<js_sys::Object>()
-            .map_err(|_| "payload must be object")?;
-        
-        // Deserialize the payload
-        let payload = FromWorkletMessage::from_js_object(&payload_obj)
-            .map_err(|e| format!("Failed to deserialize payload: {:?}", e))?;
-        
-        Ok(MessageEnvelope {
-            message_id,
-            payload,
-        })
-    }
-    
-    /// Handle typed messages from the AudioWorklet processor (static version)
-    fn handle_typed_worklet_message_static(
-        envelope: MessageEnvelope<FromWorkletMessage>,
-        handler_state: &Rc<RefCell<MessageHandlerState>>,
-        volume_detector: &Rc<RefCell<VolumeDetector>>,
-        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
-        original_obj: &js_sys::Object,
-        worklet_node: AudioWorkletNode,
-        message_factory: AudioWorkletMessageFactory
-    ) {
-        match envelope.payload {
-            FromWorkletMessage::ProcessorReady { batch_size: _ } => {
-                dev_log!("AudioWorklet processor ready");
-                dev_log!("AudioWorklet state changed to: Ready");
-            }
-            FromWorkletMessage::ProcessingStarted => {
-                dev_log!("AudioWorklet state changed to: Processing");
-            }
-            FromWorkletMessage::ProcessingStopped => {
-                dev_log!("✓ AudioWorklet processing stopped");
-                dev_log!("AudioWorklet state changed to: Stopped");
-            }
-            FromWorkletMessage::AudioDataBatch { data } => {
-                Self::handle_typed_audio_data_batch_static(
-                    data, 
-                    handler_state,
-                    volume_detector,
-                    pitch_analyzer,
-                    original_obj,
-                    &worklet_node,
-                    &message_factory
-                );
-            }
-            FromWorkletMessage::ProcessingError { error } => {
-                dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-                dev_log!("AudioWorklet state changed to: Failed");
-            }
-            FromWorkletMessage::BatchConfigUpdated { config: _ } => {
-                // Configuration confirmation received - no action needed
-                dev_log!("AudioWorklet confirmed batch configuration update");
-            }
-        }
-    }
-    
-    /// Handle typed audio data batch from the AudioWorklet processor (static version)
-    fn handle_typed_audio_data_batch_static(
-        data: super::message_protocol::AudioDataBatch,
-        handler_state: &Rc<RefCell<MessageHandlerState>>,
-        volume_detector: &Rc<RefCell<VolumeDetector>>,
-        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>,
-        original_obj: &js_sys::Object,
-        worklet_node: &AudioWorkletNode,
-        message_factory: &AudioWorkletMessageFactory
-    ) {
-        // Extract buffer pool statistics from the audio data batch
-        if let Some(buffer_pool_stats) = &data.buffer_pool_stats {
-            // Store in handler state for other components
-            handler_state.borrow_mut().buffer_pool_stats = Some(buffer_pool_stats.clone());
-        }
-        
-        // Validate the batch metadata
-        if data.sample_count == 0 {
-            dev_log!("Warning: Received audio data batch with zero samples");
-            return;
-        }
-        
-        if data.buffer_length == 0 {
-            dev_log!("Warning: Received audio data batch with zero buffer length");
-            return;
-        }
-        
-        // Audio data batch received and processing
-        
-        // Extract the ArrayBuffer from the payload
-        if let Ok(payload_obj) = js_sys::Reflect::get(original_obj, &"payload".into())
-            .and_then(|p| p.dyn_into::<js_sys::Object>()) {
-            
-            if let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) {
-                if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
-                    
-                    // Convert ArrayBuffer to Float32Array for processing
-                    let float32_array = js_sys::Float32Array::new(&array_buffer);
-                    let array_length = float32_array.length() as usize;
-                    let mut audio_samples = vec![0.0f32; array_length];
-                    float32_array.copy_to(&mut audio_samples);
-                    
-                    // Perform actual audio processing
-                    Self::process_audio_samples(&audio_samples, handler_state, volume_detector, pitch_analyzer);
-                    
-                    // Return buffer to worklet for recycling (ping-pong pattern is always enabled)
-                    if let Some(buffer_id) = data.buffer_id {
-                        if let Err(e) = Self::return_buffer_to_worklet_static(
-                            array_buffer, 
-                            buffer_id,
-                            worklet_node,
-                            message_factory
-                        ) {
-                            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
-                        }
-                    } else {
-                        dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
-                    }
-                } else {
-                    dev_log!("Warning: Buffer field is not an ArrayBuffer");
-                }
-            } else {
-                dev_log!("Warning: No buffer field found in payload");
-            }
-        } else {
-            dev_log!("Warning: Could not extract payload object");
-        }
-        
-        // Update batches processed count
-        {
-            let mut handler_state_mut = handler_state.borrow_mut();
-            handler_state_mut.batches_processed += 1;
-        }
-        
-        // Note: Status updates are handled elsewhere, no need to call publish_status_update here
-    }
-    
-    /// Process audio samples for pitch and volume analysis
-    fn process_audio_samples(
-        audio_samples: &[f32],
-        handler_state: &Rc<RefCell<MessageHandlerState>>,
-        volume_detector: &Rc<RefCell<VolumeDetector>>,
-        pitch_analyzer: &Rc<RefCell<super::pitch_analyzer::PitchAnalyzer>>
-    ) {
-        // Perform volume analysis
-        match volume_detector.borrow_mut().analyze() {
-                Ok(volume_analysis) => {
-                    // Store the volume analysis result in handler state
-                    handler_state.borrow_mut().last_volume_analysis = Some(volume_analysis);
-                }
-            Err(err) => {
-                dev_log!("Volume analysis failed: {:?}", err);
-            }
-        } 
-        
-        // Perform pitch analysis - results are collected by Engine::update()
-        let _ = pitch_analyzer.borrow_mut().analyze_samples(audio_samples);
-    }
-    
-    
-    /// Send typed control message to AudioWorklet processor
     fn send_typed_control_message(&self, message: ToWorkletMessage) -> Result<(), AudioError> {
         let envelope = match message {
             ToWorkletMessage::StartProcessing => {
@@ -365,7 +139,6 @@ impl AudioWorkletManager {
         let serializer = MessageSerializer::new();
         let js_message = serializer.serialize_envelope(&envelope)
             .map_err(|e| AudioError::Generic(format!("Failed to serialize message: {:?}", e)))?;
-        
         let port = &self.worklet_node.port()
             .map_err(|e| AudioError::Generic(format!("Failed to get AudioWorklet port: {:?}", e)))?;
         port.post_message(&js_message)
@@ -375,9 +148,6 @@ impl AudioWorkletManager {
         Ok(())
     }
 
-    
-    
-    /// Start audio processing
     pub fn start_processing(&mut self) -> Result<(), AudioError> {
         if self.state != AudioWorkletState::Ready {
             return Err(AudioError::Generic(
@@ -416,59 +186,7 @@ impl AudioWorkletManager {
     pub fn is_processing(&self) -> bool {
         matches!(self.state, AudioWorkletState::Processing)
     }
-        
 
-    /// Return buffer to AudioWorklet for recycling (ping-pong pattern) - static version
-    fn return_buffer_to_worklet_static(
-        buffer: js_sys::ArrayBuffer, 
-        buffer_id: u32,
-        worklet_node: &AudioWorkletNode,
-        message_factory: &AudioWorkletMessageFactory
-    ) -> Result<(), super::AudioError> {
-        // Create ReturnBuffer message
-        let return_message = match message_factory.return_buffer(buffer_id) {
-            Ok(msg) => msg,
-            Err(e) => {
-                return Err(super::AudioError::Generic(format!("Failed to create return buffer message: {:?}", e)));
-            }
-        };
-        
-        // Serialize the message
-        let serializer = super::message_protocol::MessageSerializer::new();
-        let js_message = match serializer.serialize_envelope(&return_message) {
-            Ok(msg) => msg,
-            Err(e) => {
-                return Err(super::AudioError::Generic(format!("Failed to serialize return buffer message: {:?}", e)));
-            }
-        };
-        
-        // Add buffer to the message for transfer
-        if let Err(e) = js_sys::Reflect::set(&js_message, &"buffer".into(), &buffer) {
-            return Err(super::AudioError::Generic(format!("Failed to add buffer to message: {:?}", e)));
-        }
-        
-        // Send message with buffer as transferable
-        let port = worklet_node.port()
-            .map_err(|e| super::AudioError::Generic(format!("Failed to get worklet port: {:?}", e)))?;
-        
-        let transferables = js_sys::Array::new();
-        transferables.push(&buffer);
-        
-        port.post_message_with_transferable(&js_message, &transferables)
-            .map_err(|e| super::AudioError::Generic(format!("Failed to send return buffer message: {:?}", e)))?;
-        
-        Ok(())
-    }
-    
-    
-    /// Ensure microphone gain node exists
-    
-    
-
-
-
-
-    /// Get current AudioWorklet status
     pub fn get_status(&self) -> super::AudioWorkletStatus {
         super::AudioWorkletStatus {
             state: self.state.clone(),
@@ -479,7 +197,6 @@ impl AudioWorkletManager {
         }
     }
     
-    /// Get current volume analysis if available
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
         // Check if we have volume data from the handler state (from message handler)
         if let Some(ref analysis) = self.handler_state.borrow().last_volume_analysis {
@@ -493,8 +210,6 @@ impl AudioWorkletManager {
         }
     }
 
-    /// Get the latest pitch data from the pitch analyzer
-    /// Returns None if data is unavailable
     pub fn get_pitch_data(&self) -> Option<super::PitchData> {
         self.pitch_analyzer.try_borrow().ok()
             .and_then(|borrowed| borrowed.get_latest_pitch_data())

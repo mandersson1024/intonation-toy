@@ -1,5 +1,6 @@
 pub mod audio_error;
 pub mod worklet;
+pub mod worklet_message_handling;
 pub mod audio_context;
 pub mod permission;
 pub mod pitch_detector;
