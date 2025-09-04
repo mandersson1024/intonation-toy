@@ -275,18 +275,8 @@ impl AudioEngine {
 
     /// Set microphone volume
     fn set_microphone_volume(&mut self, volume: f32) {
-        // Clamp volume to 0.0 - 1.0 range
         let clamped_volume = volume.clamp(0.0, 1.0);
-        
-        // Set the gain value on the microphone gain node
         self.audio_pipeline.microphone_gain_node.gain().set_value(clamped_volume);
-        
-        crate::common::dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
-    }
-
-    /// Set whether to output audio stream to speakers
-    fn set_output_to_speakers(&mut self, enabled: bool) {
-        self.audio_pipeline.set_output_to_speakers(enabled);
     }
 
     /// Update tuning fork audio configuration
@@ -313,7 +303,7 @@ impl AudioEngine {
             
             // Enable speaker output for test signal
             if !self.audio_pipeline.output_to_speakers {
-                self.set_output_to_speakers(true);
+                self.audio_pipeline.set_output_to_speakers(true);
                 crate::common::dev_log!("Automatically enabled speaker output for test signal");
             }
         }
@@ -328,7 +318,7 @@ impl AudioEngine {
             self.audio_pipeline.test_signal_node.disable();
             crate::common::dev_log!("Disabled test signal node");
             self.set_microphone_volume(1.0);
-            self.set_output_to_speakers(false);
+            self.audio_pipeline.set_output_to_speakers(false);
         }
     }
     
@@ -379,32 +369,6 @@ impl AudioEngine {
         }
         
         errors
-    }
-    
-
-    /// Get reference to the audio context
-    pub fn get_audio_context(&self) -> &AudioContext {
-        &self.audio_context
-    }
-    
-    /// Get the current audioworklet status
-    pub fn get_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        Some(self.audioworklet_manager.get_status())
-    }
-    
-    /// Get buffer pool statistics from the audioworklet
-    pub fn get_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
-        self.audioworklet_manager.get_buffer_pool_statistics()
-    }
-    
-    /// Get mutable reference to the audioworklet manager
-    pub fn get_audioworklet_manager_mut(&mut self) -> &mut AudioWorkletManager {
-        &mut self.audioworklet_manager
-    }
-
-    /// Configure tuning fork audio settings
-    pub fn configure_tuning_fork(&mut self, config: audio::TuningForkConfig) {
-        self.update_tuning_fork_config(config);
     }
 
     /// Creates a MediaStreamAudioSourceNode from a MediaStream
