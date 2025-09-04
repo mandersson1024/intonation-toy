@@ -32,6 +32,7 @@ use web_sys::AudioContext;
 use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
 use crate::engine::audio::worklet::AudioWorkletManager;
+use crate::engine::audio::volume_detector::VolumeDetector;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
@@ -97,7 +98,11 @@ impl AudioEngine {
                 error_msg
             })?;
         
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(audio_context.clone(), worklet_node)
+        // Create VolumeDetector using the AudioPipeline's analyser node
+        let volume_detector = VolumeDetector::new(audio_pipeline.analyser_node.clone());
+        crate::common::dev_log!("✓ VolumeDetector created using AudioPipeline's analyser node");
+        
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(worklet_node, volume_detector)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
@@ -455,13 +460,7 @@ impl AudioEngine {
         // Set up audio routing through the pipeline
         self.audio_pipeline.connect_microphone(microphone_source, output_to_speakers)?;
         
-        // Connect microphone gain to volume detector (parallel tap for analysis)
-        let mic_gain = &self.audio_pipeline.microphone_gain_node;
-        if let Err(e) = self.audioworklet_manager.volume_detector.borrow().connect_source(mic_gain) {
-            crate::common::dev_log!("Failed to connect microphone gain to VolumeDetector: {:?}", e);
-        } else {
-            crate::common::dev_log!("Connected microphone gain to VolumeDetector");
-        }
+        // Volume detector now uses the AudioPipeline's analyser node (connected automatically)
         
         Ok(())
     }

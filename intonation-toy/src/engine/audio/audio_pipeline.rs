@@ -1,4 +1,4 @@
-use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode};
+use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode};
 use super::tuning_fork_node::TuningForkAudioNode;
 use super::test_signal_node::TestSignalAudioNode;
 use super::signal_generator::{SignalGeneratorConfig, TuningForkConfig};
@@ -12,6 +12,7 @@ pub struct AudioPipeline {
     pub legacy_mixer_gain_node: GainNode,
     pub microphone_gain_node: GainNode,
     pub legacy_microphone_source_node: Option<AudioNode>,
+    pub analyser_node: AnalyserNode,
 }
 
 impl AudioPipeline {
@@ -49,6 +50,18 @@ impl AudioPipeline {
         let test_signal_node = TestSignalAudioNode::new(audio_context, test_signal_config)
             .map_err(|e| format!("Failed to create test signal node: {:?}", e))?;
         
+        // Create analyser node for volume analysis
+        let analyser_node = audio_context
+            .create_analyser()
+            .map_err(|e| format!("Failed to create analyser node: {:?}", e))?;
+        
+        // Configure analyser node with FFT size of 128
+        analyser_node.set_fft_size(128);
+        // Set smoothing time constant to 0.0 for real-time analysis
+        analyser_node.set_smoothing_time_constant(0.0);
+        
+        dev_log!("AudioPipeline analyser node created with FFT size: 128");
+        
         Ok(Self {
             worklet_node,
             tuning_fork_node,
@@ -56,6 +69,7 @@ impl AudioPipeline {
             legacy_mixer_gain_node,
             microphone_gain_node: legacy_microphone_gain_node,
             legacy_microphone_source_node: None,
+            analyser_node,
         })
     }
     
@@ -125,12 +139,17 @@ impl AudioPipeline {
             .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
         dev_log!("Connected test signal to mixer");
         
-        // 4. Connect mixer to worklet
+        // 4. Connect mixer to analyser node for volume detection
+        mixer.connect_with_audio_node(&self.analyser_node)
+            .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to analyser: {:?}", e)))?;
+        dev_log!("Connected mixer to analyser node");
+        
+        // 5. Connect mixer to worklet
         mixer.connect_with_audio_node(&self.worklet_node)
             .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
         dev_log!("Connected mixer to worklet");
         
-        // 5. Connect AudioWorklet to speakers if output is enabled
+        // 6. Connect AudioWorklet to speakers if output is enabled
         if output_to_speakers {
             let audio_context = self.worklet_node.context();
             if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
@@ -160,6 +179,10 @@ impl AudioPipeline {
         // Clean up the microphone gain node
         let _ = self.microphone_gain_node.disconnect();
         dev_log!("Microphone gain node disconnected and cleaned up");
+        
+        // Clean up the analyser node
+        let _ = self.analyser_node.disconnect();
+        dev_log!("Analyser node disconnected and cleaned up");
         
         // Clear stored microphone source
         self.legacy_microphone_source_node = None;

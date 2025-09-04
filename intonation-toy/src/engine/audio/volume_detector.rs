@@ -1,4 +1,4 @@
-use web_sys::{AudioContext, AnalyserNode, AudioNode};
+use web_sys::{AnalyserNode};
 use super::{AudioError, data_types::VolumeAnalysis};
 use crate::common::dev_log;
 use super::analysis;
@@ -6,52 +6,30 @@ use super::analysis;
 /// FFT size for the analyser node (fixed requirement)
 const FFT_SIZE: u32 = 128;
 
-/// Volume detector that uses Web Audio API's AnalyserNode for volume detection
+/// Volume detector that uses AudioPipeline's AnalyserNode for volume detection
 /// 
 /// This detector provides volume analysis by calculating peak and RMS amplitude
 /// from time domain data using getFloatTimeDomainData(),
 /// which provides direct amplitude values in the -1.0 to 1.0 range.
-#[derive(Clone)]
 pub struct VolumeDetector {
-    /// The Web Audio API analyser node
+    /// Reference to the AudioPipeline's analyser node
     analyser_node: AnalyserNode,
     /// Pre-allocated buffer for time domain data to avoid reallocations
     time_domain_data: Vec<f32>,
 }
 
 impl VolumeDetector {
-    /// Creates a new VolumeDetector with configured AnalyserNode
-    pub fn new(audio_context: &AudioContext) -> Result<Self, AudioError> {
-        // Create analyser node
-        let analyser_node = audio_context
-            .create_analyser()
-            .map_err(|e| AudioError::NotSupported(format!("Failed to create analyser node: {:?}", e)))?;
-        
-        // Set FFT size to 128
-        analyser_node.set_fft_size(FFT_SIZE);
-        
-        // Set smoothing time constant to 0.0 for real-time analysis
-        analyser_node.set_smoothing_time_constant(0.0);
-        
+    /// Creates a new VolumeDetector using the provided AnalyserNode
+    pub fn new(analyser_node: AnalyserNode) -> Self {
         // Initialize time domain data buffer with FFT size
         let time_domain_data = vec![0.0f32; FFT_SIZE as usize];
         
-        dev_log!("VolumeDetector created with FFT size: {}", FFT_SIZE);
+        dev_log!("VolumeDetector created using shared analyser node");
         
-        Ok(Self {
+        Self {
             analyser_node,
             time_domain_data,
-        })
-    }
-    
-    /// Connects an audio source to the analyser node
-    pub fn connect_source(&self, source: &AudioNode) -> Result<(), AudioError> {
-        source
-            .connect_with_audio_node(&self.analyser_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect source to analyser: {:?}", e)))?;
-        
-        dev_log!("Audio source connected to VolumeDetector");
-        Ok(())
+        }
     }
     
     /// Analyzes current audio and returns volume levels
@@ -65,12 +43,6 @@ impl VolumeDetector {
         Ok(analysis::analyze_volume(&self.time_domain_data))
     }
     
-    /// Disconnects the analyser node from all connected inputs
-    pub fn disconnect(&self) -> Result<(), AudioError> {
-        let _ = self.analyser_node.disconnect();
-        dev_log!("VolumeDetector disconnected from audio sources");
-        Ok(())
-    }
 }
 
 impl Drop for VolumeDetector {
