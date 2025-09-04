@@ -1,6 +1,7 @@
 use web_sys::{AudioContext, AnalyserNode, AudioNode};
-use super::{AudioError, data_types::VolumeAnalysis};
+use super::{AudioError, data_types::VolumeLevelData};
 use crate::common::dev_log;
+use super::analysis;
 
 /// FFT size for the analyser node (fixed requirement)
 const FFT_SIZE: u32 = 128;
@@ -65,9 +66,9 @@ impl VolumeDetector {
     
     /// Analyzes current audio and returns volume levels with FFT data
     /// 
-    /// Returns VolumeAnalysis with populated fft_data field containing
+    /// Returns VolumeLevelData with populated fft_data field containing
     /// normalized frequency bin magnitudes (0.0-1.0 range).
-    pub fn analyze(&mut self) -> Result<VolumeAnalysis, AudioError> {
+    pub fn analyze(&mut self) -> Result<VolumeLevelData, AudioError> {
         // Verify FFT size hasn't changed - this should never happen during normal operation
         let expected = self.analyser_node.frequency_bin_count() as usize;
         if self.frequency_data.len() != expected {
@@ -84,11 +85,8 @@ impl VolumeDetector {
         // Get time domain data for direct amplitude calculation
         self.analyser_node.get_float_time_domain_data(&mut self.time_domain_data);
         
-        // Calculate peak amplitude from time domain data
-        let peak_amplitude = self.get_peak_amplitude_from_time_domain();
-        
-        // Calculate RMS amplitude from time domain data
-        let rms_amplitude = self.calculate_rms_amplitude_from_time_domain();
+        // Perform the analysis with the filled buffers
+        let volume_analysis = analysis::analyze(&self.time_domain_data);
         
         // Convert byte frequency data to normalized f32 values (0.0-1.0)
         let fft_data: Vec<f32> = self.frequency_data
@@ -96,37 +94,11 @@ impl VolumeDetector {
             .map(|&byte| byte as f32 / 255.0)
             .collect();
         
-        Ok(VolumeAnalysis {
-            rms_amplitude,
-            peak_amplitude,
+        Ok(VolumeLevelData {
+            rms_amplitude: volume_analysis.rms_amplitude,
+            peak_amplitude: volume_analysis.peak_amplitude,
             fft_data: Some(fft_data),
         })
-    }
-    
-    /// Calculates peak amplitude directly from time domain data
-    /// 
-    /// Uses getFloatTimeDomainData() which provides direct amplitude values
-    /// in the range -1.0 to 1.0. Returns the absolute maximum value.
-    fn get_peak_amplitude_from_time_domain(&self) -> f32 {
-        // Find the maximum absolute value in time domain data
-        self.time_domain_data
-            .iter()
-            .map(|&sample| sample.abs())
-            .fold(0.0f32, f32::max)
-    }
-    
-    /// Calculates RMS amplitude from time domain data
-    /// 
-    /// Root Mean Square provides the effective amplitude over the time window.
-    fn calculate_rms_amplitude_from_time_domain(&self) -> f32 {
-        // Calculate sum of squares
-        let sum_of_squares: f32 = self.time_domain_data
-            .iter()
-            .map(|&sample| sample * sample)
-            .sum();
-        
-        // Calculate RMS: square root of mean of squares
-        (sum_of_squares / self.time_domain_data.len() as f32).sqrt()
     }
     
     /// Disconnects the analyser node from all connected inputs

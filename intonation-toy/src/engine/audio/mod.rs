@@ -12,6 +12,7 @@ pub mod tuning_fork_node;
 pub mod test_signal_node;
 pub mod signal_flow;
 pub mod audio_pipeline;
+pub mod analysis;
 
 
 
