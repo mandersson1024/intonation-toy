@@ -27,7 +27,6 @@ pub(crate) mod platform;
 
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
-use crate::app_config::STANDARD_SAMPLE_RATE;
 use web_sys::AudioContext;
 use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
@@ -36,7 +35,7 @@ use crate::engine::audio::volume_detector::VolumeDetector;
 
 // Debug-only imports for conditional compilation
 #[cfg(debug_assertions)]
-use crate::presentation::{DebugLayerActions, ConfigureTestSignal};
+use crate::presentation::DebugLayerActions;
 
 
 /// AudioEngine - The engine layer of the three-layer architecture
@@ -76,14 +75,14 @@ impl AudioEngine {
     ) -> Result<Self, String> {
         crate::common::dev_log!("✓ AudioContext attached");
 
-        // Create audio pipeline with all audio nodes
-        let audio_pipeline = audio::audio_pipeline::AudioPipeline::new(&audio_context)
+        // Create audio pipeline with all audio nodes and connect media stream
+        let audio_pipeline = audio::audio_pipeline::AudioPipeline::new(&audio_context, &media_stream)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioPipeline: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
                 error_msg
             })?;
-        crate::common::dev_log!("✓ AudioPipeline created with audio nodes");
+        crate::common::dev_log!("✓ AudioPipeline created with audio nodes and media stream connected");
 
         // Extract worklet_node for AudioWorkletManager
         let worklet_node = audio_pipeline.worklet_node.clone();
@@ -124,15 +123,13 @@ impl AudioEngine {
             audio_pipeline,
         };
 
-        // Connect media stream to audioworklet (preserving existing media stream handling)
-        let node = engine.create_media_stream_node(&media_stream)
-            .map_err(|e| format!("MediaStream connection failed: {}", e))?;
-        
-        engine.connect_media_stream_to_audioworklet(&node)
-            .map_err(|e| format!("MediaStream connection failed: {}", e))?;
+        // Start audio processing
+        if !engine.audioworklet_manager.is_processing() {
+            let _ = engine.audioworklet_manager.start_processing();
+        }
         
         // Configure default tuning fork
-        engine.update_tuning_fork_config(audio::TuningForkConfig::default());
+        engine.audio_pipeline.update_tuning_fork_config(audio::TuningForkConfig::default());
 
         crate::common::dev_log!("✓ AudioEngine fully initialized");
         Ok(engine)
@@ -190,7 +187,7 @@ impl AudioEngine {
             };
             
             // Use the separate tuning fork audio node architecture
-            self.update_tuning_fork_config(audio_config);
+            self.audio_pipeline.update_tuning_fork_config(audio_config);
             crate::common::dev_log!(
                 "Engine layer: ✓ Tuning fork audio control updated - frequency: {} Hz", 
                 config.frequency
@@ -228,100 +225,11 @@ impl AudioEngine {
         crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
         
         // Execute test signal configurations with privileged access
-        self.execute_test_signal_configurations(&debug_actions.test_signal_configurations)?;
+        self.audio_pipeline.execute_test_signal_configurations(&debug_actions.test_signal_configurations)?;
         
         Ok(())
     }
-    
-    /// Execute test signal configurations with privileged engine access
-    /// 
-    /// This method provides direct control over test signal generation in the audio
-    /// worklet, bypassing normal validation checks.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `test_signal_configs` - Test signal configurations to execute
-    /// * `debug_engine_actions` - Container to store executed actions
-    /// 
-    /// # Returns
-    /// 
-    /// Returns `Result<(), String>` indicating success or failure
-    #[cfg(debug_assertions)]
-    fn execute_test_signal_configurations(
-        &mut self,
-        test_signal_configs: &[ConfigureTestSignal]
-    ) -> Result<(), String> {
-        for config in test_signal_configs {
-            crate::common::dev_log!(
-                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%",
-                config.enabled, config.frequency, config.volume
-            );
-            
-            let audio_config = crate::engine::audio::SignalGeneratorConfig {
-                enabled: config.enabled,
-                frequency: config.frequency,
-                amplitude: config.volume / 100.0,
-                sample_rate: STANDARD_SAMPLE_RATE,
-            };
-            
-            self.update_test_signal_config(audio_config);
-            crate::common::dev_log!(
-                "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
-                config.enabled, config.frequency, config.volume
-            );
-        }
-        Ok(())
-    }
 
-    /// Set microphone volume
-    fn set_microphone_volume(&mut self, volume: f32) {
-        let clamped_volume = volume.clamp(0.0, 1.0);
-        self.audio_pipeline.microphone_gain_node.gain().set_value(clamped_volume);
-    }
-
-    /// Update tuning fork audio configuration
-    /// 
-    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
-    /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
-    /// audible regardless of the output_to_speakers flag.
-    fn update_tuning_fork_config(&mut self, config: audio::TuningForkConfig) {
-        crate::common::dev_log!("[AudioEngine] Updating tuning fork audio config - frequency: {} Hz", 
-                config.frequency);
-        
-        // Update the tuning fork audio node
-        self.audio_pipeline.tuning_fork_node.update_config(config);
-    }
-
-    /// Update test signal generator configuration (unified routing - no reconnection needed)
-    fn update_test_signal_config(&mut self, config: audio::SignalGeneratorConfig) {
-        // Handle microphone muting for test signals to prevent feedback
-        if config.enabled {
-            // Mute microphone when test signal is active
-            
-            // Mute microphone to prevent feedback (no reconnection needed - just volume control)
-            self.set_microphone_volume(0.0);
-            
-            // Enable speaker output for test signal
-            if !self.audio_pipeline.output_to_speakers {
-                self.audio_pipeline.set_output_to_speakers(true);
-                crate::common::dev_log!("Automatically enabled speaker output for test signal");
-            }
-        }
-        
-        // Then manage local TestSignalAudioNode
-        if config.enabled {
-            // Update existing node
-            self.audio_pipeline.test_signal_node.update_config(config);
-            crate::common::dev_log!("Updated test signal node configuration");
-        } else {
-            // Disable test signal but keep node for potential re-enabling
-            self.audio_pipeline.test_signal_node.disable();
-            crate::common::dev_log!("Disabled test signal node");
-            self.set_microphone_volume(1.0);
-            self.audio_pipeline.set_output_to_speakers(false);
-        }
-    }
-    
     /// Collect audio analysis data from the engine components
     fn collect_audio_analysis(&self) -> Option<crate::common::shared_types::AudioAnalysis> {
         use crate::common::shared_types::{Volume, Pitch, AudioAnalysis};
@@ -371,37 +279,4 @@ impl AudioEngine {
         errors
     }
 
-    /// Creates a MediaStreamAudioSourceNode from a MediaStream
-    fn create_media_stream_node(
-        &self,
-        media_stream: &web_sys::MediaStream,
-    ) -> Result<web_sys::MediaStreamAudioSourceNode, String> {
-        self.audio_context.create_media_stream_source(media_stream)
-            .map_err(|e| format!("Failed to create audio source: {:?}", e))
-    }
-
-    /// Connect microphone input to audio worklet
-
-    /// Connect a MediaStreamAudioSourceNode to the audio worklet
-    pub fn connect_media_stream_to_audioworklet(
-        &mut self,
-        source: &web_sys::MediaStreamAudioSourceNode,
-    ) -> Result<(), String> {
-        let result = self.audio_pipeline.connect_microphone(source.as_ref())
-            .map_err(|e| e.to_string());
-        
-        match result {
-            Ok(_) => {
-                if !self.audioworklet_manager.is_processing() {
-                    let _ = self.audioworklet_manager.start_processing();
-                }
-                
-                Ok(())
-            }
-            Err(e) => {
-                Err(format!("Failed to connect microphone: {:?}", e))
-            }
-        }
-    }
-    
 }

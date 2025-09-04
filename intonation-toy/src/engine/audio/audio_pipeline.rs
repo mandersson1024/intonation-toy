@@ -17,7 +17,7 @@ pub struct AudioPipeline {
 }
 
 impl AudioPipeline {
-    pub fn new(audio_context: &AudioContext) -> Result<Self, String> {
+    pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream) -> Result<Self, String> {
         // Create AudioWorkletNode
         let worklet_node = Self::create_worklet_node(audio_context)?;
         
@@ -63,16 +63,28 @@ impl AudioPipeline {
         
         dev_log!("AudioPipeline analyser node created with FFT size: 128");
         
-        Ok(Self {
+        // Create media stream source node
+        let microphone_source = audio_context.create_media_stream_source(media_stream)
+            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
+        dev_log!("✓ MediaStreamAudioSourceNode created");
+        
+        let mut pipeline = Self {
             worklet_node,
             tuning_fork_node,
             test_signal_node,
             legacy_mixer_gain_node,
             microphone_gain_node: legacy_microphone_gain_node,
-            legacy_microphone_source_node: None,
+            legacy_microphone_source_node: Some(microphone_source.clone().into()),
             analyser_node,
             output_to_speakers: false,
-        })
+        };
+        
+        // Connect microphone automatically
+        pipeline.connect_microphone(microphone_source.as_ref())
+            .map_err(|e| format!("Failed to connect microphone: {:?}", e))?;
+        dev_log!("✓ Microphone automatically connected to audio pipeline");
+        
+        Ok(pipeline)
     }
     
     /// Create AudioWorkletNode with standard configuration
@@ -187,6 +199,94 @@ impl AudioPipeline {
                 }
             }
         }
+    }
+    
+    /// Set microphone volume
+    pub fn set_microphone_volume(&mut self, volume: f32) {
+        let clamped_volume = volume.clamp(0.0, 1.0);
+        self.microphone_gain_node.gain().set_value(clamped_volume);
+        dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
+    }
+    
+    /// Update tuning fork audio configuration
+    /// 
+    /// This method manages the dedicated TuningForkAudioNode that connects directly to speakers,
+    /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
+    /// audible regardless of the output_to_speakers flag.
+    pub fn update_tuning_fork_config(&mut self, config: super::signal_generator::TuningForkConfig) {
+        dev_log!("Updating tuning fork audio config - frequency: {} Hz", config.frequency);
+        
+        // Update the tuning fork audio node
+        self.tuning_fork_node.update_config(config);
+    }
+    
+    /// Update test signal generator configuration (unified routing - no reconnection needed)
+    pub fn update_test_signal_config(&mut self, config: super::signal_generator::SignalGeneratorConfig) {
+        // Handle microphone muting for test signals to prevent feedback
+        if config.enabled {
+            // Mute microphone when test signal is active
+            
+            // Mute microphone to prevent feedback (no reconnection needed - just volume control)
+            self.set_microphone_volume(0.0);
+            
+            // Enable speaker output for test signal
+            if !self.output_to_speakers {
+                self.set_output_to_speakers(true);
+                dev_log!("Automatically enabled speaker output for test signal");
+            }
+        }
+        
+        // Then manage local TestSignalAudioNode
+        if config.enabled {
+            // Update existing node
+            self.test_signal_node.update_config(config);
+            dev_log!("Updated test signal node configuration");
+        } else {
+            // Disable test signal but keep node for potential re-enabling
+            self.test_signal_node.disable();
+            dev_log!("Disabled test signal node");
+            self.set_microphone_volume(1.0);
+            self.set_output_to_speakers(false);
+        }
+    }
+    
+    /// Execute test signal configurations with privileged access
+    /// 
+    /// This method provides direct control over test signal generation,
+    /// bypassing normal validation checks.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `test_signal_configs` - Test signal configurations to execute
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    pub fn execute_test_signal_configurations(
+        &mut self,
+        test_signal_configs: &[crate::presentation::ConfigureTestSignal]
+    ) -> Result<(), String> {
+        for config in test_signal_configs {
+            dev_log!(
+                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%",
+                config.enabled, config.frequency, config.volume
+            );
+            
+            let audio_config = super::signal_generator::SignalGeneratorConfig {
+                enabled: config.enabled,
+                frequency: config.frequency,
+                amplitude: config.volume / 100.0,
+                sample_rate: crate::app_config::STANDARD_SAMPLE_RATE,
+            };
+            
+            self.update_test_signal_config(audio_config);
+            dev_log!(
+                "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
+                config.enabled, config.frequency, config.volume
+            );
+        }
+        Ok(())
     }
     
     /// Disconnect and cleanup all audio nodes
