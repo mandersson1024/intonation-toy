@@ -52,7 +52,6 @@ pub struct AudioEngine {
     audio_context: AudioContext,
     audio_pipeline: audio::audio_pipeline::AudioPipeline,
     audioworklet_manager: AudioWorkletManager,
-    output_to_speakers: bool,
 }
 
 impl AudioEngine {
@@ -123,7 +122,6 @@ impl AudioEngine {
             audio_context,
             audioworklet_manager: worklet_manager,
             audio_pipeline,
-            output_to_speakers: false,
         };
 
         // Connect media stream to audioworklet (preserving existing media stream handling)
@@ -288,41 +286,7 @@ impl AudioEngine {
 
     /// Set whether to output audio stream to speakers
     fn set_output_to_speakers(&mut self, enabled: bool) {
-        if self.output_to_speakers != enabled {
-            self.output_to_speakers = enabled;
-            if enabled {
-                self.connect_worklet_to_speakers();
-            } else {
-                self.disconnect_worklet_from_speakers();
-            }
-        }
-    }
-    
-    /// Connect AudioWorklet output to speakers
-    fn connect_worklet_to_speakers(&self) {
-        let destination = self.audio_context.destination();
-        match self.audio_pipeline.worklet_node.connect_with_audio_node(&destination) {
-            Ok(_) => {
-                crate::common::dev_log!("🔊 AudioWorklet connected to speakers");
-            }
-            Err(e) => {
-                crate::common::dev_log!("🔇 Failed to connect AudioWorklet to speakers: {:?}", e);
-            }
-        }
-    }
-    
-    /// Disconnect AudioWorklet output from speakers  
-    fn disconnect_worklet_from_speakers(&self) {
-        let destination = self.audio_context.destination();
-        // Disconnect only the connection to destination (speakers)
-        match self.audio_pipeline.worklet_node.disconnect_with_audio_node(&destination) {
-            Ok(_) => {
-                crate::common::dev_log!("🔇 AudioWorklet disconnected from speakers");
-            }
-            Err(e) => {
-                crate::common::dev_log!("⚠️ Could not disconnect from speakers (may not be connected): {:?}", e);
-            }
-        }
+        self.audio_pipeline.set_output_to_speakers(enabled);
     }
 
     /// Update tuning fork audio configuration
@@ -348,7 +312,7 @@ impl AudioEngine {
             self.set_microphone_volume(0.0);
             
             // Enable speaker output for test signal
-            if !self.output_to_speakers {
+            if !self.audio_pipeline.output_to_speakers {
                 self.set_output_to_speakers(true);
                 crate::common::dev_log!("Automatically enabled speaker output for test signal");
             }
@@ -453,24 +417,13 @@ impl AudioEngine {
     }
 
     /// Connect microphone input to audio worklet
-    fn connect_microphone(&mut self, microphone_source: &web_sys::AudioNode) -> Result<(), audio::audio_error::AudioError> {
-        // Get the output_to_speakers value first to avoid borrowing conflicts
-        let output_to_speakers = self.output_to_speakers;
-        
-        // Set up audio routing through the pipeline
-        self.audio_pipeline.connect_microphone(microphone_source, output_to_speakers)?;
-        
-        // Volume detector now uses the AudioPipeline's analyser node (connected automatically)
-        
-        Ok(())
-    }
 
     /// Connect a MediaStreamAudioSourceNode to the audio worklet
     pub fn connect_media_stream_to_audioworklet(
         &mut self,
         source: &web_sys::MediaStreamAudioSourceNode,
     ) -> Result<(), String> {
-        let result = self.connect_microphone(source.as_ref())
+        let result = self.audio_pipeline.connect_microphone(source.as_ref())
             .map_err(|e| e.to_string());
         
         match result {

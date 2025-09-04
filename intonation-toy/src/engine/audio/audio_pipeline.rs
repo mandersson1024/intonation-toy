@@ -13,6 +13,7 @@ pub struct AudioPipeline {
     pub microphone_gain_node: GainNode,
     pub legacy_microphone_source_node: Option<AudioNode>,
     pub analyser_node: AnalyserNode,
+    pub output_to_speakers: bool,
 }
 
 impl AudioPipeline {
@@ -70,6 +71,7 @@ impl AudioPipeline {
             microphone_gain_node: legacy_microphone_gain_node,
             legacy_microphone_source_node: None,
             analyser_node,
+            output_to_speakers: false,
         })
     }
     
@@ -115,7 +117,7 @@ impl AudioPipeline {
     /// Test Signal -> Mixer (connected but disabled by default)
     /// 
     /// Returns the microphone gain node for external volume detector connection
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode, output_to_speakers: bool) -> Result<&GainNode, AudioError> {
+    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<&GainNode, AudioError> {
         // Store microphone source
         self.legacy_microphone_source_node = Some(microphone_source.clone());
         
@@ -150,7 +152,7 @@ impl AudioPipeline {
         dev_log!("Connected mixer to worklet");
         
         // 6. Connect AudioWorklet to speakers if output is enabled
-        if output_to_speakers {
+        if self.output_to_speakers {
             let audio_context = self.worklet_node.context();
             if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
                 dev_log!("Failed to connect worklet to speakers: {:?}", e);
@@ -160,6 +162,31 @@ impl AudioPipeline {
         }
         
         Ok(&self.microphone_gain_node)
+    }
+    
+    /// Set whether audio should be output to speakers
+    pub fn set_output_to_speakers(&mut self, enabled: bool) {
+        if self.output_to_speakers != enabled {
+            self.output_to_speakers = enabled;
+            
+            // Update speaker connection based on new setting
+            if enabled {
+                let audio_context = self.worklet_node.context();
+                if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
+                    dev_log!("Failed to connect worklet to speakers: {:?}", e);
+                } else {
+                    dev_log!("Connected worklet to speakers");
+                }
+            } else {
+                // Disconnect only the speaker connection, not all connections
+                let audio_context = self.worklet_node.context();
+                if let Err(e) = self.worklet_node.disconnect_with_audio_node(&audio_context.destination()) {
+                    dev_log!("Failed to disconnect worklet from speakers: {:?}", e);
+                } else {
+                    dev_log!("Disconnected worklet from speakers");
+                }
+            }
+        }
     }
     
     /// Disconnect and cleanup all audio nodes
