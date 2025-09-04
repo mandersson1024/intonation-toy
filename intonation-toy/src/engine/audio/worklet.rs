@@ -43,14 +43,12 @@ pub struct AudioWorkletManager {
     handler_state: Rc<RefCell<MessageHandlerState>>,
     message_factory: AudioWorkletMessageFactory,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
-    pub volume_detector: Rc<RefCell<VolumeDetector>>,
 }
 
 impl AudioWorkletManager {
-    pub fn new(worklet_node: web_sys::AudioWorkletNode, volume_detector: VolumeDetector) -> Result<Self, String> {
+    pub fn new(worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
         Ok(Self {
             worklet_state: AudioWorkletState::Ready,
-            volume_detector: Rc::new(RefCell::new(volume_detector)),
             _message_closure: None,
             handler_state: Rc::new(RefCell::new(MessageHandlerState {
                 batches_processed: 0,
@@ -63,7 +61,7 @@ impl AudioWorkletManager {
         })
     }
     
-    pub fn setup_message_handling(&mut self, pitch_analyzer: super::pitch_analyzer::PitchAnalyzer) -> Result<(), AudioError> {
+    pub fn setup_message_handling(&mut self, pitch_analyzer: super::pitch_analyzer::PitchAnalyzer, volume_detector: VolumeDetector) -> Result<(), AudioError> {
         let worklet = &self.worklet_node;
         // Clean up existing closure and port handler
         self._message_closure = None;
@@ -75,7 +73,7 @@ impl AudioWorkletManager {
         
         // Capture fields needed for the message handler
         let handler_state_clone = self.handler_state.clone();
-        let volume_detector_clone = self.volume_detector.clone();
+        let volume_detector_clone = Rc::new(RefCell::new(volume_detector));
         let pitch_analyzer_clone = Rc::new(RefCell::new(pitch_analyzer));
         let worklet_node_clone = worklet.clone();
         let message_factory_clone = self.message_factory.clone();

@@ -98,18 +98,18 @@ impl AudioEngine {
                 error_msg
             })?;
         
-        // Create VolumeDetector using the AudioPipeline's analyser node
-        let volume_detector = VolumeDetector::new(audio_pipeline.analyser_node.clone());
-        crate::common::dev_log!("✓ VolumeDetector created using AudioPipeline's analyser node");
-        
-        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(worklet_node, volume_detector)
+        let mut worklet_manager = audio::worklet::AudioWorkletManager::new(worklet_node)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioWorkletManager: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
                 error_msg
             })?;
 
-        worklet_manager.setup_message_handling(pitch_analyzer)
+        // Create VolumeDetector using the AudioPipeline's analyser node
+        let volume_detector = VolumeDetector::new(audio_pipeline.analyser_node.clone());
+        crate::common::dev_log!("✓ VolumeDetector created using AudioPipeline's analyser node");
+        
+        worklet_manager.setup_message_handling(pitch_analyzer, volume_detector)
             .map_err(|e| {
                 let error_msg = format!("Failed to setup message handling: {:?}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
