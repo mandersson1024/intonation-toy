@@ -1,6 +1,6 @@
 use super::data_types::VolumeAnalysis;
 
-pub fn analyze(time_domain_data: &[f32]) -> VolumeAnalysis {
+pub fn analyze_volume(time_domain_data: &[f32]) -> VolumeAnalysis {
     VolumeAnalysis {
         peak_amplitude: get_peak_amplitude_from_time_domain(time_domain_data),
         rms_amplitude: calculate_rms_amplitude_from_time_domain(time_domain_data),

@@ -62,7 +62,7 @@ impl VolumeDetector {
         self.analyser_node.get_float_time_domain_data(&mut self.time_domain_data);
         
         // Perform the analysis with the filled buffers
-        Ok(analysis::analyze(&self.time_domain_data))
+        Ok(analysis::analyze_volume(&self.time_domain_data))
     }
     
     /// Disconnects the analyser node from all connected inputs
