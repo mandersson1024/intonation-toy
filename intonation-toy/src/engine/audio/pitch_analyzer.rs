@@ -9,18 +9,15 @@ pub struct PitchAnalyzer {
 }
 
 impl PitchAnalyzer {
-    pub fn new(
-        config: PitchDetectorConfig,
-        sample_rate: u32,
-    ) -> Result<Self, PitchAnalysisError> {
-        let pitch_detector = PitchDetector::new(config.clone(), sample_rate)
+    pub fn new(sample_rate: u32) -> Result<Self, PitchAnalysisError> {
+        let config = PitchDetectorConfig::default();
+        let sample_window_size = config.sample_window_size;
+        let pitch_detector = PitchDetector::new(config, sample_rate)
             .map_err(|e| format!("Failed to create pitch detector: {}", e))?;
-        
-        let analysis_buffer = vec![0.0; config.sample_window_size];
         
         Ok(Self {
             pitch_detector,
-            analysis_buffer,
+            analysis_buffer: vec![0.0; sample_window_size],
         })
     }
 

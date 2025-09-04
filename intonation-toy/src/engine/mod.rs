@@ -88,10 +88,9 @@ impl AudioEngine {
         // Extract worklet_node for AudioWorkletManager
         let worklet_node = audio_pipeline.worklet_node.clone();
         
-        // Create PitchAnalyzer with default config and audio context sample rate
-        let config = audio::pitch_detector::PitchDetectorConfig::default();
+        // Create PitchAnalyzer with audio context sample rate
         let sample_rate = audio_context.sample_rate() as u32;
-        let pitch_analyzer = audio::pitch_analyzer::PitchAnalyzer::new(config, sample_rate)
+        let pitch_analyzer = audio::pitch_analyzer::PitchAnalyzer::new(sample_rate)
             .map_err(|e| {
                 let error_msg = format!("Failed to create PitchAnalyzer: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
