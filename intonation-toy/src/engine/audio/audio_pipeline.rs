@@ -117,13 +117,13 @@ impl NewAudioPipeline {
     pub fn set_signal_path_mode(&mut self, mode: SignalPathMode) {
         match mode {
             SignalPathMode::TuningForkMode => {
-                self.signal_path.input_gain.gain().set_value(1.0);
-                self.signal_path.test_signal_gain.gain().set_value(0.0);
+                self.signal_path.input_mute.gain().set_value(1.0);
+                self.signal_path.test_signal_mute.gain().set_value(0.0);
                 dev_log!("Signal path mode set to TuningForkMode - input enabled, test signal disabled");
             }
             SignalPathMode::TestSignalMode => {
-                self.signal_path.input_gain.gain().set_value(0.0);
-                self.signal_path.test_signal_gain.gain().set_value(1.0);
+                self.signal_path.input_mute.gain().set_value(0.0);
+                self.signal_path.test_signal_mute.gain().set_value(1.0);
                 dev_log!("Signal path mode set to TestSignalMode - input disabled, test signal enabled");
             }
         }
