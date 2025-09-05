@@ -1,6 +1,5 @@
 // Type-safe message protocol for AudioWorklet communication
 
-use crate::engine::audio::audio_pipeline_configs::SignalGeneratorConfig;
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 
@@ -770,72 +769,6 @@ impl MessageValidator for BatchConfig {
 }
 
 // Configuration type implementations
-impl ToJsMessage for SignalGeneratorConfig {
-    fn to_js_object(&self) -> SerializationResult<Object> {
-        let obj = Object::new();
-        
-        Reflect::set(&obj, &"enabled".into(), &self.enabled.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set enabled: {:?}", e)))?;
-        Reflect::set(&obj, &"frequency".into(), &self.frequency.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set frequency: {:?}", e)))?;
-        Reflect::set(&obj, &"amplitude".into(), &self.amplitude.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set amplitude: {:?}", e)))?;
-        Reflect::set(&obj, &"sampleRate".into(), &self.sample_rate.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set sampleRate: {:?}", e)))?;
-        
-        
-        Ok(obj)
-    }
-}
-
-impl FromJsMessage for SignalGeneratorConfig {
-    fn from_js_object(obj: &Object) -> SerializationResult<Self> {
-        let enabled = Reflect::get(obj, &"enabled".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get enabled: {:?}", e)))?
-            .as_bool()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("enabled must be boolean".to_string()))?;
-        
-        let frequency = Reflect::get(obj, &"frequency".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get frequency: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("frequency must be number".to_string()))?
-            as f32;
-        
-        let amplitude = Reflect::get(obj, &"amplitude".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get amplitude: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("amplitude must be number".to_string()))?
-            as f32;
-        
-        let sample_rate = Reflect::get(obj, &"sampleRate".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get sampleRate: {:?}", e)))?
-            .as_f64()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("sampleRate must be number".to_string()))?
-            as u32;
-        
-        Ok(SignalGeneratorConfig {
-            enabled,
-            frequency,
-            amplitude,
-            sample_rate,
-        })
-    }
-}
-
-impl MessageValidator for SignalGeneratorConfig {
-    fn validate(&self) -> SerializationResult<()> {
-        if self.frequency <= 0.0 {
-            return Err(SerializationError::ValidationFailed("frequency must be positive".to_string()));
-        }
-        if self.amplitude < 0.0 || self.amplitude > 1.0 {
-            return Err(SerializationError::ValidationFailed("amplitude must be between 0.0 and 1.0".to_string()));
-        }
-        if self.sample_rate == 0 {
-            return Err(SerializationError::ValidationFailed("sample_rate must be positive".to_string()));
-        }
-        Ok(())
-    }
-}
 
 impl ToJsMessage for WorkletError {
     fn to_js_object(&self) -> SerializationResult<Object> {

@@ -39,7 +39,6 @@ impl AudioPipeline {
             enabled: false,
             frequency: 440.0, // A4
             amplitude: 0.0,
-            sample_rate: audio_context.sample_rate() as u32,
         };
         
         let mut pipeline = Self {
@@ -364,7 +363,6 @@ impl AudioPipeline {
                 enabled: config.enabled,
                 frequency: config.frequency,
                 amplitude: config.volume / 100.0,
-                sample_rate: crate::app_config::STANDARD_SAMPLE_RATE,
             };
             
             self.update_test_signal_config(audio_config);
