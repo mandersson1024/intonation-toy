@@ -1,6 +1,5 @@
 use web_sys::{AnalyserNode, AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, GainNode, MediaStreamAudioSourceNode, OscillatorNode, OscillatorType};
 use super::audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
-use super::AudioError;
 use crate::common::dev_log;
 
 pub struct AudioPipeline {
@@ -43,16 +42,6 @@ impl AudioPipeline {
             sample_rate: audio_context.sample_rate() as u32,
         };
         
-        // Connect tuning fork: oscillator -> gain -> speakers
-        tuning_fork_oscillator_node.connect_with_audio_node(&tuning_fork_gain_node)
-            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
-        tuning_fork_gain_node.connect_with_audio_node(&audio_context.destination())
-            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
-        
-        // Connect test signal: oscillator -> gain -> (will connect to mixer later)
-        test_signal_oscillator_node.connect_with_audio_node(&test_signal_gain_node)
-            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
-        
         let mut pipeline = Self {
             input_node,
             input_gain_node,
@@ -68,10 +57,9 @@ impl AudioPipeline {
             output_to_speakers: false,
         };
         
-        // Connect microphone automatically
-        pipeline.connect_nodes()
-            .map_err(|e| format!("Failed to connect microphone: {:?}", e))?;
-        dev_log!("✓ Microphone automatically connected to audio pipeline");
+        // Connect all nodes
+        pipeline.connect_all_nodes(audio_context)?;
+        dev_log!("✓ All audio nodes connected");
         
         Ok(pipeline)
     }
@@ -176,6 +164,49 @@ impl AudioPipeline {
             mixer_gain_node))
     }
     
+    /// Connect all audio nodes to create the audio graph
+    /// 
+    /// Sets up the complete audio routing:
+    /// - Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet/Analyser -> (optionally) Speakers
+    /// - Test Signal -> Test Signal Gain -> Mixer
+    /// - Tuning Fork -> Tuning Fork Gain -> Speakers
+    fn connect_all_nodes(&mut self, audio_context: &AudioContext) -> Result<(), String> {
+        // Connect tuning fork chain: oscillator -> gain -> speakers
+        self.tuning_fork_oscillator_node.connect_with_audio_node(&self.tuning_fork_gain_node)
+            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
+        self.tuning_fork_gain_node.connect_with_audio_node(&audio_context.destination())
+            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
+        dev_log!("Connected tuning fork chain");
+        
+        // Connect test signal chain: oscillator -> gain -> mixer
+        self.test_signal_oscillator_node.connect_with_audio_node(&self.test_signal_gain_node)
+            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
+        self.test_signal_gain_node.connect_with_audio_node(&self.mixer_gain_node)
+            .map_err(|_| "Failed to connect test signal gain to mixer".to_string())?;
+        dev_log!("Connected test signal chain");
+        
+        // Connect microphone chain: source -> gain -> mixer
+        self.input_node.connect_with_audio_node(&self.input_gain_node)
+            .map_err(|_| "Failed to connect microphone source to gain".to_string())?;
+        self.input_gain_node.connect_with_audio_node(&self.mixer_gain_node)
+            .map_err(|_| "Failed to connect microphone gain to mixer".to_string())?;
+        dev_log!("Connected microphone chain");
+        
+        // Connect mixer to analyser (for volume detection)
+        self.mixer_gain_node.connect_with_audio_node(&self.analyser_node)
+            .map_err(|_| "Failed to connect mixer to analyser".to_string())?;
+        dev_log!("Connected mixer to analyser");
+        
+        // Connect mixer to worklet (for pitch detection)
+        self.mixer_gain_node.connect_with_audio_node(&self.worklet_node)
+            .map_err(|_| "Failed to connect mixer to worklet".to_string())?;
+        dev_log!("Connected mixer to worklet");
+        
+        // Note: Worklet to speakers connection is handled separately via set_output_to_speakers()
+        
+        Ok(())
+    }
+    
     /// Create AudioWorkletNode with standard configuration
     /// 
     /// This method creates an AudioWorkletNode using standard configuration options.
@@ -211,56 +242,6 @@ impl AudioPipeline {
         Ok(worklet_node)
     }
     
-    /// Connect microphone input and set up audio routing
-    /// 
-    /// Sets up the complete audio routing chain:
-    /// Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet -> (optionally) Speakers
-    /// Test Signal -> Mixer (connected but disabled by default)
-    /// 
-    /// Returns the microphone gain node for external volume detector connection
-    pub fn connect_nodes(&mut self) -> Result<&GainNode, AudioError> {
-        // Unified connection setup - always the same regardless of state:
-        // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
-        
-        // 1. Connect microphone source to microphone gain
-        let mic_gain = &self.input_gain_node;
-        self.input_node.connect_with_audio_node(mic_gain)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
-        dev_log!("Connected microphone to gain node");
-        
-        // 2. Connect microphone gain to mixer
-        let mixer = &self.mixer_gain_node;
-        mic_gain.connect_with_audio_node(mixer)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect microphone gain to mixer: {:?}", e)))?;
-        dev_log!("Connected microphone gain to mixer");
-        
-        // 3. Connect test signal to mixer (it's disabled by default, so this is safe)
-        self.test_signal_gain_node.connect_with_audio_node(mixer)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
-        dev_log!("Connected test signal to mixer");
-        
-        // 4. Connect mixer to analyser node for volume detection
-        mixer.connect_with_audio_node(&self.analyser_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to analyser: {:?}", e)))?;
-        dev_log!("Connected mixer to analyser node");
-        
-        // 5. Connect mixer to worklet
-        mixer.connect_with_audio_node(&self.worklet_node)
-            .map_err(|e| AudioError::Generic(format!("Failed to connect mixer to worklet: {:?}", e)))?;
-        dev_log!("Connected mixer to worklet");
-        
-        // 6. Connect AudioWorklet to speakers if output is enabled
-        if self.output_to_speakers {
-            let audio_context = self.worklet_node.context();
-            if let Err(e) = self.worklet_node.connect_with_audio_node(&audio_context.destination()) {
-                dev_log!("Failed to connect worklet to speakers: {:?}", e);
-            } else {
-                dev_log!("Connected worklet to speakers");
-            }
-        }
-        
-        Ok(&self.input_gain_node)
-    }
     
     /// Set whether audio should be output to speakers
     pub fn set_output_to_speakers(&mut self, enabled: bool) {
