@@ -181,7 +181,7 @@ impl AudioEngine {
         
         if let Some(config) = model_actions.tuning_fork_configuration {
             // Convert model action to audio system config
-            let audio_config = crate::engine::audio::signal_generator::TuningForkConfig {
+            let audio_config = crate::engine::audio::audio_pipeline_configs::TuningForkConfig {
                 frequency: config.frequency,
                 volume: config.volume,
             };

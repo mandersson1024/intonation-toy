@@ -1,6 +1,6 @@
 // Type-safe message protocol for AudioWorklet communication
 
-use crate::engine::audio::signal_generator::SignalGeneratorConfig;
+use crate::engine::audio::audio_pipeline_configs::SignalGeneratorConfig;
 use js_sys::{Object, Reflect};
 use wasm_bindgen::{JsValue, JsCast};
 

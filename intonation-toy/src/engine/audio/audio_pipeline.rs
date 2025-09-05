@@ -1,5 +1,5 @@
-use web_sys::{AnalyserNode, AudioContext, AudioNode, AudioWorkletNode, AudioWorkletNodeOptions, GainNode, MediaStreamAudioSourceNode, OscillatorNode, OscillatorType};
-use super::signal_generator::{SignalGeneratorConfig, TuningForkConfig};
+use web_sys::{AnalyserNode, AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, GainNode, MediaStreamAudioSourceNode, OscillatorNode, OscillatorType};
+use super::audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
 use super::AudioError;
 use crate::common::dev_log;
 
@@ -24,32 +24,86 @@ pub struct AudioPipeline {
 
 impl AudioPipeline {
     pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream) -> Result<Self, String> {
-
-        let microphone_source = audio_context.create_media_stream_source(media_stream)
-            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
+        // Create all nodes first
+        let (input_node, input_gain_node, worklet_node, analyser_node, 
+             test_signal_oscillator_node, test_signal_gain_node,
+             tuning_fork_oscillator_node, tuning_fork_gain_node,
+             mixer_gain_node) = Self::create_nodes(audio_context, media_stream)?;
         
-        let microphone_gain_node = audio_context
-            .create_gain()
-            .map_err(|_| "Failed to create microphone gain node".to_string())?;
-        microphone_gain_node.gain().set_value(1.0);
-
-        let worklet_node = Self::create_worklet_node(audio_context)?;
-        
-        
-        // Create mixer gain node
-        let legacy_mixer_gain_node = audio_context
-            .create_gain()
-            .map_err(|_| "Failed to create mixer gain node".to_string())?;
-        legacy_mixer_gain_node.gain().set_value(1.0);
-        
-        // Create tuning fork nodes with default config
+        // Default configurations
         let default_tuning_fork_config = TuningForkConfig {
             frequency: 440.0, // A4
             volume: 0.0,      // Start muted
         };
         
-        // Create oscillator with custom waveform
-        let tuning_fork_oscillator = audio_context.create_oscillator()
+        let default_test_signal_config = SignalGeneratorConfig {
+            enabled: false,
+            frequency: 440.0, // A4
+            amplitude: 0.0,
+            sample_rate: audio_context.sample_rate() as u32,
+        };
+        
+        // Connect tuning fork: oscillator -> gain -> speakers
+        tuning_fork_oscillator_node.connect_with_audio_node(&tuning_fork_gain_node)
+            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
+        tuning_fork_gain_node.connect_with_audio_node(&audio_context.destination())
+            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
+        
+        // Connect test signal: oscillator -> gain -> (will connect to mixer later)
+        test_signal_oscillator_node.connect_with_audio_node(&test_signal_gain_node)
+            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
+        
+        let mut pipeline = Self {
+            input_node,
+            input_gain_node,
+            worklet_node,
+            analyser_node,
+            test_signal_oscillator_node,
+            test_signal_gain_node,
+            tuning_fork_oscillator_node,
+            tuning_fork_gain_node,
+            mixer_gain_node,
+            tuning_fork_config: default_tuning_fork_config,
+            test_signal_config: default_test_signal_config,
+            output_to_speakers: false,
+        };
+        
+        // Connect microphone automatically
+        pipeline.connect_nodes()
+            .map_err(|e| format!("Failed to connect microphone: {:?}", e))?;
+        dev_log!("✓ Microphone automatically connected to audio pipeline");
+        
+        Ok(pipeline)
+    }
+    
+    /// Create all audio nodes without connecting them
+    /// Returns a tuple of all created nodes
+    fn create_nodes(audio_context: &AudioContext, media_stream: &web_sys::MediaStream) 
+        -> Result<(MediaStreamAudioSourceNode, GainNode, AudioWorkletNode, AnalyserNode, 
+                   OscillatorNode, GainNode, OscillatorNode, GainNode, GainNode), String> {
+        dev_log!("Creating audio nodes");
+        
+        // Create microphone source node
+        let input_node = audio_context.create_media_stream_source(media_stream)
+            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
+        
+        // Create input gain node
+        let input_gain_node = audio_context
+            .create_gain()
+            .map_err(|_| "Failed to create microphone gain node".to_string())?;
+        input_gain_node.gain().set_value(1.0);
+        
+        // Create worklet node
+        let worklet_node = Self::create_worklet_node(audio_context)?;
+        
+        // Create mixer gain node
+        let mixer_gain_node = audio_context
+            .create_gain()
+            .map_err(|_| "Failed to create mixer gain node".to_string())?;
+        mixer_gain_node.gain().set_value(1.0);
+        
+        // Create tuning fork oscillator with custom waveform
+        let tuning_fork_oscillator_node = audio_context.create_oscillator()
             .map_err(|_| "Failed to create tuning fork oscillator".to_string())?;
         
         // Create custom waveform with harmonic series
@@ -76,49 +130,31 @@ impl AudioPipeline {
         let periodic_wave = audio_context.create_periodic_wave(&mut real, &mut imag)
             .map_err(|_| "Failed to create periodic wave".to_string())?;
         
-        tuning_fork_oscillator.set_periodic_wave(&periodic_wave);
-        tuning_fork_oscillator.frequency().set_value(default_tuning_fork_config.frequency);
-        
-        // Create gain node for tuning fork
-        let tuning_fork_gain = audio_context.create_gain()
-            .map_err(|_| "Failed to create tuning fork gain node".to_string())?;
-        tuning_fork_gain.gain().set_value(default_tuning_fork_config.volume);
-        
-        // Connect tuning fork: oscillator -> gain -> speakers
-        tuning_fork_oscillator.connect_with_audio_node(&tuning_fork_gain)
-            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
-        tuning_fork_gain.connect_with_audio_node(&audio_context.destination())
-            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
-        tuning_fork_oscillator.start()
+        tuning_fork_oscillator_node.set_periodic_wave(&periodic_wave);
+        tuning_fork_oscillator_node.frequency().set_value(440.0); // A4 default
+        tuning_fork_oscillator_node.start()
             .map_err(|_| "Failed to start tuning fork oscillator".to_string())?;
+        
+        // Create tuning fork gain node
+        let tuning_fork_gain_node = audio_context.create_gain()
+            .map_err(|_| "Failed to create tuning fork gain node".to_string())?;
+        tuning_fork_gain_node.gain().set_value(0.0); // Start muted
         
         dev_log!("✓ Tuning fork oscillator and gain created");
         
-        // Create test signal nodes with default config (disabled by default)
-        let default_test_signal_config = SignalGeneratorConfig {
-            enabled: false,
-            frequency: 440.0, // A4
-            amplitude: 0.0,
-            sample_rate: audio_context.sample_rate() as u32,
-        };
-        
         // Create test signal oscillator
-        let test_signal_oscillator = audio_context.create_oscillator()
+        let test_signal_oscillator_node = audio_context.create_oscillator()
             .map_err(|_| "Failed to create test signal oscillator".to_string())?;
         
-        test_signal_oscillator.set_type(OscillatorType::Sine);
-        test_signal_oscillator.frequency().set_value(default_test_signal_config.frequency);
+        test_signal_oscillator_node.set_type(OscillatorType::Sine);
+        test_signal_oscillator_node.frequency().set_value(440.0); // A4 default
+        test_signal_oscillator_node.start()
+            .map_err(|_| "Failed to start test signal oscillator".to_string())?;
         
         // Create test signal gain node
-        let test_signal_gain = audio_context.create_gain()
+        let test_signal_gain_node = audio_context.create_gain()
             .map_err(|_| "Failed to create test signal gain node".to_string())?;
-        test_signal_gain.gain().set_value(if default_test_signal_config.enabled { default_test_signal_config.amplitude } else { 0.0 });
-        
-        // Connect test signal: oscillator -> gain -> (will connect to mixer later)
-        test_signal_oscillator.connect_with_audio_node(&test_signal_gain)
-            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
-        test_signal_oscillator.start()
-            .map_err(|_| "Failed to start test signal oscillator".to_string())?;
+        test_signal_gain_node.gain().set_value(0.0); // Start disabled
         
         dev_log!("✓ Test signal oscillator and gain created");
         
@@ -132,32 +168,12 @@ impl AudioPipeline {
         // Set smoothing time constant to 0.0 for real-time analysis
         analyser_node.set_smoothing_time_constant(0.0);
         
-        dev_log!("AudioPipeline analyser node created with FFT size: 128");
+        dev_log!("✓ AudioPipeline analyser node created with FFT size: 128");
         
-        let mut pipeline = Self {
-            worklet_node,
-            // Tuning fork fields
-            tuning_fork_oscillator_node: tuning_fork_oscillator,
-            tuning_fork_gain_node: tuning_fork_gain,
-            tuning_fork_config: default_tuning_fork_config,
-            // Test signal fields
-            test_signal_oscillator_node: test_signal_oscillator,
-            test_signal_gain_node: test_signal_gain,
-            test_signal_config: default_test_signal_config,
-            // Other fields
-            mixer_gain_node: legacy_mixer_gain_node,
-            input_gain_node: microphone_gain_node,
-            input_node: microphone_source.clone().into(),
-            analyser_node,
-            output_to_speakers: false,
-        };
-        
-        // Connect microphone automatically
-        pipeline.connect_nodes()
-            .map_err(|e| format!("Failed to connect microphone: {:?}", e))?;
-        dev_log!("✓ Microphone automatically connected to audio pipeline");
-        
-        Ok(pipeline)
+        Ok((input_node, input_gain_node, worklet_node, analyser_node,
+            test_signal_oscillator_node, test_signal_gain_node,
+            tuning_fork_oscillator_node, tuning_fork_gain_node,
+            mixer_gain_node))
     }
     
     /// Create AudioWorkletNode with standard configuration
@@ -283,7 +299,7 @@ impl AudioPipeline {
     /// This method manages the integrated tuning fork oscillator that connects directly to speakers,
     /// independent of the main AudioWorklet processing pipeline. Tuning fork audio is always
     /// audible regardless of the output_to_speakers flag.
-    pub fn update_tuning_fork_config(&mut self, config: super::signal_generator::TuningForkConfig) {
+    pub fn update_tuning_fork_config(&mut self, config: super::audio_pipeline_configs::TuningForkConfig) {
         dev_log!("Updating tuning fork audio config - frequency: {} Hz", config.frequency);
         
         // Update frequency if changed
@@ -308,7 +324,7 @@ impl AudioPipeline {
     }
     
     /// Update test signal generator configuration (unified routing - no reconnection needed)
-    pub fn update_test_signal_config(&mut self, config: super::signal_generator::SignalGeneratorConfig) {
+    pub fn update_test_signal_config(&mut self, config: super::audio_pipeline_configs::SignalGeneratorConfig) {
         // Handle microphone muting for test signals to prevent feedback
         if config.enabled {
             // Mute microphone when test signal is active
@@ -363,7 +379,7 @@ impl AudioPipeline {
                 config.enabled, config.frequency, config.volume
             );
             
-            let audio_config = super::signal_generator::SignalGeneratorConfig {
+            let audio_config = super::audio_pipeline_configs::SignalGeneratorConfig {
                 enabled: config.enabled,
                 frequency: config.frequency,
                 amplitude: config.volume / 100.0,
