@@ -128,9 +128,6 @@ impl AudioEngine {
             let _ = engine.audioworklet_manager.start_processing();
         }
         
-        // Configure default tuning fork
-        engine.audio_pipeline.update_tuning_fork_config(audio::TuningForkConfig::default());
-
         crate::common::dev_log!("✓ AudioEngine fully initialized");
         Ok(engine)
     }
