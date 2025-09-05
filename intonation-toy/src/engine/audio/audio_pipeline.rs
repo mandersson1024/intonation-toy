@@ -16,6 +16,7 @@ pub enum SignalPathMode {
 /// The pipeline creates and manages all Web Audio API nodes through the signal path.
 pub struct NewAudioPipeline {
     pub signal_path: AudioSignalPath,
+    audio_context: AudioContext,
 }
 
 impl NewAudioPipeline {
@@ -84,6 +85,7 @@ impl NewAudioPipeline {
 
         let pipeline = Self {
             signal_path,
+            audio_context: audio_context.clone(),
         };
 
         Ok(pipeline)
@@ -128,6 +130,64 @@ impl NewAudioPipeline {
             }
         }
     }
+
+    pub fn update_tuning_fork_config(&mut self, config: super::audio_pipeline_configs::TuningForkConfig) {
+        self.signal_path.tuning_fork_osc.frequency().set_value(config.frequency);
+        self.ramp_tuning_fork_gain(config.volume);
+    }
+
+    fn ramp_tuning_fork_gain(&self, target: f32) {
+        if self.signal_path.tuning_fork_gain.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05).is_err() {
+            self.signal_path.tuning_fork_gain.gain().set_value(target);
+        }
+    }
+
+    /// Execute test signal configurations with privileged access
+    /// 
+    /// This method provides direct control over test signal generation,
+    /// bypassing normal validation checks.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `test_signal_configs` - Test signal configurations to execute
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<(), String>` indicating success or failure
+    #[cfg(debug_assertions)]
+    pub fn execute_test_signal_configurations(
+        &mut self,
+        test_signal_configs: &[crate::presentation::ConfigureTestSignal]
+    ) -> Result<(), String> {
+        for config in test_signal_configs {
+            dev_log!(
+                "[DEBUG] Executing privileged test signal configuration - enabled: {}, freq: {} Hz, vol: {}%",
+                config.enabled, config.frequency, config.volume
+            );
+            
+            if config.enabled {
+                // Set test signal frequency and amplitude
+                self.signal_path.test_signal_osc.frequency().set_value(config.frequency);
+                self.signal_path.test_signal_gain.gain().set_value(config.volume / 100.0);
+                
+                // Switch to test signal mode
+                self.set_signal_path_mode(SignalPathMode::TestSignalMode);
+            } else {
+                // Disable test signal
+                self.signal_path.test_signal_gain.gain().set_value(0.0);
+                
+                // Switch back to tuning fork mode
+                self.set_signal_path_mode(SignalPathMode::TuningForkMode);
+            }
+            
+            dev_log!(
+                "[DEBUG] ✓ Test signal control updated - enabled: {}, freq: {}, vol: {}%", 
+                config.enabled, config.frequency, config.volume
+            );
+        }
+        Ok(())
+    }
+
 }
 
 pub struct AudioPipeline {
