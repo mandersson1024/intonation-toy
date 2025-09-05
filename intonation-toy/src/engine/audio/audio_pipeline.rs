@@ -157,39 +157,34 @@ impl AudioPipeline {
     /// - Test Signal -> Test Signal Gain -> Mixer
     /// - Tuning Fork -> Tuning Fork Gain -> Speakers
     fn connect_all_nodes(&mut self, audio_context: &AudioContext) -> Result<(), String> {
-        // Connect tuning fork chain: oscillator -> gain -> speakers
-        self.tuning_fork_oscillator_node.connect_with_audio_node(&self.tuning_fork_gain_node)
-            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
-        self.tuning_fork_gain_node.connect_with_audio_node(&audio_context.destination())
-            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
-        dev_log!("Connected tuning fork chain");
-        
-        // Connect test signal chain: oscillator -> gain -> mixer
-        self.test_signal_oscillator_node.connect_with_audio_node(&self.test_signal_gain_node)
-            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
-        self.test_signal_gain_node.connect_with_audio_node(&self.mixer_gain_node)
-            .map_err(|_| "Failed to connect test signal gain to mixer".to_string())?;
-        dev_log!("Connected test signal chain");
-        
-        // Connect microphone chain: source -> gain -> mixer
         self.input_node.connect_with_audio_node(&self.input_gain_node)
             .map_err(|_| "Failed to connect microphone source to gain".to_string())?;
+
         self.input_gain_node.connect_with_audio_node(&self.mixer_gain_node)
             .map_err(|_| "Failed to connect microphone gain to mixer".to_string())?;
-        dev_log!("Connected microphone chain");
+
+        /////
         
-        // Connect mixer to analyser (for volume detection)
-        self.mixer_gain_node.connect_with_audio_node(&self.analyser_node)
-            .map_err(|_| "Failed to connect mixer to analyser".to_string())?;
-        dev_log!("Connected mixer to analyser");
+        self.tuning_fork_oscillator_node.connect_with_audio_node(&self.tuning_fork_gain_node)
+            .map_err(|_| "Failed to connect tuning fork oscillator to gain".to_string())?;
+
+        self.tuning_fork_gain_node.connect_with_audio_node(&audio_context.destination())
+            .map_err(|_| "Failed to connect tuning fork gain to destination".to_string())?;
         
-        // Connect mixer to worklet (for pitch detection)
+        /////
+        
+        self.test_signal_oscillator_node.connect_with_audio_node(&self.test_signal_gain_node)
+            .map_err(|_| "Failed to connect test signal oscillator to gain".to_string())?;
+
+        self.test_signal_gain_node.connect_with_audio_node(&self.mixer_gain_node)
+            .map_err(|_| "Failed to connect test signal gain to mixer".to_string())?;
+        
         self.mixer_gain_node.connect_with_audio_node(&self.worklet_node)
             .map_err(|_| "Failed to connect mixer to worklet".to_string())?;
-        dev_log!("Connected mixer to worklet");
         
-        // Note: Worklet to speakers connection is handled separately via set_output_to_speakers()
-        
+        self.mixer_gain_node.connect_with_audio_node(&self.analyser_node)
+            .map_err(|_| "Failed to connect mixer to analyser".to_string())?;
+
         Ok(())
     }
     
