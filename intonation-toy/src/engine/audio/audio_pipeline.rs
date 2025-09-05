@@ -3,6 +3,12 @@ use super::audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
 use crate::{common::dev_log, engine::audio::AudioSignalPath};
 
 
+
+pub enum SignalPathMode { 
+    TuningForkMode, 
+    TestSignalMode,
+}
+
 /// Audio pipeline with simplified signal path architecture
 /// 
 /// This struct manages audio processing using the new AudioSignalPath approach,
@@ -41,6 +47,31 @@ impl NewAudioPipeline {
         };
 
         Ok(pipeline)
+    }
+
+    /// Set the signal path mode for audio routing
+    /// 
+    /// Configures the audio pipeline to route signals according to the specified mode.
+    /// This affects which audio sources are active and how they're routed through the pipeline.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `mode` - The signal path mode to configure
+    pub fn set_signal_path_mode(&mut self, mode: SignalPathMode) {
+        match mode {
+            SignalPathMode::TuningForkMode => {
+                // Configure signal path for tuning fork mode
+                // - Set input gain node volume to 1.0
+                // - Set test signal gain node volume to 0.0
+                todo!("Implement tuning fork mode configuration");
+            }
+            SignalPathMode::TestSignalMode => {
+                // Configure signal path for test signal mode
+                // - Set input gain node volume to 0.0
+                // - Set test signal gain node volume to 1.0
+                todo!("Implement test signal mode configuration");
+            }
+        }
     }
 }
 
