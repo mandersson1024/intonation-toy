@@ -29,18 +29,6 @@ impl AudioPipeline {
              tuning_fork_oscillator_node, tuning_fork_gain_node,
              mixer_gain_node) = Self::create_nodes(audio_context, media_stream)?;
         
-        // Default configurations
-        let default_tuning_fork_config = TuningForkConfig {
-            frequency: 440.0, // A4
-            volume: 0.0,      // Start muted
-        };
-        
-        let default_test_signal_config = SignalGeneratorConfig {
-            enabled: false,
-            frequency: 440.0, // A4
-            amplitude: 0.0,
-        };
-        
         let mut pipeline = Self {
             input_node,
             input_gain_node,
@@ -51,14 +39,13 @@ impl AudioPipeline {
             tuning_fork_oscillator_node,
             tuning_fork_gain_node,
             mixer_gain_node,
-            tuning_fork_config: default_tuning_fork_config,
-            test_signal_config: default_test_signal_config,
+            tuning_fork_config: TuningForkConfig { frequency: 440.0, volume: 0.0 },
+            test_signal_config: SignalGeneratorConfig { enabled: false, frequency: 440.0, amplitude: 0.0 },
             output_to_speakers: false,
         };
         
         // Connect all nodes
         pipeline.connect_all_nodes(audio_context)?;
-        dev_log!("✓ All audio nodes connected");
         
         Ok(pipeline)
     }
