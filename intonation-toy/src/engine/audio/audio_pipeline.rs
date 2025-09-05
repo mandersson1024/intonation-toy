@@ -1,6 +1,28 @@
 use web_sys::{AnalyserNode, AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, GainNode, MediaStreamAudioSourceNode, OscillatorNode, OscillatorType};
 use super::audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
-use crate::common::dev_log;
+use crate::{common::dev_log, engine::audio::AudioSignalPath};
+
+
+pub struct NewAudioPipeline {
+    pub signal_path: AudioSignalPath,
+}
+
+impl NewAudioPipeline {
+    pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream)  -> Result<Self, String> {
+        let input_node = audio_context.create_media_stream_source(media_stream)
+            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
+
+        let worklet_node = AudioPipeline::create_worklet_node(audio_context).unwrap();
+
+        let signal_path = AudioSignalPath::new(audio_context.clone(), input_node, worklet_node);
+
+        let pipeline = Self {
+            signal_path
+        };
+
+        Ok(pipeline)
+    }
+}
 
 pub struct AudioPipeline {
     pub input_node: MediaStreamAudioSourceNode,
