@@ -3,21 +3,41 @@ use super::audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
 use crate::{common::dev_log, engine::audio::AudioSignalPath};
 
 
+/// Audio pipeline with simplified signal path architecture
+/// 
+/// This struct manages audio processing using the new AudioSignalPath approach,
+/// providing a cleaner separation between signal routing and configuration management.
+/// The pipeline creates and manages all Web Audio API nodes through the signal path.
 pub struct NewAudioPipeline {
     pub signal_path: AudioSignalPath,
 }
 
 impl NewAudioPipeline {
-    pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream)  -> Result<Self, String> {
+    /// Create a new audio pipeline with simplified signal path
+    /// 
+    /// Creates all necessary audio nodes and connects them through the AudioSignalPath.
+    /// The worklet module must already be loaded in the AudioContext before calling this method.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `audio_context` - Reference to the AudioContext with worklet module loaded
+    /// * `media_stream` - MediaStream from microphone input
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Result<Self, String>` where:
+    /// - On success: NewAudioPipeline ready for audio processing
+    /// - On error: String describing what went wrong
+    pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream) -> Result<Self, String> {
         let input_node = audio_context.create_media_stream_source(media_stream)
             .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
 
-        let worklet_node = AudioPipeline::create_worklet_node(audio_context).unwrap();
+        let worklet_node = AudioPipeline::create_worklet_node(audio_context)?;
 
         let signal_path = AudioSignalPath::new(audio_context.clone(), input_node, worklet_node);
 
         let pipeline = Self {
-            signal_path
+            signal_path,
         };
 
         Ok(pipeline)
