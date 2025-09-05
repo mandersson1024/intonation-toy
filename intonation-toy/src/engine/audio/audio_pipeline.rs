@@ -1,38 +1,40 @@
-use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, AudioNode, GainNode, AnalyserNode, OscillatorNode, OscillatorType};
+use web_sys::{AnalyserNode, AudioContext, AudioNode, AudioWorkletNode, AudioWorkletNodeOptions, GainNode, MediaStreamAudioSourceNode, OscillatorNode, OscillatorType};
 use super::signal_generator::{SignalGeneratorConfig, TuningForkConfig};
 use super::AudioError;
 use crate::common::dev_log;
 
 pub struct AudioPipeline {
+    pub input_node: MediaStreamAudioSourceNode,
+    pub input_gain_node: GainNode,
     pub worklet_node: AudioWorkletNode,
+    pub analyser_node: AnalyserNode,
+    pub test_signal_oscillator_node: OscillatorNode,
+    pub test_signal_gain_node: GainNode,
+    pub tuning_fork_oscillator_node: OscillatorNode,
+    pub tuning_fork_gain_node: GainNode,
+
     // Tuning fork nodes (integrated directly)
-    pub tuning_fork_oscillator: OscillatorNode,
-    pub tuning_fork_gain: GainNode,
     tuning_fork_config: TuningForkConfig,
-    tuning_fork_connected: bool,
     // Test signal nodes (integrated directly)
-    pub test_signal_oscillator: OscillatorNode,
-    pub test_signal_gain: GainNode,
     test_signal_config: SignalGeneratorConfig,
-    test_signal_connected: bool,
     // Other nodes
     pub mixer_gain_node: GainNode,
-    pub microphone_gain_node: GainNode,
-    pub microphone_source_node: AudioNode,
-    pub analyser_node: AnalyserNode,
     pub output_to_speakers: bool,
 }
 
 impl AudioPipeline {
     pub fn new(audio_context: &AudioContext, media_stream: &web_sys::MediaStream) -> Result<Self, String> {
-        // Create AudioWorkletNode
-        let worklet_node = Self::create_worklet_node(audio_context)?;
+
+        let microphone_source = audio_context.create_media_stream_source(media_stream)
+            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
         
-        // Create microphone gain node
-        let legacy_microphone_gain_node = audio_context
+        let microphone_gain_node = audio_context
             .create_gain()
             .map_err(|_| "Failed to create microphone gain node".to_string())?;
-        legacy_microphone_gain_node.gain().set_value(1.0);
+        microphone_gain_node.gain().set_value(1.0);
+
+        let worklet_node = Self::create_worklet_node(audio_context)?;
+        
         
         // Create mixer gain node
         let legacy_mixer_gain_node = audio_context
@@ -132,33 +134,26 @@ impl AudioPipeline {
         
         dev_log!("AudioPipeline analyser node created with FFT size: 128");
         
-        // Create media stream source node
-        let microphone_source = audio_context.create_media_stream_source(media_stream)
-            .map_err(|e| format!("Failed to create media stream source: {:?}", e))?;
-        dev_log!("✓ MediaStreamAudioSourceNode created");
-        
         let mut pipeline = Self {
             worklet_node,
             // Tuning fork fields
-            tuning_fork_oscillator,
-            tuning_fork_gain,
+            tuning_fork_oscillator_node: tuning_fork_oscillator,
+            tuning_fork_gain_node: tuning_fork_gain,
             tuning_fork_config: default_tuning_fork_config,
-            tuning_fork_connected: true,
             // Test signal fields
-            test_signal_oscillator,
-            test_signal_gain,
+            test_signal_oscillator_node: test_signal_oscillator,
+            test_signal_gain_node: test_signal_gain,
             test_signal_config: default_test_signal_config,
-            test_signal_connected: false,
             // Other fields
             mixer_gain_node: legacy_mixer_gain_node,
-            microphone_gain_node: legacy_microphone_gain_node,
-            microphone_source_node: microphone_source.clone().into(),
+            input_gain_node: microphone_gain_node,
+            input_node: microphone_source.clone().into(),
             analyser_node,
             output_to_speakers: false,
         };
         
         // Connect microphone automatically
-        pipeline.connect_microphone(microphone_source.as_ref())
+        pipeline.connect_nodes()
             .map_err(|e| format!("Failed to connect microphone: {:?}", e))?;
         dev_log!("✓ Microphone automatically connected to audio pipeline");
         
@@ -207,16 +202,13 @@ impl AudioPipeline {
     /// Test Signal -> Mixer (connected but disabled by default)
     /// 
     /// Returns the microphone gain node for external volume detector connection
-    pub fn connect_microphone(&mut self, microphone_source: &AudioNode) -> Result<&GainNode, AudioError> {
-        // Store microphone source
-        self.microphone_source_node = microphone_source.clone();
-        
+    pub fn connect_nodes(&mut self) -> Result<&GainNode, AudioError> {
         // Unified connection setup - always the same regardless of state:
         // Microphone Source -> Microphone Gain -> Mixer -> AudioWorklet
         
         // 1. Connect microphone source to microphone gain
-        let mic_gain = &self.microphone_gain_node;
-        microphone_source.connect_with_audio_node(mic_gain)
+        let mic_gain = &self.input_gain_node;
+        self.input_node.connect_with_audio_node(mic_gain)
             .map_err(|e| AudioError::Generic(format!("Failed to connect microphone to gain node: {:?}", e)))?;
         dev_log!("Connected microphone to gain node");
         
@@ -227,9 +219,8 @@ impl AudioPipeline {
         dev_log!("Connected microphone gain to mixer");
         
         // 3. Connect test signal to mixer (it's disabled by default, so this is safe)
-        self.test_signal_gain.connect_with_audio_node(mixer)
+        self.test_signal_gain_node.connect_with_audio_node(mixer)
             .map_err(|e| AudioError::Generic(format!("Failed to connect test signal to mixer: {:?}", e)))?;
-        self.test_signal_connected = true;
         dev_log!("Connected test signal to mixer");
         
         // 4. Connect mixer to analyser node for volume detection
@@ -252,7 +243,7 @@ impl AudioPipeline {
             }
         }
         
-        Ok(&self.microphone_gain_node)
+        Ok(&self.input_gain_node)
     }
     
     /// Set whether audio should be output to speakers
@@ -283,7 +274,7 @@ impl AudioPipeline {
     /// Set microphone volume
     pub fn set_microphone_volume(&mut self, volume: f32) {
         let clamped_volume = volume.clamp(0.0, 1.0);
-        self.microphone_gain_node.gain().set_value(clamped_volume);
+        self.input_gain_node.gain().set_value(clamped_volume);
         dev_log!("Set microphone volume to {:.2} (requested: {:.2})", clamped_volume, volume);
     }
     
@@ -297,7 +288,7 @@ impl AudioPipeline {
         
         // Update frequency if changed
         if (self.tuning_fork_config.frequency - config.frequency).abs() > f32::EPSILON {
-            self.tuning_fork_oscillator.frequency().set_value(config.frequency);
+            self.tuning_fork_oscillator_node.frequency().set_value(config.frequency);
             self.tuning_fork_config.frequency = config.frequency;
         }
         
@@ -311,8 +302,8 @@ impl AudioPipeline {
     /// Smoothly ramp the tuning fork gain to avoid audio pops
     fn ramp_tuning_fork_gain(&self, target: f32) {
         let audio_context = &self.worklet_node.context();
-        if self.tuning_fork_gain.gain().set_target_at_time(target, audio_context.current_time(), 0.05).is_err() {
-            self.tuning_fork_gain.gain().set_value(target);
+        if self.tuning_fork_gain_node.gain().set_target_at_time(target, audio_context.current_time(), 0.05).is_err() {
+            self.tuning_fork_gain_node.gain().set_value(target);
         }
     }
     
@@ -335,13 +326,13 @@ impl AudioPipeline {
         // Then manage integrated test signal nodes
         if config.enabled {
             // Update frequency and amplitude
-            self.test_signal_oscillator.frequency().set_value(config.frequency);
-            self.test_signal_gain.gain().set_value(config.amplitude);
+            self.test_signal_oscillator_node.frequency().set_value(config.frequency);
+            self.test_signal_gain_node.gain().set_value(config.amplitude);
             dev_log!("Updated test signal configuration - freq: {} Hz, amp: {}", config.frequency, config.amplitude);
             self.test_signal_config = config;
         } else {
             // Disable test signal by setting gain to 0
-            self.test_signal_gain.gain().set_value(0.0);
+            self.test_signal_gain_node.gain().set_value(0.0);
             self.test_signal_config.enabled = false;
             dev_log!("Disabled test signal");
             self.set_microphone_volume(1.0);
@@ -386,47 +377,5 @@ impl AudioPipeline {
             );
         }
         Ok(())
-    }
-    
-    /// Disconnect and cleanup all audio nodes
-    pub fn disconnect(&mut self) {
-        // Disconnect worklet node
-        let _ = self.worklet_node.disconnect();
-        dev_log!("AudioWorklet disconnected");
-        
-        // Clean up the test signal nodes
-        if self.test_signal_connected {
-            let _ = self.test_signal_oscillator.stop();
-            let _ = self.test_signal_oscillator.disconnect();
-            let _ = self.test_signal_gain.disconnect();
-            self.test_signal_connected = false;
-            dev_log!("Test signal nodes disconnected and cleaned up");
-        }
-        
-        // Clean up tuning fork nodes
-        if self.tuning_fork_connected {
-            let _ = self.tuning_fork_oscillator.stop();
-            let _ = self.tuning_fork_oscillator.disconnect();
-            let _ = self.tuning_fork_gain.disconnect();
-            self.tuning_fork_connected = false;
-            dev_log!("Tuning fork nodes disconnected and cleaned up");
-        }
-        
-        // Clean up the mixer node
-        let _ = self.mixer_gain_node.disconnect();
-        dev_log!("Mixer node disconnected and cleaned up");
-        
-        // Clean up the microphone gain node
-        let _ = self.microphone_gain_node.disconnect();
-        dev_log!("Microphone gain node disconnected and cleaned up");
-        
-        // Clean up the analyser node
-        let _ = self.analyser_node.disconnect();
-        dev_log!("Analyser node disconnected and cleaned up");
-        
-        // Disconnect microphone source node
-        let _ = self.microphone_source_node.disconnect();
-        
-        // Note: tuning fork audio node cleanup is handled by its Drop trait
     }
 }
