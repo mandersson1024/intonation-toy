@@ -121,6 +121,8 @@ impl AudioEngine {
             audioworklet_manager: worklet_manager,
         };
 
+        let _ = engine.audio_pipeline.run();
+
         // Start audio processing
         if !engine.audioworklet_manager.is_processing() {
             let _ = engine.audioworklet_manager.start_processing();
