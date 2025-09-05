@@ -42,11 +42,68 @@ impl NewAudioPipeline {
 
         let signal_path = AudioSignalPath::new(audio_context.clone(), input_node, worklet_node);
 
+        // Configure analyser with FFT size of 128
+        signal_path.analyser.set_fft_size(128);
+        signal_path.analyser.set_smoothing_time_constant(0.0);
+        
+        {
+            // Configure tuning fork oscillator with custom waveform
+            let n = 16;
+            let mut real = vec![0.0f32; n];
+            let mut imag = vec![0.0f32; n];
+            
+            let amps: [f32; 9] = [
+                0.0,   // DC offset
+                1.0,   // fundamental
+                0.85,  // 2nd
+                0.55,  // 3rd
+                0.40,  // 4th
+                0.25,  // 5th
+                0.18,  // 6th
+                0.12,  // 7th
+                0.08   // 8th
+            ];
+
+            for (i, &amp) in amps.iter().enumerate() {
+                real[i] = amp;
+            }
+
+            let periodic_wave = audio_context.create_periodic_wave(&mut real, &mut imag)
+                .map_err(|_| "Failed to create periodic wave".to_string())?;
+            
+            signal_path.tuning_fork_osc.set_periodic_wave(&periodic_wave);
+            signal_path.tuning_fork_osc.frequency().set_value(440.0); // A4 default
+            signal_path.tuning_fork_gain.gain().set_value(0.0); // Start muted
+        }
+        
+        // Configure test signal oscillator
+        signal_path.test_signal_osc.set_type(OscillatorType::Sine);
+        signal_path.test_signal_osc.frequency().set_value(440.0); // A4 default
+        
+        dev_log!("✓ NewAudioPipeline nodes configured");
+
         let pipeline = Self {
             signal_path,
         };
 
         Ok(pipeline)
+    }
+
+    /// Start the audio pipeline
+    /// 
+    /// Starts the oscillators and sets the initial signal path mode.
+    /// This method should be called after the pipeline is created to begin audio processing.
+    pub fn run(&mut self) -> Result<(), String> {
+        // Start the oscillators
+        self.signal_path.tuning_fork_osc.start()
+            .map_err(|_| "Failed to start tuning fork oscillator".to_string())?;
+        self.signal_path.test_signal_osc.start()
+            .map_err(|_| "Failed to start test signal oscillator".to_string())?;
+        
+        // Set initial mode to tuning fork mode
+        self.set_signal_path_mode(SignalPathMode::TuningForkMode);
+        
+        Ok(())
     }
 
     /// Set the signal path mode for audio routing
