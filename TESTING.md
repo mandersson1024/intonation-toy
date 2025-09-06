@@ -18,7 +18,7 @@ wasm-pack test --node intonation-toy
 # Observable data library
 wasm-pack test --node observable-data
 
-# Egui dev console
+# Dev console
 wasm-pack test --node dev-console
 ```
 
