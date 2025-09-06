@@ -16,5 +16,5 @@ Cargo.lock
 
 .DS_Store
 
-claude/
+.claude/
 .vscode/
