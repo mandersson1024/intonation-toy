@@ -67,7 +67,7 @@ pub async fn start() {
 
     web::utils::hide_first_click_overlay();
 
-    let mut engine = match engine::AudioEngine::new(media_stream, audio_context) {
+    let engine = match engine::AudioEngine::new(media_stream, audio_context) {
         Ok(engine) => engine,
         Err(err) => {
             crate::common::error_log!("Failed to create AudioEngine: {:?}", err);
@@ -75,9 +75,6 @@ pub async fn start() {
         }
     };
     
-    // Start the audio engine
-    engine.run();
-
     let model = if let Some(stored_config) = web::storage::load_config() {
         model::DataModel::new(
             stored_config.tuning_fork_note,

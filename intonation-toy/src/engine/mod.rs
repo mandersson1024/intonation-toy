@@ -114,29 +114,19 @@ impl AudioEngine {
         crate::common::dev_log!("✓ VolumeDetector initialized and configured");
 
         // Create the engine struct with all initialized components
-        let engine = Self {
+        let mut engine = Self {
             audio_context,
             audio_pipeline,
             audioworklet_manager: worklet_manager,
         };
         
+        engine.audio_pipeline.run()?;
+        engine.audioworklet_manager.enable_data_processing().map_err(|e| e.to_string())?;
+
         crate::common::dev_log!("✓ AudioEngine fully initialized");
         Ok(engine)
     }
     
-    /// Start the audio engine
-    /// 
-    /// This function starts the audio pipeline and begins audio processing.
-    /// It should be called once after creating the AudioEngine.
-    pub fn run(&mut self) {
-        let _ = self.audio_pipeline.run();
-
-        // Enable audio data processing
-        if !self.audioworklet_manager.is_processing() {
-            let _ = self.audioworklet_manager.enable_data_processing();
-        }
-    }
-
     /// Update the engine layer
     /// 
     /// This method is called by the main render loop to update the engine's state.

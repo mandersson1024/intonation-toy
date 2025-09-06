@@ -22,7 +22,6 @@ impl AudioWorkletManager {
         Ok(Self {
             _message_closure: None,
             handler_state: Rc::new(RefCell::new(MessageHandlerState {
-                is_processing: false,
                 batches_processed: 0,
                 buffer_pool_stats: None,
                 last_volume_analysis: None,
@@ -110,7 +109,6 @@ impl AudioWorkletManager {
     /// The worklet itself is always processing audio frames.
     pub fn enable_data_processing(&mut self) -> Result<(), AudioError> {
         self.send_typed_control_message(ToWorkletMessage::StartProcessing)?;
-        self.handler_state.borrow_mut().is_processing = true;
         dev_log!("✓ Audio data processing enabled");
         Ok(())
     }
@@ -121,7 +119,6 @@ impl AudioWorkletManager {
     /// The worklet continues processing audio frames (that's how Web Audio API works).
     pub fn disable_data_processing(&mut self) -> Result<(), AudioError> {
         self.send_typed_control_message(ToWorkletMessage::StopProcessing)?;
-        self.handler_state.borrow_mut().is_processing = false;
         dev_log!("✓ Audio data processing disabled");
         Ok(())
     }
@@ -130,9 +127,6 @@ impl AudioWorkletManager {
         self.handler_state.borrow().buffer_pool_stats.clone()
     }
     
-    pub fn is_processing(&self) -> bool {
-        self.handler_state.borrow().is_processing
-    }
 
     pub fn get_batches_processed(&self) -> u32 {
         self.handler_state.borrow().batches_processed

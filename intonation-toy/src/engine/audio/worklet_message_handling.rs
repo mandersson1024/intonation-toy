@@ -8,7 +8,6 @@ use super::message_protocol::{AudioWorkletMessageFactory, FromWorkletMessage, Me
 
 // Internal state that needs to be shared between the manager and message handler
 pub(super) struct MessageHandlerState {
-    pub(super) is_processing: bool,
     pub(super) batches_processed: u32,
     pub(super) buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     pub(super) last_volume_analysis: Option<super::VolumeAnalysis>,
