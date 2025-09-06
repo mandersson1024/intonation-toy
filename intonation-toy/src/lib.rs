@@ -185,10 +185,8 @@ use crate::debug::debug_panel::DebugPanel;
                 .map(|mut p| p.get_debug_actions())
                 .unwrap_or_else(|_| presentation::DebugLayerActions::default());
             
-            if !debug_actions.test_signal_configurations.is_empty() {
-                if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {
-                    dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
-                }
+            if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {
+                dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
             }
         }
         

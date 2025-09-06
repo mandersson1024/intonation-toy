@@ -221,8 +221,10 @@ impl AudioEngine {
     pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<(), String> {
         crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
         
-        // Execute test signal configurations with privileged access
-        self.audio_pipeline.execute_test_signal_configurations(&debug_actions.test_signal_configurations)?;
+        // Execute test signal configuration with privileged access
+        if let Some(config) = &debug_actions.test_signal_configuration {
+            self.audio_pipeline.execute_test_signal_configuration(config)?;
+        }
         
         Ok(())
     }

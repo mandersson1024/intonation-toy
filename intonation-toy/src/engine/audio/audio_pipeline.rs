@@ -161,18 +161,16 @@ impl NewAudioPipeline {
     /// 
     /// Returns `Result<(), String>` indicating success or failure
     #[cfg(debug_assertions)]
-    pub fn execute_test_signal_configurations(
+    pub fn execute_test_signal_configuration(
         &mut self,
-        test_signal_configs: &[crate::presentation::ConfigureTestSignal]
+        config: &crate::presentation::ConfigureTestSignal
     ) -> Result<(), String> {
-        for config in test_signal_configs {
-            if config.enabled {
-                self.signal_path.test_signal_osc.frequency().set_value(config.frequency);
-                self.signal_path.test_signal_gain.gain().set_value(config.volume / 100.0);
-                self.set_signal_path_mode(SignalPathMode::TestSignalMode);
-            } else {
-                self.set_signal_path_mode(SignalPathMode::TuningForkMode);
-            }
+        if config.enabled {
+            self.signal_path.test_signal_osc.frequency().set_value(config.frequency);
+            self.signal_path.test_signal_gain.gain().set_value(config.volume / 100.0);
+            self.set_signal_path_mode(SignalPathMode::TestSignalMode);
+        } else {
+            self.set_signal_path_mode(SignalPathMode::TuningForkMode);
         }
         Ok(())
     }
