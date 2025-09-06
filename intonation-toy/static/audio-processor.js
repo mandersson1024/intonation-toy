@@ -250,7 +250,6 @@ const ToWorkletMessageType = {
 const FromWorkletMessageType = {
     AUDIO_DATA_BATCH: 'audioDataBatch',
     PROCESSING_ERROR: 'processingError',
-    BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
 };
 
 const WorkletErrorCode = {
@@ -327,17 +326,6 @@ class AudioWorkletMessageProtocol {
     }
 
 
-    createBatchConfigUpdatedMessage(config) {
-        const messageId = this.generateMessageId();
-        
-        return {
-            messageId: messageId,
-            payload: {
-                type: FromWorkletMessageType.BATCH_CONFIG_UPDATED,
-                config: { ...config }
-            }
-        };
-    }
 
     createProcessorDestroyedMessage() {
         const messageId = this.generateMessageId();
@@ -726,14 +714,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                             this.bufferTimeout = Math.max(0, actualMessage.config.bufferTimeout);
                         }
                         
-                        // Batch config updated
-                        
-                        const batchConfigUpdatedMessage = this.messageProtocol.createBatchConfigUpdatedMessage({
-                            batchSize: this.batchSize,
-                            chunksPerBatch: this.chunksPerBatch,
-                            bufferTimeout: this.bufferTimeout
-                        });
-                        this.port.postMessage(batchConfigUpdatedMessage);
                     }
                     break;
                 

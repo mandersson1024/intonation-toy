@@ -108,10 +108,6 @@ fn handle_typed_worklet_message(
         FromWorkletMessage::ProcessingError { error } => {
             dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
         }
-        FromWorkletMessage::BatchConfigUpdated { config: _ } => {
-            // Configuration confirmation received - no action needed
-            dev_log!("AudioWorklet confirmed batch configuration update");
-        }
     }
 }
 

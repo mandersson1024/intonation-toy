@@ -18,7 +18,6 @@ pub enum ToWorkletMessage {
 pub enum FromWorkletMessage {
     AudioDataBatch { data: AudioDataBatch },
     ProcessingError { error: WorkletError },
-    BatchConfigUpdated { config: BatchConfig },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,7 +59,6 @@ pub struct BatchConfig {
     pub batch_size: usize,
     pub max_queue_size: usize,
     pub timeout_ms: u32,
-    pub enable_compression: bool,
 }
 
 impl Default for BatchConfig {
@@ -69,7 +67,6 @@ impl Default for BatchConfig {
             batch_size: crate::app_config::BUFFER_SIZE,
             max_queue_size: 8,
             timeout_ms: 100,
-            enable_compression: false,
         }
     }
 }
@@ -142,7 +139,6 @@ impl<T> MessageEnvelope<T> {
     
 }
 
-
 pub type SerializationResult<T> = Result<T, SerializationError>;
 
 /// Serialization error types
@@ -172,10 +168,6 @@ impl std::fmt::Display for SerializationError {
 }
 
 impl std::error::Error for SerializationError {}
-
-
-
-
 
 pub trait ToJsMessage {
     fn to_js_object(&self) -> SerializationResult<Object>;
@@ -321,10 +313,6 @@ impl ToJsMessage for FromWorkletMessage {
                 set("type", "processingError".into())?;
                 set("error", error.to_js_object()?.into())?;
             }
-            FromWorkletMessage::BatchConfigUpdated { config } => {
-                set("type", "batchConfigUpdated".into())?;
-                set("config", config.to_js_object()?.into())?;
-            }
         }
         
         Ok(obj)
@@ -359,14 +347,6 @@ impl FromJsMessage for FromWorkletMessage {
                     error: WorkletError::from_js_object(&error_obj)? 
                 })
             }
-            "batchConfigUpdated" => {
-                let config_obj = get("config")?
-                    .dyn_into::<Object>()
-                    .map_err(|_| SerializationError::InvalidPropertyType("config must be object".to_string()))?;
-                Ok(FromWorkletMessage::BatchConfigUpdated { 
-                    config: BatchConfig::from_js_object(&config_obj)? 
-                })
-            }
             _ => Err(SerializationError::InvalidPropertyType(format!("Unknown message type: {}", msg_type))),
         }
     }
@@ -377,7 +357,6 @@ impl MessageValidator for FromWorkletMessage {
         match self {
             FromWorkletMessage::AudioDataBatch { data } => data.validate(),
             FromWorkletMessage::ProcessingError { error } => error.validate(),
-            FromWorkletMessage::BatchConfigUpdated { config } => config.validate(),
         }
     }
 }
@@ -467,9 +446,6 @@ impl MessageValidator for AudioDataBatch {
         Ok(())
     }
 }
-
-
-
 
 impl ToJsMessage for MemoryUsage {
     fn to_js_object(&self) -> SerializationResult<Object> {
@@ -675,8 +651,6 @@ impl ToJsMessage for BatchConfig {
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set maxQueueSize: {:?}", e)))?;
         Reflect::set(&obj, &"timeoutMs".into(), &(self.timeout_ms as f64).into())
             .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set timeoutMs: {:?}", e)))?;
-        Reflect::set(&obj, &"enableCompression".into(), &self.enable_compression.into())
-            .map_err(|e| SerializationError::PropertySetFailed(format!("Failed to set enableCompression: {:?}", e)))?;
         
         Ok(obj)
     }
@@ -702,16 +676,10 @@ impl FromJsMessage for BatchConfig {
             .ok_or_else(|| SerializationError::InvalidPropertyType("timeoutMs must be number".to_string()))?
             as u32;
         
-        let enable_compression = Reflect::get(obj, &"enableCompression".into())
-            .map_err(|e| SerializationError::PropertyGetFailed(format!("Failed to get enableCompression: {:?}", e)))?
-            .as_bool()
-            .ok_or_else(|| SerializationError::InvalidPropertyType("enableCompression must be boolean".to_string()))?;
-        
         Ok(BatchConfig {
             batch_size,
             max_queue_size,
             timeout_ms,
-            enable_compression,
         })
     }
 }
@@ -792,7 +760,6 @@ impl MessageValidator for WorkletError {
         Ok(())
     }
 }
-
 
 impl ToJsMessage for SystemState {
     fn to_js_object(&self) -> SerializationResult<Object> {
@@ -1003,15 +970,12 @@ impl FromWorkletMessage {
     }
 }
 
-
-
 impl SystemState {
     pub fn new() -> Self {
         Self::default()
     }
 
 }
-
 
 #[derive(Clone, Default)]
 pub struct AudioWorkletMessageFactory {
