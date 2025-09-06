@@ -93,6 +93,7 @@ pub fn sample_memory_usage() -> Option<(f64, f64)> {
 /// - FPS value
 /// - Memory usage in MB (0.0 if not available)
 /// - Memory usage percentage (0.0 if not available)
+#[cfg(debug_assertions)]
 pub fn get_performance_metrics(fps: f64) -> crate::debug::data_types::PerformanceMetrics {
     let (memory_usage_mb, memory_usage_percent) = sample_memory_usage().unwrap_or((0.0, 0.0));
     

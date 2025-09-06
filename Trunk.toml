@@ -1,8 +1,8 @@
 [build]
-target = "intonation-toy/index.html"
+target = "crates/intonation-toy/index.html"
 dist = "dist"
 public_url = "."
 
 [watch]
-watch = ["intonation-toy", "dev-console"]
+watch = ["crates/intonation-toy", "crates/dev-console"]
 ignore = ["target", "dist"]

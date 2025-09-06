@@ -1,5 +1,5 @@
 [workspace]
-members = ["intonation-toy", "dev-console"]
+members = ["crates/intonation-toy", "crates/dev-console"]
 resolver = "2"
 
 [profile.profiling]
