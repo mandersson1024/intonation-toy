@@ -19,8 +19,6 @@ pub struct PitchData {
     pub clarity: f32,
 }
 
-// Re-export AudioWorkletStatus from engine module
-pub use crate::engine::audio::AudioWorkletStatus;
 
 impl From<crate::engine::audio::VolumeLevelData> for VolumeLevelData {
     fn from(data: crate::engine::audio::VolumeLevelData) -> Self {

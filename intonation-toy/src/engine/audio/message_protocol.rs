@@ -16,13 +16,9 @@ pub enum ToWorkletMessage {
 /// Message types sent from AudioWorklet to main thread
 #[derive(Debug, Clone, PartialEq)]
 pub enum FromWorkletMessage {
-    ProcessorReady { batch_size: Option<usize> },
-    ProcessingStarted,
-    ProcessingStopped,
     AudioDataBatch { data: AudioDataBatch },
     ProcessingError { error: WorkletError },
     BatchConfigUpdated { config: BatchConfig },
-    
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -317,18 +313,6 @@ impl ToJsMessage for FromWorkletMessage {
         };
         
         match self {
-            FromWorkletMessage::ProcessorReady { batch_size } => {
-                set("type", "processorReady".into())?;
-                if let Some(size) = batch_size {
-                    set("batchSize", (*size as f64).into())?;
-                }
-            }
-            FromWorkletMessage::ProcessingStarted => {
-                set("type", "processingStarted".into())?;
-            }
-            FromWorkletMessage::ProcessingStopped => {
-                set("type", "processingStopped".into())?;
-            }
             FromWorkletMessage::AudioDataBatch { data } => {
                 set("type", "audioDataBatch".into())?;
                 set("data", data.to_js_object()?.into())?;
@@ -359,18 +343,6 @@ impl FromJsMessage for FromWorkletMessage {
             .ok_or_else(|| SerializationError::InvalidPropertyType("type must be string".to_string()))?;
         
         match msg_type.as_str() {
-            "processorReady" => {
-                let batch_size = match get("batchSize") {
-                    Ok(value) if !value.is_undefined() => {
-                        Some(value.as_f64()
-                            .ok_or_else(|| SerializationError::InvalidPropertyType("batchSize must be number".to_string()))? as usize)
-                    }
-                    _ => None,
-                };
-                Ok(FromWorkletMessage::ProcessorReady { batch_size })
-            }
-            "processingStarted" => Ok(FromWorkletMessage::ProcessingStarted),
-            "processingStopped" => Ok(FromWorkletMessage::ProcessingStopped),
             "audioDataBatch" => {
                 let data_obj = get("data")?
                     .dyn_into::<Object>()
@@ -403,15 +375,6 @@ impl FromJsMessage for FromWorkletMessage {
 impl MessageValidator for FromWorkletMessage {
     fn validate(&self) -> SerializationResult<()> {
         match self {
-            FromWorkletMessage::ProcessorReady { batch_size } => {
-                if let Some(size) = batch_size {
-                    if *size == 0 {
-                        return Err(SerializationError::ValidationFailed("batch_size cannot be zero".to_string()));
-                    }
-                }
-                Ok(())
-            }
-            FromWorkletMessage::ProcessingStarted | FromWorkletMessage::ProcessingStopped => Ok(()),
             FromWorkletMessage::AudioDataBatch { data } => data.validate(),
             FromWorkletMessage::ProcessingError { error } => error.validate(),
             FromWorkletMessage::BatchConfigUpdated { config } => config.validate(),
@@ -1028,22 +991,6 @@ impl ToWorkletMessage {
 }
 
 impl FromWorkletMessage {
-    pub fn processor_ready(batch_size: Option<usize>) -> MessageConstructionResult<Self> {
-        if let Some(size) = batch_size {
-            if size == 0 {
-                return Err(MessageConstructionError::InvalidParameter("batch_size cannot be zero".to_string()));
-            }
-        }
-        Ok(Self::ProcessorReady { batch_size })
-    }
-    
-    pub fn processing_started() -> Self {
-        Self::ProcessingStarted
-    }
-    
-    pub fn processing_stopped() -> Self {
-        Self::ProcessingStopped
-    }
     
     pub fn audio_data_batch(data: AudioDataBatch) -> MessageConstructionResult<Self> {
         data.validate().map_err(|e| MessageConstructionError::ValidationFailed(e.to_string()))?;
@@ -1107,17 +1054,6 @@ impl AudioWorkletMessageFactory {
     }
     
     // FromWorkletMessage factory methods
-    pub fn processor_ready(&self, batch_size: Option<usize>) -> MessageConstructionResult<FromWorkletEnvelope> {
-        Ok(self.create_envelope(FromWorkletMessage::processor_ready(batch_size)?))
-    }
-    
-    pub fn processing_started(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
-        Ok(self.create_envelope(FromWorkletMessage::processing_started()))
-    }
-    
-    pub fn processing_stopped(&self) -> MessageConstructionResult<FromWorkletEnvelope> {
-        Ok(self.create_envelope(FromWorkletMessage::processing_stopped()))
-    }
     
     pub fn audio_data_batch(&self, data: AudioDataBatch) -> MessageConstructionResult<FromWorkletEnvelope> {
         Ok(self.create_envelope(FromWorkletMessage::audio_data_batch(data)?))

@@ -174,7 +174,6 @@ use crate::debug::debug_panel::DebugPanel;
             &engine_data,
             Some(&model_data),
             web::performance::get_performance_metrics(fps),
-            engine.get_debug_audioworklet_status(),
             engine.get_debug_buffer_pool_stats(),
         );
         

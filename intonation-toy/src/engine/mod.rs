@@ -28,7 +28,6 @@ pub(crate) mod platform;
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use web_sys::AudioContext;
-use crate::engine::audio::data_types::AudioWorkletStatus;
 use crate::engine::audio::message_protocol::BufferPoolStats;
 use crate::engine::audio::worklet::AudioWorkletManager;
 use crate::engine::audio::volume_detector::VolumeDetector;
@@ -132,9 +131,9 @@ impl AudioEngine {
     pub fn run(&mut self) {
         let _ = self.audio_pipeline.run();
 
-        // Start audio processing
+        // Enable audio data processing
         if !self.audioworklet_manager.is_processing() {
-            let _ = self.audioworklet_manager.start_processing();
+            let _ = self.audioworklet_manager.enable_data_processing();
         }
     }
 
@@ -161,9 +160,6 @@ impl AudioEngine {
     
 
     #[cfg(debug_assertions)]
-    pub fn get_debug_audioworklet_status(&self) -> Option<AudioWorkletStatus> {
-        Some(self.audioworklet_manager.get_status())
-    }
 
     #[cfg(debug_assertions)]
     pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {

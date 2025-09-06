@@ -1,5 +1,3 @@
-use super::AudioWorkletState;
-use crate::app_config::{AUDIO_CHUNK_SIZE, BUFFER_SIZE};
 
 /// Volume level data for external consumption
 /// 
@@ -23,24 +21,3 @@ pub struct VolumeAnalysis {
     pub rms_amplitude: f32,
 }
 
-/// AudioWorklet status for external consumption
-#[derive(Debug, Clone, PartialEq)]
-pub struct AudioWorkletStatus {
-    pub state: AudioWorkletState,
-    pub processor_loaded: bool,
-    pub chunk_size: u32,
-    pub batch_size: u32,
-    pub batches_processed: u32,
-}
-
-impl Default for AudioWorkletStatus {
-    fn default() -> Self {
-        Self {
-            state: AudioWorkletState::Uninitialized,
-            processor_loaded: false,
-            chunk_size: AUDIO_CHUNK_SIZE as u32,
-            batch_size: BUFFER_SIZE as u32,
-            batches_processed: 0,
-        }
-    }
-}

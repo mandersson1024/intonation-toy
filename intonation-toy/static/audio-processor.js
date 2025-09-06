@@ -248,14 +248,9 @@ const ToWorkletMessageType = {
 };
 
 const FromWorkletMessageType = {
-    PROCESSOR_READY: 'processorReady',
-    PROCESSING_STARTED: 'processingStarted',
-    PROCESSING_STOPPED: 'processingStopped',
     AUDIO_DATA_BATCH: 'audioDataBatch',
     PROCESSING_ERROR: 'processingError',
-    STATUS_UPDATE: 'statusUpdate',
     BATCH_CONFIG_UPDATED: 'batchConfigUpdated',
-    PROCESSOR_DESTROYED: 'processorDestroyed'
 };
 
 const WorkletErrorCode = {
@@ -278,42 +273,6 @@ class AudioWorkletMessageProtocol {
     }
 
 
-    createProcessorReadyMessage(options = {}) {
-        const messageId = this.generateMessageId();
-        
-        return {
-            messageId: messageId,
-            payload: {
-                type: FromWorkletMessageType.PROCESSOR_READY,
-                chunkSize: options.chunkSize || AUDIO_CHUNK_SIZE,
-                batchSize: options.batchSize || BUFFER_SIZE,
-                bufferPoolSize: options.bufferPoolSize || 4,
-                sampleRate: options.sampleRate || 44100
-            }
-        };
-    }
-
-    createProcessingStartedMessage() {
-        const messageId = this.generateMessageId();
-        
-        return {
-            messageId: messageId,
-            payload: {
-                type: FromWorkletMessageType.PROCESSING_STARTED
-            }
-        };
-    }
-
-    createProcessingStoppedMessage() {
-        const messageId = this.generateMessageId();
-        
-        return {
-            messageId: messageId,
-            payload: {
-                type: FromWorkletMessageType.PROCESSING_STOPPED
-            }
-        };
-    }
 
     createAudioDataBatchMessage(buffer, options = {}) {
         const messageId = this.generateMessageId();
@@ -534,14 +493,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             this.handleMessage(event.data);
         };
         
-        // Initialize processor with typed message
-        const readyMessage = this.messageProtocol.createProcessorReadyMessage({
-            chunkSize: this.chunkSize,
-            batchSize: this.batchSize,
-            bufferPoolSize: 4, // No longer using pool but keeping for compatibility
-            sampleRate: sampleRate
-        });
-        this.port.postMessage(readyMessage);
         
         // Constructor complete, ready for processing
     }
@@ -723,8 +674,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
             switch (actualMessage.type) {
                 case ToWorkletMessageType.START_PROCESSING:
                     this.isProcessing = true;
-                    const startedMessage = this.messageProtocol.createProcessingStartedMessage();
-                    this.port.postMessage(startedMessage);
                     break;
                 
                 case ToWorkletMessageType.STOP_PROCESSING:
@@ -745,8 +694,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
                         this.writePosition = 0;
                     }
                     
-                    const stoppedMessage = this.messageProtocol.createProcessingStoppedMessage();
-                    this.port.postMessage(stoppedMessage);
                     break;
                 
                 

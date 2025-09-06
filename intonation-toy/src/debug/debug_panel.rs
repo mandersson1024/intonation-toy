@@ -1,6 +1,4 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
-use crate::engine::audio::AudioWorkletState;
-use crate::app_config::AUDIO_CHUNK_SIZE;
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use std::rc::Rc;
@@ -44,11 +42,10 @@ impl DebugPanel {
         engine_result: &crate::common::shared_types::EngineUpdateResult,
         model_result: Option<&crate::common::shared_types::ModelUpdateResult>,
         performance_metrics: crate::debug::data_types::PerformanceMetrics,
-        audioworklet_status: Option<crate::debug::data_types::AudioWorkletStatus>,
         buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
     ) {
         self.debug_data.update_from_layers(engine_result, model_result);
-        self.debug_data.update_debug_data(performance_metrics, audioworklet_status, buffer_pool_stats);
+        self.debug_data.update_debug_data(performance_metrics, buffer_pool_stats);
     }
     
     /// Render the live data panel
@@ -69,7 +66,6 @@ impl DebugPanel {
             ui.vertical(|ui| {
                 
                 // AudioWorklet Status Section (debug-specific data)
-                self.render_audioworklet_status_section(ui);
                 ui.separator();
                 
                 // Performance Metrics Section (debug-specific data)
@@ -100,36 +96,6 @@ impl DebugPanel {
         });
     }
     
-    /// Render AudioWorklet status section (debug-specific data)
-    fn render_audioworklet_status_section(&self, ui: &mut Ui) {
-        egui::CollapsingHeader::new("AudioWorklet Status")
-            .default_open(false)
-            .show(ui, |ui| {
-                let status = &self.debug_data.audioworklet_status;
-                
-                ui.horizontal(|ui| {
-                    ui.label("State:");
-                    let (color, text) = match status.state {
-                        AudioWorkletState::Uninitialized => (Color32::GRAY, "Uninitialized"),
-                        AudioWorkletState::Initializing => (Color32::YELLOW, "Initializing"),
-                        AudioWorkletState::Ready => (Color32::GREEN, "Ready"),
-                        AudioWorkletState::Processing => (Color32::GREEN, "Processing"),
-                        AudioWorkletState::Stopped => (Color32::YELLOW, "Stopped"),
-                        AudioWorkletState::Failed => (Color32::RED, "Failed"),
-                    };
-                    ui.colored_label(color, text);
-                });
-                
-                ui.horizontal(|ui| {
-                    ui.label("Processor Loaded:");
-                    let color = if status.processor_loaded { Color32::GREEN } else { Color32::RED };
-                    ui.colored_label(color, status.processor_loaded.to_string());
-                });
-                
-                ui.label(format!("Batch Size: {} samples ({} chunks of {})", status.batch_size, status.batch_size / AUDIO_CHUNK_SIZE as u32, AUDIO_CHUNK_SIZE));
-                ui.label(format!("Batches Processed: {}", status.batches_processed));
-            });
-    }
     
     /// Render performance metrics section (debug-specific data)
     fn render_performance_metrics_section(&mut self, ui: &mut Ui) {
@@ -154,7 +120,7 @@ impl DebugPanel {
     /// Render buffer pool statistics section (debug-specific data)
     fn render_buffer_pool_stats_section(&self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Buffer Pool Statistics")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
                 let stats = &self.debug_data.buffer_pool_stats;
                 if let Some(stats) = stats {

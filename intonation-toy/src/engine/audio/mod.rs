@@ -15,9 +15,8 @@ pub mod analysis;
 
 
 
-pub use worklet::AudioWorkletState;
 pub use audio_pipeline_configs::{SignalGeneratorConfig, TuningForkConfig};
-pub use data_types::{VolumeLevelData, AudioWorkletStatus, VolumeAnalysis};
+pub use data_types::{VolumeLevelData, VolumeAnalysis};
 pub use pitch_detector::PitchResult;
 pub use permission::AudioPermission;
 pub use signal_path::AudioSignalPath;

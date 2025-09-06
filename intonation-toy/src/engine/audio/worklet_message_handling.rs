@@ -5,11 +5,10 @@ use wasm_bindgen::JsCast;
 use crate::common::dev_log;
 use super::VolumeDetector;
 use super::message_protocol::{AudioWorkletMessageFactory, FromWorkletMessage, MessageEnvelope, FromJsMessage};
-use super::worklet::AudioWorkletState;
 
 // Internal state that needs to be shared between the manager and message handler
 pub(super) struct MessageHandlerState {
-    pub(super) worklet_state: AudioWorkletState,
+    pub(super) is_processing: bool,
     pub(super) batches_processed: u32,
     pub(super) buffer_pool_stats: Option<super::message_protocol::BufferPoolStats>,
     pub(super) last_volume_analysis: Option<super::VolumeAnalysis>,
@@ -95,20 +94,6 @@ fn handle_typed_worklet_message(
     message_factory: AudioWorkletMessageFactory
 ) {
     match envelope.payload {
-        FromWorkletMessage::ProcessorReady { batch_size: _ } => {
-            handler_state.borrow_mut().worklet_state = AudioWorkletState::Ready;
-            dev_log!("AudioWorklet processor ready");
-            dev_log!("AudioWorklet state changed to: Ready");
-        }
-        FromWorkletMessage::ProcessingStarted => {
-            handler_state.borrow_mut().worklet_state = AudioWorkletState::Processing;
-            dev_log!("AudioWorklet state changed to: Processing");
-        }
-        FromWorkletMessage::ProcessingStopped => {
-            handler_state.borrow_mut().worklet_state = AudioWorkletState::Stopped;
-            dev_log!("✓ AudioWorklet processing stopped");
-            dev_log!("AudioWorklet state changed to: Stopped");
-        }
         FromWorkletMessage::AudioDataBatch { data } => {
             handle_typed_audio_data_batch(
                 data, 
@@ -121,9 +106,7 @@ fn handle_typed_worklet_message(
             );
         }
         FromWorkletMessage::ProcessingError { error } => {
-            handler_state.borrow_mut().worklet_state = AudioWorkletState::Failed;
             dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
-            dev_log!("AudioWorklet state changed to: Failed");
         }
         FromWorkletMessage::BatchConfigUpdated { config: _ } => {
             // Configuration confirmation received - no action needed
