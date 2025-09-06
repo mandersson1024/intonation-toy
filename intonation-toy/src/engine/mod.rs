@@ -49,7 +49,7 @@ use crate::presentation::DebugLayerActions;
 /// root notes, and pitch relationships.
 pub struct AudioEngine {
     audio_context: AudioContext,
-    audio_pipeline: audio::audio_pipeline::AudioPipeline,
+    audio_pipeline: audio::audio_pipeline::NewAudioPipeline,
     audioworklet_manager: AudioWorkletManager,
 }
 
@@ -76,7 +76,7 @@ impl AudioEngine {
         crate::common::dev_log!("✓ AudioContext attached");
 
         // Create audio pipeline with all audio nodes and connect media stream
-        let audio_pipeline = audio::audio_pipeline::AudioPipeline::new(&audio_context, &media_stream)
+        let audio_pipeline = audio::audio_pipeline::NewAudioPipeline::new(&audio_context, &media_stream)
             .map_err(|e| {
                 let error_msg = format!("Failed to create AudioPipeline: {}", e);
                 crate::common::dev_log!("✗ {}", error_msg);
@@ -85,7 +85,7 @@ impl AudioEngine {
         crate::common::dev_log!("✓ AudioPipeline created with audio nodes and media stream connected");
 
         // Extract worklet_node for AudioWorkletManager
-        let worklet_node = audio_pipeline.worklet_node.clone();
+        let worklet_node = audio_pipeline.signal_path.worklet.clone();
         
         // Create PitchAnalyzer with audio context sample rate
         let sample_rate = audio_context.sample_rate() as u32;
@@ -103,9 +103,7 @@ impl AudioEngine {
                 error_msg
             })?;
 
-        // Create VolumeDetector using the AudioPipeline's analyser node
-        let volume_detector = VolumeDetector::new(audio_pipeline.analyser_node.clone());
-        crate::common::dev_log!("✓ VolumeDetector created using AudioPipeline's analyser node");
+        let volume_detector = VolumeDetector::new(audio_pipeline.signal_path.analyser.clone());
         
         worklet_manager.setup_message_handling(pitch_analyzer, volume_detector)
             .map_err(|e| {
@@ -119,9 +117,11 @@ impl AudioEngine {
         // Create the engine struct with all initialized components
         let mut engine = Self {
             audio_context,
-            audioworklet_manager: worklet_manager,
             audio_pipeline,
+            audioworklet_manager: worklet_manager,
         };
+
+        let _ = engine.audio_pipeline.run();
 
         // Start audio processing
         if !engine.audioworklet_manager.is_processing() {
@@ -178,13 +178,13 @@ impl AudioEngine {
         
         if let Some(config) = model_actions.tuning_fork_configuration {
             // Convert model action to audio system config
-            let audio_config = crate::engine::audio::audio_pipeline_configs::TuningForkConfig {
+            let tuning_fork_config = crate::engine::audio::audio_pipeline_configs::TuningForkConfig {
                 frequency: config.frequency,
                 volume: config.volume,
             };
             
             // Use the separate tuning fork audio node architecture
-            self.audio_pipeline.update_tuning_fork_config(audio_config);
+            self.audio_pipeline.update_tuning_fork_config(tuning_fork_config);
             crate::common::dev_log!(
                 "Engine layer: ✓ Tuning fork audio control updated - frequency: {} Hz", 
                 config.frequency
@@ -221,8 +221,10 @@ impl AudioEngine {
     pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<(), String> {
         crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
         
-        // Execute test signal configurations with privileged access
-        self.audio_pipeline.execute_test_signal_configurations(&debug_actions.test_signal_configurations)?;
+        // Execute test signal configuration with privileged access
+        if let Some(config) = &debug_actions.test_signal_configuration {
+            self.audio_pipeline.execute_test_signal_configuration(config)?;
+        }
         
         Ok(())
     }

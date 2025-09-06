@@ -76,7 +76,7 @@ impl PresentationLayerActions {
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DebugLayerActions {
-    pub test_signal_configurations: Vec<ConfigureTestSignal>,
+    pub test_signal_configuration: Option<ConfigureTestSignal>,
 }
 
 /// Presenter - The presentation layer of the three-layer architecture
@@ -196,7 +196,7 @@ impl Presenter {
 
     #[cfg(debug_assertions)]
     pub fn on_test_signal_configured(&mut self, enabled: bool, frequency: f32, volume: f32) {
-        self.pending_debug_actions.test_signal_configurations.push(ConfigureTestSignal {
+        self.pending_debug_actions.test_signal_configuration = Some(ConfigureTestSignal {
             enabled,
             frequency,
             volume,

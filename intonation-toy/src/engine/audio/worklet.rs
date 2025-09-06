@@ -18,8 +18,10 @@ use super::worklet_message_handling::{MessageHandlerState, handle_worklet_messag
 pub enum AudioWorkletState {
     Uninitialized,
     Initializing,
+    // Starting, ?
     Ready,
     Processing,
+    // Stopping,
     Stopped,
     Failed,
 }

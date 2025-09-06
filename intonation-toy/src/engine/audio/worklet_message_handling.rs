@@ -42,7 +42,6 @@ pub(super) fn handle_worklet_message(
             }
             Err(e) => {
                 dev_log!("ERROR: Failed to deserialize typed message: {}", e);
-                dev_log!("ERROR: All messages must use the structured message protocol");
             }
         }
     } else {
