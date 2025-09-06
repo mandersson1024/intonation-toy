@@ -41,7 +41,6 @@ impl fmt::Display for AudioWorkletState {
 
 pub struct AudioWorkletManager {
     worklet_node: web_sys::AudioWorkletNode,
-    worklet_state: AudioWorkletState,
     handler_state: Rc<RefCell<MessageHandlerState>>,
     message_factory: AudioWorkletMessageFactory,
     _message_closure: Option<wasm_bindgen::closure::Closure<dyn FnMut(MessageEvent)>>,
@@ -50,9 +49,9 @@ pub struct AudioWorkletManager {
 impl AudioWorkletManager {
     pub fn new(worklet_node: web_sys::AudioWorkletNode) -> Result<Self, String> {
         Ok(Self {
-            worklet_state: AudioWorkletState::Ready,
             _message_closure: None,
             handler_state: Rc::new(RefCell::new(MessageHandlerState {
+                worklet_state: AudioWorkletState::Ready,
                 batches_processed: 0,
                 buffer_pool_stats: None,
                 last_volume_analysis: None,
@@ -135,32 +134,32 @@ impl AudioWorkletManager {
     }
 
     pub fn start_processing(&mut self) -> Result<(), AudioError> {
-        if self.worklet_state != AudioWorkletState::Ready {
+        if self.handler_state.borrow().worklet_state != AudioWorkletState::Ready {
             return Err(AudioError::Generic(
-                format!("Cannot start processing in state: {}", self.worklet_state)
+                format!("Cannot start processing in state: {}", self.handler_state.borrow().worklet_state)
             ));
         }
         
         // Send start message to AudioWorklet processor
         self.send_typed_control_message(ToWorkletMessage::StartProcessing)?;
         
-        self.worklet_state = AudioWorkletState::Processing;
+        self.handler_state.borrow_mut().worklet_state = AudioWorkletState::Processing;
         dev_log!("✓ Audio processing started using AudioWorklet");
         Ok(())
     }
     
     /// Stop audio processing
     pub fn stop_processing(&mut self) -> Result<(), AudioError> {
-        if self.worklet_state != AudioWorkletState::Processing {
+        if self.handler_state.borrow().worklet_state != AudioWorkletState::Processing {
             return Err(AudioError::Generic(
-                format!("Cannot stop processing in state: {}", self.worklet_state)
+                format!("Cannot stop processing in state: {}", self.handler_state.borrow().worklet_state)
             ));
         }
         
         // Send stop message to AudioWorklet processor
         self.send_typed_control_message(ToWorkletMessage::StopProcessing)?;
         
-        self.worklet_state = AudioWorkletState::Stopped;
+        self.handler_state.borrow_mut().worklet_state = AudioWorkletState::Stopped;
         dev_log!("✓ Audio processing stopped");
         Ok(())
     }
@@ -170,12 +169,12 @@ impl AudioWorkletManager {
     }
     
     pub fn is_processing(&self) -> bool {
-        matches!(self.worklet_state, AudioWorkletState::Processing)
+        matches!(self.handler_state.borrow().worklet_state, AudioWorkletState::Processing)
     }
 
     pub fn get_status(&self) -> super::AudioWorkletStatus {
         super::AudioWorkletStatus {
-            state: self.worklet_state.clone(),
+            state: self.handler_state.borrow().worklet_state.clone(),
             processor_loaded: true,
             chunk_size: AUDIO_CHUNK_SIZE as u32,
             batch_size: crate::app_config::BUFFER_SIZE as u32,
