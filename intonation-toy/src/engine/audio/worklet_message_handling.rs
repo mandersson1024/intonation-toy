@@ -106,7 +106,7 @@ fn handle_typed_worklet_message(
             );
         }
         FromWorkletMessage::ProcessingError { error } => {
-            dev_log!("🎵 AUDIO_DEBUG: ✗ AudioWorklet processing error: {}", error);
+            dev_log!("✗ AudioWorklet processing error: {}", error);
         }
     }
 }
@@ -144,36 +144,38 @@ fn handle_typed_audio_data_batch(
     if let Ok(payload_obj) = js_sys::Reflect::get(original_obj, &"payload".into())
         .and_then(|p| p.dyn_into::<js_sys::Object>()) {
         
-        if let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) {
-            if let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() {
-                
-                // Convert ArrayBuffer to Float32Array for processing
-                let float32_array = js_sys::Float32Array::new(&array_buffer);
-                let array_length = float32_array.length() as usize;
-                let mut audio_samples = vec![0.0f32; array_length];
-                float32_array.copy_to(&mut audio_samples);
-                
-                // Perform actual audio processing
-                process_audio_samples(&audio_samples, handler_state, volume_detector, pitch_analyzer);
-                
-                // Return buffer to worklet for recycling (ping-pong pattern is always enabled)
-                if let Some(buffer_id) = data.buffer_id {
-                    if let Err(e) = return_buffer_to_worklet(
-                        array_buffer.into(), 
-                        buffer_id,
-                        worklet_node,
-                        message_factory
-                    ) {
-                        dev_log!("Warning: Failed to return buffer to worklet: {}", e);
-                    }
-                } else {
-                    dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
-                }
-            } else {
-                dev_log!("Warning: Buffer field is not an ArrayBuffer");
-            }
-        } else {
+        let Ok(buffer_val) = js_sys::Reflect::get(&payload_obj, &"buffer".into()) else {
             dev_log!("Warning: No buffer field found in payload");
+            return;
+        };
+        
+        let Ok(array_buffer) = buffer_val.dyn_into::<js_sys::ArrayBuffer>() else {
+            dev_log!("Warning: Buffer field is not an ArrayBuffer");
+            return;
+        };
+        
+        // Convert ArrayBuffer to Float32Array for processing
+        let float32_array = js_sys::Float32Array::new(&array_buffer);
+        let array_length = float32_array.length() as usize;
+        let mut audio_samples = vec![0.0f32; array_length];
+        float32_array.copy_to(&mut audio_samples);
+        
+        // Perform actual audio processing
+        process_audio_samples(&audio_samples, handler_state, volume_detector, pitch_analyzer);
+        
+        // Return buffer to worklet for recycling (ping-pong pattern is always enabled)
+        let Some(buffer_id) = data.buffer_id else {
+            dev_log!("Warning: No buffer_id found in AudioDataBatch - cannot return buffer");
+            return;
+        };
+        
+        if let Err(e) = return_buffer_to_worklet(
+            array_buffer.into(), 
+            buffer_id,
+            worklet_node,
+            message_factory
+        ) {
+            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
         }
     } else {
         dev_log!("Warning: Could not extract payload object");
