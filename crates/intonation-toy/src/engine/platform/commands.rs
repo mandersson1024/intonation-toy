@@ -227,7 +227,7 @@ impl ConsoleCommand for AudioDevicesCommand {
                 let has_permission = (0..devices.length()).any(|i| {
                     devices.get(i)
                         .dyn_ref::<web_sys::MediaDeviceInfo>()
-                        .map_or(false, |d| !d.label().is_empty())
+                        .is_some_and(|d| !d.label().is_empty())
                 });
 
                 if !has_permission && devices.length() > 0 {
@@ -243,12 +243,9 @@ impl ConsoleCommand for AudioDevicesCommand {
                 dev_log_bold!("Audio Input Devices:");
                 for i in 0..devices.length() {
                     if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
-                        match device_info.kind() {
-                            web_sys::MediaDeviceKind::Audioinput => {
-                                input_count += 1;
-                                dev_log_bold!("    {}", device_info.label());
-                            }
-                            _ => {}
+                        if device_info.kind() == web_sys::MediaDeviceKind::Audioinput {
+                            input_count += 1;
+                            dev_log_bold!("    {}", device_info.label());
                         }
                     }
                 }
@@ -257,12 +254,9 @@ impl ConsoleCommand for AudioDevicesCommand {
                 dev_log_bold!("Audio Output Devices:");
                 for i in 0..devices.length() {
                     if let Some(device_info) = devices.get(i).dyn_ref::<web_sys::MediaDeviceInfo>() {
-                        match device_info.kind() {
-                            web_sys::MediaDeviceKind::Audiooutput => {
-                                output_count += 1;
-                                dev_log_bold!("    {}", device_info.label());
-                            }
-                            _ => {}
+                        if device_info.kind() == web_sys::MediaDeviceKind::Audiooutput {
+                            output_count += 1;
+                            dev_log_bold!("    {}", device_info.label());
                         }
                     }
                 }

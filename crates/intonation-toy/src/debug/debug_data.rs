@@ -3,7 +3,7 @@
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData};
 use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, IntonationData};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DebugData {
     pub performance_metrics: PerformanceMetrics,
     pub buffer_pool_stats: Option<crate::engine::audio::message_protocol::BufferPoolStats>,
@@ -15,20 +15,6 @@ pub struct DebugData {
     pub tuning_fork_note: Option<crate::common::shared_types::MidiNote>,
 }
 
-impl Default for DebugData {
-    fn default() -> Self {
-        Self {
-            performance_metrics: PerformanceMetrics::default(),
-            buffer_pool_stats: None,
-            volume_level: None,
-            pitch_data: None,
-            intonation_data: None,
-            audio_errors: Vec::new(),
-            interval_semitones: None,
-            tuning_fork_note: None,
-        }
-    }
-}
 
 impl DebugData {
     pub fn update_from_layers(

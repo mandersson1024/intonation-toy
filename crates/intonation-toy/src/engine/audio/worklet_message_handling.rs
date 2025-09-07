@@ -171,7 +171,7 @@ fn handle_typed_audio_data_batch(
         };
         
         if let Err(_e) = return_buffer_to_worklet(
-            array_buffer.into(), 
+            array_buffer, 
             buffer_id,
             worklet_node,
             message_factory

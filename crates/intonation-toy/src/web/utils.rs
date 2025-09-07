@@ -47,8 +47,7 @@ pub fn get_canvas_style_size() -> f32 {
     let available_height = window_obj.inner_height().unwrap().as_f64().unwrap() as i32 - (crate::web::styling::CANVAS_MARGIN * 2);
     
     std::cmp::min(available_width, available_height)
-        .min(crate::app_config::CANVAS_MAX_SIZE)
-        .max(crate::app_config::CANVAS_MIN_SIZE) as f32
+        .clamp(crate::app_config::CANVAS_MIN_SIZE, crate::app_config::CANVAS_MAX_SIZE) as f32
 }
 
 pub fn resize_canvas() {

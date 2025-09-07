@@ -11,8 +11,8 @@ pub enum ErrorSeverity {
 }
 
 /// Handle runtime errors and return the highest severity level encountered
-pub fn handle_runtime_errors(errors: &Vec<Error>) -> ErrorSeverity {
-    for error in errors {
+pub fn handle_runtime_errors(errors: &[Error]) -> ErrorSeverity {
+    if let Some(error) = errors.iter().next() {
         match error {
             Error::MobileDeviceNotSupported => {
                 crate::web::error_message_box::show_error(&Error::MobileDeviceNotSupported);
@@ -47,7 +47,6 @@ pub fn handle_platform_validation_error(result: PlatformValidationResult) {
         PlatformValidationResult::AllSupported => (),
         PlatformValidationResult::MobileDevice => {
             crate::web::error_message_box::show_error(&crate::common::shared_types::Error::MobileDeviceNotSupported);
-            return;
         }
         PlatformValidationResult::MissingCriticalApis(missing_apis) => {
             let api_list: Vec<String> = missing_apis.iter().map(|api| api.to_string()).collect();

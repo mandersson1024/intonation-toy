@@ -150,9 +150,6 @@ impl AudioEngine {
         }
     }
     
-
-    #[cfg(debug_assertions)]
-
     #[cfg(debug_assertions)]
     pub fn get_debug_buffer_pool_stats(&self) -> Option<BufferPoolStats> {
         self.audioworklet_manager.get_buffer_pool_statistics()

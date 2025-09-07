@@ -47,7 +47,7 @@ where
 macro_rules! profile {
     ($name:expr, $expr:expr) => {
         if cfg!(feature = "profiling") {
-            crate::web::profiling::profiled($name, || $expr)
+            $crate::web::profiling::profiled($name, || $expr)
         } else {
             $expr
         }

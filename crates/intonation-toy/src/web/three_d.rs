@@ -23,6 +23,6 @@ fn scale_event_position(position: &mut three_d::PhysicalPoint, render_size: f32,
     let scale_factor = render_size / canvas_style_size;
     let offset = canvas_style_size - render_size;
     
-    position.x = position.x * scale_factor;
+    position.x *= scale_factor;
     position.y = (position.y + offset) * scale_factor;
 }

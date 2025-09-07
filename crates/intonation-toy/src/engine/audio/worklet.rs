@@ -136,15 +136,11 @@ impl AudioWorkletManager {
     
     pub fn get_volume_data(&self) -> Option<super::VolumeLevelData> {
         // Check if we have volume data from the handler state (from message handler)
-        if let Some(ref analysis) = self.handler_state.borrow().last_volume_analysis {
-            Some(super::VolumeLevelData {
+        self.handler_state.borrow().last_volume_analysis.as_ref().map(|analysis| super::VolumeLevelData {
                 rms_amplitude: analysis.rms_amplitude,
                 peak_amplitude: analysis.peak_amplitude,
                 fft_data: None,  // No FFT data available from VolumeAnalysis
             })
-        } else {
-            None
-        }
     }
 
     pub fn get_pitch_data(&self) -> Option<super::pitch_detector::PitchResult> {
