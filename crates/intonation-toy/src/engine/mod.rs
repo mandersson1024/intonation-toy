@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Engine Layer - Raw audio processing and hardware interface
 //!
 //! The Engine layer is the lowest level of the three-layer architecture,

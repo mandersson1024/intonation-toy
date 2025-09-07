@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Shared data types for the intonation-toy application.
 //!
 //! This module contains all shared data structures used for communication
@@ -198,14 +200,14 @@ impl ColorScheme {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum TuningSystem {
     EqualTemperament,
     JustIntonation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum Scale {
     Chromatic,
     Major,

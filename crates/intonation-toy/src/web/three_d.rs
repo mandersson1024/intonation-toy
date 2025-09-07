@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::web;
 
 pub fn compensate_positions_for_canvas_scaling(events: &mut Vec<three_d::Event>, render_size: u32) {

@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 pub mod audio_error;
 pub mod worklet;
 pub mod worklet_message_handling;

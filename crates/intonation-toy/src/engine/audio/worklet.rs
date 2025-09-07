@@ -1,4 +1,6 @@
 
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::{ MessageEvent };
 
 use std::rc::Rc;

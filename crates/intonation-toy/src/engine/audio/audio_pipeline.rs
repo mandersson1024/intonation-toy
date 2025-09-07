@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::{AudioContext, AudioWorkletNode, AudioWorkletNodeOptions, OscillatorType};
 use crate::{common::dev_log, engine::audio::AudioSignalPath};
 

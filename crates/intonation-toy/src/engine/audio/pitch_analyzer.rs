@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use super::pitch_detector::{PitchDetector, PitchDetectorConfig, PitchResult};
 
 pub type PitchAnalysisError = String;

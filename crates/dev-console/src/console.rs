@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::{ConsoleCommandRegistry, ConsoleOutput, ConsoleCommandResult, ConsoleHistory, ConsoleOutputManager, ConsoleCommand};
 use web_sys::Storage;
 const CONSOLE_HISTORY_STORAGE_KEY: &str = "dev_console_history";

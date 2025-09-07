@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};

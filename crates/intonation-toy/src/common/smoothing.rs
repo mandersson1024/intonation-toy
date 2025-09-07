@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 /// EMA smoother for data smoothing over time
 #[derive(Debug, Clone, PartialEq)]
 pub struct EmaSmoother {

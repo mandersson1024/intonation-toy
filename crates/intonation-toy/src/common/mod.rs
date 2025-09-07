@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 pub mod logging;
 pub mod music_theory;
 pub mod shared_types;

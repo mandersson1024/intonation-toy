@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Presentation Layer - Visualization and user interface
 //! 
 //! This layer is responsible for:
@@ -26,7 +28,6 @@ use std::cell::RefCell;
 use three_d::{RenderTarget, Context, Viewport};
 use crate::common::shared_types::{ModelUpdateResult, TuningSystem, Scale, MidiNote, Pitch};
 
-#[cfg(target_arch = "wasm32")]
 use crate::web::sidebar_controls::{setup_sidebar_controls, cleanup_sidebar_controls, setup_event_listeners};
 
 /// Request to change the tuning system
@@ -90,23 +91,17 @@ pub struct Presenter {
     
     interval_position: f32,
     
-    #[cfg(target_arch = "wasm32")]
     sidebar_ui_active: bool,
 
-    #[cfg(target_arch = "wasm32")]
     self_reference: Option<Rc<RefCell<Self>>>,
     
-    #[cfg(target_arch = "wasm32")]
     ui_listeners_attached: bool,
 }
 
 impl Presenter {
     /// Create a new Presenter wrapped in Rc<RefCell>
     pub fn create() -> Result<Rc<RefCell<Self>>, String> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            setup_sidebar_controls();
-        }
+        setup_sidebar_controls();
         
         let presenter = Self {
             renderer: None,
@@ -114,22 +109,16 @@ impl Presenter {
             #[cfg(debug_assertions)]
             pending_debug_actions: DebugLayerActions::default(),
             interval_position: 0.0,
-            #[cfg(target_arch = "wasm32")]
             sidebar_ui_active: true,
-            #[cfg(target_arch = "wasm32")]
             self_reference: None,
-            #[cfg(target_arch = "wasm32")]
             ui_listeners_attached: false,
         };
         
         let presenter_rc = Rc::new(RefCell::new(presenter));
         
-        #[cfg(target_arch = "wasm32")]
-        {
-            presenter_rc.borrow_mut().self_reference = Some(presenter_rc.clone());
-            setup_event_listeners(presenter_rc.clone());
-            presenter_rc.borrow_mut().ui_listeners_attached = true;
-        }
+        presenter_rc.borrow_mut().self_reference = Some(presenter_rc.clone());
+        setup_event_listeners(presenter_rc.clone());
+        presenter_rc.borrow_mut().ui_listeners_attached = true;
         
         Ok(presenter_rc)
     }
@@ -229,7 +218,6 @@ impl Presenter {
             self.renderer = Some(Box::new(renderer));
             self.update_graphics(screen.viewport(), model_data);
             
-            #[cfg(target_arch = "wasm32")]
             self.sync_sidebar_ui(model_data);
         }
         
@@ -274,25 +262,15 @@ impl Presenter {
         crate::common::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
     }
 
-    #[cfg(target_arch = "wasm32")]
     fn sync_sidebar_ui(&self, model_data: &ModelUpdateResult) {
         crate::web::sidebar_controls::sync_sidebar_with_presenter_state(model_data);
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn sync_sidebar_ui(&self, _model_data: &ModelUpdateResult) {
-    }
     
-    #[cfg(target_arch = "wasm32")]
     fn cleanup_sidebar_ui_if_active(&mut self) {
         if self.sidebar_ui_active {
             cleanup_sidebar_controls();
             self.sidebar_ui_active = false;
         }
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn cleanup_sidebar_ui_if_active(&mut self) {
     }
 }
 

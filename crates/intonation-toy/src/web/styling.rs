@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::common::theme::get_current_color_scheme;
 use crate::web::utils::rgb_to_css;
 

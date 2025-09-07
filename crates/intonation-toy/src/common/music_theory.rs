@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::common::shared_types::{MidiNote, TuningSystem, Scale, semitone_in_scale, is_valid_midi_note};
 use crate::common::warn_log;
 

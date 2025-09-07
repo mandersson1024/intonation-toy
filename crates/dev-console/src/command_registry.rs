@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use std::collections::HashMap;
 use crate::output::ConsoleOutput;
 use crate::command::{ConsoleCommand, ConsoleCommandResult};

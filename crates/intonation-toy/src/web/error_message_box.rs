@@ -1,9 +1,8 @@
-#[cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
+
 use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
 use web_sys::HtmlElement;
 
-#[cfg(target_arch = "wasm32")]
 fn show_error_box(title: &str, details: &str) {
     crate::common::error_log!("Error: {} - {}", title, details);
 
@@ -22,22 +21,11 @@ fn show_error_box(title: &str, details: &str) {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn show_error(error: &crate::common::shared_types::Error) {
     show_error_box(error.title(), error.details());
 }
-#[cfg(target_arch = "wasm32")]
 pub fn show_error_with_params(error: &crate::common::shared_types::Error, params: &[&str]) {
     let details = error.details_with(params);
     show_error_box(error.title(), &details);
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn show_error(error: &crate::common::shared_types::Error) {
-    crate::common::error_log!("Error: {} - {}", error.title(), error.details());
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn show_error_with_params(error: &crate::common::shared_types::Error, params: &[&str]) {
-    crate::common::error_log!("Error: {} - {}", error.title(), error.details_with(params));
-}

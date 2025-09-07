@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 pub mod command;
 pub mod command_registry;
 pub mod console;

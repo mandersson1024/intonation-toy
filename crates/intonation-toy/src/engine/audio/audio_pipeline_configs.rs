@@ -1,4 +1,6 @@
 
+#![cfg(target_arch = "wasm32")]
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalGeneratorConfig {
     pub enabled: bool,

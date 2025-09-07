@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::common::shared_types::{Theme, ColorScheme};
 use std::sync::{Mutex, OnceLock};
 

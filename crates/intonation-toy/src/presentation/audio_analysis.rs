@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 #[derive(Default)]
 pub struct AudioAnalysis {
     pub pitch_detected: bool,

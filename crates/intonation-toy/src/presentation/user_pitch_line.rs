@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, WriteMask};
 use crate::app_config::{INTONATION_ACCURACY_THRESHOLD, USER_PITCH_LINE_THICKNESS_MAX, USER_PITCH_LINE_TRANSPARENCY_MIN};
 use crate::presentation::audio_analysis::AudioAnalysis;

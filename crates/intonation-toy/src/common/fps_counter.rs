@@ -1,4 +1,6 @@
 
+#![cfg(target_arch = "wasm32")]
+
 pub struct FpsCounter {
     last_timestamp: Option<f64>,
     fps_buffer: Option<Vec<f64>>,

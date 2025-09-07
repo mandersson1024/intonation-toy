@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 

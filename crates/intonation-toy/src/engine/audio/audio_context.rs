@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::{AudioContext, AudioContextOptions};
 use crate::common::dev_log;
 use crate::app_config::STANDARD_SAMPLE_RATE;

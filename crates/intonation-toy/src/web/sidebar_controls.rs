@@ -1,4 +1,5 @@
-#[cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
+
 use {
     wasm_bindgen::JsCast,
     wasm_bindgen::closure::Closure,
@@ -18,17 +19,13 @@ use {
 // 3. The volume position must be preserved when the note changes
 // Unlike the dropdown controls (scale/tuning system) which maintain their own state in the DOM,
 // these controls need coordinated state management to work together properly.
-#[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
 
-#[cfg(target_arch = "wasm32")]
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
 // Track last saved configuration to avoid saving every frame
-#[cfg(target_arch = "wasm32")]
 static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale)>> = std::sync::Mutex::new(None);
 
-#[cfg(target_arch = "wasm32")]
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
         0.0
@@ -40,7 +37,6 @@ fn slider_position_to_amplitude(position: f32) -> f32 {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 fn slider_position_to_db_display(position: f32) -> String {
     if position <= 0.0 {
         "-∞ dB".to_string()
@@ -58,7 +54,6 @@ fn slider_position_to_db_display(position: f32) -> String {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn setup_sidebar_controls() {
     let Some(window) = window() else {
         dev_log!("Failed to get window");
@@ -106,11 +101,9 @@ pub fn setup_sidebar_controls() {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn cleanup_sidebar_controls() {
 }
 
-#[cfg(target_arch = "wasm32")]
 fn add_event_listener<F>(element_id: &str, event_type: &str, handler: F) 
 where 
     F: FnMut(web_sys::Event) + 'static,
@@ -130,7 +123,6 @@ where
     closure.forget();
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
     let presenter_clone = presenter.clone();
     add_event_listener("tuning-fork-plus", "click", move |_event: web_sys::Event| {
@@ -236,15 +228,7 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     });
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn setup_sidebar_controls() {
-}
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn cleanup_sidebar_controls() {
-}
-
-#[cfg(target_arch = "wasm32")]
 pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_types::ModelUpdateResult) {
     let Some(window) = window() else {
         return;
@@ -327,10 +311,3 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
 
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn setup_event_listeners(_presenter: std::rc::Rc<std::cell::RefCell<crate::presentation::Presenter>>) {
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn sync_ui_with_presenter_state(_model_data: &crate::common::shared_types::ModelUpdateResult) {
-}

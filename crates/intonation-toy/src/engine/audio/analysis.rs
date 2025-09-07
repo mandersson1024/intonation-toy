@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use super::data_types::VolumeAnalysis;
 
 pub fn analyze_volume(time_domain_data: &[f32]) -> VolumeAnalysis {

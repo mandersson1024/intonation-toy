@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 // External crate imports
 use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};

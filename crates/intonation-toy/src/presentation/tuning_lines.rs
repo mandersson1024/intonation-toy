@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
 use crate::common::shared_types::MidiNote;
 use crate::common::theme::get_current_color_scheme;

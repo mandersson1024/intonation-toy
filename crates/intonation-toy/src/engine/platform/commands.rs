@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 // Platform Console Commands
 // Commands for platform information and API status
 

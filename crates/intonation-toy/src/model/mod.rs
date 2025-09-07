@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Model layer - processes audio data and validates user actions
 
 use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, TuningSystem, Scale, MidiNote};

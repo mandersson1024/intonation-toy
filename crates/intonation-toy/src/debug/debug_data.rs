@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::debug::data_types::{PerformanceMetrics, VolumeLevelData, PitchData};
 use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, IntonationData};
 

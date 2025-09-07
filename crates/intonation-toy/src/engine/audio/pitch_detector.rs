@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
 use crate::app_config::{CLARITY_THRESHOLD, POWER_THRESHOLD};
 

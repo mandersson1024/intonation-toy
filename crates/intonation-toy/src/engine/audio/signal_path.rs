@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::{AudioContext, GainNode, AudioWorkletNode, MediaStreamAudioSourceNode, OscillatorNode, AnalyserNode};
 
 /// Represents the complete audio signal flow with all Web Audio API nodes

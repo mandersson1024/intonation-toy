@@ -1,9 +1,9 @@
-#[cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::window;
 
 /// Execute a function and wrap it with User Timing marks
 /// for profiling in Chrome DevTools Performance panel.
-#[cfg(target_arch = "wasm32")]
 pub fn profiled<F, R>(name: &str, f: F) -> R
 where
     F: FnOnce() -> R,
@@ -32,14 +32,6 @@ where
     result
 }
 
-/// No-op fallback for non-wasm targets
-#[cfg(not(target_arch = "wasm32"))]
-pub fn profiled<F, R>(_name: &str, f: F) -> R
-where
-    F: FnOnce() -> R,
-{
-    f()
-}
 
 /// Macro to conditionally profile code based on the "profiling" feature flag.
 /// When profiling is enabled, wraps the expression with profiling marks.

@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::AnalyserNode;
 use super::data_types::VolumeAnalysis;
 use super::analysis;

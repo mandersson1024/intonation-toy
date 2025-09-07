@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Application configuration constants
 //! 
 //! This module contains all configuration constants used throughout the application

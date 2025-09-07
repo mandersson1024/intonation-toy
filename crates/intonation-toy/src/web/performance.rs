@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Performance monitoring utilities for web browsers
 //! 
 //! This module provides browser-specific performance monitoring functionality,

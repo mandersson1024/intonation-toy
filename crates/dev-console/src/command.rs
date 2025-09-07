@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use crate::output::ConsoleOutput;
 
 #[derive(Debug)]

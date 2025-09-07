@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 // Type-safe message protocol for AudioWorklet communication
 
 use js_sys::{Object, Reflect};

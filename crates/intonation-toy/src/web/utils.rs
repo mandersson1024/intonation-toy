@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use wasm_bindgen::JsCast;
 
 pub fn rgb_to_css(rgb: [f32; 3]) -> String {

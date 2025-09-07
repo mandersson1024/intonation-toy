@@ -1,4 +1,6 @@
 
+#![cfg(target_arch = "wasm32")]
+
 /// Volume level data for external consumption
 /// 
 /// Contains RMS and peak amplitude measurements, and optionally FFT frequency data.

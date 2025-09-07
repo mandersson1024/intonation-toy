@@ -1,4 +1,5 @@
-#[cfg(target_arch = "wasm32")]
+#![cfg(target_arch = "wasm32")]
+
 use {
     web_sys::window,
     serde::{Serialize, Deserialize},
@@ -6,12 +7,9 @@ use {
     crate::common::dev_log,
 };
 
-#[cfg(target_arch = "wasm32")]
 const STORAGE_KEY: &str = "intonation_toy_config";
-#[cfg(target_arch = "wasm32")]
 const EXPIRATION_MS: i64 = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-#[cfg(target_arch = "wasm32")]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredConfig {
     pub tuning_fork_note: MidiNote,
@@ -20,7 +18,6 @@ pub struct StoredConfig {
     pub timestamp: i64,
 }
 
-#[cfg(target_arch = "wasm32")]
 impl StoredConfig {
     pub fn new(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
         let timestamp = js_sys::Date::now() as i64;
@@ -38,7 +35,6 @@ impl StoredConfig {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for storage");
@@ -64,7 +60,6 @@ pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scal
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn load_config() -> Option<StoredConfig> {
     let window = window()?;
     let storage = window.local_storage().ok().flatten()?;
@@ -90,7 +85,6 @@ pub fn load_config() -> Option<StoredConfig> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 pub fn clear_config() {
     if let Some(window) = window() {
         if let Some(storage) = window.local_storage().ok().flatten() {
@@ -99,15 +93,3 @@ pub fn clear_config() {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn save_config(_tuning_fork_note: u8, _tuning_system: crate::common::shared_types::TuningSystem, _scale: crate::common::shared_types::Scale) {
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn load_config() -> Option<()> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn clear_config() {
-}

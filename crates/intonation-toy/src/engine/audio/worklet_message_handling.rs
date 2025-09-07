@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use web_sys::{AudioWorkletNode, MessageEvent};
 use std::rc::Rc;
 use std::cell::RefCell;

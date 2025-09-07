@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 // Platform detection and feature support
 
 pub mod commands;
@@ -5,7 +7,6 @@ pub mod commands;
 use crate::common::dev_log;
 
 
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
 /// Platform feature validation results
@@ -64,8 +65,6 @@ impl Platform {
     /// Get detailed status of all critical APIs
     /// Optimized to reuse shared contexts (AudioContext, Canvas) across multiple checks
     pub fn get_api_status() -> Vec<ApiStatus> {
-        #[cfg(target_arch = "wasm32")]
-        {
         let mut results = Vec::new();
         
         // Get shared window/document once
@@ -178,19 +177,6 @@ impl Platform {
         });
         
         results
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            Self::get_critical_apis()
-                .into_iter()
-                .map(|api| ApiStatus {
-                    api,
-                    supported: false,
-                    details: Some("Not running in browser environment".to_string()),
-                })
-                .collect()
-        }
     }
 
     /// Validate all critical platform features required for application startup
@@ -222,36 +208,26 @@ impl Platform {
 
     /// Get platform information string for debugging
     pub fn get_platform_info() -> String {
-        #[cfg(target_arch = "wasm32")]
         let user_agent = web_sys::window()
             .and_then(|w| w.navigator().user_agent().ok())
             .unwrap_or_else(|| "Unknown".to_string());
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        let user_agent = "Unknown".to_string();
         
         format!("UserAgent: {}", user_agent)
     }
 
     /// Check if the current platform is a mobile device
     pub fn is_mobile_device() -> bool {
-        #[cfg(target_arch = "wasm32")]
-        {
-            web_sys::window()
-                .and_then(|w| w.navigator().user_agent().ok())
-                .map(|ua| {
-                    let ua_lower = ua.to_lowercase();
-                    ["android", "iphone", "ipad", "ipod", "blackberry", 
-                     "windows phone", "webos", "opera mini", "iemobile", 
-                     "mobile", "tablet"]
-                        .iter()
-                        .any(|&pattern| ua_lower.contains(pattern))
-                })
-                .unwrap_or(false)
-        }
-        
-        #[cfg(not(target_arch = "wasm32"))]
-        false
+        web_sys::window()
+            .and_then(|w| w.navigator().user_agent().ok())
+            .map(|ua| {
+                let ua_lower = ua.to_lowercase();
+                ["android", "iphone", "ipad", "ipod", "blackberry", 
+                 "windows phone", "webos", "opera mini", "iemobile", 
+                 "mobile", "tablet"]
+                    .iter()
+                    .any(|&pattern| ua_lower.contains(pattern))
+            })
+            .unwrap_or(false)
     }
 }
 

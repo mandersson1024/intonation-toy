@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use three_d::*;
 
 pub struct EguiTextBackend {

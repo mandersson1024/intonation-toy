@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 use serde::{Serialize, Deserialize};
 
 const MAX_HISTORY_SIZE: usize = 100;

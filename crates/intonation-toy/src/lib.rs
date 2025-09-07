@@ -1,4 +1,6 @@
 
+#![cfg(target_arch = "wasm32")]
+
 pub mod app_config;
 pub mod engine;
 pub mod model;
@@ -8,7 +10,6 @@ pub mod common;
 #[cfg(debug_assertions)]
 pub(crate) mod debug;
 
-#[cfg(target_arch = "wasm32")]
 use {
     wasm_bindgen::JsCast,
     wasm_bindgen::closure::Closure,
@@ -17,7 +18,6 @@ use {
     engine::audio::audio_context::{create_audio_context, load_worklet_module},
 };
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
 pub async fn start() {
     #[cfg(debug_assertions)]
@@ -96,7 +96,6 @@ pub async fn start() {
     start_render_loop(engine, model, presenter).await;
 }
 
-#[cfg(target_arch = "wasm32")]
 pub async fn start_render_loop(
     mut engine: engine::AudioEngine,
     mut model: model::DataModel,
