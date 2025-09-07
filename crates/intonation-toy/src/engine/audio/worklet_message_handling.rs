@@ -42,8 +42,8 @@ pub(super) fn handle_worklet_message(
                     message_factory
                 );
             }
-            Err(e) => {
-                dev_log!("ERROR: Failed to deserialize typed message: {}", e);
+            Err(_e) => {
+                dev_log!("ERROR: Failed to deserialize typed message: {}", _e);
             }
         }
     } else {
@@ -106,8 +106,8 @@ fn handle_typed_worklet_message(
                 &message_factory
             );
         }
-        FromWorkletMessage::ProcessingError { error } => {
-            dev_log!("✗ AudioWorklet processing error: {}", error);
+        FromWorkletMessage::ProcessingError { error: _e } => {
+            dev_log!("✗ AudioWorklet processing error: {}", _e);
         }
     }
 }
@@ -170,13 +170,13 @@ fn handle_typed_audio_data_batch(
             return;
         };
         
-        if let Err(e) = return_buffer_to_worklet(
+        if let Err(_e) = return_buffer_to_worklet(
             array_buffer.into(), 
             buffer_id,
             worklet_node,
             message_factory
         ) {
-            dev_log!("Warning: Failed to return buffer to worklet: {}", e);
+            dev_log!("Warning: Failed to return buffer to worklet: {}", _e);
         }
     } else {
         dev_log!("Warning: Could not extract payload object");

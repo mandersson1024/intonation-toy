@@ -117,8 +117,8 @@ where
     let Some(event_target) = element.dyn_ref::<EventTarget>() else { return; };
     
     let closure = Closure::wrap(Box::new(handler) as Box<dyn FnMut(_)>);
-    if let Err(err) = event_target.add_event_listener_with_callback(event_type, closure.as_ref().unchecked_ref()) {
-        dev_log!("Failed to add {} listener to {}: {:?}", event_type, element_id, err);
+    if let Err(_e) = event_target.add_event_listener_with_callback(event_type, closure.as_ref().unchecked_ref()) {
+        dev_log!("Failed to add {} listener to {}: {:?}", event_type, element_id, _e);
     }
     closure.forget();
 }

@@ -208,8 +208,8 @@ impl Presenter {
         if self.renderer.is_none() {
             let renderer = match Renderer::new(context, screen.viewport()) {
                 Ok(scene) => scene,
-                Err(e) => {
-                    crate::common::dev_log!("Failed to create Renderer: {}", e);
+                Err(_e) => {
+                    crate::common::dev_log!("Failed to create Renderer: {}", _e);
                     screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
                     return;
                 }

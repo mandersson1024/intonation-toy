@@ -1,4 +1,5 @@
 #![cfg(target_arch = "wasm32")]
+#![cfg(debug_assertions)]
 
 // Platform Console Commands
 // Commands for platform information and API status

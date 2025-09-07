@@ -50,12 +50,12 @@ pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scal
     
     match serde_json::to_string(&config) {
         Ok(json) => {
-            if let Err(err) = storage.set_item(STORAGE_KEY, &json) {
-                dev_log!("Failed to save config to local storage: {:?}", err);
+            if let Err(_e) = storage.set_item(STORAGE_KEY, &json) {
+                dev_log!("Failed to save config to local storage: {:?}", _e);
             }
         }
-        Err(err) => {
-            dev_log!("Failed to serialize config: {:?}", err);
+        Err(_e) => {
+            dev_log!("Failed to serialize config: {:?}", _e);
         }
     }
 }
@@ -77,8 +77,8 @@ pub fn load_config() -> Option<StoredConfig> {
                 Some(config)
             }
         }
-        Err(err) => {
-            dev_log!("Failed to deserialize config: {:?}", err);
+        Err(_e) => {
+            dev_log!("Failed to deserialize config: {:?}", _e);
             let _ = storage.remove_item(STORAGE_KEY);
             None
         }

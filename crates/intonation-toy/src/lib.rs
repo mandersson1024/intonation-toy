@@ -101,6 +101,7 @@ pub async fn start_render_loop(
     mut model: model::DataModel,
     presenter: std::rc::Rc<std::cell::RefCell<presentation::Presenter>>,
 ) {
+    #[cfg(debug_assertions)]
     use crate::common::fps_counter::FpsCounter;
     use crate::common::error_handling::{handle_runtime_errors, ErrorSeverity};
     #[cfg(debug_assertions)]
@@ -133,6 +134,7 @@ use crate::debug::debug_panel::DebugPanel;
     #[cfg(debug_assertions)]
     let mut debug_panel = DebugPanel::new(presenter.clone());
     
+    #[cfg(debug_assertions)]
     let mut fps_counter = FpsCounter::new(30);
     
     web::utils::resize_canvas();
@@ -140,6 +142,7 @@ use crate::debug::debug_panel::DebugPanel;
     window.render_loop(move |mut frame_input| {
         web::three_d::compensate_positions_for_canvas_scaling(&mut frame_input.events, render_size);
 
+        #[cfg(debug_assertions)]
         let fps = fps_counter.update(frame_input.accumulated_time);
         let engine_data = profile!("engine_update", engine.update());
         

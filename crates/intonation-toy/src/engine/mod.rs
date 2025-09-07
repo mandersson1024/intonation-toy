@@ -30,12 +30,12 @@ pub(crate) mod platform;
 use crate::common::shared_types::EngineUpdateResult;
 use crate::model::ModelLayerActions;
 use web_sys::AudioContext;
-use crate::engine::audio::message_protocol::BufferPoolStats;
 use crate::engine::audio::worklet::AudioWorkletManager;
 use crate::engine::audio::volume_detector::VolumeDetector;
 
-// Debug-only imports for conditional compilation
-#[cfg(debug_assertions)]
+#[cfg(debug_assertions)] 
+use crate::engine::audio::message_protocol::BufferPoolStats;
+#[cfg(debug_assertions)] 
 use crate::presentation::DebugLayerActions;
 
 

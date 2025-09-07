@@ -32,6 +32,7 @@ pub enum CriticalApi {
 pub struct ApiStatus {
     pub api: CriticalApi,
     pub supported: bool,
+    #[cfg(debug_assertions)] 
     pub details: Option<String>,
 }
 
@@ -77,6 +78,7 @@ impl Platform {
                     .map(|api| ApiStatus {
                         api,
                         supported: false,
+                        #[cfg(debug_assertions)] 
                         details: Some("Window object not available".to_string()),
                     })
                     .collect();
@@ -90,6 +92,7 @@ impl Platform {
         results.push(ApiStatus {
             api: CriticalApi::GetUserMedia,
             supported: is_supported,
+            #[cfg(debug_assertions)] 
             details: Some(format!("getUserMedia API {}", if is_supported { "available" } else { "not available" })),
         });
         
@@ -108,11 +111,13 @@ impl Platform {
             Some(_) => ApiStatus {
                 api: CriticalApi::WebAudioApi,
                 supported: true,
+                #[cfg(debug_assertions)] 
                 details: Some("AudioContext creation successful".to_string()),
             },
             None => ApiStatus {
                 api: CriticalApi::WebAudioApi,
                 supported: false,
+                #[cfg(debug_assertions)] 
                 details: Some("AudioContext creation failed".to_string()),
             },
         });
@@ -124,12 +129,14 @@ impl Platform {
                 ApiStatus {
                     api: CriticalApi::AudioWorklet,
                     supported: has_audioworklet,
+                    #[cfg(debug_assertions)] 
                     details: Some(format!("AudioWorklet {}", if has_audioworklet { "API available" } else { "not supported" })),
                 }
             },
             None => ApiStatus {
                 api: CriticalApi::AudioWorklet,
                 supported: false,
+                #[cfg(debug_assertions)] 
                 details: Some("AudioContext creation failed".to_string()),
             },
         });
@@ -146,11 +153,13 @@ impl Platform {
             Some(_) => ApiStatus {
                 api: CriticalApi::Canvas,
                 supported: true,
+                #[cfg(debug_assertions)] 
                 details: Some("Canvas element creation successful".to_string()),
             },
             None => ApiStatus {
                 api: CriticalApi::Canvas,
                 supported: false,
+                #[cfg(debug_assertions)] 
                 details: Some("Canvas element creation failed".to_string()),
             },
         });
@@ -158,7 +167,7 @@ impl Platform {
         // WebGL2 check using same canvas
         results.push(match &canvas {
             Some(canvas) => {
-                let (supported, msg) = match canvas.get_context("webgl2") {
+                let (supported, _msg) = match canvas.get_context("webgl2") {
                     Ok(Some(_)) => (true, "WebGL2 context creation successful"),
                     Ok(None) => (false, "WebGL2 context not available"),
                     Err(_) => (false, "WebGL2 not supported"),
@@ -166,12 +175,14 @@ impl Platform {
                 ApiStatus {
                     api: CriticalApi::WebGL2,
                     supported,
-                    details: Some(msg.to_string()),
+                    #[cfg(debug_assertions)] 
+                    details: Some(_msg.to_string()),
                 }
             },
             None => ApiStatus {
                 api: CriticalApi::WebGL2,
                 supported: false,
+                #[cfg(debug_assertions)] 
                 details: Some("Canvas element creation failed".to_string()),
             },
         });
@@ -206,6 +217,7 @@ impl Platform {
         }
     }
 
+    #[cfg(debug_assertions)]
     /// Get platform information string for debugging
     pub fn get_platform_info() -> String {
         let user_agent = web_sys::window()
