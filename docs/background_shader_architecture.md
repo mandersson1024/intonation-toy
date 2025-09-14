@@ -1,8 +1,8 @@
 # Background Quad Custom Shader Architecture
 
-This document outlines the architecture for rendering the background quad using a custom shader material with the three_d API.
+This document outlines the architecture for rendering the background quad using a custom shader with direct program control in three_d.
 
-## Architecture Overview
+## Implementation
 
 ### 1. Shader Program Creation
 
@@ -12,87 +12,65 @@ let vertex_shader = "
     in vec3 position;
     uniform mat4 viewProjectionMatrix;
     out vec2 uv;
-    
+
     void main() {
         uv = position.xy * 0.5 + 0.5;
         gl_Position = viewProjectionMatrix * vec4(position, 1.0);
     }
 ";
 
-// Define fragment shader
+// Define fragment shader with texture buffer support
 let fragment_shader = "
     in vec2 uv;
     out vec4 fragColor;
     uniform float time;
-    
+    uniform sampler2D bufferTexture;
+    uniform int currentPixel;
+
     void main() {
+        // Read from texture buffer
+        vec4 historicalData = texture(bufferTexture, vec2(float(gl_FragCoord.x) / 1024.0, 0.5));
+
         // Custom shader logic here
         fragColor = vec4(uv, sin(time), 1.0);
     }
 ";
 
 // Create program
-let program = Program::from_source(
+let program = Program::from_source(&context, vertex_source, fragment_source)?;
+```
+
+### 2. Texture Buffer Setup
+
+```rust
+// Create texture buffer (e.g., 1024x1 for 1024 frames of history)
+let mut texture_data = vec![0u8; 1024 * 4]; // RGBA
+let texture = Texture2D::new(
     &context,
-    vertex_shader,
-    fragment_shader
+    &CpuTexture {
+        data: TextureData::RgbaU8(texture_data),
+        width: 1024,
+        height: 1,
+        ..Default::default()
+    }
 )?;
 ```
 
-### 2. Custom Material Implementation
+### 3. Per-Frame Update
 
 ```rust
-struct BackgroundMaterial {
-    program: Program,
-    time: f32,
-}
-
-impl Material for BackgroundMaterial {
-    fn fragment_shader_source(&self, _lights: &[&dyn Light]) -> String {
-        fragment_shader.to_string()
-    }
-    
-    fn vertex_shader_source(&self) -> String {
-        vertex_shader.to_string()
-    }
-    
-    fn use_uniforms(&self, camera: &Camera, _lights: &[&dyn Light]) -> Result<(), three_d::Error> {
-        self.program.use_uniform("viewProjectionMatrix", camera.projection() * camera.view())?;
-        self.program.use_uniform("time", self.time)?;
-        Ok(())
-    }
-    
-    fn render_states(&self) -> RenderStates {
-        RenderStates::default()
-    }
-}
+// Update one pixel per frame
+let pixel_index = frame_counter % 1024;
+texture.update_part(
+    pixel_index, 0,  // x, y position
+    1, 1,            // width, height
+    &[r, g, b, a]    // RGBA values
+);
 ```
 
-### 3. Create Geometric Model with Custom Material
+### 4. Rendering
 
 ```rust
-let quad_geometry = Mesh::new(&context, &CpuMesh::square());
-let background_material = BackgroundMaterial {
-    program,
-    time: 0.0,
-};
-let background_quad = Gm::new(quad_geometry, background_material);
-```
-
-### 4. Render with Custom Shader
-
-```rust
-screen.render(&self.camera, [&background_quad], &[]);
-```
-
-## Alternative Simpler Approach
-
-If you don't need full `Material` trait implementation:
-
-```rust
-// Create program
-let program = Program::from_source(&context, vertex_source, fragment_source)?;
-
 // Create geometry
 let positions = vec![
     Vec3::new(-1.0, -1.0, 0.0),
@@ -102,17 +80,16 @@ let positions = vec![
 ];
 let indices = vec![0u32, 1, 2, 0, 2, 3];
 
-// Render directly with program
+// Bind uniforms and textures
 program.use_vertex_attribute("position", &positions)?;
 program.use_uniform("viewProjectionMatrix", camera.projection() * camera.view())?;
 program.use_uniform("time", time_value)?;
+program.use_texture("bufferTexture", &texture)?;
+program.use_uniform("currentPixel", pixel_index as i32)?;
+
+// Draw
 program.draw_elements(RenderStates::default(), context.viewport(), &indices);
 ```
-
-## Trade-offs
-
-- **First approach**: Integrates better with three_d's rendering pipeline, easier to manage with other objects
-- **Second approach**: More direct control over the rendering process, potentially more performant
 
 ## Implementation Location
 
