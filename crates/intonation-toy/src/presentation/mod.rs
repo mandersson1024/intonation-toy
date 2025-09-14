@@ -13,11 +13,13 @@
 //! 
 
 mod audio_analysis;
+mod background_shader;
 mod renderer;
 mod tuning_lines;
 mod egui_text_backend;
 mod user_pitch_line;
 pub use audio_analysis::AudioAnalysis;
+pub use background_shader::BackgroundShader;
 pub use renderer::Renderer;
 pub use tuning_lines::TuningLines;
 pub use egui_text_backend::EguiTextBackend;
@@ -228,7 +230,7 @@ impl Presenter {
         }
         
         if let Some(renderer) = &mut self.renderer {
-            renderer.render(screen, viewport);
+            crate::profile!("renderer_render", renderer.render(screen, viewport));
         } else {
             screen.clear(three_d::ClearState::color(0.0, 0.0, 0.0, 1.0));
         }

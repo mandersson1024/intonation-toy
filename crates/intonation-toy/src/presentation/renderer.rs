@@ -1,17 +1,22 @@
 #![cfg(target_arch = "wasm32")]
 
 // External crate imports
-use three_d::{Blend, Camera, ClearState, ColorMaterial, Context, Deg, Gm, Object, PhysicalPoint, RenderStates, RenderTarget, Srgba, Texture2DRef, Viewport, WriteMask};
+use std::sync::Arc;
+use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, PhysicalPoint, RenderTarget, TextureData, Texture2DRef, Viewport};
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-use crate::app_config::{CLARITY_THRESHOLD, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
+use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
+use crate::presentation::background_shader::BackgroundShaderMaterial;
 use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
+
+/// Width of the data texture used for historical data
+const DATA_TEXTURE_WIDTH: usize = 512;
 
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
@@ -19,29 +24,26 @@ fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     viewport_height * (0.5 + interval * ZOOM_FACTOR * 0.5)
 }
 
-/// Creates a textured quad for background rendering
+/// Creates a textured quad for background rendering with custom shader
 fn create_background_quad(
     context: &Context,
     width: u32,
     height: u32,
     texture: Texture2DRef,
-) -> Gm<Rectangle, ColorMaterial> {
+    data_texture: Option<Texture2DRef>,
+    data_index: i32,
+) -> Gm<Rectangle, BackgroundShaderMaterial> {
     assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
-    
+
     let (w, h) = (width as f32, height as f32);
-    
+
     Gm::new(
         Rectangle::new(context, (w * 0.5, h * 0.5), Deg(0.0), w, h),
-        ColorMaterial {
-            color: Srgba::WHITE,
+        BackgroundShaderMaterial {
             texture: Some(texture),
-            is_transparent: true,
-            render_states: RenderStates {
-                depth_test: three_d::DepthTest::Always,
-                write_mask: WriteMask::COLOR,
-                blend: Blend::TRANSPARENCY,
-                ..Default::default()
-            },
+            data_texture,
+            data_index,
+            data_texture_width: DATA_TEXTURE_WIDTH as f32,
         }
     )
 }
@@ -71,8 +73,12 @@ pub struct Renderer {
     text_backend: EguiTextBackend,
     context: Context,
     color_scheme: ColorScheme,
-    background_quad: Option<Gm<Rectangle, ColorMaterial>>,
+    background_quad: Option<Gm<Rectangle, BackgroundShaderMaterial>>,
     presentation_context: Option<crate::common::shared_types::PresentationContext>,
+    last_frame_time: f32,
+    data_texture: Arc<Texture2D>,
+    data_texture_index: usize,
+    data_buffer: Vec<[f32; 2]>,
 }
 
 impl Renderer {
@@ -80,6 +86,18 @@ impl Renderer {
         let scheme = get_current_color_scheme();
         let tuning_lines = TuningLines::new(context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
         let text_backend = EguiTextBackend::new()?;
+
+        // Create a 512x1 data texture that we'll write to incrementally
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH]; // Initialize all pixels
+        let data_texture = Arc::new(Texture2D::new(
+            context,
+            &CpuTexture {
+                data: TextureData::RgF32(data_buffer.clone()),
+                width: DATA_TEXTURE_WIDTH as u32,
+                height: 1,
+                ..Default::default()
+            },
+        ));
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
@@ -91,6 +109,10 @@ impl Renderer {
             color_scheme: scheme,
             background_quad: None,
             presentation_context: None,
+            last_frame_time: 0.0,
+            data_texture,
+            data_texture_index: 0,
+            data_buffer,
         })
     }
 
@@ -145,7 +167,42 @@ impl Renderer {
             self.refresh_colors();
         }
 
-        if let Some(ref background_quad) = self.background_quad {
+        // Update time and render background quad with custom shader
+        let delta_time = 1.0 / 60.0; // Simple frame time approximation (60 FPS assumed)
+        self.last_frame_time += delta_time;
+
+        if let Some(ref mut background_quad) = self.background_quad {
+            // Update the data texture with detected and pitch values
+            let detected = if self.audio_analysis.pitch_detected { 1.0 } else { 0.0 };
+            let pitch = if self.audio_analysis.pitch_detected {
+                let y_pos = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
+                y_pos / viewport.height as f32
+            } else {
+                0.0
+            };
+
+            // Update the historical data buffer at current index
+            let pixel_data = [detected, pitch];
+            self.data_buffer[self.data_texture_index] = pixel_data;
+
+            // Create new texture with the updated historical data
+            self.data_texture = Arc::new(Texture2D::new(
+                &self.context,
+                &CpuTexture {
+                    data: TextureData::RgF32(self.data_buffer.clone()),
+                    width: DATA_TEXTURE_WIDTH as u32,
+                    height: 1,
+                    ..Default::default()
+                },
+            ));
+
+            // Update the material with new texture and current index
+            background_quad.material.data_texture = Some(self.data_texture.clone().into());            
+            background_quad.material.data_index = self.data_texture_index as i32;
+
+            // Increment index for next frame (wrap around)
+            self.data_texture_index = (self.data_texture_index + 1) % DATA_TEXTURE_WIDTH;
+
             self.camera.disable_tone_and_color_mapping();
             screen.render(&self.camera, [background_quad], &[]);
             self.camera.set_default_tone_and_color_mapping();
@@ -174,8 +231,8 @@ impl Renderer {
         
         let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
         let endpoints = (
-            PhysicalPoint{x:NOTE_LINE_LEFT_MARGIN, y}, 
-            PhysicalPoint{x:viewport.width as f32 - NOTE_LINE_RIGHT_MARGIN, y}
+            PhysicalPoint{x:USER_PITCH_LINE_LEFT_MARGIN, y}, 
+            PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}
         );
         
         let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
@@ -246,11 +303,15 @@ impl Renderer {
                 .render(&camera, text_objects, &[]);
         }
         
+        let texture_ref = Texture2DRef::from_texture(background_texture);
+
         self.background_quad = Some(create_background_quad(
-            &self.context, 
-            viewport.width, 
-            viewport.height, 
-            Texture2DRef::from_texture(background_texture)
+            &self.context,
+            viewport.width,
+            viewport.height,
+            texture_ref,
+            Some(self.data_texture.clone().into()),
+            self.data_texture_index as i32
         ));
     }
     

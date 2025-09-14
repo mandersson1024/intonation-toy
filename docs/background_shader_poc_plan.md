@@ -36,10 +36,11 @@ Create a minimal working implementation of a custom shader background with textu
 
 ## Phase 3: Visual Effect
 
-### Step 1: Implement visualization
-- Use texture buffer data to create a scrolling waveform
-- Map pitch to vertical position
-- Map clarity to brightness/opacity
+### Step 1: Implement simple visualization
+- Read texture buffer in fragment shader
+- Display last 512 pixels as horizontal gradient
+- Map stored pitch value to color hue
+- Map stored clarity to brightness
 
 ## Success Criteria
 - [ ] Custom shader renders fullscreen quad
