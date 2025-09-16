@@ -66,8 +66,8 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
 /// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 6.0;
-pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 30.0;
+pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 5.0;
+pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 15.0;
 
 /// User pitch line transparency configuration
 pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;
@@ -81,6 +81,9 @@ pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
 /// Tuning lines layout configuration
 pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
 pub const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
+
+pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 960.0;
+pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 25.0;
 
 /// Line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
