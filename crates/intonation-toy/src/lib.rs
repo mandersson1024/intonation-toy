@@ -140,17 +140,18 @@ use crate::debug::debug_panel::DebugPanel;
     web::utils::resize_canvas();
 
     window.render_loop(move |mut frame_input| {
-        web::three_d::compensate_positions_for_canvas_scaling(&mut frame_input.events, render_size);
+        profile!("render_loop_frame", {
+            web::three_d::compensate_positions_for_canvas_scaling(&mut frame_input.events, render_size);
 
-        #[cfg(debug_assertions)]
-        let fps = fps_counter.update(frame_input.accumulated_time);
-        let engine_data = profile!("engine_update", engine.update());
-        
-        if handle_runtime_errors(&engine_data.audio_errors) == ErrorSeverity::Fatal {
-            return three_d::FrameOutput::default();
-        }
-        
-        {
+            #[cfg(debug_assertions)]
+            let fps = fps_counter.update(frame_input.accumulated_time);
+            let engine_data = profile!("engine_update", engine.update());
+
+            if handle_runtime_errors(&engine_data.audio_errors) == ErrorSeverity::Fatal {
+                return three_d::FrameOutput::default();
+            }
+
+            {
             let mut process_user_actions = || {
                 let user_actions = if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
                     presenter_ref.get_user_actions()
@@ -161,60 +162,61 @@ use crate::debug::debug_panel::DebugPanel;
                 
                 let model_actions = model.process_user_actions(user_actions);         
                 engine.execute_actions(model_actions);
-            };
+                };
 
-            profile!("process_user_actions", process_user_actions());
-        }
-        
-        let model_data = profile!("model_update", model.update(engine_data.clone()));
-        
-        #[cfg(debug_assertions)]
+                profile!("process_user_actions", process_user_actions());
+            }
+
+            let model_data = profile!("model_update", model.update(engine_data.clone()));
+
+            #[cfg(debug_assertions)]
         debug_panel.update_all_data(
             &engine_data,
             Some(&model_data),
             web::performance::get_performance_metrics(fps),
             engine.get_debug_buffer_pool_stats(),
-        );
-        
-        if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-            presenter_ref.update(frame_input.viewport, &model_data);
-        }
-        
-        #[cfg(debug_assertions)]
-        {
-            let debug_actions = presenter.try_borrow_mut()
-                .map(|mut p| p.get_debug_actions())
-                .unwrap_or_else(|_| presentation::DebugLayerActions::default());
-            
-            if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {
-                dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
+            );
+
+            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.update(frame_input.viewport, &model_data);
             }
-        }
-        
-        #[cfg(debug_assertions)]
-        gui.update(
+
+                #[cfg(debug_assertions)]
+            {
+                let debug_actions = presenter.try_borrow_mut()
+                    .map(|mut p| p.get_debug_actions())
+                    .unwrap_or_else(|_| presentation::DebugLayerActions::default());
+
+                if let Err(e) = engine.execute_debug_actions_sync(debug_actions) {
+                    dev_log!("[DEBUG] ✗ Debug action execution failed: {}", e);
+                }
+            }
+
+            #[cfg(debug_assertions)]
+            gui.update(
             &mut frame_input.events,
             frame_input.accumulated_time,
             frame_input.viewport,
             frame_input.device_pixel_ratio,
-            |gui_context| {
-                {
-                    gui_context.set_visuals(three_d::egui::Visuals::dark());                    
-                    dev_console.render(gui_context);
-                    debug_panel.render(gui_context, &model_data);
+                |gui_context| {
+                    {
+                        gui_context.set_visuals(three_d::egui::Visuals::dark());
+                        dev_console.render(gui_context);
+                        debug_panel.render(gui_context, &model_data);
+                    }
                 }
-            }
-        );
-        
-        let mut screen = frame_input.screen();
-        
-        if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
-            presenter_ref.render(&context, &mut screen, &model_data);
-        }
-        
-        #[cfg(debug_assertions)]
-        let _ = gui.render();
+            );
 
-        three_d::FrameOutput::default()
+            let mut screen = frame_input.screen();
+
+            if let Ok(mut presenter_ref) = presenter.try_borrow_mut() {
+                presenter_ref.render(&context, &mut screen, &model_data);
+            }
+        
+            #[cfg(debug_assertions)]
+            let _ = gui.render();
+
+            three_d::FrameOutput::default()
+        })
     });
 }
