@@ -127,7 +127,7 @@ impl Renderer {
     }
     
     /// Get tuning line positions for the active tuning system
-    fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32)> {
+    fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32, i32)> {
         let Some(context) = &self.presentation_context else {
             return Vec::new();
         };
@@ -155,7 +155,7 @@ impl Renderer {
             let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
             let thickness = if semitone % 12 == 0 { OCTAVE_LINE_THICKNESS } else { REGULAR_LINE_THICKNESS };
             
-            line_data.push((y_position, midi_note, thickness));
+            line_data.push((y_position, midi_note, thickness, semitone));
         }
         
         line_data
@@ -265,7 +265,7 @@ impl Renderer {
         );
     }
     
-    pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
+    pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32, i32)]) {
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
             return;
@@ -312,8 +312,19 @@ impl Renderer {
             let [r, g, b] = get_current_color_scheme().background;
 
             let tuning_lines: Vec<&dyn Object> = self.tuning_lines.lines().map(|line| line as &dyn Object).collect();
-            let text_models = self.text_backend.render_texts(&self.context, viewport, &self.tuning_lines.get_note_labels());
-            let text_objects: Vec<&dyn Object> = text_models.iter().map(|model| model.as_ref() as &dyn Object).collect();
+
+            // Render note labels on the left
+            let note_labels = self.tuning_lines.get_note_labels();
+            let note_text_models = self.text_backend.render_texts(&self.context, viewport, &note_labels);
+
+            // Render interval labels on the right
+            let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
+            let interval_text_models = self.text_backend.render_texts(&self.context, viewport, &interval_labels);
+
+            // Combine all text objects
+            let mut text_objects: Vec<&dyn Object> = Vec::new();
+            text_objects.extend(note_text_models.iter().map(|model| model.as_ref() as &dyn Object));
+            text_objects.extend(interval_text_models.iter().map(|model| model.as_ref() as &dyn Object));
 
             RenderTarget::new(background_texture.as_color_target(None), depth_texture.as_depth_target())
                 .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))

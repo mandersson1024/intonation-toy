@@ -229,3 +229,33 @@ pub fn frequency_to_midi_note_and_cents(
     Some((midi_note as u8, interval_result.cents))
 }
 
+/// Converts semitone offset to interval name
+pub fn semitone_to_interval_name(semitone: i32) -> String {
+    let octave_offset = semitone / 12;
+    let semitone_in_octave = ((semitone % 12) + 12) % 12;
+
+    let interval_name = match semitone_in_octave {
+        0 => "1",
+        1 => "b2",
+        2 => "2",
+        3 => "b3",
+        4 => "3",
+        5 => "4",
+        6 => "#4",
+        7 => "5",
+        8 => "b6",
+        9 => "6",
+        10 => "b7",
+        11 => "7",
+        _ => "?",
+    };
+
+    if octave_offset == 0 {
+        interval_name.to_string()
+    } else if octave_offset > 0 {
+        format!("{}+{}", interval_name, octave_offset)
+    } else {
+        format!("{}{}", interval_name, octave_offset)
+    }
+}
+

@@ -5,10 +5,12 @@ use crate::common::shared_types::MidiNote;
 use crate::common::theme::get_current_color_scheme;
 use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
+
 struct LineData {
     line: Gm<Line, ColorMaterial>,
     midi_note: MidiNote,
     y_position: f32,
+    semitone_offset: i32,
 }
 
 pub struct TuningLines {
@@ -22,7 +24,7 @@ impl TuningLines {
         }
     }
 
-    pub fn update_lines(&mut self, viewport: Viewport, input_data: &[(f32, MidiNote, f32)], context: &Context, color: Srgba) {
+    pub fn update_lines(&mut self, viewport: Viewport, input_data: &[(f32, MidiNote, f32, i32)], context: &Context, color: Srgba) {
         let width = viewport.width as f32;
         
         let material = ColorMaterial {
@@ -39,7 +41,7 @@ impl TuningLines {
         self.line_data.clear();
         self.line_data.reserve(input_data.len());
         
-        for &(y, midi_note, thickness) in input_data {
+        for &(y, midi_note, thickness, semitone_offset) in input_data {
             let line = Line::new(
                 context,
                 PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y },
@@ -51,6 +53,7 @@ impl TuningLines {
                 line: Gm::new(line, material.clone()),
                 midi_note,
                 y_position: y,
+                semitone_offset,
             });
         }
     }
@@ -70,14 +73,29 @@ impl TuningLines {
     pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
         let text_color = scheme.muted;
-        
+
         self.line_data.iter()
             .map(|data| {
                 let note_name = crate::common::shared_types::midi_note_to_name(data.midi_note);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
-                
+
                 (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
+            })
+            .collect()
+    }
+
+    pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4])> {
+        let scheme = get_current_color_scheme();
+        let text_color = scheme.muted;
+
+        self.line_data.iter()
+            .map(|data| {
+                let interval_name = crate::common::music_theory::semitone_to_interval_name(data.semitone_offset);
+                let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
+                let text_x = viewport_width - NOTE_LINE_RIGHT_MARGIN + 5.0; // Small offset from right margin
+
+                (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
             })
             .collect()
     }
