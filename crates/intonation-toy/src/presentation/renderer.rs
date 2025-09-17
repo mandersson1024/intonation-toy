@@ -195,21 +195,15 @@ impl Renderer {
             self.data_buffer.push([detected, pitch]);
 
             // Convert frequencies to screen positions for texture data
-            let texture_data: Vec<[f32; 2]> = if let Some(ref context) = self.presentation_context {
-                let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
-                self.data_buffer.iter().map(|&[detected, frequency]| {
-                    let screen_y = if detected > 0.0 {
-                        let y_pos = frequency_to_screen_y_position(frequency, tuning_fork_frequency, viewport.height as f32);
-                        y_pos / viewport.height as f32
-                    } else {
-                        0.0
-                    };
-                    [detected, screen_y]
-                }).collect()
-            } else {
-                // Fallback if context is not available
-                self.data_buffer.iter().map(|&[detected, _]| [detected, 0.0]).collect()
-            };
+            let texture_data: Vec<[f32; 2]> = self.data_buffer.iter().map(|&[detected, frequency]| {
+                let screen_y = if detected > 0.0 {
+                    let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tuning_fork_frequency, viewport.height as f32);
+                    y_pos / viewport.height as f32
+                } else {
+                    0.0
+                };
+                [detected, screen_y]
+            }).collect();
 
             // Create new texture with the updated historical data
             self.data_texture = Arc::new(Texture2D::new(

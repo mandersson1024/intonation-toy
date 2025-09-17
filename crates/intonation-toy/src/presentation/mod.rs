@@ -145,6 +145,8 @@ impl Presenter {
                 current_scale: model_data.scale,
             }, viewport);
             
+            let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(model_data.tuning_fork_note);
+
             renderer.update_audio_analysis(AudioAnalysis {
                 pitch_detected,
                 cents_offset: model_data.cents_offset,
@@ -152,6 +154,7 @@ impl Presenter {
                 clarity,
                 volume_peak: model_data.is_peaking,
                 frequency,
+                tuning_fork_frequency,
             });
             
             renderer.update_pitch_position(viewport);
