@@ -1,6 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use three_d::*;
+use crate::app_config::{NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
 /// Width of the data texture used for historical data
 pub const DATA_TEXTURE_WIDTH: f32 = 512.0;
@@ -88,7 +89,7 @@ pub struct BackgroundShader {
 }
 
 impl BackgroundShader {
-    pub fn new(context: &Context) -> Result<Self, three_d::CoreError> {
+    pub fn new(context: &Context, viewport_width: f32) -> Result<Self, three_d::CoreError> {
         // Create a fullscreen quad mesh
         let positions = vec![
             Vec3::new(-1.0, -1.0, -0.999), // Closer to camera
@@ -133,8 +134,8 @@ impl BackgroundShader {
         let material = BackgroundShaderMaterial {
             texture: None,
             data_texture: Some(data_texture.into()),
-            left_margin: 0.1,  // 10% margin on left
-            right_margin: 0.1, // 10% margin on right
+            left_margin: NOTE_LINE_LEFT_MARGIN / viewport_width,
+            right_margin: NOTE_LINE_RIGHT_MARGIN / viewport_width,
         };
 
         Ok(Self {

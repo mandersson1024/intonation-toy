@@ -6,7 +6,7 @@ use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, Physical
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
+use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
@@ -40,8 +40,8 @@ fn create_background_quad(
         BackgroundShaderMaterial {
             texture: Some(texture),
             data_texture,
-            left_margin: 0.1,
-            right_margin: 0.1,
+            left_margin: NOTE_LINE_LEFT_MARGIN / width as f32,
+            right_margin: NOTE_LINE_RIGHT_MARGIN / width as f32,
         }
     )
 }
@@ -158,7 +158,13 @@ impl Renderer {
     
     pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
-        
+
+        // Update background shader margins if viewport changed
+        if let Some(ref mut background_quad) = self.background_quad {
+            background_quad.material.left_margin = NOTE_LINE_LEFT_MARGIN / viewport.width as f32;
+            background_quad.material.right_margin = NOTE_LINE_RIGHT_MARGIN / viewport.width as f32;
+        }
+
         let scheme = get_current_color_scheme();
         if scheme != self.color_scheme {
             self.color_scheme = scheme.clone();
