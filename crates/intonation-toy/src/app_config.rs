@@ -36,7 +36,7 @@ pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 16;   // IMPORTANT: Also updat
 pub const STANDARD_SAMPLE_RATE: u32 = 44100;            // Standard consumer audio sample rate (44.1 kHz)
 
 /// Pitch detection configuration
-pub const CLARITY_THRESHOLD: f32 = 0.3;
+pub const CLARITY_THRESHOLD: f32 = 0.5;
 pub const POWER_THRESHOLD: f32 = 1.0;
 
 /// Pitch smoothing factor for exponential moving average (EMA)
@@ -50,7 +50,7 @@ pub const POWER_THRESHOLD: f32 = 1.0;
 /// - Default 0.1: Provides moderate smoothing while maintaining good responsiveness
 /// 
 /// This factor is used in the EMA formula: smoothed = factor * new_value + (1 - factor) * old_value
-pub const PITCH_SMOOTHING_FACTOR: f32 = 0.07;
+pub const PITCH_SMOOTHING_FACTOR: f32 = 0.2;
 
 /// Intonation accuracy configuration
 /// Threshold in cents for considering pitch "accurate" and showing accent color
