@@ -8,7 +8,7 @@ use three_d::renderer::geometry::Rectangle;
 
 use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
-use crate::presentation::background_shader::BackgroundShaderMaterial;
+use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
@@ -16,7 +16,6 @@ use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
 /// Width of the data texture used for historical data
-const DATA_TEXTURE_WIDTH: usize = 512;
 
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
@@ -31,7 +30,6 @@ fn create_background_quad(
     height: u32,
     texture: Texture2DRef,
     data_texture: Option<Texture2DRef>,
-    data_index: i32,
 ) -> Gm<Rectangle, BackgroundShaderMaterial> {
     assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
 
@@ -42,8 +40,6 @@ fn create_background_quad(
         BackgroundShaderMaterial {
             texture: Some(texture),
             data_texture,
-            data_index,
-            data_texture_width: DATA_TEXTURE_WIDTH as f32,
             left_margin: 0.1,
             right_margin: 0.1,
         }
@@ -79,7 +75,6 @@ pub struct Renderer {
     presentation_context: Option<crate::common::shared_types::PresentationContext>,
     last_frame_time: f32,
     data_texture: Arc<Texture2D>,
-    data_texture_index: usize,
     data_buffer: Vec<[f32; 2]>,
 }
 
@@ -90,13 +85,15 @@ impl Renderer {
         let text_backend = EguiTextBackend::new()?;
 
         // Create a 512x1 data texture that we'll write to incrementally
-        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH]; // Initialize all pixels
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH as usize]; // Initialize all pixels
         let data_texture = Arc::new(Texture2D::new(
             context,
             &CpuTexture {
                 data: TextureData::RgF32(data_buffer.clone()),
                 width: DATA_TEXTURE_WIDTH as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
                 ..Default::default()
             },
         ));
@@ -113,7 +110,6 @@ impl Renderer {
             presentation_context: None,
             last_frame_time: 0.0,
             data_texture,
-            data_texture_index: 0,
             data_buffer,
         })
     }
@@ -183,9 +179,9 @@ impl Renderer {
                 0.0
             };
 
-            // Update the historical data buffer at current index
-            let pixel_data = [detected, pitch];
-            self.data_buffer[self.data_texture_index] = pixel_data;
+            // Shift buffer left and add new data at the end
+            self.data_buffer.remove(0);
+            self.data_buffer.push([detected, pitch]);
 
             // Create new texture with the updated historical data
             self.data_texture = Arc::new(Texture2D::new(
@@ -194,16 +190,14 @@ impl Renderer {
                     data: TextureData::RgF32(self.data_buffer.clone()),
                     width: DATA_TEXTURE_WIDTH as u32,
                     height: 1,
+                    wrap_s: Wrapping::ClampToEdge,
+                    wrap_t: Wrapping::ClampToEdge,
                     ..Default::default()
                 },
             ));
 
-            // Update the material with new texture and current index
-            background_quad.material.data_texture = Some(self.data_texture.clone().into());            
-            background_quad.material.data_index = self.data_texture_index as i32;
-
-            // Increment index for next frame (wrap around)
-            self.data_texture_index = (self.data_texture_index + 1) % DATA_TEXTURE_WIDTH;
+            // Update the material with new texture
+            background_quad.material.data_texture = Some(self.data_texture.clone().into());
 
             self.camera.disable_tone_and_color_mapping();
             screen.render(&self.camera, [background_quad], &[]);
@@ -312,8 +306,7 @@ impl Renderer {
             viewport.width,
             viewport.height,
             texture_ref,
-            Some(self.data_texture.clone().into()),
-            self.data_texture_index as i32
+            Some(self.data_texture.clone().into())
         ));
     }
     

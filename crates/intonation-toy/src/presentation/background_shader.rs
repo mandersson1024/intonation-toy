@@ -9,8 +9,6 @@ pub const DATA_TEXTURE_WIDTH: f32 = 512.0;
 pub struct BackgroundShaderMaterial {
     pub texture: Option<Texture2DRef>,
     pub data_texture: Option<Texture2DRef>,
-    pub data_index: i32,
-    pub data_texture_width: f32,
     pub left_margin: f32,
     pub right_margin: f32,
 }
@@ -26,8 +24,6 @@ impl Material for BackgroundShaderMaterial {
         r#"
             uniform sampler2D backgroundTexture;
             uniform sampler2D dataTexture;
-            uniform int dataIndex;
-            uniform float dataTextureWidth;
             uniform float leftMargin;
             uniform float rightMargin;
 
@@ -45,11 +41,8 @@ impl Material for BackgroundShaderMaterial {
                     // Map [leftMargin, 1-rightMargin] to [0, 1]
                     float mappedX = (uvs.x - leftMargin) / (1.0 - leftMargin - rightMargin);
 
-                    // Map screen x coordinate to texture coordinate with offset so latest entry appears at right
-                    float normalizedIndex = float(dataIndex) / dataTextureWidth;
-                    float u = mod(mappedX + normalizedIndex, 1.0);
-
-                    vec4 data = texture(dataTexture, vec2(u, 0.5));
+                    // Sample the data texture directly - it's already rotated on CPU side
+                    vec4 data = texture(dataTexture, vec2(mappedX, 0.5));
                     float detected = data.r;
                     float pitch = data.g;
 
@@ -71,8 +64,6 @@ impl Material for BackgroundShaderMaterial {
         if let Some(ref data_texture) = self.data_texture {
             program.use_texture("dataTexture", data_texture);
         }
-        program.use_uniform("dataIndex", self.data_index);
-        program.use_uniform("dataTextureWidth", self.data_texture_width);
         program.use_uniform("leftMargin", self.left_margin);
         program.use_uniform("rightMargin", self.right_margin);
     }
@@ -93,7 +84,7 @@ impl Material for BackgroundShaderMaterial {
 pub struct BackgroundShader {
     mesh: Gm<Mesh, BackgroundShaderMaterial>,
     context: Context,
-    data_values: [f32; 2], // Store detected, pitch
+    data_buffer: Vec<[f32; 2]>, // Buffer of [detected, pitch] values, newest at end
 }
 
 impl BackgroundShader {
@@ -122,14 +113,19 @@ impl BackgroundShader {
 
         let mesh = Mesh::new(context, &cpu_mesh);
 
-        // Create initial 1x1 data texture with default values
-        let data = vec![[0.0_f32, 0.5_f32]]; // detected, pitch
+        // Initialize circular buffer with default values
+        let buffer_size = DATA_TEXTURE_WIDTH as usize;
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; buffer_size];
+
+        // Create initial data texture with the buffer
         let data_texture = Texture2D::new(
             context,
             &CpuTexture {
-                data: TextureData::RgF32(data),
-                width: 1,
+                data: TextureData::RgF32(data_buffer.clone()),
+                width: buffer_size as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
                 ..Default::default()
             },
         );
@@ -137,8 +133,6 @@ impl BackgroundShader {
         let material = BackgroundShaderMaterial {
             texture: None,
             data_texture: Some(data_texture.into()),
-            data_index: 0,
-            data_texture_width: DATA_TEXTURE_WIDTH,
             left_margin: 0.1,  // 10% margin on left
             right_margin: 0.1, // 10% margin on right
         };
@@ -146,7 +140,7 @@ impl BackgroundShader {
         Ok(Self {
             mesh: Gm::new(mesh, material),
             context: context.clone(),
-            data_values: [0.0, 0.5],
+            data_buffer,
         })
     }
 
@@ -158,13 +152,11 @@ impl BackgroundShader {
         self.mesh.material.texture = Some(texture);
     }
 
-    pub fn set_detected(&mut self, detected: f32) {
-        self.data_values[0] = detected;
-        self.update_data_texture();
-    }
-
-    pub fn set_pitch(&mut self, pitch: f32) {
-        self.data_values[1] = pitch;
+    pub fn add_data_point(&mut self, detected: f32, pitch: f32) {
+        // Shift all data left by removing first element
+        self.data_buffer.remove(0);
+        // Add new data point at the end
+        self.data_buffer.push([detected, pitch]);
         self.update_data_texture();
     }
 
@@ -174,13 +166,16 @@ impl BackgroundShader {
     }
 
     fn update_data_texture(&mut self) {
-        let data = vec![[self.data_values[0], self.data_values[1]]];
+        // Data buffer already has oldest on left, newest on right
+        // Just upload it directly to the texture
         let data_texture = Texture2D::new(
             &self.context,
             &CpuTexture {
-                data: TextureData::RgF32(data),
-                width: 1,
+                data: TextureData::RgF32(self.data_buffer.clone()),
+                width: self.data_buffer.len() as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
                 ..Default::default()
             },
         );
