@@ -44,6 +44,8 @@ fn create_background_quad(
             data_texture,
             data_index,
             data_texture_width: DATA_TEXTURE_WIDTH as f32,
+            left_margin: 0.1,
+            right_margin: 0.1,
         }
     )
 }

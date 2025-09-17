@@ -11,6 +11,8 @@ pub struct BackgroundShaderMaterial {
     pub data_texture: Option<Texture2DRef>,
     pub data_index: i32,
     pub data_texture_width: f32,
+    pub left_margin: f32,
+    pub right_margin: f32,
 }
 
 impl Material for BackgroundShaderMaterial {
@@ -26,6 +28,8 @@ impl Material for BackgroundShaderMaterial {
             uniform sampler2D dataTexture;
             uniform int dataIndex;
             uniform float dataTextureWidth;
+            uniform float leftMargin;
+            uniform float rightMargin;
 
             in vec2 uvs;
             out vec4 fragColor;
@@ -33,18 +37,29 @@ impl Material for BackgroundShaderMaterial {
             void main() {
                 vec4 texColor = texture(backgroundTexture, uvs);
 
-                // Map screen x coordinate to texture coordinate with offset so latest entry appears at right
-                // uvs.x goes from 0 to 1, we want to map it so current dataIndex appears at x=1
-                float normalizedIndex = float(dataIndex) / dataTextureWidth;
-                float u = mod(uvs.x + normalizedIndex, 1.0);
+                // Check if we're within the margins for tinting
+                float isWithinMargins = step(leftMargin, uvs.x) * step(uvs.x, 1.0 - rightMargin);
 
-                vec4 data = texture(dataTexture, vec2(u, 0.5));
-                float detected = data.r;
-                float pitch = data.g;
+                if (isWithinMargins > 0.0) {
+                    // Remap x coordinate to account for margins
+                    // Map [leftMargin, 1-rightMargin] to [0, 1]
+                    float mappedX = (uvs.x - leftMargin) / (1.0 - leftMargin - rightMargin);
 
-                // Magenta tint when detected, only below the pitch line
-                float magentaTint = 0.3 * detected * step(uvs.y, pitch);
-                fragColor = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+                    // Map screen x coordinate to texture coordinate with offset so latest entry appears at right
+                    float normalizedIndex = float(dataIndex) / dataTextureWidth;
+                    float u = mod(mappedX + normalizedIndex, 1.0);
+
+                    vec4 data = texture(dataTexture, vec2(u, 0.5));
+                    float detected = data.r;
+                    float pitch = data.g;
+
+                    // Magenta tint when detected, only below the pitch line
+                    float magentaTint = 0.3 * detected * step(uvs.y, pitch);
+                    fragColor = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+                } else {
+                    // Outside margins, just show the background texture
+                    fragColor = texColor;
+                }
             }
         "#.to_string()
     }
@@ -58,6 +73,8 @@ impl Material for BackgroundShaderMaterial {
         }
         program.use_uniform("dataIndex", self.data_index);
         program.use_uniform("dataTextureWidth", self.data_texture_width);
+        program.use_uniform("leftMargin", self.left_margin);
+        program.use_uniform("rightMargin", self.right_margin);
     }
 
     fn render_states(&self) -> RenderStates {
@@ -122,6 +139,8 @@ impl BackgroundShader {
             data_texture: Some(data_texture.into()),
             data_index: 0,
             data_texture_width: DATA_TEXTURE_WIDTH,
+            left_margin: 0.1,  // 10% margin on left
+            right_margin: 0.1, // 10% margin on right
         };
 
         Ok(Self {
@@ -149,6 +168,10 @@ impl BackgroundShader {
         self.update_data_texture();
     }
 
+    pub fn set_margins(&mut self, left: f32, right: f32) {
+        self.mesh.material.left_margin = left;
+        self.mesh.material.right_margin = right;
+    }
 
     fn update_data_texture(&mut self) {
         let data = vec![[self.data_values[0], self.data_values[1]]];
