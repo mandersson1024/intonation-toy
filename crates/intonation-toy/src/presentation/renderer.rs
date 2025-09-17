@@ -23,6 +23,12 @@ fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     viewport_height * (0.5 + interval * ZOOM_FACTOR * 0.5)
 }
 
+/// Converts frequency to screen Y position
+fn frequency_to_screen_y_position(frequency: f32, tuning_fork_frequency: f32, viewport_height: f32) -> f32 {
+    let interval = (frequency / tuning_fork_frequency).log2();
+    interval_to_screen_y_position(interval, viewport_height)
+}
+
 /// Creates a textured quad for background rendering with custom shader
 fn create_background_quad(
     context: &Context,
@@ -178,8 +184,10 @@ impl Renderer {
         if let Some(ref mut background_quad) = self.background_quad {
             // Update the data texture with detected and pitch values
             let detected = if self.audio_analysis.pitch_detected { 1.0 } else { 0.0 };
-            let pitch = if self.audio_analysis.pitch_detected {
-                let y_pos = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
+            let pitch = if self.audio_analysis.pitch_detected && self.presentation_context.is_some() {
+                let context = self.presentation_context.as_ref().unwrap();
+                let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
+                let y_pos = frequency_to_screen_y_position(self.audio_analysis.frequency, tuning_fork_frequency, viewport.height as f32);
                 y_pos / viewport.height as f32
             } else {
                 0.0

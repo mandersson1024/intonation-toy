@@ -7,4 +7,5 @@ pub struct AudioAnalysis {
     pub interval: f32,
     pub clarity: Option<f32>,
     pub volume_peak: bool,
+    pub frequency: f32,
 }

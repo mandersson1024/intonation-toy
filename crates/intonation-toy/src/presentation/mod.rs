@@ -132,9 +132,9 @@ impl Presenter {
     }
 
     fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
-        let (pitch_detected, clarity) = match model_data.pitch {
-            Pitch::Detected(_, clarity_value) => (true, Some(clarity_value)),
-            Pitch::NotDetected => (false, None),
+        let (pitch_detected, clarity, frequency) = match model_data.pitch {
+            Pitch::Detected(freq, clarity_value) => (true, Some(clarity_value), freq),
+            Pitch::NotDetected => (false, None, 0.0),
         };
         
         
@@ -151,6 +151,7 @@ impl Presenter {
                 interval: self.interval_position,
                 clarity,
                 volume_peak: model_data.is_peaking,
+                frequency,
             });
             
             renderer.update_pitch_position(viewport);
