@@ -93,7 +93,7 @@ impl TuningLines {
             .map(|data| {
                 let interval_name = crate::common::music_theory::semitone_to_interval_name(data.semitone_offset);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
-                let text_x = viewport_width - NOTE_LINE_RIGHT_MARGIN + 5.0; // Small offset from right margin
+                let text_x = viewport_width - NOTE_LINE_RIGHT_MARGIN + NOTE_LABEL_X_OFFSET;
 
                 (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
             })

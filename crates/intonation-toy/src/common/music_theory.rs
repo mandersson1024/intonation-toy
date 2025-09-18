@@ -250,12 +250,6 @@ pub fn semitone_to_interval_name(semitone: i32) -> String {
         _ => "?",
     };
 
-    if octave_offset == 0 {
-        interval_name.to_string()
-    } else if octave_offset > 0 {
-        format!("{}+{}", interval_name, octave_offset)
-    } else {
-        format!("{}{}", interval_name, octave_offset)
-    }
+    interval_name.to_string()
 }
 

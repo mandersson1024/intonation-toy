@@ -80,10 +80,10 @@ pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
 
 /// Tuning lines layout configuration
 pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
-pub const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
+pub const NOTE_LINE_RIGHT_MARGIN: f32 = 54.0;
 
-pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 960.0;
-pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 25.0;
+pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 970.0;
+pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 0.0;
 
 /// Line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
