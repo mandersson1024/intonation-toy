@@ -80,7 +80,7 @@ pub const ADAPTIVE_EMA_HAMPEL_WINDOW: usize = 7;
 pub const ADAPTIVE_EMA_HAMPEL_NSIGMA: f32 = 3.0;
 
 /// Deadband threshold in Hz - when changes are smaller than this, use minimum smoothing
-pub const ADAPTIVE_EMA_DEADBAND: f32 = 0.05;
+pub const ADAPTIVE_EMA_DEADBAND: f32 = 1.0;
 
 /// Hysteresis thresholds (d_down, d_up) to reduce flicker near threshold
 pub const ADAPTIVE_EMA_HYSTERESIS_DOWN: f32 = 0.25;
