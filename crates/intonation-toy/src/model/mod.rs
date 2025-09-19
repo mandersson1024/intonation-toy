@@ -5,6 +5,7 @@
 use crate::common::shared_types::{EngineUpdateResult, ModelUpdateResult, Volume, Pitch, TuningSystem, Scale, MidiNote};
 use crate::presentation::PresentationLayerActions;
 use crate::common::smoothing::EmaSmoother;
+use crate::common::adaptive_ema::AdaptiveEMA;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigureTuningForkAction {
@@ -28,9 +29,72 @@ pub struct DataModel {
     tuning_system: TuningSystem,
     tuning_fork_note: MidiNote,
     current_scale: Scale,
-    frequency_smoother: EmaSmoother,
-    clarity_smoother: EmaSmoother,
+    frequency_smoother: Box<dyn PitchSmoother>,
+    clarity_smoother: Box<dyn PitchSmoother>,
     last_detected_pitch: Option<(f32, f32)>,
+}
+
+/// Trait for pitch smoothing algorithms
+trait PitchSmoother: Send {
+    fn apply(&mut self, value: f32) -> f32;
+    fn reset(&mut self);
+}
+
+impl PitchSmoother for EmaSmoother {
+    fn apply(&mut self, value: f32) -> f32 {
+        self.apply(value)
+    }
+
+    fn reset(&mut self) {
+        self.reset()
+    }
+}
+
+impl PitchSmoother for AdaptiveEMA {
+    fn apply(&mut self, value: f32) -> f32 {
+        self.apply(value)
+    }
+
+    fn reset(&mut self) {
+        self.reset()
+    }
+}
+
+/// Create a smoother based on configuration
+fn create_smoother() -> Box<dyn PitchSmoother> {
+    if crate::app_config::USE_ADAPTIVE_EMA {
+        let mut ema = AdaptiveEMA::new(
+            crate::app_config::ADAPTIVE_EMA_ALPHA_MIN,
+            crate::app_config::ADAPTIVE_EMA_ALPHA_MAX,
+            crate::app_config::ADAPTIVE_EMA_D,
+            crate::app_config::ADAPTIVE_EMA_S,
+        );
+
+        if crate::app_config::ADAPTIVE_EMA_USE_MEDIAN3 {
+            ema = ema.with_median3(true);
+        }
+
+        if crate::app_config::ADAPTIVE_EMA_USE_HAMPEL {
+            ema = ema.with_hampel(
+                true,
+                crate::app_config::ADAPTIVE_EMA_HAMPEL_WINDOW,
+                crate::app_config::ADAPTIVE_EMA_HAMPEL_NSIGMA,
+            );
+        }
+
+        if crate::app_config::ADAPTIVE_EMA_DEADBAND > 0.0 {
+            ema = ema.with_deadband(crate::app_config::ADAPTIVE_EMA_DEADBAND);
+        }
+
+        ema = ema.with_hysteresis(
+            crate::app_config::ADAPTIVE_EMA_HYSTERESIS_DOWN,
+            crate::app_config::ADAPTIVE_EMA_HYSTERESIS_UP,
+        );
+
+        Box::new(ema)
+    } else {
+        Box::new(EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR))
+    }
 }
 
 impl Default for DataModel {
@@ -39,8 +103,8 @@ impl Default for DataModel {
             tuning_system: TuningSystem::EqualTemperament,
             tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
-            frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
-            clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            frequency_smoother: create_smoother(),
+            clarity_smoother: create_smoother(),
             last_detected_pitch: None,
         }
     }
@@ -52,8 +116,8 @@ impl DataModel {
             tuning_system,
             tuning_fork_note,
             current_scale: scale,
-            frequency_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
-            clarity_smoother: EmaSmoother::new(crate::app_config::PITCH_SMOOTHING_FACTOR),
+            frequency_smoother: create_smoother(),
+            clarity_smoother: create_smoother(),
             last_detected_pitch: None,
         }
     }

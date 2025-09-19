@@ -52,6 +52,43 @@ pub const POWER_THRESHOLD: f32 = 1.0;
 /// This factor is used in the EMA formula: smoothed = factor * new_value + (1 - factor) * old_value
 pub const PITCH_SMOOTHING_FACTOR: f32 = 0.2;
 
+/// Adaptive EMA configuration for advanced smoothing
+/// These parameters control the adaptive EMA algorithm that reduces jitter and outliers
+
+/// Minimum alpha (EMA factor) for strong smoothing when changes are small
+pub const ADAPTIVE_EMA_ALPHA_MIN: f32 = 0.02;
+
+/// Maximum alpha (EMA factor) for quick response when changes are large
+pub const ADAPTIVE_EMA_ALPHA_MAX: f32 = 0.6;
+
+/// Soft threshold for "jitter size" in Hz - typical noise scale for pitch detection
+pub const ADAPTIVE_EMA_D: f32 = 0.5;
+
+/// Softness of the transition between min and max alpha (smaller => steeper)
+pub const ADAPTIVE_EMA_S: f32 = 0.15;
+
+/// Enable median-of-3 prefilter for cheap jitter reduction
+pub const ADAPTIVE_EMA_USE_MEDIAN3: bool = true;
+
+/// Enable Hampel outlier suppression for removing transient spikes
+pub const ADAPTIVE_EMA_USE_HAMPEL: bool = true;
+
+/// Window size for Hampel filter (must be odd, e.g., 5, 7, 9)
+pub const ADAPTIVE_EMA_HAMPEL_WINDOW: usize = 7;
+
+/// Sensitivity for Hampel filter (larger => fewer points flagged as outliers)
+pub const ADAPTIVE_EMA_HAMPEL_NSIGMA: f32 = 3.0;
+
+/// Deadband threshold in Hz - when changes are smaller than this, use minimum smoothing
+pub const ADAPTIVE_EMA_DEADBAND: f32 = 0.05;
+
+/// Hysteresis thresholds (d_down, d_up) to reduce flicker near threshold
+pub const ADAPTIVE_EMA_HYSTERESIS_DOWN: f32 = 0.25;
+pub const ADAPTIVE_EMA_HYSTERESIS_UP: f32 = 0.45;
+
+/// Enable adaptive EMA smoothing (set to false to use simple EMA)
+pub const USE_ADAPTIVE_EMA: bool = true;
+
 /// Intonation accuracy configuration
 /// Threshold in cents for considering pitch "accurate" and showing accent color
 /// When the detected pitch is within ±INTONATION_ACCURACY_THRESHOLD cents of a note,
