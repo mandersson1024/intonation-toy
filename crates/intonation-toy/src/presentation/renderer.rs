@@ -100,6 +100,8 @@ impl Renderer {
                 height: 1,
                 wrap_s: Wrapping::ClampToEdge,
                 wrap_t: Wrapping::ClampToEdge,
+                min_filter: Interpolation::Nearest,
+                mag_filter: Interpolation::Nearest,
                 ..Default::default()
             },
         ));
