@@ -23,6 +23,12 @@ static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEF
 
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
+// Default volume position when unmuting (corresponds to 0.2 amplitude)
+const DEFAULT_VOLUME_POSITION: u8 = 50;
+
+// Remembered volume position for toggle functionality
+static REMEMBERED_VOLUME_POSITION: AtomicU8 = AtomicU8::new(DEFAULT_VOLUME_POSITION);
+
 // Track last saved configuration to avoid saving every frame
 static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale)>> = std::sync::Mutex::new(None);
 
@@ -34,6 +40,18 @@ fn slider_position_to_amplitude(position: f32) -> f32 {
     } else {
         let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
         10.0_f32.powf(db / 20.0)
+    }
+}
+
+fn update_volume_icon_state(is_muted: bool) {
+    let Some(window) = window() else { return; };
+    let Some(document) = window.document() else { return; };
+    let Some(icon) = document.get_element_by_id("volume-icon") else { return; };
+
+    if is_muted {
+        let _ = icon.class_list().add_1("muted");
+    } else {
+        let _ = icon.class_list().remove_1("muted");
     }
 }
 
@@ -86,6 +104,9 @@ pub fn setup_sidebar_controls() {
         dev_log!("Warning: tuning-fork-volume element not found in HTML");
     }
 
+    // Initialize volume icon state
+    update_volume_icon_state(true);
+
     // Verify essential elements exist
     if document.get_element_by_id("tuning-fork-plus").is_none() {
         dev_log!("Warning: tuning-fork-plus element not found in HTML");
@@ -98,6 +119,9 @@ pub fn setup_sidebar_controls() {
     }
     if document.get_element_by_id("scale-select").is_none() {
         dev_log!("Warning: scale-select element not found in HTML");
+    }
+    if document.get_element_by_id("volume-icon").is_none() {
+        dev_log!("Warning: volume-icon element not found in HTML");
     }
 }
 
@@ -124,6 +148,41 @@ where
 }
 
 pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
+    let presenter_clone = presenter.clone();
+    add_event_listener("volume-icon", "click", move |_event: web_sys::Event| {
+        let Some(window) = web_sys::window() else { return; };
+        let Some(document) = window.document() else { return; };
+        let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") else { return; };
+        let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() else { return; };
+
+        let current_position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed);
+        let new_position = if current_position == 0 {
+            // Unmute: restore remembered volume
+            let remembered = REMEMBERED_VOLUME_POSITION.load(Ordering::Relaxed);
+            html_slider.set_value(&remembered.to_string());
+            CURRENT_TUNING_FORK_VOLUME_POSITION.store(remembered, Ordering::Relaxed);
+            update_volume_icon_state(false);
+            remembered
+        } else {
+            // Mute: save current volume and set to 0
+            REMEMBERED_VOLUME_POSITION.store(current_position, Ordering::Relaxed);
+            html_slider.set_value("0");
+            CURRENT_TUNING_FORK_VOLUME_POSITION.store(0, Ordering::Relaxed);
+            update_volume_icon_state(true);
+            0
+        };
+
+        // Update volume display
+        if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+            display_element.set_text_content(Some(&slider_position_to_db_display(new_position as f32)));
+        }
+
+        // Notify presenter
+        let amplitude = slider_position_to_amplitude(new_position as f32);
+        let current_tuning_fork = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
+        presenter_clone.borrow_mut().on_tuning_fork_configured(true, current_tuning_fork, amplitude);
+    });
+
     let presenter_clone = presenter.clone();
     add_event_listener("tuning-fork-plus", "click", move |_event: web_sys::Event| {
         let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
@@ -218,7 +277,18 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         
         CURRENT_TUNING_FORK_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
         let amplitude = slider_position_to_amplitude(position);
-        
+
+        // Update icon state based on position
+        update_volume_icon_state(position == 0.0);
+
+        // If moving from 0, reset remembered volume to default
+        if position > 0.0 {
+            let previous_position = CURRENT_TUNING_FORK_VOLUME_POSITION.swap(position as u8, Ordering::Relaxed);
+            if previous_position == 0 {
+                REMEMBERED_VOLUME_POSITION.store(DEFAULT_VOLUME_POSITION, Ordering::Relaxed);
+            }
+        }
+
         if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
             display_element.set_text_content(Some(&slider_position_to_db_display(position)));
         }

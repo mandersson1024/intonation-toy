@@ -567,6 +567,32 @@ input[type="range"]:focus::-moz-range-thumb {
     background-color: var(--color-primary);
 }
 
+.volume-icon.clickable {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.volume-icon.clickable:hover {
+    opacity: 1.0;
+}
+
+.volume-icon.muted {
+    opacity: 0.4;
+    position: relative;
+}
+
+.volume-icon.muted::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-primary);
+    top: 50%;
+    left: 0;
+    transform: rotate(-45deg);
+    transform-origin: center;
+}
+
 #tuning-fork-volume {
     width: 125px;
 }
