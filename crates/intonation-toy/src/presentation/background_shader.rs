@@ -47,19 +47,23 @@ impl Material for BackgroundShaderMaterial {
                     float detected = data.r;
                     float pitch = data.g;
 
-                    // Draw a yellow line at the pitch position
-                    float lineThickness = 0.004; // Line thickness
-                    float isOnLine = step(abs(uvs.y - pitch), lineThickness) * detected;
+                    // Draw a yellow line at the pitch position with anti-aliasing
+                    float lineThickness = 0.003; // Line thickness
+                    float lineDistance = abs(uvs.y - pitch);
+
+                    // Anti-aliasing: use smoothstep for soft edges
+                    float edgeSoftness = 0.0005; // How soft the edge transition is
+                    float lineOpacity = (1.0 - smoothstep(lineThickness - edgeSoftness, lineThickness + edgeSoftness, lineDistance)) * detected;
 
                     // Magenta tint when detected, only below the pitch line
                     float magentaTint = 0.3 * detected * step(uvs.y, pitch);
 
-                    // Combine: yellow line or magenta tint
-                    if (isOnLine > 0.0) {
-                        fragColor = vec4(1.0, 1.0, 0.0, 1.0); // Solid yellow
-                    } else {
-                        fragColor = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
-                    }
+                    // Combine: blend yellow line with background
+                    vec4 yellowLine = vec4(1.0, 1.0, 0.0, lineOpacity);
+                    vec4 tintedBackground = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+
+                    // Blend the yellow line over the background
+                    fragColor = mix(tintedBackground, vec4(yellowLine.rgb, 1.0), lineOpacity);
                 } else {
                     // Outside margins, just show the background texture
                     fragColor = texColor;
