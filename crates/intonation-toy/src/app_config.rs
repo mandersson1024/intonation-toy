@@ -87,7 +87,7 @@ pub const ADAPTIVE_EMA_HYSTERESIS_DOWN: f32 = 0.25;
 pub const ADAPTIVE_EMA_HYSTERESIS_UP: f32 = 0.45;
 
 /// Enable adaptive EMA smoothing (set to false to use simple EMA)
-pub const USE_ADAPTIVE_EMA: bool = true;
+pub const USE_ADAPTIVE_EMA: bool = false;
 
 /// Intonation accuracy configuration
 /// Threshold in cents for considering pitch "accurate" and showing accent color

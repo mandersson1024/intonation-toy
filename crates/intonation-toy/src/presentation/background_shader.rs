@@ -47,49 +47,13 @@ impl Material for BackgroundShaderMaterial {
                     float detected = data.r;
                     float pitch = data.g;
 
-                    // Sample neighboring pixels to check for continuity
-                    float texelSize = 1.0 / 512.0; // DATA_TEXTURE_WIDTH = 512
-
-                    // Sample left and right neighbors
-                    vec4 leftData = texture(dataTexture, vec2(max(0.0, mappedX - texelSize), 0.5));
-                    vec4 rightData = texture(dataTexture, vec2(min(1.0, mappedX + texelSize), 0.5));
-
-                    float leftDetected = leftData.r;
-                    float leftPitch = leftData.g;
-                    float rightDetected = rightData.r;
-                    float rightPitch = rightData.g;
-
-                    // Calculate distances to neighbors' pitches
-                    float leftDistance = leftDetected > 0.0 ? abs(pitch - leftPitch) : 1.0;
-                    float rightDistance = rightDetected > 0.0 ? abs(pitch - rightPitch) : 1.0;
-                    float minNeighborDistance = min(leftDistance, rightDistance);
-
-                    // Fade out based on distance to neighbors
-                    float maxGapThreshold = 0.007; // Maximum gap before line becomes invisible
-                    float fadeStartThreshold = 0.001; // Start fading when gap is larger than this
-                    float neighborFade = 1.0 - smoothstep(fadeStartThreshold, maxGapThreshold, minNeighborDistance);
-
-                    // Also check if current point is isolated (both neighbors not detected)
-                    float isolation = 1.0 - (1.0 - leftDetected) * (1.0 - rightDetected);
-                    neighborFade *= isolation;
-
-                    // Draw a yellow line at the pitch position with anti-aliasing
-                    float lineThickness = 0.003; // Line thickness
-                    float lineDistance = abs(uvs.y - pitch);
-
-                    // Anti-aliasing: use smoothstep for soft edges
-                    float edgeSoftness = 0.0005; // How soft the edge transition is
-                    float lineOpacity = (1.0 - smoothstep(lineThickness - edgeSoftness, lineThickness + edgeSoftness, lineDistance)) * detected * neighborFade;
-
                     // Magenta tint when detected, only below the pitch line
                     float magentaTint = 0.3 * detected * step(uvs.y, pitch);
 
-                    // Combine: blend yellow line with background
-                    vec4 yellowLine = vec4(1.0, 1.0, 0.0, lineOpacity);
                     vec4 tintedBackground = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
 
                     // Blend the yellow line over the background
-                    fragColor = mix(tintedBackground, vec4(yellowLine.rgb, 1.0), lineOpacity);
+                    fragColor = tintedBackground;
                 } else {
                     // Outside margins, just show the background texture
                     fragColor = texColor;
