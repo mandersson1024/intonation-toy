@@ -306,11 +306,6 @@ impl DebugPanel {
                 ui.horizontal(|ui| {
                     ui.label("MIDI Note:");
                     
-                    // Display current MIDI note name
-                    let note_name = midi_note_to_display_name(self.test_signal_midi_note);
-                    let octave = (self.test_signal_midi_note as i16 / 12) - 1;
-                    ui.label(format!("{}{} ({})", note_name, octave, self.test_signal_midi_note));
-                    
                     // Decrement button with bounds checking
                     let can_decrement = self.test_signal_midi_note > 0;
                     ui.add_enabled_ui(can_decrement, |ui| {
@@ -337,6 +332,11 @@ impl DebugPanel {
                         }
                     });
                     
+                    // Display current MIDI note name
+                    let note_name = midi_note_to_display_name(self.test_signal_midi_note);
+                    let octave = (self.test_signal_midi_note as i16 / 12) - 1;
+                    ui.label(format!("{}{} ({})", note_name, octave, self.test_signal_midi_note));
+                    
                     // Display current frequency with error handling
                     match self.calculate_midi_note_frequency_safe(
                         self.test_signal_midi_note, 
@@ -354,9 +354,6 @@ impl DebugPanel {
                 
                 ui.horizontal(|ui| {
                     ui.label("Nudge:");
-                    
-                    // Display current nudge percentage
-                    ui.label(format!("{:+.1}%", self.test_signal_nudge_percent));
                     
                     // Decrement nudge button with bounds checking
                     let can_decrement_nudge = self.test_signal_nudge_percent > -50.0;
@@ -381,6 +378,9 @@ impl DebugPanel {
                             }
                         }
                     });
+                    
+                    // Display current nudge percentage
+                    ui.label(format!("{:+.1}%", self.test_signal_nudge_percent));
                     
                     // Reset button
                     if ui.button("Reset").on_hover_text("Reset nudge to 0%").clicked() {
