@@ -23,8 +23,8 @@ static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEF
 
 static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
 
-// Default volume position when unmuting (corresponds to 0.2 amplitude)
-const DEFAULT_VOLUME_POSITION: u8 = 50;
+// Default volume position when unmuting
+const DEFAULT_VOLUME_POSITION: u8 = 40;
 
 // Remembered volume position for toggle functionality
 static REMEMBERED_VOLUME_POSITION: AtomicU8 = AtomicU8::new(DEFAULT_VOLUME_POSITION);
