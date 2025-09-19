@@ -10,10 +10,10 @@ use crate::common::shared_types::{Theme, MidiNote, Scale};
 pub const DEFAULT_THEME: Theme = Theme::Dark;
 
 /// Default musical configuration
-/// 
-/// Default tuning fork for the tuning system and pitch analysis.
+///
+/// Default tonal center for the tuning system and pitch analysis.
 /// C4 = 60
-pub const DEFAULT_TUNING_FORK_NOTE: MidiNote = 60;
+pub const DEFAULT_TONAL_CENTER_NOTE: MidiNote = 60;
 
 /// Default scale for pitch visualization and analysis.
 /// Set to Chromatic scale, which includes all 12 semitones and provides

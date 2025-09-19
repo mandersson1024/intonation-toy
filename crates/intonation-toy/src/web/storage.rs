@@ -12,17 +12,17 @@ const EXPIRATION_MS: i64 = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredConfig {
-    pub tuning_fork_note: MidiNote,
+    pub tonal_center_note: MidiNote,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
     pub timestamp: i64,
 }
 
 impl StoredConfig {
-    pub fn new(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
+    pub fn new(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
         let timestamp = js_sys::Date::now() as i64;
         Self {
-            tuning_fork_note,
+            tonal_center_note,
             tuning_system,
             scale,
             timestamp,
@@ -35,7 +35,7 @@ impl StoredConfig {
     }
 }
 
-pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
+pub fn save_config(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for storage");
         return;
@@ -46,7 +46,7 @@ pub fn save_config(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scal
         return;
     };
     
-    let config = StoredConfig::new(tuning_fork_note, tuning_system, scale);
+    let config = StoredConfig::new(tonal_center_note, tuning_system, scale);
     
     match serde_json::to_string(&config) {
         Ok(json) => {
@@ -72,8 +72,8 @@ pub fn load_config() -> Option<StoredConfig> {
                 let _ = storage.remove_item(STORAGE_KEY);
                 None
             } else {
-                dev_log!("Loaded config from local storage: tuning_fork={}, tuning_system={:?}, scale={:?}", 
-                    config.tuning_fork_note, config.tuning_system, config.scale);
+                dev_log!("Loaded config from local storage: tonal_center={}, tuning_system={:?}, scale={:?}", 
+                    config.tonal_center_note, config.tuning_system, config.scale);
                 Some(config)
             }
         }

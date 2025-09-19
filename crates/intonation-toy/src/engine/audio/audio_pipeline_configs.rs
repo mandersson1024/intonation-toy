@@ -9,7 +9,7 @@ pub struct SignalGeneratorConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TuningForkConfig {
+pub struct TonalCenterConfig {
     pub frequency: f32,
     pub volume: f32,
 }

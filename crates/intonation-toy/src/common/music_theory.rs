@@ -199,11 +199,11 @@ pub fn frequency_to_interval_semitones_scale_aware(
 
 /// Convert a frequency to the closest MIDI note and cents offset
 /// 
-/// Takes into account the tuning system, tuning fork note, and current scale.
+/// Takes into account the tuning system, tonal center note, and current scale.
 /// Returns None if the frequency is invalid or the resulting MIDI note is out of range.
 pub fn frequency_to_midi_note_and_cents(
     frequency: f32,
-    tuning_fork_note: MidiNote,
+    tonal_center_note: MidiNote,
     tuning_system: TuningSystem,
     current_scale: Scale,
 ) -> Option<(MidiNote, f32)> {
@@ -212,7 +212,7 @@ pub fn frequency_to_midi_note_and_cents(
         return None;
     }
     
-    let root_pitch = midi_note_to_standard_frequency(tuning_fork_note);
+    let root_pitch = midi_note_to_standard_frequency(tonal_center_note);
     let interval_result = frequency_to_interval_semitones_scale_aware(
         tuning_system,
         root_pitch,
@@ -220,7 +220,7 @@ pub fn frequency_to_midi_note_and_cents(
         current_scale,
     );
     
-    let midi_note = tuning_fork_note as i32 + interval_result.semitones;
+    let midi_note = tonal_center_note as i32 + interval_result.semitones;
     
     if !is_valid_midi_note(midi_note) {
         return None;

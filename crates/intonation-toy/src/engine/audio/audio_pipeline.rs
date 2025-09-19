@@ -7,7 +7,7 @@ use crate::{common::dev_log, engine::audio::AudioSignalPath};
 
 pub enum SignalPathMode {
     Off,
-    TuningForkMode, 
+    TonalCenterMode, 
     TestSignalMode,
 }
 
@@ -50,7 +50,7 @@ impl NewAudioPipeline {
         signal_path.analyser.set_smoothing_time_constant(0.0);
         
         {
-            // Configure tuning fork oscillator with custom waveform
+            // Configure tonal center oscillator with custom waveform
             let n = 16;
             let mut real = vec![0.0f32; n];
             let mut imag = vec![0.0f32; n];
@@ -74,9 +74,9 @@ impl NewAudioPipeline {
             let periodic_wave = audio_context.create_periodic_wave(&mut real, &mut imag)
                 .map_err(|_| "Failed to create periodic wave".to_string())?;
             
-            signal_path.tuning_fork_osc.set_periodic_wave(&periodic_wave);
-            signal_path.tuning_fork_osc.frequency().set_value(440.0); // A4 default
-            signal_path.tuning_fork_gain.gain().set_value(0.0); // Start muted
+            signal_path.tonal_center_osc.set_periodic_wave(&periodic_wave);
+            signal_path.tonal_center_osc.frequency().set_value(440.0); // A4 default
+            signal_path.tonal_center_gain.gain().set_value(0.0); // Start muted
         }
         
         // Configure test signal oscillator
@@ -102,13 +102,13 @@ impl NewAudioPipeline {
     /// This method should be called after the pipeline is created to begin audio processing.
     pub fn run(&mut self) -> Result<(), String> {
         // Start the oscillators
-        self.signal_path.tuning_fork_osc.start()
-            .map_err(|_| "Failed to start tuning fork oscillator".to_string())?;
+        self.signal_path.tonal_center_osc.start()
+            .map_err(|_| "Failed to start tonal center oscillator".to_string())?;
         self.signal_path.test_signal_osc.start()
             .map_err(|_| "Failed to start test signal oscillator".to_string())?;
         
-        // Set initial mode to tuning fork mode
-        self.set_signal_path_mode(SignalPathMode::TuningForkMode);
+        // Set initial mode to tonal center mode
+        self.set_signal_path_mode(SignalPathMode::TonalCenterMode);
         
         Ok(())
     }
@@ -127,7 +127,7 @@ impl NewAudioPipeline {
                 self.signal_path.user_input_mute.gain().set_value(0.0);
                 self.signal_path.test_signal_mute.gain().set_value(0.0);
             }
-            SignalPathMode::TuningForkMode => {
+            SignalPathMode::TonalCenterMode => {
                 self.signal_path.user_input_mute.gain().set_value(1.0);
                 self.signal_path.test_signal_mute.gain().set_value(0.0);
             }
@@ -138,14 +138,14 @@ impl NewAudioPipeline {
         }
     }
 
-    pub fn update_tuning_fork_config(&mut self, config: super::audio_pipeline_configs::TuningForkConfig) {
-        self.signal_path.tuning_fork_osc.frequency().set_value(config.frequency);
-        self.ramp_tuning_fork_gain(config.volume);
+    pub fn update_tonal_center_config(&mut self, config: super::audio_pipeline_configs::TonalCenterConfig) {
+        self.signal_path.tonal_center_osc.frequency().set_value(config.frequency);
+        self.ramp_tonal_center_gain(config.volume);
     }
 
-    fn ramp_tuning_fork_gain(&self, target: f32) {
-        if self.signal_path.tuning_fork_gain.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05).is_err() {
-            self.signal_path.tuning_fork_gain.gain().set_value(target);
+    fn ramp_tonal_center_gain(&self, target: f32) {
+        if self.signal_path.tonal_center_gain.gain().set_target_at_time(target, self.audio_context.current_time(), 0.05).is_err() {
+            self.signal_path.tonal_center_gain.gain().set_value(target);
         }
     }
 
@@ -171,7 +171,7 @@ impl NewAudioPipeline {
             self.signal_path.test_signal_gain.gain().set_value(config.volume / 100.0);
             self.set_signal_path_mode(SignalPathMode::TestSignalMode);
         } else {
-            self.set_signal_path_mode(SignalPathMode::TuningForkMode);
+            self.set_signal_path_mode(SignalPathMode::TonalCenterMode);
         }
         Ok(())
     }

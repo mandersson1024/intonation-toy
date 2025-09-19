@@ -24,8 +24,8 @@ fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
 }
 
 /// Converts frequency to screen Y position
-fn frequency_to_screen_y_position(frequency: f32, tuning_fork_frequency: f32, viewport_height: f32) -> f32 {
-    let interval = (frequency / tuning_fork_frequency).log2();
+fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, viewport_height: f32) -> f32 {
+    let interval = (frequency / tonal_center_frequency).log2();
     interval_to_screen_y_position(interval, viewport_height)
 }
 
@@ -134,7 +134,7 @@ impl Renderer {
             return Vec::new();
         };
         
-        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
+        let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tonal_center_note);
         let mut line_data = Vec::new();
         
         for semitone in -12..=12 {
@@ -147,14 +147,14 @@ impl Renderer {
             } else {
                 let frequency = crate::common::music_theory::interval_frequency(
                     context.tuning_system,
-                    tuning_fork_frequency,
+                    tonal_center_frequency,
                     semitone,
                 );
-                let interval = (frequency / tuning_fork_frequency).log2();
+                let interval = (frequency / tonal_center_frequency).log2();
                 interval_to_screen_y_position(interval, viewport.height as f32)
             };
             
-            let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
+            let midi_note = (context.tonal_center_note as i32 + semitone).clamp(0, 127) as MidiNote;
             let thickness = if semitone % 12 == 0 { OCTAVE_LINE_THICKNESS } else { REGULAR_LINE_THICKNESS };
             
             line_data.push((y_position, midi_note, thickness, semitone));
@@ -199,7 +199,7 @@ impl Renderer {
             // Convert frequencies to screen positions for texture data
             let texture_data: Vec<[f32; 2]> = self.data_buffer.iter().map(|&[detected, frequency]| {
                 let screen_y = if detected > 0.0 {
-                    let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tuning_fork_frequency, viewport.height as f32);
+                    let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tonal_center_frequency, viewport.height as f32);
                     y_pos / viewport.height as f32
                 } else {
                     0.0

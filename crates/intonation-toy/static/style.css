@@ -323,7 +323,7 @@ body.permission-required #sidebar input {
 }
 
 /* Component Styles */
-.tuning-fork-display {
+.tonal-center-display {
     background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 10%, transparent);
     color: var(--color-primary, #4a9eff);
     padding: 6px 12px;
@@ -379,7 +379,7 @@ body.permission-required #sidebar input {
     min-width: 40px;
     text-align: right;
 }
-.tuning-fork-container {
+.tonal-center-container {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -537,7 +537,7 @@ input[type="range"]:focus::-moz-range-thumb {
     gap: 8px;
 }
 
-.tuning-fork-controls {
+.tonal-center-controls {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -581,7 +581,7 @@ input[type="range"]:focus::-moz-range-thumb {
     -webkit-mask: url("icons/speaker-off.png") no-repeat center / contain;
 }
 
-#tuning-fork-volume {
+#tonal-center-volume {
     width: 125px;
 }
 

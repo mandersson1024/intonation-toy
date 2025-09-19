@@ -8,26 +8,26 @@ use crate::common::smoothing::EmaSmoother;
 use crate::common::adaptive_ema::AdaptiveEMA;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureTuningForkAction {
+pub struct ConfigureTonalCenterAction {
     pub frequency: f32,
     pub volume: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModelLayerActions {
-    pub tuning_fork_configuration: Option<ConfigureTuningForkAction>,
+    pub tonal_center_configuration: Option<ConfigureTonalCenterAction>,
 }
 
 impl ModelLayerActions {
     /// Check if there are any actions to process
     pub fn has_actions(&self) -> bool {
-        self.tuning_fork_configuration.is_some()
+        self.tonal_center_configuration.is_some()
     }
 }
 
 pub struct DataModel {
     tuning_system: TuningSystem,
-    tuning_fork_note: MidiNote,
+    tonal_center_note: MidiNote,
     current_scale: Scale,
     frequency_smoother: Box<dyn PitchSmoother>,
     clarity_smoother: Box<dyn PitchSmoother>,
@@ -101,7 +101,7 @@ impl Default for DataModel {
     fn default() -> Self {
         Self {
             tuning_system: TuningSystem::EqualTemperament,
-            tuning_fork_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
+            tonal_center_note: crate::app_config::DEFAULT_TONAL_CENTER_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
             frequency_smoother: create_smoother(),
             clarity_smoother: create_smoother(),
@@ -111,10 +111,10 @@ impl Default for DataModel {
 }
 
 impl DataModel {
-    pub fn new(tuning_fork_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
+    pub fn new(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
         Self {
             tuning_system,
-            tuning_fork_note,
+            tonal_center_note,
             current_scale: scale,
             frequency_smoother: create_smoother(),
             clarity_smoother: create_smoother(),
@@ -162,7 +162,7 @@ impl DataModel {
         let midi_note_result = match pitch {
             Pitch::Detected(frequency, _) => crate::common::music_theory::frequency_to_midi_note_and_cents(
                 frequency,
-                self.tuning_fork_note,
+                self.tonal_center_note,
                 self.tuning_system,
                 self.current_scale,
             ),
@@ -171,7 +171,7 @@ impl DataModel {
 
         let (closest_midi_note, cents_offset, interval_semitones) = match midi_note_result {
             Some((midi_note, cents)) => {
-                let interval = (midi_note as i32) - (self.tuning_fork_note as i32);
+                let interval = (midi_note as i32) - (self.tonal_center_note as i32);
                 (Some(midi_note), cents, interval)
             }
             None => (None, 0.0, 0),
@@ -186,7 +186,7 @@ impl DataModel {
             closest_midi_note,
             cents_offset,
             interval_semitones,
-            tuning_fork_note: self.tuning_fork_note,
+            tonal_center_note: self.tonal_center_note,
         }
     }
     
@@ -213,19 +213,19 @@ impl DataModel {
             }
         }
         
-        if let Some(tuning_fork_config) = &presentation_actions.tuning_fork_configuration {
-            if tuning_fork_config.note != self.tuning_fork_note {
+        if let Some(tonal_center_config) = &presentation_actions.tonal_center_configuration {
+            if tonal_center_config.note != self.tonal_center_note {
                 crate::common::dev_log!(
-                    "Model layer: Tuning fork changed from {} to {}",
-                    self.tuning_fork_note, tuning_fork_config.note
+                    "Model layer: Tonal center changed from {} to {}",
+                    self.tonal_center_note, tonal_center_config.note
                 );
-                self.tuning_fork_note = tuning_fork_config.note;
+                self.tonal_center_note = tonal_center_config.note;
             }
             
-            model_actions.tuning_fork_configuration = Some(
-                ConfigureTuningForkAction {
-                    frequency: crate::common::music_theory::midi_note_to_standard_frequency(tuning_fork_config.note),
-                    volume: tuning_fork_config.volume,
+            model_actions.tonal_center_configuration = Some(
+                ConfigureTonalCenterAction {
+                    frequency: crate::common::music_theory::midi_note_to_standard_frequency(tonal_center_config.note),
+                    volume: tonal_center_config.volume,
                 }
             );
         }

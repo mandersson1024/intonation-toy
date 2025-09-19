@@ -77,7 +77,7 @@ pub async fn start() {
     
     let model = if let Some(stored_config) = web::storage::load_config() {
         model::DataModel::new(
-            stored_config.tuning_fork_note,
+            stored_config.tonal_center_note,
             stored_config.tuning_system,
             stored_config.scale
         )

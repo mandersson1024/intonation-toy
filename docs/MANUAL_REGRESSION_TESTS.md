@@ -80,25 +80,25 @@ This document provides a structured approach for manually testing the intonation
 - Analysis updates immediately
 - UI reflects current mode
 
-### 3. Tuning Fork Configuration
-**Goal**: Verify tuning fork changes affect pitch analysis correctly.
+### 3. Tonal Center Configuration
+**Goal**: Verify tonal center changes affect pitch analysis correctly.
 
-#### Tuning Fork Selection
+#### Tonal Center Selection
 **Steps:**
-1. Change tuning fork (e.g., from C to D)
+1. Change tonal center (e.g., from C to D)
 2. Play a consistent pitch
 3. Observe interval analysis changes
 
 **Expected Result:**
-- Tuning fork updates immediately
-- Interval calculations adjust to new tuning fork
+- Tonal center updates immediately
+- Interval calculations adjust to new tonal center
 - Visual representation updates
 
 #### Standard Tuning Reference
 **Steps:**
-1. Set tuning fork to A (MIDI 69)
+1. Set tonal center to A (MIDI 69)
 2. Play A4=440Hz
-3. Verify it shows as tuning fork/unison
+3. Verify it shows as tonal center/unison
 
 **Expected Result:**
 - Shows 0 semitones, 0 cents

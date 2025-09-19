@@ -8,5 +8,5 @@ pub struct AudioAnalysis {
     pub clarity: Option<f32>,
     pub volume_peak: bool,
     pub frequency: f32,
-    pub tuning_fork_frequency: f32,
+    pub tonal_center_frequency: f32,
 }
