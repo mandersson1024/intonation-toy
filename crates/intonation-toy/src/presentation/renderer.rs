@@ -15,7 +15,7 @@ use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
-enum DisplayMode {
+enum DisplayRange {
     TwoOctaves,
     OneFullOctave,
     TwoHalfOctaves,
@@ -23,17 +23,17 @@ enum DisplayMode {
 
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
-    // DisplayMode.TwoOctaves
+    // DisplayRange.TwoOctaves
     const ZOOM_FACTOR: f32 = 0.92;
     const Y_OFFSET: f32 = 0.0;
 
-    // DisplayMode.OneFullOctave
-    //const ZOOM_FACTOR: f32 = 1.84;
-    //const Y_OFFSET: f32 = -0.45;
+    // DisplayRange.OneFullOctave
+    // const ZOOM_FACTOR: f32 = 1.84;
+    // const Y_OFFSET: f32 = -0.45;
 
-    // DisplayMode.TwoHalfOctaves
-    //const ZOOM_FACTOR: f32 = 1.84;
-    //const Y_OFFSET: f32 = -0.09;
+    // DisplayRange.TwoHalfOctaves
+    // const ZOOM_FACTOR: f32 = 1.84;
+    // const Y_OFFSET: f32 = -0.09;
 
     viewport_height * (0.5 + Y_OFFSET + interval * ZOOM_FACTOR * 0.5)
 }
