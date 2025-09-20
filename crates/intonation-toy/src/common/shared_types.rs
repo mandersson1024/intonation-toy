@@ -377,15 +377,23 @@ pub struct ModelUpdateResult {
     pub closest_midi_note: Option<MidiNote>,
     pub cents_offset: f32,
     pub interval_semitones: i32,
-    pub tuning_fork_note: MidiNote,
+    pub tonal_center_note: MidiNote,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DisplayRange {
+    TwoOctaves,
+    OneFullOctave,
+    TwoHalfOctaves,
 }
 
 /// Context data passed from presentation layer to main scene for rendering calculations
 #[derive(Debug, Clone, PartialEq)]
 pub struct PresentationContext {
-    pub tuning_fork_note: MidiNote,
+    pub tonal_center_note: MidiNote,
     pub tuning_system: TuningSystem,
     pub current_scale: Scale,
+    pub display_range: DisplayRange,
 }
 
 /// Converts a semitone interval to a musical interval name.

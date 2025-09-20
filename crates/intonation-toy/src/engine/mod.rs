@@ -158,7 +158,7 @@ impl AudioEngine {
     
     /// Execute model layer actions
     /// 
-    /// Processes tuning fork audio configuration from the model layer.
+    /// Processes tonal center audio configuration from the model layer.
     /// The engine handles raw audio while the model handles musical interpretation.
     pub fn execute_actions(&mut self, model_actions: ModelLayerActions) {
         if !model_actions.has_actions() {
@@ -166,17 +166,17 @@ impl AudioEngine {
         }
         
         
-        if let Some(config) = model_actions.tuning_fork_configuration {
+        if let Some(config) = model_actions.tonal_center_configuration {
             // Convert model action to audio system config
-            let tuning_fork_config = crate::engine::audio::audio_pipeline_configs::TuningForkConfig {
+            let tonal_center_config = crate::engine::audio::audio_pipeline_configs::TonalCenterConfig {
                 frequency: config.frequency,
                 volume: config.volume,
             };
             
-            // Use the separate tuning fork audio node architecture
-            self.audio_pipeline.update_tuning_fork_config(tuning_fork_config);
+            // Use the separate tonal center audio node architecture
+            self.audio_pipeline.update_tonal_center_config(tonal_center_config);
             crate::common::dev_log!(
-                "Engine layer: ✓ Tuning fork audio control updated - frequency: {} Hz", 
+                "Engine layer: ✓ Tonal center audio control updated - frequency: {} Hz", 
                 config.frequency
             );
         };
@@ -209,9 +209,6 @@ impl AudioEngine {
     /// - Speaker output: Direct manipulation of speaker output routing
     #[cfg(debug_assertions)]
     pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<(), String> {
-        crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
-        
-        // Execute test signal configuration with privileged access
         if let Some(config) = &debug_actions.test_signal_configuration {
             self.audio_pipeline.execute_test_signal_configuration(config)?;
         }

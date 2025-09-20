@@ -6,22 +6,30 @@ use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, Physical
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
+use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
-use crate::presentation::background_shader::BackgroundShaderMaterial;
+use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::TuningLines;
 use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
-/// Width of the data texture used for historical data
-const DATA_TEXTURE_WIDTH: usize = 512;
-
 /// Converts musical interval to screen Y position
-fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
-    const ZOOM_FACTOR: f32 = 0.92;
-    viewport_height * (0.5 + interval * ZOOM_FACTOR * 0.5)
+fn interval_to_screen_y_position(interval: f32, viewport_height: f32, display_range: &crate::common::shared_types::DisplayRange) -> f32 {
+    let (zoom_factor, y_offset) = match display_range {
+        crate::common::shared_types::DisplayRange::TwoOctaves => (0.92, 0.0),
+        crate::common::shared_types::DisplayRange::OneFullOctave => (1.84, -0.45),
+        crate::common::shared_types::DisplayRange::TwoHalfOctaves => (1.84, -0.09),
+    };
+
+    viewport_height * (0.5 + y_offset + interval * zoom_factor * 0.5)
+}
+
+/// Converts frequency to screen Y position
+fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, viewport_height: f32, display_range: &crate::common::shared_types::DisplayRange) -> f32 {
+    let interval = (frequency / tonal_center_frequency).log2();
+    interval_to_screen_y_position(interval, viewport_height, display_range)
 }
 
 /// Creates a textured quad for background rendering with custom shader
@@ -31,7 +39,6 @@ fn create_background_quad(
     height: u32,
     texture: Texture2DRef,
     data_texture: Option<Texture2DRef>,
-    data_index: i32,
 ) -> Gm<Rectangle, BackgroundShaderMaterial> {
     assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
 
@@ -42,8 +49,8 @@ fn create_background_quad(
         BackgroundShaderMaterial {
             texture: Some(texture),
             data_texture,
-            data_index,
-            data_texture_width: DATA_TEXTURE_WIDTH as f32,
+            left_margin: NOTE_LINE_LEFT_MARGIN / width as f32,
+            right_margin: NOTE_LINE_RIGHT_MARGIN / width as f32,
         }
     )
 }
@@ -71,13 +78,12 @@ pub struct Renderer {
     audio_analysis: AudioAnalysis,
     tuning_lines: TuningLines,
     text_backend: EguiTextBackend,
-    context: Context,
+    three_d_context: Context,
     color_scheme: ColorScheme,
     background_quad: Option<Gm<Rectangle, BackgroundShaderMaterial>>,
     presentation_context: Option<crate::common::shared_types::PresentationContext>,
     last_frame_time: f32,
     data_texture: Arc<Texture2D>,
-    data_texture_index: usize,
     data_buffer: Vec<[f32; 2]>,
 }
 
@@ -95,6 +101,10 @@ impl Renderer {
                 data: TextureData::RgF32(data_buffer.clone()),
                 width: DATA_TEXTURE_WIDTH as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
+                min_filter: Interpolation::Nearest,
+                mag_filter: Interpolation::Nearest,
                 ..Default::default()
             },
         ));
@@ -105,13 +115,12 @@ impl Renderer {
             audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,
-            context: context.clone(),
+            three_d_context: context.clone(),
             color_scheme: scheme,
             background_quad: None,
             presentation_context: None,
             last_frame_time: 0.0,
             data_texture,
-            data_texture_index: 0,
             data_buffer,
         })
     }
@@ -123,12 +132,12 @@ impl Renderer {
     }
     
     /// Get tuning line positions for the active tuning system
-    fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32)> {
+    fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32, i32)> {
         let Some(context) = &self.presentation_context else {
             return Vec::new();
         };
         
-        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tuning_fork_note);
+        let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(context.tonal_center_note);
         let mut line_data = Vec::new();
         
         for semitone in -12..=12 {
@@ -137,21 +146,21 @@ impl Renderer {
             }
             
             let y_position = if semitone == 0 {
-                interval_to_screen_y_position(0.0, viewport.height as f32)
+                interval_to_screen_y_position(0.0, viewport.height as f32, &context.display_range)
             } else {
                 let frequency = crate::common::music_theory::interval_frequency(
                     context.tuning_system,
-                    tuning_fork_frequency,
+                    tonal_center_frequency,
                     semitone,
                 );
-                let interval = (frequency / tuning_fork_frequency).log2();
-                interval_to_screen_y_position(interval, viewport.height as f32)
+                let interval = (frequency / tonal_center_frequency).log2();
+                interval_to_screen_y_position(interval, viewport.height as f32, &context.display_range)
             };
             
-            let midi_note = (context.tuning_fork_note as i32 + semitone).clamp(0, 127) as MidiNote;
+            let midi_note = (context.tonal_center_note as i32 + semitone).clamp(0, 127) as MidiNote;
             let thickness = if semitone % 12 == 0 { OCTAVE_LINE_THICKNESS } else { REGULAR_LINE_THICKNESS };
             
-            line_data.push((y_position, midi_note, thickness));
+            line_data.push((y_position, midi_note, thickness, semitone));
         }
         
         line_data
@@ -160,7 +169,13 @@ impl Renderer {
     
     pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
-        
+
+        // Update background shader margins if viewport changed
+        if let Some(ref mut background_quad) = self.background_quad {
+            background_quad.material.left_margin = NOTE_LINE_LEFT_MARGIN / viewport.width as f32;
+            background_quad.material.right_margin = NOTE_LINE_RIGHT_MARGIN / viewport.width as f32;
+        }
+
         let scheme = get_current_color_scheme();
         if scheme != self.color_scheme {
             self.color_scheme = scheme.clone();
@@ -175,33 +190,45 @@ impl Renderer {
             // Update the data texture with detected and pitch values
             let detected = if self.audio_analysis.pitch_detected { 1.0 } else { 0.0 };
             let pitch = if self.audio_analysis.pitch_detected {
-                let y_pos = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
-                y_pos / viewport.height as f32
+                self.audio_analysis.frequency
             } else {
                 0.0
             };
 
-            // Update the historical data buffer at current index
-            let pixel_data = [detected, pitch];
-            self.data_buffer[self.data_texture_index] = pixel_data;
+            // Shift buffer left and add new data at the end
+            self.data_buffer.remove(0);
+            self.data_buffer.push([detected, pitch]);
+
+            // Convert frequencies to screen positions for texture data
+            let texture_data: Vec<[f32; 2]> = if let Some(context) = &self.presentation_context {
+                self.data_buffer.iter().map(|&[detected, frequency]| {
+                    let screen_y = if detected > 0.0 {
+                        let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tonal_center_frequency, viewport.height as f32, &context.display_range);
+                        y_pos / viewport.height as f32
+                    } else {
+                        0.0
+                    };
+                    [detected, screen_y]
+                }).collect()
+            } else {
+                vec![[0.0, 0.0]; DATA_TEXTURE_WIDTH]
+            };
 
             // Create new texture with the updated historical data
             self.data_texture = Arc::new(Texture2D::new(
-                &self.context,
+                &self.three_d_context,
                 &CpuTexture {
-                    data: TextureData::RgF32(self.data_buffer.clone()),
+                    data: TextureData::RgF32(texture_data),
                     width: DATA_TEXTURE_WIDTH as u32,
                     height: 1,
+                    wrap_s: Wrapping::ClampToEdge,
+                    wrap_t: Wrapping::ClampToEdge,
                     ..Default::default()
                 },
             ));
 
-            // Update the material with new texture and current index
-            background_quad.material.data_texture = Some(self.data_texture.clone().into());            
-            background_quad.material.data_index = self.data_texture_index as i32;
-
-            // Increment index for next frame (wrap around)
-            self.data_texture_index = (self.data_texture_index + 1) % DATA_TEXTURE_WIDTH;
+            // Update the material with new texture
+            background_quad.material.data_texture = Some(self.data_texture.clone().into());
 
             self.camera.disable_tone_and_color_mapping();
             screen.render(&self.camera, [background_quad], &[]);
@@ -224,12 +251,16 @@ impl Renderer {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
             return;
         }
-        
+
         if !self.audio_analysis.pitch_detected {
             return;
         }
-        
-        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
+
+        let Some(context) = &self.presentation_context else {
+            return;
+        };
+
+        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32, &context.display_range);
         let endpoints = (
             PhysicalPoint{x:USER_PITCH_LINE_LEFT_MARGIN, y}, 
             PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}
@@ -238,7 +269,7 @@ impl Renderer {
         let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
         
         self.user_pitch_line.update_position(
-            &self.context,
+            &self.three_d_context,
             endpoints,
             new_thickness,
             new_alpha,
@@ -247,7 +278,7 @@ impl Renderer {
         );
     }
     
-    pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32)]) {
+    pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32, i32)]) {
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
             return;
@@ -260,7 +291,7 @@ impl Renderer {
         }
         
         let scheme = get_current_color_scheme();
-        self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
+        self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
     }
     
     /// Renders tuning lines and note labels to the background texture
@@ -271,7 +302,7 @@ impl Renderer {
         }
         
         let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             Interpolation::Linear,
@@ -282,7 +313,7 @@ impl Renderer {
         );
         
         let mut depth_texture = DepthTexture2D::new::<f32>(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             Wrapping::ClampToEdge,
@@ -294,8 +325,19 @@ impl Renderer {
             let [r, g, b] = get_current_color_scheme().background;
 
             let tuning_lines: Vec<&dyn Object> = self.tuning_lines.lines().map(|line| line as &dyn Object).collect();
-            let text_models = self.text_backend.render_texts(&self.context, viewport, &self.tuning_lines.get_note_labels());
-            let text_objects: Vec<&dyn Object> = text_models.iter().map(|model| model.as_ref() as &dyn Object).collect();
+
+            // Render note labels on the left
+            let note_labels = self.tuning_lines.get_note_labels();
+            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels);
+
+            // Render interval labels on the right
+            let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
+            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels);
+
+            // Combine all text objects
+            let mut text_objects: Vec<&dyn Object> = Vec::new();
+            text_objects.extend(note_text_models.iter().map(|model| model.as_ref() as &dyn Object));
+            text_objects.extend(interval_text_models.iter().map(|model| model.as_ref() as &dyn Object));
 
             RenderTarget::new(background_texture.as_color_target(None), depth_texture.as_depth_target())
                 .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
@@ -306,12 +348,11 @@ impl Renderer {
         let texture_ref = Texture2DRef::from_texture(background_texture);
 
         self.background_quad = Some(create_background_quad(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             texture_ref,
-            Some(self.data_texture.clone().into()),
-            self.data_texture_index as i32
+            Some(self.data_texture.clone().into())
         ));
     }
     

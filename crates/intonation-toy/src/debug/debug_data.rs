@@ -12,7 +12,7 @@ pub struct DebugData {
     pub intonation_data: Option<IntonationData>,
     pub audio_errors: Vec<crate::common::shared_types::Error>,
     pub interval_semitones: Option<i32>,
-    pub tuning_fork_note: Option<crate::common::shared_types::MidiNote>,
+    pub tonal_center_note: Option<crate::common::shared_types::MidiNote>,
 }
 
 
@@ -51,7 +51,7 @@ impl DebugData {
                 cents_offset: model.cents_offset,
             });
             self.interval_semitones = Some(model.interval_semitones);
-            self.tuning_fork_note = Some(model.tuning_fork_note);
+            self.tonal_center_note = Some(model.tonal_center_note);
         }
     }
     

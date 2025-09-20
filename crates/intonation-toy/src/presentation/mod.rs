@@ -53,7 +53,7 @@ pub struct ConfigureTestSignal {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConfigureTuningFork {
+pub struct ConfigureTonalCenter {
     pub note: MidiNote,
     pub volume: f32,
 }
@@ -63,7 +63,7 @@ pub struct ConfigureTuningFork {
 pub struct PresentationLayerActions {
     pub tuning_system_change: Option<ChangeTuningSystem>,
     pub scale_change: Option<ScaleChangeAction>,
-    pub tuning_fork_configuration: Option<ConfigureTuningFork>,
+    pub tonal_center_configuration: Option<ConfigureTonalCenter>,
 }
 
 impl PresentationLayerActions {
@@ -71,7 +71,7 @@ impl PresentationLayerActions {
     pub fn has_actions(&self) -> bool {
         self.tuning_system_change.is_some() ||
         self.scale_change.is_some() ||
-        self.tuning_fork_configuration.is_some()
+        self.tonal_center_configuration.is_some()
     }
 }
 
@@ -132,25 +132,30 @@ impl Presenter {
     }
 
     fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
-        let (pitch_detected, clarity) = match model_data.pitch {
-            Pitch::Detected(_, clarity_value) => (true, Some(clarity_value)),
-            Pitch::NotDetected => (false, None),
+        let (pitch_detected, clarity, frequency) = match model_data.pitch {
+            Pitch::Detected(freq, clarity_value) => (true, Some(clarity_value), freq),
+            Pitch::NotDetected => (false, None, 0.0),
         };
         
         
         if let Some(renderer) = &mut self.renderer {
             renderer.update_presentation_context(&crate::common::shared_types::PresentationContext {
-                tuning_fork_note: model_data.tuning_fork_note,
+                tonal_center_note: model_data.tonal_center_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
+                display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
             }, viewport);
             
+            let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(model_data.tonal_center_note);
+
             renderer.update_audio_analysis(AudioAnalysis {
                 pitch_detected,
                 cents_offset: model_data.cents_offset,
                 interval: self.interval_position,
                 clarity,
                 volume_peak: model_data.is_peaking,
+                frequency,
+                tonal_center_frequency,
             });
             
             renderer.update_pitch_position(viewport);
@@ -162,7 +167,7 @@ impl Presenter {
         self.process_tuning_system(&model_data.tuning_system);
         self.sync_sidebar_ui(model_data);
         
-        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.tuning_fork_note);
+        self.interval_position = self.calculate_interval_position_from_frequency(&model_data.pitch, model_data.tonal_center_note);
     }
 
     /// Retrieve and clear all pending user actions
@@ -193,15 +198,15 @@ impl Presenter {
             volume,
         });
     }
-    pub fn on_tuning_fork_configured(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
-        crate::common::dev_log!("PRESENTER: Tuning fork audio configured - tuning_fork: {}, volume: {}", 
+    pub fn on_tonal_center_configured(&mut self, _enabled: bool, note: MidiNote, volume_amplitude: f32) {
+        crate::common::dev_log!("PRESENTER: Tonal center audio configured - tonal_center: {}, volume: {}", 
                                 note, volume_amplitude);
         
-        self.pending_user_actions.tuning_fork_configuration = Some(ConfigureTuningFork {
+        self.pending_user_actions.tonal_center_configuration = Some(ConfigureTonalCenter {
             note,
             volume: volume_amplitude,
         });
-        crate::common::dev_log!("PRESENTER: Set tuning fork configuration action");
+        crate::common::dev_log!("PRESENTER: Set tonal center configuration action");
     }
     
 
@@ -239,12 +244,12 @@ impl Presenter {
     fn process_tuning_system(&mut self, _tuning_system: &crate::common::shared_types::TuningSystem) {
     }
     
-    /// Calculate interval position from frequency and tuning fork
+    /// Calculate interval position from frequency and tonal center
     fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, note: MidiNote) -> f32 {
         match pitch {
             Pitch::Detected(frequency, _clarity) => {
-                let tuning_fork_frequency = Self::midi_note_to_frequency(note);
-                (frequency / tuning_fork_frequency).log2()
+                let tonal_center_frequency = Self::midi_note_to_frequency(note);
+                (frequency / tonal_center_frequency).log2()
             }
             Pitch::NotDetected => 0.0,
         }
@@ -259,9 +264,9 @@ impl Presenter {
         note: MidiNote,
         tuning_system: TuningSystem,
     ) -> f32 {
-        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(note);
+        let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(note);
         let interval_semitones = (midi_note as i32) - (note as i32);
-        crate::common::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
+        crate::common::music_theory::interval_frequency(tuning_system, tonal_center_frequency, interval_semitones)
     }
 
     fn sync_sidebar_ui(&self, model_data: &ModelUpdateResult) {

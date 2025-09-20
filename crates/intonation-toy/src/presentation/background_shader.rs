@@ -1,16 +1,17 @@
 #![cfg(target_arch = "wasm32")]
 
 use three_d::*;
+use crate::app_config::{NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
 /// Width of the data texture used for historical data
-pub const DATA_TEXTURE_WIDTH: f32 = 512.0;
+pub const DATA_TEXTURE_WIDTH: usize = 512;
 
 // Simple material that uses our custom shader
 pub struct BackgroundShaderMaterial {
     pub texture: Option<Texture2DRef>,
     pub data_texture: Option<Texture2DRef>,
-    pub data_index: i32,
-    pub data_texture_width: f32,
+    pub left_margin: f32,
+    pub right_margin: f32,
 }
 
 impl Material for BackgroundShaderMaterial {
@@ -24,8 +25,8 @@ impl Material for BackgroundShaderMaterial {
         r#"
             uniform sampler2D backgroundTexture;
             uniform sampler2D dataTexture;
-            uniform int dataIndex;
-            uniform float dataTextureWidth;
+            uniform float leftMargin;
+            uniform float rightMargin;
 
             in vec2 uvs;
             out vec4 fragColor;
@@ -33,18 +34,30 @@ impl Material for BackgroundShaderMaterial {
             void main() {
                 vec4 texColor = texture(backgroundTexture, uvs);
 
-                // Map screen x coordinate to texture coordinate with offset so latest entry appears at right
-                // uvs.x goes from 0 to 1, we want to map it so current dataIndex appears at x=1
-                float normalizedIndex = float(dataIndex) / dataTextureWidth;
-                float u = mod(uvs.x + normalizedIndex, 1.0);
+                // Check if we're within the margins for tinting
+                float isWithinMargins = step(leftMargin, uvs.x) * step(uvs.x, 1.0 - rightMargin);
 
-                vec4 data = texture(dataTexture, vec2(u, 0.5));
-                float detected = data.r;
-                float pitch = data.g;
+                if (isWithinMargins > 0.0) {
+                    // Remap x coordinate to account for margins
+                    // Map [leftMargin, 1-rightMargin] to [0, 1]
+                    float mappedX = (uvs.x - leftMargin) / (1.0 - leftMargin - rightMargin);
 
-                // Magenta tint when detected, only below the pitch line
-                float magentaTint = 0.3 * detected * step(uvs.y, pitch);
-                fragColor = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+                    // Sample the data texture
+                    vec4 data = texture(dataTexture, vec2(mappedX, 0.5));
+                    float detected = data.r;
+                    float pitch = data.g;
+
+                    // Magenta tint when detected, only below the pitch line
+                    float magentaTint = 0.3 * detected * step(uvs.y, pitch);
+
+                    vec4 tintedBackground = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+
+                    // Blend the yellow line over the background
+                    fragColor = tintedBackground;
+                } else {
+                    // Outside margins, just show the background texture
+                    fragColor = texColor;
+                }
             }
         "#.to_string()
     }
@@ -56,8 +69,8 @@ impl Material for BackgroundShaderMaterial {
         if let Some(ref data_texture) = self.data_texture {
             program.use_texture("dataTexture", data_texture);
         }
-        program.use_uniform("dataIndex", self.data_index);
-        program.use_uniform("dataTextureWidth", self.data_texture_width);
+        program.use_uniform("leftMargin", self.left_margin);
+        program.use_uniform("rightMargin", self.right_margin);
     }
 
     fn render_states(&self) -> RenderStates {
@@ -76,11 +89,11 @@ impl Material for BackgroundShaderMaterial {
 pub struct BackgroundShader {
     mesh: Gm<Mesh, BackgroundShaderMaterial>,
     context: Context,
-    data_values: [f32; 2], // Store detected, pitch
+    data_buffer: Vec<[f32; 2]>, // Buffer of [detected, pitch] values, newest at end
 }
 
 impl BackgroundShader {
-    pub fn new(context: &Context) -> Result<Self, three_d::CoreError> {
+    pub fn new(context: &Context, viewport_width: f32) -> Result<Self, three_d::CoreError> {
         // Create a fullscreen quad mesh
         let positions = vec![
             Vec3::new(-1.0, -1.0, -0.999), // Closer to camera
@@ -105,14 +118,17 @@ impl BackgroundShader {
 
         let mesh = Mesh::new(context, &cpu_mesh);
 
-        // Create initial 1x1 data texture with default values
-        let data = vec![[0.0_f32, 0.5_f32]]; // detected, pitch
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH];
+
+        // Create initial data texture with the buffer
         let data_texture = Texture2D::new(
             context,
             &CpuTexture {
-                data: TextureData::RgF32(data),
-                width: 1,
+                data: TextureData::RgF32(data_buffer.clone()),
+                width: DATA_TEXTURE_WIDTH as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
                 ..Default::default()
             },
         );
@@ -120,14 +136,14 @@ impl BackgroundShader {
         let material = BackgroundShaderMaterial {
             texture: None,
             data_texture: Some(data_texture.into()),
-            data_index: 0,
-            data_texture_width: DATA_TEXTURE_WIDTH,
+            left_margin: NOTE_LINE_LEFT_MARGIN / viewport_width,
+            right_margin: NOTE_LINE_RIGHT_MARGIN / viewport_width,
         };
 
         Ok(Self {
             mesh: Gm::new(mesh, material),
             context: context.clone(),
-            data_values: [0.0, 0.5],
+            data_buffer,
         })
     }
 
@@ -139,25 +155,30 @@ impl BackgroundShader {
         self.mesh.material.texture = Some(texture);
     }
 
-    pub fn set_detected(&mut self, detected: f32) {
-        self.data_values[0] = detected;
+    pub fn add_data_point(&mut self, detected: f32, pitch: f32) {
+        // Shift all data left by removing first element
+        self.data_buffer.remove(0);
+        // Add new data point at the end
+        self.data_buffer.push([detected, pitch]);
         self.update_data_texture();
     }
 
-    pub fn set_pitch(&mut self, pitch: f32) {
-        self.data_values[1] = pitch;
-        self.update_data_texture();
+    pub fn set_margins(&mut self, left: f32, right: f32) {
+        self.mesh.material.left_margin = left;
+        self.mesh.material.right_margin = right;
     }
-
 
     fn update_data_texture(&mut self) {
-        let data = vec![[self.data_values[0], self.data_values[1]]];
+        // Data buffer already has oldest on left, newest on right
+        // Just upload it directly to the texture
         let data_texture = Texture2D::new(
             &self.context,
             &CpuTexture {
-                data: TextureData::RgF32(data),
-                width: 1,
+                data: TextureData::RgF32(self.data_buffer.clone()),
+                width: self.data_buffer.len() as u32,
                 height: 1,
+                wrap_s: Wrapping::ClampToEdge,
+                wrap_t: Wrapping::ClampToEdge,
                 ..Default::default()
             },
         );

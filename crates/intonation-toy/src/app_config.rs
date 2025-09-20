@@ -4,22 +4,25 @@
 //! 
 //! This module contains all configuration constants used throughout the application
 
-use crate::common::shared_types::{Theme, MidiNote, Scale};
+use crate::common::shared_types::{Theme, MidiNote, Scale, DisplayRange};
 
 /// Default theme configuration
 pub const DEFAULT_THEME: Theme = Theme::Dark;
 
 /// Default musical configuration
-/// 
-/// Default tuning fork for the tuning system and pitch analysis.
+///
+/// Default tonal center for the tuning system and pitch analysis.
 /// C4 = 60
-pub const DEFAULT_TUNING_FORK_NOTE: MidiNote = 60;
+pub const DEFAULT_TONAL_CENTER_NOTE: MidiNote = 60;
 
 /// Default scale for pitch visualization and analysis.
 /// Set to Chromatic scale, which includes all 12 semitones and provides
 /// the most comprehensive pitch reference for users. Other scales can be
 /// selected through the UI to focus on specific musical contexts.
 pub const DEFAULT_SCALE: Scale = Scale::Major;
+
+/// Default display range for the pitch visualization.
+pub const DEFAULT_DISPLAY_RANGE: DisplayRange = DisplayRange::TwoHalfOctaves;
 
 /// Viewport configuration
 pub const VIEWPORT_RENDER_SIZE: u32 = 1024;
@@ -36,7 +39,7 @@ pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 16;   // IMPORTANT: Also updat
 pub const STANDARD_SAMPLE_RATE: u32 = 44100;            // Standard consumer audio sample rate (44.1 kHz)
 
 /// Pitch detection configuration
-pub const CLARITY_THRESHOLD: f32 = 0.3;
+pub const CLARITY_THRESHOLD: f32 = 0.5;
 pub const POWER_THRESHOLD: f32 = 1.0;
 
 /// Pitch smoothing factor for exponential moving average (EMA)
@@ -50,7 +53,44 @@ pub const POWER_THRESHOLD: f32 = 1.0;
 /// - Default 0.1: Provides moderate smoothing while maintaining good responsiveness
 /// 
 /// This factor is used in the EMA formula: smoothed = factor * new_value + (1 - factor) * old_value
-pub const PITCH_SMOOTHING_FACTOR: f32 = 0.07;
+pub const PITCH_SMOOTHING_FACTOR: f32 = 0.2;
+
+/// Adaptive EMA configuration for advanced smoothing
+/// These parameters control the adaptive EMA algorithm that reduces jitter and outliers
+
+/// Minimum alpha (EMA factor) for strong smoothing when changes are small
+pub const ADAPTIVE_EMA_ALPHA_MIN: f32 = 0.02;
+
+/// Maximum alpha (EMA factor) for quick response when changes are large
+pub const ADAPTIVE_EMA_ALPHA_MAX: f32 = 0.6;
+
+/// Soft threshold for "jitter size" in Hz - typical noise scale for pitch detection
+pub const ADAPTIVE_EMA_D: f32 = 0.5;
+
+/// Softness of the transition between min and max alpha (smaller => steeper)
+pub const ADAPTIVE_EMA_S: f32 = 0.15;
+
+/// Enable median-of-3 prefilter for cheap jitter reduction
+pub const ADAPTIVE_EMA_USE_MEDIAN3: bool = true;
+
+/// Enable Hampel outlier suppression for removing transient spikes
+pub const ADAPTIVE_EMA_USE_HAMPEL: bool = true;
+
+/// Window size for Hampel filter (must be odd, e.g., 5, 7, 9)
+pub const ADAPTIVE_EMA_HAMPEL_WINDOW: usize = 7;
+
+/// Sensitivity for Hampel filter (larger => fewer points flagged as outliers)
+pub const ADAPTIVE_EMA_HAMPEL_NSIGMA: f32 = 3.0;
+
+/// Deadband threshold in Hz - when changes are smaller than this, use minimum smoothing
+pub const ADAPTIVE_EMA_DEADBAND: f32 = 1.0;
+
+/// Hysteresis thresholds (d_down, d_up) to reduce flicker near threshold
+pub const ADAPTIVE_EMA_HYSTERESIS_DOWN: f32 = 0.25;
+pub const ADAPTIVE_EMA_HYSTERESIS_UP: f32 = 0.45;
+
+/// Enable adaptive EMA smoothing (set to false to use simple EMA)
+pub const USE_ADAPTIVE_EMA: bool = false;
 
 /// Intonation accuracy configuration
 /// Threshold in cents for considering pitch "accurate" and showing accent color
@@ -80,10 +120,10 @@ pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
 
 /// Tuning lines layout configuration
 pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
-pub const NOTE_LINE_RIGHT_MARGIN: f32 = 30.0;
+pub const NOTE_LINE_RIGHT_MARGIN: f32 = 54.0;
 
-pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 960.0;
-pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 25.0;
+pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 970.0;
+pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 0.0;
 
 /// Line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;

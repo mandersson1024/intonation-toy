@@ -1,5 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
+pub mod adaptive_ema;
 pub mod logging;
 pub mod music_theory;
 pub mod shared_types;

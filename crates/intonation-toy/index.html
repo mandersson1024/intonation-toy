@@ -39,20 +39,20 @@
     <div id="sidebar" class="app-sidebar">
       <h1 class="sidebar-header">Intonation Toy</h1>
       <div id="main-scene-ui-container" class="ui-container">
-        <!-- Tuning Fork Section -->
+        <!-- Tonal Center Section -->
         <div class="section-group">
-          <div class="subsection-header">Tuning Fork</div>
+          <div class="subsection-header">Tonal Center</div>
           <div class="control-row">
-            <button id="tuning-fork-minus" class="small-button">-</button>
-            <span id="tuning-fork-display" class="tuning-fork-display">C4</span>
-            <button id="tuning-fork-plus" class="small-button">+</button>
+            <button id="tonal-center-minus" class="small-button">-</button>
+            <span id="tonal-center-display" class="tonal-center-display">C4</span>
+            <button id="tonal-center-plus" class="small-button">+</button>
           </div>
-          <div class="tuning-fork-controls">
-            <div alt="Volume" class="volume-icon"></div>
-            <input id="tuning-fork-volume" type="range" min="0" max="100" value="0" />
-            <span id="tuning-fork-volume-display" class="volume-display">-∞ dB</span>
+          <div class="tonal-center-controls">
+            <div id="volume-icon" alt="Volume" class="volume-icon clickable"></div>
+            <input id="tonal-center-volume" type="range" min="0" max="100" value="0" />
+            <span id="tonal-center-volume-display" class="volume-display">-∞ dB</span>
           </div>
-          <div id="tuning-fork-help" class="help-text">Match the note with your voice or instrument to explore intonation. Leave the volume at zero for visual-only tuning mode.</div>
+          <div id="tonal-center-help" class="help-text">Match the note with your voice or instrument to explore intonation. Leave the volume at zero for visual-only tuning mode.</div>
         </div>
 
         <!-- Tuning System Section -->
@@ -109,7 +109,7 @@
         <div class="about-section">
           <div class="about-header">About</div>
           <div class="about-content">
-            <p class="about-text"><strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. Explore musical intonation by analyzing audio input and see how your pitch relates to different tuning systems. Headphones are recommended for listening to the tuning fork.</p>
+            <p class="about-text"><strong>Intonation Toy</strong> is a real-time pitch analysis and visualization tool. Explore musical intonation by analyzing audio input and see how your pitch relates to different tuning systems. Headphones are recommended for listening to the tonal center.</p>
           </div>
         </div>
       </div>

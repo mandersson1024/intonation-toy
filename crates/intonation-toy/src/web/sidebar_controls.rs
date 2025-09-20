@@ -12,16 +12,22 @@ use {
     crate::web::storage,
 };
 
-// These statics are needed because the tuning fork controls (plus/minus buttons and volume slider)
+// These statics are needed because the tonal center controls (plus/minus buttons and volume slider)
 // interact with each other in a way that requires shared state:
 // 1. The plus/minus buttons need to know the current note to calculate next/previous values
 // 2. When the note changes, we need to send both the new note AND the current volume to the presenter
 // 3. The volume position must be preserved when the note changes
 // Unlike the dropdown controls (scale/tuning system) which maintain their own state in the DOM,
 // these controls need coordinated state management to work together properly.
-static CURRENT_TUNING_FORK_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
+static CURRENT_TONAL_CENTER_NOTE: AtomicU8 = AtomicU8::new(crate::app_config::DEFAULT_TONAL_CENTER_NOTE);
 
-static CURRENT_TUNING_FORK_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
+static CURRENT_TONAL_CENTER_VOLUME_POSITION: AtomicU8 = AtomicU8::new(0);
+
+// Default volume position when unmuting
+const DEFAULT_VOLUME_POSITION: u8 = 40;
+
+// Remembered volume position for toggle functionality
+static REMEMBERED_VOLUME_POSITION: AtomicU8 = AtomicU8::new(DEFAULT_VOLUME_POSITION);
 
 // Track last saved configuration to avoid saving every frame
 static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale)>> = std::sync::Mutex::new(None);
@@ -34,6 +40,18 @@ fn slider_position_to_amplitude(position: f32) -> f32 {
     } else {
         let db = -40.0 + (position - 20.0) * 40.0 / 80.0;
         10.0_f32.powf(db / 20.0)
+    }
+}
+
+fn update_volume_icon_state(is_muted: bool) {
+    let Some(window) = window() else { return; };
+    let Some(document) = window.document() else { return; };
+    let Some(icon) = document.get_element_by_id("volume-icon") else { return; };
+
+    if is_muted {
+        let _ = icon.class_list().add_1("muted");
+    } else {
+        let _ = icon.class_list().remove_1("muted");
     }
 }
 
@@ -65,39 +83,45 @@ pub fn setup_sidebar_controls() {
         return;
     };
 
-    if let Some(tuning_fork_display) = document.get_element_by_id("tuning-fork-display") {
-        let default_note_name = crate::common::shared_types::midi_note_to_name(crate::app_config::DEFAULT_TUNING_FORK_NOTE);
-        tuning_fork_display.set_text_content(Some(&default_note_name));
+    if let Some(tonal_center_display) = document.get_element_by_id("tonal-center-display") {
+        let default_note_name = crate::common::shared_types::midi_note_to_name(crate::app_config::DEFAULT_TONAL_CENTER_NOTE);
+        tonal_center_display.set_text_content(Some(&default_note_name));
     } else {
-        dev_log!("Warning: tuning-fork-display element not found in HTML");
+        dev_log!("Warning: tonal-center-display element not found in HTML");
     }
 
-    if let Some(volume_display) = document.get_element_by_id("tuning-fork-volume-display") {
+    if let Some(volume_display) = document.get_element_by_id("tonal-center-volume-display") {
         volume_display.set_text_content(Some(&slider_position_to_db_display(0.0)));
     } else {
-        dev_log!("Warning: tuning-fork-volume-display element not found in HTML");
+        dev_log!("Warning: tonal-center-volume-display element not found in HTML");
     }
 
-    if let Some(volume_slider) = document.get_element_by_id("tuning-fork-volume") {
+    if let Some(volume_slider) = document.get_element_by_id("tonal-center-volume") {
         if let Some(html_slider) = volume_slider.dyn_ref::<HtmlInputElement>() {
             html_slider.set_value("0");
         }
     } else {
-        dev_log!("Warning: tuning-fork-volume element not found in HTML");
+        dev_log!("Warning: tonal-center-volume element not found in HTML");
     }
 
+    // Initialize volume icon state
+    update_volume_icon_state(true);
+
     // Verify essential elements exist
-    if document.get_element_by_id("tuning-fork-plus").is_none() {
-        dev_log!("Warning: tuning-fork-plus element not found in HTML");
+    if document.get_element_by_id("tonal-center-plus").is_none() {
+        dev_log!("Warning: tonal-center-plus element not found in HTML");
     }
-    if document.get_element_by_id("tuning-fork-minus").is_none() {
-        dev_log!("Warning: tuning-fork-minus element not found in HTML");
+    if document.get_element_by_id("tonal-center-minus").is_none() {
+        dev_log!("Warning: tonal-center-minus element not found in HTML");
     }
     if document.get_element_by_id("tuning-system-select").is_none() {
         dev_log!("Warning: tuning-system-select element not found in HTML");
     }
     if document.get_element_by_id("scale-select").is_none() {
         dev_log!("Warning: scale-select element not found in HTML");
+    }
+    if document.get_element_by_id("volume-icon").is_none() {
+        dev_log!("Warning: volume-icon element not found in HTML");
     }
 }
 
@@ -125,25 +149,60 @@ where
 
 pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presenter>>) {
     let presenter_clone = presenter.clone();
-    add_event_listener("tuning-fork-plus", "click", move |_event: web_sys::Event| {
-        let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-        if let Some(new_tuning_fork_note) = increment_midi_note(current_tuning_fork_note) {
+    add_event_listener("volume-icon", "click", move |_event: web_sys::Event| {
+        let Some(window) = web_sys::window() else { return; };
+        let Some(document) = window.document() else { return; };
+        let Some(slider_element) = document.get_element_by_id("tonal-center-volume") else { return; };
+        let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() else { return; };
+
+        let current_position = CURRENT_TONAL_CENTER_VOLUME_POSITION.load(Ordering::Relaxed);
+        let new_position = if current_position == 0 {
+            // Unmute: restore remembered volume
+            let remembered = REMEMBERED_VOLUME_POSITION.load(Ordering::Relaxed);
+            html_slider.set_value(&remembered.to_string());
+            CURRENT_TONAL_CENTER_VOLUME_POSITION.store(remembered, Ordering::Relaxed);
+            update_volume_icon_state(false);
+            remembered
+        } else {
+            // Mute: save current volume and set to 0
+            REMEMBERED_VOLUME_POSITION.store(current_position, Ordering::Relaxed);
+            html_slider.set_value("0");
+            CURRENT_TONAL_CENTER_VOLUME_POSITION.store(0, Ordering::Relaxed);
+            update_volume_icon_state(true);
+            0
+        };
+
+        // Update volume display
+        if let Some(display_element) = document.get_element_by_id("tonal-center-volume-display") {
+            display_element.set_text_content(Some(&slider_position_to_db_display(new_position as f32)));
+        }
+
+        // Notify presenter
+        let amplitude = slider_position_to_amplitude(new_position as f32);
+        let current_tonal_center = CURRENT_TONAL_CENTER_NOTE.load(Ordering::Relaxed);
+        presenter_clone.borrow_mut().on_tonal_center_configured(true, current_tonal_center, amplitude);
+    });
+
+    let presenter_clone = presenter.clone();
+    add_event_listener("tonal-center-plus", "click", move |_event: web_sys::Event| {
+        let current_tonal_center_note = CURRENT_TONAL_CENTER_NOTE.load(Ordering::Relaxed);
+        if let Some(new_tonal_center_note) = increment_midi_note(current_tonal_center_note) {
             if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                let position = CURRENT_TONAL_CENTER_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                 let amplitude = slider_position_to_amplitude(position);
-                presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
+                presenter_mut.on_tonal_center_configured(true, new_tonal_center_note, amplitude);
             }
         }
     });
 
     let presenter_clone = presenter.clone();
-    add_event_listener("tuning-fork-minus", "click", move |_event: web_sys::Event| {
-        let current_tuning_fork_note = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-        if let Some(new_tuning_fork_note) = decrement_midi_note(current_tuning_fork_note) {
+    add_event_listener("tonal-center-minus", "click", move |_event: web_sys::Event| {
+        let current_tonal_center_note = CURRENT_TONAL_CENTER_NOTE.load(Ordering::Relaxed);
+        if let Some(new_tonal_center_note) = decrement_midi_note(current_tonal_center_note) {
             if let Ok(mut presenter_mut) = presenter_clone.try_borrow_mut() {
-                let position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+                let position = CURRENT_TONAL_CENTER_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
                 let amplitude = slider_position_to_amplitude(position);
-                presenter_mut.on_tuning_fork_configured(true, new_tuning_fork_note, amplitude);
+                presenter_mut.on_tonal_center_configured(true, new_tonal_center_note, amplitude);
             }
         }
     });
@@ -209,22 +268,33 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
     });
 
     let presenter_clone = presenter.clone();
-    add_event_listener("tuning-fork-volume", "input", move |_event: web_sys::Event| {
+    add_event_listener("tonal-center-volume", "input", move |_event: web_sys::Event| {
         let Some(window) = web_sys::window() else { return; };
         let Some(document) = window.document() else { return; };
-        let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") else { return; };
+        let Some(slider_element) = document.get_element_by_id("tonal-center-volume") else { return; };
         let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() else { return; };
         let Ok(position) = html_slider.value().parse::<f32>() else { return; };
         
-        CURRENT_TUNING_FORK_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
+        CURRENT_TONAL_CENTER_VOLUME_POSITION.store(position as u8, Ordering::Relaxed);
         let amplitude = slider_position_to_amplitude(position);
-        
-        if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+
+        // Update icon state based on position
+        update_volume_icon_state(position == 0.0);
+
+        // If moving from 0, reset remembered volume to default
+        if position > 0.0 {
+            let previous_position = CURRENT_TONAL_CENTER_VOLUME_POSITION.swap(position as u8, Ordering::Relaxed);
+            if previous_position == 0 {
+                REMEMBERED_VOLUME_POSITION.store(DEFAULT_VOLUME_POSITION, Ordering::Relaxed);
+            }
+        }
+
+        if let Some(display_element) = document.get_element_by_id("tonal-center-volume-display") {
             display_element.set_text_content(Some(&slider_position_to_db_display(position)));
         }
         
-        let current_tuning_fork = CURRENT_TUNING_FORK_NOTE.load(Ordering::Relaxed);
-        presenter_clone.borrow_mut().on_tuning_fork_configured(true, current_tuning_fork, amplitude);
+        let current_tonal_center = CURRENT_TONAL_CENTER_NOTE.load(Ordering::Relaxed);
+        presenter_clone.borrow_mut().on_tonal_center_configured(true, current_tonal_center, amplitude);
     });
 }
 
@@ -238,14 +308,14 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
         return;
     };
 
-    CURRENT_TUNING_FORK_NOTE.store(model_data.tuning_fork_note, Ordering::Relaxed);
+    CURRENT_TONAL_CENTER_NOTE.store(model_data.tonal_center_note, Ordering::Relaxed);
     
     // Save configuration to local storage only if it changed
-    let current_config = (model_data.tuning_fork_note, model_data.tuning_system, model_data.scale);
+    let current_config = (model_data.tonal_center_note, model_data.tuning_system, model_data.scale);
     if let Ok(mut last_saved) = LAST_SAVED_CONFIG.try_lock() {
         if last_saved.as_ref() != Some(&current_config) {
             storage::save_config(
-                model_data.tuning_fork_note,
+                model_data.tonal_center_note,
                 model_data.tuning_system,
                 model_data.scale
             );
@@ -253,8 +323,8 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
         }
     }
 
-    if let Some(display) = document.get_element_by_id("tuning-fork-display") {
-        let formatted_note = crate::common::shared_types::midi_note_to_name(model_data.tuning_fork_note);
+    if let Some(display) = document.get_element_by_id("tonal-center-display") {
+        let formatted_note = crate::common::shared_types::midi_note_to_name(model_data.tonal_center_note);
         display.set_text_content(Some(&formatted_note));
     }
     if let Some(select_element) = document.get_element_by_id("tuning-system-select") {
@@ -299,13 +369,13 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
             html_select.set_value(value);
         }
     }
-    let current_position = CURRENT_TUNING_FORK_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
-    if let Some(slider_element) = document.get_element_by_id("tuning-fork-volume") {
+    let current_position = CURRENT_TONAL_CENTER_VOLUME_POSITION.load(Ordering::Relaxed) as f32;
+    if let Some(slider_element) = document.get_element_by_id("tonal-center-volume") {
         if let Some(html_slider) = slider_element.dyn_ref::<HtmlInputElement>() {
             html_slider.set_value(&current_position.to_string());
         }
     }
-    if let Some(display_element) = document.get_element_by_id("tuning-fork-volume-display") {
+    if let Some(display_element) = document.get_element_by_id("tonal-center-volume-display") {
         display_element.set_text_content(Some(&slider_position_to_db_display(current_position)));
     }
 

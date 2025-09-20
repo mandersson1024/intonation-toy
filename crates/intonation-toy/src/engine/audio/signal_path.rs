@@ -14,8 +14,8 @@ pub struct AudioSignalPath {
     pub test_signal_osc: OscillatorNode,
     pub test_signal_gain: GainNode,
     pub test_signal_mute: GainNode,
-    pub tuning_fork_osc: OscillatorNode,
-    pub tuning_fork_gain: GainNode,
+    pub tonal_center_osc: OscillatorNode,
+    pub tonal_center_gain: GainNode,
 }
 
 impl AudioSignalPath {
@@ -31,8 +31,8 @@ impl AudioSignalPath {
         let test_signal_gain = context.create_gain().unwrap();
         let test_signal_mute = context.create_gain().unwrap();
         let analyser = context.create_analyser().unwrap();
-        let tuning_fork_osc = context.create_oscillator().unwrap();
-        let tuning_fork_gain = context.create_gain().unwrap();
+        let tonal_center_osc = context.create_oscillator().unwrap();
+        let tonal_center_gain = context.create_gain().unwrap();
 
         // Connect
         user_input.connect_with_audio_node(&user_input_mute).unwrap();
@@ -42,12 +42,12 @@ impl AudioSignalPath {
         test_signal_mute.connect_with_audio_node(&context.destination()).unwrap();
         test_signal_mute.connect_with_audio_node(&analyser).unwrap();
         analyser.connect_with_audio_node(&worklet).unwrap();
-        tuning_fork_osc.connect_with_audio_node(&tuning_fork_gain).unwrap();
-        tuning_fork_gain.connect_with_audio_node(&context.destination()).unwrap();
+        tonal_center_osc.connect_with_audio_node(&tonal_center_gain).unwrap();
+        tonal_center_gain.connect_with_audio_node(&context.destination()).unwrap();
 
         // user_input -> user_intput_mute -> analyser -> worklet
         // test_signal_osc -> test_signal_gain -> test_signal_mute -> [analyser -> worklet] // [destination]
-        // tuning_fork_osc -> tuning_fork_gain -> destination
+        // tonal_center_osc -> tonal_center_gain -> destination
 
         Self {
             user_input,
@@ -57,8 +57,8 @@ impl AudioSignalPath {
             test_signal_mute,
             worklet,
             analyser,
-            tuning_fork_osc,
-            tuning_fork_gain,
+            tonal_center_osc,
+            tonal_center_gain,
         }
     }
 }

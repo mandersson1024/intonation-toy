@@ -229,17 +229,44 @@ impl Platform {
 
     /// Check if the current platform is a mobile device
     pub fn is_mobile_device() -> bool {
-        web_sys::window()
-            .and_then(|w| w.navigator().user_agent().ok())
-            .map(|ua| {
-                let ua_lower = ua.to_lowercase();
-                ["android", "iphone", "ipad", "ipod", "blackberry", 
-                 "windows phone", "webos", "opera mini", "iemobile", 
-                 "mobile", "tablet"]
-                    .iter()
-                    .any(|&pattern| ua_lower.contains(pattern))
-            })
-            .unwrap_or(false)
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => return false,
+        };
+
+        let navigator = window.navigator();
+
+        // Check user agent string first
+        if let Ok(ua) = navigator.user_agent() {
+            let ua_lower = ua.to_lowercase();
+            if ["android", "iphone", "ipad", "ipod", "blackberry",
+                "windows phone", "webos", "opera mini", "iemobile",
+                "mobile", "tablet"]
+                .iter()
+                .any(|&pattern| ua_lower.contains(pattern))
+            {
+                return true;
+            }
+        }
+
+        // Check for Safari on iPad using desktop mode
+        // iPad with desktop mode has maxTouchPoints > 1 and Mac user agent
+        if let Ok(max_touch_points) = js_sys::Reflect::get(&navigator, &"maxTouchPoints".into()) {
+            if let Some(touch_points) = max_touch_points.as_f64() {
+                if touch_points > 1.0 {
+                    // Check if it claims to be Mac (iPad Safari in desktop mode)
+                    if let Ok(ua) = navigator.user_agent() {
+                        let ua_lower = ua.to_lowercase();
+                        if ua_lower.contains("macintosh") && ua_lower.contains("safari") {
+                            dev_log!("Detected Safari on iPad using desktop mode (maxTouchPoints: {})", touch_points);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        false
     }
 }
 

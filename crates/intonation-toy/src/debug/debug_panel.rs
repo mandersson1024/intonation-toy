@@ -34,7 +34,7 @@ impl DebugPanel {
             last_metrics_update: 0.0,
             test_signal_enabled: false,
             test_signal_volume: 15.0,
-            test_signal_midi_note: crate::app_config::DEFAULT_TUNING_FORK_NOTE,
+            test_signal_midi_note: crate::app_config::DEFAULT_TONAL_CENTER_NOTE,
             test_signal_nudge_percent: 0.0,
         }
     }
@@ -270,7 +270,7 @@ impl DebugPanel {
                     ui.horizontal(|ui| {
                         ui.label("Interval:");
                         if let (Some(interval_semitones), Some(_)) = 
-                            (self.debug_data.interval_semitones, self.debug_data.tuning_fork_note) {
+                            (self.debug_data.interval_semitones, self.debug_data.tonal_center_note) {
                             let interval_name = crate::common::shared_types::interval_name_from_semitones(interval_semitones);
                             let (color, display_text) = if interval_semitones == 0 || interval_semitones.abs() == 12 || interval_semitones.abs() == 7 || interval_semitones.abs() == 5 {
                                 (Color32::GREEN, format!("{} ({:+} st)", interval_name, interval_semitones))
@@ -306,11 +306,6 @@ impl DebugPanel {
                 ui.horizontal(|ui| {
                     ui.label("MIDI Note:");
                     
-                    // Display current MIDI note name
-                    let note_name = midi_note_to_display_name(self.test_signal_midi_note);
-                    let octave = (self.test_signal_midi_note as i16 / 12) - 1;
-                    ui.label(format!("{}{} ({})", note_name, octave, self.test_signal_midi_note));
-                    
                     // Decrement button with bounds checking
                     let can_decrement = self.test_signal_midi_note > 0;
                     ui.add_enabled_ui(can_decrement, |ui| {
@@ -337,10 +332,15 @@ impl DebugPanel {
                         }
                     });
                     
+                    // Display current MIDI note name
+                    let note_name = midi_note_to_display_name(self.test_signal_midi_note);
+                    let octave = (self.test_signal_midi_note as i16 / 12) - 1;
+                    ui.label(format!("{}{} ({})", note_name, octave, self.test_signal_midi_note));
+                    
                     // Display current frequency with error handling
                     match self.calculate_midi_note_frequency_safe(
                         self.test_signal_midi_note, 
-                        model_data.tuning_fork_note, 
+                        model_data.tonal_center_note, 
                         model_data.tuning_system
                     ) {
                         Ok(frequency) => {
@@ -354,9 +354,6 @@ impl DebugPanel {
                 
                 ui.horizontal(|ui| {
                     ui.label("Nudge:");
-                    
-                    // Display current nudge percentage
-                    ui.label(format!("{:+.1}%", self.test_signal_nudge_percent));
                     
                     // Decrement nudge button with bounds checking
                     let can_decrement_nudge = self.test_signal_nudge_percent > -50.0;
@@ -382,6 +379,9 @@ impl DebugPanel {
                         }
                     });
                     
+                    // Display current nudge percentage
+                    ui.label(format!("{:+.1}%", self.test_signal_nudge_percent));
+                    
                     // Reset button
                     if ui.button("Reset").on_hover_text("Reset nudge to 0%").clicked() {
                         self.test_signal_nudge_percent = 0.0;
@@ -394,7 +394,7 @@ impl DebugPanel {
                     match self.calculate_final_frequency_safe(
                         self.test_signal_midi_note,
                         self.test_signal_nudge_percent,
-                        model_data.tuning_fork_note,
+                        model_data.tonal_center_note,
                         model_data.tuning_system
                     ) {
                         Ok((base_freq, final_freq)) => {
@@ -437,7 +437,7 @@ impl DebugPanel {
             match self.calculate_final_frequency_safe(
                 self.test_signal_midi_note,
                 self.test_signal_nudge_percent,
-                model_data.tuning_fork_note,
+                model_data.tonal_center_note,
                 model_data.tuning_system
             ) {
                 Ok((_, final_frequency)) => {
@@ -465,18 +465,18 @@ impl DebugPanel {
         }
     }
     
-    fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> f32 {
-        let tuning_fork_frequency = crate::common::music_theory::midi_note_to_standard_frequency(tuning_fork_note);
-        let interval_semitones = (midi_note as i32) - (tuning_fork_note as i32);
-        crate::common::music_theory::interval_frequency(tuning_system, tuning_fork_frequency, interval_semitones)
+    fn midi_note_to_frequency_with_tuning(&self, midi_note: MidiNote, tonal_center_note: MidiNote, tuning_system: TuningSystem) -> f32 {
+        let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(tonal_center_note);
+        let interval_semitones = (midi_note as i32) - (tonal_center_note as i32);
+        crate::common::music_theory::interval_frequency(tuning_system, tonal_center_frequency, interval_semitones)
     }
     
-    fn calculate_midi_note_frequency_safe(&self, midi_note: MidiNote, tuning_fork_note: MidiNote, tuning_system: TuningSystem) -> Result<f32, &'static str> {
-        if midi_note > 127 || tuning_fork_note > 127 {
+    fn calculate_midi_note_frequency_safe(&self, midi_note: MidiNote, tonal_center_note: MidiNote, tuning_system: TuningSystem) -> Result<f32, &'static str> {
+        if midi_note > 127 || tonal_center_note > 127 {
             return Err("Invalid MIDI note");
         }
         
-        let frequency = self.midi_note_to_frequency_with_tuning(midi_note, tuning_fork_note, tuning_system);
+        let frequency = self.midi_note_to_frequency_with_tuning(midi_note, tonal_center_note, tuning_system);
         if frequency <= 0.0 || frequency > 20_000.0 {
             return Err("Frequency out of range");
         }
@@ -484,8 +484,8 @@ impl DebugPanel {
         Ok(frequency)
     }
     
-    fn calculate_final_frequency_safe(&self, midi_note: MidiNote, nudge_percent: f32, tuning_fork: MidiNote, tuning_system: TuningSystem) -> Result<(f32, f32), &'static str> {
-        let base_frequency = self.calculate_midi_note_frequency_safe(midi_note, tuning_fork, tuning_system)?;
+    fn calculate_final_frequency_safe(&self, midi_note: MidiNote, nudge_percent: f32, tonal_center: MidiNote, tuning_system: TuningSystem) -> Result<(f32, f32), &'static str> {
+        let base_frequency = self.calculate_midi_note_frequency_safe(midi_note, tonal_center, tuning_system)?;
         
         if !(-50.0..=50.0).contains(&nudge_percent) {
             return Err("Nudge percentage out of range");
