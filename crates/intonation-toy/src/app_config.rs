@@ -4,7 +4,7 @@
 //! 
 //! This module contains all configuration constants used throughout the application
 
-use crate::common::shared_types::{Theme, MidiNote, Scale};
+use crate::common::shared_types::{Theme, MidiNote, Scale, DisplayRange};
 
 /// Default theme configuration
 pub const DEFAULT_THEME: Theme = Theme::Dark;
@@ -20,6 +20,9 @@ pub const DEFAULT_TONAL_CENTER_NOTE: MidiNote = 60;
 /// the most comprehensive pitch reference for users. Other scales can be
 /// selected through the UI to focus on specific musical contexts.
 pub const DEFAULT_SCALE: Scale = Scale::Major;
+
+/// Default display range for the pitch visualization.
+pub const DEFAULT_DISPLAY_RANGE: DisplayRange = DisplayRange::TwoOctaves;
 
 /// Viewport configuration
 pub const VIEWPORT_RENDER_SIZE: u32 = 1024;
