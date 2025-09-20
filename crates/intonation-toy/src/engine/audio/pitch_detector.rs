@@ -1,6 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
-use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector as PitchDetectorTrait};
+use pitch_detection::detector::{yin::YINDetector, PitchDetector as PitchDetectorTrait};
 use crate::app_config::{CLARITY_THRESHOLD, POWER_THRESHOLD};
 
 use crate::app_config::BUFFER_SIZE;
@@ -35,7 +35,7 @@ impl Default for PitchDetectorConfig {
 
 pub struct PitchDetector {
     config: PitchDetectorConfig,
-    detector: McLeodDetector<f32>,
+    detector: YINDetector<f32>,
     sample_rate: u32,
 }
 
@@ -78,11 +78,11 @@ impl PitchDetector {
         }
 
 
-        let mcleod_detector = McLeodDetector::new(config.sample_window_size, config.padding_size);
+        let yin_detector = YINDetector::new(config.sample_window_size, config.padding_size);
 
         Ok(Self {
             config,
-            detector: mcleod_detector,
+            detector: yin_detector,
             sample_rate,
         })
     }
@@ -91,7 +91,7 @@ impl PitchDetector {
         assert_eq!(samples.len(), self.config.sample_window_size,
                    "Expected {} samples, got {}", self.config.sample_window_size, samples.len());
 
-        crate::common::dev_log!("PitchDetector: Processing {} samples at {} Hz", samples.len(), self.sample_rate);
+        crate::common::dev_log!("PitchDetector (Yin): Processing {} samples at {} Hz", samples.len(), self.sample_rate);
         let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, self.config.clarity_threshold);
 
         result.map(|pitch_info| PitchResult {
