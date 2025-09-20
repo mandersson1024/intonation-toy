@@ -16,26 +16,20 @@ use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
 /// Converts musical interval to screen Y position
-fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
-    // DisplayRange.TwoOctaves
-    const ZOOM_FACTOR: f32 = 0.92;
-    const Y_OFFSET: f32 = 0.0;
+fn interval_to_screen_y_position(interval: f32, viewport_height: f32, display_range: &crate::common::shared_types::DisplayRange) -> f32 {
+    let (zoom_factor, y_offset) = match display_range {
+        crate::common::shared_types::DisplayRange::TwoOctaves => (0.92, 0.0),
+        crate::common::shared_types::DisplayRange::OneFullOctave => (1.84, -0.45),
+        crate::common::shared_types::DisplayRange::TwoHalfOctaves => (1.84, -0.09),
+    };
 
-    // DisplayRange.OneFullOctave
-    // const ZOOM_FACTOR: f32 = 1.84;
-    // const Y_OFFSET: f32 = -0.45;
-
-    // DisplayRange.TwoHalfOctaves
-    // const ZOOM_FACTOR: f32 = 1.84;
-    // const Y_OFFSET: f32 = -0.09;
-
-    viewport_height * (0.5 + Y_OFFSET + interval * ZOOM_FACTOR * 0.5)
+    viewport_height * (0.5 + y_offset + interval * zoom_factor * 0.5)
 }
 
 /// Converts frequency to screen Y position
-fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, viewport_height: f32) -> f32 {
+fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, viewport_height: f32, display_range: &crate::common::shared_types::DisplayRange) -> f32 {
     let interval = (frequency / tonal_center_frequency).log2();
-    interval_to_screen_y_position(interval, viewport_height)
+    interval_to_screen_y_position(interval, viewport_height, display_range)
 }
 
 /// Creates a textured quad for background rendering with custom shader
@@ -100,7 +94,7 @@ impl Renderer {
         let text_backend = EguiTextBackend::new()?;
 
         // Create a 512x1 data texture that we'll write to incrementally
-        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH as usize]; // Initialize all pixels
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH]; // Initialize all pixels
         let data_texture = Arc::new(Texture2D::new(
             context,
             &CpuTexture {
@@ -152,7 +146,7 @@ impl Renderer {
             }
             
             let y_position = if semitone == 0 {
-                interval_to_screen_y_position(0.0, viewport.height as f32)
+                interval_to_screen_y_position(0.0, viewport.height as f32, &context.display_range)
             } else {
                 let frequency = crate::common::music_theory::interval_frequency(
                     context.tuning_system,
@@ -160,7 +154,7 @@ impl Renderer {
                     semitone,
                 );
                 let interval = (frequency / tonal_center_frequency).log2();
-                interval_to_screen_y_position(interval, viewport.height as f32)
+                interval_to_screen_y_position(interval, viewport.height as f32, &context.display_range)
             };
             
             let midi_note = (context.tonal_center_note as i32 + semitone).clamp(0, 127) as MidiNote;
@@ -206,15 +200,19 @@ impl Renderer {
             self.data_buffer.push([detected, pitch]);
 
             // Convert frequencies to screen positions for texture data
-            let texture_data: Vec<[f32; 2]> = self.data_buffer.iter().map(|&[detected, frequency]| {
-                let screen_y = if detected > 0.0 {
-                    let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tonal_center_frequency, viewport.height as f32);
-                    y_pos / viewport.height as f32
-                } else {
-                    0.0
-                };
-                [detected, screen_y]
-            }).collect();
+            let texture_data: Vec<[f32; 2]> = if let Some(context) = &self.presentation_context {
+                self.data_buffer.iter().map(|&[detected, frequency]| {
+                    let screen_y = if detected > 0.0 {
+                        let y_pos = frequency_to_screen_y_position(frequency, self.audio_analysis.tonal_center_frequency, viewport.height as f32, &context.display_range);
+                        y_pos / viewport.height as f32
+                    } else {
+                        0.0
+                    };
+                    [detected, screen_y]
+                }).collect()
+            } else {
+                vec![[0.0, 0.0]; DATA_TEXTURE_WIDTH]
+            };
 
             // Create new texture with the updated historical data
             self.data_texture = Arc::new(Texture2D::new(
@@ -253,12 +251,16 @@ impl Renderer {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
             return;
         }
-        
+
         if !self.audio_analysis.pitch_detected {
             return;
         }
-        
-        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32);
+
+        let Some(context) = &self.presentation_context else {
+            return;
+        };
+
+        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32, &context.display_range);
         let endpoints = (
             PhysicalPoint{x:USER_PITCH_LINE_LEFT_MARGIN, y}, 
             PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}

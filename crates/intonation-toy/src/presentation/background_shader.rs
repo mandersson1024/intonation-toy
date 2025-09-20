@@ -4,7 +4,7 @@ use three_d::*;
 use crate::app_config::{NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
 /// Width of the data texture used for historical data
-pub const DATA_TEXTURE_WIDTH: f32 = 512.0;
+pub const DATA_TEXTURE_WIDTH: usize = 512;
 
 // Simple material that uses our custom shader
 pub struct BackgroundShaderMaterial {
@@ -118,16 +118,14 @@ impl BackgroundShader {
 
         let mesh = Mesh::new(context, &cpu_mesh);
 
-        // Initialize circular buffer with default values
-        let buffer_size = DATA_TEXTURE_WIDTH as usize;
-        let data_buffer = vec![[0.0_f32, 0.5_f32]; buffer_size];
+        let data_buffer = vec![[0.0_f32, 0.5_f32]; DATA_TEXTURE_WIDTH];
 
         // Create initial data texture with the buffer
         let data_texture = Texture2D::new(
             context,
             &CpuTexture {
                 data: TextureData::RgF32(data_buffer.clone()),
-                width: buffer_size as u32,
+                width: DATA_TEXTURE_WIDTH as u32,
                 height: 1,
                 wrap_s: Wrapping::ClampToEdge,
                 wrap_t: Wrapping::ClampToEdge,
