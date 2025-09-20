@@ -328,11 +328,11 @@ impl Renderer {
 
             // Render note labels on the left
             let note_labels = self.tuning_lines.get_note_labels();
-            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels);
+            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels, three_d::egui::Align::LEFT);
 
-            // Render interval labels on the right
+            // Render interval labels on the right (right-aligned)
             let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
-            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels);
+            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels, three_d::egui::Align::RIGHT);
 
             // Combine all text objects
             let mut text_objects: Vec<&dyn Object> = Vec::new();
