@@ -208,7 +208,7 @@ impl EguiTextBackend {
     }
     
     fn preload_glyphs(&mut self) {
-        let chars_to_preload = "ABCDEFGb#0123456789";
+        let chars_to_preload = "ABCDEFGb#-0123456789";
         
         use crate::app_config::NOTE_LABEL_FONT_SIZE;
         
