@@ -380,7 +380,7 @@ pub struct ModelUpdateResult {
     pub tonal_center_note: MidiNote,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DisplayRange {
     TwoOctaves,
     OneFullOctave,

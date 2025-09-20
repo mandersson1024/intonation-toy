@@ -87,13 +87,15 @@ pub struct DebugLayerActions {
 pub struct Presenter {
     renderer: Option<Box<Renderer>>,
     pending_user_actions: PresentationLayerActions,
-    
+
     #[cfg(debug_assertions)]
     pending_debug_actions: DebugLayerActions,
-    
+
     interval_position: f32,
-    
+
     sidebar_ui_active: bool,
+
+    display_range: crate::common::shared_types::DisplayRange,
 
     self_reference: Option<Rc<RefCell<Self>>>,
     
@@ -112,6 +114,7 @@ impl Presenter {
             pending_debug_actions: DebugLayerActions::default(),
             interval_position: 0.0,
             sidebar_ui_active: true,
+            display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
             self_reference: None,
             ui_listeners_attached: false,
         };
@@ -143,7 +146,7 @@ impl Presenter {
                 tonal_center_note: model_data.tonal_center_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
-                display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
+                display_range: self.display_range.clone(),
             }, viewport);
             
             let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(model_data.tonal_center_note);
@@ -183,6 +186,10 @@ impl Presenter {
     /// Handle scale change action
     pub fn on_scale_changed(&mut self, scale: Scale) {
         self.pending_user_actions.scale_change = Some(ScaleChangeAction { scale });
+    }
+
+    pub fn on_display_range_changed(&mut self, display_range: crate::common::shared_types::DisplayRange) {
+        self.display_range = display_range;
     }
 
     #[cfg(debug_assertions)]
