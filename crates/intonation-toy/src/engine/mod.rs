@@ -209,9 +209,6 @@ impl AudioEngine {
     /// - Speaker output: Direct manipulation of speaker output routing
     #[cfg(debug_assertions)]
     pub fn execute_debug_actions_sync(&mut self, debug_actions: DebugLayerActions) -> Result<(), String> {
-        crate::common::dev_log!("[DEBUG] Engine layer executing debug actions");
-        
-        // Execute test signal configuration with privileged access
         if let Some(config) = &debug_actions.test_signal_configuration {
             self.audio_pipeline.execute_test_signal_configuration(config)?;
         }
