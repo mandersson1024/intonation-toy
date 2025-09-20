@@ -15,12 +15,6 @@ use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
-enum DisplayRange {
-    TwoOctaves,
-    OneFullOctave,
-    TwoHalfOctaves,
-}
-
 /// Converts musical interval to screen Y position
 fn interval_to_screen_y_position(interval: f32, viewport_height: f32) -> f32 {
     // DisplayRange.TwoOctaves
@@ -90,7 +84,7 @@ pub struct Renderer {
     audio_analysis: AudioAnalysis,
     tuning_lines: TuningLines,
     text_backend: EguiTextBackend,
-    context: Context,
+    three_d_context: Context,
     color_scheme: ColorScheme,
     background_quad: Option<Gm<Rectangle, BackgroundShaderMaterial>>,
     presentation_context: Option<crate::common::shared_types::PresentationContext>,
@@ -127,7 +121,7 @@ impl Renderer {
             audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,
-            context: context.clone(),
+            three_d_context: context.clone(),
             color_scheme: scheme,
             background_quad: None,
             presentation_context: None,
@@ -224,7 +218,7 @@ impl Renderer {
 
             // Create new texture with the updated historical data
             self.data_texture = Arc::new(Texture2D::new(
-                &self.context,
+                &self.three_d_context,
                 &CpuTexture {
                     data: TextureData::RgF32(texture_data),
                     width: DATA_TEXTURE_WIDTH as u32,
@@ -273,7 +267,7 @@ impl Renderer {
         let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
         
         self.user_pitch_line.update_position(
-            &self.context,
+            &self.three_d_context,
             endpoints,
             new_thickness,
             new_alpha,
@@ -295,7 +289,7 @@ impl Renderer {
         }
         
         let scheme = get_current_color_scheme();
-        self.tuning_lines.update_lines(viewport, line_data, &self.context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
+        self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
     }
     
     /// Renders tuning lines and note labels to the background texture
@@ -306,7 +300,7 @@ impl Renderer {
         }
         
         let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             Interpolation::Linear,
@@ -317,7 +311,7 @@ impl Renderer {
         );
         
         let mut depth_texture = DepthTexture2D::new::<f32>(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             Wrapping::ClampToEdge,
@@ -332,11 +326,11 @@ impl Renderer {
 
             // Render note labels on the left
             let note_labels = self.tuning_lines.get_note_labels();
-            let note_text_models = self.text_backend.render_texts(&self.context, viewport, &note_labels);
+            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels);
 
             // Render interval labels on the right
             let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
-            let interval_text_models = self.text_backend.render_texts(&self.context, viewport, &interval_labels);
+            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels);
 
             // Combine all text objects
             let mut text_objects: Vec<&dyn Object> = Vec::new();
@@ -352,7 +346,7 @@ impl Renderer {
         let texture_ref = Texture2DRef::from_texture(background_texture);
 
         self.background_quad = Some(create_background_quad(
-            &self.context,
+            &self.three_d_context,
             viewport.width,
             viewport.height,
             texture_ref,

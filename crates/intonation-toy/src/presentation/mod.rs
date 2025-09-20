@@ -143,6 +143,7 @@ impl Presenter {
                 tonal_center_note: model_data.tonal_center_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
+                display_range: crate::common::shared_types::DisplayRange::TwoOctaves,
             }, viewport);
             
             let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(model_data.tonal_center_note);
