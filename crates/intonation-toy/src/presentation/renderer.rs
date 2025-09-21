@@ -20,7 +20,7 @@ fn interval_to_screen_y_position(interval: f32, viewport_height: f32, display_ra
     let (zoom_factor, y_offset) = match display_range {
         crate::common::shared_types::DisplayRange::TwoOctaves => (0.92, 0.0),
         crate::common::shared_types::DisplayRange::OneFullOctave => (1.84, -0.46),
-        crate::common::shared_types::DisplayRange::TwoHalfOctaves => (1.84, 0.0),
+        crate::common::shared_types::DisplayRange::TwoHalfOctaves => (1.84, -0.077),
     };
 
     viewport_height * (0.5 + y_offset + interval * zoom_factor * 0.5)
