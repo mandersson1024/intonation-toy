@@ -290,7 +290,7 @@ pub struct IntonationData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pitch {
-    Detected(f32, f32), // frequency, clarity
+    Detected(f32), // frequency
     NotDetected,
 }
 

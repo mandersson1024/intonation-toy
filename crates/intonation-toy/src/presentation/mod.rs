@@ -135,9 +135,9 @@ impl Presenter {
     }
 
     fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
-        let (pitch_detected, clarity, frequency) = match model_data.pitch {
-            Pitch::Detected(freq, clarity_value) => (true, Some(clarity_value), freq),
-            Pitch::NotDetected => (false, None, 0.0),
+        let (pitch_detected, frequency) = match model_data.pitch {
+            Pitch::Detected(freq) => (true, freq),
+            Pitch::NotDetected => (false, 0.0),
         };
         
         
@@ -155,7 +155,6 @@ impl Presenter {
                 pitch_detected,
                 cents_offset: model_data.cents_offset,
                 interval: self.interval_position,
-                clarity,
                 volume_peak: model_data.is_peaking,
                 frequency,
                 tonal_center_frequency,
@@ -254,7 +253,7 @@ impl Presenter {
     /// Calculate interval position from frequency and tonal center
     fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, note: MidiNote) -> f32 {
         match pitch {
-            Pitch::Detected(frequency, _clarity) => {
+            Pitch::Detected(frequency) => {
                 let tonal_center_frequency = Self::midi_note_to_frequency(note);
                 (frequency / tonal_center_frequency).log2()
             }

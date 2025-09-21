@@ -32,10 +32,9 @@ impl DebugData {
             });
             
             self.pitch_data = match &analysis.pitch {
-                crate::common::shared_types::Pitch::Detected(frequency, clarity) => {
+                crate::common::shared_types::Pitch::Detected(frequency) => {
                     Some(PitchData {
                         frequency: *frequency,
-                        clarity: *clarity,
                     })
                 },
                 crate::common::shared_types::Pitch::NotDetected => None,

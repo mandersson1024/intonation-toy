@@ -38,7 +38,6 @@ pub const AUDIO_CHUNK_SIZE: usize = 128;                // AudioWorklet fixed ch
 pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 16;   // IMPORTANT: Also update BUFFER_SIZE in static/audio-processor.js
 
 /// Pitch detection configuration
-pub const CLARITY_THRESHOLD: f32 = 0.5;
 pub const POWER_THRESHOLD: f32 = 1.0;
 
 /// Pitch smoothing factor for exponential moving average (EMA)
