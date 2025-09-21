@@ -34,7 +34,7 @@ impl DebugPanel {
             last_metrics_update: 0.0,
             test_signal_enabled: false,
             test_signal_volume: 15.0,
-            test_signal_midi_note: crate::app_config::DEFAULT_TONAL_CENTER_NOTE - 15,
+            test_signal_midi_note: crate::app_config::DEFAULT_TONAL_CENTER_NOTE,
             test_signal_nudge_percent: 0.0,
         }
     }
