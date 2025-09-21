@@ -2,7 +2,7 @@
 
 // External crate imports
 use std::sync::Arc;
-use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, PhysicalPoint, RenderTarget, TextureData, Texture2DRef, Viewport};
+use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, PhysicalPoint, RenderTarget, Srgba, TextureData, Texture2DRef, Viewport};
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
@@ -10,7 +10,7 @@ use crate::app_config::{USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGI
 use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
-use crate::presentation::tuning_lines::TuningLines;
+use crate::presentation::tuning_lines::{TuningLines, ColorMode};
 use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
@@ -38,8 +38,11 @@ fn create_background_quad(
     width: u32,
     height: u32,
     texture: Texture2DRef,
+    highlight_texture: Texture2DRef,
     data_texture: Option<Texture2DRef>,
     tint_color: three_d::Vec3,
+    current_pitch_color: three_d::Vec3,
+    latest_cents_offset: f32,
 ) -> Gm<Rectangle, BackgroundShaderMaterial> {
     assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
 
@@ -49,10 +52,13 @@ fn create_background_quad(
         Rectangle::new(context, (w * 0.5, h * 0.5), Deg(0.0), w, h),
         BackgroundShaderMaterial {
             texture: Some(texture),
+            highlight_texture: Some(highlight_texture),
             data_texture,
             left_margin: NOTE_LINE_LEFT_MARGIN / width as f32,
             right_margin: NOTE_LINE_RIGHT_MARGIN / width as f32,
             tint_color,
+            current_pitch_color,
+            latest_cents_offset,
         }
     )
 }
@@ -213,17 +219,20 @@ impl Renderer {
                 },
             ));
 
-            // Update the material with new texture
+            // Update the material with new texture and latest cents offset
             background_quad.material.data_texture = Some(self.data_texture.clone().into());
+            background_quad.material.latest_cents_offset = self.audio_analysis.cents_offset;
 
             self.camera.disable_tone_and_color_mapping();
             screen.render(&self.camera, [background_quad], &[]);
             self.camera.set_default_tone_and_color_mapping();
         }
 
+        /*
         if self.audio_analysis.pitch_detected {
             screen.render(&self.camera, [self.user_pitch_line.mesh()], &[]);
         }
+        */
     }
     
     pub fn update_audio_analysis(&mut self, audio_analysis: AudioAnalysis) {
@@ -282,7 +291,7 @@ impl Renderer {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for background texture");
             return;
         }
-        
+
         let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
             &self.three_d_context,
             viewport.width,
@@ -293,7 +302,18 @@ impl Renderer {
             Wrapping::ClampToEdge,
             Wrapping::ClampToEdge,
         );
-        
+
+        let mut highlight_texture = Texture2D::new_empty::<[u8; 4]>(
+            &self.three_d_context,
+            viewport.width,
+            viewport.height,
+            Interpolation::Linear,
+            Interpolation::Linear,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
         let mut depth_texture = DepthTexture2D::new::<f32>(
             &self.three_d_context,
             viewport.width,
@@ -301,7 +321,16 @@ impl Renderer {
             Wrapping::ClampToEdge,
             Wrapping::ClampToEdge,
         );
-        
+
+        let mut depth_texture_highlight = DepthTexture2D::new::<f32>(
+            &self.three_d_context,
+            viewport.width,
+            viewport.height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        // Render normal background texture with theme colors
         {
             let camera = Camera::new_2d(viewport);
             let [r, g, b] = get_current_color_scheme().background;
@@ -309,11 +338,11 @@ impl Renderer {
             let tuning_lines: Vec<&dyn Object> = self.tuning_lines.lines().map(|line| line as &dyn Object).collect();
 
             // Render note labels on the left
-            let note_labels = self.tuning_lines.get_note_labels();
+            let note_labels = self.tuning_lines.get_note_labels(ColorMode::Normal);
             let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels, three_d::egui::Align::LEFT);
 
             // Render interval labels on the right (right-aligned)
-            let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
+            let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Normal);
             let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels, three_d::egui::Align::RIGHT);
 
             // Combine all text objects
@@ -326,20 +355,55 @@ impl Renderer {
                 .render(&camera, tuning_lines, &[])
                 .render(&camera, text_objects, &[]);
         }
-        
+
+        // Render highlight texture with white text
+        {
+            let camera = Camera::new_2d(viewport);
+            let [r, g, b] = get_current_color_scheme().background;
+
+            // Create highlight lines for highlight texture
+            let highlight_lines = self.tuning_lines.get_lines(&self.three_d_context, viewport.width as f32, ColorMode::Highlight);
+            let highlight_lines_refs: Vec<&dyn Object> = highlight_lines.iter().map(|line| line.as_ref() as &dyn Object).collect();
+
+            // Get labels with white color
+            let highlight_note_labels = self.tuning_lines.get_note_labels(ColorMode::Highlight);
+            let highlight_note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &highlight_note_labels, three_d::egui::Align::LEFT);
+
+            let highlight_interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Highlight);
+            let highlight_interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &highlight_interval_labels, three_d::egui::Align::RIGHT);
+
+            // Combine all highlight text objects
+            let mut highlight_text_objects: Vec<&dyn Object> = Vec::new();
+            highlight_text_objects.extend(highlight_note_text_models.iter().map(|model| model.as_ref() as &dyn Object));
+            highlight_text_objects.extend(highlight_interval_text_models.iter().map(|model| model.as_ref() as &dyn Object));
+
+            RenderTarget::new(highlight_texture.as_color_target(None), depth_texture_highlight.as_depth_target())
+                .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
+                .render(&camera, highlight_lines_refs, &[])
+                .render(&camera, highlight_text_objects, &[]);
+        }
+
         let texture_ref = Texture2DRef::from_texture(background_texture);
+        let highlight_texture_ref = Texture2DRef::from_texture(highlight_texture);
 
         // Set tint color using theme primary color
         let [r, g, b] = self.color_scheme.primary;
         let tint_color = three_d::Vec3::new(r, g, b);
+
+        // Set extension color using theme accent color
+        let [ar, ag, ab] = self.color_scheme.accent;
+        let extension_color = three_d::Vec3::new(ar, ag, ab);
 
         self.background_quad = Some(create_background_quad(
             &self.three_d_context,
             viewport.width,
             viewport.height,
             texture_ref,
+            highlight_texture_ref,
             Some(self.data_texture.clone().into()),
-            tint_color
+            tint_color,
+            extension_color,
+            self.audio_analysis.cents_offset
         ));
     }
     

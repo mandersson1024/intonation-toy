@@ -1,10 +1,14 @@
 #![cfg(target_arch = "wasm32")]
 
-use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
+use three_d::{Blend, ColorMaterial, Context, Gm, Line, Object, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
 use crate::common::shared_types::MidiNote;
-use crate::common::theme::get_current_color_scheme;
+use crate::common::theme::{get_current_color_scheme, rgb_to_rgba, rgb_to_srgba_with_alpha};
 use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, INTERVAL_LABEL_X_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
+pub enum ColorMode {
+    Normal,
+    Highlight,
+}
 
 struct LineData {
     line: Gm<Line, ColorMaterial>,
@@ -87,7 +91,8 @@ impl TuningLines {
         self.line_data.clear();
     }
     
-    pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
+
+    pub fn get_note_labels(&self, color_mode: ColorMode) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
         let scheme = get_current_color_scheme();
 
         self.line_data.iter()
@@ -95,19 +100,19 @@ impl TuningLines {
                 let note_name = crate::common::shared_types::midi_note_to_name(data.midi_note);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
+                let is_bold = data.semitone_offset % 12 == 0;
 
-                let (text_color, is_bold) = if data.semitone_offset % 12 == 0 {
-                    (scheme.secondary, true)
-                } else {
-                    (scheme.muted, false)
+                let text_color = match color_mode {
+                    ColorMode::Highlight => rgb_to_rgba(scheme.accent),
+                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.secondary) } else { rgb_to_rgba(scheme.muted) },
                 };
 
-                (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0], is_bold)
+                (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, text_color, is_bold)
             })
             .collect()
     }
 
-    pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
+    pub fn get_interval_labels(&self, viewport_width: f32, color_mode: ColorMode) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
         let scheme = get_current_color_scheme();
 
         self.line_data.iter()
@@ -115,14 +120,52 @@ impl TuningLines {
                 let interval_name = crate::common::music_theory::semitone_to_interval_name(data.semitone_offset);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = viewport_width - INTERVAL_LABEL_X_OFFSET;
+                let is_bold = data.semitone_offset % 12 == 0;
 
-                let (text_color, is_bold) = if data.semitone_offset % 12 == 0 {
-                    (scheme.secondary, true)
-                } else {
-                    (scheme.muted, false)
+                let text_color = match color_mode {
+                    ColorMode::Highlight => rgb_to_rgba(scheme.accent),
+                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.secondary) } else { rgb_to_rgba(scheme.muted) },
                 };
 
-                (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0], is_bold)
+                (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, text_color, is_bold)
+            })
+            .collect()
+    }
+
+    pub fn get_lines(&self, context: &Context, viewport_width: f32, color_mode: ColorMode) -> Vec<Box<dyn Object>> {
+        let scheme = get_current_color_scheme();
+
+        let color = match color_mode {
+            ColorMode::Highlight => rgb_to_srgba_with_alpha(scheme.accent, 1.0),
+            ColorMode::Normal => rgb_to_srgba_with_alpha(scheme.muted, 1.0),
+        };
+
+        let material = ColorMaterial {
+            color,
+            texture: None,
+            is_transparent: false,
+            render_states: RenderStates {
+                write_mask: WriteMask::COLOR,
+                blend: Blend::TRANSPARENCY,
+                ..Default::default()
+            },
+        };
+
+        self.line_data.iter()
+            .map(|data| {
+                let thickness = if data.semitone_offset % 12 == 0 {
+                    crate::app_config::OCTAVE_LINE_THICKNESS
+                } else {
+                    crate::app_config::REGULAR_LINE_THICKNESS
+                };
+
+                let line = Line::new(
+                    context,
+                    PhysicalPoint { x: NOTE_LINE_LEFT_MARGIN, y: data.y_position },
+                    PhysicalPoint { x: viewport_width - NOTE_LINE_RIGHT_MARGIN, y: data.y_position },
+                    thickness
+                );
+                Box::new(Gm::new(line, material.clone())) as Box<dyn Object>
             })
             .collect()
     }
