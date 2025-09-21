@@ -2,16 +2,15 @@
 
 // External crate imports
 use std::sync::Arc;
-use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, PhysicalPoint, RenderTarget, Srgba, TextureData, Texture2DRef, Viewport};
+use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, RenderTarget, TextureData, Texture2DRef, Viewport};
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-use crate::app_config::{USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
+use crate::app_config::{NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
 use crate::presentation::tuning_lines::{TuningLines, ColorMode};
-use crate::presentation::user_pitch_line::UserPitchLine;
 use crate::common::shared_types::{ColorScheme, MidiNote};
 use crate::common::theme::{get_current_color_scheme, rgb_to_srgba_with_alpha};
 
@@ -66,7 +65,6 @@ fn create_background_quad(
 
 pub struct Renderer {
     camera: Camera,
-    user_pitch_line: UserPitchLine,
     audio_analysis: AudioAnalysis,
     tuning_lines: TuningLines,
     text_backend: EguiTextBackend,
@@ -103,7 +101,6 @@ impl Renderer {
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line: UserPitchLine::new(context),
             audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,
@@ -119,7 +116,6 @@ impl Renderer {
 
     
     fn refresh_colors(&mut self) {
-        self.user_pitch_line.refresh_colors(&self.color_scheme, &self.audio_analysis);
         self.tuning_lines.clear();
     }
     
@@ -227,44 +223,10 @@ impl Renderer {
             screen.render(&self.camera, [background_quad], &[]);
             self.camera.set_default_tone_and_color_mapping();
         }
-
-        /*
-        if self.audio_analysis.pitch_detected {
-            screen.render(&self.camera, [self.user_pitch_line.mesh()], &[]);
-        }
-        */
     }
     
     pub fn update_audio_analysis(&mut self, audio_analysis: AudioAnalysis) {
         self.audio_analysis = audio_analysis;
-    }
-    
-    pub fn update_pitch_position(&mut self, viewport: Viewport) {
-        if viewport.width == 0 || viewport.height == 0 {
-            crate::common::dev_log!("Warning: Invalid viewport dimensions for pitch position update");
-            return;
-        }
-
-        if !self.audio_analysis.pitch_detected {
-            return;
-        }
-
-        let Some(context) = &self.presentation_context else {
-            return;
-        };
-
-        let y = interval_to_screen_y_position(self.audio_analysis.interval, viewport.height as f32, &context.display_range);
-        let endpoints = (
-            PhysicalPoint{x:USER_PITCH_LINE_LEFT_MARGIN, y}, 
-            PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}
-        );
-        
-        self.user_pitch_line.update_position(
-            &self.three_d_context,
-            endpoints,
-            &self.color_scheme,
-            &self.audio_analysis,
-        );
     }
     
     pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32, i32)]) {

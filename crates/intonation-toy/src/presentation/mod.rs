@@ -159,8 +159,6 @@ impl Presenter {
                 frequency,
                 tonal_center_frequency,
             });
-            
-            renderer.update_pitch_position(viewport);
         }
     }
 
