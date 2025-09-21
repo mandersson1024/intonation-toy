@@ -90,13 +90,21 @@ impl TuningLines {
     
     pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
-        let text_color = scheme.muted;
+        let muted_color = scheme.muted;
+        let accent_color = scheme.accent;
 
         self.line_data.iter()
             .map(|data| {
                 let note_name = crate::common::shared_types::midi_note_to_name(data.midi_note);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
+
+                // Use accent color for octave lines
+                let text_color = if data.semitone_offset % 12 == 0 {
+                    accent_color
+                } else {
+                    muted_color
+                };
 
                 (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
             })
@@ -105,13 +113,21 @@ impl TuningLines {
 
     pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
-        let text_color = scheme.muted;
+        let muted_color = scheme.muted;
+        let accent_color = scheme.accent;
 
         self.line_data.iter()
             .map(|data| {
                 let interval_name = crate::common::music_theory::semitone_to_interval_name(data.semitone_offset);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = viewport_width - INTERVAL_LABEL_X_OFFSET;
+
+                // Use accent color for octave lines
+                let text_color = if data.semitone_offset % 12 == 0 {
+                    accent_color
+                } else {
+                    muted_color
+                };
 
                 (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
             })
