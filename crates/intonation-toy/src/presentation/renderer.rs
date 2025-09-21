@@ -96,7 +96,7 @@ impl Renderer {
 
         Ok(Self {
             camera: Camera::new_2d(viewport),
-            user_pitch_line: UserPitchLine::default(),
+            user_pitch_line: UserPitchLine::new(context),
             audio_analysis: AudioAnalysis::default(),
             tuning_lines,
             text_backend,
@@ -221,9 +221,7 @@ impl Renderer {
         }
 
         if self.audio_analysis.pitch_detected {
-            if let Some(ref mesh) = self.user_pitch_line.mesh() {
-                screen.render(&self.camera, [mesh], &[]);
-            }
+            screen.render(&self.camera, [self.user_pitch_line.mesh()], &[]);
         }
     }
     
@@ -251,14 +249,9 @@ impl Renderer {
             PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}
         );
         
-        let new_thickness = crate::app_config::USER_PITCH_LINE_THICKNESS_MAX;
-        let new_alpha = 1.0;
-        
         self.user_pitch_line.update_position(
             &self.three_d_context,
             endpoints,
-            new_thickness,
-            new_alpha,
             &self.color_scheme,
             &self.audio_analysis,
         );

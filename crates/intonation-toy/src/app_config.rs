@@ -39,6 +39,7 @@ pub const BUFFER_SIZE: usize = AUDIO_CHUNK_SIZE * 16;   // IMPORTANT: Also updat
 
 /// Pitch detection configuration
 pub const POWER_THRESHOLD: f32 = 1.0;
+pub const CLARITY_THRESHOLD: f32 = 0.5;
 
 /// Pitch smoothing factor for exponential moving average (EMA)
 /// 
@@ -104,12 +105,7 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
 /// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS_MIN: f32 = 5.0;
-pub const USER_PITCH_LINE_THICKNESS_MAX: f32 = 15.0;
-
-/// User pitch line transparency configuration
-pub const USER_PITCH_LINE_TRANSPARENCY_MIN: f32 = 0.0;
-pub const USER_PITCH_LINE_TRANSPARENCY_MAX: f32 = 1.0;
+pub const USER_PITCH_LINE_THICKNESS: f32 = 10.0;
 
 /// Note label configuration
 pub const NOTE_LABEL_FONT_SIZE: f32 = 24.0;

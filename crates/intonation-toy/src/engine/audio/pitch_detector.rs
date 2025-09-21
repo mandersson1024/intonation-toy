@@ -1,7 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use pitch_detection::detector::{yin::YINDetector, PitchDetector as PitchDetectorTrait};
-use crate::app_config::POWER_THRESHOLD;
+use crate::app_config::{POWER_THRESHOLD, CLARITY_THRESHOLD};
 
 use crate::app_config::BUFFER_SIZE;
 
@@ -15,16 +15,18 @@ pub struct PitchResult {
 
 #[derive(Debug, Clone)]
 pub struct PitchDetectorConfig {
-    pub sample_window_size: usize,
     pub power_threshold: f32,
+    pub clarity_threshold: f32,
+    pub sample_window_size: usize,
     pub padding_size: usize,
 }
 
 impl Default for PitchDetectorConfig {
     fn default() -> Self {
         Self {
-            sample_window_size: BUFFER_SIZE,
             power_threshold: POWER_THRESHOLD,
+            clarity_threshold: CLARITY_THRESHOLD,
+            sample_window_size: BUFFER_SIZE,
             padding_size: BUFFER_SIZE / 2,
         }
     }
@@ -81,7 +83,7 @@ impl PitchDetector {
         assert_eq!(samples.len(), self.config.sample_window_size,
                    "Expected {} samples, got {}", self.config.sample_window_size, samples.len());
 
-        let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, 0.0);
+        let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, self.config.clarity_threshold);
 
         result.map(|pitch_info| PitchResult {
             frequency: pitch_info.frequency,

@@ -133,13 +133,8 @@ impl DataModel {
                     Pitch::Detected(smoothed_frequency)
                 }
                 crate::common::shared_types::Pitch::NotDetected => {
-                    if let Some(last_freq) = self.last_detected_pitch {
-                        // Continue using last frequency for a smooth decay
-                        Pitch::Detected(last_freq)
-                    } else {
-                        self.reset_smoothers();
-                        Pitch::NotDetected
-                    }
+                    self.reset_smoothers();
+                    Pitch::NotDetected
                 }
             };
             
