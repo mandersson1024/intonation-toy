@@ -22,7 +22,7 @@ pub const DEFAULT_TONAL_CENTER_NOTE: MidiNote = 60;
 pub const DEFAULT_SCALE: Scale = Scale::Major;
 
 /// Default display range for the pitch visualization.
-pub const DEFAULT_DISPLAY_RANGE: DisplayRange = DisplayRange::TwoHalfOctaves;
+pub const DEFAULT_DISPLAY_RANGE: DisplayRange = DisplayRange::TwoOctaves;
 
 /// Viewport configuration
 pub const VIEWPORT_RENDER_SIZE: u32 = 1024;
