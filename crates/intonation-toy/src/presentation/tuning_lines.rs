@@ -87,10 +87,8 @@ impl TuningLines {
         self.line_data.clear();
     }
     
-    pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
+    pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
         let scheme = get_current_color_scheme();
-        let muted_color = scheme.muted;
-        let color = scheme.secondary;
 
         self.line_data.iter()
             .map(|data| {
@@ -98,22 +96,19 @@ impl TuningLines {
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
 
-                // Use primary color for octave lines
-                let text_color = if data.semitone_offset % 12 == 0 {
-                    color
+                let (text_color, is_bold) = if data.semitone_offset % 12 == 0 {
+                    (scheme.secondary, true)
                 } else {
-                    muted_color
+                    (scheme.muted, false)
                 };
 
-                (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
+                (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0], is_bold)
             })
             .collect()
     }
 
-    pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4])> {
+    pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4], bool)> {
         let scheme = get_current_color_scheme();
-        let muted_color = scheme.muted;
-        let primary_color = scheme.primary;
 
         self.line_data.iter()
             .map(|data| {
@@ -121,14 +116,13 @@ impl TuningLines {
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = viewport_width - INTERVAL_LABEL_X_OFFSET;
 
-                // Use primary color for octave lines
-                let text_color = if data.semitone_offset % 12 == 0 {
-                    primary_color
+                let (text_color, is_bold) = if data.semitone_offset % 12 == 0 {
+                    (scheme.secondary, true)
                 } else {
-                    muted_color
+                    (scheme.muted, false)
                 };
 
-                (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
+                (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0], is_bold)
             })
             .collect()
     }

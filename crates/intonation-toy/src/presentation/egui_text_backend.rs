@@ -11,22 +11,38 @@ pub struct EguiTextBackend {
 impl EguiTextBackend {
     pub fn new() -> Result<Self, String> {
         let egui_ctx = egui::Context::default();
-        
+
         let mut fonts = egui::FontDefinitions::default();
-        let roboto_data = include_bytes!("../../static/fonts/Roboto-Regular.ttf");
+
+        // Load regular font
+        let roboto_regular = include_bytes!("../../static/fonts/Roboto-Regular.ttf");
         fonts.font_data.insert(
             "Roboto".to_owned(),
-            egui::FontData::from_static(roboto_data)
+            egui::FontData::from_static(roboto_regular)
         );
-        
+
+        // Load bold font
+        let roboto_bold = include_bytes!("../../static/fonts/Roboto-Bold.ttf");
+        fonts.font_data.insert(
+            "Roboto-Bold".to_owned(),
+            egui::FontData::from_static(roboto_bold)
+        );
+
+        // Set Roboto as default proportional font
         fonts.families.entry(egui::FontFamily::Proportional)
             .or_default()
             .insert(0, "Roboto".to_owned());
-        
+
+        // Create a custom font family for bold
+        fonts.families.insert(
+            egui::FontFamily::Name("Bold".into()),
+            vec!["Roboto-Bold".to_owned()]
+        );
+
         fonts.families.entry(egui::FontFamily::Monospace)
             .or_default()
             .insert(0, "Roboto".to_owned());
-        
+
         egui_ctx.set_fonts(fonts);
         
         Ok(Self {
@@ -39,7 +55,7 @@ impl EguiTextBackend {
     pub fn render_texts(&mut self,
                        context: &Context,
                        viewport: Viewport,
-                       texts: &[(String, f32, f32, f32, [f32; 4])],
+                       texts: &[(String, f32, f32, f32, [f32; 4], bool)],
                        alignment: egui::Align) -> Vec<Box<dyn Object>> {
         if texts.is_empty() || viewport.width == 0 || viewport.height == 0 {
             return Vec::new();
@@ -61,7 +77,7 @@ impl EguiTextBackend {
         }
         
         let mut shapes = Vec::new();
-        for (text, x, y, size, color) in texts {
+        for (text, x, y, size, color, is_bold) in texts {
             let pos = egui::Pos2 {
                 x: *x,
                 y: viewport.height as f32 - y,
@@ -76,11 +92,16 @@ impl EguiTextBackend {
             
             let galley = self.egui_ctx.fonts(|f| {
                 let mut job = egui::text::LayoutJob::default();
+                let font_family = if *is_bold {
+                    egui::FontFamily::Name("Bold".into())
+                } else {
+                    egui::FontFamily::Proportional
+                };
                 job.append(
                     text,
                     0.0,
                     egui::text::TextFormat {
-                        font_id: egui::FontId::new(*size, egui::FontFamily::Proportional),
+                        font_id: egui::FontId::new(*size, font_family),
                         color: egui_color,
                         ..Default::default()
                     },
@@ -218,21 +239,38 @@ impl EguiTextBackend {
     
     fn preload_glyphs(&mut self) {
         let chars_to_preload = "ABCDEFGb#-0123456789";
-        
+
         use crate::app_config::NOTE_LABEL_FONT_SIZE;
-        
+
         let mut preload_shapes = Vec::new();
-        
+
         self.egui_ctx.fonts(|f| {
-            let font_id = egui::FontId::new(NOTE_LABEL_FONT_SIZE, egui::FontFamily::Proportional);
+            // Preload regular font
+            let regular_font_id = egui::FontId::new(NOTE_LABEL_FONT_SIZE, egui::FontFamily::Proportional);
+            // Preload bold font
+            let bold_font_id = egui::FontId::new(NOTE_LABEL_FONT_SIZE, egui::FontFamily::Name("Bold".into()));
             let color = egui::Color32::WHITE;
-            
+
             for ch in chars_to_preload.chars() {
-                let galley = f.layout_no_wrap(ch.to_string(), font_id.clone(), color);
-                
+                // Preload regular version
+                let galley = f.layout_no_wrap(ch.to_string(), regular_font_id.clone(), color);
+
                 preload_shapes.push(egui::Shape::Text(egui::epaint::TextShape {
                     pos: egui::Pos2::new(-1000.0, -1000.0),
                     galley,
+                    underline: egui::Stroke::NONE,
+                    fallback_color: color,
+                    override_text_color: Some(color),
+                    opacity_factor: 1.0,
+                    angle: 0.0,
+                }));
+
+                // Preload bold version
+                let galley_bold = f.layout_no_wrap(ch.to_string(), bold_font_id.clone(), color);
+
+                preload_shapes.push(egui::Shape::Text(egui::epaint::TextShape {
+                    pos: egui::Pos2::new(-1000.0, -1000.0),
+                    galley: galley_bold,
                     underline: egui::Stroke::NONE,
                     fallback_color: color,
                     override_text_color: Some(color),
