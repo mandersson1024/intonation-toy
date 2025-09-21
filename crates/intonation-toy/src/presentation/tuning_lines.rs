@@ -60,7 +60,6 @@ impl TuningLines {
                 thickness
             );
 
-            // Use accent color for octave lines (semitone_offset % 12 == 0)
             let material = if semitone_offset % 12 == 0 {
                 octave_material.clone()
             } else {
@@ -91,7 +90,7 @@ impl TuningLines {
     pub fn get_note_labels(&self) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
         let muted_color = scheme.muted;
-        let accent_color = scheme.accent;
+        let color = scheme.secondary;
 
         self.line_data.iter()
             .map(|data| {
@@ -99,9 +98,9 @@ impl TuningLines {
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = NOTE_LABEL_X_OFFSET;
 
-                // Use accent color for octave lines
+                // Use primary color for octave lines
                 let text_color = if data.semitone_offset % 12 == 0 {
-                    accent_color
+                    color
                 } else {
                     muted_color
                 };
@@ -114,7 +113,7 @@ impl TuningLines {
     pub fn get_interval_labels(&self, viewport_width: f32) -> Vec<(String, f32, f32, f32, [f32; 4])> {
         let scheme = get_current_color_scheme();
         let muted_color = scheme.muted;
-        let accent_color = scheme.accent;
+        let primary_color = scheme.primary;
 
         self.line_data.iter()
             .map(|data| {
@@ -122,9 +121,9 @@ impl TuningLines {
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
                 let text_x = viewport_width - INTERVAL_LABEL_X_OFFSET;
 
-                // Use accent color for octave lines
+                // Use primary color for octave lines
                 let text_color = if data.semitone_offset % 12 == 0 {
-                    accent_color
+                    primary_color
                 } else {
                     muted_color
                 };

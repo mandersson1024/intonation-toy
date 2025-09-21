@@ -272,7 +272,7 @@ impl Renderer {
         
         let scheme = get_current_color_scheme();
         let regular_color = rgb_to_srgba_with_alpha(scheme.muted, 1.0);
-        let octave_color = rgb_to_srgba_with_alpha(scheme.accent, 1.0);
+        let octave_color = rgb_to_srgba_with_alpha(scheme.secondary, 1.0);
         self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, regular_color, octave_color);
     }
     
@@ -329,8 +329,8 @@ impl Renderer {
         
         let texture_ref = Texture2DRef::from_texture(background_texture);
 
-        // Set tint color using theme accent color
-        let [r, g, b] = self.color_scheme.accent;
+        // Set tint color using theme primary color
+        let [r, g, b] = self.color_scheme.primary;
         let tint_color = three_d::Vec3::new(r, g, b);
 
         self.background_quad = Some(create_background_quad(
