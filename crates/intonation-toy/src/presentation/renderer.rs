@@ -39,6 +39,7 @@ fn create_background_quad(
     height: u32,
     texture: Texture2DRef,
     data_texture: Option<Texture2DRef>,
+    tint_color: three_d::Vec3,
 ) -> Gm<Rectangle, BackgroundShaderMaterial> {
     assert!(width > 0 && height > 0, "Dimensions must be positive: {}x{}", width, height);
 
@@ -51,10 +52,10 @@ fn create_background_quad(
             data_texture,
             left_margin: NOTE_LINE_LEFT_MARGIN / width as f32,
             right_margin: NOTE_LINE_RIGHT_MARGIN / width as f32,
+            tint_color,
         }
     )
 }
-
 
 
 pub struct Renderer {
@@ -326,12 +327,17 @@ impl Renderer {
         
         let texture_ref = Texture2DRef::from_texture(background_texture);
 
+        // Set tint color using theme accent color
+        let [r, g, b] = self.color_scheme.accent;
+        let tint_color = three_d::Vec3::new(r, g, b);
+
         self.background_quad = Some(create_background_quad(
             &self.three_d_context,
             viewport.width,
             viewport.height,
             texture_ref,
-            Some(self.data_texture.clone().into())
+            Some(self.data_texture.clone().into()),
+            tint_color
         ));
     }
     

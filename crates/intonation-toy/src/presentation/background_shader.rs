@@ -12,6 +12,7 @@ pub struct BackgroundShaderMaterial {
     pub data_texture: Option<Texture2DRef>,
     pub left_margin: f32,
     pub right_margin: f32,
+    pub tint_color: Vec3,
 }
 
 impl Material for BackgroundShaderMaterial {
@@ -27,6 +28,7 @@ impl Material for BackgroundShaderMaterial {
             uniform sampler2D dataTexture;
             uniform float leftMargin;
             uniform float rightMargin;
+            uniform vec3 tintColor;
 
             in vec2 uvs;
             out vec4 fragColor;
@@ -47,10 +49,10 @@ impl Material for BackgroundShaderMaterial {
                     float detected = data.r;
                     float pitch = data.g;
 
-                    // Magenta tint when detected, only below the pitch line
-                    float magentaTint = 0.3 * detected * step(uvs.y, pitch);
+                    // Apply tint when detected, only below the pitch line
+                    float tintStrength = 0.3 * detected * step(uvs.y, pitch);
 
-                    vec4 tintedBackground = texColor + vec4(magentaTint, 0.0, magentaTint, 0.0);
+                    vec4 tintedBackground = texColor + vec4(tintColor * tintStrength, 0.0);
 
                     // Blend the yellow line over the background
                     fragColor = tintedBackground;
@@ -71,6 +73,7 @@ impl Material for BackgroundShaderMaterial {
         }
         program.use_uniform("leftMargin", self.left_margin);
         program.use_uniform("rightMargin", self.right_margin);
+        program.use_uniform("tintColor", self.tint_color);
     }
 
     fn render_states(&self) -> RenderStates {
@@ -138,6 +141,7 @@ impl BackgroundShader {
             data_texture: Some(data_texture.into()),
             left_margin: NOTE_LINE_LEFT_MARGIN / viewport_width,
             right_margin: NOTE_LINE_RIGHT_MARGIN / viewport_width,
+            tint_color: Vec3::new(1.0, 0.0, 1.0), // Default magenta
         };
 
         Ok(Self {
@@ -166,6 +170,10 @@ impl BackgroundShader {
     pub fn set_margins(&mut self, left: f32, right: f32) {
         self.mesh.material.left_margin = left;
         self.mesh.material.right_margin = right;
+    }
+
+    pub fn set_tint_color(&mut self, color: Vec3) {
+        self.mesh.material.tint_color = color;
     }
 
     fn update_data_texture(&mut self) {
