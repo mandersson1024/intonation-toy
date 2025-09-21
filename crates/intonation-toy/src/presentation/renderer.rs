@@ -271,7 +271,9 @@ impl Renderer {
         }
         
         let scheme = get_current_color_scheme();
-        self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
+        let regular_color = rgb_to_srgba_with_alpha(scheme.muted, 1.0);
+        let octave_color = rgb_to_srgba_with_alpha(scheme.accent, 1.0);
+        self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, regular_color, octave_color);
     }
     
     /// Renders tuning lines and note labels to the background texture

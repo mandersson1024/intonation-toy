@@ -24,11 +24,11 @@ impl TuningLines {
         }
     }
 
-    pub fn update_lines(&mut self, viewport: Viewport, input_data: &[(f32, MidiNote, f32, i32)], context: &Context, color: Srgba) {
+    pub fn update_lines(&mut self, viewport: Viewport, input_data: &[(f32, MidiNote, f32, i32)], context: &Context, regular_color: Srgba, octave_color: Srgba) {
         let width = viewport.width as f32;
-        
-        let material = ColorMaterial {
-            color,
+
+        let regular_material = ColorMaterial {
+            color: regular_color,
             texture: None,
             is_transparent: false,
             render_states: RenderStates {
@@ -37,10 +37,21 @@ impl TuningLines {
                 ..Default::default()
             },
         };
-        
+
+        let octave_material = ColorMaterial {
+            color: octave_color,
+            texture: None,
+            is_transparent: false,
+            render_states: RenderStates {
+                write_mask: WriteMask::COLOR,
+                blend: Blend::TRANSPARENCY,
+                ..Default::default()
+            },
+        };
+
         self.line_data.clear();
         self.line_data.reserve(input_data.len());
-        
+
         for &(y, midi_note, thickness, semitone_offset) in input_data {
             let line = Line::new(
                 context,
@@ -48,9 +59,16 @@ impl TuningLines {
                 PhysicalPoint { x: width - NOTE_LINE_RIGHT_MARGIN, y },
                 thickness
             );
-            
+
+            // Use accent color for octave lines (semitone_offset % 12 == 0)
+            let material = if semitone_offset % 12 == 0 {
+                octave_material.clone()
+            } else {
+                regular_material.clone()
+            };
+
             self.line_data.push(LineData {
-                line: Gm::new(line, material.clone()),
+                line: Gm::new(line, material),
                 midi_note,
                 y_position: y,
                 semitone_offset,
