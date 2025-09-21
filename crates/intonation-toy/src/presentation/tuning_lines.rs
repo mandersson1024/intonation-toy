@@ -3,7 +3,7 @@
 use three_d::{Blend, ColorMaterial, Context, Gm, Line, PhysicalPoint, RenderStates, Srgba, Viewport, WriteMask};
 use crate::common::shared_types::MidiNote;
 use crate::common::theme::get_current_color_scheme;
-use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
+use crate::app_config::{NOTE_LABEL_FONT_SIZE, NOTE_LABEL_X_OFFSET, NOTE_LABEL_Y_OFFSET, INTERVAL_LABEL_X_OFFSET, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN};
 
 
 struct LineData {
@@ -93,7 +93,7 @@ impl TuningLines {
             .map(|data| {
                 let interval_name = crate::common::music_theory::semitone_to_interval_name(data.semitone_offset);
                 let text_y = data.y_position + NOTE_LABEL_Y_OFFSET;
-                let text_x = viewport_width - NOTE_LINE_RIGHT_MARGIN + NOTE_LABEL_X_OFFSET;
+                let text_x = viewport_width - INTERVAL_LABEL_X_OFFSET;
 
                 (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, [text_color[0], text_color[1], text_color[2], 1.0])
             })
