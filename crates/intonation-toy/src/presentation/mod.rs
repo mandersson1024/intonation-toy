@@ -87,13 +87,15 @@ pub struct DebugLayerActions {
 pub struct Presenter {
     renderer: Option<Box<Renderer>>,
     pending_user_actions: PresentationLayerActions,
-    
+
     #[cfg(debug_assertions)]
     pending_debug_actions: DebugLayerActions,
-    
+
     interval_position: f32,
-    
+
     sidebar_ui_active: bool,
+
+    display_range: crate::common::shared_types::DisplayRange,
 
     self_reference: Option<Rc<RefCell<Self>>>,
     
@@ -112,6 +114,7 @@ impl Presenter {
             pending_debug_actions: DebugLayerActions::default(),
             interval_position: 0.0,
             sidebar_ui_active: true,
+            display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
             self_reference: None,
             ui_listeners_attached: false,
         };
@@ -132,9 +135,9 @@ impl Presenter {
     }
 
     fn update_graphics(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
-        let (pitch_detected, clarity, frequency) = match model_data.pitch {
-            Pitch::Detected(freq, clarity_value) => (true, Some(clarity_value), freq),
-            Pitch::NotDetected => (false, None, 0.0),
+        let (pitch_detected, frequency) = match model_data.pitch {
+            Pitch::Detected(freq) => (true, freq),
+            Pitch::NotDetected => (false, 0.0),
         };
         
         
@@ -143,7 +146,7 @@ impl Presenter {
                 tonal_center_note: model_data.tonal_center_note,
                 tuning_system: model_data.tuning_system,
                 current_scale: model_data.scale,
-                display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
+                display_range: self.display_range.clone(),
             }, viewport);
             
             let tonal_center_frequency = crate::common::music_theory::midi_note_to_standard_frequency(model_data.tonal_center_note);
@@ -152,7 +155,6 @@ impl Presenter {
                 pitch_detected,
                 cents_offset: model_data.cents_offset,
                 interval: self.interval_position,
-                clarity,
                 volume_peak: model_data.is_peaking,
                 frequency,
                 tonal_center_frequency,
@@ -183,6 +185,10 @@ impl Presenter {
     /// Handle scale change action
     pub fn on_scale_changed(&mut self, scale: Scale) {
         self.pending_user_actions.scale_change = Some(ScaleChangeAction { scale });
+    }
+
+    pub fn on_display_range_changed(&mut self, display_range: crate::common::shared_types::DisplayRange) {
+        self.display_range = display_range;
     }
 
     #[cfg(debug_assertions)]
@@ -247,7 +253,7 @@ impl Presenter {
     /// Calculate interval position from frequency and tonal center
     fn calculate_interval_position_from_frequency(&self, pitch: &Pitch, note: MidiNote) -> f32 {
         match pitch {
-            Pitch::Detected(frequency, _clarity) => {
+            Pitch::Detected(frequency) => {
                 let tonal_center_frequency = Self::midi_note_to_frequency(note);
                 (frequency / tonal_center_frequency).log2()
             }

@@ -35,11 +35,12 @@ impl EguiTextBackend {
             glyphs_preloaded: false,
         })
     }
-    
-    pub fn render_texts(&mut self, 
+
+    pub fn render_texts(&mut self,
                        context: &Context,
                        viewport: Viewport,
-                       texts: &[(String, f32, f32, f32, [f32; 4])]) -> Vec<Box<dyn Object>> {
+                       texts: &[(String, f32, f32, f32, [f32; 4])],
+                       alignment: egui::Align) -> Vec<Box<dyn Object>> {
         if texts.is_empty() || viewport.width == 0 || viewport.height == 0 {
             return Vec::new();
         }
@@ -74,11 +75,19 @@ impl EguiTextBackend {
             );
             
             let galley = self.egui_ctx.fonts(|f| {
-                f.layout_no_wrap(
-                    text.clone(),
-                    egui::FontId::new(*size, egui::FontFamily::Proportional),
-                    egui_color,
-                )
+                let mut job = egui::text::LayoutJob::default();
+                job.append(
+                    text,
+                    0.0,
+                    egui::text::TextFormat {
+                        font_id: egui::FontId::new(*size, egui::FontFamily::Proportional),
+                        color: egui_color,
+                        ..Default::default()
+                    },
+                );
+                job.halign = alignment;
+                job.wrap.max_width = f32::INFINITY; // No wrapping
+                f.layout_job(job)
             });
             
             shapes.push(egui::Shape::Text(egui::epaint::TextShape {
@@ -208,7 +217,7 @@ impl EguiTextBackend {
     }
     
     fn preload_glyphs(&mut self) {
-        let chars_to_preload = "ABCDEFGb#0123456789";
+        let chars_to_preload = "ABCDEFGb#-0123456789";
         
         use crate::app_config::NOTE_LABEL_FONT_SIZE;
         

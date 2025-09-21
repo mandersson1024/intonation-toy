@@ -6,7 +6,7 @@ use three_d::{Camera, ClearState, Context, CpuTexture, Deg, Gm, Object, Physical
 use three_d::core::{DepthTexture2D, Interpolation, Texture2D, Wrapping};
 use three_d::renderer::geometry::Rectangle;
 
-use crate::app_config::{CLARITY_THRESHOLD, USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
+use crate::app_config::{USER_PITCH_LINE_LEFT_MARGIN, USER_PITCH_LINE_RIGHT_MARGIN, NOTE_LINE_LEFT_MARGIN, NOTE_LINE_RIGHT_MARGIN, OCTAVE_LINE_THICKNESS, REGULAR_LINE_THICKNESS};
 use crate::presentation::audio_analysis::AudioAnalysis;
 use crate::presentation::background_shader::{BackgroundShaderMaterial, DATA_TEXTURE_WIDTH};
 use crate::presentation::egui_text_backend::EguiTextBackend;
@@ -55,21 +55,6 @@ fn create_background_quad(
     )
 }
 
-/// Calculates line thickness and alpha based on clarity value
-fn calculate_pitch_line_appearance(clarity: Option<f32>) -> (f32, f32) {
-    let Some(clarity_value) = clarity else {
-        return (crate::app_config::USER_PITCH_LINE_THICKNESS_MAX, crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX);
-    };
-    
-    let normalized_clarity = (clarity_value.clamp(CLARITY_THRESHOLD, 1.0) - CLARITY_THRESHOLD) / (1.0 - CLARITY_THRESHOLD);
-    
-    (
-        crate::app_config::USER_PITCH_LINE_THICKNESS_MAX + 
-            normalized_clarity * (crate::app_config::USER_PITCH_LINE_THICKNESS_MIN - crate::app_config::USER_PITCH_LINE_THICKNESS_MAX),
-        crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN + 
-            normalized_clarity * (crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MAX - crate::app_config::USER_PITCH_LINE_TRANSPARENCY_MIN)
-    )
-}
 
 
 pub struct Renderer {
@@ -266,7 +251,8 @@ impl Renderer {
             PhysicalPoint{x:viewport.width as f32 - USER_PITCH_LINE_RIGHT_MARGIN, y}
         );
         
-        let (new_thickness, new_alpha) = calculate_pitch_line_appearance(self.audio_analysis.clarity);
+        let new_thickness = crate::app_config::USER_PITCH_LINE_THICKNESS_MAX;
+        let new_alpha = 1.0;
         
         self.user_pitch_line.update_position(
             &self.three_d_context,
@@ -328,11 +314,11 @@ impl Renderer {
 
             // Render note labels on the left
             let note_labels = self.tuning_lines.get_note_labels();
-            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels);
+            let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels, three_d::egui::Align::LEFT);
 
-            // Render interval labels on the right
+            // Render interval labels on the right (right-aligned)
             let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32);
-            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels);
+            let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels, three_d::egui::Align::RIGHT);
 
             // Combine all text objects
             let mut text_objects: Vec<&dyn Object> = Vec::new();

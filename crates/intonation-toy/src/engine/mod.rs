@@ -232,7 +232,7 @@ impl AudioEngine {
         let pitch_data = self.audioworklet_manager.get_pitch_data();
         let pitch = pitch_data.map(|data| {
             if data.frequency > 0.0 {
-                Pitch::Detected(data.frequency, data.clarity)
+                Pitch::Detected(data.frequency)
             } else {
                 Pitch::NotDetected
             }

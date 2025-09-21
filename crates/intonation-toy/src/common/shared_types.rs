@@ -290,7 +290,7 @@ pub struct IntonationData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pitch {
-    Detected(f32, f32), // frequency, clarity
+    Detected(f32), // frequency
     NotDetected,
 }
 
@@ -380,7 +380,7 @@ pub struct ModelUpdateResult {
     pub tonal_center_note: MidiNote,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DisplayRange {
     TwoOctaves,
     OneFullOctave,

@@ -75,18 +75,28 @@ pub async fn start() {
         }
     };
     
-    let model = if let Some(stored_config) = web::storage::load_config() {
-        model::DataModel::new(
-            stored_config.tonal_center_note,
-            stored_config.tuning_system,
-            stored_config.scale
+    let (model, display_range) = if let Some(stored_config) = web::storage::load_config() {
+        (
+            model::DataModel::new(
+                stored_config.tonal_center_note,
+                stored_config.tuning_system,
+                stored_config.scale
+            ),
+            stored_config.display_range
         )
     } else {
-        model::DataModel::default()
+        (model::DataModel::default(), crate::app_config::DEFAULT_DISPLAY_RANGE)
     };
 
+    // Set the initial display range before creating the presenter
+    web::sidebar_controls::set_initial_display_range(display_range.clone());
+
     let presenter = match presentation::Presenter::create() {
-        Ok(presenter) => presenter,
+        Ok(presenter) => {
+            // Set the loaded display range
+            presenter.borrow_mut().on_display_range_changed(display_range);
+            presenter
+        },
         Err(err) => {
             crate::common::error_log!("Failed to create Presenter: {:?}", err);
             return;

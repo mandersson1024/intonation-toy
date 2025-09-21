@@ -8,7 +8,7 @@ use {
     std::cell::RefCell,
     std::sync::atomic::{AtomicU8, Ordering},
     crate::common::dev_log,
-    crate::common::shared_types::{TuningSystem, Scale, increment_midi_note, decrement_midi_note},
+    crate::common::shared_types::{TuningSystem, Scale, DisplayRange, increment_midi_note, decrement_midi_note},
     crate::web::storage,
 };
 
@@ -30,7 +30,10 @@ const DEFAULT_VOLUME_POSITION: u8 = 40;
 static REMEMBERED_VOLUME_POSITION: AtomicU8 = AtomicU8::new(DEFAULT_VOLUME_POSITION);
 
 // Track last saved configuration to avoid saving every frame
-static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale)>> = std::sync::Mutex::new(None);
+static LAST_SAVED_CONFIG: std::sync::Mutex<Option<(u8, TuningSystem, Scale, DisplayRange)>> = std::sync::Mutex::new(None);
+
+// Track current display range
+static CURRENT_DISPLAY_RANGE: std::sync::Mutex<DisplayRange> = std::sync::Mutex::new(crate::app_config::DEFAULT_DISPLAY_RANGE);
 
 fn slider_position_to_amplitude(position: f32) -> f32 {
     if position <= 0.0 {
@@ -72,6 +75,12 @@ fn slider_position_to_db_display(position: f32) -> String {
     }
 }
 
+pub fn set_initial_display_range(display_range: DisplayRange) {
+    if let Ok(mut current) = CURRENT_DISPLAY_RANGE.try_lock() {
+        *current = display_range;
+    }
+}
+
 pub fn setup_sidebar_controls() {
     let Some(window) = window() else {
         dev_log!("Failed to get window");
@@ -106,6 +115,22 @@ pub fn setup_sidebar_controls() {
 
     // Initialize volume icon state
     update_volume_icon_state(true);
+
+    // Set initial display range from stored value
+    if let Ok(current) = CURRENT_DISPLAY_RANGE.try_lock() {
+        let id = match *current {
+            DisplayRange::TwoOctaves => "display-range-two-octaves",
+            DisplayRange::OneFullOctave => "display-range-one-octave",
+            DisplayRange::TwoHalfOctaves => "display-range-two-half-octaves",
+        };
+
+        // Find and check the appropriate radio button by ID
+        if let Some(radio_button) = document.get_element_by_id(id) {
+            if let Some(input) = radio_button.dyn_ref::<HtmlInputElement>() {
+                input.set_checked(true);
+            }
+        }
+    }
 
     // Verify essential elements exist
     if document.get_element_by_id("tonal-center-plus").is_none() {
@@ -267,6 +292,34 @@ pub fn setup_event_listeners(presenter: Rc<RefCell<crate::presentation::Presente
         presenter_clone.borrow_mut().on_scale_changed(scale);
     });
 
+    // Add event listeners for display range radio buttons
+    let presenter_clone_1 = presenter.clone();
+    add_event_listener("display-range-two-octaves", "change", move |_event: web_sys::Event| {
+        let display_range = DisplayRange::TwoOctaves;
+        if let Ok(mut current) = CURRENT_DISPLAY_RANGE.try_lock() {
+            *current = display_range.clone();
+        }
+        presenter_clone_1.borrow_mut().on_display_range_changed(display_range);
+    });
+
+    let presenter_clone_2 = presenter.clone();
+    add_event_listener("display-range-one-octave", "change", move |_event: web_sys::Event| {
+        let display_range = DisplayRange::OneFullOctave;
+        if let Ok(mut current) = CURRENT_DISPLAY_RANGE.try_lock() {
+            *current = display_range.clone();
+        }
+        presenter_clone_2.borrow_mut().on_display_range_changed(display_range);
+    });
+
+    let presenter_clone_3 = presenter.clone();
+    add_event_listener("display-range-two-half-octaves", "change", move |_event: web_sys::Event| {
+        let display_range = DisplayRange::TwoHalfOctaves;
+        if let Ok(mut current) = CURRENT_DISPLAY_RANGE.try_lock() {
+            *current = display_range.clone();
+        }
+        presenter_clone_3.borrow_mut().on_display_range_changed(display_range);
+    });
+
     let presenter_clone = presenter.clone();
     add_event_listener("tonal-center-volume", "input", move |_event: web_sys::Event| {
         let Some(window) = web_sys::window() else { return; };
@@ -309,15 +362,23 @@ pub fn sync_sidebar_with_presenter_state(model_data: &crate::common::shared_type
     };
 
     CURRENT_TONAL_CENTER_NOTE.store(model_data.tonal_center_note, Ordering::Relaxed);
-    
+
+    // Get the current display range
+    let display_range = if let Ok(current) = CURRENT_DISPLAY_RANGE.try_lock() {
+        current.clone()
+    } else {
+        crate::app_config::DEFAULT_DISPLAY_RANGE
+    };
+
     // Save configuration to local storage only if it changed
-    let current_config = (model_data.tonal_center_note, model_data.tuning_system, model_data.scale);
+    let current_config = (model_data.tonal_center_note, model_data.tuning_system, model_data.scale, display_range.clone());
     if let Ok(mut last_saved) = LAST_SAVED_CONFIG.try_lock() {
         if last_saved.as_ref() != Some(&current_config) {
             storage::save_config(
                 model_data.tonal_center_note,
                 model_data.tuning_system,
-                model_data.scale
+                model_data.scale,
+                display_range
             );
             *last_saved = Some(current_config);
         }

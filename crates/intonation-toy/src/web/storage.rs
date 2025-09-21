@@ -3,7 +3,7 @@
 use {
     web_sys::window,
     serde::{Serialize, Deserialize},
-    crate::common::shared_types::{TuningSystem, Scale, MidiNote},
+    crate::common::shared_types::{TuningSystem, Scale, MidiNote, DisplayRange},
     crate::common::dev_log,
 };
 
@@ -15,16 +15,18 @@ pub struct StoredConfig {
     pub tonal_center_note: MidiNote,
     pub tuning_system: TuningSystem,
     pub scale: Scale,
+    pub display_range: DisplayRange,
     pub timestamp: i64,
 }
 
 impl StoredConfig {
-    pub fn new(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale) -> Self {
+    pub fn new(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale, display_range: DisplayRange) -> Self {
         let timestamp = js_sys::Date::now() as i64;
         Self {
             tonal_center_note,
             tuning_system,
             scale,
+            display_range,
             timestamp,
         }
     }
@@ -35,18 +37,18 @@ impl StoredConfig {
     }
 }
 
-pub fn save_config(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale) {
+pub fn save_config(tonal_center_note: MidiNote, tuning_system: TuningSystem, scale: Scale, display_range: DisplayRange) {
     let Some(window) = window() else {
         dev_log!("Failed to get window for storage");
         return;
     };
-    
+
     let Some(storage) = window.local_storage().ok().flatten() else {
         dev_log!("Failed to get local storage");
         return;
     };
-    
-    let config = StoredConfig::new(tonal_center_note, tuning_system, scale);
+
+    let config = StoredConfig::new(tonal_center_note, tuning_system, scale, display_range);
     
     match serde_json::to_string(&config) {
         Ok(json) => {
@@ -72,8 +74,8 @@ pub fn load_config() -> Option<StoredConfig> {
                 let _ = storage.remove_item(STORAGE_KEY);
                 None
             } else {
-                dev_log!("Loaded config from local storage: tonal_center={}, tuning_system={:?}, scale={:?}", 
-                    config.tonal_center_note, config.tuning_system, config.scale);
+                dev_log!("Loaded config from local storage: tonal_center={}, tuning_system={:?}, scale={:?}, display_range={:?}",
+                    config.tonal_center_note, config.tuning_system, config.scale, config.display_range);
                 Some(config)
             }
         }

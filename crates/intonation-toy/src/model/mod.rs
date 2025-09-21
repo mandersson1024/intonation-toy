@@ -30,8 +30,7 @@ pub struct DataModel {
     tonal_center_note: MidiNote,
     current_scale: Scale,
     frequency_smoother: Box<dyn PitchSmoother>,
-    clarity_smoother: Box<dyn PitchSmoother>,
-    last_detected_pitch: Option<(f32, f32)>,
+    last_detected_pitch: Option<f32>,
 }
 
 /// Trait for pitch smoothing algorithms
@@ -104,7 +103,6 @@ impl Default for DataModel {
             tonal_center_note: crate::app_config::DEFAULT_TONAL_CENTER_NOTE,
             current_scale: crate::app_config::DEFAULT_SCALE,
             frequency_smoother: create_smoother(),
-            clarity_smoother: create_smoother(),
             last_detected_pitch: None,
         }
     }
@@ -117,7 +115,6 @@ impl DataModel {
             tonal_center_note,
             current_scale: scale,
             frequency_smoother: create_smoother(),
-            clarity_smoother: create_smoother(),
             last_detected_pitch: None,
         }
     }
@@ -130,21 +127,15 @@ impl DataModel {
             };
 
             let pitch = match audio_analysis.pitch {
-                crate::common::shared_types::Pitch::Detected(frequency, clarity) => {
+                crate::common::shared_types::Pitch::Detected(frequency) => {
                     let smoothed_frequency = self.frequency_smoother.apply(frequency);
-                    let smoothed_clarity = self.clarity_smoother.apply(clarity);
-                    self.last_detected_pitch = Some((frequency, clarity));
-                    Pitch::Detected(smoothed_frequency, smoothed_clarity)
+                    self.last_detected_pitch = Some(frequency);
+                    Pitch::Detected(smoothed_frequency)
                 }
                 crate::common::shared_types::Pitch::NotDetected => {
-                    if let Some((last_freq, _)) = self.last_detected_pitch {
-                        let smoothed_clarity = self.clarity_smoother.apply(0.0);
-                        if smoothed_clarity < crate::app_config::CLARITY_THRESHOLD * 0.5 {
-                            self.reset_smoothers();
-                            Pitch::NotDetected
-                        } else {
-                            Pitch::Detected(last_freq, smoothed_clarity)
-                        }
+                    if let Some(last_freq) = self.last_detected_pitch {
+                        // Continue using last frequency for a smooth decay
+                        Pitch::Detected(last_freq)
                     } else {
                         self.reset_smoothers();
                         Pitch::NotDetected
@@ -160,7 +151,7 @@ impl DataModel {
         let is_peaking = volume.peak_amplitude >= crate::app_config::VOLUME_PEAK_THRESHOLD;
         
         let midi_note_result = match pitch {
-            Pitch::Detected(frequency, _) => crate::common::music_theory::frequency_to_midi_note_and_cents(
+            Pitch::Detected(frequency) => crate::common::music_theory::frequency_to_midi_note_and_cents(
                 frequency,
                 self.tonal_center_note,
                 self.tuning_system,
@@ -236,7 +227,6 @@ impl DataModel {
     fn reset_smoothers(&mut self) {
         self.last_detected_pitch = None;
         self.frequency_smoother.reset();
-        self.clarity_smoother.reset();
     }
     
 }

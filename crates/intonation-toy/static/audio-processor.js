@@ -315,7 +315,7 @@ class AudioWorkletMessageProtocol {
                 type: FromWorkletMessageType.STATUS_UPDATE,
                 status: {
                     active: status.isProcessing,
-                    sampleRate: this.sampleRate || 44100,
+                    sampleRate: this.sampleRate || 0,
                     bufferSize: this.bufferSize || 128,
                     processedBatches: status.chunkCounter,
                     avgProcessingTimeMs: parseFloat(status.performanceMetrics?.audioProcessing?.averageProcessingTime) || 0.0,

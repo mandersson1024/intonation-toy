@@ -1,38 +1,17 @@
 #![cfg(target_arch = "wasm32")]
 
-use web_sys::{AudioContext, AudioContextOptions};
+use web_sys::AudioContext;
 use crate::common::dev_log;
-use crate::app_config::STANDARD_SAMPLE_RATE;
 
-/// Create AudioContext with standard sample rate
-/// 
-/// Creates an AudioContext configured with the application's standard sample rate.
-/// This is the first step in audio initialization and should be called early in
-/// application startup.
-/// 
-/// # Returns
-/// 
-/// Returns `Result<AudioContext, String>` where:
-/// - On success: AudioContext ready for worklet module loading
-/// - On error: String describing what went wrong
-/// 
-/// # Example
-/// 
-/// ```rust
-/// let context = create_audio_context()?;
-/// ```
 pub fn create_audio_context() -> Result<AudioContext, String> {
-    dev_log!("Creating AudioContext with standard sample rate");
-    
-    // Create AudioContext with standard sample rate
-    let options = AudioContextOptions::new();
-    options.set_sample_rate(STANDARD_SAMPLE_RATE as f32);
-    
-    let audio_context = AudioContext::new_with_context_options(&options)
+    dev_log!("Creating AudioContext with browser's default sample rate");
+
+    let audio_context = AudioContext::new()
         .map_err(|e| format!("Failed to create AudioContext: {:?}", e))?;
-    
-    dev_log!("✓ AudioContext created with sample rate: {} Hz", STANDARD_SAMPLE_RATE);
-    
+
+    let sample_rate = audio_context.sample_rate();
+    dev_log!("✓ AudioContext created with sample rate: {} Hz", sample_rate);
+
     Ok(audio_context)
 }
 

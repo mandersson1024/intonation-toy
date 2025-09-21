@@ -134,6 +134,54 @@ span.status-inactive {
     cursor: pointer;
     min-width: 120px;
 }
+/* Display Range Styles */
+.display-range-options {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.display-range-option {
+    flex: 1;
+    cursor: pointer;
+    position: relative;
+}
+
+.display-range-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.display-range-icon {
+    width: 100%;
+    height: auto;
+    display: block;
+    padding: 8px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background-color: var(--color-surface, #2a2a2a);
+    transition: all 0.2s ease;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-type: alpha;
+}
+
+.display-range-option input[type="radio"]:checked + .display-range-icon {
+    border-color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 15%, var(--color-surface));
+}
+
+.display-range-option:hover .display-range-icon {
+    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 8%, var(--color-surface));
+}
+
 .control-input {
     background-color: var(--color-surface, #2a2a2a);
     color: var(--color-text, #ffffff);
