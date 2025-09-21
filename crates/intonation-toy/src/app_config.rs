@@ -108,10 +108,10 @@ pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 pub const USER_PITCH_LINE_THICKNESS: f32 = 10.0;
 
 /// Note label configuration
-pub const NOTE_LABEL_FONT_SIZE: f32 = 24.0;
-pub const NOTE_LABEL_X_OFFSET: f32 = 10.0;
+pub const NOTE_LABEL_FONT_SIZE: f32 = 22.0;
+pub const NOTE_LABEL_X_OFFSET: f32 = 12.0;
 pub const NOTE_LABEL_Y_OFFSET: f32 = 13.0;
-pub const INTERVAL_LABEL_X_OFFSET: f32 = 16.0;
+pub const INTERVAL_LABEL_X_OFFSET: f32 = 18.0;
 
 /// Tuning lines layout configuration
 pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
