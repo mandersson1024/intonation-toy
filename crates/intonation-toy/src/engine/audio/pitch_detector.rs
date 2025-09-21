@@ -91,7 +91,6 @@ impl PitchDetector {
         assert_eq!(samples.len(), self.config.sample_window_size,
                    "Expected {} samples, got {}", self.config.sample_window_size, samples.len());
 
-        crate::common::dev_log!("PitchDetector (Yin): Processing {} samples at {} Hz", samples.len(), self.sample_rate);
         let result = self.detector.get_pitch(samples, self.sample_rate as usize, self.config.power_threshold, self.config.clarity_threshold);
 
         result.map(|pitch_info| PitchResult {
