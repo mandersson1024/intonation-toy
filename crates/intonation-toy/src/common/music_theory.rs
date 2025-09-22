@@ -231,7 +231,7 @@ pub fn frequency_to_midi_note_and_cents(
 
 /// Converts semitone offset to interval name
 pub fn semitone_to_interval_name(semitone: i32) -> String {
-    let semitone_in_octave = ((semitone % 12) + 12) % 12;
+    let semitone_in_octave = semitone.rem_euclid(12);
 
     let interval_name = match semitone_in_octave {
         0 => "1",
