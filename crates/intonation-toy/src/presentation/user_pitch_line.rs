@@ -11,7 +11,6 @@ const COLOR_WARNING: [f32; 3] = [1.000, 0.722, 0.420];
 
 pub struct UserPitchLine {
     mesh: Gm<Line, ColorMaterial>,
-    thickness: f32,
 }
 
 impl UserPitchLine {
@@ -31,7 +30,6 @@ impl UserPitchLine {
 
         Self {
             mesh: Gm::new(line, material),
-            thickness: USER_PITCH_LINE_THICKNESS,
         }
     }
 }
