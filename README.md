@@ -2,7 +2,7 @@
 
 A web app for musical intonation practice.
 
-#### Screenshot (debug mode)
+#### Screenshot
 <img width="600" alt="intonation-toy" src="https://github.com/user-attachments/assets/73fe8310-4444-4e7a-9dcc-912aa97114cc"/>
 
 #### The real thing
