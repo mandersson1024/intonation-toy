@@ -56,7 +56,7 @@ pub const PITCH_SMOOTHING_FACTOR: f32 = 0.2;
 
 /// Adaptive EMA configuration for advanced smoothing
 /// These parameters control the adaptive EMA algorithm that reduces jitter and outliers
-
+///
 /// Minimum alpha (EMA factor) for strong smoothing when changes are small
 pub const ADAPTIVE_EMA_ALPHA_MIN: f32 = 0.02;
 
