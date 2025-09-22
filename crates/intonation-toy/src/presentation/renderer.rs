@@ -32,6 +32,7 @@ fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, v
 }
 
 /// Creates a textured quad for background rendering with custom shader
+#[allow(clippy::too_many_arguments)]
 fn create_background_quad(
     context: &Context,
     width: u32,
