@@ -2,6 +2,9 @@
 
 use three_d::*;
 
+/// Text rendering parameters: (text, x, y, size, color, is_bold)
+pub type TextRenderParams = (String, f32, f32, f32, [f32; 4], bool);
+
 pub struct EguiTextBackend {
     egui_ctx: egui::Context,
     font_texture: Option<Texture2DRef>,
@@ -55,7 +58,7 @@ impl EguiTextBackend {
     pub fn render_texts(&mut self,
                        context: &Context,
                        viewport: Viewport,
-                       texts: &[(String, f32, f32, f32, [f32; 4], bool)],
+                       texts: &[TextRenderParams],
                        alignment: egui::Align) -> Vec<Box<dyn Object>> {
         if texts.is_empty() || viewport.width == 0 || viewport.height == 0 {
             return Vec::new();

@@ -32,6 +32,7 @@ fn frequency_to_screen_y_position(frequency: f32, tonal_center_frequency: f32, v
 }
 
 /// Creates a textured quad for background rendering with custom shader
+#[allow(clippy::too_many_arguments)]
 fn create_background_quad(
     context: &Context,
     width: u32,
@@ -77,6 +78,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    #[allow(clippy::arc_with_non_send_sync)] // Required by three_d API
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let text_backend = EguiTextBackend::new()?;
@@ -147,6 +149,7 @@ impl Renderer {
     }
 
     
+    #[allow(clippy::arc_with_non_send_sync)] // Required by three_d API
     pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
 

@@ -9,8 +9,7 @@ pub fn create_audio_context() -> Result<AudioContext, String> {
     let audio_context = AudioContext::new()
         .map_err(|e| format!("Failed to create AudioContext: {:?}", e))?;
 
-    let sample_rate = audio_context.sample_rate();
-    dev_log!("✓ AudioContext created with sample rate: {} Hz", sample_rate);
+    dev_log!("✓ AudioContext created with sample rate: {} Hz", audio_context.sample_rate());
 
     Ok(audio_context)
 }
