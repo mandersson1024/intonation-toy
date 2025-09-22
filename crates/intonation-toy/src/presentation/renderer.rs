@@ -78,6 +78,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    #[allow(clippy::arc_with_non_send_sync)] // Required by three_d API
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
         let text_backend = EguiTextBackend::new()?;
@@ -148,6 +149,7 @@ impl Renderer {
     }
 
     
+    #[allow(clippy::arc_with_non_send_sync)] // Required by three_d API
     pub fn render(&mut self, screen: &mut RenderTarget, viewport: Viewport) {
         self.camera.set_viewport(viewport);
 
