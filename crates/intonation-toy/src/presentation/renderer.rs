@@ -66,7 +66,6 @@ fn create_background_quad(
 pub struct Renderer {
     camera: Camera,
     audio_analysis: AudioAnalysis,
-    tuning_lines: TuningLines,
     text_backend: EguiTextBackend,
     three_d_context: Context,
     color_scheme: ColorScheme,
@@ -80,7 +79,6 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(context: &Context, viewport: Viewport) -> Result<Self, String> {
         let scheme = get_current_color_scheme();
-        let tuning_lines = TuningLines::new(context, rgb_to_srgba_with_alpha(scheme.muted, 1.0));
         let text_backend = EguiTextBackend::new()?;
 
         // Create a 512x1 data texture that we'll write to incrementally
@@ -102,7 +100,6 @@ impl Renderer {
         Ok(Self {
             camera: Camera::new_2d(viewport),
             audio_analysis: AudioAnalysis::default(),
-            tuning_lines,
             text_backend,
             three_d_context: context.clone(),
             color_scheme: scheme,
@@ -114,11 +111,6 @@ impl Renderer {
         })
     }
 
-    
-    fn refresh_colors(&mut self) {
-        self.tuning_lines.clear();
-    }
-    
     /// Get tuning line positions for the active tuning system
     fn get_tuning_line_positions(&self, viewport: Viewport) -> Vec<(f32, MidiNote, f32, i32)> {
         let Some(context) = &self.presentation_context else {
@@ -162,12 +154,6 @@ impl Renderer {
         if let Some(ref mut background_quad) = self.background_quad {
             background_quad.material.left_margin = NOTE_LINE_LEFT_MARGIN / viewport.width as f32;
             background_quad.material.right_margin = NOTE_LINE_RIGHT_MARGIN / viewport.width as f32;
-        }
-
-        let scheme = get_current_color_scheme();
-        if scheme != self.color_scheme {
-            self.color_scheme = scheme.clone();
-            self.refresh_colors();
         }
 
         // Update time and render background quad with custom shader
@@ -229,23 +215,6 @@ impl Renderer {
         self.audio_analysis = audio_analysis;
     }
     
-    pub fn update_tuning_lines(&mut self, viewport: Viewport, line_data: &[(f32, MidiNote, f32, i32)]) {
-        if viewport.width == 0 || viewport.height == 0 {
-            crate::common::dev_log!("Warning: Invalid viewport dimensions for tuning lines update");
-            return;
-        }
-        
-        if line_data.is_empty() {
-            crate::common::dev_log!("Warning: No tuning line data provided, clearing existing lines");
-            self.tuning_lines.clear();
-            return;
-        }
-        
-        let scheme = get_current_color_scheme();
-        let regular_color = rgb_to_srgba_with_alpha(scheme.muted, 1.0);
-        let octave_color = rgb_to_srgba_with_alpha(scheme.secondary, 1.0);
-        self.tuning_lines.update_lines(viewport, line_data, &self.three_d_context, regular_color, octave_color);
-    }
     
     /// Renders tuning lines and note labels to the background texture
     pub fn render_to_background_texture(&mut self, viewport: Viewport) {
@@ -253,6 +222,20 @@ impl Renderer {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for background texture");
             return;
         }
+
+        // Get the tuning line positions and create TuningLines on the fly
+        let tuning_line_data = self.get_tuning_line_positions(viewport);
+        if tuning_line_data.is_empty() {
+            crate::common::dev_log!("Warning: No tuning line data available");
+            return;
+        }
+
+        let scheme = get_current_color_scheme();
+        let regular_color = rgb_to_srgba_with_alpha(scheme.muted, 1.0);
+        let octave_color = rgb_to_srgba_with_alpha(scheme.secondary, 1.0);
+
+        let mut tuning_lines = TuningLines::new(&self.three_d_context, regular_color);
+        tuning_lines.update_lines(viewport, &tuning_line_data, &self.three_d_context, regular_color, octave_color);
 
         let mut background_texture = Texture2D::new_empty::<[u8; 4]>(
             &self.three_d_context,
@@ -297,14 +280,14 @@ impl Renderer {
             let camera = Camera::new_2d(viewport);
             let [r, g, b] = get_current_color_scheme().background;
 
-            let tuning_lines: Vec<&dyn Object> = self.tuning_lines.lines().map(|line| line as &dyn Object).collect();
+            let tuning_lines_objects: Vec<&dyn Object> = tuning_lines.lines().map(|line| line as &dyn Object).collect();
 
             // Render note labels on the left
-            let note_labels = self.tuning_lines.get_note_labels(ColorMode::Normal);
+            let note_labels = tuning_lines.get_note_labels(ColorMode::Normal);
             let note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &note_labels, three_d::egui::Align::LEFT);
 
             // Render interval labels on the right (right-aligned)
-            let interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Normal);
+            let interval_labels = tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Normal);
             let interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &interval_labels, three_d::egui::Align::RIGHT);
 
             // Combine all text objects
@@ -314,7 +297,7 @@ impl Renderer {
 
             RenderTarget::new(background_texture.as_color_target(None), depth_texture.as_depth_target())
                 .clear(ClearState::color_and_depth(r, g, b, 1.0, 1.0))
-                .render(&camera, tuning_lines, &[])
+                .render(&camera, tuning_lines_objects, &[])
                 .render(&camera, text_objects, &[]);
         }
 
@@ -324,14 +307,14 @@ impl Renderer {
             let [r, g, b] = get_current_color_scheme().background;
 
             // Create highlight lines for highlight texture
-            let highlight_lines = self.tuning_lines.get_lines(&self.three_d_context, viewport.width as f32, ColorMode::Highlight);
+            let highlight_lines = tuning_lines.get_lines(&self.three_d_context, viewport.width as f32, ColorMode::Highlight);
             let highlight_lines_refs: Vec<&dyn Object> = highlight_lines.iter().map(|line| line.as_ref() as &dyn Object).collect();
 
             // Get labels with white color
-            let highlight_note_labels = self.tuning_lines.get_note_labels(ColorMode::Highlight);
+            let highlight_note_labels = tuning_lines.get_note_labels(ColorMode::Highlight);
             let highlight_note_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &highlight_note_labels, three_d::egui::Align::LEFT);
 
-            let highlight_interval_labels = self.tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Highlight);
+            let highlight_interval_labels = tuning_lines.get_interval_labels(viewport.width as f32, ColorMode::Highlight);
             let highlight_interval_text_models = self.text_backend.render_texts(&self.three_d_context, viewport, &highlight_interval_labels, three_d::egui::Align::RIGHT);
 
             // Combine all highlight text objects
@@ -376,14 +359,12 @@ impl Renderer {
         }
 
         self.presentation_context = Some(context.clone());
-        
+
         if viewport.width == 0 || viewport.height == 0 {
             crate::common::dev_log!("Warning: Invalid viewport dimensions for presentation context update");
             return;
         }
-        
-        let tuning_line_data = self.get_tuning_line_positions(viewport);
-        self.update_tuning_lines(viewport, &tuning_line_data);
+
         self.render_to_background_texture(viewport);
     }
     
