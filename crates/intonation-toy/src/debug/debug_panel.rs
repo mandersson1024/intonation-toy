@@ -522,16 +522,23 @@ impl DebugPanel {
                     ("error:", color_scheme.error),
                 ];
 
-                for (label, color) in colors.iter() {
-                    ui.push_id(label, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(*label);
-                            let mut color_array = [color[0], color[1], color[2]];
-                            ui.color_edit_button_rgb(&mut color_array)
-                                .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                egui::Grid::new("theme_colors_grid")
+                    .num_columns(2)
+                    .spacing([30.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        for (label, color) in colors.iter() {
+                            ui.push_id(label, |ui| {
+                                ui.label(*label);
                             });
+                            ui.push_id(format!("{}_picker", label), |ui| {
+                                let mut color_array = [color[0], color[1], color[2]];
+                                ui.color_edit_button_rgb(&mut color_array)
+                                    .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                            });
+                            ui.end_row();
+                        }
                     });
-                }
 
                 if ui.button("Copy").clicked() {
                     let color_text = colors.iter()
