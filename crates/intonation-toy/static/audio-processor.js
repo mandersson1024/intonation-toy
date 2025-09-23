@@ -93,7 +93,6 @@ class TransferableBufferPool {
             this.bufferIds.push(0);
             this.perfCounters.allocationCount++;
         }
-        
     }
     
     acquire() {
@@ -405,9 +404,6 @@ class AudioWorkletMessageProtocol {
 class PitchDetectionProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
-        
-        // Constructor logging kept for debugging
-        console.log('PitchDetectionProcessor: Constructor called - processor instance created');
         
         // Initialize message protocol
         this.messageProtocol = new AudioWorkletMessageProtocol();
@@ -787,10 +783,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         
         // Check if we have valid input
         if (!input || input.length === 0) {
-            // No input available, pass through silence
-            // if (this.chunkCounter % 100 === 0) {
-            //     console.log(`AudioWorklet: No input available - inputs array length: ${inputs.length}`);
-            // }
             if (output && output.length > 0) {
                 const outputChannel = output[0];
                 if (outputChannel) {
@@ -805,10 +797,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         const inputChannel = input[0];
         
         if (!inputChannel || inputChannel.length !== this.chunkSize) {
-            // Invalid input chunk size, pass through silence
-            // if (this.chunkCounter % 100 === 0) {
-            //     console.log(`AudioWorklet: Invalid input - channel: ${!!inputChannel}, length: ${inputChannel ? inputChannel.length : 0}, expected: ${this.chunkSize}`);
-            // }
             if (output && output.length > 0 && output[0]) {
                 output[0].fill(0);
             }
@@ -832,8 +820,6 @@ class PitchDetectionProcessor extends AudioWorkletProcessor {
         // Accumulate processed audio data for batching
         if (this.isProcessing) {
                 try {
-                // Debug: Check buffer state at start of each process call
-                
                 // Ensure we have a buffer to write to
                 if (!this.currentBuffer || !this.currentBufferArray) {
                     this.acquireNewBuffer();
