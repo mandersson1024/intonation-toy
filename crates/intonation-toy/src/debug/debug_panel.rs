@@ -4,6 +4,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use crate::common::theme::get_current_color_scheme;
+use crate::web::utils::copy_to_clipboard;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -543,15 +544,7 @@ impl DebugPanel {
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    // Try to copy to system clipboard using web APIs
-                    if let Some(window) = web_sys::window() {
-                        if let Some(navigator) = window.navigator().clipboard() {
-                            let _ = navigator.write_text(&color_text);
-                        }
-                    }
-
-                    // Also set egui's copied text as fallback
-                    ui.output_mut(|o| o.copied_text = color_text);
+                    copy_to_clipboard(color_text);
                 }
             });
     }

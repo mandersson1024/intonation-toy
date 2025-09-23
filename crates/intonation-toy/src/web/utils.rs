@@ -1,6 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 
 pub fn rgb_to_css(rgb: [f32; 3]) -> String {
     format!("rgb({}, {}, {})", 
@@ -66,4 +67,30 @@ pub fn resize_canvas() {
     let html_element = canvas.dyn_ref::<web_sys::HtmlElement>().unwrap();
     html_element.style().set_property("width", &format!("{}px", canvas_size)).unwrap();
     html_element.style().set_property("height", &format!("{}px", canvas_size)).unwrap();
+}
+
+/// Copy text to the system clipboard using the browser's Clipboard API
+pub fn copy_to_clipboard(text: String) {
+    spawn_local(async move {
+        if let Some(window) = web_sys::window() {
+            if let Ok(navigator) = js_sys::Reflect::get(&window.navigator(), &"clipboard".into()) {
+                if !navigator.is_undefined() {
+                    if let Ok(write_text_fn) = js_sys::Reflect::get(&navigator, &"writeText".into()) {
+                        if let Ok(function) = write_text_fn.dyn_into::<js_sys::Function>() {
+                            if let Ok(promise) = js_sys::Reflect::apply(
+                                &function,
+                                &navigator,
+                                &js_sys::Array::of1(&text.into())
+                            ) {
+                                // Convert to Promise and await it
+                                if let Ok(promise) = promise.dyn_into::<js_sys::Promise>() {
+                                    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
