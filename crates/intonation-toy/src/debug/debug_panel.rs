@@ -3,6 +3,8 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+use crate::common::theme::get_current_color_scheme;
+use crate::web::utils::{copy_to_clipboard, rgb_to_hex};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -92,6 +94,10 @@ impl DebugPanel {
                 
                 // Test Signal Controls Section (debug actions)
                 self.render_test_signal_controls(ui, model_data);
+                ui.separator();
+
+                // Theme Section (color display)
+                self.render_theme_section(ui);
                 ui.separator();
                 
             });
@@ -495,5 +501,51 @@ impl DebugPanel {
         }
         
         Ok((base_frequency, final_frequency))
+    }
+
+    /// Render theme section (color display)
+    fn render_theme_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Theme")
+            .default_open(true)
+            .show(ui, |ui| {
+                let color_scheme = get_current_color_scheme();
+
+                let colors = [
+                    ("background:", color_scheme.background),
+                    ("surface:", color_scheme.surface),
+                    ("primary:", color_scheme.primary),
+                    ("secondary:", color_scheme.secondary),
+                    ("accent:", color_scheme.accent),
+                    ("text:", color_scheme.text),
+                    ("muted:", color_scheme.muted),
+                    ("border:", color_scheme.border),
+                    ("error:", color_scheme.error),
+                ];
+
+                for (label, color) in colors.iter() {
+                    ui.push_id(label, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(*label);
+                            let mut color_array = [color[0], color[1], color[2]];
+                            ui.color_edit_button_rgb(&mut color_array)
+                                .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                            });
+                    });
+                }
+
+                if ui.button("Copy").clicked() {
+                    let color_text = colors.iter()
+                        .map(|(label, color)| {
+                            format!("{:<12} [{:.3}, {:.3}, {:.3}], // {}",
+                                label,
+                                color[0], color[1], color[2],
+                                rgb_to_hex(*color))
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    copy_to_clipboard(color_text);
+                }
+            });
     }
 }
