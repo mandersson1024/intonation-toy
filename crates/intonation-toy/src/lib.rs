@@ -23,6 +23,9 @@ pub async fn start() {
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
 
+    // Log version info
+    crate::log!("Intonation Toy v{}", env!("CARGO_PKG_VERSION"));
+
     crate::common::theme::initialize_theme(crate::app_config::DEFAULT_THEME);
     crate::web::styling::apply_theme();
 
