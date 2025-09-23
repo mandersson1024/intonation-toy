@@ -87,19 +87,14 @@ pub struct DebugLayerActions {
 pub struct Presenter {
     renderer: Option<Box<Renderer>>,
     pending_user_actions: PresentationLayerActions,
-
     #[cfg(debug_assertions)]
     pending_debug_actions: DebugLayerActions,
-
     interval_position: f32,
-
     sidebar_ui_active: bool,
-
     display_range: crate::common::shared_types::DisplayRange,
-
     self_reference: Option<Rc<RefCell<Self>>>,
-    
     ui_listeners_attached: bool,
+    current_viewport: Option<Viewport>,
 }
 
 impl Presenter {
@@ -117,6 +112,7 @@ impl Presenter {
             display_range: crate::app_config::DEFAULT_DISPLAY_RANGE,
             self_reference: None,
             ui_listeners_attached: false,
+            current_viewport: None,
         };
         
         let presenter_rc = Rc::new(RefCell::new(presenter));
@@ -233,7 +229,8 @@ impl Presenter {
         }
         
         let viewport = screen.viewport();
-        
+        self.current_viewport = Some(viewport);
+
         if self.renderer.is_some() {
             self.update_graphics(viewport, model_data);
         }
@@ -281,6 +278,13 @@ impl Presenter {
         if self.sidebar_ui_active {
             cleanup_sidebar_controls();
             self.sidebar_ui_active = false;
+        }
+    }
+
+    /// Refresh theme colors in the renderer
+    pub fn refresh_theme(&mut self) {
+        if let (Some(renderer), Some(viewport)) = (self.renderer.as_mut(), self.current_viewport) {
+            renderer.refresh_theme(viewport);
         }
     }
 }

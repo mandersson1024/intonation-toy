@@ -93,12 +93,13 @@ pub fn midi_note_to_name(midi_note: MidiNote) -> String {
     format!("{}{}", note_name, octave)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Theme {
     Dark,
     Light,
     Autumn,
     Sunset,
+    Custom(ColorScheme),
 }
 
 impl Theme {
@@ -108,6 +109,7 @@ impl Theme {
             Theme::Light => "light",
             Theme::Autumn => "autumn",
             Theme::Sunset => "sunset",
+            Theme::Custom(_) => "custom",
         }
     }
 
@@ -117,6 +119,7 @@ impl Theme {
             Theme::Light => ColorScheme::light(),
             Theme::Autumn => ColorScheme::autumn(),
             Theme::Sunset => ColorScheme::sunset(),
+            Theme::Custom(color_scheme) => color_scheme.clone(),
         }
     }
 }

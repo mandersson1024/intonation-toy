@@ -12,11 +12,12 @@ pub fn initialize_theme(theme: Theme) {
 }
 
 pub fn get_current_theme() -> Theme {
-    *CURRENT_THEME
+    CURRENT_THEME
         .get()
         .expect("Theme not initialized")
         .lock()
         .unwrap()
+        .clone()
 }
 
 pub fn get_current_color_scheme() -> ColorScheme {
@@ -26,6 +27,7 @@ pub fn get_current_color_scheme() -> ColorScheme {
 pub fn set_current_theme(theme: Theme) {
     if let Some(theme_mutex) = CURRENT_THEME.get() {
         *theme_mutex.lock().unwrap() = theme;
+        crate::web::styling::update_css_variables();
     }
 }
 

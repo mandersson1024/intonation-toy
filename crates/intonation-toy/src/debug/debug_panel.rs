@@ -3,7 +3,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
-use crate::common::theme::get_current_color_scheme;
+use crate::common::theme::{get_current_color_scheme, set_current_theme};
 use crate::web::utils::{copy_to_clipboard, rgb_to_hex};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -504,13 +504,13 @@ impl DebugPanel {
     }
 
     /// Render theme section (color display)
-    fn render_theme_section(&self, ui: &mut Ui) {
+    fn render_theme_section(&mut self, ui: &mut Ui) {
         egui::CollapsingHeader::new("Theme")
             .default_open(true)
             .show(ui, |ui| {
                 let color_scheme = get_current_color_scheme();
 
-                let colors = [
+                let mut colors = [
                     ("background:", color_scheme.background),
                     ("surface:", color_scheme.surface),
                     ("primary:", color_scheme.primary),
@@ -522,23 +522,48 @@ impl DebugPanel {
                     ("error:", color_scheme.error),
                 ];
 
+                let mut theme_changed = false;
+
                 egui::Grid::new("theme_colors_grid")
                     .num_columns(2)
                     .spacing([30.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        for (label, color) in colors.iter() {
-                            ui.push_id(label, |ui| {
+                        for (label, color) in colors.iter_mut() {
+                            ui.push_id(*label, |ui| {
                                 ui.label(*label);
                             });
                             ui.push_id(format!("{}_picker", label), |ui| {
                                 let mut color_array = [color[0], color[1], color[2]];
-                                ui.color_edit_button_rgb(&mut color_array)
-                                    .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                                if ui.color_edit_button_rgb(&mut color_array).changed() {
+                                    *color = color_array;
+                                    theme_changed = true;
+                                }
                             });
                             ui.end_row();
                         }
                     });
+
+                if theme_changed {
+                    let custom_color_scheme = crate::common::shared_types::ColorScheme {
+                        background: colors[0].1,
+                        surface: colors[1].1,
+                        primary: colors[2].1,
+                        secondary: colors[3].1,
+                        accent: colors[4].1,
+                        text: colors[5].1,
+                        muted: colors[6].1,
+                        border: colors[7].1,
+                        error: colors[8].1,
+                    };
+                    let custom_theme = crate::common::shared_types::Theme::Custom(custom_color_scheme);
+                    set_current_theme(custom_theme);
+
+                    // Refresh presenter's theme colors
+                    if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
+                        presenter.refresh_theme();
+                    }
+                }
 
                 if ui.button("Copy").clicked() {
                     let color_text = colors.iter()

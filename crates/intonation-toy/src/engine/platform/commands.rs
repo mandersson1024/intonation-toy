@@ -112,12 +112,7 @@ impl ConsoleCommand for ThemeCommand {
             }
         };
         
-        // Set the new theme
         crate::common::theme::set_current_theme(new_theme);
-        
-        // Reapply styles - updates CSS custom properties
-        crate::web::styling::update_css_variables();
-        crate::common::dev_log!("CSS custom properties updated for theme: {}", theme_name);
         
         ConsoleCommandResult::MultipleOutputs(vec![
             ConsoleOutput::success(format!("Theme set to {} (CSS custom properties and WebGL components updated)", theme_name))
