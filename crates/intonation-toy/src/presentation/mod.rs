@@ -124,8 +124,9 @@ impl Presenter {
         Ok(presenter_rc)
     }
 
-    /// Update the presentation layer with model data and graphics
     pub fn update(&mut self, viewport: Viewport, model_data: &ModelUpdateResult) {
+        self.current_viewport = Some(viewport);
+        self.refresh_color_scheme();
         self.process_data(model_data);
         self.update_graphics(viewport, model_data);
     }
@@ -281,10 +282,9 @@ impl Presenter {
         }
     }
 
-    /// Refresh theme colors in the renderer
-    pub fn refresh_theme(&mut self) {
+    pub fn refresh_color_scheme(&mut self) {
         if let (Some(renderer), Some(viewport)) = (self.renderer.as_mut(), self.current_viewport) {
-            renderer.refresh_theme(viewport);
+            renderer.refresh_color_scheme(viewport);
         }
     }
 }

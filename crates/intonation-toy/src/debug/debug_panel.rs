@@ -3,7 +3,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
-use crate::common::theme::{get_current_color_scheme, set_current_theme};
+use crate::common::theme::get_current_color_scheme;
 use crate::web::utils::{copy_to_clipboard, rgb_to_hex};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -557,12 +557,8 @@ impl DebugPanel {
                         error: colors[8].1,
                     };
                     let custom_theme = crate::common::shared_types::Theme::Custom(custom_color_scheme);
-                    set_current_theme(custom_theme);
 
-                    // Refresh presenter's theme colors
-                    if let Ok(mut presenter) = self.presenter.try_borrow_mut() {
-                        presenter.refresh_theme();
-                    }
+                    crate::common::theme::set_current_theme(custom_theme);
                 }
 
                 if ui.button("Copy").clicked() {

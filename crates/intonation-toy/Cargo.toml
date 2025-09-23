@@ -1,6 +1,6 @@
 [package]
 name = "intonation-toy"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 description = "Real-time intonation analysis with Rust/WASM and Web Audio API"
 repository = "https://github.com/user/intonation-toy"

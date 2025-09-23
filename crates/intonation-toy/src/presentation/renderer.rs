@@ -372,12 +372,10 @@ impl Renderer {
     }
 
     /// Refresh theme colors - call when theme changes
-    pub fn refresh_theme(&mut self, viewport: Viewport) {
+    pub fn refresh_color_scheme(&mut self, viewport: Viewport) {
         let new_color_scheme = get_current_color_scheme();
         if self.color_scheme != new_color_scheme {
             self.color_scheme = new_color_scheme;
-
-            // Force recreation of background quad with new colors
             if self.presentation_context.is_some() {
                 self.render_to_background_texture(viewport);
             }
