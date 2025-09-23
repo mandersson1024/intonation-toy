@@ -52,7 +52,7 @@ pub const CLARITY_THRESHOLD: f32 = 0.2;
 /// - Default 0.1: Provides moderate smoothing while maintaining good responsiveness
 /// 
 /// This factor is used in the EMA formula: smoothed = factor * new_value + (1 - factor) * old_value
-pub const PITCH_SMOOTHING_FACTOR: f32 = 0.2;
+pub const PITCH_SMOOTHING_FACTOR: f32 = 0.1;
 
 /// Adaptive EMA configuration for advanced smoothing
 /// These parameters control the adaptive EMA algorithm that reduces jitter and outliers
