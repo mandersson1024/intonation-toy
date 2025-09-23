@@ -4,10 +4,19 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 
 pub fn rgb_to_css(rgb: [f32; 3]) -> String {
-    format!("rgb({}, {}, {})", 
-        (rgb[0] * 255.0) as u8, 
-        (rgb[1] * 255.0) as u8, 
+    format!("rgb({}, {}, {})",
+        (rgb[0] * 255.0) as u8,
+        (rgb[1] * 255.0) as u8,
         (rgb[2] * 255.0) as u8
+    )
+}
+
+pub fn rgb_to_hex(rgb: [f32; 3]) -> String {
+    format!(
+        "#{:02X}{:02X}{:02X}",
+        (rgb[0] * 255.0) as u8,
+        (rgb[1] * 255.0) as u8,
+        (rgb[2] * 255.0) as u8,
     )
 }
 

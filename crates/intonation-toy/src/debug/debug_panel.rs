@@ -4,7 +4,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use crate::common::theme::get_current_color_scheme;
-use crate::web::utils::copy_to_clipboard;
+use crate::web::utils::{copy_to_clipboard, rgb_to_hex};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -511,15 +511,15 @@ impl DebugPanel {
                 let color_scheme = get_current_color_scheme();
 
                 let colors = [
-                    ("Background:", color_scheme.background),
-                    ("Surface:", color_scheme.surface),
-                    ("Primary:", color_scheme.primary),
-                    ("Secondary:", color_scheme.secondary),
-                    ("Accent:", color_scheme.accent),
-                    ("Text:", color_scheme.text),
-                    ("Muted:", color_scheme.muted),
-                    ("Border:", color_scheme.border),
-                    ("Error:", color_scheme.error),
+                    ("background:", color_scheme.background),
+                    ("surface:", color_scheme.surface),
+                    ("primary:", color_scheme.primary),
+                    ("secondary:", color_scheme.secondary),
+                    ("accent:", color_scheme.accent),
+                    ("text:", color_scheme.text),
+                    ("muted:", color_scheme.muted),
+                    ("border:", color_scheme.border),
+                    ("error:", color_scheme.error),
                 ];
 
                 for (label, color) in colors.iter() {
@@ -533,13 +533,13 @@ impl DebugPanel {
                     });
                 }
 
-                ui.separator();
-                if ui.button("Copy Colors to Clipboard").clicked() {
+                if ui.button("Copy").clicked() {
                     let color_text = colors.iter()
                         .map(|(label, color)| {
-                            format!("{} rgb({:.3}, {:.3}, {:.3})",
-                                label.trim_end_matches(':'),
-                                color[0], color[1], color[2])
+                            format!("{:<12} [{:.3}, {:.3}, {:.3}], // {}",
+                                label,
+                                color[0], color[1], color[2],
+                                rgb_to_hex(*color))
                         })
                         .collect::<Vec<_>>()
                         .join("\n");
