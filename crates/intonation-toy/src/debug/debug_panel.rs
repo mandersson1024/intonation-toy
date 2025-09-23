@@ -4,6 +4,7 @@ use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
 use crate::common::theme::get_current_color_scheme;
+use crate::dev_log;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -522,11 +523,13 @@ impl DebugPanel {
                 ];
 
                 for (label, color) in colors.iter() {
-                    ui.horizontal(|ui| {
-                        ui.label(*label);
-                        let mut color_array = [color[0], color[1], color[2]];
-                        ui.color_edit_button_rgb(&mut color_array)
-                            .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                    ui.push_id(label, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(*label);
+                            let mut color_array = [color[0], color[1], color[2]];
+                            ui.color_edit_button_rgb(&mut color_array)
+                                .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                        });
                     });
                 }
             });

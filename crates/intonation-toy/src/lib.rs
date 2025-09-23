@@ -213,7 +213,6 @@ use crate::debug::debug_panel::DebugPanel;
             frame_input.device_pixel_ratio,
                 |gui_context| {
                     {
-                        gui_context.set_visuals(three_d::egui::Visuals::dark());
                         dev_console.render(gui_context);
                         debug_panel.render(gui_context, &model_data);
                     }
