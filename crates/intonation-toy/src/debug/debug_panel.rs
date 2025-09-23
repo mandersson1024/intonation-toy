@@ -3,6 +3,7 @@
 use three_d::egui::{self, Color32, Vec2, Ui};
 use crate::debug::debug_data::DebugData;
 use crate::common::shared_types::{TuningSystem, MidiNote, increment_midi_note, decrement_midi_note};
+use crate::common::theme::get_current_color_scheme;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -92,6 +93,10 @@ impl DebugPanel {
                 
                 // Test Signal Controls Section (debug actions)
                 self.render_test_signal_controls(ui, model_data);
+                ui.separator();
+
+                // Theme Section (color display)
+                self.render_theme_section(ui);
                 ui.separator();
                 
             });
@@ -495,5 +500,35 @@ impl DebugPanel {
         }
         
         Ok((base_frequency, final_frequency))
+    }
+
+    /// Render theme section (color display)
+    fn render_theme_section(&self, ui: &mut Ui) {
+        egui::CollapsingHeader::new("Theme")
+            .default_open(true)
+            .show(ui, |ui| {
+                let color_scheme = get_current_color_scheme();
+
+                let colors = [
+                    ("Background:", color_scheme.background),
+                    ("Surface:", color_scheme.surface),
+                    ("Primary:", color_scheme.primary),
+                    ("Secondary:", color_scheme.secondary),
+                    ("Accent:", color_scheme.accent),
+                    ("Text:", color_scheme.text),
+                    ("Muted:", color_scheme.muted),
+                    ("Border:", color_scheme.border),
+                    ("Error:", color_scheme.error),
+                ];
+
+                for (label, color) in colors.iter() {
+                    ui.horizontal(|ui| {
+                        ui.label(*label);
+                        let mut color_array = [color[0], color[1], color[2]];
+                        ui.color_edit_button_rgb(&mut color_array)
+                            .on_hover_text(&format!("{} color (read-only)", label.trim_end_matches(':')));
+                    });
+                }
+            });
     }
 }
