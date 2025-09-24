@@ -3,7 +3,7 @@
 A web app for musical intonation practice.
 
 #### Screenshot
-<img width="600" alt="intonation-toy" src="https://github.com/user-attachments/assets/73fe8310-4444-4e7a-9dcc-912aa97114cc"/>
+<img width="600" alt="intonation-toy" src="https://github.com/user-attachments/assets/9d41f72d-816a-4705-a8ea-c302113c7e5d"/>
 
 #### The real thing
 https://www.campfire-academy.com/intonation-toy
