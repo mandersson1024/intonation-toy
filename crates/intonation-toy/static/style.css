@@ -73,7 +73,7 @@
 
 
 .control-select {
-    background-color: var(--color-surface, #2a2a2a);
+    background-color: var(--color-surface);
     color: var(--color-primary);
     border: 1px solid var(--color-primary);
     padding: 6px 12px;
@@ -110,7 +110,7 @@
     padding: 8px;
     border: 2px solid transparent;
     border-radius: 8px;
-    background-color: var(--color-surface, #2a2a2a);
+    background-color: var(--color-surface);
     transition: all 0.2s ease;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
@@ -123,11 +123,11 @@
 
 .display-range-option input[type="radio"]:checked + .display-range-icon {
     border-color: var(--color-primary);
-    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 15%, var(--color-surface));
+    background-color: color-mix(in srgb, var(--color-primary) 15%, var(--color-surface));
 }
 
 .display-range-option:hover .display-range-icon {
-    background-color: color-mix(in srgb, var(--color-primary, #4a9eff) 8%, var(--color-surface));
+    background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
 }
 
 
@@ -142,14 +142,14 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: color-mix(in srgb, var(--color-background, #1a1a1a) 80%, transparent);
+    background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: var(--z-index-error);
 }
 .error-panel {
-    background-color: var(--color-surface, #2a2a2a);
+    background-color: var(--color-surface);
     color: var(--color-text, #ffffff);
     padding: 40px;
     border-radius: 12px;
