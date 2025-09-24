@@ -298,20 +298,10 @@
     flex: 1;
 }
 .about-text {
-    color: var(--color-muted);
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
     font-size: 13px;
     line-height: 1.4;
     margin-bottom: 12px;
-}
-.about-section h3 {
-    color: var(--color-primary, #4a9eff);
-    font-size: 14px;
-    font-weight: 600;
-    margin: 16px 0 8px 0;
-}
-.about-section strong {
-    color: var(--color-muted);
-    font-weight: 600;
 }
 
 /* Range Input Styles */
@@ -426,7 +416,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Help Text Styles */
 .help-text {
     font-size: 11px;
-    color: var(--color-muted);
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
     line-height: 1.4;
     margin-top: 8px;
     margin-bottom: 0;
