@@ -235,7 +235,7 @@ impl Renderer {
 
         let scheme = get_current_color_scheme();
         let regular_color = rgb_to_srgba_with_alpha(scheme.muted, 1.0);
-        let octave_color = rgb_to_srgba_with_alpha(scheme.secondary, 1.0);
+        let octave_color = rgb_to_srgba_with_alpha(scheme.primary, 1.0);
 
         let mut tuning_lines = TuningLines::new(&self.three_d_context, regular_color);
         tuning_lines.update_lines(viewport, &tuning_line_data, &self.three_d_context, regular_color, octave_color);
@@ -281,7 +281,7 @@ impl Renderer {
         // Render normal background texture with theme colors
         {
             let camera = Camera::new_2d(viewport);
-            let [r, g, b] = get_current_color_scheme().background;
+            let [r, g, b] = get_current_color_scheme().surface;
 
             let tuning_lines_objects: Vec<&dyn Object> = tuning_lines.lines().map(|line| line as &dyn Object).collect();
 
@@ -307,7 +307,7 @@ impl Renderer {
         // Render highlight texture with white text
         {
             let camera = Camera::new_2d(viewport);
-            let [r, g, b] = get_current_color_scheme().background;
+            let [r, g, b] = get_current_color_scheme().surface;
 
             // Create highlight lines for highlight texture
             let highlight_lines = tuning_lines.get_lines(&self.three_d_context, viewport.width as f32, ColorMode::Highlight);
@@ -335,11 +335,11 @@ impl Renderer {
         let highlight_texture_ref = Texture2DRef::from_texture(highlight_texture);
 
         // Set tint color using theme primary color
-        let [r, g, b] = self.color_scheme.primary;
+        let [r, g, b] = self.color_scheme.secondary;
         let tint_color = three_d::Vec3::new(r, g, b);
 
         // Set extension color using theme accent color
-        let [ar, ag, ab] = self.color_scheme.accent;
+        let [ar, ag, ab] = self.color_scheme.secondary;
         let extension_color = three_d::Vec3::new(ar, ag, ab);
 
         self.background_quad = Some(create_background_quad(

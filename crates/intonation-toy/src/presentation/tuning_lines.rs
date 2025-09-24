@@ -104,7 +104,7 @@ impl TuningLines {
 
                 let text_color = match color_mode {
                     ColorMode::Highlight => rgb_to_rgba(scheme.accent),
-                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.secondary) } else { rgb_to_rgba(scheme.muted) },
+                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.primary) } else { rgb_to_rgba(scheme.muted) },
                 };
 
                 (note_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, text_color, is_bold)
@@ -124,7 +124,7 @@ impl TuningLines {
 
                 let text_color = match color_mode {
                     ColorMode::Highlight => rgb_to_rgba(scheme.accent),
-                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.secondary) } else { rgb_to_rgba(scheme.muted) },
+                    ColorMode::Normal => if is_bold { rgb_to_rgba(scheme.primary) } else { rgb_to_rgba(scheme.muted) },
                 };
 
                 (interval_name, text_x, text_y, NOTE_LABEL_FONT_SIZE, text_color, is_bold)
