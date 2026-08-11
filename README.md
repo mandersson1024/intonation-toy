@@ -6,7 +6,7 @@ A web app for musical intonation practice.
 ![Screenshot](docs/screenshot.png)
 
 #### The real thing
-https://www.campfire-academy.com/intonation-toy
+https://campfire-academy.com/intonation-toy/
 
 ### License
 
