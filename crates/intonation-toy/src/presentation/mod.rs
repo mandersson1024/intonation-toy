@@ -17,13 +17,11 @@ mod background_shader;
 mod renderer;
 mod tuning_lines;
 mod egui_text_backend;
-mod user_pitch_line;
 pub use audio_analysis::AudioAnalysis;
 pub use background_shader::BackgroundShader;
 pub use renderer::Renderer;
 pub use tuning_lines::TuningLines;
 pub use egui_text_backend::EguiTextBackend;
-pub use user_pitch_line::UserPitchLine;
 
 use std::rc::Rc;
 use std::cell::RefCell;

@@ -104,9 +104,6 @@ pub const INTONATION_ACCURACY_THRESHOLD: f32 = 15.0;
 /// Set to -0.1dB converted to amplitude: 10^(-0.1/20) ≈ 0.9886
 pub const VOLUME_PEAK_THRESHOLD: f32 = 0.9886;
 
-/// User pitch line thickness configuration
-pub const USER_PITCH_LINE_THICKNESS: f32 = 10.0;
-
 /// Note label configuration
 pub const NOTE_LABEL_FONT_SIZE: f32 = 22.0;
 pub const NOTE_LABEL_X_OFFSET: f32 = 12.0;
@@ -116,9 +113,6 @@ pub const INTERVAL_LABEL_X_OFFSET: f32 = 18.0;
 /// Tuning lines layout configuration
 pub const NOTE_LINE_LEFT_MARGIN: f32 = 64.0;
 pub const NOTE_LINE_RIGHT_MARGIN: f32 = 54.0;
-
-pub const USER_PITCH_LINE_LEFT_MARGIN: f32 = 970.0;
-pub const USER_PITCH_LINE_RIGHT_MARGIN: f32 = 0.0;
 
 /// Line thickness configuration
 pub const OCTAVE_LINE_THICKNESS: f32 = 8.0;
