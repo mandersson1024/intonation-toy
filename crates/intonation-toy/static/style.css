@@ -252,8 +252,11 @@
    letterspaced, quiet until hovered - but its colours and its typeface are this
    app's, because an application keeps its own world and only owes the site a way
    home. The fallbacks matter: the colour variables are injected by the wasm at
-   runtime, and this has to be legible before that happens. */
-.site-masthead {
+   runtime, and this has to be legible before that happens. `:visited` is spelled
+   out alongside the base selector so that the way home looks the same whether or
+   not it has been used, rather than going the browser's purple. */
+.site-masthead,
+.site-masthead:visited {
     display: block;
     margin: 0 0 14px 0;
     text-align: center;
