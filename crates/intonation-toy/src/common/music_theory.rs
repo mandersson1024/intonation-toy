@@ -83,29 +83,30 @@ pub fn frequency_to_interval_semitones(
             }
         }
         TuningSystem::JustIntonation => {
-            let ratio = target_frequency_hz / root_frequency_hz;
-            let octaves = ratio.log2().floor() as i32;
-            let ratio_in_octave = ratio / 2.0_f32.powf(octaves as f32);
-            
-            let (closest_semitone, closest_ratio) = JUST_INTONATION_RATIOS
-                .iter()
-                .min_by(|(_, r1), (_, r2)| {
-                    let target_ratio_freq = root_frequency_hz * ratio_in_octave;
-                    let just_freq1 = root_frequency_hz * r1;
-                    let just_freq2 = root_frequency_hz * r2;
-                    let cents_diff1 = cents_delta(just_freq1, target_ratio_freq).abs();
-                    let cents_diff2 = cents_delta(just_freq2, target_ratio_freq).abs();
+            let octaves = (target_frequency_hz / root_frequency_hz).log2().floor() as i32;
+            let octave_root_hz = root_frequency_hz * 2.0_f32.powi(octaves);
+
+            // Runs to 12 inclusive so a pitch just under the octave reads as a
+            // flat octave rather than a very sharp major seventh.
+            let (closest_semitone, closest_freq) = (0..=12)
+                .map(|semitone| {
+                    let freq = interval_frequency(
+                        TuningSystem::JustIntonation,
+                        octave_root_hz,
+                        semitone,
+                    );
+                    (semitone, freq)
+                })
+                .min_by(|(_, freq1), (_, freq2)| {
+                    let cents_diff1 = cents_delta(*freq1, target_frequency_hz).abs();
+                    let cents_diff2 = cents_delta(*freq2, target_frequency_hz).abs();
                     cents_diff1.partial_cmp(&cents_diff2).unwrap()
                 })
                 .unwrap();
-            
-            let base_semitones = octaves * 12 + *closest_semitone;
-            let just_intonation_freq = root_frequency_hz * closest_ratio * 2.0_f32.powf(octaves as f32);
-            let cents_deviation = cents_delta(just_intonation_freq, target_frequency_hz);
-            
+
             IntervalSemitones {
-                semitones: base_semitones,
-                cents: cents_deviation,
+                semitones: octaves * 12 + closest_semitone,
+                cents: cents_delta(closest_freq, target_frequency_hz),
             }
         }
     }
