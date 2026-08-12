@@ -243,6 +243,11 @@ pub enum Scale {
 impl Scale {
     /// Returns a boolean array indicating which semitones (0-11) from the root are included in the scale.
     /// Index 0 represents the root note (always true), index 1 represents +1 semitone from root, etc.
+    ///
+    /// These follow the textbook definitions. Where a name has more than one
+    /// definition in circulation, the one used here is whichever the plugin
+    /// uses, so that the two projects agree; see issue #9 for the twelve
+    /// patterns that were corrected and the sources behind them.
     pub fn pattern(&self) -> [bool; 12] {
         match self {
             Scale::Chromatic => [true; 12],
@@ -252,25 +257,25 @@ impl Scale {
             Scale::MelodicMinor =>     [true, false, true, true, false, true, false, true, false, true, false, true],
             Scale::MajorPentatonic =>  [true, false, true, false, true, false, false, true, false, true, false, false],
             Scale::MinorPentatonic =>  [true, false, false, true, false, true, false, true, false, false, true, false],
-            Scale::Blues =>            [true, false, false, true, true, true, false, true, false, false, true, false],
-            Scale::Dorian =>           [true, false, true, true, false, true, false, true, true, false, true, false],
+            Scale::Blues =>            [true, false, false, true, false, true, true, true, false, false, true, false],
+            Scale::Dorian =>           [true, false, true, true, false, true, false, true, false, true, true, false],
             Scale::Phrygian =>         [true, true, false, true, false, true, false, true, true, false, true, false],
             Scale::Lydian =>           [true, false, true, false, true, false, true, true, false, true, false, true],
             Scale::Mixolydian =>       [true, false, true, false, true, true, false, true, false, true, true, false],
             Scale::Locrian =>          [true, true, false, true, false, true, true, false, true, false, true, false],
             Scale::WholeTone =>        [true, false, true, false, true, false, true, false, true, false, true, false],
-            Scale::Augmented =>        [true, false, true, false, true, false, false, true, false, true, false, false],
-            Scale::DiminishedHalfWhole => [true, true, false, true, false, true, true, false, true, false, true, false],
-            Scale::DiminishedWholeHalf => [true, false, true, true, false, true, false, true, true, false, true, false],
-            Scale::HungarianMinor =>   [true, false, true, true, false, false, true, true, false, true, false, true],
-            Scale::NeapolitanMinor =>  [true, true, false, true, false, true, false, true, true, false, true, false],
+            Scale::Augmented =>        [true, false, false, true, true, false, false, true, true, false, false, true],
+            Scale::DiminishedHalfWhole => [true, true, false, true, true, false, true, true, false, true, true, false],
+            Scale::DiminishedWholeHalf => [true, false, true, true, false, true, true, false, true, true, false, true],
+            Scale::HungarianMinor =>   [true, false, true, true, false, false, true, true, true, false, false, true],
+            Scale::NeapolitanMinor =>  [true, true, false, true, false, true, false, true, true, false, false, true],
             Scale::NeapolitanMajor =>  [true, true, false, true, false, true, false, true, false, true, false, true],
-            Scale::Enigmatic =>        [true, false, false, true, false, true, true, true, true, false, true, false],
-            Scale::Persian =>          [true, true, false, false, true, true, false, true, true, false, true, false],
+            Scale::Enigmatic =>        [true, true, false, false, true, false, true, false, true, false, true, true],
+            Scale::Persian =>          [true, true, false, false, true, true, true, false, true, false, false, true],
             Scale::DoubleHarmonicMajor => [true, true, false, false, true, true, false, true, true, false, false, true],
-            Scale::Altered =>          [true, true, false, true, false, true, true, false, true, true, true, false],
-            Scale::BebopMajor =>       [true, false, true, false, true, true, true, false, true, false, true, false],
-            Scale::BebopDominant =>    [true, false, true, false, true, true, false, true, true, false, true, false],
+            Scale::Altered =>          [true, true, false, true, true, false, true, false, true, false, true, false],
+            Scale::BebopMajor =>       [true, false, true, false, true, true, false, true, true, true, false, true],
+            Scale::BebopDominant =>    [true, false, true, false, true, true, false, true, false, true, true, true],
         }
     }
 }
